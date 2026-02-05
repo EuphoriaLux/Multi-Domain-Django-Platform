@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.db.models import Q
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
@@ -1712,18 +1712,82 @@ def event_detail(request, event_id):
             messages.error(request, _("You do not have access to this private event."))
             return redirect("crush_lu:event_list")
 
-    # Check if user is registered
+    # Check if user is registered (exclude cancelled registrations)
     user_registration = None
     if request.user.is_authenticated:
         user_registration = EventRegistration.objects.filter(
             event=event, user=request.user
-        ).first()
+        ).exclude(status='cancelled').first()
 
     context = {
         "event": event,
         "user_registration": user_registration,
     }
     return render(request, "crush_lu/event_detail.html", context)
+
+
+def event_calendar_download(request, event_id):
+    """Generate .ics calendar file for event"""
+    event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
+
+    # Calculate end time
+    from datetime import timedelta, timezone as dt_timezone
+    end_time = event.date_time + timedelta(minutes=event.duration_minutes)
+
+    # Format dates for iCalendar (YYYYMMDDTHHMMSSZ in UTC)
+    # Convert to UTC for iCalendar format
+    start_utc = event.date_time.astimezone(dt_timezone.utc)
+    end_utc = end_time.astimezone(dt_timezone.utc)
+
+    # Format: YYYYMMDDTHHMMSSZ
+    dtstart = start_utc.strftime('%Y%m%dT%H%M%SZ')
+    dtend = end_utc.strftime('%Y%m%dT%H%M%SZ')
+    dtstamp = timezone.now().astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+
+    # Build location string
+    if request.user.is_authenticated and hasattr(request.user, 'crushprofile'):
+        location = f"{event.location}, {event.address}"
+    else:
+        location = event.canton or "Luxembourg"
+
+    # Build event URL
+    event_url = request.build_absolute_uri(
+        reverse('crush_lu:event_detail', kwargs={'event_id': event.id})
+    )
+
+    # Clean description (remove newlines, escape special chars)
+    description = event.description.replace('\n', '\\n').replace(',', '\\,').replace(';', '\\;')
+
+    # Generate unique UID
+    uid = f"event-{event.id}@crush.lu"
+
+    # Build iCalendar content
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Crush.lu//Event Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:{uid}
+DTSTAMP:{dtstamp}
+DTSTART:{dtstart}
+DTEND:{dtend}
+SUMMARY:{event.title}
+DESCRIPTION:{description}\\n\\nRegister: {event_url}
+LOCATION:{location}
+URL:{event_url}
+STATUS:CONFIRMED
+SEQUENCE:0
+END:VEVENT
+END:VCALENDAR"""
+
+    # Return as downloadable file
+    response = HttpResponse(ics_content, content_type='text/calendar; charset=utf-8')
+    filename = f"crush-event-{event.id}.ics"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-cache'
+
+    return response
 
 
 @crush_login_required
@@ -1820,8 +1884,8 @@ def event_register(request, event_id):
         )
         return redirect("crush_lu:create_profile")
 
-    # Check if already registered
-    if EventRegistration.objects.filter(event=event, user=request.user).exists():
+    # Check if already registered (exclude cancelled registrations)
+    if EventRegistration.objects.filter(event=event, user=request.user).exclude(status='cancelled').exists():
         messages.warning(request, _("You are already registered for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -1833,9 +1897,24 @@ def event_register(request, event_id):
     if request.method == "POST":
         form = EventRegistrationForm(request.POST, event=event)
         if form.is_valid():
-            registration = form.save(commit=False)
-            registration.event = event
-            registration.user = request.user
+            # Check if there's a cancelled registration to reactivate
+            cancelled_registration = EventRegistration.objects.filter(
+                event=event, user=request.user, status='cancelled'
+            ).first()
+
+            if cancelled_registration:
+                # Reactivate the cancelled registration
+                registration = cancelled_registration
+                registration.accessibility_needs = form.cleaned_data.get('accessibility_needs', '')
+                registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
+                registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
+                registration.guest_name = form.cleaned_data.get('guest_name', '')
+                registration.special_requests = form.cleaned_data.get('special_requests', '')
+            else:
+                # Create new registration
+                registration = form.save(commit=False)
+                registration.event = event
+                registration.user = request.user
 
             # Set status based on availability
             if event.is_full:

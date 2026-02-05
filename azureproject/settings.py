@@ -201,6 +201,7 @@ TEMPLATES = [
                 "crush_lu.context_processors.crush_user_context",  # Crush.lu user context
                 "crush_lu.context_processors.social_preview_context",  # Crush.lu social preview (PR #47)
                 "crush_lu.context_processors.firebase_config",  # Firebase config for phone verification
+                "crush_lu.context_processors.site_config_context",  # WhatsApp button & site config
                 "azureproject.content_images_context.content_images_context",  # Content images (Azure Blob)
                 "azureproject.analytics_context.analytics_ids",  # Domain-specific GA4/FB Pixel IDs
                 "azureproject.context_processors.admin_navigation",  # Global admin panel navigation
@@ -531,7 +532,7 @@ SIMPLE_JWT = {
 # Internationalization
 
 LOCALE_PATHS = [
-    BASE_DIR / "locale",
+    BASE_DIR / "core" / "locale",
 ]
 
 LANGUAGE_CODE = "en"

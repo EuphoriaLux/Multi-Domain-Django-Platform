@@ -31,7 +31,7 @@
             <div class="flex gap-2">
                 <button @click="enablePush"
                         :disabled="isEnabling"
-                        class="bg-white text-purple-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-purple-50 transition-colors disabled:opacity-50">
+                        class="bg-white dark:bg-gray-100 text-purple-600 dark:text-purple-700 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-purple-50 dark:hover:bg-purple-100 transition-colors disabled:opacity-50">
                     <span x-show="!isEnabling">{% trans "Enable Now" %}</span>
                     <span x-show="isEnabling">{% trans "Enabling..." %}</span>
                 </button>

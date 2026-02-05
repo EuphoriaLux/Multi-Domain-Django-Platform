@@ -17,7 +17,7 @@
                 {% include "shared/icons/qr-code.html" with class="w-5 h-5" %} Scan QR Code
             </h2>
 
-            <p class="text-center text-muted mb-4">
+            <p class="text-center text-gray-600 dark:text-gray-300 mb-4">
                 Point your camera at the QR code on your physical gift to unlock bonus content!
             </p>
 
@@ -41,11 +41,11 @@
 
             <!-- Manual input fallback -->
             <div class="manual-input mt-4">
-                <p class="text-center text-gray-500 text-sm">
+                <p class="text-center text-gray-500 dark:text-gray-400 text-sm">
                     Camera not working? Enter the code manually:
                 </p>
                 <form id="manual-code-form" class="flex gap-2">
-                    <input type="text" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="manual-code"
+                    <input type="text" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="manual-code"
                            placeholder="Enter code from QR" autocomplete="off">
                     <button type="submit" class="btn-crush-primary px-4 py-2">
                         {% include "shared/icons/check.html" with class="w-5 h-5" %}
@@ -64,6 +64,11 @@
         max-width: 500px;
         margin: 0 auto;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    html.dark .qr-scanner-card {
+        background: rgba(30, 41, 59, 0.95);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     }
 
     .scanner-container {
@@ -110,6 +115,10 @@
         display: inline-flex;
         align-items: center;
         color: #666;
+    }
+
+    html.dark .scanning-indicator {
+        color: #9ca3af;
     }
 </style>
 

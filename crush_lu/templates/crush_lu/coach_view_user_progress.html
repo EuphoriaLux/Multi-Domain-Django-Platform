@@ -403,6 +403,128 @@
         .chapter-header { flex-direction: column; gap: 15px; }
         .chapter-stats { width: 100%; justify-content: flex-start; }
     }
+
+    /* Dark mode overrides */
+    html.dark .insights-section {
+        background: #111827;
+    }
+
+    html.dark .insight-card {
+        background: #1e293b;
+        border-left-color: #7c3aed;
+    }
+
+    html.dark .insight-card h4 {
+        color: #f1f5f9;
+    }
+
+    html.dark .insight-card p {
+        color: #cbd5e1;
+    }
+
+    html.dark .chapter-section {
+        background: transparent;
+    }
+
+    html.dark .chapter-header {
+        border-bottom-color: #374151;
+    }
+
+    html.dark .chapter-title {
+        color: #f1f5f9;
+    }
+
+    html.dark .chapter-theme {
+        color: #94a3b8;
+    }
+
+    html.dark .chapter-badge {
+        background: #374151;
+        color: #f3f4f6;
+    }
+
+    html.dark .challenge-card {
+        background: #1e293b;
+        border-left-color: #374151;
+    }
+
+    html.dark .challenge-card.correct {
+        border-left-color: #10b981;
+        background: #064e3b;
+    }
+
+    html.dark .challenge-card.incorrect {
+        border-left-color: #ef4444;
+        background: #450a0a;
+    }
+
+    html.dark .challenge-card.skipped {
+        border-left-color: #6b7280;
+        background: #1f2937;
+    }
+
+    html.dark .challenge-header {
+        border-bottom-color: #374151;
+    }
+
+    html.dark .challenge-type-badge {
+        background: #374151;
+        color: #f3f4f6;
+    }
+
+    html.dark .points-badge {
+        color: #a78bfa;
+    }
+
+    html.dark .question-text {
+        color: #e2e8f0;
+    }
+
+    html.dark .answer-content {
+        background: #111827;
+        color: #f1f5f9;
+        border: 1px solid #374151;
+    }
+
+    html.dark .answer-content.success {
+        background: #064e3b;
+        border-color: #10b981;
+    }
+
+    html.dark .expected-answer {
+        background: #1e1b4b;
+        border: 1px solid #4f46e5;
+        color: #c7d2fe;
+    }
+
+    html.dark .option-item {
+        background: #1f2937;
+        border: 1px solid #374151;
+        color: #f1f5f9;
+    }
+
+    html.dark .option-item.selected {
+        background: #1e3a8a;
+        border-color: #3b82f6;
+    }
+
+    html.dark .option-item.correct-option {
+        background: #064e3b;
+        border-color: #10b981;
+    }
+
+    html.dark .timeline-list {
+        background: #111827;
+    }
+
+    html.dark .timeline-list li {
+        border-bottom-color: #374151;
+        color: #f1f5f9;
+    }
+
+    html.dark .options-grid {
+        background: transparent;
+    }
 </style>
 {% endblock %}
 
@@ -493,7 +615,7 @@
 
     <!-- Hardest Challenge Note -->
     {% if stats.hardest_challenge_obj and stats.hardest_challenge_attempts > 5 %}
-    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 mb-6">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-xl p-4 mb-6">
         {% include "shared/icons/trophy.html" with class="w-5 h-5" %} <strong>Persistence Award:</strong>
         The challenge "{{ stats.hardest_challenge_obj.question|truncatewords:10 }}"
         took <strong>{{ stats.hardest_challenge_attempts }} attempts</strong> to complete!
@@ -501,7 +623,7 @@
     {% endif %}
 
     <!-- Chapter-by-Chapter Results -->
-    <h3 class="mb-4" style="color: #2d3748;">
+    <h3 class="mb-4 text-gray-800 dark:text-white">
         {% include "shared/icons/document-text.html" with class="w-5 h-5" %} {% trans "Detailed Journey Results" %}
     </h3>
 
@@ -552,7 +674,7 @@
                         {% endif %}
                         {{ challenge_info.challenge.get_challenge_type_display }}
                     </span>
-                    <span style="color: #a0aec0; margin-left: 10px;">Challenge {{ challenge_info.challenge.challenge_order }}</span>
+                    <span class="text-gray-400 dark:text-gray-500 ml-2.5">Challenge {{ challenge_info.challenge.challenge_order }}</span>
                 </div>
                 <div class="challenge-meta">
                     {% if challenge_info.result %}
@@ -642,7 +764,7 @@
                     {% include "shared/icons/clock.html" with class="w-5 h-5" %} Answered: {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
                 </div>
             {% else %}
-                <div class="answer-content" style="text-align: center; color: #a0aec0;">
+                <div class="answer-content text-center text-gray-400 dark:text-gray-500">
                     {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Challenge not yet attempted
                 </div>
             {% endif %}
@@ -653,13 +775,13 @@
 
     <!-- Action Buttons -->
     <div class="mt-10 flex flex-wrap gap-4">
-        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journeys" %}
         </a>
-        <button onclick="window.print()" class="border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <button onclick="window.print()" class="border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Report" %}
         </button>
-        <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} {% trans "Admin View" %}
         </a>
     </div>

@@ -11,11 +11,11 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4 scores-container">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
-        <div class="bg-white rounded-xl shadow-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5">{% trans "🎤 Your Presentation Scores" %}</h1>
@@ -81,14 +81,14 @@
                     </div>
                 </div>
 
-                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mt-4 text-center">
+                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mt-4 text-center">
                     <h5 class="font-semibold mb-2">{% trans "What's Next?" %}</h5>
                     <p class="mb-2">{% trans "These scores were used to create optimal pairs for Phase 3: Speed Dating!" %}</p>
                     <p class="mb-0">{% trans "The matching algorithm pairs people based on mutual high ratings." %}</p>
                 </div>
 
                 {% else %}
-                <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 text-center">
+                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 text-center">
                     <h4 class="font-semibold mb-2">{% trans "No Ratings Received" %}</h4>
                     <p class="mb-0">{% trans "You didn't receive any ratings during this event, or presentations haven't been completed yet." %}</p>
                 </div>

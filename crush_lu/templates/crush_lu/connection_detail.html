@@ -9,11 +9,11 @@
     <!-- Header -->
     <div class="text-center mb-8">
         <h1 class="text-3xl font-bold mb-3">{% blocktrans with name=other_profile.display_name %}Connection with {{ name }}{% endblocktrans %} <span aria-hidden="true">💕</span></h1>
-        <p class="text-gray-500">{{ connection.event.title }}</p>
+        <p class="text-gray-500 dark:text-gray-400">{{ connection.event.title }}</p>
     </div>
 
     <!-- Connection Status Timeline -->
-    <div class="bg-white rounded-xl shadow-lg mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
         <div class="p-6">
             <h5 class="font-semibold mb-6">{% trans "Connection Progress" %}</h5>
 
@@ -23,7 +23,7 @@
                     <div class="timeline-marker"></div>
                     <div class="timeline-content">
                         <h6 class="font-medium">{% trans "Connection Requested" %}</h6>
-                        <small class="text-gray-500">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
+                        <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
                         {% if connection.requester_note %}
                             <p class="text-sm mt-2 mb-0 flex items-center gap-1">
                                 {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
@@ -39,9 +39,9 @@
                     <div class="timeline-content">
                         <h6 class="font-medium">{% trans "Mutual Interest Confirmed" %}</h6>
                         {% if connection.status != 'pending' %}
-                            <small class="text-gray-500">{% trans "Accepted" %}</small>
+                            <small class="text-gray-500 dark:text-gray-400">{% trans "Accepted" %}</small>
                         {% else %}
-                            <small class="text-gray-500">{% trans "Waiting for response..." %}</small>
+                            <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for response..." %}</small>
                         {% endif %}
                     </div>
                 </div>
@@ -52,11 +52,11 @@
                     <div class="timeline-content">
                         <h6 class="font-medium">{% trans "Coach Facilitation" %}</h6>
                         {% if connection.assigned_coach %}
-                            <small class="text-gray-500">
+                            <small class="text-gray-500 dark:text-gray-400">
                                 {% blocktrans with name=connection.assigned_coach.user.first_name %}Coach {{ name }} is helping facilitate{% endblocktrans %}
                             </small>
                         {% else %}
-                            <small class="text-gray-500">{% trans "Pending coach assignment..." %}</small>
+                            <small class="text-gray-500 dark:text-gray-400">{% trans "Pending coach assignment..." %}</small>
                         {% endif %}
                     </div>
                 </div>
@@ -67,10 +67,10 @@
                     <div class="timeline-content">
                         <h6 class="font-medium">{% trans "Consent to Share Contacts" %}</h6>
                         <div class="mt-2">
-                            <small class="block text-gray-600">
+                            <small class="block text-gray-600 dark:text-gray-300">
                                 {% trans "You:" %} {% if is_requester %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
                             </small>
-                            <small class="block text-gray-600">
+                            <small class="block text-gray-600 dark:text-gray-300">
                                 {{ other_profile.display_name }}: {% if is_requester %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
                             </small>
                         </div>
@@ -83,9 +83,9 @@
                     <div class="timeline-content">
                         <h6 class="font-medium">{% trans "Contacts Shared!" %} 🎉</h6>
                         {% if connection.status == 'shared' %}
-                            <small class="text-gray-500">{% trans "You can now see each other's contact information" %}</small>
+                            <small class="text-gray-500 dark:text-gray-400">{% trans "You can now see each other's contact information" %}</small>
                         {% else %}
-                            <small class="text-gray-500">{% trans "Waiting for consents..." %}</small>
+                            <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for consents..." %}</small>
                         {% endif %}
                     </div>
                 </div>
@@ -105,7 +105,7 @@
                         <h6 class="font-medium mb-2">
                             {% blocktrans with name=connection.assigned_coach.user.first_name %}Message from Coach {{ name }}{% endblocktrans %}
                         </h6>
-                        <p class="mb-0 text-gray-600">{{ connection.coach_introduction }}</p>
+                        <p class="mb-0 text-gray-600 dark:text-gray-300">{{ connection.coach_introduction }}</p>
                     </div>
                 </div>
             </div>
@@ -115,13 +115,13 @@
     <!-- Consent Form (if coach_approved but not yet consented) -->
     {% if connection.status == 'coach_approved' %}
         {% if is_requester and not connection.requester_consents_to_share %}
-            <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
                 <div class="p-6">
                     <h5 class="font-semibold mb-3 flex items-center gap-2">
                         {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                         {% trans "Consent Required" %}
                     </h5>
-                    <p class="text-gray-600 mb-4">
+                    <p class="text-gray-600 dark:text-gray-300 mb-4">
                         {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
                     </p>
 
@@ -142,7 +142,7 @@
                         <input type="hidden" name="consent" value="yes">
 
                         <div class="flex items-center gap-2 mb-4">
-                            <input class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
+                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
                             <label class="text-sm" for="consent_checkbox">
                                 {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
                             </label>
@@ -156,13 +156,13 @@
                 </div>
             </div>
         {% elif not is_requester and not connection.recipient_consents_to_share %}
-            <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
                 <div class="p-6">
                     <h5 class="font-semibold mb-3 flex items-center gap-2">
                         {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
                         {% trans "Consent Required" %}
                     </h5>
-                    <p class="text-gray-600 mb-4">
+                    <p class="text-gray-600 dark:text-gray-300 mb-4">
                         {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
                     </p>
 
@@ -183,7 +183,7 @@
                         <input type="hidden" name="consent" value="yes">
 
                         <div class="flex items-center gap-2 mb-4">
-                            <input class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
+                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
                             <label class="text-sm" for="consent_checkbox">
                                 {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
                             </label>
@@ -206,7 +206,7 @@
 
     <!-- Contact Information (if shared) -->
     {% if connection.status == 'shared' %}
-        <div class="bg-white rounded-xl shadow-lg mb-6 border-l-4 border-green-500">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-green-500">
             <div class="p-6">
                 <h5 class="font-semibold text-green-600 flex items-center gap-2 mb-6">
                     {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
@@ -228,34 +228,34 @@
                                 </div>
                             {% endif %}
 
-                            <h5 class="font-semibold">{{ other_profile.display_name }}</h5>
+                            <h5 class="font-semibold dark:text-white">{{ other_profile.display_name }}</h5>
 
                             {% if other_profile %}
-                                <p class="text-gray-500 mb-4">{{ other_profile.age_display }}</p>
+                                <p class="text-gray-500 dark:text-gray-400 mb-4">{{ other_profile.age_display }}</p>
 
                                 <div class="text-left space-y-2">
                                     <p class="flex items-center gap-2">
-                                        {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-500" %}
+                                        {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
                                         <a href="mailto:{{ other_user.email }}" class="text-purple-600 hover:underline">{{ other_user.email }}</a>
                                     </p>
 
                                     {% if other_profile.phone_number %}
                                         <p class="flex items-center gap-2">
-                                            {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-500" %}
+                                            {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
                                             <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 hover:underline">{{ other_profile.phone_number }}</a>
                                         </p>
                                     {% endif %}
 
                                     {% if other_profile.city %}
                                         <p class="flex items-center gap-2">
-                                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-500" %}
+                                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
                                             {{ other_profile.city }}
                                         </p>
                                     {% endif %}
 
                                     {% if other_profile.bio %}
-                                        <hr class="my-4 border-gray-200">
-                                        <p class="text-sm text-gray-500">{{ other_profile.bio }}</p>
+                                        <hr class="my-4 border-gray-200 dark:border-gray-700">
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ other_profile.bio }}</p>
                                     {% endif %}
 
                                     {% if other_profile.interests %}
@@ -271,12 +271,12 @@
 
                     <div>
                         <!-- Coach Tips -->
-                        <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
                             <h6 class="font-medium mb-3 flex items-center gap-2">
                                 {% include "shared/icons/light-bulb.html" with class="w-5 h-5 text-yellow-500" %}
                                 {% trans "Next Steps" %}
                             </h6>
-                            <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+                            <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 space-y-1">
                                 <li>{% trans "Take your time getting to know each other" %}</li>
                                 <li>{% trans "Suggest a casual first meetup (coffee, walk, etc.)" %}</li>
                                 <li>{% trans "Be yourself and communicate openly" %}</li>
@@ -304,7 +304,7 @@
 
     <!-- Messages (if any) -->
     {% if messages %}
-        <div class="bg-white rounded-xl shadow-lg mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
             <div class="p-6">
                 <h5 class="font-semibold mb-4">{% trans "Messages" %}</h5>
                 <div class="messages-container space-y-3">
@@ -321,9 +321,9 @@
                                         {{ msg.sender.crushprofile.display_name }}
                                     {% endif %}
                                 </strong>
-                                <small class="text-gray-500">{{ msg.sent_at|date:"M d, g:i A" }}</small>
+                                <small class="text-gray-500 dark:text-gray-400">{{ msg.sent_at|date:"M d, g:i A" }}</small>
                             </div>
-                            <p class="mb-0 text-gray-700">{{ msg.message }}</p>
+                            <p class="mb-0 text-gray-700 dark:text-gray-200">{{ msg.message }}</p>
                         </div>
                     {% endfor %}
                 </div>
@@ -333,7 +333,7 @@
 
     <!-- Back Button -->
     <div class="text-center mt-8">
-        <a href="{% url 'crush_lu:my_connections' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <a href="{% url 'crush_lu:my_connections' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-700 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
             {% trans "Back to Connections" %}
         </a>
@@ -425,6 +425,36 @@
 .btn-gradient-primary:hover {
     background: linear-gradient(135deg, #8E44AD, #E74C3C);
     color: white;
+}
+
+/* Dark mode overrides */
+html.dark .timeline-marker {
+    background: #374151;
+    border: 3px solid #1f2937;
+    box-shadow: 0 0 0 2px #374151;
+}
+
+html.dark .timeline-item:not(:last-child)::before {
+    background: #374151;
+}
+
+html.dark .message-bubble.sent {
+    background: #1e3a5f;
+    color: #dbeafe;
+}
+
+html.dark .message-bubble.received {
+    background: #374151;
+    color: #f1f5f9;
+}
+
+html.dark .coach-message {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.25), rgba(255, 107, 157, 0.25));
+}
+
+html.dark .message-bubble.coach {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.3), rgba(255, 107, 157, 0.3));
+    color: #f1f5f9;
 }
 </style>
 {% endblock %}

@@ -8,12 +8,12 @@
     <div class="max-w-lg mx-auto">
         <!-- Header -->
         <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900 mb-3">{% trans "Request Connection 💕" %}</h1>
-            <p class="text-gray-500">{{ event.title }}</p>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Request Connection 💕" %}</h1>
+            <p class="text-gray-500 dark:text-gray-400">{{ event.title }}</p>
         </div>
 
         <!-- Profile Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
             <div class="text-center py-8 px-6">
                 {% if recipient.crushprofile.photo_1 %}
                     <img src="{{ recipient.crushprofile.photo_1.url }}"
@@ -26,12 +26,12 @@
                     </div>
                 {% endif %}
 
-                <h3 class="text-xl font-semibold text-gray-900 mb-1">{{ recipient.crushprofile.display_name }}</h3>
-                <p class="text-gray-500 mb-4">{{ recipient.crushprofile.age_display }}</p>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">{{ recipient.crushprofile.display_name }}</h3>
+                <p class="text-gray-500 dark:text-gray-400 mb-4">{{ recipient.crushprofile.age_display }}</p>
 
                 {% if recipient.crushprofile.interests %}
                     <div class="mb-2">
-                        <span class="text-sm text-gray-500">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">
                             {% include "shared/icons/star.html" with class="w-5 h-5" %} {{ recipient.crushprofile.interests }}
                         </span>
                     </div>
@@ -40,10 +40,10 @@
         </div>
 
         <!-- Connection Request Form -->
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
-                <h5 class="text-lg font-semibold text-gray-900 mb-3">Add a note (optional)</h5>
-                <p class="text-sm text-gray-500 mb-6">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Add a note (optional)</h5>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
                     Help {{ recipient.crushprofile.display_name }} remember your conversation!
                     This will be visible to your Crush Coach.
                 </p>
@@ -52,14 +52,14 @@
                     {% csrf_token %}
 
                     <div class="mb-6">
-                        <label for="note" class="block text-sm font-medium text-gray-700 mb-1">What did you talk about?</label>
-                        <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="note" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">What did you talk about?</label>
+                        <textarea class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                   id="note"
                                   name="note"
                                   rows="4"
                                   placeholder="We talked about hiking in Mullerthal..."
                                   maxlength="500"></textarea>
-                        <p class="text-sm text-gray-500 mt-1">Optional - helps jog their memory</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional - helps jog their memory</p>
                     </div>
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -76,7 +76,7 @@
                             {% include "shared/icons/heart.html" with class="w-5 h-5" %} Send Connection Request
                         </button>
                         <a href="{% url 'crush_lu:event_attendees' event.id %}"
-                           class="w-full py-3 px-6 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-center font-medium transition-colors">
+                           class="w-full py-3 px-6 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-center font-medium transition-colors">
                             Cancel
                         </a>
                     </div>

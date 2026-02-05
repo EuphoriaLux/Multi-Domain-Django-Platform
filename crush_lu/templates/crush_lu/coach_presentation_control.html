@@ -11,15 +11,15 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-6xl px-4 control-panel">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
-        <div class="bg-white rounded-xl shadow-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <div class="text-center mb-4">
-                    <h1 class="display-5">🎬 {% trans "Coach Control Panel" %}</h1>
-                    <p class="text-lg text-gray-500">{% blocktrans with title=event.title %}{{ title }} - Presentation Round{% endblocktrans %}</p>
+                    <h1 class="display-5 dark:text-white">🎬 {% trans "Coach Control Panel" %}</h1>
+                    <p class="text-lg text-gray-500 dark:text-gray-400">{% blocktrans with title=event.title %}{{ title }} - Presentation Round{% endblocktrans %}</p>
                 </div>
 
                 <!-- Progress Bar -->
@@ -40,11 +40,11 @@
                 <!-- Current Presenter -->
                 {% if current_presentation %}
                 <div class="current-presenter-card">
-                    <h3 class="text-gray-500 mb-2">{% trans "Currently Presenting:" %}</h3>
-                    <div class="current-presenter-name">
+                    <h3 class="text-gray-500 dark:text-gray-400 mb-2">{% trans "Currently Presenting:" %}</h3>
+                    <div class="current-presenter-name dark:text-white">
                         {{ current_presentation.user.crushprofile.display_name }}
                     </div>
-                    <p class="text-gray-500">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
+                    <p class="text-gray-500 dark:text-gray-400">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
 
                     <button class="btn advance-btn mt-4" id="advance-btn">
                         {% trans "Next Presenter →" %}
@@ -53,14 +53,14 @@
                 {% else %}
                 <div class="current-presenter-card">
                     {% if next_presentation %}
-                    <h3 class="text-gray-500 mb-3">{% trans "Ready to Start Presentations" %}</h3>
-                    <p class="mb-4">{% trans "Click below to begin with the first presenter" %}</p>
+                    <h3 class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Ready to Start Presentations" %}</h3>
+                    <p class="mb-4 dark:text-gray-300">{% trans "Click below to begin with the first presenter" %}</p>
                     <button class="btn advance-btn" id="advance-btn">
                         {% trans "Start Presentations →" %}
                     </button>
                     {% else %}
-                    <h3 class="text-green-600">🎉 {% trans "All Presentations Completed!" %}</h3>
-                    <p class="text-gray-500">{% trans "Ready to move to Phase 3: Speed Dating" %}</p>
+                    <h3 class="text-green-600 dark:text-green-400">🎉 {% trans "All Presentations Completed!" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Ready to move to Phase 3: Speed Dating" %}</p>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -68,7 +68,7 @@
                 <!-- Presentation Queue -->
                 <div class="mt-8">
                     <div class="w-full">
-                        <h3 class="mb-3">{% trans "Presentation Queue" %}</h3>
+                        <h3 class="mb-3 dark:text-white">{% trans "Presentation Queue" %}</h3>
                         <ul class="queue-list">
                             {% for presentation in presentations %}
                             <li class="queue-item {{ presentation.status }}">

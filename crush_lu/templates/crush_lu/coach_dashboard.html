@@ -11,22 +11,22 @@
 
 <!-- Coach Stats -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <div class="bg-white rounded-xl shadow-sm text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
         <div class="p-6">
             <h3 class="text-3xl font-bold text-crush-purple">{{ pending_submissions|length }}</h3>
-            <p class="text-gray-500 mb-0">{% trans "Pending Reviews" %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Pending Reviews" %}</p>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
         <div class="p-6">
-            <h3 class="text-3xl font-bold text-green-600">{{ recent_reviews|length }}</h3>
-            <p class="text-gray-500 mb-0">{% trans "Recent Reviews" %}</p>
+            <h3 class="text-3xl font-bold text-green-600 dark:text-green-400">{{ recent_reviews|length }}</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Recent Reviews" %}</p>
         </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
         <div class="p-6">
-            <h3 class="text-3xl font-bold">{{ coach.max_active_reviews }}</h3>
-            <p class="text-gray-500 mb-0">{% trans "Max Reviews" %}</p>
+            <h3 class="text-3xl font-bold dark:text-white">{{ coach.max_active_reviews }}</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Max Reviews" %}</p>
         </div>
     </div>
 </div>
@@ -36,10 +36,10 @@
     <div class="p-6">
         <div class="flex justify-between items-start">
             <div>
-                <h5 class="font-semibold mb-2">{% trans "Your Specializations" %}</h5>
-                <p class="mb-0 text-gray-600">{{ coach.specializations|default:_("Not set") }}</p>
+                <h5 class="font-semibold mb-2 dark:text-white">{% trans "Your Specializations" %}</h5>
+                <p class="mb-0 text-gray-600 dark:text-gray-300">{{ coach.specializations|default:_("Not set") }}</p>
             </div>
-            <a href="{% url 'crush_lu:coach_edit_profile' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+            <a href="{% url 'crush_lu:coach_edit_profile' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 {% include "shared/icons/pencil.html" with class="w-4 h-4" %}
                 <span>{% trans "Edit" %}</span>
             </a>
@@ -48,9 +48,9 @@
 </div>
 
 <!-- Coach Notifications - Link to Account Settings -->
-<div class="bg-white rounded-xl shadow-sm mb-6">
-    <div class="px-6 py-4 border-b border-gray-100">
-        <h5 class="font-semibold mb-0 flex items-center gap-2">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h5 class="font-semibold mb-0 flex items-center gap-2 dark:text-white">
             <svg class="w-5 h-5 text-crush-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
             </svg>
@@ -58,7 +58,7 @@
         </h5>
     </div>
     <div class="p-6">
-        <p class="text-gray-600 mb-4">
+        <p class="text-gray-600 dark:text-gray-300 mb-4">
             {% trans "Manage your push notification preferences for new profile submissions, screening reminders, and user responses." %}
         </p>
         <a href="{% url 'crush_lu:account_settings' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm px-4 py-2">
@@ -73,13 +73,13 @@
 
 <!-- Quick Actions -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    <div class="bg-white rounded-xl shadow-sm h-full border-l-4 border-crush-purple">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-crush-purple">
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2">
+            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
                 {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}
                 {% trans "Journey Management" %}
             </h5>
-            <p class="text-gray-500 mb-4">{% trans "Manage active Wonderland Journey experiences and view user progress." %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Manage active Wonderland Journey experiences and view user progress." %}</p>
             <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "Manage Journeys" %}</span>
@@ -96,14 +96,14 @@
     {% if pending_submissions %}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {# Women Column #}
-            <div class="bg-white rounded-xl shadow-sm">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h6 class="font-semibold text-gray-700">{% trans "Women" %}</h6>
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-pink-100 text-pink-800 rounded-full">{{ pending_women|length }}</span>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Women" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 rounded-full">{{ pending_women|length }}</span>
                 </div>
                 <div class="p-4">
                     {% if pending_women %}
-                        <div class="divide-y divide-gray-100">
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
                             {% for submission in pending_women %}
                                 {% include "crush_lu/_pending_submission_card.html" %}
                             {% endfor %}
@@ -115,14 +115,14 @@
             </div>
 
             {# Men Column #}
-            <div class="bg-white rounded-xl shadow-sm">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h6 class="font-semibold text-gray-700">{% trans "Men" %}</h6>
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{{ pending_men|length }}</span>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Men" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{{ pending_men|length }}</span>
                 </div>
                 <div class="p-4">
                     {% if pending_men %}
-                        <div class="divide-y divide-gray-100">
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
                             {% for submission in pending_men %}
                                 {% include "crush_lu/_pending_submission_card.html" %}
                             {% endfor %}
@@ -134,14 +134,14 @@
             </div>
 
             {# Other Column #}
-            <div class="bg-white rounded-xl shadow-sm md:col-span-2 xl:col-span-1">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h6 class="font-semibold text-gray-700">{% trans "Other" %}</h6>
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">{{ pending_other|length }}</span>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 md:col-span-2 xl:col-span-1">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Other" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">{{ pending_other|length }}</span>
                 </div>
                 <div class="p-4">
                     {% if pending_other %}
-                        <div class="divide-y divide-gray-100">
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
                             {% for submission in pending_other %}
                                 {% include "crush_lu/_pending_submission_card.html" %}
                             {% endfor %}
@@ -153,36 +153,36 @@
             </div>
         </div>
     {% else %}
-        <div class="bg-white rounded-xl shadow-sm p-8 text-center">
-            <p class="text-gray-500">{% trans "No pending reviews at the moment. Great work!" %}</p>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+            <p class="text-gray-500 dark:text-gray-400">{% trans "No pending reviews at the moment. Great work!" %}</p>
         </div>
     {% endif %}
 </div>
 
 <!-- Recent Reviews -->
-<div class="bg-white rounded-xl shadow-sm">
-    <div class="px-6 py-4 border-b border-gray-100">
-        <h5 class="font-semibold mb-0">{% trans "Recent Reviews" %}</h5>
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h5 class="font-semibold mb-0 dark:text-white">{% trans "Recent Reviews" %}</h5>
     </div>
     <div class="p-6">
         {% if recent_reviews %}
-            <div class="divide-y divide-gray-100">
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for submission in recent_reviews %}
                     <div class="py-4 first:pt-0 last:pb-0">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h6 class="font-semibold mb-1">{{ submission.profile.user.get_full_name }}</h6>
-                                <p class="text-sm text-gray-500 mb-0">
+                                <h6 class="font-semibold mb-1 dark:text-white">{{ submission.profile.user.get_full_name }}</h6>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
                                     {% trans "Reviewed" %}: {{ submission.reviewed_at|date:"M j, Y g:i A" }}
                                 </p>
                             </div>
                             <div>
                                 {% if submission.status == 'approved' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">{% trans "Approved" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Approved" %}</span>
                                 {% elif submission.status == 'rejected' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">{% trans "Rejected" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">{% trans "Rejected" %}</span>
                                 {% elif submission.status == 'revision' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{% trans "Revision Requested" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Revision Requested" %}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -190,7 +190,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-gray-500 text-center py-8">
+            <p class="text-gray-500 dark:text-gray-400 text-center py-8">
                 {% trans "No recent reviews yet." %}
             </p>
         {% endif %}

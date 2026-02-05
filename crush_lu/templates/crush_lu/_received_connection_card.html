@@ -1,5 +1,5 @@
 {% load i18n %}
-<div id="connection-{{ connection.id }}" class="bg-white rounded-xl shadow-sm p-4" role="status" aria-live="polite">
+<div id="connection-{{ connection.id }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4" role="status" aria-live="polite">
     <div class="flex items-center">
         <!-- Profile Photo -->
         <div class="mr-4">
@@ -17,13 +17,13 @@
 
         <!-- Info -->
         <div class="flex-grow">
-            <h5 class="font-semibold mb-1">{% blocktrans with name=connection.requester.crushprofile.display_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
-            <p class="text-gray-500 text-sm mb-1 flex items-center gap-1">
+            <h5 class="font-semibold dark:text-white mb-1">{% blocktrans with name=connection.requester.crushprofile.display_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-1 flex items-center gap-1">
                 {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
                 {% blocktrans with event_title=connection.event.title %}From {{ event_title }}{% endblocktrans %}
             </p>
             {% if connection.requester_note %}
-                <p class="text-sm flex items-center gap-1">
+                <p class="text-sm dark:text-gray-300 flex items-center gap-1">
                     {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
                     "{{ connection.requester_note }}"
                 </p>
@@ -49,7 +49,7 @@
                         hx-target="#connection-{{ connection.id }}"
                         hx-swap="outerHTML"
                         hx-confirm="{% trans 'Are you sure you want to decline this connection request?' %}"
-                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <span class="htmx-indicator">
                         {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
                     </span>

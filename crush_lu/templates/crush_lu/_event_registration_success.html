@@ -5,7 +5,7 @@
             {% include "shared/icons/clock.html" with class="w-16 h-16 text-yellow-500 mx-auto" %}
         </div>
         <h3 class="text-2xl font-bold mb-2">{% trans "You're on the Waitlist!" %}</h3>
-        <p class="text-gray-600 mb-6">
+        <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "The event is currently full, but we'll notify you if a spot opens up." %}
         </p>
     {% else %}
@@ -13,17 +13,84 @@
             {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto" %}
         </div>
         <h3 class="text-2xl font-bold mb-2">{% trans "You're Registered!" %}</h3>
-        <p class="text-gray-600 mb-6">
+        <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "We've sent a confirmation email with all the event details." %}
         </p>
     {% endif %}
 
     <div class="flex flex-col gap-3">
-        <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary py-3 inline-flex items-center justify-center gap-2">
+        {% if registration.status == 'confirmed' %}
+        <div class="relative" x-data="calendarDropdown">
+            <button @click="toggle" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-crush-purple to-crush-pink text-white hover:shadow-lg font-semibold rounded-lg transition-all duration-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <span>{% trans "Add to Calendar" %}</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div x-show="isOpen" @click.away="close" class="absolute left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/20 border border-gray-200 dark:border-gray-700 py-2 z-50" style="display: none;">
+                <a href="#" id="googleCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <span class="text-2xl">📗</span>
+                    <span class="font-medium">Google Calendar</span>
+                </a>
+                <a href="#" id="outlookCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <span class="text-2xl">📘</span>
+                    <span class="font-medium">Outlook Calendar</span>
+                </a>
+                <a href="#" id="yahooCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <span class="text-2xl">📙</span>
+                    <span class="font-medium">Yahoo Calendar</span>
+                </a>
+                <a href="{% url 'crush_lu:event_calendar_download' event.id %}" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <span class="text-2xl">🍎</span>
+                    <span class="font-medium">Apple Calendar (.ics)</span>
+                </a>
+            </div>
+        </div>
+
+        <script>
+        // Initialize calendar URLs for success page
+        (function() {
+            const eventData = {
+                title: '{{ event.title|escapejs }}',
+                description: '{{ event.description|escapejs }}',
+                location: '{{ event.location|escapejs }}, {{ event.address|escapejs }}',
+                url: window.location.origin + '{% url "crush_lu:event_detail" event.id %}'
+            };
+
+            const startDate = new Date('{{ event.date_time|date:"c" }}');
+            const endDate = new Date(startDate.getTime() + ({{ event.duration_minutes }} * 60000));
+
+            const formatDate = (date) => {
+                const year = date.getUTCFullYear();
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(date.getUTCDate()).padStart(2, '0');
+                const hours = String(date.getUTCHours()).padStart(2, '0');
+                const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+                return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+            };
+
+            const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventData.title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&location=${encodeURIComponent(eventData.location)}`;
+            document.getElementById('googleCalendarLink').href = googleUrl;
+
+            const outlookUrl = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(eventData.title)}&startdt=${startDate.toISOString()}&enddt=${endDate.toISOString()}&body=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&location=${encodeURIComponent(eventData.location)}&path=/calendar/action/compose&rru=addevent`;
+            document.getElementById('outlookCalendarLink').href = outlookUrl;
+
+            const yahooUrl = `https://calendar.yahoo.com/?v=60&title=${encodeURIComponent(eventData.title)}&st=${formatDate(startDate)}&et=${formatDate(endDate)}&desc=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&in_loc=${encodeURIComponent(eventData.location)}`;
+            document.getElementById('yahooCalendarLink').href = yahooUrl;
+        })();
+        </script>
+        {% endif %}
+
+        <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-secondary py-3 inline-flex items-center justify-center gap-2">
             {% include "shared/icons/home.html" with class="w-4 h-4" %}
             {% trans "Go to Dashboard" %}
         </a>
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="block w-full text-center py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="block w-full text-center py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% trans "View Event Details" %}
         </a>
     </div>

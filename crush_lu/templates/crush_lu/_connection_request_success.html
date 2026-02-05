@@ -2,14 +2,14 @@
 <div id="connection-actions-{{ recipient.id }}">
     {% if is_mutual %}
         <div class="text-center">
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-green-100 text-green-800 rounded-full mb-1">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full mb-1">
                 {% include "shared/icons/heart.html" with class="w-3 h-3" %}
                 {% trans "Mutual Connection!" %}
             </span>
-            <p class="text-xs text-green-600">{% trans "A coach will facilitate your intro" %}</p>
+            <p class="text-xs text-green-600 dark:text-green-400">{% trans "A coach will facilitate your intro" %}</p>
         </div>
     {% else %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-purple-100 text-purple-800 rounded-full">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">
             {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
             {% trans "Request Sent" %}
         </span>

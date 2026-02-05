@@ -133,8 +133,8 @@
 
                 <!-- Event Description -->
                 {% if event.description %}
-                <div class="alert alert-info mb-4" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1)); border: none;">
-                    <div class="mb-0" style="color: var(--crush-dark);">{{ event.description|linebreaks }}</div>
+                <div class="alert alert-info mb-4 bg-gradient-to-r from-purple-100/10 to-pink-100/10 dark:from-purple-900/20 dark:to-pink-900/20 border-0">
+                    <div class="mb-0 text-gray-900 dark:text-gray-100">{{ event.description|linebreaks }}</div>
                 </div>
                 {% endif %}
 
@@ -207,9 +207,9 @@
                 </div>
 
                 <!-- What Happens Next -->
-                <div class="alert alert-warning mb-4" style="border-left: 4px solid #ffc107;">
-                    <h6 class="alert-heading">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "What happens after you accept?" %}</h6>
-                    <ol class="mb-0 pl-3">
+                <div class="alert alert-warning mb-4 bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400 dark:border-yellow-600 p-4 rounded">
+                    <h6 class="alert-heading text-gray-900 dark:text-white font-semibold mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "What happens after you accept?" %}</h6>
+                    <ol class="mb-0 pl-3 text-gray-700 dark:text-gray-300">
                         <li>{% trans "You'll create a guest account instantly" %}</li>
                         <li>{% trans "Your attendance will be reviewed by our Crush Coach" %}</li>
                         <li>{% trans "Once approved, you'll receive an email confirmation" %}</li>
@@ -233,10 +233,10 @@
 
         <!-- Additional Info -->
         <div class="text-center mt-4">
-            <p class="text-muted">
+            <p class="text-gray-500 dark:text-gray-400">
                 <small>
                     {% trans "Have questions? Contact our Crush Coaches at" %}
-                    <a href="mailto:hello@crush.lu">hello@crush.lu</a>
+                    <a href="mailto:hello@crush.lu" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">hello@crush.lu</a>
                 </small>
             </p>
         </div>

@@ -1,13 +1,13 @@
 {% load i18n %}
 {% if action == 'accept' %}
-<div id="connection-{{ connection.id }}" class="bg-green-50 rounded-xl shadow-sm border-l-4 border-green-500 p-4">
+<div id="connection-{{ connection.id }}" class="bg-green-50 dark:bg-green-900/30 rounded-xl shadow-sm dark:shadow-gray-900/20 border-l-4 border-green-500 p-4">
     <div class="flex items-center">
         <div class="mr-4">
             {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
         </div>
         <div class="flex-grow">
-            <h5 class="font-semibold text-green-800 mb-1">{% trans "Connection Accepted!" %}</h5>
-            <p class="text-green-700 text-sm">
+            <h5 class="font-semibold text-green-800 dark:text-green-300 mb-1">{% trans "Connection Accepted!" %}</h5>
+            <p class="text-green-700 dark:text-green-300 text-sm">
                 {% blocktrans with name=connection.requester.crushprofile.display_name %}A coach will help facilitate your introduction with {{ name }}.{% endblocktrans %}
             </p>
         </div>
@@ -22,13 +22,13 @@
 </div>
 {% elif action == 'decline' %}
 <div id="connection-{{ connection.id }}"
-     class="bg-gray-100 rounded-xl shadow-sm opacity-75 p-4"
+     class="bg-gray-100 dark:bg-gray-700 rounded-xl shadow-sm dark:shadow-gray-900/20 opacity-75 p-4"
      x-data="declineAnimation"
      x-show="show"
      x-transition:leave="transition ease-in duration-300"
      x-transition:leave-start="opacity-100 transform scale-100"
      x-transition:leave-end="opacity-0 transform scale-95">
-    <div class="flex items-center justify-center text-gray-500 py-2">
+    <div class="flex items-center justify-center text-gray-500 dark:text-gray-400 py-2">
         <p class="m-0">{% trans "Connection request declined" %}</p>
     </div>
 </div>

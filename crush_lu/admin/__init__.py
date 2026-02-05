@@ -138,6 +138,8 @@ from .oauth import OAuthStateAdmin
 
 from .passkit import PasskitDeviceRegistrationAdmin
 
+from .site_config import CrushSiteConfigAdmin
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -181,6 +183,7 @@ from crush_lu.models import (
     PWADeviceInstallation,
     OAuthState,
     PasskitDeviceRegistration,
+    CrushSiteConfig,
 )
 
 
@@ -258,6 +261,9 @@ crush_admin_site.register(OAuthState, OAuthStateAdmin)
 
 # PassKit Device Registration (Apple Wallet device tracking)
 crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAdmin)
+
+# Site Configuration (singleton)
+crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
@@ -372,4 +378,7 @@ __all__ = [
 
     # PassKit Device Registration
     'PasskitDeviceRegistrationAdmin',
+
+    # Site Configuration
+    'CrushSiteConfigAdmin',
 ]

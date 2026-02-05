@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Override dark mode to use class-based selector instead of prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tailwind v4 source paths for content scanning */
 @source "../../crush_lu/templates/**/*.html";
 @source "../../crush_lu/**/*.py";
@@ -202,24 +205,25 @@ body.journey-bg {
     scroll-behavior: smooth;
   }
 
-  /* Base body styles */
+  /* Base body styles with dark mode support */
   body {
-    @apply text-crush-dark bg-crush-light antialiased;
+    @apply text-crush-dark dark:text-gray-100 bg-crush-light dark:bg-gray-900 antialiased;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* Heading defaults */
-  h1 { @apply text-4xl font-bold; }
-  h2 { @apply text-3xl font-bold; }
-  h3 { @apply text-2xl font-semibold; }
-  h4 { @apply text-xl font-semibold; }
-  h5 { @apply text-lg font-medium; }
-  h6 { @apply text-base font-medium; }
+  /* Heading defaults with dark mode support */
+  h1 { @apply text-4xl font-bold dark:text-white; }
+  h2 { @apply text-3xl font-bold dark:text-white; }
+  h3 { @apply text-2xl font-semibold dark:text-white; }
+  h4 { @apply text-xl font-semibold dark:text-gray-100; }
+  h5 { @apply text-lg font-medium dark:text-gray-100; }
+  h6 { @apply text-base font-medium dark:text-gray-100; }
 
-  /* Link defaults */
+  /* Link defaults with dark mode support */
   a {
-    @apply text-crush-purple hover:text-crush-purple-dark transition-colors duration-200;
+    @apply text-crush-purple dark:text-purple-400 hover:text-crush-purple-dark dark:hover:text-purple-300 transition-colors duration-200;
   }
 
   /* Focus ring for accessibility */
@@ -262,61 +266,62 @@ body.journey-bg {
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Primary gradient button (Crush.lu brand) */
+  /* Primary gradient button (Crush.lu brand) with dark mode brightness adjustment */
   .btn-crush-primary {
     @apply bg-gradient-to-r from-crush-purple to-crush-pink
            text-white py-3 px-8 hover:-translate-y-0.5
-           hover:shadow-crush-purple focus:ring-crush-purple;
+           hover:shadow-crush-purple focus:ring-crush-purple
+           dark:brightness-90;
   }
 
   /* Standard primary button */
   .btn-primary {
-    @apply bg-crush-purple text-white py-3 px-6
-           hover:bg-crush-purple-dark focus:ring-crush-purple;
+    @apply bg-crush-purple dark:bg-purple-600 text-white py-3 px-6
+           hover:bg-crush-purple-dark dark:hover:bg-purple-500 focus:ring-crush-purple dark:focus:ring-purple-400;
   }
 
   /* Secondary button */
   .btn-secondary {
-    @apply bg-gray-600 text-white py-3 px-6
-           hover:bg-gray-700 focus:ring-gray-500;
+    @apply bg-gray-600 dark:bg-gray-700 text-white py-3 px-6
+           hover:bg-gray-700 dark:hover:bg-gray-600 focus:ring-gray-500;
   }
 
-  /* Outline variants */
+  /* Outline variants with dark mode support */
   .btn-outline-primary {
-    @apply border-2 border-crush-purple text-crush-purple
+    @apply border-2 border-crush-purple dark:border-purple-400 text-crush-purple dark:text-purple-400
            py-3 px-6 bg-transparent
-           hover:bg-crush-purple hover:text-white focus:ring-crush-purple;
+           hover:bg-crush-purple dark:hover:bg-purple-600 hover:text-white focus:ring-crush-purple dark:focus:ring-purple-400;
   }
 
   .btn-outline-secondary {
-    @apply border border-gray-400 text-gray-600 py-2 px-6
-           bg-transparent hover:bg-gray-100 focus:ring-gray-400;
+    @apply border border-gray-400 dark:border-gray-500 text-gray-600 dark:text-gray-300 py-2 px-6
+           bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-400;
   }
 
   .btn-outline-danger {
-    @apply border border-red-500 text-red-500 py-2 px-6
-           bg-transparent hover:bg-red-500 hover:text-white focus:ring-red-400;
+    @apply border border-red-500 dark:border-red-400 text-red-500 dark:text-red-400 py-2 px-6
+           bg-transparent hover:bg-red-500 dark:hover:bg-red-600 hover:text-white focus:ring-red-400;
   }
 
   /* Status buttons */
   .btn-success {
-    @apply bg-green-500 text-white py-3 px-6
-           hover:bg-green-600 focus:ring-green-400;
+    @apply bg-green-500 dark:bg-green-600 text-white py-3 px-6
+           hover:bg-green-600 dark:hover:bg-green-500 focus:ring-green-400;
   }
 
   .btn-danger {
-    @apply bg-red-500 text-white py-3 px-6
-           hover:bg-red-600 focus:ring-red-400;
+    @apply bg-red-500 dark:bg-red-600 text-white py-3 px-6
+           hover:bg-red-600 dark:hover:bg-red-500 focus:ring-red-400;
   }
 
   .btn-warning {
-    @apply bg-yellow-500 text-crush-dark py-3 px-6
-           hover:bg-yellow-600 focus:ring-yellow-400;
+    @apply bg-yellow-500 dark:bg-yellow-600 text-crush-dark dark:text-white py-3 px-6
+           hover:bg-yellow-600 dark:hover:bg-yellow-500 focus:ring-yellow-400;
   }
 
   .btn-info {
-    @apply bg-blue-500 text-white py-3 px-6
-           hover:bg-blue-600 focus:ring-blue-400;
+    @apply bg-blue-500 dark:bg-blue-600 text-white py-3 px-6
+           hover:bg-blue-600 dark:hover:bg-blue-500 focus:ring-blue-400;
   }
 
   /* Button sizes */
@@ -328,14 +333,15 @@ body.journey-bg {
 
   /* Link-styled button */
   .btn-link {
-    @apply text-crush-purple hover:text-crush-purple-dark
+    @apply text-crush-purple dark:text-purple-400 hover:text-crush-purple-dark dark:hover:text-purple-300
            underline bg-transparent border-none p-0;
   }
 
   /* Close button (for modals, alerts) */
   .btn-close {
-    @apply p-1 text-gray-400 hover:text-gray-600
+    @apply p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300
            bg-transparent border-none cursor-pointer
+           hover:bg-transparent dark:hover:bg-gray-700
            transition-colors duration-200;
   }
 
@@ -343,7 +349,7 @@ body.journey-bg {
      CARDS
      ========================================================================= */
   .card {
-    @apply bg-white rounded-2xl shadow-crush-sm overflow-hidden;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm dark:shadow-2xl dark:shadow-black/20 overflow-hidden;
   }
 
   .card-body {
@@ -351,26 +357,26 @@ body.journey-bg {
   }
 
   .card-header {
-    @apply px-6 py-4 bg-gray-50 border-b border-gray-100;
+    @apply px-6 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-100 dark:border-gray-600;
   }
 
   .card-footer {
-    @apply px-6 py-4 bg-gray-50 border-t border-gray-100;
+    @apply px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-100 dark:border-gray-600;
   }
 
   .card-title {
-    @apply text-lg font-semibold text-crush-dark mb-2;
+    @apply text-lg font-semibold text-crush-dark dark:text-white mb-2;
   }
 
   .card-text {
-    @apply text-gray-600;
+    @apply text-gray-600 dark:text-gray-300;
   }
 
   /* Card with hover effect */
   .card-hover {
-    @apply bg-white rounded-2xl shadow-crush-sm overflow-hidden
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm dark:shadow-2xl dark:shadow-black/20 overflow-hidden
            transition-all duration-300
-           hover:-translate-y-1 hover:shadow-crush-lg;
+           hover:-translate-y-1 hover:shadow-crush-lg dark:hover:shadow-2xl;
   }
 
   /* Full height card for grid layouts */
@@ -378,19 +384,82 @@ body.journey-bg {
     @apply h-full;
   }
 
+  /* Card with border (for sections within cards) */
+  .card-bordered {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm dark:shadow-2xl dark:shadow-black/20
+           border border-gray-100 dark:border-gray-700 overflow-hidden;
+  }
+
+  /* Card with gradient accent bar */
+  .card-accent {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm dark:shadow-2xl dark:shadow-black/20 overflow-hidden relative;
+  }
+
+  .card-accent::before {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink;
+  }
+
+  /* Info box - for status displays and information cards */
+  .info-box {
+    @apply bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700;
+  }
+
+  .info-box-sm {
+    @apply bg-gray-50 dark:bg-gray-900 rounded-lg p-3 border border-gray-100 dark:border-gray-700;
+  }
+
+  /* Feature card - for landing page features */
+  .feature-card {
+    @apply bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-crush-sm dark:shadow-2xl
+           border border-gray-100 dark:border-gray-700
+           transition-all duration-300 hover:-translate-y-1 hover:shadow-crush-lg;
+  }
+
+  /* Status card - for dashboard status displays */
+  .status-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-2xl h-full;
+  }
+
+  .status-card-body {
+    @apply p-6;
+  }
+
+  /* Event card - for event listings */
+  .event-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm dark:shadow-2xl
+           border border-gray-100 dark:border-gray-700
+           transition-all duration-300 hover:shadow-lg dark:hover:shadow-2xl hover:-translate-y-0.5;
+  }
+
+  /* Profile card - for user profiles */
+  .profile-card {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-crush-md dark:shadow-2xl
+           border border-gray-100 dark:border-gray-700 overflow-hidden;
+  }
+
+  /* Section container - for page sections with background */
+  .section-container {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+
+  .section-container-wide {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+
   /* =========================================================================
      FORMS
      ========================================================================= */
   .form-control {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-xl
-           bg-white text-crush-dark
-           focus:ring-2 focus:ring-crush-purple focus:border-transparent
+    @apply w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl
+           bg-white dark:bg-gray-700 text-crush-dark dark:text-white
+           focus:ring-2 focus:ring-crush-purple dark:focus:ring-purple-400 focus:border-transparent
            transition-all duration-200
-           placeholder:text-gray-400;
+           placeholder:text-gray-400 dark:placeholder:text-gray-500;
   }
 
   .form-control:disabled {
-    @apply bg-gray-100 cursor-not-allowed;
+    @apply bg-gray-100 dark:bg-gray-800 cursor-not-allowed;
   }
 
   .form-control.is-invalid {
@@ -398,11 +467,11 @@ body.journey-bg {
   }
 
   .form-label {
-    @apply block font-medium text-gray-700 mb-2;
+    @apply block font-medium text-gray-700 dark:text-gray-200 mb-2;
   }
 
   .form-text {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-1;
   }
 
   .form-group {
@@ -411,11 +480,11 @@ body.journey-bg {
 
   /* Select dropdown - inline form-control styles to avoid circular dep */
   .form-select {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-xl
-           bg-white text-crush-dark
-           focus:ring-2 focus:ring-crush-purple focus:border-transparent
+    @apply w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl
+           bg-white dark:bg-gray-700 text-crush-dark dark:text-white
+           focus:ring-2 focus:ring-crush-purple dark:focus:ring-purple-400 focus:border-transparent
            transition-all duration-200
-           placeholder:text-gray-400
+           placeholder:text-gray-400 dark:placeholder:text-gray-500
            appearance-none
            bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')]
            bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
@@ -427,7 +496,7 @@ body.journey-bg {
   }
 
   .form-check-input {
-    @apply w-5 h-5 text-crush-purple border-gray-300 rounded
+    @apply w-5 h-5 text-crush-purple border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded
            focus:ring-crush-purple focus:ring-2 cursor-pointer;
   }
 
@@ -436,7 +505,7 @@ body.journey-bg {
   }
 
   .form-check-label {
-    @apply text-gray-700 cursor-pointer;
+    @apply text-gray-700 dark:text-gray-200 cursor-pointer;
   }
 
   /* Input group */
@@ -449,13 +518,13 @@ body.journey-bg {
   }
 
   .input-group-text {
-    @apply px-4 py-3 bg-gray-100 border border-gray-300
-           text-gray-600 flex items-center;
+    @apply px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600
+           text-gray-600 dark:text-gray-300 flex items-center;
   }
 
   /* Invalid feedback */
   .invalid-feedback {
-    @apply text-sm text-red-600 mt-1;
+    @apply text-sm text-red-600 dark:text-red-400 mt-1;
   }
 
   /* =========================================================================
@@ -466,19 +535,19 @@ body.journey-bg {
   }
 
   .alert-success {
-    @apply bg-green-100 text-green-800 border border-green-200;
+    @apply bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800;
   }
 
   .alert-danger {
-    @apply bg-red-100 text-red-800 border border-red-200;
+    @apply bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800;
   }
 
   .alert-warning {
-    @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+    @apply bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800;
   }
 
   .alert-info {
-    @apply bg-blue-100 text-blue-800 border border-blue-200;
+    @apply bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800;
   }
 
   .alert-dismissible {
@@ -490,6 +559,73 @@ body.journey-bg {
   }
 
   /* =========================================================================
+     TIER & MEMBERSHIP COMPONENTS
+     ========================================================================= */
+  /* Tier card - for membership tiers */
+  .tier-card {
+    @apply relative border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-5
+           transition-all duration-300 hover:shadow-lg hover:-translate-y-1
+           hover:border-crush-purple/30 dark:hover:border-crush-purple/30
+           bg-white dark:bg-gray-900;
+  }
+
+  .tier-card-active {
+    @apply relative border-2 border-crush-purple rounded-2xl p-5
+           ring-2 ring-crush-purple shadow-crush-purple
+           bg-gradient-to-br from-crush-purple/5 to-crush-pink/5
+           dark:from-crush-purple/10 dark:to-crush-pink/10
+           transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+
+  /* Benefit list item */
+  .benefit-item {
+    @apply flex items-start gap-2;
+  }
+
+  .benefit-check {
+    @apply flex-shrink-0 w-5 h-5 bg-green-100 dark:bg-green-900/50 rounded-full
+           flex items-center justify-center mt-0.5;
+  }
+
+  /* =========================================================================
+     GRADIENT CTA SECTIONS
+     ========================================================================= */
+  /* Primary gradient CTA - purple to pink */
+  .cta-gradient {
+    @apply relative bg-gradient-to-br from-crush-purple via-purple-600 to-crush-pink
+           rounded-2xl shadow-crush-purple dark:shadow-2xl overflow-hidden;
+  }
+
+  /* Dark mode gradient adjustment */
+  html.dark .cta-gradient {
+    @apply from-purple-900 via-purple-800 to-pink-900;
+  }
+
+  /* CTA decorative background elements */
+  .cta-gradient-decorations {
+    @apply absolute inset-0 opacity-10 pointer-events-none;
+  }
+
+  /* =========================================================================
+     ACTION BUTTONS & INTERACTIVE ELEMENTS
+     ========================================================================= */
+  /* Action card with icon - for dashboard actions */
+  .action-card {
+    @apply flex items-start gap-5 p-5 rounded-xl
+           border-2 border-gray-100 dark:border-gray-700
+           hover:border-crush-purple/30 dark:hover:border-crush-purple/30
+           hover:bg-gradient-to-r hover:from-crush-purple/5 hover:to-transparent
+           dark:hover:from-crush-purple/10 dark:hover:to-transparent
+           transition-all duration-300
+           bg-white dark:bg-gray-900;
+  }
+
+  .action-card-icon {
+    @apply flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center
+           shadow-md transition-transform duration-300;
+  }
+
+  /* =========================================================================
      BADGES
      ========================================================================= */
   .badge {
@@ -498,27 +634,27 @@ body.journey-bg {
   }
 
   .badge-primary, .bg-primary {
-    @apply bg-crush-purple text-white;
+    @apply bg-crush-purple dark:bg-purple-600 text-white;
   }
 
   .badge-secondary, .bg-secondary {
-    @apply bg-gray-500 text-white;
+    @apply bg-gray-500 dark:bg-gray-600 text-white;
   }
 
   .badge-success, .bg-success {
-    @apply bg-green-500 text-white;
+    @apply bg-green-500 dark:bg-green-600 text-white;
   }
 
   .badge-danger, .bg-danger {
-    @apply bg-red-500 text-white;
+    @apply bg-red-500 dark:bg-red-600 text-white;
   }
 
   .badge-warning, .bg-warning {
-    @apply bg-yellow-500 text-crush-dark;
+    @apply bg-yellow-500 dark:bg-yellow-600 text-crush-dark dark:text-white;
   }
 
   .badge-info, .bg-info {
-    @apply bg-blue-500 text-white;
+    @apply bg-blue-500 dark:bg-blue-600 text-white;
   }
 
   /* =========================================================================
@@ -594,20 +730,20 @@ body.journey-bg {
   }
 
   .dropdown-menu {
-    @apply absolute right-0 mt-2 w-56 bg-white rounded-xl
-           shadow-lg border border-gray-100 py-2 z-50;
+    @apply absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl
+           shadow-lg border border-gray-100 dark:border-gray-700 py-2 z-50;
     /* Visibility handled by Alpine.js x-show + x-transition */
   }
 
   .dropdown-item {
-    @apply flex items-center gap-2 px-4 py-2 text-gray-700 no-underline
-           hover:bg-gray-50 hover:text-crush-purple
+    @apply flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-200 no-underline
+           hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-crush-purple dark:hover:text-purple-400
            transition-colors duration-150
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-inset;
   }
 
   .dropdown-divider {
-    @apply my-2 border-t border-gray-100;
+    @apply my-2 border-t border-gray-100 dark:border-gray-700;
   }
 
   /* =========================================================================
@@ -635,15 +771,15 @@ body.journey-bg {
   }
 
   .modal-content {
-    @apply relative bg-white rounded-2xl shadow-xl max-w-lg w-full;
+    @apply relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl dark:shadow-2xl dark:shadow-black/30 max-w-lg w-full;
   }
 
   .modal-header {
-    @apply flex items-center justify-between p-6 border-b border-gray-100;
+    @apply flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700;
   }
 
   .modal-title {
-    @apply text-xl font-semibold text-crush-dark;
+    @apply text-xl font-semibold text-crush-dark dark:text-white;
   }
 
   .modal-body {
@@ -651,12 +787,12 @@ body.journey-bg {
   }
 
   .modal-footer {
-    @apply flex items-center justify-end gap-3 p-6 border-t border-gray-100;
+    @apply flex items-center justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700;
   }
 
   /* Bootstrap .btn-close styling */
   .btn-close {
-    @apply p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer;
+    @apply p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer;
     background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
     width: 2rem;
     height: 2rem;
@@ -665,6 +801,11 @@ body.journey-bg {
 
   .btn-close:hover {
     opacity: 1;
+  }
+
+  /* Dark mode: invert the close button SVG from black to white */
+  html.dark .btn-close {
+    filter: invert(1);
   }
 
   /* Bootstrap fade transition */
@@ -683,11 +824,11 @@ body.journey-bg {
      LISTS
      ========================================================================= */
   .list-group {
-    @apply divide-y divide-gray-200 rounded-xl overflow-hidden border border-gray-200;
+    @apply divide-y divide-gray-200 dark:divide-gray-700 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700;
   }
 
   .list-group-item {
-    @apply px-4 py-3 bg-white hover:bg-gray-50
+    @apply px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700
            transition-colors duration-150;
   }
 
@@ -703,34 +844,34 @@ body.journey-bg {
      TABLES
      ========================================================================= */
   .table {
-    @apply min-w-full divide-y divide-gray-200;
+    @apply min-w-full divide-y divide-gray-200 dark:divide-gray-700;
   }
 
   .table thead {
-    @apply bg-gray-50;
+    @apply bg-gray-50 dark:bg-gray-700;
   }
 
   .table th {
-    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider;
   }
 
   .table td {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100;
   }
 
   .table tbody tr {
-    @apply border-b border-gray-200;
+    @apply border-b border-gray-200 dark:border-gray-700;
   }
 
   .table-hover tbody tr:hover {
-    @apply bg-gray-50;
+    @apply bg-gray-50 dark:bg-gray-700;
   }
 
   /* =========================================================================
      TYPOGRAPHY UTILITIES
      ========================================================================= */
   .lead {
-    @apply text-xl text-gray-600;
+    @apply text-xl text-gray-600 dark:text-gray-300;
   }
 
   .display-1 { @apply text-6xl font-bold; }
@@ -741,7 +882,7 @@ body.journey-bg {
   .display-6 { @apply text-xl font-bold; }
 
   .text-muted {
-    @apply text-gray-500;
+    @apply text-gray-500 dark:text-gray-400;
   }
 
   .text-gradient {
@@ -5618,6 +5759,15 @@ footer hr {
     overflow: hidden;
 }
 
+html.dark .home-page .feature-card {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.3),
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(139, 92, 246, 0.1);
+}
+
 .home-page .feature-card::before {
     content: '';
     position: absolute;
@@ -5628,6 +5778,10 @@ footer hr {
     background: linear-gradient(90deg, var(--crush-purple), var(--crush-pink));
     opacity: 0;
     transition: opacity 0.3s ease;
+}
+
+html.dark .home-page .feature-card::before {
+    display: none;  /* Hide the bright gradient bar in dark mode */
 }
 
 .home-page .feature-card::after {
@@ -5645,6 +5799,10 @@ footer hr {
     transition: opacity 0.3s ease;
 }
 
+html.dark .home-page .feature-card::after {
+    display: none;  /* Hide the border gradient in dark mode */
+}
+
 .home-page .feature-card:hover {
     transform: translateY(-8px);
     background: rgba(255, 255, 255, 0.85);
@@ -5653,6 +5811,15 @@ footer hr {
         0 8px 16px rgba(255, 107, 157, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
     border-color: transparent;
+}
+
+html.dark .home-page .feature-card:hover {
+    background: rgba(30, 41, 59, 0.8);
+    box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 8px 16px rgba(139, 92, 246, 0.2),
+        inset 0 1px 0 rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.3);
 }
 
 .home-page .feature-card:hover::before {
@@ -5695,10 +5862,21 @@ footer hr {
     -webkit-text-fill-color: transparent;
 }
 
+html.dark .home-page .feature-title {
+    background: linear-gradient(135deg, #A78BFA, #FB7185);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
 .home-page .feature-text {
     color: var(--crush-gray);
     font-size: clamp(0.95rem, 2vw, 1.05rem);
     line-height: 1.7;
+}
+
+html.dark .home-page .feature-text {
+    color: #94a3b8;
 }
 
 /* Gift landing page overrides */
@@ -5769,6 +5947,14 @@ footer hr {
     border-radius: 50px;
 }
 
+.home-page .how-it-works-section > h2 {
+    color: var(--crush-dark) !important;
+}
+
+html.dark .home-page .how-it-works-section > h2 {
+    color: #f1f5f9 !important;
+}
+
 .home-page .step-item {
     display: flex;
     align-items: flex-start;
@@ -5791,10 +5977,19 @@ footer hr {
     box-shadow: 0 8px 20px rgba(155, 89, 182, 0.3);
 }
 
+html.dark .home-page .step-number {
+    background: linear-gradient(135deg, #7C3AED, #EC4899);
+    box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
+}
+
 .home-page .how-it-works-section .step-text h3 {
     font-size: clamp(1.1rem, 2.5vw, 1.3rem);
     margin-bottom: 0.5rem;
     color: var(--crush-dark);
+}
+
+html.dark .home-page .how-it-works-section .step-text h3 {
+    color: #f1f5f9;
 }
 
 .home-page .how-it-works-section .step-text p {
@@ -5802,6 +5997,10 @@ footer hr {
     font-size: clamp(0.95rem, 2vw, 1rem);
     margin: 0;
     line-height: 1.6;
+}
+
+html.dark .home-page .how-it-works-section .step-text p {
+    color: #94a3b8;
 }
 
 /* Home page - Events section */
@@ -5814,6 +6013,10 @@ footer hr {
     background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
 }
 
+html.dark .event-header {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(236, 72, 153, 0.15));
+}
+
 .event-body {
     padding: 1.5rem;
 }
@@ -5822,6 +6025,10 @@ footer hr {
     font-size: 0.9rem;
     color: var(--crush-gray);
     margin-bottom: 0.5rem;
+}
+
+html.dark .event-meta {
+    color: #94a3b8;
 }
 
 /* Home page CTA section - Gradient with floating elements */
@@ -5837,6 +6044,10 @@ footer hr {
     border-radius: 60px 60px 0 0;
     position: relative;
     overflow: hidden;
+}
+
+html.dark .home-page .cta-section {
+    background: linear-gradient(135deg, #581C87 0%, #9F1239 50%, #BE185D 100%);
 }
 
 /* Large background heart */
@@ -6587,6 +6798,43 @@ footer hr {
     border-radius: 15px;
     text-align: center;
     margin-bottom: 2rem;
+}
+
+/* Dark mode support for presentation components */
+html.dark .current-presenter-card {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+    border-color: #7C3AED;
+}
+
+html.dark .current-presenter-name {
+    color: #A78BFA;
+}
+
+html.dark .queue-item {
+    border-color: #374151;
+    background: #1F2937;
+}
+
+html.dark .queue-item.presenting {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(236, 72, 153, 0.25) 100%);
+    border-color: #7C3AED;
+}
+
+html.dark .queue-number {
+    color: #A78BFA;
+}
+
+html.dark .queue-name {
+    color: #F1F5F9;
+}
+
+html.dark .status-badge.pending {
+    background: #374151;
+    color: #94A3B8;
+}
+
+html.dark .progress-bar-container {
+    background: #1F2937;
 }
 
 /* ===================
@@ -7636,6 +7884,57 @@ footer hr {
     font-size: 2rem;
     box-shadow: 0 5px 20px rgba(255, 215, 0, 0.5);
     animation: certificate-seal-pulse 2s infinite;
+}
+
+/* Certificate dark mode overrides */
+html.dark .certificate {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+    color: #f1f5f9;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+html.dark .certificate-subtitle,
+html.dark .stat-label,
+html.dark .signature-label {
+    color: #94a3b8;
+}
+
+html.dark .certify-text,
+html.dark .achievement-text {
+    color: #cbd5e1;
+}
+
+html.dark .recipient-name {
+    color: #f1f5f9;
+}
+
+html.dark .quote-section {
+    background: rgba(139, 92, 246, 0.15);
+}
+
+html.dark .quote-text {
+    color: #e2e8f0;
+}
+
+html.dark .certificate-footer {
+    border-top-color: #374151;
+}
+
+html.dark .signature-line {
+    border-top-color: #94a3b8;
+}
+
+html.dark .certificate-signature-value {
+    color: #f1f5f9;
+}
+
+html.dark .nav-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+html.dark .nav-btn:hover {
+    background: rgba(30, 41, 59, 0.8);
 }
 
 .action-buttons {

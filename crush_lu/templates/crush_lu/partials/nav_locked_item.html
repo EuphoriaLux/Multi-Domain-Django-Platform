@@ -1,7 +1,7 @@
 {% load i18n %}
 {# Locked navigation item with tooltip - shown when feature is unavailable #}
 <div class="relative group">
-    <span class="text-white/50 flex items-center cursor-not-allowed text-sm font-medium">
+    <span class="text-white/50 dark:text-white/40 flex items-center cursor-not-allowed text-sm font-medium">
         {{ label }}
         {% include "shared/icons/lock-closed.html" with class="w-3.5 h-3.5 ml-1" %}
     </span>

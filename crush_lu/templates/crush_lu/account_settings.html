@@ -7,31 +7,31 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-3xl">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">{% trans "Account Settings" %}</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">{% trans "Account Settings" %}</h1>
 
         <!-- Account Info Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-600" %}{% trans "Account Information" %}
                 </h5>
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500">{% trans "Email" %}</div>
-                    <div class="sm:col-span-2 text-gray-900">{{ user.email }}</div>
+                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Email" %}</div>
+                    <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.email }}</div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500">{% trans "Name" %}</div>
-                    <div class="sm:col-span-2 text-gray-900">{{ user.first_name }} {{ user.last_name }}</div>
+                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Name" %}</div>
+                    <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.first_name }} {{ user.last_name }}</div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div class="text-gray-500">{% trans "Member since" %}</div>
-                    <div class="sm:col-span-2 text-gray-900">{{ user.date_joined|date:"F j, Y" }}</div>
+                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Member since" %}</div>
+                    <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.date_joined|date:"F j, Y" }}</div>
                 </div>
                 {% if crush_social_accounts %}
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="text-gray-500">{% trans "Connected accounts" %}</div>
+                    <div class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Connected accounts" %}</div>
                     <div class="sm:col-span-2">
                         {% for social in crush_social_accounts %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-1">
@@ -52,14 +52,14 @@
         </div>
 
         <!-- Linked Accounts Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/link.html" with class="w-5 h-5 text-purple-600" %}{% trans "Linked Accounts" %}
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 mb-6">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-6">
                     {% trans "Connect additional social accounts for easier login. You can use any connected account to log in." %}
                 </p>
 
@@ -67,8 +67,8 @@
 
                 <!-- Currently Connected Accounts (Crush.lu providers only) -->
                 {% if crush_social_accounts %}
-                <h6 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Connected" %}</h6>
-                <div class="divide-y divide-gray-100 mb-6">
+                <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connected" %}</h6>
+                <div class="divide-y divide-gray-100 dark:divide-gray-700 mb-6">
                     {% for social in crush_social_accounts %}
                     <div class="py-4 flex justify-between items-center">
                         <div class="flex items-center">
@@ -86,7 +86,7 @@
                             <span class="font-semibold">{{ social.provider|title }}</span>
                             {% endif %}
                             {% if social.extra_data.email %}
-                            <small class="text-gray-500 ml-2">{{ social.extra_data.email }}</small>
+                            <small class="text-gray-500 dark:text-gray-400 dark:text-gray-500 ml-2">{{ social.extra_data.email }}</small>
                             {% endif %}
                         </div>
                         {% if crush_social_accounts.count > 1 or user.has_usable_password %}
@@ -98,7 +98,7 @@
                             </button>
                         </form>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="{% trans "You need at least one login method" %}">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600" title="{% trans "You need at least one login method" %}">
                             {% include "shared/icons/lock-closed.html" with class="w-5 h-5" %}{% trans "Required" %}
                         </span>
                         {% endif %}
@@ -109,7 +109,7 @@
 
                 <!-- Available Providers to Connect -->
                 {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected %}
-                <h6 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Connect More Accounts" %}</h6>
+                <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connect More Accounts" %}</h6>
                 <div class="flex flex-wrap gap-2">
                     {% if google_available and not google_connected %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors flex items-center">
@@ -130,7 +130,7 @@
                 {% endif %}
 
                 {% if not crush_social_accounts %}
-                <p class="text-gray-500 mb-4">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     {% trans "You don't have any social accounts connected yet." %}
                 </p>
                 {% if google_available or facebook_available or microsoft_available %}
@@ -152,7 +152,7 @@
                     {% endif %}
                 </div>
                 {% else %}
-                <p class="text-gray-400 text-sm">{% trans "Social login providers are not configured for this site." %}</p>
+                <p class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Social login providers are not configured for this site." %}</p>
                 {% endif %}
                 {% endif %}
             </div>
@@ -160,14 +160,14 @@
 
         <!-- Social Account Photos Card (Display Only) -->
         {% if social_photos %}
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/camera.html" with class="w-5 h-5 text-purple-600" %}{% trans "Social Account Photos" %}
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 mb-4">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     {% trans "Photos from your connected social accounts. To use these photos on your dating profile," %}
                     {% if user.crushprofile and user.crushprofile.is_approved %}
                     <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "go to Edit Profile" %}</a>.
@@ -227,14 +227,14 @@
         <!-- Password Management Card -->
         {% if crush_social_accounts and not user.has_usable_password %}
         <!-- Set Password Card (for social login users without password) -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password Login" %}
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 mb-4">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     {% blocktrans with email=user.email %}You can set a password to enable login with your email ({{ email }}) in addition to your social accounts.{% endblocktrans %}
                 </p>
                 <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
@@ -244,14 +244,14 @@
         </div>
         {% elif user.has_usable_password %}
         <!-- Change Password Card (for users with password) -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password" %}
                 </h5>
             </div>
             <div class="p-6">
-                <p class="text-gray-500 mb-4">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     {% trans "You have a password set for email login." %}
                     {% if crush_social_accounts %}
                     {% trans "You can also login with your connected social accounts." %}
@@ -265,16 +265,16 @@
         {% endif %}
 
         <!-- Profile Link Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-600" %}{% trans "Dating Profile" %}
                 </h5>
             </div>
             <div class="p-6">
                 {% if user.crushprofile %}
                 <p class="mb-4">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800{% endif %}">
                         {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
                     </span>
                 </p>
@@ -283,14 +283,14 @@
                     {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
                 </a>
                 {% elif user.crushprofile.completion_status == 'submitted' %}
-                <span class="text-gray-400 text-sm">{% trans "Profile under review" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
                 {% else %}
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
                     {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile" %}
                 </a>
                 {% endif %}
                 {% else %}
-                <p class="text-gray-500 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
                     {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}{% trans "Create Profile" %}
                 </a>
@@ -299,9 +299,9 @@
         </div>
 
         <!-- Email Notifications Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600" %}{% trans "Email Notifications" %}
                 </h5>
             </div>
@@ -322,26 +322,26 @@
                                    :checked="unsubscribeAll"
                                    @change="toggleUnsubscribe"
                                    {% if email_prefs.unsubscribed_all %}checked{% endif %}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                             <span class="ml-3 text-sm font-bold text-red-600">{% trans "Unsubscribe from ALL emails" %}</span>
                         </label>
                     </div>
 
-                    <hr class="my-6 border-gray-200">
+                    <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                     <div x-bind:class="unsubscribeAllClass">
-                        <p class="text-gray-500 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
+                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
 
                         <div class="space-y-4">
                             <label class="flex items-start cursor-pointer">
                                 <div class="relative mt-0.5">
                                     <input type="checkbox" class="sr-only peer" name="email_profile_updates"
                                            {% if email_prefs.email_profile_updates %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                 </div>
                                 <div class="ml-3">
-                                    <strong class="text-gray-900">{% trans "Profile Updates" %}</strong>
-                                    <p class="text-gray-500 text-sm">{% trans "Emails about profile approval, revision requests" %}</p>
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Emails about profile approval, revision requests" %}</p>
                                 </div>
                             </label>
 
@@ -349,11 +349,11 @@
                                 <div class="relative mt-0.5">
                                     <input type="checkbox" class="sr-only peer" name="email_event_reminders"
                                            {% if email_prefs.email_event_reminders %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                 </div>
                                 <div class="ml-3">
-                                    <strong class="text-gray-900">{% trans "Event Reminders" %}</strong>
-                                    <p class="text-gray-500 text-sm">{% trans "Reminders about upcoming events you're registered for" %}</p>
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about upcoming events you're registered for" %}</p>
                                 </div>
                             </label>
 
@@ -361,11 +361,11 @@
                                 <div class="relative mt-0.5">
                                     <input type="checkbox" class="sr-only peer" name="email_new_connections"
                                            {% if email_prefs.email_new_connections %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                 </div>
                                 <div class="ml-3">
-                                    <strong class="text-gray-900">{% trans "New Connections" %}</strong>
-                                    <p class="text-gray-500 text-sm">{% trans "Notifications about new connection requests" %}</p>
+                                    <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about new connection requests" %}</p>
                                 </div>
                             </label>
 
@@ -373,25 +373,25 @@
                                 <div class="relative mt-0.5">
                                     <input type="checkbox" class="sr-only peer" name="email_new_messages"
                                            {% if email_prefs.email_new_messages %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                 </div>
                                 <div class="ml-3">
-                                    <strong class="text-gray-900">{% trans "New Messages" %}</strong>
-                                    <p class="text-gray-500 text-sm">{% trans "Notifications about new messages from connections" %}</p>
+                                    <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about new messages from connections" %}</p>
                                 </div>
                             </label>
 
-                            <hr class="my-4 border-gray-200">
+                            <hr class="my-4 border-gray-200 dark:border-gray-700">
 
                             <label class="flex items-start cursor-pointer">
                                 <div class="relative mt-0.5">
                                     <input type="checkbox" class="sr-only peer" name="email_marketing"
                                            {% if email_prefs.email_marketing %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                 </div>
                                 <div class="ml-3">
-                                    <strong class="text-gray-900">{% trans "Marketing & Promotions" %}</strong>
-                                    <p class="text-gray-500 text-sm">{% trans "Newsletters, special offers, and promotions" %}</p>
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Marketing & Promotions" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Newsletters, special offers, and promotions" %}</p>
                                 </div>
                             </label>
                         </div>
@@ -407,7 +407,7 @@
         </div>
 
         <!-- Push Notifications Card (shown to all, JS detects browser support) -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden"
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="pushPreferences"
              data-subscriptions='{{ push_subscriptions_json }}'
              data-i18n-never-used="{% trans "Never used" %}"
@@ -419,8 +419,8 @@
              data-i18n-months-ago="{% trans "mo ago" %}"
              data-i18n-checking="{% trans "Checking..." %}"
              data-i18n-check-subscription-health="{% trans "Check Subscription Health" %}">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
                     {% trans "Push Notifications" %}
                 </h5>
@@ -430,18 +430,18 @@
                 <template x-if="showLoading">
                     <div class="flex items-center justify-center py-4">
                         <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
-                        <span class="text-gray-500">{% trans "Checking notification support..." %}</span>
+                        <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
 
                 <!-- State: Push not supported -->
                 <template x-if="showNotSupported">
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <div class="flex items-start">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 mr-2 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
-                                <p class="font-medium text-gray-700">{% trans "Push notifications not available" %}</p>
-                                <p class="text-sm text-gray-500 mt-1">
+                                <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                                     {% trans "Your browser doesn't support push notifications. Try opening Crush.lu in Chrome, Firefox, Edge, or Safari on iOS 16.4+." %}
                                 </p>
                             </div>
@@ -467,7 +467,7 @@
                 <!-- State: Not subscribed - show enable button -->
                 <template x-if="showEnableButton">
                     <div>
-                        <p class="text-gray-500 text-sm mb-4">
+                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
                             {% trans "Get instant notifications about new messages, event reminders, and connections on this device." %}
                         </p>
 
@@ -488,7 +488,7 @@
                 <!-- State: Subscribed - show preferences -->
                 <template x-if="showPreferences">
                     <div>
-                        <p class="text-gray-500 text-sm mb-4">
+                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
                             {% trans "Configure which notifications you receive on your devices. Changes are saved automatically." %}
                         </p>
 
@@ -496,14 +496,14 @@
                         <button type="button"
                                 @click="checkAllSubscriptionsHealth"
                                 x-bind:disabled="checkingHealth"
-                                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm mb-4 inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm mb-4 inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span x-show="notCheckingHealth">🔍</span>
                             <span x-show="checkingHealth" class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
                             <span x-text="checkHealthButtonText"></span>
                         </button>
 
                         {% for subscription in push_subscriptions %}
-                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
+                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200 dark:border-gray-700{% endif %}"
                              x-data="subscriptionHealthStatus({{ subscription.id }})"
                              data-subscription-id="{{ subscription.id }}"
                              data-endpoint="{{ subscription.endpoint }}"
@@ -513,28 +513,28 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <!-- Device Icon -->
                                     {% if subscription.device_type == 'mobile' %}
-                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
                                     </svg>
                                     {% else %}
-                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
                                     </svg>
                                     {% endif %}
-                                    <span class="font-medium text-gray-900">{{ subscription.device_name }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ subscription.device_name }}</span>
                                     <!-- "This device" badge (shown by JS if endpoint matches) -->
                                     <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                         {% trans "This device" %}
                                     </span>
                                 </div>
                                 <button type="button"
-                                        class="disable-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
+                                        class="disable-push-btn text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors"
                                         x-bind:disabled="isDisabling">
                                     <span x-text="disableButtonText"></span>
                                 </button>
                             </div>
                             <!-- Last active timestamp -->
-                            <p class="text-xs text-gray-400 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <!-- Health Status Indicators -->
                             <div x-show="hasStatus" class="mb-4 pl-7">
@@ -588,11 +588,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="newMessages"
                                                {% if subscription.notify_new_messages %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "New Messages" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Get notified when you receive a new message" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when you receive a new message" %}</p>
                                     </div>
                                 </label>
 
@@ -604,11 +604,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="eventReminders"
                                                {% if subscription.notify_event_reminders %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "Event Reminders" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Reminders about upcoming events" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about upcoming events" %}</p>
                                     </div>
                                 </label>
 
@@ -620,11 +620,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="newConnections"
                                                {% if subscription.notify_new_connections %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "New Connections" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Get notified when someone connects with you" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when someone connects with you" %}</p>
                                     </div>
                                 </label>
 
@@ -636,18 +636,18 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="profileUpdates"
                                                {% if subscription.notify_profile_updates %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "Profile Updates" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Notifications about your profile status" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about your profile status" %}</p>
                                     </div>
                                 </label>
                             </div>
                         </div>
                         {% empty %}
                         <div class="text-center py-4">
-                            <p class="text-gray-500">{% trans "No devices registered for push notifications." %}</p>
+                            <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "No devices registered for push notifications." %}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -657,7 +657,7 @@
 
         <!-- Coach Push Notifications Card (for coaches only) -->
         {% if is_coach %}
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden"
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="coachPushPreferences"
              data-subscriptions='{{ coach_push_subscriptions_json }}'
              data-i18n-never-used="{% trans "Never used" %}"
@@ -667,8 +667,8 @@
              data-i18n-hours-ago="{% trans "h ago" %}"
              data-i18n-days-ago="{% trans "d ago" %}"
              data-i18n-months-ago="{% trans "mo ago" %}">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
                     {% trans "Coach Notifications" %}
                     <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
@@ -681,18 +681,18 @@
                 <template x-if="showLoading">
                     <div class="flex items-center justify-center py-4">
                         <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
-                        <span class="text-gray-500">{% trans "Checking notification support..." %}</span>
+                        <span class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "Checking notification support..." %}</span>
                     </div>
                 </template>
 
                 <!-- State: Push not supported -->
                 <template x-if="showNotSupported">
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                         <div class="flex items-start">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 mr-2 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
-                                <p class="font-medium text-gray-700">{% trans "Push notifications not available" %}</p>
-                                <p class="text-sm text-gray-500 mt-1">
+                                <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                                     {% trans "Your browser doesn't support push notifications." %}
                                 </p>
                             </div>
@@ -718,7 +718,7 @@
                 <!-- State: Not subscribed - show enable button -->
                 <template x-if="showEnableButton">
                     <div>
-                        <p class="text-gray-500 text-sm mb-4">
+                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
                             {% trans "Get instant notifications about new profile submissions, screening reminders, and user responses." %}
                         </p>
 
@@ -739,12 +739,12 @@
                 <!-- State: Subscribed - show preferences -->
                 <template x-if="showPreferences">
                     <div>
-                        <p class="text-gray-500 text-sm mb-4">
+                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
                             {% trans "Configure which coach notifications you receive on your devices. Changes are saved automatically." %}
                         </p>
 
                         {% for subscription in coach_push_subscriptions %}
-                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200{% endif %}"
+                        <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200 dark:border-gray-700{% endif %}"
                              data-subscription-id="{{ subscription.id }}"
                              data-endpoint="{{ subscription.endpoint }}"
                              data-fingerprint="{{ subscription.device_fingerprint }}">
@@ -753,28 +753,28 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <!-- Device Icon -->
                                     {% if subscription.device_type == 'mobile' %}
-                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
                                     </svg>
                                     {% else %}
-                                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
                                     </svg>
                                     {% endif %}
-                                    <span class="font-medium text-gray-900">{{ subscription.device_name }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ subscription.device_name }}</span>
                                     <!-- "This device" badge (shown by JS if endpoint matches) -->
                                     <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                         {% trans "This device" %}
                                     </span>
                                 </div>
                                 <button type="button"
-                                        class="disable-coach-push-btn text-sm text-gray-500 hover:text-red-600 transition-colors"
+                                        class="disable-coach-push-btn text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors"
                                         x-bind:disabled="isDisabling">
                                     <span x-text="disableButtonText"></span>
                                 </button>
                             </div>
                             <!-- Last active timestamp -->
-                            <p class="text-xs text-gray-400 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
 
                             <div class="space-y-4 pl-7">
                                 <!-- New Submissions Toggle -->
@@ -785,11 +785,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="newSubmissions"
                                                {% if subscription.notify_new_submissions %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "New Profile Submissions" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Get notified when new profiles need review" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "New Profile Submissions" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when new profiles need review" %}</p>
                                     </div>
                                 </label>
 
@@ -801,11 +801,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="screeningReminders"
                                                {% if subscription.notify_screening_reminders %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "Screening Reminders" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Reminders about pending screening calls" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "Screening Reminders" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about pending screening calls" %}</p>
                                     </div>
                                 </label>
 
@@ -817,11 +817,11 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="userResponses"
                                                {% if subscription.notify_user_responses %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "User Revisions" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Get notified when users submit profile revisions" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "User Revisions" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when users submit profile revisions" %}</p>
                                     </div>
                                 </label>
 
@@ -833,18 +833,18 @@
                                                data-subscription-id="{{ subscription.id }}"
                                                data-pref-key="systemAlerts"
                                                {% if subscription.notify_system_alerts %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </div>
                                     <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900">{% trans "System Alerts" %}</strong>
-                                        <p class="text-gray-500 text-sm">{% trans "Important system notifications and alerts" %}</p>
+                                        <strong class="text-gray-900 dark:text-white">{% trans "System Alerts" %}</strong>
+                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Important system notifications and alerts" %}</p>
                                     </div>
                                 </label>
                             </div>
                         </div>
                         {% empty %}
                         <div class="text-center py-4">
-                            <p class="text-gray-500">{% trans "No devices registered for coach notifications." %}</p>
+                            <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500">{% trans "No devices registered for coach notifications." %}</p>
                         </div>
                         {% endfor %}
                     </div>
@@ -854,9 +854,9 @@
         {% endif %}
 
         <!-- Privacy Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100">
-                <h5 class="text-lg font-semibold text-gray-900 flex items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-purple-600" %}{% trans "Privacy & Data" %}
                 </h5>
             </div>
@@ -873,7 +873,7 @@
         </div>
 
         <!-- Danger Zone Card -->
-        <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden border-2 border-red-500">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden border-2 border-red-500">
             <div class="bg-red-500 text-white px-6 py-4">
                 <h5 class="text-lg font-semibold flex items-center">
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}{% trans "Danger Zone" %}
@@ -881,7 +881,7 @@
             </div>
             <div class="p-6">
                 <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Account" %}</h6>
-                <p class="text-gray-500 text-sm mb-4">
+                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
                     {% trans "Once you delete your account, there is no going back. All your data including your profile, photos, event registrations, connections, and messages will be permanently deleted." %}
                 </p>
                 <a href="{% url 'crush_lu:delete_account' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
@@ -891,7 +891,7 @@
         </div>
 
         <div class="text-center mt-6">
-            <a href="{% url 'crush_lu:dashboard' %}" class="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+            <a href="{% url 'crush_lu:dashboard' %}" class="border border-gray-300 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}{% trans "Back to Dashboard" %}
             </a>
         </div>

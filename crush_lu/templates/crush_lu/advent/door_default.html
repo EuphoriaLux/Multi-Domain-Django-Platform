@@ -84,7 +84,7 @@
                     </div>
                 {% elif has_qr_bonus and not show_bonus %}
                     <!-- Show hint about bonus content -->
-                    <div class="bonus-hint text-center mt-4 p-3" style="background: rgba(255,215,0,0.1); border-radius: 12px; border: 2px dashed #ffd700;">
+                    <div class="bonus-hint text-center mt-4 p-3 rounded-xl border-2 border-dashed border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
                         <span style="font-size: 2rem;">🎁</span>
                         <p class="mb-0 mt-2">
                             <strong>Bonus content available!</strong><br>
@@ -102,9 +102,9 @@
             {% endif %}
 
             <!-- Navigation buttons -->
-            <div class="door-navigation flex justify-between mt-4 pt-4 border-t border-gray-200">
+            <div class="door-navigation flex justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {% if door_number > 1 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                         {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Previous
                     </a>
                 {% else %}
@@ -116,7 +116,7 @@
                 </a>
 
                 {% if door_number < 24 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                         Next {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                     </a>
                 {% else %}
@@ -136,6 +136,10 @@
         font-size: 1.1rem;
         line-height: 1.8;
         color: #333;
+    }
+
+    html.dark .door-message {
+        color: #d1d5db;
     }
 
     .newly-opened-message {

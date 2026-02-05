@@ -8,11 +8,11 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-md">
-        <div class="auth-card bg-white rounded-2xl shadow-lg">
+        <div class="auth-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20">
             <div class="p-6 md:p-10">
                 <!-- Tab Navigation - Alpine.js Tabs -->
                 <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
-                    <div class="auth-tabs flex bg-purple-100 rounded-full p-1 border border-purple-200">
+                    <div class="auth-tabs flex bg-purple-100 dark:bg-purple-900/30 rounded-full p-1 border border-purple-200 dark:border-purple-700">
                         <button type="button"
                                 @click="setLogin"
                                 x-bind:class="loginTabClass"
@@ -86,14 +86,14 @@
                             {% csrf_token %}
 
                             {% if login_form.non_field_errors %}
-                                <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
                                     {{ login_form.non_field_errors }}
                                 </div>
                             {% endif %}
 
                             <div class="mb-4">
-                                <label for="id_login" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
-                                <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                <label for="id_login" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
+                                <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_login" name="login"
                                        value="{{ login_form.login.value|default:'' }}" required autofocus
                                        placeholder="your@email.com">
@@ -103,8 +103,8 @@
                             </div>
 
                             <div class="mb-6">
-                                <label for="id_password" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_password" name="password" required>
                                 {% if login_form.password.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ login_form.password.errors.0 }}</p>
@@ -126,15 +126,15 @@
                             {% csrf_token %}
 
                             {% if signup_form.non_field_errors %}
-                                <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+                                <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
                                     {{ signup_form.non_field_errors }}
                                 </div>
                             {% endif %}
 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label for="id_first_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Name" %}</label>
-                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.first_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                    <label for="id_first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
+                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_first_name" name="first_name"
                                            value="{{ signup_form.first_name.value|default:'' }}" required>
                                     {% if signup_form.first_name.errors %}
@@ -143,8 +143,8 @@
                                 </div>
 
                                 <div>
-                                    <label for="id_last_name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Name" %}</label>
-                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                    <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Last Name" %}</label>
+                                    <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                            id="id_last_name" name="last_name"
                                            value="{{ signup_form.last_name.value|default:'' }}" required>
                                     {% if signup_form.last_name.errors %}
@@ -154,8 +154,8 @@
                             </div>
 
                             <div class="mb-4">
-                                <label for="id_email" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
-                                <input type="email" class="w-full px-4 py-3 border {% if signup_form.email.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                <label for="id_email" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
+                                <input type="email" class="w-full px-4 py-3 border {% if signup_form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_email" name="email"
                                        value="{{ signup_form.email.value|default:'' }}" required>
                                 {% if signup_form.email.errors %}
@@ -164,18 +164,18 @@
                             </div>
 
                             <div class="mb-4">
-                                <label for="id_password1" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                <label for="id_password1" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_password1" name="password1" required>
                                 {% if signup_form.password1.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.password1.errors.0 }}</p>
                                 {% endif %}
-                                <p class="mt-1 text-sm text-gray-500">{% trans "At least 8 characters" %}</p>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "At least 8 characters" %}</p>
                             </div>
 
                             <div class="mb-6">
-                                <label for="id_password2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Confirm Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                <label for="id_password2" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
+                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_password2" name="password2" required>
                                 {% if signup_form.password2.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.password2.errors.0 }}</p>
@@ -189,7 +189,7 @@
 
                 <!-- Privacy Notice -->
                 <div class="text-center mt-6">
-                    <p class="text-sm text-gray-500">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
                         {% trans "Your privacy is our priority. Crush.lu accounts are separate from other platforms." %}
                     </p>
                 </div>
@@ -204,12 +204,12 @@
 <style>
 /* Social login divider */
 .social-login-divider {
-    @apply text-center text-gray-500 text-sm my-6 relative;
+    @apply text-center text-gray-500 dark:text-gray-400 text-sm my-6 relative;
 }
 .social-login-divider::before,
 .social-login-divider::after {
     content: '';
-    @apply absolute top-1/2 w-[calc(50%-3rem)] h-px bg-gray-300;
+    @apply absolute top-1/2 w-[calc(50%-3rem)] h-px bg-gray-300 dark:bg-gray-600;
 }
 .social-login-divider::before { @apply left-0; }
 .social-login-divider::after { @apply right-0; }

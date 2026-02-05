@@ -8,20 +8,20 @@
 <div class="max-w-6xl mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-8">
-        <h2 class="text-2xl font-bold flex items-center gap-2">
+        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
             {% include "shared/icons/map.html" with class="w-5 h-5" %} {% trans "Journey Management Dashboard" %}
         </h2>
-        <p class="text-gray-500 mt-1">{% trans "Manage all active Wonderland Journey experiences and monitor user progress." %}</p>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">{% trans "Manage all active Wonderland Journey experiences and monitor user progress." %}</p>
     </div>
 
     {% if journeys_with_progress %}
         {% for item in journeys_with_progress %}
-        <div class="bg-white rounded-xl shadow-sm mb-6 p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 p-6">
             <!-- Journey Header -->
             <div class="flex flex-col md:flex-row md:justify-between md:items-center pb-4 mb-4 border-b-2 border-purple-500">
                 <div>
-                    <h3 class="text-xl font-semibold">{{ item.journey.journey_name }}</h3>
-                    <p class="text-gray-500">
+                    <h3 class="text-xl font-semibold dark:text-white">{{ item.journey.journey_name }}</h3>
+                    <p class="text-gray-500 dark:text-gray-400">
                         {% blocktrans with first_name=item.journey.special_experience.first_name last_name=item.journey.special_experience.last_name %}For: <strong>{{ first_name }} {{ last_name }}</strong>{% endblocktrans %}
                     </p>
                     <p class="text-gray-500">
@@ -39,19 +39,19 @@
 
             <!-- Stats Grid -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-4">
-                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                     <div class="text-3xl font-bold text-purple-600">{{ item.total_users }}</div>
-                    <div class="text-sm text-gray-500">{% trans "Total Users" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Total Users" %}</div>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                     <div class="text-3xl font-bold text-purple-600">{{ item.completed_users }}</div>
-                    <div class="text-sm text-gray-500">{% trans "Completed" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Completed" %}</div>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                     <div class="text-3xl font-bold text-purple-600">{{ item.journey.chapters.count }}</div>
-                    <div class="text-sm text-gray-500">{% trans "Chapters" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Chapters" %}</div>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                     <div class="text-3xl font-bold text-purple-600">
                         {% with total_challenges=0 %}
                             {% for chapter in item.journey.chapters.all %}
@@ -67,12 +67,12 @@
             <!-- Recent Progress -->
             {% if item.recent_progress %}
             <div class="mt-6">
-                <h5 class="font-semibold mb-3">{% trans "Recent User Activity" %}</h5>
+                <h5 class="font-semibold mb-3 dark:text-white">{% trans "Recent User Activity" %}</h5>
                 {% for progress in item.recent_progress %}
-                <div class="p-3 border-l-4 border-purple-500 bg-gray-50 rounded-r-lg mb-3">
+                <div class="p-3 border-l-4 border-purple-500 bg-gray-50 dark:bg-gray-700 rounded-r-lg mb-3">
                     <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
                         <div class="flex items-center flex-wrap gap-2">
-                            <strong>{{ progress.user.username }}</strong>
+                            <strong class="dark:text-white">{{ progress.user.username }}</strong>
                             <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-500 text-white rounded">
                                 {% blocktrans with chapter=progress.current_chapter %}Chapter {{ chapter }}{% endblocktrans %}
                             </span>
@@ -83,9 +83,9 @@
                             {% endif %}
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="text-gray-500">{% blocktrans with points=progress.total_points %}{{ points }} pts{% endblocktrans %}</span>
+                            <span class="text-gray-500 dark:text-gray-400">{% blocktrans with points=progress.total_points %}{{ points }} pts{% endblocktrans %}</span>
                             <a href="{% url 'crush_lu:coach_view_user_progress' progress.id %}"
-                               class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-purple-500 text-purple-600 hover:bg-purple-50 font-medium rounded-lg transition-colors">
+                               class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-purple-500 dark:border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-medium rounded-lg transition-colors">
                                 {% include "shared/icons/eye.html" with class="w-5 h-5" %} {% trans "View Progress" %}
                             </a>
                         </div>
@@ -99,7 +99,7 @@
         </div>
         {% endfor %}
     {% else %}
-        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 flex items-center gap-2">
+        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 flex items-center gap-2">
             {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
             {% trans "No active journeys found. Create a journey from the Special User Experience admin panel." %}
         </div>
@@ -112,7 +112,7 @@
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Coach Dashboard" %}
         </a>
         <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}"
-           class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold rounded-lg transition-colors">
+           class="inline-flex items-center gap-2 px-5 py-3 border border-purple-500 dark:border-purple-600 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold rounded-lg transition-colors">
             {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %} {% trans "Create New Journey" %}
         </a>
     </div>

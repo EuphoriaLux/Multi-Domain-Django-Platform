@@ -11,13 +11,13 @@
     {# Header with back button and user info #}
     <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <a href="{% url 'crush_lu:coach_dashboard' %}"
-           class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+           class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
             {% trans "Back to Dashboard" %}
         </a>
 
         <div class="flex items-center gap-3">
-            <h1 class="text-2xl font-bold text-gray-900">{{ profile.user.get_full_name }}</h1>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ profile.user.get_full_name }}</h1>
             <span class="text-3xl">
                 {% if profile.preferred_language == 'en' %}
                     🇬🇧
@@ -51,13 +51,13 @@
                 <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {# Column 1: Basic Info #}
                     <div class="space-y-1">
-                        <p class="font-semibold text-gray-900">{% trans "Basic Info" %}</p>
-                        <p class="text-gray-700">{{ profile.age }} {% trans "years old" %} • {{ profile.get_gender_display }}</p>
-                        <p class="text-gray-700">📍 {{ profile.location|default:"Not set" }}</p>
-                        <p class="text-gray-700">📞 {{ profile.phone_number }}</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Basic Info" %}</p>
+                        <p class="text-gray-700 dark:text-gray-200">{{ profile.age }} {% trans "years old" %} • {{ profile.get_gender_display }}</p>
+                        <p class="text-gray-700 dark:text-gray-200">📍 {{ profile.location|default:"Not set" }}</p>
+                        <p class="text-gray-700 dark:text-gray-200">📞 {{ profile.phone_number }}</p>
 
                         {# Divider before account metadata #}
-                        <hr class="my-2 border-gray-300">
+                        <hr class="my-2 border-gray-300 dark:border-gray-600">
 
                         {# Account creation date #}
                         <p class="text-xs text-gray-600">
@@ -98,33 +98,33 @@
 
                     {# Column 2: Languages & Preferences #}
                     <div class="space-y-1">
-                        <p class="font-semibold text-gray-900">{% trans "Languages" %}</p>
-                        <p class="text-gray-700">
+                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Languages" %}</p>
+                        <p class="text-gray-700 dark:text-gray-200">
                             <span class="font-medium">{% trans "Email:" %}</span>
                             {% if profile.preferred_language == 'en' %}🇬🇧 EN
                             {% elif profile.preferred_language == 'de' %}🇩🇪 DE
                             {% elif profile.preferred_language == 'fr' %}🇫🇷 FR
                             {% endif %}
                         </p>
-                        <p class="text-gray-700">
+                        <p class="text-gray-700 dark:text-gray-200">
                             <span class="font-medium">{% trans "Events:" %}</span>
                             {% for lang in profile.event_languages %}
                                 {% if lang == 'en' %}🇬🇧{% elif lang == 'de' %}🇩🇪{% elif lang == 'fr' %}🇫🇷{% elif lang == 'lu' %}🇱🇺{% endif %}
                             {% endfor %}
                         </p>
-                        <p class="text-gray-700">💕 {{ profile.get_looking_for_display }}</p>
+                        <p class="text-gray-700 dark:text-gray-200">💕 {{ profile.get_looking_for_display }}</p>
                     </div>
 
                     {# Column 3: Privacy & Quick Access #}
                     <div class="space-y-1">
-                        <p class="font-semibold text-gray-900">{% trans "Privacy" %}</p>
-                        <p class="text-gray-700">
+                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Privacy" %}</p>
+                        <p class="text-gray-700 dark:text-gray-200">
                             {% if profile.show_full_name %}✅{% else %}❌{% endif %} {% trans "Full name" %}
                         </p>
-                        <p class="text-gray-700">
+                        <p class="text-gray-700 dark:text-gray-200">
                             {% if profile.show_exact_age %}✅{% else %}❌{% endif %} {% trans "Exact age" %}
                         </p>
-                        <p class="text-gray-700">
+                        <p class="text-gray-700 dark:text-gray-200">
                             {% if profile.blur_photos %}🔒{% else %}👁️{% endif %} {% trans "Photos" %}
                         </p>
                         <button @click="showProfile" class="mt-2 text-xs text-purple-600 hover:text-purple-800 font-medium underline">
@@ -137,7 +137,7 @@
     </div>
 
     {# Tab Navigation #}
-    <div class="mb-6 bg-gray-50 rounded-lg p-2 border border-gray-200">
+    <div class="mb-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-200 dark:border-gray-700">
         <div class="flex flex-col sm:flex-row gap-2">
             <button
                 @click="showProfile"
@@ -172,15 +172,15 @@
     </div>
 
     {# Tab Content Area #}
-    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 min-h-[500px]">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 border border-gray-200 dark:border-gray-700 p-6 min-h-[500px]">
         {# Tab 1: Profile Overview (Full Detail) #}
         <div x-show="isProfileTab" x-cloak>
             <div class="mb-4">
-                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     {% include "shared/icons/user.html" with class="w-6 h-6 text-purple-600" %}
                     {% trans "Profile Overview" %}
                 </h2>
-                <p class="text-sm text-gray-500 mt-1">{% trans "Quick reference for user information" %}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Quick reference for user information" %}</p>
             </div>
             {% include 'crush_lu/_profile_tab.html' %}
         </div>
@@ -188,11 +188,11 @@
         {# Tab 2: Screening Call #}
         <div x-show="isScreeningTab" x-cloak>
             <div class="mb-4">
-                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     {% include "shared/icons/phone.html" with class="w-6 h-6 text-purple-600" %}
                     {% trans "Screening Call" %}
                 </h2>
-                <p class="text-sm text-gray-500 mt-1">{% trans "Complete the screening call checklist before approval" %}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Complete the screening call checklist before approval" %}</p>
             </div>
             {% include 'crush_lu/_screening_tab.html' %}
         </div>
@@ -200,11 +200,11 @@
         {# Tab 3: Review Decision #}
         <div x-show="isDecisionTab" x-cloak>
             <div class="mb-6">
-                <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     {% include "shared/icons/clipboard-document-check.html" with class="w-6 h-6 text-purple-600" %}
                     {% trans "Review Decision" %}
                 </h2>
-                <p class="text-sm text-gray-500 mt-1">{% trans "Submit your final decision after completing the screening call" %}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Submit your final decision after completing the screening call" %}</p>
             </div>
             {% include 'crush_lu/_decision_tab.html' %}
         </div>
@@ -215,7 +215,7 @@
         x-data="guidelinesPanel"
         x-show="isOpen"
         x-cloak
-        class="fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-2xl border-2 border-purple-200 z-40"
+        class="fixed bottom-6 right-6 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:shadow-gray-900/20 border-2 border-purple-200 dark:border-purple-700 z-40"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 translate-y-4"
         x-transition:enter-end="opacity-100 translate-y-0"
@@ -243,43 +243,43 @@
                     <span class="text-yellow-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700"><strong class="text-gray-900">{% trans "Complete screening call first!" %}</strong></span>
+                    <span class="text-gray-700 dark:text-gray-200"><strong class="text-gray-900 dark:text-white">{% trans "Complete screening call first!" %}</strong></span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-green-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/check.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Verify photos are clear and appropriate" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Verify photos are clear and appropriate" %}</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-green-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/check.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Ensure bio is genuine and respectful" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Ensure bio is genuine and respectful" %}</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-green-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/check.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Confirm age verification (18+)" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Confirm age verification (18+)" %}</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-red-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/x-mark.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Look for red flags or suspicious content" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Look for red flags or suspicious content" %}</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-purple-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/language.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Write feedback in user's preferred language" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Write feedback in user's preferred language" %}</span>
                 </li>
                 <li class="flex items-start gap-2">
                     <span class="text-blue-500 mt-0.5 flex-shrink-0">
                         {% include "shared/icons/eye.html" with class="w-4 h-4" %}
                     </span>
-                    <span class="text-gray-700">{% trans "Use preview button to verify email before sending" %}</span>
+                    <span class="text-gray-700 dark:text-gray-200">{% trans "Use preview button to verify email before sending" %}</span>
                 </li>
             </ul>
         </div>
@@ -313,11 +313,11 @@
     <div class="fixed inset-0 bg-black bg-opacity-50" @click="handleBackdropClick"></div>
 
     {# Modal #}
-    <div class="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+    <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:shadow-gray-900/20 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {# Header #}
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-xl font-semibold">{% trans "Email Preview" %}</h3>
-            <button @click="handleCloseClick" type="button" class="text-gray-400 hover:text-gray-600">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-xl font-semibold dark:text-white">{% trans "Email Preview" %}</h3>
+            <button @click="handleCloseClick" type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 {% include "shared/icons/x-mark.html" with class="w-6 h-6" %}
             </button>
         </div>
@@ -335,8 +335,8 @@
         </div>
 
         {# Footer #}
-        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50">
-            <button @click="handleCloseClick" type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <button @click="handleCloseClick" type="button" class="px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 {% trans "Close" %}
             </button>
             <button @click="handleSubmitClick" type="button" class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:from-purple-700 hover:to-pink-600 transition-all">

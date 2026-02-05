@@ -139,21 +139,61 @@
         0%, 100% { box-shadow: 0 0 10px rgba(255, 107, 157, 0.5); }
         50% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.8); }
     }
+
+    /* Dark Mode Support */
+    html.dark .presenter-card {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+        border-color: #7C3AED;
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+    }
+
+    html.dark .presenter-name {
+        color: #A78BFA;
+    }
+
+    html.dark .presentation-timer {
+        color: #F472B6;
+    }
+
+    html.dark .star-rating label {
+        color: #4B5563;
+    }
+
+    html.dark .star-rating label:hover,
+    html.dark .star-rating label:hover ~ label,
+    html.dark .star-rating input[type="radio"]:checked ~ label {
+        color: #FFD700;
+    }
+
+    html.dark .progress-bar-container {
+        background: #1F2937;
+    }
+
+    html.dark .next-presenter-card {
+        background: #1F2937;
+        border-color: #374151;
+    }
+
+    html.dark .rating-submitted {
+        background: rgba(34, 197, 94, 0.15);
+        border-color: #22C55E;
+        color: #86EFAC;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4 presentation-container">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
-        <div class="bg-white rounded-xl shadow-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <div class="text-center mb-4">
-                    <h1 class="display-5">{% trans "🎤 Presentation Round" %}</h1>
-                    <p class="text-lg text-gray-500">{{ event.title }}</p>
+                    <h1 class="display-5 dark:text-white">{% trans "🎤 Presentation Round" %}</h1>
+                    <p class="text-lg text-gray-500 dark:text-gray-400">{{ event.title }}</p>
                 </div>
 
                 <!-- Progress Bar -->
@@ -192,8 +232,8 @@
                         {% if not is_presenting %}
                         <!-- Star Rating (only for non-presenters) -->
                         <div class="text-center">
-                            <h4 class="mb-3">{% trans "Rate this presentation" %}</h4>
-                            <p class="text-gray-500">{% trans "Your rating is completely anonymous" %}</p>
+                            <h4 class="mb-3 dark:text-white">{% trans "Rate this presentation" %}</h4>
+                            <p class="text-gray-500 dark:text-gray-400">{% trans "Your rating is completely anonymous" %}</p>
 
                             {% if user_has_rated %}
                             <div class="rating-submitted">
@@ -221,7 +261,7 @@
                             {% endif %}
                         </div>
                         {% else %}
-                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 text-center">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 text-center">
                             <strong>{% trans "💡 Tip:" %}</strong> {% trans "Take your time, be yourself, and have fun!" %}
                         </div>
                         {% endif %}
@@ -229,8 +269,8 @@
 
                     {% if next_presentation %}
                     <div class="next-presenter-card">
-                        <h5 class="text-gray-500">{% trans "👀 Up Next:" %}</h5>
-                        <p class="mb-0"><strong>{{ next_presentation.user.crushprofile.display_name }}</strong></p>
+                        <h5 class="text-gray-500 dark:text-gray-400">{% trans "👀 Up Next:" %}</h5>
+                        <p class="mb-0 dark:text-gray-300"><strong>{{ next_presentation.user.crushprofile.display_name }}</strong></p>
                     </div>
                     {% endif %}
 
@@ -238,16 +278,16 @@
                     <!-- No current presenter -->
                     {% if completed_presentations == total_presentations and total_presentations > 0 %}
                     <!-- All presentations completed -->
-                    <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-6 text-center">
+                    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-6 text-center">
                         <h4 class="text-xl font-semibold mb-2">{% trans "🎉 All Presentations Completed!" %}</h4>
                         <p class="mb-4">{% blocktrans with total=total_presentations %}Great job everyone! All {{ total }} presentations are done.{% endblocktrans %}</p>
                         <a href="{% url 'crush_lu:my_presentation_scores' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
                             {% trans "View Your Personal Scores" %}
                         </a>
-                        <p class="mt-4 text-gray-500 text-sm">{% trans "Your scores are completely private - only you can see them!" %}</p>
+                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm">{% trans "Your scores are completely private - only you can see them!" %}</p>
                     </div>
                     {% else %}
-                    <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-6 text-center">
+                    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-6 text-center">
                         <h4 class="text-xl font-semibold mb-2">{% trans "Waiting for presentations to begin..." %}</h4>
                         <p class="mb-0">{% trans "The coach will start the presentation round shortly." %}</p>
                     </div>

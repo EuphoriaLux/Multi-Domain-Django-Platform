@@ -10,10 +10,10 @@
 {% appinsights_event "signup_page_viewed" %}
 <div class="flex justify-center">
     <div class="w-full max-w-lg">
-        <div class="bg-white rounded-xl shadow-lg">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20">
             <div class="p-8 md:p-10">
-                <h2 class="text-center text-2xl font-bold text-gray-900 mb-4">{% trans "Join Crush.lu" %}</h2>
-                <p class="text-center text-gray-500 mb-6">
+                <h2 class="text-center text-2xl font-bold text-gray-900 dark:text-white mb-4">{% trans "Join Crush.lu" %}</h2>
+                <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
                     {% trans "Create your account to start meeting new people" %}
                 </p>
 
@@ -63,21 +63,21 @@
                     {% endfor %}
                 </div>
 
-                <div class="social-login-divider text-center text-gray-500 text-sm my-6 relative">{% trans "Or sign up with email" %}</div>
+                <div class="social-login-divider text-center text-gray-500 dark:text-gray-400 text-sm my-6 relative">{% trans "Or sign up with email" %}</div>
                 {% endif %}
 
                 <form method="post" novalidate>
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
-                        <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+                        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
                             {{ form.non_field_errors }}
                         </div>
                     {% endif %}
 
                     <div class="mb-4">
-                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Name" %}</label>
-                        <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
+                        <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.name }}"
                                value="{{ form.first_name.value|default:'' }}" required>
                         {% if form.first_name.errors %}
@@ -86,8 +86,8 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Last Name" %}</label>
-                        <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Last Name" %}</label>
+                        <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
                                value="{{ form.last_name.value|default:'' }}" required>
                         {% if form.last_name.errors %}
@@ -96,8 +96,8 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Email" %}</label>
-                        <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
+                        <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
                                value="{{ form.email.value|default:'' }}" required>
                         {% if form.email.errors %}
@@ -106,20 +106,20 @@
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Password" %}</label>
-                        <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
+                        <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
                         {% if form.password1.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.password1.errors.0 }}</p>
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password1.errors.0 }}</p>
                         {% endif %}
-                        <p class="mt-1 text-sm text-gray-500">
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             {% trans "Your password must contain at least 8 characters." %}
                         </p>
                     </div>
 
                     <div class="mb-6">
-                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Confirm Password" %}</label>
-                        <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
+                        <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
                         {% if form.password2.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
@@ -129,11 +129,11 @@
                     <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">{% trans "Create Account" %}</button>
                 </form>
 
-                <hr class="my-6 border-gray-200">
+                <hr class="my-6 border-gray-200 dark:border-gray-700">
 
-                <p class="text-center text-gray-500 mb-0">
+                <p class="text-center text-gray-500 dark:text-gray-400 mb-0">
                     {% trans "Already have an account?" %}
-                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 hover:text-purple-800 font-medium">{% trans "Log in" %}</a>
+                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium">{% trans "Log in" %}</a>
                 </p>
             </div>
         </div>

@@ -12,6 +12,11 @@
             overflow: hidden;
         }
 
+        html.dark .crush-admin-section {
+            background: #1e293b;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
         .crush-section-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -46,6 +51,10 @@
             border-bottom: 1px solid #f0f0f0;
         }
 
+        html.dark .crush-section-content td {
+            border-bottom: 1px solid #374151;
+        }
+
         .crush-section-content tr:last-child td {
             border-bottom: none;
         }
@@ -59,8 +68,16 @@
             transition: background 0.2s;
         }
 
+        html.dark .crush-model-link {
+            color: #e5e7eb;
+        }
+
         .crush-model-link:hover {
             background: #f8f9fa;
+        }
+
+        html.dark .crush-model-link:hover {
+            background: #374151;
         }
 
         .crush-model-icon {
@@ -83,6 +100,11 @@
             font-size: 12px;
             font-weight: 600;
             margin-left: 10px;
+        }
+
+        html.dark .crush-model-count {
+            background: #1e3a5a;
+            color: #64b5f6;
         }
 
         .crush-model-actions {
@@ -112,6 +134,12 @@
             color: #666;
             font-size: 14px;
             line-height: 1.6;
+        }
+
+        html.dark .crush-section-description {
+            background: #1e293b;
+            border-bottom: 1px solid #374151;
+            color: #9ca3af;
         }
 
         .crush-toggle-icon {

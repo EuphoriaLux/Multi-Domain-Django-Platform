@@ -49,12 +49,35 @@
         box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
         color: white;
     }
+
+    /* Dark mode overrides */
+    html.dark .challenge-editor {
+        background: #1e293b;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    html.dark .chapter-info {
+        background: linear-gradient(135deg, #6D28D9, #BE185D);
+    }
+
+    html.dark .form-section {
+        border-bottom-color: #374151;
+    }
+
+    html.dark .hint-box {
+        background: rgba(251, 191, 36, 0.1);
+        color: #fbbf24;
+    }
+
+    html.dark .btn-save:hover {
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto mt-8 px-4">
-    <div class="bg-white rounded-xl shadow-lg p-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 p-8">
         <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-5 rounded-lg mb-8">
             <h3 class="mb-2 flex items-center gap-2">
                 {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %} {% trans "Edit Challenge" %}
@@ -70,14 +93,14 @@
 
         {# Mode Detection Alert #}
         {% if challenge.chapter.chapter_number in '245'|make_list or challenge.challenge_type == 'open_text' or challenge.challenge_type == 'would_you_rather' or not challenge.correct_answer %}
-        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6">
+        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6">
             <h5 class="font-semibold flex items-center gap-2">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} {% trans "Questionnaire Mode" %}</h5>
             <p class="mb-0">
                 {% trans "This challenge accepts <strong>all answers</strong>. Users cannot get it \"wrong.\" All responses are saved and visible below for your review." %}
             </p>
         </div>
         {% else %}
-        <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-6">
+        <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-6">
             <h5 class="font-semibold flex items-center gap-2">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Quiz Mode" %}</h5>
             <p class="mb-0">
                 {% trans "This challenge validates answers against the correct answer below. Users can get hints and earn points based on correctness." %}
@@ -89,22 +112,22 @@
             {% csrf_token %}
 
             <!-- Question Section -->
-            <div class="mb-8 pb-8 border-b border-gray-200">
+            <div class="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
                 <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %} {% trans "Challenge Question" %}</h5>
                 <div class="mb-4">
-                    <label for="question" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Question/Prompt *" %}</label>
-                    <textarea class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="question" name="question" rows="4" required>{{ challenge.question }}</textarea>
-                    <p class="mt-1 text-sm text-gray-500">{% trans "The main question or prompt shown to the user." %}</p>
+                    <label for="question" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Question/Prompt *" %}</label>
+                    <textarea class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="question" name="question" rows="4" required>{{ challenge.question }}</textarea>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "The main question or prompt shown to the user." %}</p>
                 </div>
 
                 {# Display answer choices if present #}
                 {% if challenge.options %}
                 <div class="mt-4">
-                    <strong>{% trans "Answer Choices:" %}</strong>
+                    <strong class="dark:text-white">{% trans "Answer Choices:" %}</strong>
                     <div class="ml-4 mt-2 space-y-1">
                         {% for key, value in challenge.options.items %}
-                        <div>
-                            <span class="inline-block px-2 py-0.5 bg-gray-500 text-white text-xs rounded">{{ key }}</span> {{ value }}
+                        <div class="dark:text-gray-300">
+                            <span class="inline-block px-2 py-0.5 bg-gray-500 dark:bg-gray-600 text-white text-xs rounded">{{ key }}</span> {{ value }}
                         </div>
                         {% endfor %}
                     </div>
@@ -113,63 +136,63 @@
             </div>
 
             <!-- Answer Section -->
-            <div class="mb-8 pb-8 border-b border-gray-200">
+            <div class="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
                 <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Correct Answer" %}</h5>
                 <div class="mb-4">
-                    <label for="correct_answer" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Correct Answer" %}</label>
-                    <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="correct_answer" name="correct_answer"
+                    <label for="correct_answer" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Correct Answer" %}</label>
+                    <input type="text" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="correct_answer" name="correct_answer"
                            value="{{ challenge.correct_answer }}">
-                    <p class="mt-1 text-sm text-gray-500">
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         {% trans "Leave blank for questionnaire-style challenges (all answers are saved for review). For riddles/quizzes, enter the correct answer here." %}
                     </p>
                 </div>
             </div>
 
             <!-- Hints Section -->
-            <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "Hints System" %}</h5>
-                <p class="text-gray-500 mb-4">{% trans "Users can unlock hints in exchange for points. Leave blank if no hints available." %}</p>
+            <div class="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
+                <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "Hints System" %}</h5>
+                <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Users can unlock hints in exchange for points. Leave blank if no hints available." %}</p>
 
-                <div class="bg-amber-50 p-4 rounded-lg mb-4">
+                <div class="bg-amber-50 dark:bg-yellow-900/30 p-4 rounded-lg mb-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-3">
-                            <label for="hint_1" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Hint 1" %}</label>
-                            <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_1" name="hint_1"
+                            <label for="hint_1" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Hint 1" %}</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_1" name="hint_1"
                                    value="{{ challenge.hint_1 }}">
                         </div>
                         <div>
-                            <label for="hint_1_cost" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Cost (points)" %}</label>
-                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_1_cost"
+                            <label for="hint_1_cost" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Cost (points)" %}</label>
+                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_1_cost"
                                    name="hint_1_cost" value="{{ challenge.hint_1_cost }}">
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-amber-50 p-4 rounded-lg mb-4">
+                <div class="bg-amber-50 dark:bg-yellow-900/30 p-4 rounded-lg mb-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-3">
-                            <label for="hint_2" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Hint 2" %}</label>
-                            <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_2" name="hint_2"
+                            <label for="hint_2" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Hint 2" %}</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_2" name="hint_2"
                                    value="{{ challenge.hint_2 }}">
                         </div>
                         <div>
-                            <label for="hint_2_cost" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Cost (points)" %}</label>
-                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_2_cost"
+                            <label for="hint_2_cost" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Cost (points)" %}</label>
+                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_2_cost"
                                    name="hint_2_cost" value="{{ challenge.hint_2_cost }}">
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-amber-50 p-4 rounded-lg mb-4">
+                <div class="bg-amber-50 dark:bg-yellow-900/30 p-4 rounded-lg mb-4">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-3">
-                            <label for="hint_3" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Hint 3" %}</label>
-                            <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_3" name="hint_3"
+                            <label for="hint_3" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Hint 3" %}</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_3" name="hint_3"
                                    value="{{ challenge.hint_3 }}">
                         </div>
                         <div>
-                            <label for="hint_3_cost" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Cost (points)" %}</label>
-                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_3_cost"
+                            <label for="hint_3_cost" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Cost (points)" %}</label>
+                            <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="hint_3_cost"
                                    name="hint_3_cost" value="{{ challenge.hint_3_cost }}">
                         </div>
                     </div>
@@ -177,38 +200,38 @@
             </div>
 
             <!-- Points & Success Message -->
-            <div class="mb-8 pb-8 border-b border-gray-200">
+            <div class="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
                 <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/trophy.html" with class="w-5 h-5" %} {% trans "Scoring & Feedback" %}</h5>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="mb-4">
-                        <label for="points_awarded" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Points Awarded *" %}</label>
-                        <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="points_awarded"
+                        <label for="points_awarded" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Points Awarded *" %}</label>
+                        <input type="number" class="w-full max-w-[120px] px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="points_awarded"
                                name="points_awarded" value="{{ challenge.points_awarded }}" required>
-                        <p class="mt-1 text-sm text-gray-500">{% trans "Points given for completing this challenge (before hint deductions)." %}</p>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "Points given for completing this challenge (before hint deductions)." %}</p>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label for="success_message" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Success Message *" %}</label>
-                    <textarea class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="success_message" name="success_message"
+                    <label for="success_message" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Success Message *" %}</label>
+                    <textarea class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="success_message" name="success_message"
                               rows="3" required>{{ challenge.success_message }}</textarea>
-                    <p class="mt-1 text-sm text-gray-500">{% trans "Personal message shown when user answers correctly or completes the challenge." %}</p>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "Personal message shown when user answers correctly or completes the challenge." %}</p>
                 </div>
             </div>
 
             <!-- User Responses Section -->
             {% if all_attempts %}
-            <div class="mb-8 pb-8 border-b border-gray-200">
-                <h5 class="font-semibold mb-4 flex items-center gap-2">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} {% blocktrans count counter=total_responses %}User Responses ({{ counter }}){% plural %}User Responses ({{ counter }}){% endblocktrans %}</h5>
-                <p class="text-gray-500 mb-4">{% trans "All user answers to this challenge:" %}</p>
+            <div class="mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
+                <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">{% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5" %} {% blocktrans count counter=total_responses %}User Responses ({{ counter }}){% plural %}User Responses ({{ counter }}){% endblocktrans %}</h5>
+                <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "All user answers to this challenge:" %}</p>
 
                 {% for attempt in all_attempts %}
-                <div class="mb-4 p-4 border border-gray-200 rounded-lg">
+                <div class="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg dark:bg-gray-900/30">
                     <div class="flex justify-between">
-                        <strong>{{ attempt.chapter_progress.journey_progress.user.username }}</strong>
-                        <span class="text-gray-500">{{ attempt.attempted_at|date:"M d, Y H:i" }}</span>
+                        <strong class="dark:text-white">{{ attempt.chapter_progress.journey_progress.user.username }}</strong>
+                        <span class="text-gray-500 dark:text-gray-400">{{ attempt.attempted_at|date:"M d, Y H:i" }}</span>
                     </div>
-                    <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                    <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg dark:text-gray-300">
                         {{ attempt.user_answer }}
                     </div>
                     <div class="mt-2 flex flex-wrap gap-2">
@@ -230,7 +253,7 @@
             <!-- Action Buttons -->
             <div class="flex justify-between">
                 <a href="{% url 'crush_lu:coach_edit_journey' challenge.chapter.journey.id %}"
-                   class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+                   class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
                     {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Cancel" %}
                 </a>
                 <button type="submit" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-8 rounded-full transition-all transform hover:-translate-y-0.5 hover:shadow-lg inline-flex items-center gap-2">

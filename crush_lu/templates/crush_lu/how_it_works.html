@@ -140,9 +140,18 @@
         position: relative;
     }
 
+    html.dark .step-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
     .step-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+    }
+
+    html.dark .step-card:hover {
+        box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
     }
 
     .step-icon {
@@ -178,10 +187,18 @@
         font-weight: 600;
     }
 
+    html.dark .step-card h3 {
+        color: #f1f5f9;
+    }
+
     .step-card p {
         color: #374151;
         line-height: 1.7;
         font-size: clamp(0.95rem, 2vw, 1rem);
+    }
+
+    html.dark .step-card p {
+        color: #d1d5db;
     }
 
     .step-number {
@@ -283,6 +300,10 @@
         gap: 0.5rem;
     }
 
+    html.dark .feature-column h5 {
+        color: #f1f5f9;
+    }
+
     .feature-icon {
         font-size: 1.5rem;
     }
@@ -303,10 +324,18 @@
         margin-bottom: 0;
     }
 
+    html.dark .hiw-cta-section {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
+    }
+
     .hiw-cta-section h2 {
         font-size: clamp(1.75rem, 4vw, 2.5rem);
         margin-bottom: 1.5rem;
         color: #2C3E50;
+    }
+
+    html.dark .hiw-cta-section h2 {
+        color: #f1f5f9;
     }
 
     .hiw-cta-section p {
@@ -316,6 +345,10 @@
         max-width: 600px;
         margin-left: auto;
         margin-right: auto;
+    }
+
+    html.dark .hiw-cta-section p {
+        color: #94a3b8;
     }
 
     /* Stats Section */
@@ -335,6 +368,11 @@
         transition: transform 0.3s ease;
     }
 
+    html.dark .stat-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
     .stat-card:hover {
         transform: scale(1.05);
     }
@@ -352,6 +390,10 @@
     .stat-label {
         color: #6c757d;
         font-size: clamp(0.9rem, 2vw, 1rem);
+    }
+
+    html.dark .stat-label {
+        color: #94a3b8;
     }
 
     /* Responsive adjustments */
@@ -459,7 +501,7 @@
                     {% trans "Once approved, explore speed dating nights, social mixers, themed events, and outdoor adventures. Find what excites you!" %}
                 </p>
                 <div class="mt-4">
-                    <a href="{% url 'crush_lu:voting_demo' %}" class="inline-flex items-center gap-2 px-4 py-2.5 font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:voting_demo' %}" class="inline-flex items-center gap-2 px-4 py-2.5 font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
                         🗳️ {% trans "See How Voting Works" %}
                     </a>
                 </div>
@@ -522,18 +564,18 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="text-center p-6">
             <div class="text-5xl mb-4">🚫</div>
-            <h5 class="font-semibold mb-2">{% trans "No Endless Swiping" %}</h5>
-            <p class="text-gray-600">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
+            <h5 class="font-semibold dark:text-white mb-2">{% trans "No Endless Swiping" %}</h5>
+            <p class="text-gray-600 dark:text-gray-300">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
         </div>
         <div class="text-center p-6">
             <div class="text-5xl mb-4">👥</div>
-            <h5 class="font-semibold mb-2">{% trans "Human-Curated" %}</h5>
-            <p class="text-gray-600">{% trans "Every profile reviewed by real coaches, not algorithms." %}</p>
+            <h5 class="font-semibold dark:text-white mb-2">{% trans "Human-Curated" %}</h5>
+            <p class="text-gray-600 dark:text-gray-300">{% trans "Every profile reviewed by real coaches, not algorithms." %}</p>
         </div>
         <div class="text-center p-6">
             <div class="text-5xl mb-4">🇱🇺</div>
-            <h5 class="font-semibold mb-2">{% trans "Luxembourg-Focused" %}</h5>
-            <p class="text-gray-600">{% trans "Built for our small community with privacy in mind." %}</p>
+            <h5 class="font-semibold dark:text-white mb-2">{% trans "Luxembourg-Focused" %}</h5>
+            <p class="text-gray-600 dark:text-gray-300">{% trans "Built for our small community with privacy in mind." %}</p>
         </div>
     </div>
 </div>
@@ -546,7 +588,7 @@
         {% trans "Get Started Now" %}
     </a>
     <div class="mt-6">
-        <small class="text-gray-500">
+        <small class="text-gray-500 dark:text-gray-400">
             {% trans "No credit card required" %} • {% trans "Free to join" %} • {% trans "Cancel anytime" %}
         </small>
     </div>

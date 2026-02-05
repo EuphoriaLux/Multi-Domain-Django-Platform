@@ -56,34 +56,34 @@
 <div class="max-w-3xl mx-auto">
     <h1 class="text-center text-3xl font-bold mb-10">{% trans "About Crush.lu" %}</h1>
 
-    <div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">{% trans "Our Mission" %}</h3>
-            <p class="text-xl text-gray-600 mb-3">
+            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Our Mission" %}</h3>
+            <p class="text-xl text-gray-600 dark:text-gray-300 mb-3">
                 {% trans "We're bringing back authentic connections in Luxembourg's dating scene." %}
             </p>
-            <p class="text-gray-600">
+            <p class="text-gray-600 dark:text-gray-300">
                 {% trans "In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
             </p>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">{% trans "Why Luxembourg?" %}</h3>
-            <p class="text-gray-600">
+            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Why Luxembourg?" %}</h3>
+            <p class="text-gray-600 dark:text-gray-300">
                 {% trans "Luxembourg is a small, tight-knit community where privacy and discretion matter. Our platform is designed with this in mind, offering a curated experience that respects your privacy while helping you meet compatible people." %}
             </p>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
         <div class="p-6">
-            <h3 class="text-xl font-semibold mb-3">{% trans "The Crush Coach Difference" %}</h3>
-            <p class="text-gray-600 mb-3">
+            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "The Crush Coach Difference" %}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-3">
                 {% trans "Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:" %}
             </p>
-            <ul class="list-disc list-inside text-gray-600 space-y-2">
+            <ul class="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-2">
                 <li>{% trans "Authentic profiles only - no bots, no catfishing" %}</li>
                 <li>{% trans "Personalized guidance to help you present your best self" %}</li>
                 <li>{% trans "A safer, more respectful community" %}</li>
@@ -92,10 +92,10 @@
         </div>
     </div>
 
-    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm mb-6">
+    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
         <div class="p-8 text-center">
-            <h3 class="text-xl font-semibold mb-3">{% trans "Ready to Get Started?" %}</h3>
-            <p class="text-gray-600 mb-6">{% trans "Join our community and start meeting new people today!" %}</p>
+            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Ready to Get Started?" %}</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6">{% trans "Join our community and start meeting new people today!" %}</p>
             <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center px-8 py-4 text-lg">
                 {% trans "Create Your Profile" %}
             </a>

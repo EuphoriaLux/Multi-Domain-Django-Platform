@@ -122,9 +122,18 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
 
+    html.dark .door-content-card {
+        background: rgba(30, 41, 59, 0.95);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
     .door-content-card h2 {
         color: #c41e3a;
         margin-bottom: 1rem;
+    }
+
+    html.dark .door-content-card h2 {
+        color: #fca5a5;
     }
 
     /* QR Scanner button */
@@ -157,9 +166,18 @@
         color: #333;
     }
 
+    html.dark .bonus-content {
+        background: linear-gradient(135deg, #713f12 0%, #854d0e 100%);
+        color: #f3f4f6;
+    }
+
     .bonus-content h4 {
         color: #8b4513;
         margin-bottom: 1rem;
+    }
+
+    html.dark .bonus-content h4 {
+        color: #fcd34d;
     }
 
     .bonus-content::before {
@@ -179,9 +197,17 @@
         transition: background 0.3s ease;
     }
 
+    html.dark .advent-back-btn {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
     .advent-back-btn:hover {
         background: rgba(255, 255, 255, 0.2);
         color: white;
+    }
+
+    html.dark .advent-back-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
     }
 
     /* Responsive */

@@ -13,6 +13,24 @@
 
 document.addEventListener('alpine:init', function() {
 
+    // Calendar dropdown component
+    Alpine.data('calendarDropdown', function() {
+        return {
+            open: false,
+
+            get isOpen() { return this.open; },
+            get isClosed() { return !this.open; },
+
+            toggle() {
+                this.open = !this.open;
+            },
+
+            close() {
+                this.open = false;
+            }
+        };
+    });
+
     // Navbar component with dropdowns and mobile menu
     Alpine.data('navbar', function() {
         return {
@@ -7335,6 +7353,116 @@ document.addEventListener('alpine:init', function() {
 
             resetLoading: function() {
                 this.isLoading = false;
+            }
+        };
+    });
+
+    /**
+     * Theme Toggle Component
+     *
+     * Provides dark mode toggle with system preference detection.
+     * Integrates with window.themeManager (from theme-manager.js).
+     *
+     * Features:
+     * - Automatic system preference detection
+     * - Manual theme toggle
+     * - localStorage persistence
+     * - Smooth transitions
+     */
+    Alpine.data('themeToggle', function() {
+        return {
+            currentTheme: 'light',
+            systemPreference: 'light',
+
+            init: function() {
+                // Initialize from themeManager
+                if (window.themeManager) {
+                    this.currentTheme = window.themeManager.getTheme();
+                }
+
+                // Detect system preference
+                if (window.matchMedia) {
+                    this.systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+                    // Listen for system preference changes
+                    var mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    var self = this;
+
+                    var handleChange = function(e) {
+                        self.systemPreference = e.matches ? 'dark' : 'light';
+                    };
+
+                    // Modern browsers
+                    if (mediaQuery.addEventListener) {
+                        mediaQuery.addEventListener('change', handleChange);
+                    }
+                    // Legacy browsers
+                    else if (mediaQuery.addListener) {
+                        mediaQuery.addListener(handleChange);
+                    }
+                }
+            },
+
+            // Getters for CSP compliance (no inline expressions in templates)
+            get isDark() {
+                return this.currentTheme === 'dark';
+            },
+
+            get isLight() {
+                return this.currentTheme === 'light';
+            },
+
+            get isSystemDark() {
+                return this.systemPreference === 'dark';
+            },
+
+            get toggleButtonClass() {
+                return this.isDark
+                    ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+            },
+
+            get sunIconClass() {
+                return this.isLight ? 'opacity-100' : 'opacity-40';
+            },
+
+            get moonIconClass() {
+                return this.isDark ? 'opacity-100' : 'opacity-40';
+            },
+
+            get statusText() {
+                var saved = localStorage.getItem('theme');
+                if (!saved) {
+                    return this.isSystemDark ? 'System (Dark)' : 'System (Light)';
+                }
+                return this.isDark ? 'Dark Mode' : 'Light Mode';
+            },
+
+            get ariaLabel() {
+                return this.isDark ? 'Switch to light mode' : 'Switch to dark mode';
+            },
+
+            // Methods
+            toggleTheme: function() {
+                if (window.themeManager) {
+                    window.themeManager.toggleTheme();
+                    this.currentTheme = window.themeManager.getTheme();
+                }
+            },
+
+            setTheme: function(theme) {
+                if (window.themeManager) {
+                    window.themeManager.setTheme(theme);
+                    this.currentTheme = theme;
+                }
+            },
+
+            useSystemPreference: function() {
+                localStorage.removeItem('theme');
+                this.currentTheme = this.systemPreference;
+                if (window.themeManager) {
+                    window.themeManager.setTheme(this.systemPreference);
+                }
             }
         };
     });

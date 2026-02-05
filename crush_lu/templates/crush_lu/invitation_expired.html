@@ -32,25 +32,25 @@
             <div class="expired-icon">⏰</div>
 
             <!-- Header -->
-            <h2 style="color: #6c757d;">{% trans "Invitation Expired" %}</h2>
-            <p class="lead text-muted mb-4">
+            <h2 class="text-gray-500 dark:text-gray-400">{% trans "Invitation Expired" %}</h2>
+            <p class="lead text-gray-500 dark:text-gray-400 mb-4">
                 {% blocktrans with name=invitation.guest_first_name %}Sorry, {{ name }}, this invitation link has expired.{% endblocktrans %}
             </p>
 
             <!-- Alert -->
-            <div class="alert alert-warning" style="border-left: 4px solid #ffc107;">
-                <h5 class="alert-heading">
+            <div class="alert alert-warning bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-400 dark:border-yellow-600 p-4 rounded-lg">
+                <h5 class="alert-heading text-gray-900 dark:text-white font-semibold mb-2">
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} {% trans "Invitation No Longer Valid" %}
                 </h5>
-                <p class="mb-0">
+                <p class="mb-0 text-gray-700 dark:text-gray-300">
                     {% blocktrans with title=invitation.event.title %}This invitation for <strong>{{ title }}</strong> has passed its expiration date and can no longer be accepted.{% endblocktrans %}
                 </p>
             </div>
 
             <!-- Event Info -->
-            <div class="mt-4 p-4" style="background: #f8f9fa; border-radius: 15px;">
-                <h6 class="text-muted">{% trans "Event Details" %}</h6>
-                <h5 class="mt-2">{{ invitation.event.title }}</h5>
+            <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-2xl">
+                <h6 class="text-gray-500 dark:text-gray-400">{% trans "Event Details" %}</h6>
+                <h5 class="mt-2 text-gray-900 dark:text-white">{{ invitation.event.title }}</h5>
                 <p class="mb-1">
                     <small class="text-muted">
                         {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
@@ -66,9 +66,9 @@
             </div>
 
             <!-- What to Do -->
-            <div class="alert alert-info mt-4" style="background: rgba(13, 202, 240, 0.1); border: 1px solid rgba(13, 202, 240, 0.3);">
-                <h6 class="alert-heading">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "What You Can Do" %}</h6>
-                <ul class="text-start mb-0">
+            <div class="alert alert-info mt-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
+                <h6 class="alert-heading text-gray-900 dark:text-white font-semibold mb-2">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "What You Can Do" %}</h6>
+                <ul class="text-start mb-0 text-gray-700 dark:text-gray-300">
                     <li>{% blocktrans with coach=invitation.invited_by.get_full_name|default:"your Crush Coach" %}Contact {{ coach }} to request a new invitation{% endblocktrans %}</li>
                     <li>{% trans "Reach out to our team at" %} <a href="mailto:hello@crush.lu">hello@crush.lu</a></li>
                     <li>{% trans "Check out our upcoming public events on Crush.lu" %}</li>
@@ -81,7 +81,7 @@
                     {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans "Browse Public Events" %}
                 </a>
                 <p class="mt-4">
-                    <a href="{% url 'crush_lu:home' %}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                    <a href="{% url 'crush_lu:home' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
                         {% include "shared/icons/home.html" with class="w-4 h-4" %} {% trans "Return to Home" %}
                     </a>
                 </p>
@@ -90,11 +90,11 @@
 
         <!-- Contact Section -->
         <div class="text-center mt-4">
-            <p class="text-muted">
+            <p class="text-gray-500 dark:text-gray-400">
                 <small>
                     {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
                     {% trans "For assistance, contact us at" %}
-                    <a href="mailto:hello@crush.lu">hello@crush.lu</a>
+                    <a href="mailto:hello@crush.lu" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">hello@crush.lu</a>
                 </small>
             </p>
         </div>

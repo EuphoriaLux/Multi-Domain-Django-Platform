@@ -3,33 +3,33 @@
 <div class="space-y-4" x-data="profileAccordion">
 
     <!-- Photos Section (default open) -->
-    <div class="border border-gray-200 rounded-lg overflow-hidden">
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <button type="button"
                 @click="togglePhoto"
-                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors">
+                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <div class="flex items-center gap-3">
                 <span class="text-2xl">📸</span>
-                <h3 class="text-lg font-semibold text-gray-900">{% trans "Photos" %}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{% trans "Photos" %}</h3>
             </div>
-            <svg class="w-5 h-5 text-gray-500 transition-transform" :class="photoOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform" :class="photoOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
         <div x-show="photoOpen">
-            <div class="p-6 bg-white">
+            <div class="p-6 bg-white dark:bg-gray-800">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% if profile.photo_1 %}
-                        <div class="rounded-lg overflow-hidden shadow-md">
+                        <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
                             <img src="{{ profile.photo_1.url }}" class="w-full h-64 object-cover" alt="Photo 1" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile.photo_2 %}
-                        <div class="rounded-lg overflow-hidden shadow-md">
+                        <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
                             <img src="{{ profile.photo_2.url }}" class="w-full h-64 object-cover" alt="Photo 2" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile.photo_3 %}
-                        <div class="rounded-lg overflow-hidden shadow-md">
+                        <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
                             <img src="{{ profile.photo_3.url }}" class="w-full h-64 object-cover" alt="Photo 3" loading="lazy">
                         </div>
                     {% endif %}
@@ -39,59 +39,59 @@
     </div>
 
     <!-- Basic Info Section -->
-    <div class="border border-gray-200 rounded-lg overflow-hidden">
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <button type="button"
                 @click="toggleBasic"
-                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors">
+                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <div class="flex items-center gap-3">
                 <span class="text-2xl">👤</span>
-                <h3 class="text-lg font-semibold text-gray-900">{% trans "Basic Info" %}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{% trans "Basic Info" %}</h3>
             </div>
-            <svg class="w-5 h-5 text-gray-500 transition-transform" :class="basicOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform" :class="basicOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
         <div x-show="basicOpen">
-            <div class="p-6 bg-white space-y-3">
-                <div class="flex items-center gap-2 text-gray-700">
+            <div class="p-6 bg-white dark:bg-gray-800 space-y-3">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Name:" %}</span>
                     <span>{{ profile.user.get_full_name }}</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Email:" %}</span>
                     <span>{{ profile.user.email }}</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Age:" %}</span>
                     <span>{% if profile.age %}{{ profile.age }} {% trans "years old" %}{% else %}{% trans "Not set" %}{% endif %}</span>
                     {% if profile.date_of_birth %}
-                        <span class="text-sm text-gray-500">({{ profile.date_of_birth }})</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">({{ profile.date_of_birth }})</span>
                     {% endif %}
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Gender:" %}</span>
                     <span>{{ profile.get_gender_display|default:"Not set" }}</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Location:" %}</span>
                     <span>{{ profile.location|default:"Not set" }}</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Phone:" %}</span>
                     <span>{{ profile.phone_number|default:"Not provided" }}</span>
                 </div>
-                <div class="flex items-center gap-2 text-gray-700">
+                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Looking for:" %}</span>
                     <span>{{ profile.get_looking_for_display }}</span>
                 </div>
 
-                <hr class="my-3 border-gray-200">
+                <hr class="my-3 border-gray-200 dark:border-gray-700">
 
-                <div class="flex items-start gap-2 text-gray-700">
+                <div class="flex items-start gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold whitespace-nowrap">{% trans "Event Languages:" %}</span>
                     <div class="flex flex-wrap gap-2">
                         {% for lang in profile.event_languages %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
                                 {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
                             </span>
                         {% empty %}
@@ -100,7 +100,7 @@
                     </div>
                 </div>
 
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-2xl">
                             {% if profile.preferred_language == 'en' %}
@@ -111,8 +111,8 @@
                                 🇫🇷
                             {% endif %}
                         </span>
-                        <span class="font-semibold text-purple-900">{% trans "Preferred Language for Emails:" %}</span>
-                        <span class="font-bold text-purple-700">
+                        <span class="font-semibold text-purple-900 dark:text-purple-300">{% trans "Preferred Language for Emails:" %}</span>
+                        <span class="font-bold text-purple-700 dark:text-purple-300">
                             {% if profile.preferred_language == 'en' %}
                                 English
                             {% elif profile.preferred_language == 'de' %}
@@ -122,7 +122,7 @@
                             {% endif %}
                         </span>
                     </div>
-                    <p class="text-xs text-purple-700">
+                    <p class="text-xs text-purple-700 dark:text-purple-300">
                         {% trans "Write your feedback in this language - emails are automatically translated" %}
                     </p>
                 </div>
@@ -131,48 +131,48 @@
     </div>
 
     <!-- Bio & Interests Section -->
-    <div class="border border-gray-200 rounded-lg overflow-hidden">
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <button type="button"
                 @click="toggleBio"
-                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors">
+                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <div class="flex items-center gap-3">
                 <span class="text-2xl">✏️</span>
-                <h3 class="text-lg font-semibold text-gray-900">{% trans "Bio & Interests" %}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{% trans "Bio & Interests" %}</h3>
             </div>
-            <svg class="w-5 h-5 text-gray-500 transition-transform" :class="bioOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform" :class="bioOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
         <div x-show="bioOpen">
-            <div class="p-6 bg-white space-y-4">
+            <div class="p-6 bg-white dark:bg-gray-800 space-y-4">
                 <div>
-                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Bio" %}</h4>
-                    <p class="text-gray-600">{{ profile.bio }}</p>
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">{% trans "Bio" %}</h4>
+                    <p class="text-gray-600 dark:text-gray-300">{{ profile.bio }}</p>
                 </div>
                 <div>
-                    <h4 class="font-semibold text-gray-900 mb-2">{% trans "Interests" %}</h4>
-                    <p class="text-gray-600">{{ profile.interests }}</p>
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">{% trans "Interests" %}</h4>
+                    <p class="text-gray-600 dark:text-gray-300">{{ profile.interests }}</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Privacy Settings Section -->
-    <div class="border border-gray-200 rounded-lg overflow-hidden">
+    <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <button type="button"
                 @click="togglePrivacy"
-                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors">
+                class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <div class="flex items-center gap-3">
                 <span class="text-2xl">🔒</span>
-                <h3 class="text-lg font-semibold text-gray-900">{% trans "Privacy Settings" %}</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{% trans "Privacy Settings" %}</h3>
             </div>
-            <svg class="w-5 h-5 text-gray-500 transition-transform" :class="privacyOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform" :class="privacyOpenRotateClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
         <div x-show="privacyOpen">
-            <div class="p-6 bg-white">
-                <ul class="space-y-2 text-gray-700">
+            <div class="p-6 bg-white dark:bg-gray-800">
+                <ul class="space-y-2 text-gray-700 dark:text-gray-200">
                     <li class="flex items-center gap-2">
                         {% if profile.show_full_name %}
                             <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

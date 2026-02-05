@@ -8,16 +8,16 @@
 <div class="max-w-4xl mx-auto">
     <!-- Header -->
     <div class="text-center mb-10">
-        <h1 class="text-3xl md:text-4xl font-bold mb-3">{% trans "Who did you connect with?" %} 💕</h1>
-        <p class="text-xl text-gray-500">{{ event.title }}</p>
-        <p class="text-gray-500 flex items-center justify-center gap-2 mt-2">
+        <h1 class="text-3xl md:text-4xl font-bold mb-3 dark:text-white">{% trans "Who did you connect with?" %} 💕</h1>
+        <p class="text-xl text-gray-500 dark:text-gray-400">{{ event.title }}</p>
+        <p class="text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-2">
             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
             {% blocktrans with date=event.date_time|date:"F d, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}
         </p>
     </div>
 
     <!-- Instructions -->
-    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6">
         <h5 class="font-semibold mb-2 flex items-center gap-2">
             {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
             {% trans "How It Works" %}
@@ -31,7 +31,7 @@
     {% if attendees %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {% for attendee in attendees %}
-                <div class="bg-white rounded-xl h-full shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
+                <div class="bg-white dark:bg-gray-800 rounded-xl h-full shadow-sm dark:shadow-gray-900/20 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
                     <div class="p-4">
                         <div class="flex items-start gap-4">
                             <!-- Profile Photo -->
@@ -52,21 +52,21 @@
 
                             <!-- Profile Info -->
                             <div class="flex-1 min-w-0">
-                                <h5 class="font-semibold mb-1">
+                                <h5 class="font-semibold mb-1 dark:text-white">
                                     {{ attendee.profile.display_name }}
                                     {% if attendee.profile %}
-                                        <span class="text-gray-500 font-normal text-sm">({{ attendee.profile.age_display }})</span>
+                                        <span class="text-gray-500 dark:text-gray-400 font-normal text-sm">({{ attendee.profile.age_display }})</span>
                                     {% endif %}
                                 </h5>
 
                                 {% if attendee.profile %}
-                                    <p class="text-gray-500 text-sm mb-2 flex items-center gap-1">
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
                                         {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
                                         {% if attendee.profile.city %}{{ attendee.profile.city }}{% else %}Luxembourg{% endif %}
                                     </p>
 
                                     {% if attendee.profile.interests %}
-                                        <p class="text-sm text-gray-500 mb-3 flex items-center gap-1">
+                                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1">
                                             {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
                                             {{ attendee.profile.interests|truncatewords:8 }}
                                         </p>
@@ -86,14 +86,14 @@
             <div class="mb-6">
                 <span class="text-7xl">😔</span>
             </div>
-            <h4 class="text-xl font-semibold mb-2">{% trans "No other attendees yet" %}</h4>
-            <p class="text-gray-500">{% trans "Check back after the event when other attendees are marked as attended." %}</p>
+            <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No other attendees yet" %}</h4>
+            <p class="text-gray-500 dark:text-gray-400">{% trans "Check back after the event when other attendees are marked as attended." %}</p>
         </div>
     {% endif %}
 
     <!-- Back Button -->
     <div class="text-center mt-10">
-        <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+        <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
             {% trans "Back to Dashboard" %}
         </a>

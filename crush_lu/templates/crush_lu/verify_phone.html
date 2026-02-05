@@ -28,7 +28,7 @@
      data-next-url="{{ next_url }}">
     <div class="flex justify-center">
         <div class="w-full max-w-md">
-            <div class="bg-white rounded-xl shadow-lg">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20">
                 <div class="p-6">
                     <!-- Header -->
                     <div class="text-center mb-6">
@@ -37,8 +37,8 @@
                                 {% include "shared/icons/phone.html" with class="w-8 h-8 text-white" %}
                             </div>
                         </div>
-                        <h2 class="text-xl font-semibold text-gray-900">{% trans "Verify Your Phone Number" %}</h2>
-                        <p class="text-gray-500 mt-2">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Verify Your Phone Number" %}</h2>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2">
                             {% trans "We'll send a verification code via SMS to confirm your phone number." %}
                         </p>
                     </div>
@@ -46,17 +46,17 @@
                     <!-- Step 1: Phone Input -->
                     <div x-show="isPhoneStep" x-cloak>
                         <div class="mb-4">
-                            <label for="phone_number" class="block text-sm font-medium text-gray-700 mb-2">
+                            <label for="phone_number" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                                 {% trans "Phone Number" %}
                             </label>
                             <div class="phone-input-wrapper">
                                 <input type="tel"
-                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="phone_number"
                                        name="phone_number"
                                        required>
                             </div>
-                            <p class="text-sm text-gray-500 mt-1">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {% trans "Select your country and enter your phone number" %}
                             </p>
                         </div>
@@ -85,43 +85,43 @@
 
                     <!-- Step 2: OTP Input -->
                     <div x-show="isOtpStep" x-cloak>
-                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4 flex items-start gap-2">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4 flex items-start gap-2">
                             {% include "shared/icons/information-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                             <span>{% trans "A 6-digit code has been sent to" %} <strong x-text="displayPhone"></strong></span>
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                                 {% trans "Verification Code" %}
                             </label>
                             <div class="flex justify-center gap-2">
                                 <input type="text" id="otp-0" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp0"
                                        @input="handleOtpInput(0, $event)"
                                        @keydown="handleOtpKeydown(0, $event)">
                                 <input type="text" id="otp-1" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp1"
                                        @input="handleOtpInput(1, $event)"
                                        @keydown="handleOtpKeydown(1, $event)">
                                 <input type="text" id="otp-2" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp2"
                                        @input="handleOtpInput(2, $event)"
                                        @keydown="handleOtpKeydown(2, $event)">
                                 <input type="text" id="otp-3" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp3"
                                        @input="handleOtpInput(3, $event)"
                                        @keydown="handleOtpKeydown(3, $event)">
                                 <input type="text" id="otp-4" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp4"
                                        @input="handleOtpInput(4, $event)"
                                        @keydown="handleOtpKeydown(4, $event)">
                                 <input type="text" id="otp-5" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp5"
                                        @input="handleOtpInput(5, $event)"
                                        @keydown="handleOtpKeydown(5, $event)">
@@ -164,7 +164,7 @@
                             <div>
                                 <button type="button"
                                         @click="changePhone"
-                                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm inline-flex items-center gap-1">
+                                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm inline-flex items-center gap-1">
                                     {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
                                     {% trans "Change Phone Number" %}
                                 </button>
@@ -176,12 +176,12 @@
                     <div x-show="isSuccessStep" x-cloak>
                         <div class="text-center">
                             <div class="mb-4">
-                                <div class="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                                    {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500" %}
+                                <div class="w-16 h-16 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                                    {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500 dark:text-green-400" %}
                                 </div>
                             </div>
-                            <h3 class="text-xl font-semibold text-green-600 mb-2">{% trans "Phone Verified!" %}</h3>
-                            <p class="text-gray-500 mb-4">
+                            <h3 class="text-xl font-semibold text-green-600 dark:text-green-400 mb-2">{% trans "Phone Verified!" %}</h3>
+                            <p class="text-gray-500 dark:text-gray-400 mb-4">
                                 {% trans "Your number" %} <strong x-text="verifiedPhone"></strong> {% trans "has been verified." %}
                             </p>
                             {% if next_url %}
@@ -200,7 +200,7 @@
 
                     <!-- Error Display -->
                     <div x-show="hasError" x-cloak
-                         class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mt-4 flex items-start gap-2">
+                         class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mt-4 flex items-start gap-2">
                         {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                         <span x-text="error"></span>
                     </div>
@@ -213,12 +213,12 @@
             <!-- Back Link -->
             <div class="text-center mt-6">
                 {% if next_url %}
-                <a href="{{ next_url }}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                <a href="{{ next_url }}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
                     {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
                     {% trans "Back" %}
                 </a>
                 {% else %}
-                <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
                     {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
                     {% trans "Back to Dashboard" %}
                 </a>

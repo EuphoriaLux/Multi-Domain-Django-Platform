@@ -9,7 +9,7 @@
             <textarea name="note"
                       rows="2"
                       placeholder="{% trans 'Add a note (optional)...' %}"
-                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
             <button type="submit"
@@ -26,7 +26,7 @@
                     hx-get="{% url 'crush_lu:connection_actions' event.id recipient.id %}"
                     hx-target="#connection-actions-{{ recipient.id }}"
                     hx-swap="outerHTML"
-                    class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-center">
+                    class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-center">
                 {% trans "Cancel" %}
             </button>
         </div>

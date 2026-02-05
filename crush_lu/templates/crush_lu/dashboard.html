@@ -11,7 +11,7 @@
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
     <h2 class="text-2xl font-bold">{% blocktrans with name=user.first_name %}Welcome back, {{ name }}! 👋{% endblocktrans %}</h2>
-    <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors w-full sm:w-auto">
+    <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors w-full sm:w-auto">
         {% include "shared/icons/cog.html" with class="w-5 h-5" %} {% trans "Settings" %}
     </a>
 </div>
@@ -21,7 +21,7 @@
 
 {% if profile and not profile.phone_verified %}
 <!-- Phone Verification Banner -->
-<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" role="alert">
+<div class="alert alert-warning mb-6 flex-col sm:flex-row sm:justify-between gap-3" role="alert">
     <div class="flex items-center">
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
         <span><strong>{% trans "Phone verification required!" %}</strong> {% trans "Please verify your phone number to access all features." %}</span>
@@ -34,25 +34,25 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
     <!-- Profile Status Card -->
-    <div class="bg-white rounded-xl shadow-sm h-full">
-        <div class="p-6">
+    <div class="status-card">
+        <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-4">{% trans "Profile Status" %}</h5>
             {% if profile.is_approved %}
-                <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
+                <div class="alert alert-success">
                     {% trans "✅ Your profile is approved and active!" %}
                 </div>
             {% elif submission %}
                 {% if submission.status == 'pending' %}
-                    <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4">
+                    <div class="alert alert-warning">
                         {% blocktrans with coach=submission.coach %}⏳ Your profile is currently under review by {{ coach }}{% endblocktrans %}
                     </div>
                 {% elif submission.status == 'revision' %}
-                    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
+                    <div class="alert alert-info">
                         {% trans "📝 Your coach has requested some revisions" %}
                         <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                     </div>
                 {% elif submission.status == 'rejected' %}
-                    <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
+                    <div class="alert alert-danger">
                         {% trans "❌ Your profile was not approved" %}
                         <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                     </div>
@@ -67,7 +67,7 @@
                 </a>
                 {% elif profile.completion_status == 'submitted' and submission and submission.status in 'pending,under_review' %}
                 {# Profile under review - no edit allowed #}
-                <span class="text-gray-400 text-sm">{% trans "Profile under review" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
                 {% else %}
                 {# Incomplete or needs revision - link to create_profile wizard #}
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm">
@@ -80,16 +80,16 @@
     </div>
 
     <!-- PWA Install Card -->
-    <div class="bg-white rounded-xl shadow-sm h-full">
-        <div class="p-6">
+    <div class="status-card">
+        <div class="status-card-body">
             {% if is_pwa_user %}
             <!-- User has installed PWA - show success and link to settings -->
             <h5 class="font-semibold text-lg mb-2">{% trans "📲 Crush.lu App" %}</h5>
-            <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-4">
+            <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-4">
                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
                 <strong>{% trans "App installed!" %}</strong>
             </div>
-            <p class="text-gray-500 mb-4">{% trans "Manage your push notifications in account settings." %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Manage your push notifications in account settings." %}</p>
             <a href="{% url 'crush_lu:account_settings' %}#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
                 {% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}
             </a>
@@ -97,7 +97,7 @@
             <!-- User hasn't installed PWA - show install prompt -->
             <div id="pwa-install-prompt">
                 <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
-                <p class="text-gray-500 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
+                <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
 
                 <div id="pwa-install-container">
                     <button id="pwa-install-btn" class="hidden btn-crush-primary items-center gap-2 px-4 py-2">
@@ -105,7 +105,7 @@
                     </button>
 
                     <div id="pwa-installed-msg" class="hidden">
-                        <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4">
+                        <div class="alert alert-success">
                             {% include "shared/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
                             <strong>{% trans "App installed!" %}</strong>
                             <p class="mb-0 mt-2 text-sm">
@@ -115,7 +115,7 @@
                     </div>
 
                     <div id="pwa-install-instructions" class="hidden">
-                        <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
+                        <div class="alert alert-info">
                             {% include "shared/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
                             <strong>{% trans "How to install" %}</strong>
                             <p class="mb-0 mt-2 text-sm" id="install-instructions-text">
@@ -130,25 +130,25 @@
     </div>
 
     <!-- Membership Card - PWA Gated -->
-    <div class="bg-white rounded-xl shadow-sm h-full">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full">
         <div class="p-6">
             <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
 
             {% if is_pwa_user %}
             {# User has installed PWA - show full membership card #}
-            <p class="text-gray-500 mb-4">{% trans "Save your Crush.lu membership card to your mobile wallet and share your referral link." %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your Crush.lu membership card to your mobile wallet and share your referral link." %}</p>
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 {# Apple Wallet - Coming Soon #}
-                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
+                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
                     {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
                     {% trans "Apple Wallet" %}
-                    <span class="text-xs bg-gray-200 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
+                    <span class="text-xs bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
                 </button>
                 {% comment %}
                     Google Wallet Button - Using official Google brand assets
                     Brand guidelines: https://developers.google.com/wallet/generic/resources/brand-guidelines
                 {% endcomment %}
-                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     {% get_current_language as LANGUAGE_CODE %}
                     {% if LANGUAGE_CODE == 'de' %}
                     <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
@@ -157,15 +157,15 @@
                     {% else %}
                     <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
                     {% endif %}
-                    <span id="google-wallet-loading" class="hidden text-sm text-gray-500">{% trans "Loading..." %}</span>
+                    <span id="google-wallet-loading" class="hidden text-sm text-gray-500 dark:text-gray-400">{% trans "Loading..." %}</span>
                 </button>
             </div>
             <div class="mt-4">
-                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
                     {% include "shared/icons/link.html" with class="w-4 h-4" %}
                     {% trans "Share Referral Link" %}
                 </button>
-                <p id="share-referral-status" class="text-sm text-green-600 mt-2 hidden" role="status" aria-live="polite"></p>
+                <p id="share-referral-status" class="text-sm text-green-600 dark:text-green-300 mt-2 hidden" role="status" aria-live="polite"></p>
             </div>
 
             {% else %}
@@ -173,22 +173,22 @@
             <div class="relative min-h-[140px]">
                 {# Blurred preview #}
                 <div class="filter blur-sm pointer-events-none select-none opacity-60" aria-hidden="true">
-                    <p class="text-gray-500 mb-4">{% trans "Save your membership card to your wallet..." %}</p>
+                    <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your membership card to your wallet..." %}</p>
                     <div class="flex flex-col sm:flex-row gap-3">
                         <span class="btn-crush-primary inline-flex items-center gap-2 text-sm">{% trans "Add to Apple Wallet" %}</span>
-                        <span class="bg-gray-200 px-4 py-2 rounded-lg text-sm">{% trans "Add to Google Wallet" %}</span>
+                        <span class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg text-sm">{% trans "Add to Google Wallet" %}</span>
                     </div>
                     <div class="mt-3">
-                        <span class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-purple-300 text-purple-600 rounded-lg">{% trans "Share Referral Link" %}</span>
+                        <span class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg">{% trans "Share Referral Link" %}</span>
                     </div>
                 </div>
 
                 {# Lock overlay #}
-                <div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-lg">
+                <div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg">
                     <div class="text-center p-4">
                         {% include "shared/icons/lock-closed.html" with class="w-10 h-10 text-crush-purple mx-auto mb-3" %}
-                        <h6 class="font-semibold text-gray-900 mb-2">{% trans "Install App to Unlock" %}</h6>
-                        <p class="text-sm text-gray-600 mb-4">{% trans "Get your membership card and exclusive features" %}</p>
+                        <h6 class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "Install App to Unlock" %}</h6>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Get your membership card and exclusive features" %}</p>
                         <a href="{% url 'crush_lu:membership' %}" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
                             {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
                             {% trans "Learn More" %}
@@ -203,22 +203,22 @@
 
 <div class="grid grid-cols-1 gap-6 mb-6">
     <!-- Quick Stats Card -->
-    <div class="bg-white rounded-xl shadow-sm h-full">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full">
         <div class="p-6">
             <h5 class="font-semibold text-lg mb-4">{% trans "Your Activity" %}</h5>
             <div class="grid grid-cols-3 text-center mt-4">
                 <div>
                     <h3 class="text-3xl font-bold">{{ registrations|length }}</h3>
-                    <p class="text-gray-500 mb-0">{% trans "Events" %}</p>
+                    <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Events" %}</p>
                 </div>
                 <div>
                     <h3 class="text-3xl font-bold">{{ profile.age|default:"—" }}</h3>
-                    <p class="text-gray-500 mb-0">{% trans "Age" %}</p>
+                    <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Age" %}</p>
                 </div>
                 <div>
                     <a href="{% url 'crush_lu:my_connections' %}" class="no-underline">
                         <h3 class="text-3xl font-bold text-crush-purple">{{ connection_count|default:0 }}</h3>
-                        <p class="text-gray-500 mb-0">{% trans "Connections" %}</p>
+                        <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Connections" %}</p>
                     </a>
                 </div>
             </div>
@@ -227,36 +227,36 @@
 </div>
 
 <!-- Upcoming Events Section -->
-<div class="bg-white rounded-xl shadow-sm mb-6">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
     <div class="p-6">
         <h5 class="font-semibold text-lg mb-4">{% trans "Your Events" %}</h5>
 
         {% if registrations %}
-            <div class="divide-y divide-gray-100">
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for registration in registrations %}
                     <div class="py-4 first:pt-0 last:pb-0">
                         <div class="flex justify-between items-start">
                             <div>
                                 <h6 class="font-semibold mb-1">{{ registration.event.title }}</h6>
-                                <p class="mb-1 text-gray-500 text-sm">
+                                <p class="mb-1 text-gray-500 dark:text-gray-400 text-sm">
                                     📅 {{ registration.event.date_time|date:"D, M j, Y" }} at {{ registration.event.date_time|date:"g:i A" }}<br>
                                     📍 {{ registration.event.location }}
                                 </p>
                             </div>
                             <div>
                                 {% if registration.status == 'confirmed' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">{% trans "Confirmed" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Confirmed" %}</span>
                                 {% elif registration.status == 'waitlist' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">{% trans "Waitlist" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">{% trans "Waitlist" %}</span>
                                 {% elif registration.status == 'cancelled' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">{% trans "Cancelled" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-full">{% trans "Cancelled" %}</span>
                                 {% elif registration.status == 'attended' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">{% trans "Attended" %}</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Attended" %}</span>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="mt-3 flex flex-col sm:flex-row gap-2">
-                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-500 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
                                 {% trans "View Event" %}
                             </a>
                             {% if registration.status == 'attended' %}
@@ -264,7 +264,7 @@
                                     {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Make Connections" %}
                                 </a>
                             {% elif registration.status == 'confirmed' or registration.status == 'waitlist' %}
-                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-red-500 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-red-500 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
                                     {% trans "Cancel Registration" %}
                                 </a>
                             {% endif %}
@@ -273,7 +273,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-gray-500 mb-4">{% trans "You haven't registered for any events yet." %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't registered for any events yet." %}</p>
             <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2">
                 {% trans "Browse Events" %}
             </a>
@@ -283,10 +283,10 @@
 
 <!-- Call to Action -->
 {% if profile.is_approved and not registrations %}
-<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm">
+<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm dark:shadow-gray-900/20">
     <div class="text-center p-10">
         <h4 class="text-xl font-bold mb-2">{% trans "Ready to Meet New People?" %}</h4>
-        <p class="text-gray-500 mb-4">{% trans "Check out our upcoming events and start making connections!" %}</p>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Check out our upcoming events and start making connections!" %}</p>
         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-6 py-3">
             {% trans "View Upcoming Events" %}
         </a>

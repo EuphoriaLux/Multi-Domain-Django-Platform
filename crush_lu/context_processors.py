@@ -2,6 +2,8 @@
 Context processors for Crush.lu app
 These make variables available to all templates
 """
+import time
+
 from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
@@ -10,6 +12,9 @@ from .models import (
     EventConnection, CrushProfile, CrushCoach, SpecialUserExperience,
     JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent
 )
+
+# Simple in-memory cache for site config (avoids DB hit on every request)
+_site_config_cache = {"config": None, "expires": 0}
 
 # Profile completion step mapping for navbar progress indicator
 PROFILE_STEP_INFO = {
@@ -142,3 +147,27 @@ def firebase_config(request):
         'firebase_auth_domain': getattr(settings, 'FIREBASE_AUTH_DOMAIN', ''),
         'firebase_project_id': getattr(settings, 'FIREBASE_PROJECT_ID', ''),
     }
+
+
+def site_config_context(request):
+    """Expose CrushSiteConfig values (cached for 5 minutes)."""
+    now = time.time()
+    if _site_config_cache["config"] is None or now > _site_config_cache["expires"]:
+        from .models import CrushSiteConfig
+
+        try:
+            config = CrushSiteConfig.get_config()
+            _site_config_cache["config"] = {
+                "whatsapp_number": config.whatsapp_number,
+                "whatsapp_enabled": config.whatsapp_enabled and bool(config.whatsapp_number),
+                "whatsapp_default_message": config.whatsapp_default_message,
+            }
+        except Exception:
+            _site_config_cache["config"] = {
+                "whatsapp_number": "",
+                "whatsapp_enabled": False,
+                "whatsapp_default_message": "",
+            }
+        _site_config_cache["expires"] = now + 300  # 5 minutes
+
+    return _site_config_cache["config"]

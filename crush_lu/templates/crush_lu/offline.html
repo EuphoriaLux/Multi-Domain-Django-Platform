@@ -14,28 +14,28 @@
             </div>
 
             <!-- Offline Message -->
-            <h1 class="text-3xl font-bold mb-3">{% trans "You're Offline" %}</h1>
-            <p class="text-lg text-gray-500 mb-8">
+            <h1 class="text-3xl font-bold dark:text-white mb-3">{% trans "You're Offline" %}</h1>
+            <p class="text-lg text-gray-500 dark:text-gray-400 mb-8">
                 {% trans "It looks like you've lost your internet connection. Don't worry, you can still browse some cached content!" %}
             </p>
 
             <!-- What you can do offline -->
-            <div class="bg-white rounded-xl shadow-sm mb-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4">
                 <div class="p-6 text-left">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                    <h5 class="font-semibold dark:text-white mb-4 flex items-center gap-2">
                         {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                         {% trans "What You Can Do Offline" %}
                     </h5>
                     <ul class="space-y-3">
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center gap-3 dark:text-gray-300">
                             {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-500" %}
                             {% trans "View previously loaded event pages" %}
                         </li>
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center gap-3 dark:text-gray-300">
                             {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-500" %}
                             {% trans "Access your cached dashboard" %}
                         </li>
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center gap-3 dark:text-gray-300">
                             {% include "shared/icons/info.html" with class="w-5 h-5 text-purple-500" %}
                             {% trans "Read about Crush.lu and how it works" %}
                         </li>
@@ -44,13 +44,13 @@
             </div>
 
             <!-- What you can't do offline -->
-            <div class="bg-white rounded-xl shadow-sm mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-8">
                 <div class="p-6 text-left">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                    <h5 class="font-semibold dark:text-white mb-4 flex items-center gap-2">
                         {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-red-500" %}
                         {% trans "What Requires Connection" %}
                     </h5>
-                    <ul class="space-y-3 text-gray-500">
+                    <ul class="space-y-3 text-gray-500 dark:text-gray-400">
                         <li class="flex items-center gap-3">
                             {% include "shared/icons/calendar-check.html" with class="w-5 h-5" %}
                             {% trans "Register for new events" %}
@@ -77,7 +77,7 @@
                     {% include "shared/icons/arrow-path.html" with class="w-5 h-5" %}
                     {% trans "Try Again" %}
                 </button>
-                <a href="{% url 'crush_lu:home' %}" class="flex items-center justify-center gap-2 w-full py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">
+                <a href="{% url 'crush_lu:home' %}" class="flex items-center justify-center gap-2 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
                     {% include "shared/icons/home.html" with class="w-4 h-4" %}
                     {% trans "Go to Home" %}
                 </a>

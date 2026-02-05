@@ -11,7 +11,7 @@
 
 <div class="advent-content">
     <div class="container">
-        <div class="locked-message text-center text-white">
+        <div class="locked-message text-center text-white dark:text-gray-100">
             <div class="locked-icon mb-4">
                 <span style="font-size: 5rem;">🎄</span>
             </div>
@@ -32,11 +32,11 @@
                 </div>
             </div>
 
-            <p class="text-muted">
+            <p class="text-gray-300 dark:text-gray-400">
                 24 doors filled with surprises, just for you.
             </p>
 
-            <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-6 py-3 border border-white text-white hover:bg-white/10 font-medium rounded-lg transition-colors mt-4">
+            <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-6 py-3 border border-white dark:border-gray-600 text-white dark:text-gray-200 hover:bg-white/10 dark:hover:bg-white/5 font-medium rounded-lg transition-colors mt-4">
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Home
             </a>
         </div>
@@ -69,6 +69,12 @@
         font-size: 0.8rem;
         color: rgba(255,255,255,0.5);
         border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    html.dark .preview-door {
+        background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border-color: rgba(255,255,255,0.05);
+        color: rgba(255,255,255,0.3);
     }
 </style>
 {% endblock %}

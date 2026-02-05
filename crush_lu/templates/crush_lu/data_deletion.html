@@ -6,12 +6,12 @@
 {% block content %}
 <div class="flex justify-center py-8 px-4">
     <div class="w-full max-w-3xl">
-        <div class="bg-white rounded-xl shadow-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4">{% trans "Data Deletion Request" %}</h1>
-                <p class="text-gray-500 mb-6"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
+                <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Data Deletion Request" %}</h1>
+                <p class="text-gray-500 dark:text-gray-400 mb-6"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
 
-                <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6 flex items-start gap-3">
                     {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                     <div>
                         <strong>{% trans "Your Right to Erasure" %}</strong><br>
@@ -19,11 +19,11 @@
                     </div>
                 </div>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "1. What Gets Deleted" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "1. What Gets Deleted" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "When you request account deletion, the following data is permanently removed:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li><strong>{% trans "Account Information:" %}</strong> {% trans "Email, name, date of birth, phone number" %}</li>
                     <li><strong>{% trans "Profile Data:" %}</strong> {% trans "Bio, interests, location, gender" %}</li>
                     <li><strong>{% trans "Photos:" %}</strong> {% trans "All profile photos stored on Azure Blob Storage" %}</li>
@@ -33,11 +33,11 @@
                     <li><strong>{% trans "Session Data:" %}</strong> {% trans "Authentication tokens and session information" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "2. What May Be Retained" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "2. What May Be Retained" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "For legal, safety, and operational reasons, we may retain certain anonymized or aggregated data:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li><strong>{% trans "Event Attendance Records:" %}</strong> {% trans "Anonymized attendance logs for safety and capacity planning" %}</li>
                     <li><strong>{% trans "Coach Notes:" %}</strong> {% trans "Internal coach notes (without identifying information) for platform improvement" %}</li>
                     <li><strong>{% trans "Moderation Records:" %}</strong> {% trans "Reports of policy violations for safety purposes" %}</li>
@@ -45,27 +45,27 @@
                     <li><strong>{% trans "Backup Systems:" %}</strong> {% trans "Data in automated backups (deleted within 90 days)" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "3. Impact on Other Users" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "3. Impact on Other Users" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "After your account is deleted:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li>{% trans "Your profile will no longer be visible to other users" %}</li>
                     <li>{% trans "Pending connections will be cancelled" %}</li>
                     <li>{% trans "Event registrations will be removed (coaches will be notified if needed)" %}</li>
                     <li>{% trans "Other users will see \"User Deleted\" instead of your name in past interactions" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "4. How to Request Deletion" %}</h3>
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "4. How to Request Deletion" %}</h3>
 
-                <h5 class="font-semibold mt-4 mb-2">{% trans "Option 1: Delete Through Your Account (Recommended)" %}</h5>
+                <h5 class="font-semibold dark:text-white mt-4 mb-2">{% trans "Option 1: Delete Through Your Account (Recommended)" %}</h5>
                 {% if user.is_authenticated %}
-                <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4 flex items-start gap-3">
+                <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 rounded-lg p-4 mb-4 flex items-start gap-3">
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                     <span><strong>{% trans "Warning:" %}</strong> {% trans "Account deletion is permanent and cannot be undone." %}</span>
                 </div>
-                <ol class="list-decimal list-inside space-y-2 mb-6 text-gray-700">
-                    <li>{% trans "Go to your" %} <a href="{% url 'crush_lu:dashboard' %}" class="text-purple-600 hover:underline">{% trans "Dashboard" %}</a></li>
+                <ol class="list-decimal list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
+                    <li>{% trans "Go to your" %} <a href="{% url 'crush_lu:dashboard' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Dashboard" %}</a></li>
                     <li>{% trans "Click on \"Account Settings\"" %}</li>
                     <li>{% trans "Scroll to \"Delete Account\" section" %}</li>
                     <li>{% trans "Click \"Delete My Account\" and confirm" %}</li>
@@ -76,11 +76,11 @@
                 </p>
                 {% endif %}
 
-                <h5 class="font-semibold mt-4 mb-2">{% trans "Option 2: Email Request" %}</h5>
-                <p class="mb-4">
+                <h5 class="font-semibold dark:text-white mt-4 mb-2">{% trans "Option 2: Email Request" %}</h5>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "If you cannot access your account, send an email to" %} <strong>privacy@crush.lu</strong> {% trans "with:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li>{% trans "Subject line: \"Data Deletion Request\"" %}</li>
                     <li>{% trans "Your full name" %}</li>
                     <li>{% trans "Email address associated with your account" %}</li>
@@ -88,102 +88,102 @@
                     <li>{% trans "Reason for deletion (optional)" %}</li>
                 </ul>
 
-                <h5 class="font-semibold mt-4 mb-2">{% trans "Option 3: Facebook App Data Deletion" %}</h5>
-                <p class="mb-4">
+                <h5 class="font-semibold dark:text-white mt-4 mb-2">{% trans "Option 3: Facebook App Data Deletion" %}</h5>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "If you signed up using Facebook, you can also request deletion through Facebook:" %}
                 </p>
-                <ol class="list-decimal list-inside space-y-2 mb-4 text-gray-700">
+                <ol class="list-decimal list-inside space-y-2 mb-4 text-gray-700 dark:text-gray-300">
                     <li>{% trans "Go to your Facebook Settings" %}</li>
                     <li>{% trans "Navigate to \"Apps and Websites\"" %}</li>
                     <li>{% trans "Find \"Crush.lu\" in the list" %}</li>
                     <li>{% trans "Click \"Remove\" and follow Facebook's instructions" %}</li>
                     <li>{% trans "We will be notified and delete your data within 30 days" %}</li>
                 </ol>
-                <p class="mb-6">
-                    <strong>{% trans "Callback URL for Facebook:" %}</strong> <code class="bg-gray-100 px-2 py-1 rounded text-sm">https://crush.lu/facebook/data-deletion/</code>
+                <p class="dark:text-gray-300 mb-6">
+                    <strong>{% trans "Callback URL for Facebook:" %}</strong> <code class="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded text-sm">https://crush.lu/facebook/data-deletion/</code>
                 </p>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "5. Deletion Timeline" %}</h3>
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "5. Deletion Timeline" %}</h3>
                 <div class="overflow-x-auto mb-6">
-                    <table class="w-full border-collapse border border-gray-200">
+                    <table class="w-full border-collapse border border-gray-200 dark:border-gray-700">
                         <thead>
-                            <tr class="bg-gray-50">
-                                <th class="border border-gray-200 px-4 py-2 text-left">{% trans "Data Type" %}</th>
-                                <th class="border border-gray-200 px-4 py-2 text-left">{% trans "Deletion Timeline" %}</th>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="border border-gray-200 dark:border-gray-700 dark:text-gray-200 px-4 py-2 text-left">{% trans "Data Type" %}</th>
+                                <th class="border border-gray-200 dark:border-gray-700 dark:text-gray-200 px-4 py-2 text-left">{% trans "Deletion Timeline" %}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Active Database Records" %}</td>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Immediate (within 24 hours)" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Active Database Records" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Immediate (within 24 hours)" %}</td>
                             </tr>
                             <tr>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Profile Photos (Azure Blob Storage)" %}</td>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Within 7 days" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Profile Photos (Azure Blob Storage)" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Within 7 days" %}</td>
                             </tr>
                             <tr>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Backup Systems" %}</td>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Within 90 days" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Backup Systems" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Within 90 days" %}</td>
                             </tr>
                             <tr>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Anonymized Analytics" %}</td>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Retained (no personal identifiers)" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Anonymized Analytics" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Retained (no personal identifiers)" %}</td>
                             </tr>
                             <tr>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Legal Compliance Records" %}</td>
-                                <td class="border border-gray-200 px-4 py-2">{% trans "Up to 7 years (as required by law)" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Legal Compliance Records" %}</td>
+                                <td class="border border-gray-200 dark:border-gray-700 dark:text-gray-300 px-4 py-2">{% trans "Up to 7 years (as required by law)" %}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "6. Verification Process" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "6. Verification Process" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "To protect your privacy and prevent unauthorized deletion requests, we may ask you to verify your identity:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li>{% trans "Login to your account (if accessible)" %}</li>
                     <li>{% trans "Provide answers to security questions" %}</li>
                     <li>{% trans "Confirm via registered email address" %}</li>
                     <li>{% trans "Provide photo ID (in cases of suspicious activity)" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "7. Alternatives to Deletion" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "7. Alternatives to Deletion" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "If you're not ready for permanent deletion, consider these options:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li><strong>{% trans "Deactivate Account:" %}</strong> {% trans "Temporarily hide your profile without deletion" %}</li>
                     <li><strong>{% trans "Adjust Privacy Settings:" %}</strong> {% trans "Control who can see your information" %}</li>
                     <li><strong>{% trans "Unsubscribe from Emails:" %}</strong> {% trans "Stop receiving notifications" %}</li>
                     <li><strong>{% trans "Take a Break:" %}</strong> {% trans "Keep your account but stop using the platform" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "8. Reactivation Policy" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "8. Reactivation Policy" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "Once your account is deleted, it cannot be recovered. If you wish to use Crush.lu again, you must:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li>{% trans "Create a new account with a new email address" %}</li>
                     <li>{% trans "Complete profile creation and coach review again" %}</li>
                     <li>{% trans "Your previous event history and connections will not be restored" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "9. Contact Information" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "9. Contact Information" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "For questions about data deletion or privacy concerns:" %}
                 </p>
-                <ul class="space-y-2 mb-6 text-gray-700">
-                    <li><strong>{% trans "Email:" %}</strong> <a href="mailto:privacy@crush.lu" class="text-purple-600 hover:underline">privacy@crush.lu</a></li>
+                <ul class="space-y-2 mb-6 text-gray-700 dark:text-gray-300">
+                    <li><strong>{% trans "Email:" %}</strong> <a href="mailto:privacy@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">privacy@crush.lu</a></li>
                     <li><strong>{% trans "Subject:" %}</strong> {% trans "\"Data Deletion Request\" or \"Privacy Inquiry\"" %}</li>
                     <li><strong>{% trans "Response Time:" %}</strong> {% trans "Within 48 hours" %}</li>
                 </ul>
 
-                <h3 class="text-xl font-semibold mt-8 mb-4">{% trans "10. Your Rights" %}</h3>
-                <p class="mb-4">
+                <h3 class="text-xl font-semibold dark:text-white mt-8 mb-4">{% trans "10. Your Rights" %}</h3>
+                <p class="dark:text-gray-300 mb-4">
                     {% trans "In addition to deletion, you have the right to:" %}
                 </p>
-                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+                <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700 dark:text-gray-300">
                     <li><strong>{% trans "Access:" %}</strong> {% trans "Request a copy of your data (send email to privacy@crush.lu)" %}</li>
                     <li><strong>{% trans "Rectification:" %}</strong> {% trans "Correct inaccurate information (edit in account settings)" %}</li>
                     <li><strong>{% trans "Restriction:" %}</strong> {% trans "Limit how we process your data" %}</li>
@@ -191,10 +191,10 @@
                     <li><strong>{% trans "Objection:" %}</strong> {% trans "Object to certain types of data processing" %}</li>
                 </ul>
 
-                <hr class="my-8 border-gray-200">
+                <hr class="my-8 border-gray-200 dark:border-gray-700">
 
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center mb-6">
-                    <p class="mb-4">
+                <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 text-center mb-6">
+                    <p class="dark:text-gray-200 mb-4">
                         <strong>{% trans "Need Help?" %}</strong><br>
                         {% trans "Our team is here to assist with any privacy concerns or technical issues." %}
                     </p>
@@ -205,12 +205,12 @@
                 </div>
 
                 <div class="text-center">
-                    <p class="text-gray-500 text-sm mb-4">
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
                         {% trans "For more information, see our" %}
-                        <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 hover:underline">{% trans "Privacy Policy" %}</a> {% trans "and" %}
-                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 hover:underline">{% trans "Terms of Service" %}</a>.
+                        <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Privacy Policy" %}</a> {% trans "and" %}
+                        <a href="{% url 'crush_lu:terms_of_service' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Terms of Service" %}</a>.
                     </p>
-                    <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                    <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         {% trans "Back to Home" %}
                     </a>
                 </div>

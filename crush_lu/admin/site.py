@@ -241,6 +241,11 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
             'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP 11: Site Settings (Global configuration)
+            # ═══════════════════════════════════════════════════════════════════
+            'crushsiteconfig': {'order': 1, 'icon': '⚙️', 'group': 'Site Settings'},
         }
 
         # Create grouped app list - transform single crush_lu app into multiple sections
@@ -326,6 +331,7 @@ class CrushLuAdminSite(admin.AdminSite):
 
                     # === ADMIN / DEBUGGING ===
                     ('🔧 Technical & Debug', 'Technical & Debug'),     # PWA, OAuth debugging
+                    ('⚙️ Site Settings', 'Site Settings'),               # WhatsApp, site config
                 ]
 
                 for display_name, group_key in group_order:

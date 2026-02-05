@@ -196,7 +196,7 @@
                 </p>
                 <p class="mb-3">{{ event.description|truncatewords:15 }}</p>
                 <div class="flex justify-between items-center">
-                    <small class="text-gray-500">
+                    <small class="text-gray-500 dark:text-gray-400">
                         {% blocktrans with spots=event.spots_remaining %}{{ spots }} spots left{% endblocktrans %}
                     </small>
                     <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary text-sm px-4 py-2.5">

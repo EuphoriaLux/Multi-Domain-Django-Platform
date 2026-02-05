@@ -27,13 +27,13 @@
             <template x-if="isEditing">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-3">{% trans "Edit Your Profile" %}</h1>
-                    <p class="text-gray-500">{% trans "Update your profile information" %}</p>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Update your profile information" %}</p>
                 </div>
             </template>
             <template x-if="isNotEditing">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-3">{% trans "Welcome to Crush!" %}</h1>
-                    <p class="text-gray-500">{% trans "Let's create your profile in just a few steps" %}</p>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Let's create your profile in just a few steps" %}</p>
                 </div>
             </template>
 
@@ -142,7 +142,7 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span class="text-sm text-gray-600">{% trans "Saving..." %}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-300">{% trans "Saving..." %}</span>
                 </div>
 
                 <!-- Saved Indicator -->
@@ -151,7 +151,7 @@
                     <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                     </svg>
-                    <span class="text-sm text-gray-600" x-text="lastSavedMessage"></span>
+                    <span class="text-sm text-gray-600 dark:text-gray-300" x-text="lastSavedMessage"></span>
                 </div>
             </div>
 
@@ -159,12 +159,12 @@
             <div x-show="isStep1" x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-x-4"
                  x-transition:enter-end="opacity-100 transform translate-x-0"
-                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8">
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">📋</div>
-                    <h3 class="text-xl font-semibold">{% trans "Basic Information" %}</h3>
-                    <p class="text-gray-500 text-sm">{% trans "Let's start with the essentials" %}</p>
+                    <h3 class="text-xl font-semibold dark:text-white">{% trans "Basic Information" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Let's start with the essentials" %}</p>
                 </div>
 
                 <!-- Phone Number with Verification -->
@@ -172,7 +172,7 @@
                      x-data="phoneVerificationComponent"
                      data-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
                      data-phone-input-id="{{ form.phone_number.id_for_label }}">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Phone Number" %} *
                         <span x-show="notVerified"
                               class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-2">
@@ -193,7 +193,7 @@
                             <input type="tel"
                                    name="phone_number"
                                    id="{{ form.phone_number.id_for_label }}"
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                                    value="{% if form.phone_number.value %}{{ form.phone_number.value }}{% elif profile %}{{ profile.phone_number|default:'' }}{% endif %}"
                                    x-bind:readonly="verified"
                                    @input="onPhoneInput"
@@ -244,14 +244,14 @@
 
                 <!-- Date of Birth - Stepped Picker -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans "Date of Birth" %} *
                     </label>
-                    <p class="text-sm text-gray-500 mb-3">{% trans "Must be 18+ to join" %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Must be 18+ to join" %}</p>
 
                     <div x-data="dobPicker"
                          data-months='[{"num":1,"name":"{% trans "January" %}"},{"num":2,"name":"{% trans "February" %}"},{"num":3,"name":"{% trans "March" %}"},{"num":4,"name":"{% trans "April" %}"},{"num":5,"name":"{% trans "May" %}"},{"num":6,"name":"{% trans "June" %}"},{"num":7,"name":"{% trans "July" %}"},{"num":8,"name":"{% trans "August" %}"},{"num":9,"name":"{% trans "September" %}"},{"num":10,"name":"{% trans "October" %}"},{"num":11,"name":"{% trans "November" %}"},{"num":12,"name":"{% trans "December" %}"}]'
-                         class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                         class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
 
                         <!-- Progress Breadcrumb -->
                         <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
@@ -298,7 +298,7 @@
                         <!-- Step 1: Age Range Selection -->
                         <div x-show="isStep1" x-transition:enter="transition ease-out duration-200"
                              x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
-                            <p class="text-sm text-gray-600 mb-4">{% trans "What's your age range?" %}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "What's your age range?" %}</p>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3" data-dob-age-ranges>
                                 <!-- Buttons rendered by JavaScript -->
                             </div>
@@ -359,18 +359,18 @@
 
                 <!-- Gender Selection -->
                 <fieldset class="mb-6">
-                    <legend class="block text-sm font-medium text-gray-700 mb-2">
+                    <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         <span aria-hidden="true">{% include "shared/icons/user.html" with class="w-5 h-5" %}</span> {% trans "Gender" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <p class="text-sm text-gray-600 mb-4">{% trans "How do you identify?" %}</p>
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "How do you identify?" %}</p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select your gender" %}">
                             {% for value, label, icon in gender_choices %}
                             <label class="cursor-pointer block">
                                 <input type="radio" name="gender" value="{{ value }}" class="peer hidden"
                                        {% if form.gender.value == value or profile and profile.gender == value %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">{{ icon }}</span>
                                     <span class="gender-label whitespace-nowrap">{{ label }}</span>
@@ -382,7 +382,7 @@
                                 <input type="radio" name="gender" value="M" class="peer hidden"
                                        {% if form.gender.value == 'M' or profile and profile.gender == 'M' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">👨</span>
                                     <span class="gender-label whitespace-nowrap">{% trans "Male" %}</span>
@@ -392,7 +392,7 @@
                                 <input type="radio" name="gender" value="F" class="peer hidden"
                                        {% if form.gender.value == 'F' or profile and profile.gender == 'F' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">👩</span>
                                     <span class="gender-label whitespace-nowrap">{% trans "Female" %}</span>
@@ -402,7 +402,7 @@
                                 <input type="radio" name="gender" value="NB" class="peer hidden"
                                        {% if form.gender.value == 'NB' or profile and profile.gender == 'NB' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🧑</span>
                                     <span class="gender-label whitespace-nowrap">{% trans "Non-binary" %}</span>
@@ -412,7 +412,7 @@
                                 <input type="radio" name="gender" value="O" class="peer hidden"
                                        {% if form.gender.value == 'O' or profile and profile.gender == 'O' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">✨</span>
                                     <span class="gender-label whitespace-nowrap">{% trans "Other" %}</span>
@@ -431,10 +431,10 @@
 
                 <!-- Location (Canton Map) -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} {% trans "Location in Luxembourg" %} *
                     </label>
-                    <p class="text-sm text-gray-500 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
 
                     <div x-data="cantonMap"
                          data-initial-value="{% if form.location.value %}{{ form.location.value }}{% elif profile and profile.location %}{{ profile.location }}{% endif %}"
@@ -555,28 +555,28 @@
             <div x-show="isStep2" x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-x-4"
                  x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
-                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8">
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">✍️</div>
-                    <h3 class="text-xl font-semibold">{% trans "About You" %}</h3>
-                    <p class="text-gray-500 text-sm">{% trans "Share what makes you unique (optional)" %}</p>
+                    <h3 class="text-xl font-semibold dark:text-white">{% trans "About You" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Share what makes you unique (optional)" %}</p>
                 </div>
 
                 <!-- Bio -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% elif profile and profile.bio %}{{ profile.bio|length }}{% else %}0{% endif %}" data-max-length="500">
-                    <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
                     <textarea name="bio"
                               id="{{ form.bio.id_for_label }}"
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
                               placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{% if form.bio.value %}{{ form.bio.value }}{% elif profile and profile.bio %}{{ profile.bio }}{% endif %}</textarea>
-                    <div class="text-right text-sm text-gray-400 mt-1">
+                    <div class="text-right text-sm text-gray-400 dark:text-gray-500 mt-1">
                         <span x-text="charCount"></span>/500 {% trans "characters" %}
                     </div>
                     {% if form.bio.errors %}
@@ -586,17 +586,17 @@
 
                 <!-- Interest Categories -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "Interest Categories" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
-                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <p class="text-sm text-gray-600 mb-4">{% trans "Select all that apply" %}</p>
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Select all that apply" %}</p>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                             <label class="cursor-pointer block">
                                 <input type="checkbox" name="interest_category" value="sports" class="peer hidden">
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">⚽</span>
                                     <span class="whitespace-nowrap text-xs">{% trans "Sports" %}</span>
@@ -605,7 +605,7 @@
                             <label class="cursor-pointer block">
                                 <input type="checkbox" name="interest_category" value="arts" class="peer hidden">
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🎨</span>
                                     <span class="whitespace-nowrap text-xs">{% trans "Arts" %}</span>
@@ -614,7 +614,7 @@
                             <label class="cursor-pointer block">
                                 <input type="checkbox" name="interest_category" value="food" class="peer hidden">
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🍷</span>
                                     <span class="whitespace-nowrap text-xs">{% trans "Food" %}</span>
@@ -623,7 +623,7 @@
                             <label class="cursor-pointer block">
                                 <input type="checkbox" name="interest_category" value="outdoors" class="peer hidden">
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🏔️</span>
                                     <span class="whitespace-nowrap text-xs">{% trans "Outdoors" %}</span>
@@ -632,7 +632,7 @@
                             <label class="cursor-pointer block">
                                 <input type="checkbox" name="interest_category" value="business" class="peer hidden">
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">💼</span>
                                     <span class="whitespace-nowrap text-xs">{% trans "Business" %}</span>
@@ -644,34 +644,34 @@
 
                 <!-- Custom Interests -->
                 <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% elif profile and profile.interests %}{{ profile.interests|length }}{% else %}0{% endif %}" data-max-length="300">
-                    <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
                     </label>
                     <textarea name="interests"
                               id="{{ form.interests.id_for_label }}"
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="2"
                               maxlength="300"
                               @input="updateCount"
                               placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{% if form.interests.value %}{{ form.interests.value }}{% elif profile and profile.interests %}{{ profile.interests }}{% endif %}</textarea>
-                    <div class="text-right text-sm text-gray-400 mt-1">
+                    <div class="text-right text-sm text-gray-400 dark:text-gray-500 mt-1">
                         <span x-text="charCount"></span>/300 {% trans "characters" %}
                     </div>
                 </div>
 
                 <!-- Looking For -->
                 <fieldset class="mb-6">
-                    <legend class="block text-sm font-medium text-gray-700 mb-2">
+                    <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         <span aria-hidden="true">{% include "shared/icons/heart.html" with class="w-5 h-5" %}</span> {% trans "What are you looking for?" %} <span class="text-red-500" aria-label="required">*</span>
                     </legend>
-                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <p class="text-sm text-gray-600 mb-4">{% trans "What brings you here?" %}</p>
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "What brings you here?" %}</p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3" role="radiogroup" aria-label="{% trans "Select what you are looking for" %}">
                             <label class="cursor-pointer block">
                                 <input type="radio" name="looking_for" value="friends" class="peer hidden"
                                        {% if form.looking_for.value == 'friends' or profile and profile.looking_for == 'friends' %}checked{% endif %} required>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">👋</span>
                                     <span class="whitespace-nowrap">{% trans "Friends" %}</span>
@@ -681,7 +681,7 @@
                                 <input type="radio" name="looking_for" value="dating" class="peer hidden"
                                        {% if form.looking_for.value == 'dating' or profile and profile.looking_for == 'dating' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">💕</span>
                                     <span class="whitespace-nowrap">{% trans "Dating" %}</span>
@@ -691,7 +691,7 @@
                                 <input type="radio" name="looking_for" value="both" class="peer hidden"
                                        {% if form.looking_for.value == 'both' or profile and profile.looking_for == 'both' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🌟</span>
                                     <span class="whitespace-nowrap">{% trans "Both" %}</span>
@@ -701,7 +701,7 @@
                                 <input type="radio" name="looking_for" value="networking" class="peer hidden"
                                        {% if form.looking_for.value == 'networking' or profile and profile.looking_for == 'networking' %}checked{% endif %}>
                                 <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105
-                                            border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
                                             peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
                                     <span class="text-xl flex-shrink-0">🤝</span>
                                     <span class="whitespace-nowrap">{% trans "Networking" %}</span>
@@ -721,8 +721,8 @@
                 <div class="flex gap-4 mt-6">
                     <button type="button" @click="prevStep"
                             x-bind:disabled="isSavingStep"
-                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
-                                   hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
+                            class="flex-1 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold
+                                   hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
@@ -771,12 +771,12 @@
             <div x-show="isStep3" x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-x-4"
                  x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
-                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8">
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">📸</div>
-                    <h3 class="text-xl font-semibold">{% trans "Add Photos" %}</h3>
-                    <p class="text-gray-500 text-sm">{% trans "Upload at least one photo (optional but recommended)" %}</p>
+                    <h3 class="text-xl font-semibold dark:text-white">{% trans "Add Photos" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Upload at least one photo (optional but recommended)" %}</p>
                 </div>
 
                 <!-- Photo Upload Grid - smaller gap on mobile for better fit -->
@@ -793,13 +793,13 @@
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"
                                @change="handleFile1">
                         <label for="photo1"
-                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                               class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
-                                      bg-gray-50 hover:bg-purple-50">
+                                      bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo1HasImage" class="w-full h-full">
                                 <img x-bind:src="photo1Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                            <div x-show="photo1NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -820,13 +820,13 @@
                         <input type="file" name="photo_2" id="photo2" accept="image/*" class="hidden"
                                @change="handleFile2">
                         <label for="photo2"
-                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                               class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
-                                      bg-gray-50 hover:bg-purple-50">
+                                      bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo2HasImage" class="w-full h-full">
                                 <img x-bind:src="photo2Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                            <div x-show="photo2NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -847,13 +847,13 @@
                         <input type="file" name="photo_3" id="photo3" accept="image/*" class="hidden"
                                @change="handleFile3">
                         <label for="photo3"
-                               class="block w-full h-full border-2 border-dashed border-gray-300 rounded-xl
+                               class="block w-full h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl
                                       cursor-pointer hover:border-purple-400 transition-all overflow-hidden
-                                      bg-gray-50 hover:bg-purple-50">
+                                      bg-gray-50 dark:bg-gray-900 hover:bg-purple-50 dark:hover:bg-purple-900/30">
                             <div x-show="photo3HasImage" class="w-full h-full">
                                 <img x-bind:src="photo3Preview" class="w-full h-full object-cover" alt="Photo preview">
                             </div>
-                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                            <div x-show="photo3NoImage" class="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                                 <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -883,7 +883,7 @@
 
                 <!-- Privacy Settings -->
                 <div class="border-t pt-6">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">
                         <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                         </svg>
@@ -896,8 +896,8 @@
                                    {% if form.show_full_name.value or profile and profile.show_full_name %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">{% trans "Show my full name" %}</span>
-                                <p class="text-sm text-gray-500">{% trans "Otherwise only your first name will be shown" %}</p>
+                                <span class="font-medium dark:text-white">{% trans "Show my full name" %}</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Otherwise only your first name will be shown" %}</p>
                             </div>
                         </label>
 
@@ -906,8 +906,8 @@
                                    {% if form.show_exact_age.value is None %}{% if profile and profile.show_exact_age or not profile %}checked{% endif %}{% elif form.show_exact_age.value %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">{% trans "Show my exact age" %}</span>
-                                <p class="text-sm text-gray-500">{% trans "Otherwise show age range (e.g., 25-29)" %}</p>
+                                <span class="font-medium dark:text-white">{% trans "Show my exact age" %}</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Otherwise show age range (e.g., 25-29)" %}</p>
                             </div>
                         </label>
 
@@ -916,8 +916,8 @@
                                    {% if form.blur_photos.value or profile and profile.blur_photos %}checked{% endif %}
                                    class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                             <div>
-                                <span class="font-medium">{% trans "Blur my photos until mutual interest" %}</span>
-                                <p class="text-sm text-gray-500">{% trans "Photos will only be visible after you both connect" %}</p>
+                                <span class="font-medium dark:text-white">{% trans "Blur my photos until mutual interest" %}</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Photos will only be visible after you both connect" %}</p>
                             </div>
                         </label>
                     </div>
@@ -925,7 +925,7 @@
 
                 <!-- Event Languages -->
                 <div class="border-t pt-6 mt-6">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">
                         <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
                         </svg>
@@ -973,8 +973,8 @@
                 <div class="flex gap-4 mt-6">
                     <button type="button" @click="prevStep"
                             x-bind:disabled="isSavingStep"
-                            class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
-                                   hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
+                            class="flex-1 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold
+                                   hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                         </svg>
@@ -1023,23 +1023,23 @@
             <div x-show="isStep4" x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 transform translate-x-4"
                  x-transition:enter-end="opacity-100 transform translate-x-0" x-cloak
-                 class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 md:p-8">
 
                 <div class="text-center mb-6">
                     <div class="text-4xl mb-2">✅</div>
-                    <h3 class="text-xl font-semibold">{% trans "Review & Submit" %}</h3>
-                    <p class="text-gray-500 text-sm">{% trans "Almost done! Review your information" %}</p>
+                    <h3 class="text-xl font-semibold dark:text-white">{% trans "Review & Submit" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Almost done! Review your information" %}</p>
                 </div>
 
                 <!-- Review Summary -->
-                <div class="bg-gray-50 rounded-xl p-4 mb-6 space-y-3">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 mb-6 space-y-3">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                             {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">{% trans "Phone Number" %}</span>
-                            <p class="font-medium" x-ref="reviewPhone">{% trans "Not provided" %}</p>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Phone Number" %}</span>
+                            <p class="font-medium dark:text-white" x-ref="reviewPhone">{% trans "Not provided" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -1047,8 +1047,8 @@
                             {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">{% trans "Date of Birth" %}</span>
-                            <p class="font-medium" x-ref="reviewDob">{% trans "Not provided" %}</p>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Date of Birth" %}</span>
+                            <p class="font-medium dark:text-white" x-ref="reviewDob">{% trans "Not provided" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -1056,8 +1056,8 @@
                             {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">{% trans "Gender" %}</span>
-                            <p class="font-medium" x-ref="reviewGender">{% trans "Not selected" %}</p>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Gender" %}</span>
+                            <p class="font-medium dark:text-white" x-ref="reviewGender">{% trans "Not selected" %}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
@@ -1065,15 +1065,15 @@
                             {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">{% trans "Location" %}</span>
-                            <p class="font-medium" x-ref="reviewLocation">{% trans "Not selected" %}</p>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Location" %}</span>
+                            <p class="font-medium dark:text-white" x-ref="reviewLocation">{% trans "Not selected" %}</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- What Happens Next -->
                 <div class="mb-6">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2">
+                    <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">
                         {% include "shared/icons/hourglass.html" with class="w-5 h-5 text-purple-600" %}
                         {% trans "What Happens Next?" %}
                     </h5>
@@ -1082,29 +1082,29 @@
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">1</div>
                             <div>
-                                <h6 class="font-medium">{% trans "Profile Submitted" %}</h6>
-                                <p class="text-sm text-gray-500">{% trans "Your profile is sent to our Crush Coach team" %}</p>
+                                <h6 class="font-medium dark:text-white">{% trans "Profile Submitted" %}</h6>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your profile is sent to our Crush Coach team" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">2</div>
                             <div>
-                                <h6 class="font-medium">{% trans "Coach Review" %}</h6>
-                                <p class="text-sm text-gray-500">{% trans "A coach will review your profile within 24-48 hours" %}</p>
+                                <h6 class="font-medium dark:text-white">{% trans "Coach Review" %}</h6>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "A coach will review your profile within 24-48 hours" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">3</div>
                             <div>
-                                <h6 class="font-medium">{% trans "Screening Call" %}</h6>
-                                <p class="text-sm text-gray-500">{% trans "Your coach will call you to discuss your profile and goals" %}</p>
+                                <h6 class="font-medium dark:text-white">{% trans "Screening Call" %}</h6>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your coach will call you to discuss your profile and goals" %}</p>
                             </div>
                         </div>
                         <div class="flex gap-4">
                             <div class="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center flex-shrink-0 font-semibold">4</div>
                             <div>
-                                <h6 class="font-medium">{% trans "Profile Approved" %}</h6>
-                                <p class="text-sm text-gray-500">{% trans "You can start attending events and making connections!" %}</p>
+                                <h6 class="font-medium dark:text-white">{% trans "Profile Approved" %}</h6>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "You can start attending events and making connections!" %}</p>
                             </div>
                         </div>
                     </div>
@@ -1187,7 +1187,7 @@
                  x-transition:leave-start="opacity-100 transform scale-100"
                  x-transition:leave-end="opacity-0 transform scale-95"
                  @click.away="close"
-                 class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+                 class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
 
                 <!-- Close button -->
                 <button @click="close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
@@ -1196,14 +1196,14 @@
                     </svg>
                 </button>
 
-                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <h3 class="text-xl font-semibold dark:text-white mb-4 flex items-center gap-2">
                     {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Verify Your Phone" %}
                 </h3>
 
                 <!-- Step: Sending -->
                 <div x-show="isSendingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p class="text-gray-600">{% trans "Sending verification code..." %}</p>
+                    <p class="text-gray-600 dark:text-gray-300">{% trans "Sending verification code..." %}</p>
                 </div>
 
                 <!-- Step: Enter Code -->
@@ -1261,7 +1261,7 @@
                 <!-- Step: Verifying -->
                 <div x-show="isVerifyingStep" class="text-center py-8">
                     <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p class="text-gray-600">{% trans "Verifying your code..." %}</p>
+                    <p class="text-gray-600 dark:text-gray-300">{% trans "Verifying your code..." %}</p>
                 </div>
 
                 <!-- Step: Success -->
@@ -1271,8 +1271,8 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <h4 class="text-xl font-semibold text-green-700 mb-2">{% trans "Phone Verified!" %}</h4>
-                    <p class="text-gray-500">{% trans "Your phone number has been verified successfully." %}</p>
+                    <h4 class="text-xl font-semibold text-green-700 dark:text-green-300 mb-2">{% trans "Phone Verified!" %}</h4>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Your phone number has been verified successfully." %}</p>
                 </div>
             </div>
         </div>

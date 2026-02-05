@@ -50,7 +50,7 @@
                         {% endif %}
                     </div>
                 {% elif has_qr_bonus and not show_bonus %}
-                    <div class="bonus-hint text-center mt-4 p-3" style="background: rgba(255,215,0,0.1); border-radius: 12px; border: 2px dashed #ffd700;">
+                    <div class="bonus-hint text-center mt-4 p-3 rounded-xl border-2 border-dashed border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20">
                         <span style="font-size: 2rem;">🎁</span>
                         <p class="mb-0 mt-2"><strong>Bonus content available!</strong><br><small class="text-muted">Scan the QR code to unlock!</small></p>
                     </div>
@@ -63,13 +63,13 @@
             {% endif %}
 
             <!-- Navigation -->
-            <div class="door-navigation flex justify-between mt-4 pt-4 border-t border-gray-200">
+            <div class="door-navigation flex justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {% if door_number > 1 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">{% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Previous</a>
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'-1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">{% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Previous</a>
                 {% else %}<span></span>{% endif %}
                 <a href="{% url 'crush_lu:advent_calendar' %}" class="btn-crush-primary inline-flex items-center gap-1 px-4 py-2">{% include "shared/icons/squares-2x2.html" with class="w-5 h-5" %} Calendar</a>
                 {% if door_number < 24 %}
-                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">Next {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}</a>
+                    <a href="{% url 'crush_lu:advent_door' door_number|add:'1' %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">Next {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}</a>
                 {% else %}<span></span>{% endif %}
             </div>
         </div>
@@ -81,10 +81,18 @@
         background: linear-gradient(135deg, #fef9e7 0%, #fdebd0 100%);
     }
 
+    html.dark .poem-card {
+        background: linear-gradient(135deg, #713f12 0%, #854d0e 100%);
+    }
+
     .poem-title {
         font-family: 'Georgia', serif;
         color: #8b4513;
         font-style: italic;
+    }
+
+    html.dark .poem-title {
+        color: #fcd34d;
     }
 
     .poem-content {
@@ -93,6 +101,11 @@
         background: rgba(255,255,255,0.7);
         border-radius: 12px;
         border-left: 4px solid #c41e3a;
+    }
+
+    html.dark .poem-content {
+        background: rgba(30,41,59,0.6);
+        border-left-color: #fca5a5;
     }
 
     .poem-decoration {
@@ -104,6 +117,10 @@
         padding: 0 10px;
     }
 
+    html.dark .poem-decoration {
+        background: #713f12;
+    }
+
     .poem-text {
         font-family: 'Georgia', serif;
         font-size: 1.15rem;
@@ -111,6 +128,10 @@
         color: #4a4a4a;
         font-style: italic;
         text-align: center;
+    }
+
+    html.dark .poem-text {
+        color: #d1d5db;
     }
 </style>
 {% endblock %}

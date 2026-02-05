@@ -194,3 +194,6 @@ sent_emails/
 
 # Azure Function publish profiles (contain secrets)
 *-publish-profile.xml
+
+# Screenshots folder (development/debugging screenshots)
+screenshots/

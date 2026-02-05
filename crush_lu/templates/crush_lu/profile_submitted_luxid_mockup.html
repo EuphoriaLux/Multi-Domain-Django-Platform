@@ -13,7 +13,7 @@
             <div class="flex items-center gap-4">
                 <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
                      alt="LuxID"
-                     class="w-16 h-16 md:w-20 md:h-20 bg-white rounded-lg p-2 shadow-xl">
+                     class="w-16 h-16 md:w-20 md:h-20 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-xl">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">
                         {% trans "Fast Track Verification" %}
@@ -23,7 +23,7 @@
                     </p>
                 </div>
             </div>
-            <div class="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 border-2 border-white/30">
+            <div class="bg-white dark:bg-gray-800/20 backdrop-blur-sm rounded-full px-4 py-2 border-2 border-white/30">
                 <span class="font-bold text-sm">✨ {% trans "Screening Call Waived" %}</span>
             </div>
         </div>
@@ -48,13 +48,13 @@
                         </div>
                     </div>
 
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">
                         <span>{% trans "Profile Under Review" %}</span>
                         <span class="inline-flex items-center ml-2 px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border border-purple-300">
                             ⚡ {% trans "Fast Track" %}
                         </span>
                     </h2>
-                    <p class="text-base text-gray-600 mb-6">
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
                     </p>
 
@@ -63,30 +63,30 @@
                         <div class="flex items-start gap-4">
                             <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}"
                                  alt="LuxID"
-                                 class="w-16 h-16 flex-shrink-0 bg-white rounded-lg p-2 shadow-sm">
+                                 class="w-16 h-16 flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-sm">
                             <div class="flex-1">
                                 <h5 class="font-bold text-purple-900 mb-2 text-lg">
                                     🎉 {% trans "Fast Track Approval with LuxID" %}
                                 </h5>
-                                <p class="text-sm text-gray-700 mb-4">
+                                <p class="text-sm text-gray-700 dark:text-gray-200 mb-4">
                                     {% trans "Because you verified your identity through LuxID, we can skip the screening call and expedite your approval process." %}
                                 </p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div class="bg-white rounded-lg p-3 text-center border border-green-200">
+                                    <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-center border border-green-200">
                                         <div class="font-bold text-green-600 mb-1">✓ {% trans "No Call Needed" %}</div>
-                                        <div class="text-xs text-gray-600">{% trans "Skip 10-20 min interview" %}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">{% trans "Skip 10-20 min interview" %}</div>
                                     </div>
-                                    <div class="bg-white rounded-lg p-3 text-center border border-blue-200">
+                                    <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-center border border-blue-200">
                                         <div class="font-bold text-blue-600 mb-1">📱 {% trans "No Phone Required" %}</div>
-                                        <div class="text-xs text-gray-600">{% trans "No SMS verification" %}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">{% trans "No SMS verification" %}</div>
                                     </div>
-                                    <div class="bg-white rounded-lg p-3 text-center border border-purple-200">
+                                    <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-center border border-purple-200">
                                         <div class="font-bold text-purple-600 mb-1">⚡ {% trans "50% Faster" %}</div>
-                                        <div class="text-xs text-gray-600">{% trans "12-24h vs 24-48h" %}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">{% trans "12-24h vs 24-48h" %}</div>
                                     </div>
-                                    <div class="bg-white rounded-lg p-3 text-center border border-indigo-200">
+                                    <div class="bg-white dark:bg-gray-800 rounded-lg p-3 text-center border border-indigo-200">
                                         <div class="font-bold text-indigo-600 mb-1">🇱🇺 {% trans "Verified" %}</div>
-                                        <div class="text-xs text-gray-600">{% trans "Luxembourg identity" %}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-300">{% trans "Luxembourg identity" %}</div>
                                     </div>
                                 </div>
                             </div>
@@ -128,7 +128,7 @@
                                             <div class="font-semibold text-green-700">
                                                 {% trans "Screening call WAIVED" %} ⚡
                                             </div>
-                                            <div class="text-xs text-gray-600 mt-1">
+                                            <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">
                                                 {% trans "LuxID verification allows us to skip the 10-20 minute screening interview and phone verification" %}
                                             </div>
                                         </div>
@@ -152,18 +152,18 @@
                     </div>
 
                     {# Time Savings Comparison #}
-                    <div class="bg-white border-2 border-gray-200 rounded-lg p-5 mb-4">
-                        <h6 class="font-bold text-gray-900 mb-4 text-center">⏱️ {% trans "Time Savings with LuxID" %}</h6>
+                    <div class="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-5 mb-4">
+                        <h6 class="font-bold text-gray-900 dark:text-white mb-4 text-center">⏱️ {% trans "Time Savings with LuxID" %}</h6>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {# Standard Process #}
-                            <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                            <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
                                 <div class="text-center mb-3">
-                                    <div class="text-xs uppercase tracking-wide text-gray-600 font-semibold mb-1">
+                                    <div class="text-xs uppercase tracking-wide text-gray-600 dark:text-gray-300 font-semibold mb-1">
                                         {% trans "Standard Process" %}
                                     </div>
-                                    <div class="text-2xl font-bold text-gray-700">24-48h</div>
+                                    <div class="text-2xl font-bold text-gray-700 dark:text-gray-200">24-48h</div>
                                 </div>
-                                <ul class="space-y-2 text-xs text-gray-700">
+                                <ul class="space-y-2 text-xs text-gray-700 dark:text-gray-200">
                                     <li class="flex items-start gap-2">
                                         <span class="text-gray-400">•</span>
                                         <span>{% trans "Profile review" %}</span>
@@ -190,7 +190,7 @@
                                     </div>
                                     <div class="text-2xl font-bold text-purple-700">12-24h</div>
                                 </div>
-                                <ul class="space-y-2 text-xs text-gray-700">
+                                <ul class="space-y-2 text-xs text-gray-700 dark:text-gray-200">
                                     <li class="flex items-start gap-2">
                                         <span class="text-gray-400">•</span>
                                         <span>{% trans "Profile review" %}</span>
@@ -210,7 +210,7 @@
                                 </ul>
                             </div>
                         </div>
-                        <div class="text-center mt-4 pt-4 border-t border-gray-200">
+                        <div class="text-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <div class="text-sm font-semibold text-green-700">
                                 💚 {% trans "Save 10-20 minutes + No phone verification + 50% faster approval" %}
                             </div>
@@ -218,7 +218,7 @@
                     </div>
 
                     {# Note about editing #}
-                    <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 text-left mb-4">
+                    <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0 text-sm flex items-start gap-2">
                             <span class="flex-shrink-0 mt-0.5">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %}</span>
                             <span><strong>{% trans "Note:" %}</strong> {% trans "You cannot edit your profile while it's under review. If you need to make changes, please wait for the review to complete." %}</span>
@@ -231,7 +231,7 @@
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Approved!" %}</h2>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
                     <p class="text-base text-green-600 mb-6 font-medium">
                         {% trans "Congratulations! Your profile has been approved by our coaches." %}
                     </p>
@@ -251,7 +251,7 @@
                             ❌
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Needs Updates" %}</h2>
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
                     <p class="text-base text-red-600 mb-6 font-medium">
                         {% trans "Your profile needs some updates before it can be approved." %}
                     </p>
@@ -281,8 +281,8 @@
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Submitted Successfully!" %}</h2>
-                    <p class="text-base text-gray-600 mb-6">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile has been submitted for review by our Crush Coaches." %}
                     </p>
                 {% endif %}
@@ -312,12 +312,12 @@
                             </div>
                             {% endif %}
                             <div class="flex-1">
-                                <h5 class="text-lg font-bold text-gray-900 mb-1">{{ submission.coach.user.get_full_name }}</h5>
+                                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{{ submission.coach.user.get_full_name }}</h5>
                                 {% if submission.coach.specializations %}
                                 <p class="text-sm text-crush-purple font-medium mb-2">{{ submission.coach.specializations }}</p>
                                 {% endif %}
                                 {% if submission.coach.bio %}
-                                <p class="text-sm text-gray-600 mb-3">{{ submission.coach.bio }}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ submission.coach.bio }}</p>
                                 {% endif %}
                                 <div class="flex items-center gap-2 text-sm">
                                     <a href="mailto:{{ submission.coach.user.email }}"

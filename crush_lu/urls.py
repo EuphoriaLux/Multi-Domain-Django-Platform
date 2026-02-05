@@ -194,6 +194,7 @@ urlpatterns = [
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
+    path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
 
     # Event Activity Voting (Phase 1)
     path('events/<int:event_id>/voting/lobby/', views.event_voting_lobby, name='event_voting_lobby'),

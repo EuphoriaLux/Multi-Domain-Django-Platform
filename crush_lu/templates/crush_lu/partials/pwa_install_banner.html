@@ -21,8 +21,8 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <h6 class="font-semibold text-gray-900 text-sm sm:text-base truncate">{% trans "Install Crush.lu App" %}</h6>
-                    <p class="text-xs sm:text-sm text-gray-500 truncate">{% trans "Quick access & offline features" %}</p>
+                    <h6 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">{% trans "Install Crush.lu App" %}</h6>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{% trans "Quick access & offline features" %}</p>
                 </div>
             </div>
 
@@ -34,7 +34,7 @@
                     </svg>
                     <span class="mobile-hidden-sm-inline">{% trans "Install" %}</span>
                 </button>
-                <button id="pwa-dismiss-button" @click="dismiss" class="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
+                <button id="pwa-dismiss-button" @click="dismiss" class="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors" aria-label="{% trans "Dismiss" %}">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -55,12 +55,12 @@
      x-transition:leave-start="opacity-100 translate-y-0"
      x-transition:leave-end="opacity-0 -translate-y-4"
      x-cloak
-     class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-50 border border-green-200 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3">
-    <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+     class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg shadow-lg dark:shadow-gray-900/20 px-4 py-3 flex items-center gap-3">
+    <svg class="w-5 h-5 text-green-500 dark:text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
-    <span class="text-green-800 font-medium text-sm">{% trans "Crush.lu installed! Access it from your home screen." %}</span>
-    <button type="button" @click="close" class="ml-2 text-green-400 hover:text-green-600 transition-colors">
+    <span class="text-green-800 dark:text-green-300 font-medium text-sm">{% trans "Crush.lu installed! Access it from your home screen." %}</span>
+    <button type="button" @click="close" class="ml-2 text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-300 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>

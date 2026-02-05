@@ -16,8 +16,8 @@
                             ⏳
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Under Review" %}</h2>
-                    <p class="text-base text-gray-600 mb-6">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
                     </p>
 
@@ -48,7 +48,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg p-4 text-left mb-4">
+                    <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg p-4 text-left mb-4">
                         <p class="mb-0 text-sm flex items-start gap-2">
                             <span class="flex-shrink-0 mt-0.5">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %}</span>
                             <span><strong>{% trans "Note:" %}</strong> {% trans "You cannot edit your profile while it's under review. If you need to make changes, please wait for the review to complete." %}</span>
@@ -61,8 +61,8 @@
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Approved!" %}</h2>
-                    <p class="text-base text-green-600 mb-6 font-medium">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
+                    <p class="text-base text-green-600 dark:text-green-300 mb-6 font-medium">
                         {% trans "Congratulations! Your profile has been approved by our coaches." %}
                     </p>
 
@@ -81,8 +81,8 @@
                             ❌
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Needs Updates" %}</h2>
-                    <p class="text-base text-red-600 mb-6 font-medium">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
+                    <p class="text-base text-red-600 dark:text-red-300 mb-6 font-medium">
                         {% trans "Your profile needs some updates before it can be approved." %}
                     </p>
 
@@ -111,8 +111,8 @@
                             📞
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Coach Needs to Speak With You" %}</h2>
-                    <p class="text-base text-purple-600 mb-6 font-medium">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
+                    <p class="text-base text-purple-600 dark:text-purple-300 mb-6 font-medium">
                         {% trans "Your coach tried to reach you but couldn't connect. Please contact them to complete your screening call." %}
                     </p>
 
@@ -136,8 +136,8 @@
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900">{% trans "Profile Submitted Successfully!" %}</h2>
-                    <p class="text-base text-gray-600 mb-6">
+                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile has been submitted for review by our Crush Coaches." %}
                     </p>
                 {% endif %}
@@ -166,12 +166,12 @@
                             </div>
                             {% endif %}
                             <div class="flex-1">
-                                <h5 class="text-lg font-bold text-gray-900 mb-1">{{ submission.coach.user.get_full_name }}</h5>
+                                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{{ submission.coach.user.get_full_name }}</h5>
                                 {% if submission.coach.specializations %}
                                 <p class="text-sm text-crush-purple font-medium mb-2">{{ submission.coach.specializations }}</p>
                                 {% endif %}
                                 {% if submission.coach.bio %}
-                                <p class="text-sm text-gray-600 mb-3">{{ submission.coach.bio }}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ submission.coach.bio }}</p>
                                 {% endif %}
                                 <div class="flex items-center gap-2 text-sm">
                                     <a href="mailto:{{ submission.coach.user.email }}"

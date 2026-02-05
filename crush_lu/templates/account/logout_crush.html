@@ -6,11 +6,11 @@
 {% block content %}
 <div class="flex justify-center py-12 px-4">
     <div class="w-full max-w-md">
-        <div class="bg-white rounded-xl shadow-sm">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <div class="text-center mb-6">
-                    <h2 class="text-2xl font-bold mb-2">{% trans "Sign Out" %}</h2>
-                    <p class="text-gray-500">{% trans 'Are you sure you want to sign out?' %}</p>
+                    <h2 class="text-2xl font-bold mb-2 dark:text-white">{% trans "Sign Out" %}</h2>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans 'Are you sure you want to sign out?' %}</p>
                 </div>
 
                 <form method="post" action="{% url 'account_logout' %}">
@@ -20,7 +20,7 @@
                     {% endif %}
                     <div class="flex flex-col gap-3">
                         <button type="submit" class="btn-crush-primary w-full py-3">{% trans 'Sign Out' %}</button>
-                        <a href="{% url 'crush_lu:dashboard' %}" class="block w-full text-center py-3 px-4 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors">{% trans 'Cancel' %}</a>
+                        <a href="{% url 'crush_lu:dashboard' %}" class="block w-full text-center py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">{% trans 'Cancel' %}</a>
                     </div>
                 </form>
             </div>

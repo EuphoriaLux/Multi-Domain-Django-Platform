@@ -20,11 +20,11 @@
          class="dropdown-menu">
         {# Progress bar #}
         <div class="px-4 py-3">
-            <div class="flex justify-between text-xs text-gray-500 mb-1">
+            <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                 <span>{% trans "Progress" %}</span>
                 <span>{{ profile_completion_step }}/4 {% trans "steps" %}</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full transition-all duration-300"
                      style="width: {% widthratio profile_completion_step 4 100 %}%"></div>
             </div>
@@ -32,14 +32,14 @@
         <div class="dropdown-divider"></div>
         {# Next step info #}
         <div class="px-4 py-2">
-            <p class="text-sm text-gray-600">
-                {% trans "Next:" %} <span class="font-medium text-crush-purple">{{ profile_step_label }}</span>
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+                {% trans "Next:" %} <span class="font-medium text-crush-purple dark:text-crush-pink">{{ profile_step_label }}</span>
             </p>
         </div>
         <div class="dropdown-divider"></div>
         {# CTA Button #}
         <a href="{% url 'crush_lu:create_profile' %}"
-           class="dropdown-item text-crush-purple font-semibold hover:bg-crush-purple/10">
+           class="dropdown-item text-crush-purple dark:text-crush-pink font-semibold hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20">
             {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
             {% trans "Continue Setup" %}
         </a>

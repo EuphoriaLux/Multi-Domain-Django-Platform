@@ -7,7 +7,7 @@
 
 {% block content %}
 <div class="max-w-md mx-auto py-12 px-4">
-    <div class="bg-white rounded-xl shadow-sm">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
         <div class="text-center p-8">
             <!-- Success Icon -->
             <div class="mb-6">
@@ -20,12 +20,12 @@
             </div>
 
             <h2 class="text-2xl font-bold mb-3">Welcome, {{ user.first_name|default:user.username }}!</h2>
-            <p class="text-gray-500 mb-6">
+            <p class="text-gray-500 dark:text-gray-400 mb-6">
                 You've successfully logged in to Crush.lu.
             </p>
 
             <!-- PWA Return Instructions (shown on Android browser) -->
-            <div id="pwa-instructions" class="hidden bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
+            <div id="pwa-instructions" class="hidden bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4">
                 <p class="font-semibold mb-1">Almost there!</p>
                 <p class="text-sm">
                     If you're using the Crush.lu app, tap the button below to return to the app.
@@ -47,7 +47,7 @@
                 Open in Crush.lu App
             </button>
 
-            <p class="text-gray-400 text-sm mt-6 flex items-center justify-center gap-1">
+            <p class="text-gray-400 dark:text-gray-500 text-sm mt-6 flex items-center justify-center gap-1">
                 {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
                 Your session is secure
             </p>

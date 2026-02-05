@@ -3,81 +3,81 @@
 <div id="screening-call-section-content">
     {% if submission.review_call_completed %}
         {# Completed state - show summary #}
-        <div class="bg-green-50 border-2 border-green-500 rounded-xl p-6 mb-6">
+        <div class="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-700 rounded-xl p-6 mb-6">
             <div class="flex items-center gap-3 mb-4">
-                {% include "shared/icons/check-circle.html" with class="w-8 h-8 text-green-600" %}
-                <h3 class="text-xl font-bold text-green-900">{% trans "Screening Call Completed" %}</h3>
+                {% include "shared/icons/check-circle.html" with class="w-8 h-8 text-green-600 dark:text-green-400" %}
+                <h3 class="text-xl font-bold text-green-900 dark:text-green-300">{% trans "Screening Call Completed" %}</h3>
             </div>
-            <p class="text-sm text-green-800">
+            <p class="text-sm text-green-800 dark:text-green-300">
                 <strong>{% trans "Completed:" %}</strong> {{ submission.review_call_date|date:"M d, Y g:i A" }}
             </p>
 
             {% if submission.review_call_checklist %}
-                <div class="mt-6 bg-white rounded-lg p-5 border border-green-200">
-                    <p class="text-sm font-semibold text-gray-900 mb-4">{% trans "Checklist Summary:" %}</p>
+                <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg p-5 border border-green-200 dark:border-green-700">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">{% trans "Checklist Summary:" %}</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.introduction_complete %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.introduction_complete %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Introduction" %}</span>
+                            <span class="{% if submission.review_call_checklist.introduction_complete %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Introduction" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.language_confirmed %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.language_confirmed %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Language" %}</span>
+                            <span class="{% if submission.review_call_checklist.language_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Language" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.residence_confirmed %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.residence_confirmed %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Residence" %}</span>
+                            <span class="{% if submission.review_call_checklist.residence_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Residence" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.expectations_discussed %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.expectations_discussed %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Expectations" %}</span>
+                            <span class="{% if submission.review_call_checklist.expectations_discussed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Expectations" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.dating_preference_asked %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.dating_preference_asked %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Dating Preference" %}</span>
+                            <span class="{% if submission.review_call_checklist.dating_preference_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Dating Preference" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.crush_meaning_asked %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.crush_meaning_asked %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Crush Meaning" %}</span>
+                            <span class="{% if submission.review_call_checklist.crush_meaning_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Crush Meaning" %}</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.questions_answered %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
                             {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300" %}
+                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
                             {% endif %}
-                            <span class="{% if submission.review_call_checklist.questions_answered %}text-gray-900{% else %}text-gray-400{% endif %}">{% trans "Questions" %}</span>
+                            <span class="{% if submission.review_call_checklist.questions_answered %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Questions" %}</span>
                         </div>
                     </div>
 
                     {% if submission.review_call_checklist.dating_preference_value %}
-                        <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <p class="text-sm">
-                                <strong class="text-gray-900">{% trans "Dating Preference:" %}</strong>
+                                <strong class="text-gray-900 dark:text-gray-100">{% trans "Dating Preference:" %}</strong>
                                 {% if submission.review_call_checklist.dating_preference_value == 'opposite_gender' %}
                                     {% trans "Opposite gender" %}
                                 {% elif submission.review_call_checklist.dating_preference_value == 'same_gender' %}
@@ -90,18 +90,18 @@
                     {% endif %}
 
                     {% if submission.review_call_checklist.residence_notes or submission.review_call_checklist.expectations_notes or submission.review_call_checklist.crush_meaning_notes or submission.review_call_checklist.questions_notes %}
-                        <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                             {% if submission.review_call_checklist.residence_notes %}
-                                <p class="text-sm"><strong class="text-gray-900">{% trans "Residence Notes:" %}</strong> {{ submission.review_call_checklist.residence_notes }}</p>
+                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Residence Notes:" %}</strong> {{ submission.review_call_checklist.residence_notes }}</p>
                             {% endif %}
                             {% if submission.review_call_checklist.expectations_notes %}
-                                <p class="text-sm"><strong class="text-gray-900">{% trans "Expectations Notes:" %}</strong> {{ submission.review_call_checklist.expectations_notes }}</p>
+                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Expectations Notes:" %}</strong> {{ submission.review_call_checklist.expectations_notes }}</p>
                             {% endif %}
                             {% if submission.review_call_checklist.crush_meaning_notes %}
-                                <p class="text-sm"><strong class="text-gray-900">{% trans "Crush Meaning:" %}</strong> {{ submission.review_call_checklist.crush_meaning_notes }}</p>
+                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Crush Meaning:" %}</strong> {{ submission.review_call_checklist.crush_meaning_notes }}</p>
                             {% endif %}
                             {% if submission.review_call_checklist.questions_notes %}
-                                <p class="text-sm"><strong class="text-gray-900">{% trans "Questions Asked:" %}</strong> {{ submission.review_call_checklist.questions_notes }}</p>
+                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Questions Asked:" %}</strong> {{ submission.review_call_checklist.questions_notes }}</p>
                             {% endif %}
                         </div>
                     {% endif %}
@@ -109,34 +109,34 @@
             {% endif %}
 
             {% if submission.review_call_notes %}
-                <div class="mt-4 bg-white rounded-lg p-4 border border-green-200">
+                <div class="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700">
                     <p class="text-sm">
-                        <strong class="text-gray-900">{% trans "Final Notes:" %}</strong><br>
-                        <span class="text-gray-700">{{ submission.review_call_notes }}</span>
+                        <strong class="text-gray-900 dark:text-gray-100">{% trans "Final Notes:" %}</strong><br>
+                        <span class="text-gray-700 dark:text-gray-200">{{ submission.review_call_notes }}</span>
                     </p>
                 </div>
             {% endif %}
 
             {% if submission.call_attempts.exists %}
-                <div class="mt-4 bg-white rounded-lg p-4 border border-green-200">
-                    <p class="text-sm font-semibold text-gray-900 mb-3">{% trans "Call Attempt History:" %}</p>
+                <div class="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{% trans "Call Attempt History:" %}</p>
                     <div class="space-y-2">
                         {% for attempt in submission.call_attempts.all|slice:":5" %}
-                            <div class="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded border border-gray-100">
+                            <div class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-100 dark:border-gray-700">
                                 {% if attempt.result == 'failed' %}
                                     <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% else %}
                                     <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% endif %}
                                 <div class="flex-1">
-                                    <p class="font-medium text-gray-900">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
                                     {% if attempt.result == 'failed' %}
-                                        <p class="text-gray-700">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                                        <p class="text-gray-700 dark:text-gray-200">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
                                     {% else %}
-                                        <p class="text-green-700">{% trans "Call completed successfully" %}</p>
+                                        <p class="text-green-700 dark:text-green-300">{% trans "Call completed successfully" %}</p>
                                     {% endif %}
                                     {% if attempt.notes %}
-                                        <p class="text-gray-500 italic mt-1">{{ attempt.notes|truncatewords:15 }}</p>
+                                        <p class="text-gray-500 dark:text-gray-400 italic mt-1">{{ attempt.notes|truncatewords:15 }}</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -147,17 +147,17 @@
         </div>
 
         <div class="text-center">
-            <p class="text-gray-600">{% trans "You can now proceed to the Decision tab to complete the review." %}</p>
+            <p class="text-gray-600 dark:text-gray-300">{% trans "You can now proceed to the Decision tab to complete the review." %}</p>
         </div>
 
     {% else %}
         {# Not completed - show interactive checklist #}
-        <div class="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-6 mb-6">
+        <div class="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-6 mb-6">
             <div class="flex items-center gap-3">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-yellow-600" %}
+                {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-yellow-600 dark:text-yellow-400" %}
                 <div>
-                    <h3 class="text-xl font-bold text-yellow-900">{% trans "Screening Call Required" %}</h3>
-                    <p class="text-sm text-yellow-800 mt-1">{% trans "Complete all required steps before approval" %}</p>
+                    <h3 class="text-xl font-bold text-yellow-900 dark:text-yellow-300">{% trans "Screening Call Required" %}</h3>
+                    <p class="text-sm text-yellow-800 dark:text-yellow-300 mt-1">{% trans "Complete all required steps before approval" %}</p>
                 </div>
             </div>
         </div>
@@ -167,29 +167,29 @@
             <div data-checklist-initial='{{ submission.review_call_checklist|default:"{}" | escapejs }}' class="hidden"></div>
 
             {# Contact info card #}
-            <div class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5">
+            <div class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border border-purple-200 dark:border-purple-700 rounded-xl p-5">
                 <p class="text-sm flex items-center gap-2 mb-3">
-                    {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600" %}
-                    <strong class="text-gray-900">{% trans "Phone:" %}</strong>
-                    <span class="text-lg font-mono text-gray-900">{{ profile.phone_number }}</span>
+                    {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
+                    <strong class="text-gray-900 dark:text-gray-100">{% trans "Phone:" %}</strong>
+                    <span class="text-lg font-mono text-gray-900 dark:text-gray-100">{{ profile.phone_number }}</span>
                 </p>
                 <p class="text-sm flex items-center gap-2">
-                    {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600" %}
-                    <strong class="text-gray-900">{% trans "Name:" %}</strong>
-                    <span class="text-gray-900">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
+                    {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
+                    <strong class="text-gray-900 dark:text-gray-100">{% trans "Name:" %}</strong>
+                    <span class="text-gray-900 dark:text-gray-100">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
                 </p>
             </div>
 
             {# Progress bar #}
-            <div class="mb-6 bg-white rounded-xl border border-gray-200 p-5">
-                <div class="flex justify-between items-center text-sm text-gray-600 mb-2">
+            <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <div class="flex justify-between items-center text-sm text-gray-600 dark:text-gray-300 mb-2">
                     <span class="font-semibold">{% trans "Progress" %}</span>
-                    <span class="font-bold text-purple-600"><span x-text="completedCount"></span>/7 {% trans "completed" %}</span>
+                    <span class="font-bold text-purple-600 dark:text-purple-400"><span x-text="completedCount"></span>/7 {% trans "completed" %}</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-3">
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                     <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-300" x-bind:style="progressWidth"></div>
                 </div>
-                <p class="text-xs text-gray-500 mt-2" x-text="progressText"></p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2" x-text="progressText"></p>
             </div>
 
             {# Accordion sections - lines 177-677 from _screening_call_section.html #}
