@@ -1120,10 +1120,7 @@ msgstr "Ou sélectionnez des catégories ci-dessous..."
 
 #: .\crush_lu\forms.py:145
 msgid "Select interest categories below or write your own (Optional)"
-msgstr ""
-"Sélectionnez des catégories d'intérêts ci-dessous ou écrivez lesvôtres "
-"(Optionnel)Sélectionne des catégories d'intérêts ci-dessous ouécris les "
-"tiennes (Optionnel)"
+msgstr "Sélectionne des catégories d'intérêts ci-dessous ou écris les tiennes (Optionnel)"
 
 #: .\crush_lu\forms.py:153 .\crush_lu\forms.py:191
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:189
@@ -1814,8 +1811,7 @@ msgstr ""
 
 #: .\crush_lu\models\events.py:131
 msgid "Private invitation-only event (visible only to invited guests)"
-msgstr ""
-"Événement privé sur invitation uniquement (visible seulement pour lesinvités)"
+msgstr "Événement privé sur invitation uniquement (visible seulement pour les invités)"
 
 #: .\crush_lu\models\events.py:138
 msgid "Unique code for this private event"
@@ -2469,8 +2465,7 @@ msgstr "URL de redirection après authentification"
 
 #: .\crush_lu\models\oauth_state.py:111
 msgid "Timestamp of last callback (for duplicate detection diagnostics)"
-msgstr ""
-"Horodatage du dernier callback (pour le diagnostic de détection desdoublons)"
+msgstr "Horodatage du dernier callback (pour le diagnostic de détection des doublons)"
 
 #: .\crush_lu\models\oauth_state.py:116
 msgid "OAuth State"
@@ -3162,8 +3157,7 @@ msgstr "Dernier envoi réussi d'une notification"
 
 #: .\crush_lu\models\profiles.py:1077 .\crush_lu\models\profiles.py:1297
 msgid "Number of consecutive failed deliveries (auto-delete after threshold)"
-msgstr ""
-"Nombre d'échecs de livraison consécutifs (suppression auto après leseuil)"
+msgstr "Nombre d'échecs de livraison consécutifs (suppression auto après le seuil)"
 
 #: .\crush_lu\models\profiles.py:1083
 msgid "Push Notification Subscription"
@@ -3770,12 +3764,7 @@ msgstr "Tu es sur la liste d'attente !"
 
 #: .\crush_lu\templates\crush_lu\_event_registration_success.html:9
 msgid "The event is currently full, but we'll notify you if a spot opens up."
-msgstr ""
-"L'événement est actuellement complet, mais nous vous préviendrons siune "
-"place se libère.L'événement est actuellement complet, mais on tepréviendra "
-"si une place se libère.L'événement est actuellementcomplet, mais nous te "
-"préviendrons si une place se libère.L'événementest complet pour le moment, "
-"mais on te préviendra si une place selibère."
+msgstr "L'événement est complet pour le moment, mais on te préviendra si une place se libère."
 
 #: .\crush_lu\templates\crush_lu\_event_registration_success.html:15
 #: .\crush_lu\templates\crush_lu\emails\event_registration_confirmation.html:6
@@ -3784,12 +3773,7 @@ msgstr "Tu es inscrit !"
 
 #: .\crush_lu\templates\crush_lu\_event_registration_success.html:17
 msgid "We've sent a confirmation email with all the event details."
-msgstr ""
-"Nous vous avons envoyé un e-mail de confirmation avec tous lesdétails de "
-"l'événement.On t'a envoyé un email de confirmation avectous les détails de "
-"l'événement.Nous t'avons envoyé un e-mail deconfirmation avec tous les "
-"détails de l'événement.On t'a envoyé unemail de confirmation avec tous les "
-"détails de l'événement."
+msgstr "On t'a envoyé un email de confirmation avec tous les détails de l'événement."
 
 #: .\crush_lu\templates\crush_lu\_event_registration_success.html:28
 #: .\crush_lu\templates\crush_lu\event_detail.html:115
@@ -4813,9 +4797,7 @@ msgstr "Tu n'as pas encore connecté de comptes sociaux."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:155
 msgid "Social login providers are not configured for this site."
-msgstr ""
-"Les fournisseurs de connexion sociale ne sont pas configurés pour cesite.Les "
-"fournisseurs de connexion sociale ne sont pas configuréspour ce site."
+msgstr "Les fournisseurs de connexion sociale ne sont pas configurés pour ce site."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:166
 msgid "Social Account Photos"
@@ -5149,13 +5131,7 @@ msgstr "Aucun appareil enregistré pour les notifications push."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:711
 msgid "Allow notifications in your browser settings to receive coach alerts."
-msgstr ""
-"Autorisez les notifications dans les paramètres de votre navigateurpour "
-"recevoir les alertes coach.Active les notifications dans lesparamètres de "
-"ton navigateur pour recevoir des alertes de toncoach.Autorise les "
-"notifications dans les paramètres de tonnavigateur pour recevoir les alertes "
-"des coachs.Autorise lesnotifications dans les paramètres de ton navigateur "
-"pour recevoir lesalertes de coach."
+msgstr "Active les notifications dans les paramètres de ton navigateur pour recevoir des alertes de ton coach."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:722
 msgid ""
@@ -5709,11 +5685,7 @@ msgstr "Ouvrir les paramètres du compte"
 
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:82
 msgid "Manage active Wonderland Journey experiences and view user progress."
-msgstr ""
-"Gérez les expériences Wonderland Journey actives et consultez laprogression "
-"des utilisateurs.Gère les expériences Wonderland Journeyactives et consulte "
-"la progression des utilisateurs.Gère lesexpériences Wonderland Journey "
-"actives et consulte la progression desutilisateurs."
+msgstr "Gère les expériences Wonderland Journey actives et consulte la progression des utilisateurs."
 
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:85
 msgid "Manage Journeys"
@@ -5866,9 +5838,7 @@ msgstr "Points attribués *"
 
 #: .\crush_lu\templates\crush_lu\coach_edit_challenge.html:210
 msgid "Points given for completing this challenge (before hint deductions)."
-msgstr ""
-"Points attribués pour avoir complété ce défi (avant déduction desindices)."
-"Points donnés pour avoir complété ce défi (avant déductionspour les indices)."
+msgstr "Points attribués pour avoir complété ce défi (avant déduction des indices)."
 
 #: .\crush_lu\templates\crush_lu\coach_edit_challenge.html:215
 msgid "Success Message *"
@@ -6956,12 +6926,7 @@ msgstr "Continuer"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:550
 msgid "Please verify your phone number to continue."
-msgstr ""
-"Merci de vérifier ton numéro de téléphone pour continuer.Veuillez vérifier "
-"votre numéro de téléphone pour continuer.Veuillezvérifier ton numéro de "
-"téléphone pour continuer.Veuillez vérifiervotre numéro de téléphone pour "
-"continuer.Veuillez vérifier votrenuméro de téléphone pour accéder à toutes "
-"les fonctionnalités."
+msgstr "Merci de vérifier ton numéro de téléphone pour continuer."
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:563
 msgid "Share what makes you unique (optional)"
@@ -7067,12 +7032,7 @@ msgstr "Conseil :"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:880
 msgid "Use clear photos where your face is visible. Avoid group photos!"
-msgstr ""
-"Utilise des photos claires où ton visage est visible. Évite les photos de "
-"groupe !Utilisez des photos claires où votre visage est visible. Évitez "
-"lesphotos de groupe !Utilise des photos claires où ton visage estvisible. "
-"Évite les photos de groupe !Utilise des photos claires oùton visage est "
-"visible. Évite les photos de groupe !"
+msgstr "Utilise des photos claires où ton visage est visible. Évite les photos de groupe !"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:899
 msgid "Show my full name"
@@ -7156,11 +7116,7 @@ msgstr "Profil approuvé"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1107
 msgid "You can start attending events and making connections!"
-msgstr ""
-"Tu peux commencer à participer aux événements et créer des connexions !Vous "
-"pouvez commencer à participer aux événements et créer desconnexions !Tu peux "
-"commencer à participer aux événements et créerdes connexions !Vous pouvez "
-"commencer à participer aux événements etcréer des connexions !"
+msgstr "Tu peux commencer à participer aux événements et créer des connexions !"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1119
 msgid "Privacy First:"
@@ -7244,11 +7200,7 @@ msgstr "Vérification téléphonique requise !"
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:27
 msgid "Please verify your phone number to access all features."
-msgstr ""
-"Veuillez vérifier votre numéro de téléphone pour accéder à toutes "
-"lesfonctionnalités.Veuillez vérifier ton numéro de téléphone pouraccéder à "
-"toutes les fonctionnalités.Veuillez vérifier votre numérode téléphone pour "
-"accéder à toutes les fonctionnalités."
+msgstr "Merci de vérifier ton numéro de téléphone pour accéder à toutes les fonctionnalités."
 
 #: .\crush_lu\templates\crush_lu\dashboard.html:30
 msgid "Verify Now"
@@ -8522,11 +8474,7 @@ msgstr "Parcourir les événements à venir"
 
 #: .\crush_lu\templates\crush_lu\emails\event_cancellation.html:28
 msgid "Changed your mind? You can re-register if spots are still available."
-msgstr ""
-"Vous avez changé d'avis ? Vous pouvez vous réinscrire si des placessont "
-"encore disponibles.Tu as changé d'avis ? Tu peux te réinscriresi des places "
-"sont encore disponibles.Tu as changé d'avis ? Tu peuxte réinscrire si des "
-"places sont encore disponibles."
+msgstr "Tu as changé d'avis ? Tu peux te réinscrire si des places sont encore disponibles."
 
 #: .\crush_lu\templates\crush_lu\emails\event_cancellation.html:31
 #: .\crush_lu\templates\crush_lu\emails\new_connection_request.html:35
@@ -9554,10 +9502,7 @@ msgstr "Des questions ou besoin d'aide ? Réponds simplement à cet email !"
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:45
 msgid "This is our final profile completion reminder. We won't send any more."
-msgstr ""
-"Ceci est notre dernier rappel pour compléter votre profil. Nous "
-"n'enenverrons plus.C'est notre dernier rappel de complétion de profil. "
-"Onn'en enverra plus."
+msgstr "C'est notre dernier rappel de complétion de profil. On n'en enverra plus."
 
 #: .\crush_lu\templates\crush_lu\emails\profile_recontact.html:12
 msgid ""
@@ -9847,9 +9792,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:98
 msgid "Meet people in real life at our speed dating & social events"
-msgstr ""
-"Rencontrez des personnes dans la vie réelle et construisez desrelations "
-"authentiques."
+msgstr "Rencontre des personnes dans la vie réelle lors de nos événements de speed dating et événements sociaux"
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:102
 msgid "Complete Your Profile Now"
@@ -10407,18 +10350,11 @@ msgstr "Événements"
 #| msgid ""
 #| "The event is currently full, but we'll notify you if a spot opens up."
 msgid "You will be added to the waitlist. We'll notify you if a spot opens up."
-msgstr ""
-"L'événement est actuellement complet, mais nous vous préviendrons siune "
-"place se libère.L'événement est actuellement complet, mais on tepréviendra "
-"si une place se libère.L'événement est actuellementcomplet, mais nous te "
-"préviendrons si une place se libère.L'événementest complet pour le moment, "
-"mais on te préviendra si une place selibère."
+msgstr "Tu seras ajouté à la liste d'attente. On te préviendra si une place se libère."
 
 #: .\crush_lu\templates\crush_lu\event_register.html:87
-#, fuzzy
-#| msgid "Access to public events"
 msgid "Accessibility Needs"
-msgstr "Accès aux événements publics"
+msgstr "Besoins d'accessibilité"
 
 #: .\crush_lu\templates\crush_lu\event_register.html:91
 msgid ""
@@ -10844,10 +10780,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:164
 msgid "Meet people in real life and build authentic relationships."
-msgstr ""
-"Rencontrez des personnes dans la vraie vie et construisez desrelations "
-"authentiques.Rencontrez des personnes dans la vie réelle etconstruisez des "
-"relations authentiques."
+msgstr "Rencontre des personnes dans la vie réelle et construis des relations authentiques."
 
 #: .\crush_lu\templates\crush_lu\home.html:171
 msgid "Learn More About Our Process"
@@ -12631,15 +12564,11 @@ msgstr "Inviter des amis"
 
 #: .\crush_lu\templates\crush_lu\membership.html:247
 msgid "Earn 100 points when a friend signs up using your referral link."
-msgstr ""
-"Gagnez 100 points quand un ami s'inscrit avec votre lien deparrainage.Gagne "
-"100 points quand un ami s'inscrit en utilisant tonlien de parrainage."
+msgstr "Gagne 100 points quand un ami s'inscrit en utilisant ton lien de parrainage."
 
 #: .\crush_lu\templates\crush_lu\membership.html:261
 msgid "Earn 50 bonus points when your referred friend's profile is approved."
-msgstr ""
-"Gagnez 50 points bonus lorsque le profil de votre ami parrainé estapprouvé."
-"Gagne 50 points bonus quand le profil de ton ami parrainéest approuvé."
+msgstr "Gagne 50 points bonus quand le profil de ton ami parrainé est approuvé."
 
 #: .\crush_lu\templates\crush_lu\membership.html:274
 msgid "Attend Events"
@@ -12700,10 +12629,7 @@ msgstr "Nouvelles connexions"
 
 #: .\crush_lu\templates\crush_lu\my_connections.html:113
 msgid "Attend an event and connect with people you meet!"
-msgstr ""
-"Participez à un événement et connectez-vous avec les personnes quevous "
-"rencontrez !Participe à un événement et connecte-toi avec lespersonnes que "
-"tu rencontres !"
+msgstr "Participe à un événement et connecte-toi avec les personnes que tu rencontres !"
 
 #: .\crush_lu\templates\crush_lu\my_presentation_scores.html:5
 #, python-format
@@ -13530,8 +13456,7 @@ msgstr "Votre profil doit être approuvé avant de pouvoir être modifié."
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:74
 #: .\crush_lu\templates\crush_lu\profile_submitted_luxid_mockup.html:244
 msgid "You can now register for events and start making connections!"
-msgstr ""
-"Vous pouvez commencer à participer aux événements et créer desconnexions !"
+msgstr "Tu peux maintenant t'inscrire aux événements et commencer à créer des connexions !"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:86
 #: .\crush_lu\templates\crush_lu\profile_submitted_luxid_mockup.html:256
@@ -14828,16 +14753,11 @@ msgstr "Evite de dire certains mots - hilarant !"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:356
 msgid "Top matches get extended 8-min conversations!"
-msgstr ""
-"Les meilleurs matchs ont des conversations prolongées de 8 min !Lesmeilleurs "
-"matchs obtiennent des conversations prolongees de 8 minutes!"
+msgstr "Les meilleurs matchs obtiennent des conversations prolongées de 8 minutes !"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:378
 msgid "Please select one option from EACH category to continue"
-msgstr ""
-"Veuillez vérifier ton numéro de téléphone pour continuer.Veuillezvérifier "
-"votre numéro de téléphone pour continuer.Veuillez vérifiervotre numéro de "
-"téléphone pour accéder à toutes les fonctionnalités."
+msgstr "Merci de sélectionner une option dans CHAQUE catégorie pour continuer"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:400
 msgid "Step 4: See the Winners"
@@ -15222,9 +15142,7 @@ msgstr "Votre compte a été supprimé avec succès."
 
 #: .\crush_lu\views.py:808
 msgid "An error occurred while deleting your account. Please contact support."
-msgstr ""
-"Une erreur s'est produite lors de la suppression de votre compte.Veuillez "
-"contacter le support."
+msgstr "Une erreur s'est produite lors de la suppression de ton compte. Merci de contacter le support."
 
 #: .\crush_lu\views.py:864
 msgid "Account created! Check your email and complete your profile."
@@ -15232,9 +15150,7 @@ msgstr "Compte créé ! Vérifiez votre e-mail et complétez votre profil."
 
 #: .\crush_lu\views.py:1008
 msgid "An error occurred while submitting your profile. Please try again."
-msgstr ""
-"Une erreur s'est produite lors de la soumission de votre profil.Veuillez "
-"réessayer."
+msgstr "Une erreur s'est produite lors de la soumission de ton profil. Merci de réessayer."
 
 #: .\crush_lu\views.py:1061 .\crush_lu\views.py:1308
 msgid "Profile submitted for review!"
@@ -15266,9 +15182,7 @@ msgstr ""
 
 #: .\crush_lu\views.py:1254
 msgid "Your profile needs updates. Please review the coach feedback below."
-msgstr ""
-"Votre profil nécessite des mises à jour. Veuillez consulter lescommentaires "
-"du coach ci-dessous."
+msgstr "Ton profil nécessite des mises à jour. Merci de consulter les commentaires du coach ci-dessous."
 
 #: .\crush_lu\views.py:1270
 msgid "Please complete your profile to continue."
@@ -15585,9 +15499,7 @@ msgstr ""
 
 #: .\crush_lu\views.py:4295
 msgid "You have already accepted this invitation. Please log in to continue."
-msgstr ""
-"Vous avez déjà accepté cette invitation. Veuillez vous connecter "
-"pourcontinuer."
+msgstr "Tu as déjà accepté cette invitation. Merci de te connecter pour continuer."
 
 #: .\crush_lu\views.py:4323
 msgid "This invitation has already been accepted."
@@ -15607,9 +15519,7 @@ msgstr ""
 
 #: .\crush_lu\views.py:4409
 msgid "An error occurred while accepting your invitation. Please try again."
-msgstr ""
-"Une erreur s'est produite lors de l'acceptation de votre invitation.Veuillez "
-"réessayer."
+msgstr "Une erreur s'est produite lors de l'acceptation de ton invitation. Merci de réessayer."
 
 #: .\crush_lu\views.py:4434
 msgid "Only coaches can manage invitations."
