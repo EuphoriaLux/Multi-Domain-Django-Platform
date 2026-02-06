@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}User Segments - Crush.lu Admin{% endblock %}
 
@@ -504,7 +504,7 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct }}%"></div>
+                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
                     </div>
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
@@ -518,7 +518,7 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct }}%"></div>
+                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
                     </div>
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
@@ -577,7 +577,7 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ a.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill bar-purple" style="width: {{ a.pct }}%"></div>
+                        <div class="dist-bar-fill bar-purple" style="width: {{ a.pct|unlocalize }}%"></div>
                     </div>
                     <span class="dist-bar-value">{{ a.pct }}% ({{ a.count }})</span>
                 </div>
@@ -589,7 +589,7 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ lf.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}" style="width: {{ lf.pct }}%"></div>
+                        <div class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}" style="width: {{ lf.pct|unlocalize }}%"></div>
                     </div>
                     <span class="dist-bar-value">{{ lf.pct }}% ({{ lf.count }})</span>
                 </div>
@@ -601,7 +601,7 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ l.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill bar-blue" style="width: {{ l.pct }}%"></div>
+                        <div class="dist-bar-fill bar-blue" style="width: {{ l.pct|unlocalize }}%"></div>
                     </div>
                     <span class="dist-bar-value">{{ l.pct }}% ({{ l.count }})</span>
                 </div>
@@ -618,7 +618,7 @@
             <div class="dist-bar-row">
                 <span class="dist-bar-label">{{ loc.label }}</span>
                 <div class="dist-bar-track">
-                    <div class="dist-bar-fill bar-orange" style="width: {{ loc.pct }}%"></div>
+                    <div class="dist-bar-fill bar-orange" style="width: {{ loc.pct|unlocalize }}%"></div>
                 </div>
                 <span class="dist-bar-value">{{ loc.pct }}% ({{ loc.count }})</span>
             </div>
