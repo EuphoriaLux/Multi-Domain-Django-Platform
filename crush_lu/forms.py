@@ -649,9 +649,61 @@ class CrushCoachForm(forms.ModelForm):
         help_text=_('Which languages can you speak for profile reviews?')
     )
 
+    # German translations
+    bio_de = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': _('Coach bio in German...'),
+            'class': TAILWIND_TEXTAREA
+        }),
+        label=_('Coach Bio (German)'),
+        help_text=_('German translation of your coaching bio')
+    )
+
+    specializations_de = forms.CharField(
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'placeholder': _('e.g., Junge Berufstätige, Studenten, 35+'),
+            'class': TAILWIND_INPUT
+        }),
+        label=_('Specializations (German)'),
+        help_text=_('German translation of your specializations')
+    )
+
+    # French translations
+    bio_fr = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': _('Coach bio in French...'),
+            'class': TAILWIND_TEXTAREA
+        }),
+        label=_('Coach Bio (French)'),
+        help_text=_('French translation of your coaching bio')
+    )
+
+    specializations_fr = forms.CharField(
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'placeholder': _('e.g., Jeunes professionnels, Étudiants, 35+'),
+            'class': TAILWIND_INPUT
+        }),
+        label=_('Specializations (French)'),
+        help_text=_('French translation of your specializations')
+    )
+
     class Meta:
         model = CrushCoach
-        fields = ['bio', 'specializations', 'photo', 'spoken_languages']
+        fields = [
+            'bio', 'bio_de', 'bio_fr',
+            'specializations', 'specializations_de', 'specializations_fr',
+            'photo', 'spoken_languages',
+        ]
 
     def clean_spoken_languages(self):
         valid_codes = {code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES}

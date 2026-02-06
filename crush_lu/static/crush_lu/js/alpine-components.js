@@ -7467,4 +7467,37 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // =========================================================================
+    // Language Tabs - For multilingual form fields
+    // =========================================================================
+    Alpine.data('languageTabs', function() {
+        return {
+            activeLanguage: 'en',
+
+            get isEnglish() { return this.activeLanguage === 'en'; },
+            get isGerman() { return this.activeLanguage === 'de'; },
+            get isFrench() { return this.activeLanguage === 'fr'; },
+
+            get englishTabClass() {
+                return this.activeLanguage === 'en'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80';
+            },
+            get germanTabClass() {
+                return this.activeLanguage === 'de'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80';
+            },
+            get frenchTabClass() {
+                return this.activeLanguage === 'fr'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80';
+            },
+
+            setEnglish: function() { this.activeLanguage = 'en'; },
+            setGerman: function() { this.activeLanguage = 'de'; },
+            setFrench: function() { this.activeLanguage = 'fr'; }
+        };
+    });
+
 });
