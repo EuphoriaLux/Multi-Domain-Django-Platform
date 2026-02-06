@@ -4,6 +4,7 @@
 <!-- Push Notification Activation Prompt -->
 <!-- Only shown to PWA users who haven't enabled push notifications -->
 <div x-data="pushActivationPrompt"
+     x-cloak
      x-show="shouldShowPrompt"
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0 transform translate-y-4"
@@ -108,14 +109,14 @@ document.addEventListener('alpine:init', () => {
                     this.hasPushEnabled = true;
 
                     // Show success message
-                    alert('{% trans "Push notifications enabled! You'll now receive instant alerts." %}');
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: { type: 'success', message: '{% filter escapejs %}{% trans "Push notifications enabled! You will now receive instant alerts." %}{% endfilter %}' }}));
                 } else {
                     // Fallback: reload to /account/settings/
                     window.location.href = '/account/settings/#push-notifications';
                 }
             } catch (error) {
                 console.error('Error enabling push:', error);
-                alert('{% trans "Could not enable push notifications. Please try from Settings." %}');
+                window.dispatchEvent(new CustomEvent('show-toast', { detail: { type: 'error', message: '{% filter escapejs %}{% trans "Could not enable push notifications. Please try from Settings." %}{% endfilter %}' }}));
             } finally {
                 this.isEnabling = false;
             }
@@ -136,4 +137,3 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 </script>
-```

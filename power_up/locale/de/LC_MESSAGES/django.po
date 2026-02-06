@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: power_up 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 14:18+0100\n"
+"POT-Creation-Date: 2026-02-06 00:46+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -16,32 +16,40 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\power_up\finops\views.py:104
+#: .\power_up\finops\views.py:226
 msgid "FinOps Hub - Cost Dashboard"
 msgstr ""
 
-#: .\power_up\finops\views.py:159
+#: .\power_up\finops\views.py:296
 msgid "FinOps Hub - Subscriptions"
 msgstr ""
 
-#: .\power_up\finops\views.py:218
+#: .\power_up\finops\views.py:355
 msgid "FinOps Hub - Services"
 msgstr ""
 
-#: .\power_up\finops\views.py:289
+#: .\power_up\finops\views.py:426
 msgid "FinOps Hub - Resources"
 msgstr ""
 
-#: .\power_up\finops\views.py:315
+#: .\power_up\finops\views.py:453
 msgid "FinOps Hub - Import Data"
 msgstr ""
 
-#: .\power_up\finops\views.py:340
+#: .\power_up\finops\views.py:479
 msgid "Update Subscription ID"
 msgstr ""
 
-#: .\power_up\finops\views.py:359
+#: .\power_up\finops\views.py:498
 msgid "FinOps Hub - FAQ & Data Flow"
+msgstr ""
+
+#: .\power_up\finops\views.py:531
+msgid "FinOps Hub - Cost Anomalies"
+msgstr ""
+
+#: .\power_up\finops\views.py:590
+msgid "FinOps Hub - Cost Forecast"
 msgstr ""
 
 #: .\power_up\platforms.py:14
@@ -241,6 +249,252 @@ msgstr "Grenzüberschreitende Unterstützung"
 #: .\power_up\templates\admin\base_site.html:29
 msgid "Power-Up Administration"
 msgstr "Power-Up-Verwaltung"
+
+#: .\power_up\templates\finops\anomalies.html:5
+#: .\power_up\templates\finops\anomalies.html:10
+#, fuzzy
+#| msgid "Cost trend analysis"
+msgid "Cost Anomalies"
+msgstr "Kostentrendanalyse"
+
+#: .\power_up\templates\finops\anomalies.html:12
+msgid "Unusual cost patterns detected automatically"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:19
+#: .\power_up\templates\finops\anomalies.html:57
+msgid "Critical"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:21
+#: .\power_up\templates\finops\anomalies.html:26
+#: .\power_up\templates\finops\anomalies.html:31
+#: .\power_up\templates\finops\anomalies.html:36
+#: .\power_up\templates\finops\anomalies.html:67
+msgid "Unacknowledged"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:24
+#: .\power_up\templates\finops\anomalies.html:58
+msgid "High"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:29
+#: .\power_up\templates\finops\anomalies.html:59
+msgid "Medium"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:34
+#: .\power_up\templates\finops\anomalies.html:60
+msgid "Low"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:44
+msgid "Time Period"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:46
+msgid "Last 7 days"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:47
+msgid "Last 14 days"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:48
+msgid "Last 30 days"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:49
+msgid "Last 60 days"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:50
+msgid "Last 90 days"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:54
+msgid "Severity"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:56
+#: .\power_up\templates\finops\anomalies.html:66
+msgid "All"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:64
+msgid "Status"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:68
+#: .\power_up\templates\finops\anomalies.html:102
+msgid "Acknowledged"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:73
+msgid "Apply Filters"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:118
+msgid "Actual"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:122
+msgid "Expected"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:126
+msgid "Deviation"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:135
+msgid "Technical Details"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:157
+msgid "Acknowledge"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:169
+#, fuzzy
+#| msgid "Nationalities represented"
+msgid "No anomalies detected"
+msgstr "Nationalitäten vertreten"
+
+#: .\power_up\templates\finops\anomalies.html:170
+msgid "Cost patterns are within expected ranges"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:179
+msgid "Mark this anomaly as acknowledged?"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:193
+msgid "Failed to acknowledge anomaly"
+msgstr ""
+
+#: .\power_up\templates\finops\anomalies.html:198
+msgid "An error occurred"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:5
+msgid "Cost Forecast - FinOps Hub"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:11
+msgid "Cost Forecast"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:13
+msgid "Predicted costs for the next"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:13
+msgid "days based on historical trends"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:27
+msgid "No Forecast Data Available"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:29
+msgid ""
+"Forecasts haven't been generated yet. This requires at least 30 days of "
+"historical data."
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:31
+msgid "Staff: Run"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:31
+msgid "to generate forecasts"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:42
+msgid "Avg Daily (Historical)"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:46
+msgid "Avg Daily (Forecast)"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:53
+#, fuzzy
+#| msgid "Local Focus"
+msgid "Total Forecast"
+msgstr "Lokaler Fokus"
+
+#: .\power_up\templates\finops\forecast.html:57
+msgid "Model Accuracy (R²)"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:59
+msgid "0-1 scale, higher is better"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:66
+#, fuzzy
+#| msgid "Cost trend analysis"
+msgid "Cost Trend & Forecast"
+msgstr "Kostentrendanalyse"
+
+#: .\power_up\templates\finops\forecast.html:80
+msgid "Showing historical data (last 30 days) and forecast predictions"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:85
+msgid "Recent Historical Costs"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:98
+msgid "Forecasted Costs"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:112
+msgid "Show all"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:112
+msgid "forecasts"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:131
+msgid "About the Forecast Model"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:134
+msgid "Algorithm"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:135
+msgid "Linear regression with weekly seasonality adjustment"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:138
+msgid "Training Data"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:139
+msgid "Last 90 days of historical cost data"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:142
+msgid "Confidence Interval"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:143
+#, python-format
+msgid "95%% confidence interval (±1.96 standard errors)"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:146
+msgid "Update Frequency"
+msgstr ""
+
+#: .\power_up\templates\finops\forecast.html:147
+msgid "Automatically regenerated after each daily data sync"
+msgstr ""
 
 #: .\power_up\templates\power_up\about.html:10 .\power_up\views.py:33
 msgid "About Power-Up"

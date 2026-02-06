@@ -44,7 +44,7 @@
 
     .detail-container {
         padding: 20px;
-        max-width: 1200px;
+        max-width: 1600px;
         margin: 0 auto;
     }
 
@@ -93,6 +93,8 @@
     .badge-green { background: #28a745; color: white; }
     .badge-blue { background: #007bff; color: white; }
     .badge-gray { background: #6c757d; color: white; }
+    .badge-pink { background: #e83e8c; color: white; }
+    .badge-purple { background: #9B59B6; color: white; }
 
     .detail-actions {
         display: flex;
@@ -230,6 +232,32 @@
         margin: 0 0 8px 0;
         color: var(--text-secondary);
     }
+
+    .users-table td.td-center {
+        text-align: center;
+    }
+
+    .users-table th.th-center {
+        text-align: center;
+    }
+
+    .icon-yes { color: #28a745; }
+    .icon-no { color: #dc3545; }
+
+    .profile-approved-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .approved-yes { background: #d4edda; color: #155724; }
+    .approved-no { background: #f8d7da; color: #721c24; }
+
+    .users-table .compact-col {
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
@@ -257,21 +285,63 @@
     </div>
 
     {% if users %}
-    <div class="users-table">
+    <div class="users-table" style="overflow-x: auto;">
         <table>
             <thead>
+                {% if is_profile_segment %}
+                <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th class="th-center">Gender</th>
+                    <th class="th-center">Age</th>
+                    <th>Location</th>
+                    <th class="th-center">Phone</th>
+                    <th>Looking For</th>
+                    <th class="th-center">Lang</th>
+                    <th class="th-center">Events</th>
+                    <th class="th-center">Connections</th>
+                    <th class="th-center">Approved</th>
+                    <th>Created</th>
+                </tr>
+                {% else %}
                 <tr>
                     <th>Email</th>
                     <th>Name</th>
                     <th>Status / Details</th>
                     <th>Date</th>
                 </tr>
+                {% endif %}
             </thead>
             <tbody>
                 {% for item in users %}
                 <tr>
-                    {% if item.user %}
-                    {# CrushProfile, UserActivity, EmailPreference #}
+                    {% if is_profile_segment %}
+                    {# CrushProfile with expanded columns #}
+                    <td class="user-email">{{ item.user.email }}</td>
+                    <td class="user-name compact-col">{{ item.user.first_name }} {{ item.user.last_name }}</td>
+                    <td class="td-center compact-col">
+                        {% if item.gender == 'M' %}♂{% elif item.gender == 'F' %}♀{% elif item.gender == 'NB' %}⚧{% elif item.gender == 'O' %}⚪{% elif item.gender == 'P' %}—{% else %}-{% endif %}
+                        <span style="font-size: 11px; color: var(--text-muted);">{{ item.get_gender_display }}</span>
+                    </td>
+                    <td class="td-center">{{ item.age|default:"-" }}</td>
+                    <td class="compact-col">{{ item.location|default:"-" }}</td>
+                    <td class="td-center">
+                        {% if item.phone_verified %}<span class="icon-yes" title="Verified">✓</span>{% else %}<span class="icon-no" title="Not verified">✗</span>{% endif %}
+                    </td>
+                    <td class="compact-col">{{ item.get_looking_for_display|default:"-" }}</td>
+                    <td class="td-center compact-col">
+                        {% if item.preferred_language == 'en' %}🇬🇧{% elif item.preferred_language == 'de' %}🇩🇪{% elif item.preferred_language == 'fr' %}🇫🇷{% else %}{{ item.preferred_language|default:"-" }}{% endif %}
+                    </td>
+                    <td class="td-center">{{ item.event_count }}</td>
+                    <td class="td-center">{{ item.sent_connections|add:item.received_connections }}</td>
+                    <td class="td-center">
+                        {% if item.is_approved %}<span class="profile-approved-badge approved-yes">Yes</span>{% else %}<span class="profile-approved-badge approved-no">No</span>{% endif %}
+                    </td>
+                    <td class="compact-col">
+                        {% if item.created_at %}{{ item.created_at|date:"M j, Y" }}{% else %}-{% endif %}
+                    </td>
+                    {% elif item.user %}
+                    {# UserActivity, EmailPreference #}
                     <td class="user-email">{{ item.user.email }}</td>
                     <td class="user-name">{{ item.user.first_name }} {{ item.user.last_name }}</td>
                     <td>

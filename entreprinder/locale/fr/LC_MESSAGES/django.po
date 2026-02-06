@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 14:18+0100\n"
+"POT-Creation-Date: 2026-02-06 00:46+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -15,6 +15,10 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: .\entreprinder\templates\account\base_account.html:55
+msgid "All rights reserved."
+msgstr ""
 
 #: .\entreprinder\templates\account\email.html:4
 #: .\entreprinder\templates\account\email.html:22

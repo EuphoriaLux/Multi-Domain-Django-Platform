@@ -81,23 +81,38 @@
 </script>
 {% endblock %}
 
+{% block body_class %}page-how-it-works{% endblock %}
+
 {% block extra_css %}
 <style>
-    /* Hero Section - Full width without negative margins */
+    /* =============================================
+       HOW IT WORKS - Mobile-First Styles
+       Base = mobile, scale up with min-width
+       ============================================= */
+
+    /* Override <main> top padding so hero sits flush against navbar */
+    .page-how-it-works #main-content {
+        padding-top: 0 !important;
+    }
+
+    /* Hero Section */
     .how-it-works-hero {
         background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
         color: white;
-        padding: 4rem 1rem;
+        padding: 2.5rem 1rem;
         text-align: center;
-        /* Use viewport width to break out of container */
         width: 100vw;
         position: relative;
         left: 50%;
         right: 50%;
         margin-left: -50vw;
         margin-right: -50vw;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
         overflow: hidden;
+    }
+
+    html.dark .how-it-works-hero {
+        background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
     }
 
     .how-it-works-hero::before {
@@ -114,7 +129,7 @@
     .how-it-works-hero h1 {
         font-size: clamp(2rem, 5vw, 3.5rem);
         font-weight: 700;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
         position: relative;
         z-index: 1;
     }
@@ -128,12 +143,51 @@
         z-index: 1;
     }
 
+    /* Stats Section - Always 3 columns */
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin: 0 0 2rem;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 1.25rem 0.5rem;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    html.dark .stat-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-number {
+        font-size: clamp(1.5rem, 4vw, 3rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        font-size: clamp(0.75rem, 1.8vw, 1rem);
+    }
+
+    html.dark .stat-label {
+        color: #94a3b8;
+    }
+
     /* Step Cards */
     .step-card {
         border: none;
         border-radius: 20px;
         overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         height: 100%;
         background: white;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
@@ -145,29 +199,19 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
 
-    .step-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
-    }
-
-    html.dark .step-card:hover {
-        box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
-    }
-
     .step-icon {
-        width: 80px;
-        height: 80px;
+        width: 60px;
+        height: 60px;
         border-radius: 50%;
         background: linear-gradient(135deg, #9B59B6, #FF6B9D);
         color: white;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: bold;
-        margin: 0 auto 1.5rem;
+        margin: 0 auto 1rem;
         box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
-        animation: float 3s ease-in-out infinite;
     }
 
     @keyframes float {
@@ -175,14 +219,9 @@
         50% { transform: translateY(-10px); }
     }
 
-    .step-card:nth-child(1) .step-icon { animation-delay: 0s; }
-    .step-card:nth-child(2) .step-icon { animation-delay: 0.2s; }
-    .step-card:nth-child(3) .step-icon { animation-delay: 0.4s; }
-    .step-card:nth-child(4) .step-icon { animation-delay: 0.6s; }
-
     .step-card h3 {
         font-size: clamp(1.25rem, 3vw, 1.5rem);
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
         color: #2C3E50;
         font-weight: 600;
     }
@@ -201,21 +240,117 @@
         color: #d1d5db;
     }
 
-    .step-number {
+    /* Privacy Section */
+    .privacy-section {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        border-radius: 20px;
+        padding: 2rem 1rem;
+        margin: 2rem 0;
+        border: 2px solid rgba(155, 89, 182, 0.1);
+    }
+
+    .privacy-section h2 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .feature-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .feature-list li {
+        padding: 0.75rem 0;
+        padding-left: 2rem;
+        position: relative;
+        font-size: clamp(0.95rem, 2vw, 1.05rem);
+        line-height: 1.6;
+    }
+
+    .feature-list li::before {
+        content: '✓';
         position: absolute;
-        top: 15px;
-        right: 15px;
+        left: 0;
+        top: 0.75rem;
+        width: 24px;
+        height: 24px;
         background: linear-gradient(135deg, #9B59B6, #FF6B9D);
         color: white;
-        width: 40px;
-        height: 40px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        font-size: 1.1rem;
-        opacity: 0.2;
+        font-size: 0.8rem;
+    }
+
+    .feature-column {
+        margin-bottom: 1.5rem;
+    }
+
+    .feature-column h5 {
+        font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+        margin-bottom: 1rem;
+        color: #2C3E50;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    html.dark .feature-column h5 {
+        color: #f1f5f9;
+    }
+
+    .feature-icon {
+        font-size: 1.5rem;
+    }
+
+    /* CTA Section */
+    .hiw-cta-section {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-top: 2rem;
+        margin-bottom: 0;
+        overflow: hidden; /* Prevent margin collapse with footer */
+    }
+
+    html.dark .hiw-cta-section {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
+    }
+
+    .hiw-cta-section h2 {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        margin-bottom: 1rem;
+        color: #2C3E50;
+    }
+
+    html.dark .hiw-cta-section h2 {
+        color: #f1f5f9;
+    }
+
+    .hiw-cta-section p {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    html.dark .hiw-cta-section p {
+        color: #94a3b8;
     }
 
     /* Timeline connector for desktop */
@@ -238,180 +373,153 @@
         }
     }
 
-    /* Privacy Section */
-    .privacy-section {
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
-        border-radius: 25px;
-        padding: 3rem 2rem;
-        margin: 3rem 0;
-        border: 2px solid rgba(155, 89, 182, 0.1);
-    }
+    /* =============================================
+       Responsive Scale-Up Breakpoints
+       ============================================= */
 
-    .privacy-section h2 {
-        text-align: center;
-        margin-bottom: 2.5rem;
-        font-size: clamp(1.75rem, 4vw, 2.5rem);
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+    /* sm: 640px */
+    @media (min-width: 640px) {
+        .stats-section {
+            gap: 1.5rem;
+        }
 
-    .feature-list {
-        list-style: none;
-        padding: 0;
-    }
-
-    .feature-list li {
-        padding: 0.75rem 0;
-        padding-left: 2.5rem;
-        position: relative;
-        font-size: clamp(0.95rem, 2vw, 1.05rem);
-        line-height: 1.6;
-    }
-
-    .feature-list li::before {
-        content: '✓';
-        position: absolute;
-        left: 0;
-        top: 0.75rem;
-        width: 28px;
-        height: 28px;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 0.9rem;
-    }
-
-    .feature-column {
-        margin-bottom: 2rem;
-    }
-
-    .feature-column h5 {
-        font-size: clamp(1.1rem, 2.5vw, 1.3rem);
-        margin-bottom: 1.5rem;
-        color: #2C3E50;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    html.dark .feature-column h5 {
-        color: #f1f5f9;
-    }
-
-    .feature-icon {
-        font-size: 1.5rem;
-    }
-
-    /* CTA Section - Full width like hero (scoped to how-it-works page) */
-    .hiw-cta-section {
-        text-align: center;
-        padding: 4rem 1rem;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
-        /* Use viewport width to break out of container */
-        width: 100vw;
-        position: relative;
-        left: 50%;
-        right: 50%;
-        margin-left: -50vw;
-        margin-right: -50vw;
-        margin-top: 3rem;
-        margin-bottom: 0;
-    }
-
-    html.dark .hiw-cta-section {
-        background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
-    }
-
-    .hiw-cta-section h2 {
-        font-size: clamp(1.75rem, 4vw, 2.5rem);
-        margin-bottom: 1.5rem;
-        color: #2C3E50;
-    }
-
-    html.dark .hiw-cta-section h2 {
-        color: #f1f5f9;
-    }
-
-    .hiw-cta-section p {
-        font-size: clamp(1rem, 2.5vw, 1.25rem);
-        color: #6c757d;
-        margin-bottom: 2rem;
-        max-width: 600px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    html.dark .hiw-cta-section p {
-        color: #94a3b8;
-    }
-
-    /* Stats Section */
-    .stats-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 2rem;
-        margin: 3rem 0;
-    }
-
-    .stat-card {
-        text-align: center;
-        padding: 2rem 1rem;
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        transition: transform 0.3s ease;
-    }
-
-    html.dark .stat-card {
-        background: #1e293b;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    .stat-card:hover {
-        transform: scale(1.05);
-    }
-
-    .stat-number {
-        font-size: clamp(2rem, 5vw, 3rem);
-        font-weight: 700;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-label {
-        color: #6c757d;
-        font-size: clamp(0.9rem, 2vw, 1rem);
-    }
-
-    html.dark .stat-label {
-        color: #94a3b8;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 767px) {
-        .step-card {
-            margin-bottom: 1.5rem;
+        .stat-card {
+            padding: 1.5rem 0.75rem;
         }
 
         .privacy-section {
-            padding: 2rem 1.5rem;
+            padding: 2.5rem 1.5rem;
+            border-radius: 25px;
         }
 
         .feature-list li {
-            font-size: 0.95rem;
+            padding-left: 2.25rem;
+        }
+
+        .feature-list li::before {
+            width: 26px;
+            height: 26px;
+            font-size: 0.85rem;
         }
     }
 
-    /* Scroll animations - Use visibility instead of affecting layout */
+    /* md: 768px */
+    @media (min-width: 768px) {
+        .how-it-works-hero {
+            padding: 4rem 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stats-section {
+            gap: 2rem;
+            margin: 0 0 3rem;
+        }
+
+        .stat-card {
+            padding: 2rem 1rem;
+        }
+
+        .step-icon {
+            width: 80px;
+            height: 80px;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .step-card h3 {
+            margin-bottom: 1rem;
+        }
+
+        .privacy-section {
+            padding: 3rem 2rem;
+            margin: 3rem 0;
+        }
+
+        .privacy-section h2 {
+            margin-bottom: 2.5rem;
+        }
+
+        .feature-list li {
+            padding-left: 2.5rem;
+        }
+
+        .feature-list li::before {
+            width: 28px;
+            height: 28px;
+            font-size: 0.9rem;
+        }
+
+        .feature-column {
+            margin-bottom: 2rem;
+        }
+
+        .feature-column h5 {
+            margin-bottom: 1.5rem;
+        }
+
+        .hiw-cta-section {
+            padding: 4rem 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .hiw-cta-section h2 {
+            margin-bottom: 1.5rem;
+        }
+
+        .hiw-cta-section p {
+            margin-bottom: 2rem;
+        }
+    }
+
+    /* lg: 1024px */
+    @media (min-width: 1024px) {
+        .how-it-works-hero {
+            padding: 5rem 1rem;
+        }
+
+        .hiw-cta-section {
+            padding: 5rem 1.5rem;
+        }
+    }
+
+    /* =============================================
+       Hover & Animation — only for capable devices
+       ============================================= */
+    @media (hover: hover) and (min-width: 768px) {
+        .step-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+        }
+
+        html.dark .step-card:hover {
+            box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .stat-card {
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: scale(1.05);
+        }
+
+        .step-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .step-card:nth-child(1) .step-icon { animation-delay: 0s; }
+        .step-card:nth-child(2) .step-icon { animation-delay: 0.2s; }
+        .step-card:nth-child(3) .step-icon { animation-delay: 0.4s; }
+        .step-card:nth-child(4) .step-icon { animation-delay: 0.6s; }
+    }
+
+    /* =============================================
+       Scroll Animations
+       ============================================= */
     .fade-in {
         opacity: 0;
         transform: translateY(20px);
@@ -423,7 +531,6 @@
         transform: translateY(0);
     }
 
-    /* Fallback: Show all sections after page load if JS fails */
     @media (prefers-reduced-motion: reduce) {
         .fade-in {
             opacity: 1;
@@ -458,11 +565,10 @@
 </div>
 
 <!-- Steps Section -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 step-timeline fade-in">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-10 step-timeline fade-in">
     <div>
         <div class="step-card">
-            <div class="step-number">1</div>
-            <div class="p-6 text-center">
+            <div class="p-4 sm:p-6 text-center">
                 <div class="step-icon">
                     📝
                 </div>
@@ -476,8 +582,7 @@
 
     <div>
         <div class="step-card">
-            <div class="step-number">2</div>
-            <div class="p-6 text-center">
+            <div class="p-4 sm:p-6 text-center">
                 <div class="step-icon">
                     🎯
                 </div>
@@ -491,8 +596,7 @@
 
     <div>
         <div class="step-card">
-            <div class="step-number">3</div>
-            <div class="p-6 text-center">
+            <div class="p-4 sm:p-6 text-center">
                 <div class="step-icon">
                     🎉
                 </div>
@@ -511,8 +615,7 @@
 
     <div>
         <div class="step-card">
-            <div class="step-number">4</div>
-            <div class="p-6 text-center">
+            <div class="p-4 sm:p-6 text-center">
                 <div class="step-icon">
                     💕
                 </div>
@@ -559,21 +662,21 @@
 </div>
 
 <!-- Why Different Section -->
-<div class="mb-10 fade-in">
-    <h2 class="text-center mb-8 text-2xl md:text-3xl lg:text-4xl font-bold">{% trans "Why Crush.lu is Different" %}</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="text-center p-6">
-            <div class="text-5xl mb-4">🚫</div>
+<div class="mb-6 md:mb-10 fade-in">
+    <h2 class="text-center mb-6 md:mb-8 text-2xl md:text-3xl lg:text-4xl font-bold">{% trans "Why Crush.lu is Different" %}</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div class="text-center p-4 sm:p-6">
+            <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">🚫</div>
             <h5 class="font-semibold dark:text-white mb-2">{% trans "No Endless Swiping" %}</h5>
             <p class="text-gray-600 dark:text-gray-300">{% trans "We focus on quality over quantity. Real events, real people." %}</p>
         </div>
-        <div class="text-center p-6">
-            <div class="text-5xl mb-4">👥</div>
+        <div class="text-center p-4 sm:p-6">
+            <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">👥</div>
             <h5 class="font-semibold dark:text-white mb-2">{% trans "Human-Curated" %}</h5>
             <p class="text-gray-600 dark:text-gray-300">{% trans "Every profile reviewed by real coaches, not algorithms." %}</p>
         </div>
-        <div class="text-center p-6">
-            <div class="text-5xl mb-4">🇱🇺</div>
+        <div class="text-center p-4 sm:p-6">
+            <div class="text-4xl sm:text-5xl mb-3 sm:mb-4">🇱🇺</div>
             <h5 class="font-semibold dark:text-white mb-2">{% trans "Luxembourg-Focused" %}</h5>
             <p class="text-gray-600 dark:text-gray-300">{% trans "Built for our small community with privacy in mind." %}</p>
         </div>
@@ -584,7 +687,7 @@
 <div class="hiw-cta-section fade-in">
     <h2>{% trans "Ready to Meet Your Crush?" %}</h2>
     <p>{% trans "Join Luxembourg's most authentic way to meet new people and make real connections." %}</p>
-    <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center py-4 px-12 text-lg">
+    <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center py-4 px-12 text-lg w-full sm:w-auto max-w-xs sm:max-w-none mx-auto">
         {% trans "Get Started Now" %}
     </a>
     <div class="mt-6">

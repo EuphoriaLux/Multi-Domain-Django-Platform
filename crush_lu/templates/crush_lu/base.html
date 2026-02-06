@@ -141,6 +141,7 @@
         .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;margin-bottom:1.5rem;line-height:1.2}
         .hero-subtitle{font-size:clamp(1.1rem,2.5vw,1.5rem);opacity:.95;margin-bottom:2.5rem;max-width:700px}
         .hero-emoji{font-size:clamp(8rem,20vw,15rem);display:inline-block}
+        .hero-ghost-svg{width:clamp(8rem,20vw,15rem);height:auto;display:inline-block;filter:drop-shadow(0 10px 30px rgba(0,0,0,.15))}
         .hero-cta{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center}
         .btn-hero-primary{background:#fff;color:#9B59B6;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:none;font-size:1.1rem;box-shadow:0 8px 20px rgba(0,0,0,.2);text-decoration:none;display:inline-block}
         html.dark .btn-hero-primary{background:#1e293b;color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.5)}
@@ -178,7 +179,7 @@
     <div id="page-loading-overlay" role="status" aria-live="polite" aria-label="Loading">
         <div class="loading-content">
             <div class="loading-spinner" aria-hidden="true"></div>
-            <div class="loading-heart" aria-hidden="true">💕</div>
+            <div class="loading-heart" aria-hidden="true">{% include "crush_lu/includes/ghost-logo.html" with class="w-12 h-12" %}</div>
             <div class="loading-text">{% trans "Loading..." %}</div>
             <div class="loading-subtext">{% trans "Just a moment" %}</div>
         </div>
@@ -190,9 +191,9 @@
             <div class="flex justify-between items-center py-3">
                 <!-- Brand -->
                 {% if user.is_authenticated %}
-                    <a class="navbar-brand" href="{% url 'crush_lu:dashboard' %}">💕 Crush.lu</a>
+                    <a class="navbar-brand flex items-center gap-2" href="{% url 'crush_lu:dashboard' %}">{% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}<span>Crush.lu</span></a>
                 {% else %}
-                    <a class="navbar-brand" href="{% url 'crush_lu:home' %}">💕 Crush.lu</a>
+                    <a class="navbar-brand flex items-center gap-2" href="{% url 'crush_lu:home' %}">{% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}<span>Crush.lu</span></a>
                 {% endif %}
 
                 <!-- Mobile menu button -->
@@ -835,6 +836,11 @@
     <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
     {% include "crush_lu/partials/pwa_install_banner.html" %}
 
+    <!-- Push Notification Activation Prompt (for PWA users, hidden by default) -->
+    {% if user.is_authenticated %}
+        {% include "crush_lu/partials/_push_activation_prompt.html" %}
+    {% endif %}
+
     <!-- Global Profile Status Banners -->
     {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' %}
     <!-- Profile Incomplete Banner -->
@@ -890,9 +896,9 @@
                     </div>
                     <button @click="dismiss"
                             type="button"
-                            class="btn-close absolute top-4 right-4"
+                            class="absolute top-3 right-3 p-1 rounded-full opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                             aria-label="Dismiss this message">
-                        {% include "shared/icons/x-mark.html" with class="w-5 h-5" aria_hidden="true" %}
+                        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
                     </button>
                 </div>
             {% endfor %}
@@ -900,17 +906,17 @@
     {% endif %}
 
     <!-- Main Content -->
-    <main id="main-content" class="container pt-8 pb-4" role="main">
+    <main id="main-content" class="container pt-8" role="main">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer (Tailwind Grid) -->
-    <footer class="bg-crush-dark text-white py-12 mt-auto">
+    <footer class="bg-crush-dark text-white py-12">
         <div class="container">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <!-- Brand Column -->
                 <div class="lg:col-span-1">
-                    <p class="text-xl font-bold mb-4">💕 Crush.lu</p>
+                    <p class="text-xl font-bold mb-4 flex items-center gap-2">{% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}<span>Crush.lu</span></p>
                     <p class="text-white/70">{% trans "Meet new people. Make real connections." %}</p>
                 </div>
 

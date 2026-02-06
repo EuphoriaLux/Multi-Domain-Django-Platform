@@ -1,13 +1,13 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "About Crush.lu - Privacy-First Dating Platform in Luxembourg" %}{% endblock %}
+{% block title %}{% trans "About Crush.lu - Made in Luxembourg Dating Platform | Press & Founders" %}{% endblock %}
 
-{% block og_title %}{% trans "About Crush.lu - Our Mission & Values" %}{% endblock %}
-{% block og_description %}{% trans "Learn about Crush.lu, Luxembourg's privacy-first dating platform. Discover our mission to bring authentic connections through coach-curated profiles and real-world events." %}{% endblock %}
+{% block og_title %}{% trans "About Crush.lu - Our Story, Founders & Press Coverage" %}{% endblock %}
+{% block og_description %}{% trans "Meet the founders behind Crush.lu, Luxembourg's coach-curated dating platform. Featured in Virgule.lu and LuxTimes. Founded by Tom Sawyer and Wesley Hourdequin." %}{% endblock %}
 
-{% block meta_description %}{% trans "About Crush.lu: We're bringing authentic connections back to Luxembourg's dating scene. Coach-reviewed profiles, privacy-focused, and event-based meetups for meaningful relationships." %}{% endblock %}
-{% block meta_keywords %}{% trans "about crush.lu, dating luxembourg, crush coaches, privacy dating, authentic connections, luxembourg singles community" %}{% endblock %}
+{% block meta_description %}{% trans "About Crush.lu: Founded by Tom Sawyer and Wesley Hourdequin, featured in Virgule.lu and LuxTimes. Luxembourg's privacy-first dating platform with coach-verified profiles and real events." %}{% endblock %}
+{% block meta_keywords %}{% trans "about crush.lu, Tom Sawyer crush.lu, Wesley Hourdequin, crush.lu founders, dating luxembourg, virgule.lu crush, luxtimes crush, luxembourg dating app" %}{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -40,66 +40,1009 @@
     "@context": "https://schema.org",
     "@type": "AboutPage",
     "name": "{% trans "About Crush.lu" %}",
-    "description": "{% trans "Learn about Crush.lu, Luxembourg's privacy-first dating platform bringing authentic connections through coach-curated profiles and real-world events." %}",
+    "description": "{% trans "Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by Tom Sawyer and Wesley Hourdequin, bringing authentic connections through coach-curated profiles and real-world events." %}",
     "mainEntity": {
         "@type": "Organization",
         "name": "Crush.lu",
         "description": "{% trans "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections." %}",
         "url": "https://crush.lu",
-        "areaServed": "Luxembourg"
+        "foundingDate": "2025",
+        "areaServed": "Luxembourg",
+        "founder": [
+            {
+                "@type": "Person",
+                "name": "Tom Sawyer",
+                "jobTitle": "{% trans "Founder" %}"
+            },
+            {
+                "@type": "Person",
+                "name": "Wesley Hourdequin",
+                "jobTitle": "{% trans "Co-Founder & Crush Coach" %}"
+            }
+        ]
     }
+}
+</script>
+
+<!-- NewsArticle Schema - Virgule.lu -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": "Crush.lu, l'application luxembourgeoise qui veut changer la fa\u00e7on de draguer",
+    "datePublished": "2026-01-25",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Virgule.lu"
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Aur\u00e9lie Rouff"
+    },
+    "url": "https://virgule.lu/lifestyle/crush-lu-l-application-luxembourgeoise-qui-veut-changer-la-facon-de-draguer/2380279.html",
+    "inLanguage": "fr"
+}
+</script>
+
+<!-- NewsArticle Schema - LuxTimes -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": "Crush.lu, the made-in-Luxembourg app aiming to change the way people flirt",
+    "datePublished": "2026-02-01",
+    "publisher": {
+        "@type": "Organization",
+        "name": "LuxTimes"
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Aur\u00e9lie Rouff"
+    },
+    "url": "https://luxtimes.lu/culture-and-lifestyle/crush-lu-the-made-in-luxembourg-app-aiming-to-change-the-way-people-flirt/2382814.html",
+    "inLanguage": "en"
 }
 </script>
 {% endblock %}
 
+{% block body_class %}page-about{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* =============================================
+       ABOUT PAGE - Mobile-First Styles
+       Base = mobile, scale up with min-width
+       ============================================= */
+
+    /* Override <main> top padding so hero sits flush against navbar */
+    .page-about #main-content {
+        padding-top: 0 !important;
+    }
+
+    /* Hero Section */
+    .about-hero {
+        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        color: white;
+        padding: 2.5rem 1rem;
+        text-align: center;
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    html.dark .about-hero {
+        background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+    }
+
+    .about-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.5;
+    }
+
+    .about-hero h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .about-hero p {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        opacity: 0.95;
+        max-width: 600px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Section Headings */
+    .about-section-title {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Mission Section */
+    .about-mission-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+        border-left: 4px solid;
+        border-image: linear-gradient(135deg, #9B59B6, #FF6B9D) 1;
+    }
+
+    html.dark .about-mission-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .about-mission-card p {
+        color: #374151;
+        line-height: 1.8;
+        font-size: clamp(0.95rem, 2vw, 1.05rem);
+    }
+
+    html.dark .about-mission-card p {
+        color: #d1d5db;
+    }
+
+    .about-blockquote {
+        margin: 1.5rem 0 0;
+        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08));
+        border-radius: 12px;
+        border-left: 3px solid #9B59B6;
+        font-style: italic;
+        color: #4B5563;
+        font-size: clamp(0.95rem, 2vw, 1.05rem);
+        line-height: 1.7;
+    }
+
+    html.dark .about-blockquote {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.2), rgba(159, 18, 57, 0.2));
+        border-left-color: #8B5CF6;
+        color: #d1d5db;
+    }
+
+    .about-blockquote cite {
+        display: block;
+        margin-top: 0.75rem;
+        font-style: normal;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #9B59B6;
+    }
+
+    html.dark .about-blockquote cite {
+        color: #A78BFA;
+    }
+
+    /* Founder Cards */
+    .founder-card {
+        background: white;
+        border-radius: 20px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        text-align: center;
+        height: 100%;
+    }
+
+    html.dark .founder-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .founder-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.25rem;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+    }
+
+    .founder-card h3 {
+        font-size: clamp(1.25rem, 3vw, 1.5rem);
+        font-weight: 600;
+        color: #2C3E50;
+        margin-bottom: 0.25rem;
+    }
+
+    html.dark .founder-card h3 {
+        color: #f1f5f9;
+    }
+
+    .founder-role {
+        font-size: 0.9rem;
+        font-weight: 500;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+    }
+
+    .founder-card p {
+        color: #4B5563;
+        line-height: 1.7;
+        font-size: clamp(0.9rem, 2vw, 0.95rem);
+    }
+
+    html.dark .founder-card p {
+        color: #d1d5db;
+    }
+
+    .founder-quote {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(155, 89, 182, 0.15);
+        font-style: italic;
+        color: #6B7280;
+        font-size: clamp(0.85rem, 1.8vw, 0.9rem);
+    }
+
+    html.dark .founder-quote {
+        border-top-color: rgba(139, 92, 246, 0.2);
+        color: #9CA3AF;
+    }
+
+    /* Press Section */
+    .about-press-section {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        border-radius: 20px;
+        padding: 2rem 1rem;
+        margin: 2rem 0;
+        border: 2px solid rgba(155, 89, 182, 0.1);
+    }
+
+    html.dark .about-press-section {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+        border-color: rgba(139, 92, 246, 0.2);
+    }
+
+    .press-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    html.dark .press-card {
+        background: #1e293b;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .press-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+    }
+
+    .press-publication {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #9B59B6;
+        margin-bottom: 0.25rem;
+    }
+
+    html.dark .press-publication {
+        color: #A78BFA;
+    }
+
+    .press-date {
+        font-size: 0.8rem;
+        color: #9CA3AF;
+        margin-bottom: 0.75rem;
+    }
+
+    html.dark .press-date {
+        color: #6B7280;
+    }
+
+    .press-card h3 {
+        font-size: clamp(1rem, 2.5vw, 1.15rem);
+        font-weight: 600;
+        color: #2C3E50;
+        line-height: 1.4;
+        margin-bottom: 0.75rem;
+    }
+
+    html.dark .press-card h3 {
+        color: #f1f5f9;
+    }
+
+    .press-quote {
+        color: #6B7280;
+        font-style: italic;
+        font-size: clamp(0.85rem, 1.8vw, 0.9rem);
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        flex-grow: 1;
+    }
+
+    html.dark .press-quote {
+        color: #9CA3AF;
+    }
+
+    .press-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #9B59B6;
+        text-decoration: none;
+    }
+
+    html.dark .press-link {
+        color: #A78BFA;
+    }
+
+    .press-link svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Stats Section */
+    .about-stats-section {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin: 0 0 2rem;
+    }
+
+    .about-stat-card {
+        text-align: center;
+        padding: 1.25rem 0.5rem;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    html.dark .about-stat-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .about-stat-number {
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.25rem;
+    }
+
+    .about-stat-label {
+        color: #6c757d;
+        font-size: clamp(0.75rem, 1.8vw, 0.95rem);
+    }
+
+    html.dark .about-stat-label {
+        color: #94a3b8;
+    }
+
+    /* Coach Difference Section */
+    .about-coach-section {
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        border-radius: 20px;
+        padding: 2rem 1rem;
+        margin: 2rem 0;
+        border: 2px solid rgba(155, 89, 182, 0.1);
+    }
+
+    html.dark .about-coach-section {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+        border-color: rgba(139, 92, 246, 0.2);
+    }
+
+    .about-feature-column {
+        margin-bottom: 1.5rem;
+    }
+
+    .about-feature-column h5 {
+        font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+        margin-bottom: 1rem;
+        color: #2C3E50;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    html.dark .about-feature-column h5 {
+        color: #f1f5f9;
+    }
+
+    .about-feature-icon {
+        font-size: 1.5rem;
+    }
+
+    .about-feature-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .about-feature-list li {
+        padding: 0.75rem 0;
+        padding-left: 2rem;
+        position: relative;
+        font-size: clamp(0.95rem, 2vw, 1.05rem);
+        line-height: 1.6;
+        color: #374151;
+    }
+
+    html.dark .about-feature-list li {
+        color: #d1d5db;
+    }
+
+    .about-feature-list li::before {
+        content: '\2713';
+        position: absolute;
+        left: 0;
+        top: 0.75rem;
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+
+    /* Why Luxembourg Section */
+    .about-why-card {
+        text-align: center;
+        padding: 1.5rem 1rem;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        height: 100%;
+    }
+
+    html.dark .about-why-card {
+        background: #1e293b;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .about-why-card .about-why-emoji {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .about-why-card h5 {
+        font-size: clamp(1rem, 2.5vw, 1.15rem);
+        font-weight: 600;
+        color: #2C3E50;
+        margin-bottom: 0.5rem;
+    }
+
+    html.dark .about-why-card h5 {
+        color: #f1f5f9;
+    }
+
+    .about-why-card p {
+        color: #6B7280;
+        font-size: clamp(0.85rem, 1.8vw, 0.95rem);
+        line-height: 1.6;
+    }
+
+    html.dark .about-why-card p {
+        color: #9CA3AF;
+    }
+
+    /* CTA Section */
+    .about-cta-section {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+        width: 100vw;
+        position: relative;
+        left: 50%;
+        right: 50%;
+        margin-left: -50vw;
+        margin-right: -50vw;
+        margin-top: 2rem;
+        margin-bottom: 0;
+        overflow: hidden;
+    }
+
+    html.dark .about-cta-section {
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
+    }
+
+    .about-cta-section h2 {
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        margin-bottom: 1rem;
+        color: #2C3E50;
+    }
+
+    html.dark .about-cta-section h2 {
+        color: #f1f5f9;
+    }
+
+    .about-cta-section p {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        color: #6c757d;
+        margin-bottom: 1.5rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    html.dark .about-cta-section p {
+        color: #94a3b8;
+    }
+
+    /* =============================================
+       Responsive Scale-Up Breakpoints
+       ============================================= */
+
+    /* sm: 640px */
+    @media (min-width: 640px) {
+        .about-mission-card {
+            padding: 2.5rem 2rem;
+        }
+
+        .about-press-section {
+            padding: 2.5rem 1.5rem;
+        }
+
+        .about-coach-section {
+            padding: 2.5rem 1.5rem;
+        }
+
+        .about-stats-section {
+            gap: 1.5rem;
+        }
+
+        .about-stat-card {
+            padding: 1.5rem 0.75rem;
+        }
+
+        .about-feature-list li {
+            padding-left: 2.25rem;
+        }
+
+        .about-feature-list li::before {
+            width: 26px;
+            height: 26px;
+            font-size: 0.85rem;
+        }
+
+        .about-why-card .about-why-emoji {
+            font-size: 3rem;
+        }
+    }
+
+    /* md: 768px */
+    @media (min-width: 768px) {
+        .about-hero {
+            padding: 4rem 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .about-mission-card {
+            padding: 3rem 2.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .about-stats-section {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin: 0 0 3rem;
+        }
+
+        .about-stat-card {
+            padding: 2rem 1rem;
+        }
+
+        .founder-avatar {
+            width: 100px;
+            height: 100px;
+            font-size: 2.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .about-press-section {
+            padding: 3rem 2rem;
+            margin: 3rem 0;
+        }
+
+        .about-coach-section {
+            padding: 3rem 2rem;
+            margin: 3rem 0;
+        }
+
+        .about-coach-section h2 {
+            margin-bottom: 2.5rem;
+        }
+
+        .about-feature-column {
+            margin-bottom: 2rem;
+        }
+
+        .about-feature-column h5 {
+            margin-bottom: 1.5rem;
+        }
+
+        .about-feature-list li {
+            padding-left: 2.5rem;
+        }
+
+        .about-feature-list li::before {
+            width: 28px;
+            height: 28px;
+            font-size: 0.9rem;
+        }
+
+        .about-cta-section {
+            padding: 4rem 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .about-cta-section h2 {
+            margin-bottom: 1.5rem;
+        }
+
+        .about-cta-section p {
+            margin-bottom: 2rem;
+        }
+    }
+
+    /* lg: 1024px */
+    @media (min-width: 1024px) {
+        .about-hero {
+            padding: 5rem 1rem;
+        }
+
+        .about-cta-section {
+            padding: 5rem 1.5rem;
+        }
+    }
+
+    /* =============================================
+       Hover & Animation - only for capable devices
+       ============================================= */
+    @media (hover: hover) and (min-width: 768px) {
+        .founder-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .founder-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+        }
+
+        html.dark .founder-card:hover {
+            box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .press-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .press-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(155, 89, 182, 0.12);
+        }
+
+        html.dark .press-card:hover {
+            box-shadow: 0 8px 16px rgba(139, 92, 246, 0.25);
+        }
+
+        .press-link:hover {
+            text-decoration: underline;
+        }
+
+        .about-stat-card {
+            transition: transform 0.3s ease;
+        }
+
+        .about-stat-card:hover {
+            transform: scale(1.05);
+        }
+
+        .about-why-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .about-why-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 20px rgba(155, 89, 182, 0.12);
+        }
+
+        html.dark .about-why-card:hover {
+            box-shadow: 0 10px 20px rgba(139, 92, 246, 0.25);
+        }
+    }
+
+    /* =============================================
+       Scroll Animations
+       ============================================= */
+    .fade-in {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fade-in {
+            opacity: 1;
+            transform: none;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <h1 class="text-center text-3xl font-bold mb-10">{% trans "About Crush.lu" %}</h1>
+<div class="about-page">
+<!-- Hero Section -->
+<div class="about-hero">
+    <h1>{% trans "Our Story" %}</h1>
+    <p>{% trans "100% made in Luxembourg. Built by people who believe dating should be about real connections, not endless swiping." %}</p>
+</div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
-        <div class="p-6">
-            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Our Mission" %}</h3>
-            <p class="text-xl text-gray-600 dark:text-gray-300 mb-3">
-                {% trans "We're bringing back authentic connections in Luxembourg's dating scene." %}
+<!-- Our Mission -->
+<div class="max-w-3xl mx-auto fade-in">
+    <h2 class="about-section-title">{% trans "Our Mission" %}</h2>
+    <div class="about-mission-card">
+        <p class="mb-4">
+            {% trans "We're bringing back authentic connections in Luxembourg's dating scene. In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
+        </p>
+        <p>
+            {% trans "Every profile is personally verified. Every event is thoughtfully organized. Every connection is meaningful. That's not an algorithm's promise - it's our commitment." %}
+        </p>
+        <blockquote class="about-blockquote">
+            {% trans "We're all on our phones, and we forget the human side of dating. We wanted to create something that brings people together in real life." %}
+            <cite>— Wesley Hourdequin, {% trans "Co-Founder" %}</cite>
+        </blockquote>
+    </div>
+</div>
+
+<!-- The Founders -->
+<div class="max-w-3xl mx-auto mb-6 md:mb-10 fade-in">
+    <h2 class="about-section-title">{% trans "The Founders" %}</h2>
+    <p class="text-center text-gray-600 dark:text-gray-300 mb-6 md:mb-8" style="font-size: clamp(0.95rem, 2vw, 1.05rem);">
+        {% trans "Two friends who met while studying in Nimes, France, and shared a vision to reinvent dating in Luxembourg." %}
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div class="founder-card">
+            <div class="founder-avatar">
+                <span role="img" aria-label="{% trans "Founder" %}">&#128188;</span>
+            </div>
+            <h3>Tom Sawyer</h3>
+            <div class="founder-role">{% trans "Founder" %}</div>
+            <p>
+                {% trans "The strategic mind behind Crush.lu. Tom saw an opportunity to build something unique for Luxembourg's dating scene - a platform where quality and authenticity come first." %}
             </p>
-            <p class="text-gray-600 dark:text-gray-300">
-                {% trans "In a world of endless swiping and superficial matches, Crush.lu takes a different approach. We believe that real relationships start with real conversations, face-to-face." %}
+            <p class="founder-quote">
+                "{% trans "Luxembourg is small enough that everyone knows everyone, but big enough that you can still miss the right person. We bridge that gap." %}"
             </p>
         </div>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
-        <div class="p-6">
-            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Why Luxembourg?" %}</h3>
-            <p class="text-gray-600 dark:text-gray-300">
-                {% trans "Luxembourg is a small, tight-knit community where privacy and discretion matter. Our platform is designed with this in mind, offering a curated experience that respects your privacy while helping you meet compatible people." %}
+        <div class="founder-card">
+            <div class="founder-avatar">
+                <span role="img" aria-label="{% trans "Coach" %}">&#127919;</span>
+            </div>
+            <h3>Wesley Hourdequin</h3>
+            <div class="founder-role">{% trans "Co-Founder & Crush Coach" %}</div>
+            <p>
+                {% trans "The heart of the Crush Coach concept. Wesley personally reviews profiles and organizes events, ensuring every member gets an authentic, human experience." %}
             </p>
-        </div>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
-        <div class="p-6">
-            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "The Crush Coach Difference" %}</h3>
-            <p class="text-gray-600 dark:text-gray-300 mb-3">
-                {% trans "Every profile on Crush.lu is reviewed by a dedicated Crush Coach. This ensures:" %}
+            <p class="founder-quote">
+                "{% trans "On other apps, you can be whoever you want. Here, you have to be yourself - and that's what makes the connections real." %}"
             </p>
-            <ul class="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-2">
-                <li>{% trans "Authentic profiles only - no bots, no catfishing" %}</li>
-                <li>{% trans "Personalized guidance to help you present your best self" %}</li>
-                <li>{% trans "A safer, more respectful community" %}</li>
-                <li>{% trans "Support throughout your journey to find connections" %}</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
-        <div class="p-8 text-center">
-            <h3 class="text-xl font-semibold dark:text-white mb-3">{% trans "Ready to Get Started?" %}</h3>
-            <p class="text-gray-600 dark:text-gray-300 mb-6">{% trans "Join our community and start meeting new people today!" %}</p>
-            <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center px-8 py-4 text-lg">
-                {% trans "Create Your Profile" %}
-            </a>
         </div>
     </div>
 </div>
+
+<!-- In the Media -->
+<div class="max-w-3xl mx-auto fade-in">
+    <div class="about-press-section">
+        <h2 class="about-section-title">{% trans "In the Media" %}</h2>
+        <p class="text-center text-gray-600 dark:text-gray-300 mb-6" style="font-size: clamp(0.95rem, 2vw, 1.05rem);">
+            {% trans "What the press is saying about Crush.lu" %}
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <!-- Virgule.lu Article -->
+            <div class="press-card">
+                <div class="press-publication">Virgule.lu</div>
+                <div class="press-date">{% trans "January 25, 2026" %} &middot; {% trans "French" %}</div>
+                <h3>Crush.lu, l'application luxembourgeoise qui veut changer la fa&ccedil;on de draguer</h3>
+                <p class="press-quote">
+                    "{% trans "Unlike dating apps that put everything on physical appearance, Crush.lu aims to go beyond looks by also considering the personality of users." %}"
+                </p>
+                <a href="https://virgule.lu/lifestyle/crush-lu-l-application-luxembourgeoise-qui-veut-changer-la-facon-de-draguer/2380279.html" target="_blank" rel="noopener noreferrer" class="press-link">
+                    {% trans "Read the article" %}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                </a>
+            </div>
+            <!-- LuxTimes Article -->
+            <div class="press-card">
+                <div class="press-publication">LuxTimes</div>
+                <div class="press-date">{% trans "February 1, 2026" %} &middot; {% trans "English" %}</div>
+                <h3>Crush.lu, the made-in-Luxembourg app aiming to change the way people flirt</h3>
+                <p class="press-quote">
+                    "{% trans "The idea of the two friends is to bet everything on authenticity and events, rather than on algorithms and mindless swiping." %}"
+                </p>
+                <a href="https://luxtimes.lu/culture-and-lifestyle/crush-lu-the-made-in-luxembourg-app-aiming-to-change-the-way-people-flirt/2382814.html" target="_blank" rel="noopener noreferrer" class="press-link">
+                    {% trans "Read the article" %}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Section -->
+<div class="max-w-3xl mx-auto fade-in">
+    <h2 class="about-section-title mt-6 md:mt-10">{% trans "Crush.lu in Numbers" %}</h2>
+    <div class="about-stats-section">
+        <div class="about-stat-card">
+            <div class="about-stat-number">100+</div>
+            <div class="about-stat-label">{% trans "Verified Members" %}</div>
+        </div>
+        <div class="about-stat-card">
+            <div class="about-stat-number">24-48h</div>
+            <div class="about-stat-label">{% trans "Verification Time" %}</div>
+        </div>
+        <div class="about-stat-card">
+            <div class="about-stat-number">19-67</div>
+            <div class="about-stat-label">{% trans "Age Range" %}</div>
+        </div>
+        <div class="about-stat-card">
+            <div class="about-stat-number">100%</div>
+            <div class="about-stat-label">{% trans "Made in Luxembourg" %}</div>
+        </div>
+    </div>
+</div>
+
+<!-- The Crush Coach Difference -->
+<div class="max-w-3xl mx-auto fade-in">
+    <div class="about-coach-section">
+        <h2 class="about-section-title">{% trans "The Crush Coach Difference" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="about-feature-column">
+                <h5>
+                    <span class="about-feature-icon">&#128272;</span>
+                    {% trans "Human Verification" %}
+                </h5>
+                <ul class="about-feature-list">
+                    <li>{% trans "SMS verification confirms your phone number" %}</li>
+                    <li>{% trans "Personal phone call with a Crush Coach" %}</li>
+                    <li>{% trans "Profile review for authenticity and quality" %}</li>
+                    <li>{% trans "Personalized feedback to improve your profile" %}</li>
+                    <li>{% trans "No bots, no catfishing, no fake accounts" %}</li>
+                </ul>
+            </div>
+            <div class="about-feature-column">
+                <h5>
+                    <span class="about-feature-icon">&#127881;</span>
+                    {% trans "Real Events" %}
+                </h5>
+                <ul class="about-feature-list">
+                    <li>{% trans "Speed dating nights in curated venues" %}</li>
+                    <li>{% trans "Voting system so you choose who you meet" %}</li>
+                    <li>{% trans "Safe, organized spaces for real conversations" %}</li>
+                    <li>{% trans "Themed events and social mixers" %}</li>
+                    <li>{% trans "Connections made face-to-face, not screen-to-screen" %}</li>
+                </ul>
+            </div>
+        </div>
+        <blockquote class="about-blockquote" style="max-width: 600px; margin: 1.5rem auto 0;">
+            {% trans "We don't just verify that you're real - we make sure you're ready to make genuine connections." %}
+            <cite>— Wesley Hourdequin, {% trans "Crush Coach" %}</cite>
+        </blockquote>
+    </div>
+</div>
+
+<!-- Why Luxembourg? -->
+<div class="max-w-3xl mx-auto mb-6 md:mb-10 mt-6 md:mt-10 fade-in">
+    <h2 class="about-section-title">{% trans "Why Luxembourg?" %}</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div class="about-why-card">
+            <div class="about-why-emoji">&#10084;&#65039;</div>
+            <h5>{% trans "Small Community, Big Heart" %}</h5>
+            <p>{% trans "With around 680,000 residents, Luxembourg is small enough to feel personal but big enough to miss the right person. We bridge that gap." %}</p>
+        </div>
+        <div class="about-why-card">
+            <div class="about-why-emoji">&#128274;</div>
+            <h5>{% trans "Privacy First" %}</h5>
+            <p>{% trans "In a small country, discretion matters. Control your visibility, blur your photos, and choose exactly what you share." %}</p>
+        </div>
+        <div class="about-why-card">
+            <div class="about-why-emoji">&#127758;</div>
+            <h5>{% trans "Multicultural" %}</h5>
+            <p>{% trans "Luxembourg hosts 170+ nationalities. Our platform brings together this rich diversity through shared experiences and real events." %}</p>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div class="about-cta-section fade-in">
+    <h2>{% trans "Ready to Join Our Story?" %}</h2>
+    <p>{% trans "Become part of Luxembourg's most authentic way to meet new people." %}</p>
+    <a href="{% url 'crush_lu:signup' %}" class="btn-crush-primary inline-flex items-center justify-center py-4 px-12 text-lg w-full sm:w-auto max-w-xs sm:max-w-none mx-auto">
+        {% trans "Create Your Profile" %}
+    </a>
+    <div class="mt-6">
+        <small class="text-gray-500 dark:text-gray-400">
+            {% trans "No credit card required" %} &bull; {% trans "Free to join" %} &bull; {% trans "Cancel anytime" %}
+        </small>
+    </div>
+</div>
+</div><!-- /.about-page -->
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ request.csp_nonce }}">
+    // Intersection Observer for scroll animations
+    var observerOptions = {
+        threshold: 0.05,
+        rootMargin: '50px 0px 50px 0px'
+    };
+
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    // Observe all fade-in elements
+    document.querySelectorAll('.fade-in').forEach(function(el) {
+        observer.observe(el);
+    });
+
+    // Fallback: Make all elements visible after 1 second if observer doesn't trigger
+    setTimeout(function() {
+        document.querySelectorAll('.fade-in:not(.visible)').forEach(function(el) {
+            el.classList.add('visible');
+        });
+    }, 1000);
+</script>
 {% endblock %}

@@ -15,11 +15,11 @@ Access: Superadmins only (due to bulk email capability)
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
-from django.db.models import Count, Q, F, Exists, OuterRef
+from django.db.models import Count, Q, F, Exists, OuterRef, Case, When, Value, CharField
 from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponse
-from datetime import timedelta
+from datetime import timedelta, date
 import csv
 
 from crush_lu.models import (
@@ -37,6 +37,126 @@ from crush_lu.models import (
 def is_superuser(user):
     """Check if user is a superuser (required for bulk email access)."""
     return user.is_superuser
+
+
+# ============================================================================
+# DEMOGRAPHIC STATISTICS
+# ============================================================================
+
+def get_demographic_stats():
+    """
+    Return demographic statistics for active CrushProfiles.
+    Includes gender, looking-for, age range, language, and location distributions.
+    """
+    active_profiles = CrushProfile.objects.filter(is_active=True)
+    approved_profiles = active_profiles.filter(is_approved=True)
+
+    total_active = active_profiles.count()
+    total_approved = approved_profiles.count()
+
+    # Gender distribution
+    gender_labels = dict(CrushProfile.GENDER_CHOICES)
+    gender_all = list(
+        active_profiles.exclude(gender='')
+        .values('gender')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    gender_approved = list(
+        approved_profiles.exclude(gender='')
+        .values('gender')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    gender_all_total = sum(g['count'] for g in gender_all)
+    gender_approved_total = sum(g['count'] for g in gender_approved)
+
+    for g in gender_all:
+        g['label'] = str(gender_labels.get(g['gender'], g['gender']))
+        g['pct'] = round(g['count'] / gender_all_total * 100, 1) if gender_all_total else 0
+
+    for g in gender_approved:
+        g['label'] = str(gender_labels.get(g['gender'], g['gender']))
+        g['pct'] = round(g['count'] / gender_approved_total * 100, 1) if gender_approved_total else 0
+
+    # Looking-for distribution
+    looking_for_labels = dict(CrushProfile.LOOKING_FOR_CHOICES)
+    looking_for_dist = list(
+        active_profiles.exclude(looking_for='')
+        .values('looking_for')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    lf_total = sum(lf['count'] for lf in looking_for_dist)
+
+    for lf in looking_for_dist:
+        lf['label'] = str(looking_for_labels.get(lf['looking_for'], lf['looking_for']))
+        lf['pct'] = round(lf['count'] / lf_total * 100, 1) if lf_total else 0
+
+    # Age range distribution
+    today = date.today()
+    age_ranges = [
+        ('18-24', 18, 24),
+        ('25-29', 25, 29),
+        ('30-34', 30, 34),
+        ('35-39', 35, 39),
+        ('40+', 40, None),
+    ]
+    age_dist = []
+    profiles_with_dob = active_profiles.exclude(date_of_birth__isnull=True)
+    age_total = profiles_with_dob.count()
+
+    for label, min_age, max_age in age_ranges:
+        # Born before = older, born after = younger
+        max_born = date(today.year - min_age, today.month, today.day)
+        if max_age is not None:
+            min_born = date(today.year - max_age - 1, today.month, today.day)
+            count = profiles_with_dob.filter(
+                date_of_birth__gt=min_born,
+                date_of_birth__lte=max_born,
+            ).count()
+        else:
+            count = profiles_with_dob.filter(
+                date_of_birth__lte=max_born,
+            ).count()
+        pct = round(count / age_total * 100, 1) if age_total else 0
+        age_dist.append({'label': label, 'count': count, 'pct': pct})
+
+    # Language distribution
+    language_flags = {'en': '🇬🇧', 'de': '🇩🇪', 'fr': '🇫🇷'}
+    lang_dist = list(
+        active_profiles.exclude(preferred_language='')
+        .values('preferred_language')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    lang_total = sum(l['count'] for l in lang_dist)
+    for l in lang_dist:
+        l['label'] = language_flags.get(l['preferred_language'], '') + ' ' + l['preferred_language'].upper()
+        l['pct'] = round(l['count'] / lang_total * 100, 1) if lang_total else 0
+
+    # Location distribution (top 10 cities)
+    location_dist = list(
+        active_profiles.exclude(location='')
+        .values('location')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+    loc_total = active_profiles.exclude(location='').count()
+    for loc in location_dist:
+        loc['label'] = loc['location']
+        loc['pct'] = round(loc['count'] / loc_total * 100, 1) if loc_total else 0
+
+    return {
+        'total_active': total_active,
+        'total_approved': total_approved,
+        'gender_all': gender_all,
+        'gender_approved': gender_approved,
+        'looking_for': looking_for_dist,
+        'age_ranges': age_dist,
+        'languages': lang_dist,
+        'locations': location_dist,
+    }
 
 
 # ============================================================================
@@ -152,6 +272,19 @@ def get_segment_definitions():
     ).exclude(
         user__profile_reminders__reminder_type='7d'
     )
+
+    # Gender segments
+    gender_male = CrushProfile.objects.filter(gender='M', is_active=True)
+    gender_female = CrushProfile.objects.filter(gender='F', is_active=True)
+    gender_nonbinary = CrushProfile.objects.filter(gender='NB', is_active=True)
+    gender_other = CrushProfile.objects.filter(gender='O', is_active=True)
+    gender_prefer_not = CrushProfile.objects.filter(gender='P', is_active=True)
+
+    # Looking-for segments
+    lf_friends = CrushProfile.objects.filter(looking_for='friends', is_active=True)
+    lf_dating = CrushProfile.objects.filter(looking_for='dating', is_active=True)
+    lf_both = CrushProfile.objects.filter(looking_for='both', is_active=True)
+    lf_networking = CrushProfile.objects.filter(looking_for='networking', is_active=True)
 
     return {
         'profile_completion': {
@@ -311,6 +444,90 @@ def get_segment_definitions():
                 },
             ]
         },
+        'demographics_gender': {
+            'title': 'Demographics: Gender',
+            'icon': '⚧',
+            'segments': [
+                {
+                    'name': 'Male',
+                    'key': 'gender_male',
+                    'description': 'Active profiles identifying as male',
+                    'queryset': gender_male,
+                    'count': gender_male.count(),
+                    'color': 'blue',
+                },
+                {
+                    'name': 'Female',
+                    'key': 'gender_female',
+                    'description': 'Active profiles identifying as female',
+                    'queryset': gender_female,
+                    'count': gender_female.count(),
+                    'color': 'pink',
+                },
+                {
+                    'name': 'Non-Binary',
+                    'key': 'gender_nonbinary',
+                    'description': 'Active profiles identifying as non-binary',
+                    'queryset': gender_nonbinary,
+                    'count': gender_nonbinary.count(),
+                    'color': 'purple',
+                },
+                {
+                    'name': 'Other',
+                    'key': 'gender_other',
+                    'description': 'Active profiles with gender set to other',
+                    'queryset': gender_other,
+                    'count': gender_other.count(),
+                    'color': 'green',
+                },
+                {
+                    'name': 'Prefer Not to Say',
+                    'key': 'gender_prefer_not',
+                    'description': 'Active profiles who prefer not to disclose gender',
+                    'queryset': gender_prefer_not,
+                    'count': gender_prefer_not.count(),
+                    'color': 'gray',
+                },
+            ]
+        },
+        'demographics_looking_for': {
+            'title': 'Demographics: Looking For',
+            'icon': '💫',
+            'segments': [
+                {
+                    'name': 'New Friends',
+                    'key': 'lf_friends',
+                    'description': 'Active profiles looking for new friends',
+                    'queryset': lf_friends,
+                    'count': lf_friends.count(),
+                    'color': 'green',
+                },
+                {
+                    'name': 'Dating',
+                    'key': 'lf_dating',
+                    'description': 'Active profiles looking for dating',
+                    'queryset': lf_dating,
+                    'count': lf_dating.count(),
+                    'color': 'red',
+                },
+                {
+                    'name': 'Both (Friends & Dating)',
+                    'key': 'lf_both',
+                    'description': 'Active profiles open to both friends and dating',
+                    'queryset': lf_both,
+                    'count': lf_both.count(),
+                    'color': 'purple',
+                },
+                {
+                    'name': 'Social Networking',
+                    'key': 'lf_networking',
+                    'description': 'Active profiles interested in social networking',
+                    'queryset': lf_networking,
+                    'count': lf_networking.count(),
+                    'color': 'blue',
+                },
+            ]
+        },
     }
 
 
@@ -328,6 +545,7 @@ def user_segments_dashboard(request):
     Access: Superadmins only.
     """
     segments = get_segment_definitions()
+    demographics = get_demographic_stats()
 
     # Calculate totals
     total_incomplete = sum(
@@ -345,6 +563,9 @@ def user_segments_dashboard(request):
 
     context = {
         'segments': segments,
+        'demographics': demographics,
+        'total_profiles': demographics['total_active'],
+        'total_approved': demographics['total_approved'],
         'total_incomplete': total_incomplete,
         'total_pending': total_pending,
         'total_inactive': total_inactive,
@@ -393,10 +614,16 @@ def segment_detail(request, segment_key):
 
     # Prepare user list based on queryset model
     users = []
+    is_profile_segment = False
     if hasattr(queryset, 'model'):
         model = queryset.model
         if model == CrushProfile:
-            users = queryset.select_related('user')[:100]
+            is_profile_segment = True
+            users = queryset.select_related('user').annotate(
+                event_count=Count('user__eventregistration', distinct=True),
+                sent_connections=Count('user__connection_requests_sent', distinct=True),
+                received_connections=Count('user__connection_requests_received', distinct=True),
+            )[:100]
         elif model == ProfileSubmission:
             users = queryset.select_related('profile__user', 'coach__user')[:100]
         elif model == UserActivity:
@@ -410,6 +637,7 @@ def segment_detail(request, segment_key):
         'segment': target_segment,
         'category_title': category_title,
         'users': users,
+        'is_profile_segment': is_profile_segment,
         'total_count': target_segment['count'],
         'title': f"Segment: {target_segment['name']}",
         'site_header': '💕 Crush.lu Administration',
@@ -426,20 +654,44 @@ def export_segment_csv(queryset, segment_key, segment_name):
     response['Content-Disposition'] = f'attachment; filename="segment_{segment_key}_{timezone.now().strftime("%Y%m%d")}.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['Email', 'First Name', 'Last Name', 'Created At', 'Segment'])
-
     model = queryset.model
 
     if model == CrushProfile:
-        for profile in queryset.select_related('user'):
+        writer.writerow([
+            'Email', 'First Name', 'Last Name', 'Gender', 'Age', 'Location',
+            'Phone Verified', 'Looking For', 'Language', 'Is Approved',
+            'Event Count', 'Connection Count', 'Created At', 'Segment',
+        ])
+        gender_labels = dict(CrushProfile.GENDER_CHOICES)
+        lf_labels = dict(CrushProfile.LOOKING_FOR_CHOICES)
+        profiles = queryset.select_related('user').annotate(
+            event_count=Count('user__eventregistration', distinct=True),
+            sent_connections=Count('user__connection_requests_sent', distinct=True),
+            received_connections=Count('user__connection_requests_received', distinct=True),
+        )
+        for profile in profiles:
+            try:
+                age = profile.age
+            except Exception:
+                age = ''
             writer.writerow([
                 profile.user.email,
                 profile.user.first_name,
                 profile.user.last_name,
+                str(gender_labels.get(profile.gender, profile.gender)),
+                age if age else '',
+                profile.location,
+                'Yes' if profile.phone_verified else 'No',
+                str(lf_labels.get(profile.looking_for, profile.looking_for)),
+                profile.preferred_language,
+                'Yes' if profile.is_approved else 'No',
+                profile.event_count,
+                profile.sent_connections + profile.received_connections,
                 profile.created_at.strftime('%Y-%m-%d %H:%M'),
                 segment_name,
             ])
     elif model == ProfileSubmission:
+        writer.writerow(['Email', 'First Name', 'Last Name', 'Created At', 'Segment'])
         for submission in queryset.select_related('profile__user'):
             writer.writerow([
                 submission.profile.user.email,
@@ -449,6 +701,7 @@ def export_segment_csv(queryset, segment_key, segment_name):
                 segment_name,
             ])
     elif model == UserActivity:
+        writer.writerow(['Email', 'First Name', 'Last Name', 'Created At', 'Segment'])
         for activity in queryset.select_related('user'):
             writer.writerow([
                 activity.user.email,
@@ -458,6 +711,7 @@ def export_segment_csv(queryset, segment_key, segment_name):
                 segment_name,
             ])
     elif model == EmailPreference:
+        writer.writerow(['Email', 'First Name', 'Last Name', 'Created At', 'Segment'])
         for pref in queryset.select_related('user'):
             writer.writerow([
                 pref.user.email,

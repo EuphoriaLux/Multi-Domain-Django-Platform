@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: vinsdelux 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 14:18+0100\n"
+"POT-Creation-Date: 2026-02-06 00:46+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -16,25 +16,25 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\vinsdelux\models.py:396
+#: .\vinsdelux\models.py:432
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:32
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:122
 msgid "Available"
 msgstr "Verfügbar"
 
-#: .\vinsdelux\models.py:397
+#: .\vinsdelux\models.py:433
 #: .\vinsdelux\templates\vinsdelux\journey\components\plot_card.html:37
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:127
 msgid "Reserved"
 msgstr "Reserviert"
 
-#: .\vinsdelux\models.py:398
+#: .\vinsdelux\models.py:434
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:132
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:1313
 msgid "Unavailable"
 msgstr "Nicht verfügbar"
 
-#: .\vinsdelux\models.py:399
+#: .\vinsdelux\models.py:435
 msgid "Adopted"
 msgstr "Adoptiert"
 
@@ -51,78 +51,83 @@ msgid "Home"
 msgstr "Startseite"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:69
-msgid "Products"
-msgstr "Produkte"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:73
-#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:5
-#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:60
-#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:57
-msgid "Wine Coffrets"
-msgstr "Wein-Coffrets"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:76
-#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:13
-msgid "Producers"
-msgstr "Produzenten"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:82
-msgid "Your Journey"
+#, fuzzy
+#| msgid "Your Journey"
+msgid "The Journey"
 msgstr "Ihre Reise"
 
-#: .\vinsdelux\templates\vinsdelux\base.html:86 .\vinsdelux\views.py:325
-msgid "Plot Selection"
-msgstr "Parzellenauswahl"
+#: .\vinsdelux\templates\vinsdelux\base.html:74
+msgid "About"
+msgstr ""
 
-#: .\vinsdelux\templates\vinsdelux\base.html:89
-msgid "Personalize Your Wine"
-msgstr "Personalisieren Sie Ihren Wein"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:92
-msgid "Follow Production"
-msgstr "Produktion verfolgen"
+#: .\vinsdelux\templates\vinsdelux\base.html:94
+msgid "A portfolio demonstration of a wine vineyard adoption platform."
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\base.html:95
-msgid "Receive & Taste"
-msgstr "Empfangen & Verkosten"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:98
-msgid "Create Legacy"
-msgstr "Vermächtnis schaffen"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:104
-msgid "Cart"
-msgstr "Warenkorb"
-
-#: .\vinsdelux\templates\vinsdelux\base.html:109
-msgid "Account"
-msgstr "Konto"
+msgid ""
+"This project showcases the concept of connecting wine enthusiasts with "
+"vineyard plots."
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\index.html:5
-msgid "Vinsdelux - Wine Experience E-commerce"
+#, fuzzy
+#| msgid "Vinsdelux - Wine Experience E-commerce"
+msgid "VinsDelux - Wine Adoption Portfolio"
 msgstr "Vinsdelux - Wein-Erlebnis E-Commerce"
 
-#: .\vinsdelux\templates\vinsdelux\index.html:37
-msgid "Browse Wine Coffrets"
-msgstr "Wein-Coffrets durchsuchen"
-
-#: .\vinsdelux\templates\vinsdelux\index.html:38
-msgid "Meet Our Producers"
-msgstr "Unsere Produzenten kennenlernen"
-
-#: .\vinsdelux\templates\vinsdelux\index.html:44
-msgid "Discover Vinsdelux"
-msgstr "Vinsdelux entdecken"
-
-#: .\vinsdelux\templates\vinsdelux\index.html:45
+#: .\vinsdelux\templates\vinsdelux\index.html:11
 #, fuzzy
-#| msgid ""
-#| "Explore our exquisite selection of wines and unique adoptionopportunities."
-msgid ""
-"Explore our exquisite selection of wines and unique adoption opportunities."
+#| msgid "VinsDelux Interactive Journey"
+msgid "VinsDelux Wine Adoption"
+msgstr "VinsDelux Interaktive Reise"
+
+#: .\vinsdelux\templates\vinsdelux\index.html:12
+msgid "Portfolio demonstration of a wine vineyard adoption platform concept"
 msgstr ""
-"Entdecken Sie unsere exquisite Weinauswahl und "
-"einzigartigeAdoptionsmöglichkeiten."
+
+#: .\vinsdelux\templates\vinsdelux\index.html:13
+msgid "Portfolio Project"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:21
+#, fuzzy
+#| msgid "Your Wine Adoption Journey"
+msgid "The Adoption Journey"
+msgstr "Ihre Weinadoptions-Reise"
+
+#: .\vinsdelux\templates\vinsdelux\index.html:22
+msgid "Five steps from vineyard plot selection to creating your wine legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:40
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:116
+#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:151
+msgid "Step"
+msgstr "Schritt"
+
+#: .\vinsdelux\templates\vinsdelux\index.html:54
+msgid "Concept Demonstration"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:56
+msgid ""
+"This is a portfolio project showcasing a wine vineyard adoption platform."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:57
+msgid ""
+"Original functionality included interactive plot selection, adoption plans, "
+"and producer catalogs."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:63
+msgid ""
+"This simplified version demonstrates the concept without the full e-commerce "
+"implementation."
+msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\loading_states.html:20
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:385
@@ -239,13 +244,6 @@ msgstr "Ihre Weinadoptions-Reise"
 msgid "Follow these steps to complete your vineyard plot adoption"
 msgstr ""
 "Folgen Sie diesen Schritten, um Ihre Weinberg-Parzellenadoptionabzuschließen"
-
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:36
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:72
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:116
-#: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:151
-msgid "Step"
-msgstr "Schritt"
 
 #: .\vinsdelux\templates\vinsdelux\journey\components\progress_indicator.html:37
 msgid "Select Your Plot"
@@ -449,7 +447,6 @@ msgstr "pro Jahr"
 
 #: .\vinsdelux\templates\vinsdelux\journey\enhanced_plot_selection.html:4
 #: .\vinsdelux\templates\vinsdelux\journey\plot_selector.html:5
-#: .\vinsdelux\views.py:353
 msgid "Select Your Vineyard Plot"
 msgstr "Wählen Sie Ihre Weinbergparzelle"
 
@@ -1847,6 +1844,12 @@ msgstr "Mehr erfahren"
 msgid "More from"
 msgstr "Mehr von"
 
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:5
+#: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:60
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:57
+msgid "Wine Coffrets"
+msgstr "Wein-Coffrets"
+
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:14
 msgid "Filters"
 msgstr "Filter"
@@ -1894,6 +1897,10 @@ msgstr "Keine Coffrets gefunden"
 #: .\vinsdelux\templates\vinsdelux\products\coffret_list.html:130
 msgid "Try adjusting your search criteria"
 msgstr "Versuchen Sie, Ihre Suchkriterien anzupassen"
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:13
+msgid "Producers"
+msgstr "Produzenten"
 
 #: .\vinsdelux\templates\vinsdelux\products\producer_detail.html:48
 msgid "Visit Producer Website"
@@ -2238,57 +2245,90 @@ msgstr "VinsDeLux Reise-Testsuite"
 msgid "Comprehensive testing for the futuristic journey experience"
 msgstr "Umfassende Tests für das futuristische Reiseerlebnis"
 
-#: .\vinsdelux\views.py:326
-msgid "Choose your vineyard plot"
-msgstr "Wählen Sie Ihre Weinbergparzelle"
+#~ msgid "Products"
+#~ msgstr "Produkte"
 
-#: .\vinsdelux\views.py:332
-msgid "Adoption Plan"
-msgstr "Adoptionsplan"
+#~ msgid "Plot Selection"
+#~ msgstr "Parzellenauswahl"
 
-#: .\vinsdelux\views.py:333
-msgid "Select your plan"
-msgstr "Wählen Sie Ihren Plan"
+#~ msgid "Personalize Your Wine"
+#~ msgstr "Personalisieren Sie Ihren Wein"
 
-#: .\vinsdelux\views.py:339
-msgid "Confirmation"
-msgstr "Bestätigung"
+#~ msgid "Follow Production"
+#~ msgstr "Produktion verfolgen"
 
-#: .\vinsdelux\views.py:340
-msgid "Confirm adoption"
-msgstr "Adoption bestätigen"
+#~ msgid "Receive & Taste"
+#~ msgstr "Empfangen & Verkosten"
 
-#: .\vinsdelux\views.py:354
+#~ msgid "Create Legacy"
+#~ msgstr "Vermächtnis schaffen"
+
+#~ msgid "Cart"
+#~ msgstr "Warenkorb"
+
+#~ msgid "Account"
+#~ msgstr "Konto"
+
+#~ msgid "Browse Wine Coffrets"
+#~ msgstr "Wein-Coffrets durchsuchen"
+
+#~ msgid "Meet Our Producers"
+#~ msgstr "Unsere Produzenten kennenlernen"
+
+#~ msgid "Discover Vinsdelux"
+#~ msgstr "Vinsdelux entdecken"
+
 #, fuzzy
-#| msgid ""
-#| "Choose from our exclusive collection of premium vineyard plots "
-#| "acrossrenowned wine regions."
-msgid ""
-"Choose from our exclusive collection of premium vineyard plots across "
-"renowned wine regions."
-msgstr ""
-"Wählen Sie aus unserer exklusiven Sammlung erstklassigerWeinbergparzellen in "
-"renommierten Weinregionen."
+#~| msgid ""
+#~| "Explore our exquisite selection of wines and unique "
+#~| "adoptionopportunities."
+#~ msgid ""
+#~ "Explore our exquisite selection of wines and unique adoption "
+#~ "opportunities."
+#~ msgstr ""
+#~ "Entdecken Sie unsere exquisite Weinauswahl und "
+#~ "einzigartigeAdoptionsmöglichkeiten."
 
-#: .\vinsdelux\views.py:371
-msgid "No plots selected"
-msgstr "Keine Parzellen ausgewählt"
+#~ msgid "Choose your vineyard plot"
+#~ msgstr "Wählen Sie Ihre Weinbergparzelle"
 
-#: .\vinsdelux\views.py:383
-msgid "Some selected plots are no longer available"
-msgstr "Einige ausgewählte Parzellen sind nicht mehr verfügbar"
+#~ msgid "Adoption Plan"
+#~ msgstr "Adoptionsplan"
 
-#: .\vinsdelux\views.py:411
-msgid "Plots selected successfully"
-msgstr "Parzellen erfolgreich ausgewählt"
+#~ msgid "Select your plan"
+#~ msgstr "Wählen Sie Ihren Plan"
 
-#: .\vinsdelux\views.py:419
-msgid "Invalid request format"
-msgstr "Ungültiges Anfrageformat"
+#~ msgid "Confirmation"
+#~ msgstr "Bestätigung"
 
-#: .\vinsdelux\views.py:425
-msgid "An error occurred while processing your selection"
-msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
+#~ msgid "Confirm adoption"
+#~ msgstr "Adoption bestätigen"
+
+#, fuzzy
+#~| msgid ""
+#~| "Choose from our exclusive collection of premium vineyard plots "
+#~| "acrossrenowned wine regions."
+#~ msgid ""
+#~ "Choose from our exclusive collection of premium vineyard plots across "
+#~ "renowned wine regions."
+#~ msgstr ""
+#~ "Wählen Sie aus unserer exklusiven Sammlung erstklassigerWeinbergparzellen "
+#~ "in renommierten Weinregionen."
+
+#~ msgid "No plots selected"
+#~ msgstr "Keine Parzellen ausgewählt"
+
+#~ msgid "Some selected plots are no longer available"
+#~ msgstr "Einige ausgewählte Parzellen sind nicht mehr verfügbar"
+
+#~ msgid "Plots selected successfully"
+#~ msgstr "Parzellen erfolgreich ausgewählt"
+
+#~ msgid "Invalid request format"
+#~ msgstr "Ungültiges Anfrageformat"
+
+#~ msgid "An error occurred while processing your selection"
+#~ msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
 
 #~ msgid "View Products"
 #~ msgstr "Produkte ansehen"

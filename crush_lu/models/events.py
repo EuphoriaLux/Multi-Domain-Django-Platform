@@ -71,7 +71,7 @@ class MeetupEvent(models.Model):
         storage=crush_media_storage,  # This is a callable factory that returns storage instance
         blank=True,
         null=True,
-        help_text=_("Event banner image (recommended: 1200x400px, displayed on event detail page)")
+        help_text=_("Event banner image (recommended: 1200x600px, 2:1 ratio for best results)")
     )
 
     # Event Details

@@ -157,6 +157,117 @@
         border-left: 4px solid #6c757d;
     }
 
+    .segment-card.color-pink {
+        border-left: 4px solid #e83e8c;
+    }
+
+    .segment-card.color-purple {
+        border-left: 4px solid #9B59B6;
+    }
+
+    /* Distribution sections */
+    .distribution-section {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+    }
+
+    .distribution-section h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .distribution-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+        .distribution-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .distribution-column h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .dist-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .dist-bar-label {
+        width: 120px;
+        font-size: 13px;
+        color: var(--text-primary);
+        flex-shrink: 0;
+        text-align: right;
+    }
+
+    .dist-bar-track {
+        flex: 1;
+        height: 20px;
+        background: rgba(128,128,128,0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .dist-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+        min-width: 2px;
+    }
+
+    .dist-bar-fill.bar-blue { background: #007bff; }
+    .dist-bar-fill.bar-pink { background: #e83e8c; }
+    .dist-bar-fill.bar-purple { background: #9B59B6; }
+    .dist-bar-fill.bar-green { background: #28a745; }
+    .dist-bar-fill.bar-gray { background: #6c757d; }
+    .dist-bar-fill.bar-orange { background: #fd7e14; }
+    .dist-bar-fill.bar-yellow { background: #ffc107; }
+    .dist-bar-fill.bar-red { background: #dc3545; }
+
+    .dist-bar-value {
+        width: 80px;
+        font-size: 12px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+
+    .distribution-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+        .distribution-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .distribution-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .segment-header {
         display: flex;
         justify-content: space-between;
@@ -262,6 +373,20 @@
     <!-- Summary Cards -->
     <div class="segments-summary">
         <div class="summary-card">
+            <span class="summary-icon">💕</span>
+            <div class="summary-content">
+                <h3>{{ total_profiles }}</h3>
+                <p>Total Profiles</p>
+            </div>
+        </div>
+        <div class="summary-card">
+            <span class="summary-icon">✅</span>
+            <div class="summary-content">
+                <h3>{{ total_approved }}</h3>
+                <p>Approved</p>
+            </div>
+        </div>
+        <div class="summary-card">
             <span class="summary-icon">👤</span>
             <div class="summary-content">
                 <h3>{{ total_incomplete }}</h3>
@@ -290,6 +415,102 @@
             </div>
         </div>
     </div>
+
+    <!-- Demographic Distributions -->
+    {% if demographics %}
+    <div class="distribution-section">
+        <h2>⚧ Gender Distribution</h2>
+        <div class="distribution-columns">
+            <div class="distribution-column">
+                <h3>All Active Profiles</h3>
+                {% for g in demographics.gender_all %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ g.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted); font-size: 13px;">No gender data available</p>
+                {% endfor %}
+            </div>
+            <div class="distribution-column">
+                <h3>Approved Only</h3>
+                {% for g in demographics.gender_approved %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ g.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted); font-size: 13px;">No approved profiles yet</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="distribution-section">
+        <h2>📊 More Demographics</h2>
+        <div class="distribution-grid">
+            <div class="distribution-column">
+                <h3>Age Distribution</h3>
+                {% for a in demographics.age_ranges %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ a.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill bar-purple" style="width: {{ a.pct }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ a.pct }}% ({{ a.count }})</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="distribution-column">
+                <h3>Looking For</h3>
+                {% for lf in demographics.looking_for %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ lf.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}" style="width: {{ lf.pct }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ lf.pct }}% ({{ lf.count }})</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="distribution-column">
+                <h3>Language Preference</h3>
+                {% for l in demographics.languages %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ l.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill bar-blue" style="width: {{ l.pct }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ l.pct }}% ({{ l.count }})</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if demographics.locations %}
+    <div class="distribution-section">
+        <h2>📍 Top Locations</h2>
+        <div class="distribution-column" style="max-width: 600px;">
+            {% for loc in demographics.locations %}
+            <div class="dist-bar-row">
+                <span class="dist-bar-label">{{ loc.label }}</span>
+                <div class="dist-bar-track">
+                    <div class="dist-bar-fill bar-orange" style="width: {{ loc.pct }}%"></div>
+                </div>
+                <span class="dist-bar-value">{{ loc.pct }}% ({{ loc.count }})</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
 
     <!-- Segment Categories -->
     {% for category_key, category in segments.items %}

@@ -99,15 +99,37 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for event in events %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full overflow-hidden {% if event.is_private_invitation %}vip-event-card relative{% endif %}">
-        {# Event banner image (if available) #}
+        {# Event banner image or gradient placeholder #}
         {% if event.image %}
-        <div class="w-full h-48 overflow-hidden">
+        <div class="w-full">
             <img
                 src="{{ event.image.url }}"
                 alt="{{ event.title }}"
-                class="w-full h-full object-cover"
+                class="w-full h-auto max-h-48 object-contain"
                 loading="lazy"
             />
+        </div>
+        {% else %}
+        <div class="w-full h-48 bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex flex-col justify-between p-4 relative overflow-hidden">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-8xl opacity-15 select-none" aria-hidden="true">{% if event.event_type == 'speed_dating' %}💘{% elif event.event_type == 'mixer' %}🥂{% elif event.event_type == 'activity' %}🎯{% elif event.event_type == 'themed' %}🎭{% else %}💜{% endif %}</span>
+            <div class="relative z-10 flex items-center justify-between">
+                <span class="inline-block px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full backdrop-blur-sm">
+                    {{ event.get_event_type_display }}
+                </span>
+                {% if event.registration_fee > 0 %}
+                <span class="text-white font-bold text-sm">€{{ event.registration_fee }}</span>
+                {% else %}
+                <span class="text-white/90 font-semibold text-xs bg-white/15 px-2 py-0.5 rounded-full">{% trans "Free" %}</span>
+                {% endif %}
+            </div>
+            <div class="relative z-10">
+                <h3 class="text-white font-bold text-lg leading-tight line-clamp-2 mb-1.5">{{ event.title }}</h3>
+                <p class="text-white/80 text-xs leading-relaxed">
+                    📅 {{ event.date_time|date:"D, M j" }} · {{ event.date_time|date:"g:i A" }}<br>
+                    📍 {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
+                    · 👥 {{ event.min_age }}-{{ event.max_age }}
+                </p>
+            </div>
         </div>
         {% endif %}
 

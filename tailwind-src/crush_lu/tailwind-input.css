@@ -3852,9 +3852,11 @@ footer {
     margin-top: var(--space-16);
 }
 
-/* Remove footer margin when it follows CTA section */
+/* Remove footer margin when page ends with a full-bleed CTA section */
 .gift-landing .cta-section + footer,
-main:has(.cta-section:last-child) + footer {
+main:has(.cta-section:last-child) + footer,
+main:has(.hiw-cta-section:last-child) + footer,
+main:has([class*="cta-section"]:last-child) + footer {
     margin-top: 0;
 }
 
@@ -5699,6 +5701,13 @@ footer hr {
     animation: float 3s ease-in-out infinite;
     animation-delay: 0.3s;
     will-change: transform;
+}
+
+.hero-ghost-svg {
+    width: clamp(8rem, 20vw, 15rem);
+    height: auto;
+    display: inline-block;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
 }
 
 @keyframes float {
