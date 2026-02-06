@@ -273,7 +273,7 @@
     <!-- Cost Trend Chart -->
     <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Cost Trend (Last {{ period.days }} Days)</h3>
+            <h3 class="text-lg font-semibold text-gray-900">Cost Trend ({{ period.start|date:"M d" }} &ndash; {{ period.end|date:"M d, Y" }})</h3>
             <div class="flex space-x-2">
                 <button id="dailyView" class="px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white" onclick="toggleChartView('daily')">Daily</button>
                 <button id="weeklyView" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50" onclick="toggleChartView('weekly')">Weekly</button>

@@ -94,6 +94,7 @@ class RegistrationFlowTests(TestCase):
             "password2": "SecurePass123!",
             "first_name": "New",
             "last_name": "User",
+            "crushlu_consent": True,  # Required consent checkbox
         }
 
         response = self.client.post(reverse("crush_lu:signup"), signup_data, follow=True, HTTP_HOST="crush.lu")

@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.db.models import Sum, Count, Q, Avg
-from django.db.models.functions import TruncDate
+from django.db.models.functions import Lower, TruncDate
 from django.utils import timezone
 from datetime import timedelta
 import csv
@@ -119,7 +119,9 @@ def cost_summary(request):
         cost=Sum('billed_cost')
     ).order_by('-cost')[:10]
 
-    top_resource_groups = records.values('resource_group_name').annotate(
+    top_resource_groups = records.annotate(
+        rg_lower=Lower('resource_group_name')
+    ).values('rg_lower').annotate(
         cost=Sum('billed_cost')
     ).order_by('-cost')[:10]
 
@@ -141,7 +143,10 @@ def cost_summary(request):
         },
         'top_subscriptions': list(top_subscriptions),
         'top_services': list(top_services),
-        'top_resource_groups': list(top_resource_groups),
+        'top_resource_groups': [
+            {'resource_group_name': rg['rg_lower'], 'cost': rg['cost']}
+            for rg in top_resource_groups
+        ],
         'daily_trend': list(daily_costs),
     })
 
@@ -241,7 +246,9 @@ def costs_by_resource_group(request):
         'billing_period_start__lte': end_date,
     }
 
-    resource_groups = CostRecord.objects.filter(**filters).values('resource_group_name').annotate(
+    resource_groups = CostRecord.objects.filter(**filters).annotate(
+        rg_lower=Lower('resource_group_name')
+    ).values('rg_lower').annotate(
         total_cost=Sum('billed_cost'),
         record_count=Count('id'),
     ).order_by('-total_cost')
@@ -250,7 +257,10 @@ def costs_by_resource_group(request):
         'period': {'start': start_date, 'end': end_date},
         'currency': currency,
         'subscription': subscription,
-        'resource_groups': list(resource_groups),
+        'resource_groups': [
+            {'resource_group_name': rg['rg_lower'], 'total_cost': rg['total_cost'], 'record_count': rg['record_count']}
+            for rg in resource_groups
+        ],
     })
 
 

@@ -14,7 +14,7 @@ from django.utils.translation import gettext as _
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models import Sum, Count, Min, Max, Q
-from django.db.models.functions import TruncDate
+from django.db.models.functions import Lower, TruncDate
 from django.core.serializers.json import DjangoJSONEncoder
 from datetime import timedelta
 from decimal import Decimal
@@ -260,6 +260,8 @@ def dashboard(request):
         'finops_json_config': _build_json_config(
             'dashboard',
             periodDays=days,
+            startDate=start_date.isoformat(),
+            endDate=end_date.isoformat(),
             totalCost=float(total_cost),
             topSubscriptions=top_subscriptions_list,
         ),
@@ -373,13 +375,13 @@ def resource_explorer(request):
     if subscription:
         base_queryset = base_queryset.filter(sub_account_name=subscription)
     if resource_group:
-        base_queryset = base_queryset.filter(resource_group_name=resource_group)
+        base_queryset = base_queryset.filter(resource_group_name__iexact=resource_group)
 
     resources = base_queryset.values('resource_name').annotate(
         total_cost=Sum('billed_cost'),
         record_count=Count('id'),
         resource_type=Min('resource_type'),
-        resource_group_name=Min('resource_group_name'),
+        resource_group_name=Min(Lower('resource_group_name')),
         service_name=Min('service_name'),
         resource_id=Min('resource_id'),
         sub_account_id=Min('sub_account_id')
@@ -396,9 +398,11 @@ def resource_explorer(request):
         'sub_account_name', flat=True
     ).distinct().order_by('sub_account_name')
 
-    available_resource_groups = filter_base.values_list(
-        'resource_group_name', flat=True
-    ).distinct().order_by('resource_group_name')
+    available_resource_groups = filter_base.annotate(
+        rg_lower=Lower('resource_group_name')
+    ).values_list(
+        'rg_lower', flat=True
+    ).distinct().order_by('rg_lower')
 
     context = {
         'page_title': _('FinOps Hub - Resources'),
@@ -725,13 +729,23 @@ def resource_group_view(request):
     if subscription:
         base_queryset = base_queryset.filter(sub_account_name=subscription)
 
-    resource_groups = base_queryset.values('resource_group_name').annotate(
+    resource_groups = base_queryset.annotate(
+        rg_lower=Lower('resource_group_name')
+    ).values('rg_lower').annotate(
         total_cost=Sum('billed_cost'),
         record_count=Count('id')
     ).order_by('-total_cost')
 
     total_cost = base_queryset.aggregate(total=Sum('billed_cost'))['total'] or 1
-    resource_groups_list = list(resource_groups)
+    # Rename rg_lower → resource_group_name for template compatibility
+    resource_groups_list = [
+        {
+            'resource_group_name': rg['rg_lower'] or '',
+            'total_cost': rg['total_cost'],
+            'record_count': rg['record_count'],
+        }
+        for rg in resource_groups
+    ]
 
     available_subscriptions = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')

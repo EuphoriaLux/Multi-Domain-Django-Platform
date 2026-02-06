@@ -42,6 +42,24 @@ def resolve_date_range(
     if use_month_filter:
         month_filter = request_params.get('month')
 
+    # Check for explicit start_date/end_date params (used by JS chart fetches)
+    explicit_start = request_params.get('start_date')
+    explicit_end = request_params.get('end_date')
+    if explicit_start and explicit_end:
+        try:
+            from datetime import date as date_type
+            start_date = date_type.fromisoformat(explicit_start)
+            end_date = date_type.fromisoformat(explicit_end)
+            days = (end_date - start_date).days + 1
+            return {
+                'start_date': start_date,
+                'end_date': end_date,
+                'days': days,
+                'month_filter': month_filter,
+            }
+        except (ValueError, TypeError):
+            pass  # Fall through to normal resolution
+
     if month_filter:
         try:
             year, month = map(int, month_filter.split('-'))

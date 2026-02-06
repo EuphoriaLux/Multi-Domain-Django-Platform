@@ -20,7 +20,13 @@
         initDiscountSlider(config.totalCost);
 
         function fetchCostTrend() {
-            fetch('/finops/api/costs/trend/?days=' + config.periodDays)
+            var url = '/finops/api/costs/trend/';
+            if (config.startDate && config.endDate) {
+                url += '?start_date=' + config.startDate + '&end_date=' + config.endDate;
+            } else {
+                url += '?days=' + config.periodDays;
+            }
+            fetch(url)
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     rawCostData = data.daily_costs;
