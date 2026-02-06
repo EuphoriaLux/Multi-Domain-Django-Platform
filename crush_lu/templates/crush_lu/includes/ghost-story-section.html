@@ -1,0 +1,212 @@
+{% load i18n %}
+{# Ghost Story Section - Animated Romantic Comedy Slideshow #}
+{# Usage: {% include "crush_lu/includes/ghost-story-section.html" %} #}
+{# Optional: {% include "crush_lu/includes/ghost-story-section.html" with show_cta=False %} #}
+
+<section class="ghost-story-section" x-data="ghostStory" aria-label="{% trans 'Ghost Love Story' %}">
+
+  {# ── Stage ── #}
+  <div class="ghost-story-stage">
+
+    {# ════════════════════════════════════════════
+       Scene 0 — Lonely Ghost
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene0"
+         x-bind:class="scene0Class">
+      <div class="ghost-story-char ghost-story-char-large w-28 h-28 md:w-36 md:h-36 opacity-70">
+        {% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}
+      </div>
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "A Lonely Ghost" %}</div>
+        {% trans "Once upon a time, a lonely ghost floated through Luxembourg..." %}
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════
+       Scene 1 — Spotting Love
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene1"
+         x-bind:class="scene1Class">
+      <div class="flex items-center gap-8 md:gap-16">
+        <div class="ghost-story-char ghost-story-char-large w-28 h-28 md:w-36 md:h-36">
+          {% include "crush_lu/includes/ghost-story-surprised.html" with class="w-full h-full" %}
+        </div>
+        <div class="ghost-story-heart-distant">
+          <svg width="48" height="48" viewBox="0 0 24 24" class="ghost-story-heart-svg md:w-16 md:h-16">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "A Spark!" %}</div>
+        {% trans "Then one day, something magical caught their eye..." %}
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════
+       Scene 2 — Getting Nervous
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene2"
+         x-bind:class="scene2Class">
+      <div class="ghost-story-char ghost-story-char-large w-28 h-28 md:w-36 md:h-36">
+        {% include "crush_lu/includes/ghost-story-nervous.html" with class="w-full h-full" %}
+      </div>
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "Butterflies!" %}</div>
+        {% trans "Their heart raced! Should they say hello?" %}
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════
+       Scene 3 — The Chase
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene3"
+         x-bind:class="scene3Class">
+      <div class="relative w-full flex items-center justify-center">
+        <div class="ghost-story-char ghost-story-char-medium w-24 h-24 md:w-32 md:h-32">
+          {% include "crush_lu/includes/ghost-story-running.html" with class="w-full h-full" %}
+        </div>
+        {# Distant heart target #}
+        <div class="absolute right-[10%] md:right-[15%]">
+          <svg width="36" height="36" viewBox="0 0 24 24" class="ghost-story-heart-svg animate-pulse">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "The Chase!" %}</div>
+        {% trans "No time to overthink — just go for it!" %}
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════
+       Scene 4 — The Match!
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene4"
+         x-bind:class="scene4Class">
+      <div class="relative">
+        {# Two ghosts facing each other #}
+        <div class="ghost-story-pair flex items-center gap-4 md:gap-8">
+          <div class="ghost-story-char w-24 h-24 md:w-32 md:h-32">
+            {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}
+          </div>
+          <div class="ghost-story-match-container">
+            <svg width="40" height="40" viewBox="0 0 24 24" class="ghost-story-heart-svg md:w-14 md:h-14">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+          <div class="ghost-story-char w-24 h-24 md:w-32 md:h-32" style="transform: scaleX(-1);">
+            {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}
+          </div>
+        </div>
+        {# Exploding hearts #}
+        <div class="ghost-story-burst-1 absolute top-1/2 left-1/2">
+          <svg width="20" height="20" viewBox="0 0 24 24" class="ghost-story-heart-svg">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+        <div class="ghost-story-burst-2 absolute top-1/2 left-1/2">
+          <svg width="16" height="16" viewBox="0 0 24 24" class="ghost-story-heart-svg">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+        <div class="ghost-story-burst-3 absolute top-1/2 left-1/2">
+          <svg width="14" height="14" viewBox="0 0 24 24" class="ghost-story-heart-svg">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+        <div class="ghost-story-burst-4 absolute top-1/2 left-1/2">
+          <svg width="18" height="18" viewBox="0 0 24 24" class="ghost-story-heart-svg">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "It's a Match!" %}</div>
+        {% trans "Two hearts, one moment — magic!" %}
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════
+       Scene 5 — Happy Ending
+       ════════════════════════════════════════════ #}
+    <div x-show="isScene5"
+         x-bind:class="scene5Class">
+      {# Sparkle rain #}
+      <div class="ghost-story-rain-1 absolute top-0 left-[15%]">
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#FFD700" opacity="0.7"/></svg>
+      </div>
+      <div class="ghost-story-rain-2 absolute top-0 left-[35%]">
+        <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#C084FC" opacity="0.6"/></svg>
+      </div>
+      <div class="ghost-story-rain-3 absolute top-0 left-[55%]">
+        <svg width="7" height="7" viewBox="0 0 7 7"><circle cx="3.5" cy="3.5" r="3.5" fill="#FF5CA9" opacity="0.7"/></svg>
+      </div>
+      <div class="ghost-story-rain-4 absolute top-0 left-[75%]">
+        <svg width="9" height="9" viewBox="0 0 9 9"><circle cx="4.5" cy="4.5" r="4.5" fill="#FFD700" opacity="0.5"/></svg>
+      </div>
+      <div class="ghost-story-rain-5 absolute top-0 left-[25%]">
+        <svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="#C084FC" opacity="0.6"/></svg>
+      </div>
+      <div class="ghost-story-rain-6 absolute top-0 left-[65%]">
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="#FF5CA9" opacity="0.5"/></svg>
+      </div>
+
+      {# Cuddling ghost pair - single SVG with both ghosts snuggled together #}
+      <div class="ghost-story-pair ghost-story-char w-48 h-40 md:w-64 md:h-52 mb-4">
+        {% include "crush_lu/includes/ghost-story-cuddling.html" with class="w-full h-full" %}
+      </div>
+
+      {# CTA #}
+      {% if show_cta is not False %}
+      <div class="ghost-story-cta mt-2">
+        <a href="{% url 'crush_lu:event_list' %}" class="ghost-story-cta-btn">
+          {% trans "Find Your Match" %} &rarr;
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="ghost-story-caption">
+        <div class="ghost-story-title">{% trans "Happily Ever After" %}</div>
+        {% trans "Just like on Crush.lu — real connections happen when you show up!" %}
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Controls ── #}
+  <div class="flex items-center justify-center gap-3 mt-4">
+    {# Previous #}
+    <button class="ghost-story-nav-btn" @click="previousScene" aria-label="{% trans 'Previous scene' %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
+    {# Dots #}
+    <div class="ghost-story-dots">
+      <button x-bind:class="dot0Class" @click="goToScene0" aria-label="{% trans 'Scene' %} 1"></button>
+      <button x-bind:class="dot1Class" @click="goToScene1" aria-label="{% trans 'Scene' %} 2"></button>
+      <button x-bind:class="dot2Class" @click="goToScene2" aria-label="{% trans 'Scene' %} 3"></button>
+      <button x-bind:class="dot3Class" @click="goToScene3" aria-label="{% trans 'Scene' %} 4"></button>
+      <button x-bind:class="dot4Class" @click="goToScene4" aria-label="{% trans 'Scene' %} 5"></button>
+      <button x-bind:class="dot5Class" @click="goToScene5" aria-label="{% trans 'Scene' %} 6"></button>
+    </div>
+
+    {# Pause/Play #}
+    <button class="ghost-story-nav-btn" @click="togglePause" x-bind:aria-label="pauseLabel">
+      <span x-text="pauseIcon" class="text-sm"></span>
+    </button>
+
+    {# Next #}
+    <button class="ghost-story-nav-btn" @click="nextScene" aria-label="{% trans 'Next scene' %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+  </div>
+
+  {# Scene counter #}
+  <div class="text-center mt-2 text-xs text-purple-400 dark:text-purple-300 opacity-60" x-text="sceneCounter"></div>
+
+</section>

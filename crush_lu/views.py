@@ -144,6 +144,11 @@ def home(request):
     return render(request, "crush_lu/home.html", context)
 
 
+def test_ghost_story(request):
+    """Test page for ghost story component - remove after verification"""
+    return render(request, "crush_lu/test_ghost_story.html")
+
+
 def about(request):
     """About page"""
     return render(request, "crush_lu/about.html")
@@ -1863,9 +1868,15 @@ def event_detail(request, event_id):
             event=event, user=request.user
         ).exclude(status='cancelled').first()
 
+    # Get user profile for template registration checks
+    user_profile = None
+    if request.user.is_authenticated:
+        user_profile = CrushProfile.objects.filter(user=request.user).first()
+
     context = {
         "event": event,
         "user_registration": user_registration,
+        "user_profile": user_profile,
     }
     return render(request, "crush_lu/event_detail.html", context)
 

@@ -842,7 +842,7 @@
     {% endif %}
 
     <!-- Global Profile Status Banners -->
-    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' %}
+    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' and profile_completion_status != 'completed' and not profile_is_approved %}
     <!-- Profile Incomplete Banner -->
     <div class="bg-amber-500 text-white px-4 py-3 text-center" role="alert">
         <div class="flex items-center justify-center gap-2 flex-wrap">

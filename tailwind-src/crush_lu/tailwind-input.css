@@ -8112,3 +8112,476 @@ html.dark .nav-btn:hover {
         right: 20px;
     }
 }
+
+/* ============================================================
+   Ghost Story Section - Animated Romantic Comedy Slideshow
+   ============================================================ */
+
+/* --- Keyframe Animations --- */
+
+@keyframes ghost-story-fade-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ghost-story-lonely-float {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(-6px, -10px) rotate(-2deg); }
+    50% { transform: translate(4px, -16px) rotate(1deg); }
+    75% { transform: translate(-3px, -8px) rotate(-1deg); }
+}
+
+@keyframes ghost-story-notice {
+    0% { transform: rotate(0deg) scale(1); }
+    30% { transform: rotate(-8deg) scale(1.05); }
+    50% { transform: rotate(-12deg) scale(1.1); }
+    70% { transform: rotate(-6deg) scale(1.05); }
+    100% { transform: rotate(-8deg) scale(1.08); }
+}
+
+@keyframes ghost-story-heart-appear {
+    0% { opacity: 0; transform: translateX(60px) scale(0.3); }
+    60% { opacity: 1; transform: translateX(10px) scale(1.1); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes ghost-story-nervous {
+    0%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(4deg); }
+    20% { transform: rotate(-4deg); }
+    30% { transform: rotate(5deg); }
+    40% { transform: rotate(-3deg); }
+    50% { transform: rotate(4deg); }
+    60% { transform: rotate(-5deg); }
+    70% { transform: rotate(3deg); }
+    80% { transform: rotate(-4deg); }
+    90% { transform: rotate(2deg); }
+}
+
+@keyframes ghost-story-chase {
+    0% { transform: translateX(-100px); }
+    20% { transform: translateX(-40px) translateY(-12px); }
+    40% { transform: translateX(20px) translateY(0); }
+    60% { transform: translateX(60px) translateY(-8px); }
+    80% { transform: translateX(90px) translateY(0); }
+    100% { transform: translateX(40px) translateY(-4px); }
+}
+
+@keyframes ghost-story-sparkle-trail {
+    0% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.6); }
+    100% { opacity: 0; transform: scale(0.2); }
+}
+
+@keyframes ghost-story-heart-explode {
+    0% { opacity: 0; transform: scale(0); }
+    50% { opacity: 1; transform: scale(1.4); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ghost-story-heart-burst-1 {
+    0% { opacity: 0; transform: translate(0, 0) scale(0); }
+    30% { opacity: 1; transform: translate(-30px, -40px) scale(1); }
+    100% { opacity: 0; transform: translate(-50px, -70px) scale(0.5); }
+}
+
+@keyframes ghost-story-heart-burst-2 {
+    0% { opacity: 0; transform: translate(0, 0) scale(0); }
+    30% { opacity: 1; transform: translate(35px, -35px) scale(0.8); }
+    100% { opacity: 0; transform: translate(55px, -60px) scale(0.3); }
+}
+
+@keyframes ghost-story-heart-burst-3 {
+    0% { opacity: 0; transform: translate(0, 0) scale(0); }
+    30% { opacity: 1; transform: translate(-20px, 30px) scale(0.7); }
+    100% { opacity: 0; transform: translate(-40px, 50px) scale(0.2); }
+}
+
+@keyframes ghost-story-heart-burst-4 {
+    0% { opacity: 0; transform: translate(0, 0) scale(0); }
+    30% { opacity: 1; transform: translate(25px, 25px) scale(0.9); }
+    100% { opacity: 0; transform: translate(45px, 45px) scale(0.4); }
+}
+
+@keyframes ghost-story-sync-sway {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    25% { transform: rotate(3deg) translateY(-6px); }
+    50% { transform: rotate(0deg) translateY(-10px); }
+    75% { transform: rotate(-3deg) translateY(-6px); }
+}
+
+@keyframes ghost-story-sparkle-rain {
+    0% { opacity: 0; transform: translateY(-20px); }
+    20% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(120px); }
+}
+
+@keyframes ghost-story-cta-bounce {
+    0% { opacity: 0; transform: translateY(30px) scale(0.8); }
+    60% { opacity: 1; transform: translateY(-6px) scale(1.05); }
+    80% { transform: translateY(3px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ghost-story-pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.2); }
+    50% { box-shadow: 0 0 40px rgba(155, 89, 182, 0.4); }
+}
+
+/* --- Container & Layout --- */
+
+.ghost-story-section {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(155, 89, 182, 0.2);
+    background: linear-gradient(135deg, #E8D5F5 0%, #F2DAE8 50%, #D9C2EB 100%);
+    padding: 2rem;
+    animation: ghost-story-pulse-glow 4s ease-in-out infinite;
+}
+
+html.dark .ghost-story-section {
+    background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 50%, #312e81 100%);
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+}
+
+.ghost-story-stage {
+    position: relative;
+    min-height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ghost-story-scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease-in-out;
+}
+
+.ghost-story-scene-active {
+    opacity: 1;
+    pointer-events: auto;
+    animation: ghost-story-fade-in 0.6s ease-out;
+}
+
+/* --- Caption --- */
+
+.ghost-story-caption {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 480px;
+    text-align: center;
+    padding: 0.875rem 1.25rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border-radius: 1rem;
+    border: 1px solid rgba(155, 89, 182, 0.15);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #4a2d6b;
+    font-style: italic;
+}
+
+html.dark .ghost-story-caption {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(139, 92, 246, 0.25);
+    color: #e2e8f0;
+}
+
+/* --- Scene Title --- */
+
+.ghost-story-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+html.dark .ghost-story-title {
+    background: linear-gradient(135deg, #c084fc, #fb7185);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* --- Navigation Buttons --- */
+
+.ghost-story-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(155, 89, 182, 0.2);
+    color: #9B59B6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.ghost-story-nav-btn:hover {
+    background: rgba(155, 89, 182, 0.15);
+    transform: scale(1.1);
+}
+
+.ghost-story-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+html.dark .ghost-story-nav-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(139, 92, 246, 0.3);
+    color: #c084fc;
+}
+
+html.dark .ghost-story-nav-btn:hover {
+    background: rgba(139, 92, 246, 0.2);
+}
+
+/* --- Dot Navigation --- */
+
+.ghost-story-dots {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.ghost-story-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: rgba(155, 89, 182, 0.3);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+}
+
+.ghost-story-dot:hover {
+    background: rgba(155, 89, 182, 0.5);
+    transform: scale(1.3);
+}
+
+.ghost-story-dot-active {
+    background: #9B59B6;
+    transform: scale(1.4);
+    box-shadow: 0 0 8px rgba(155, 89, 182, 0.5);
+}
+
+html.dark .ghost-story-dot {
+    background: rgba(139, 92, 246, 0.3);
+}
+
+html.dark .ghost-story-dot:hover {
+    background: rgba(139, 92, 246, 0.5);
+}
+
+html.dark .ghost-story-dot-active {
+    background: #a78bfa;
+    box-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
+}
+
+/* --- Ghost Characters --- */
+
+.ghost-story-char {
+    filter: drop-shadow(0 4px 12px rgba(155, 89, 182, 0.3));
+}
+
+html.dark .ghost-story-char {
+    filter: drop-shadow(0 4px 16px rgba(139, 92, 246, 0.4));
+}
+
+/* --- Scene-Specific Animations --- */
+
+/* Scene 0: Lonely ghost floating */
+.ghost-story-scene-0 .ghost-story-char {
+    animation: ghost-story-lonely-float 4s ease-in-out infinite;
+}
+
+.ghost-story-scene-0 .ghost-story-sparkle {
+    opacity: 0.3;
+}
+
+/* Scene 1: Ghost notices heart */
+.ghost-story-scene-1 .ghost-story-char {
+    animation: ghost-story-notice 1.5s ease-out forwards;
+}
+
+.ghost-story-scene-1 .ghost-story-heart-distant {
+    animation: ghost-story-heart-appear 1.2s ease-out 0.5s both;
+}
+
+/* Scene 2: Ghost wobbles nervously */
+.ghost-story-scene-2 .ghost-story-char {
+    animation: ghost-story-nervous 0.8s ease-in-out infinite;
+}
+
+/* Scene 3: Ghost chases across */
+.ghost-story-scene-3 .ghost-story-char {
+    animation: ghost-story-chase 3s ease-in-out infinite;
+}
+
+.ghost-story-scene-3 .ghost-story-trail {
+    animation: ghost-story-sparkle-trail 1.5s ease-out infinite;
+}
+
+/* Scene 4: Match - hearts explode */
+.ghost-story-scene-4 .ghost-story-match-container {
+    animation: ghost-story-heart-explode 0.8s ease-out both;
+}
+
+.ghost-story-scene-4 .ghost-story-burst-1 {
+    animation: ghost-story-heart-burst-1 2s ease-out 0.3s infinite;
+}
+
+.ghost-story-scene-4 .ghost-story-burst-2 {
+    animation: ghost-story-heart-burst-2 2s ease-out 0.5s infinite;
+}
+
+.ghost-story-scene-4 .ghost-story-burst-3 {
+    animation: ghost-story-heart-burst-3 2s ease-out 0.7s infinite;
+}
+
+.ghost-story-scene-4 .ghost-story-burst-4 {
+    animation: ghost-story-heart-burst-4 2s ease-out 0.9s infinite;
+}
+
+.ghost-story-scene-4 .ghost-story-pair,
+.ghost-story-scene-5 .ghost-story-pair {
+    animation: ghost-story-sync-sway 3s ease-in-out infinite;
+}
+
+/* Scene 5: Happy ending with sparkle rain */
+.ghost-story-scene-5 .ghost-story-rain-1 {
+    animation: ghost-story-sparkle-rain 2.5s linear infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-rain-2 {
+    animation: ghost-story-sparkle-rain 2s linear 0.3s infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-rain-3 {
+    animation: ghost-story-sparkle-rain 2.8s linear 0.7s infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-rain-4 {
+    animation: ghost-story-sparkle-rain 2.2s linear 1s infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-rain-5 {
+    animation: ghost-story-sparkle-rain 2.6s linear 1.4s infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-rain-6 {
+    animation: ghost-story-sparkle-rain 2.1s linear 0.5s infinite;
+}
+
+.ghost-story-scene-5 .ghost-story-cta {
+    animation: ghost-story-cta-bounce 0.8s ease-out 0.5s both;
+}
+
+/* --- CTA Button in Scene 5 --- */
+
+.ghost-story-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    font-weight: 600;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+}
+
+.ghost-story-cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4);
+}
+
+html.dark .ghost-story-cta-btn {
+    background: linear-gradient(135deg, #7c3aed, #ec4899);
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+}
+
+html.dark .ghost-story-cta-btn:hover {
+    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+/* --- Decorative Hearts --- */
+
+.ghost-story-heart-svg {
+    fill: #FF5CA9;
+}
+
+html.dark .ghost-story-heart-svg {
+    fill: #fb7185;
+}
+
+/* --- Mobile Responsive --- */
+
+@media (max-width: 768px) {
+    .ghost-story-section {
+        padding: 1.25rem;
+        border-radius: 1rem;
+    }
+
+    .ghost-story-stage {
+        min-height: 300px;
+    }
+
+    .ghost-story-char-large {
+        width: 80px;
+        height: 80px;
+    }
+
+    .ghost-story-char-medium {
+        width: 64px;
+        height: 64px;
+    }
+
+    .ghost-story-caption {
+        font-size: 0.85rem;
+        padding: 0.625rem 1rem;
+        width: 95%;
+    }
+
+    .ghost-story-title {
+        font-size: 1.05rem;
+    }
+
+    .ghost-story-nav-btn {
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.85rem;
+    }
+
+    .ghost-story-cta-btn {
+        font-size: 0.85rem;
+        padding: 0.625rem 1.25rem;
+    }
+}
