@@ -86,7 +86,7 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
         'email_marketing', 'updated_at'
     )
     list_filter = (
-        'unsubscribed_all', 'email_marketing',
+        'unsubscribed_all', 'email_newsletter', 'email_marketing',
         'email_profile_updates', 'email_event_reminders',
         'email_new_connections', 'email_new_messages',
         'created_at', 'updated_at'
@@ -107,6 +107,10 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
                 'email_new_messages',
             ),
             'description': 'Control which types of emails the user receives'
+        }),
+        ('📰 Newsletter', {
+            'fields': ('email_newsletter',),
+            'description': 'Newsletter emails about upcoming events and community news (ON by default)'
         }),
         ('📢 Marketing', {
             'fields': ('email_marketing',),
@@ -147,6 +151,8 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
             icons.append('🔗')
         if obj.email_new_messages:
             icons.append('💬')
+        if obj.email_newsletter:
+            icons.append('📰')
         if obj.email_marketing:
             icons.append('📢')
 

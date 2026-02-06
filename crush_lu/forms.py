@@ -52,6 +52,18 @@ class CrushSignupForm(SignupForm):
         })
     )
 
+    # Consent checkboxes
+    crushlu_consent = forms.BooleanField(
+        required=True,
+        label=_('I agree to the Terms of Service and Privacy Policy'),
+        error_messages={'required': _('You must consent to use Crush.lu services')}
+    )
+
+    marketing_consent = forms.BooleanField(
+        required=False,
+        label=_('I consent to receive marketing communications (optional)')
+    )
+
     def clean_email(self):
         """
         Check if email already exists
@@ -77,6 +89,10 @@ class CrushSignupForm(SignupForm):
         Allauth will handle user creation and EmailAddress creation automatically
         This includes social login users (LinkedIn, Google, etc.)
         """
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.oauth_statekit import get_client_ip
+        from django.utils import timezone
+
         # Let Allauth handle the user creation
         # It will raise ValidationError if email already exists
         user = super(CrushSignupForm, self).save(request)
@@ -90,6 +106,16 @@ class CrushSignupForm(SignupForm):
         # Setting it here can cause duplicate username errors
 
         user.save()
+
+        # Update consent record (created by signal)
+        consent, created = UserDataConsent.objects.get_or_create(user=user)
+        consent.crushlu_consent_given = self.cleaned_data.get('crushlu_consent', False)
+        consent.crushlu_consent_date = timezone.now()
+        consent.crushlu_consent_ip = get_client_ip(request)
+        consent.marketing_consent = self.cleaned_data.get('marketing_consent', False)
+        consent.marketing_consent_date = timezone.now() if consent.marketing_consent else None
+        consent.save()
+
         return user
 
 

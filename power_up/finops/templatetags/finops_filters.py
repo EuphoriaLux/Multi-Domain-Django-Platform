@@ -1,7 +1,21 @@
 from django import template
-from decimal import Decimal
 
 register = template.Library()
+
+
+@register.filter
+def format_currency(value):
+    """
+    Format a number as currency with thousand separators and 2 decimal places.
+    Returns string like "12,345.67".
+
+    Usage: {{ cost|format_currency }}
+    """
+    try:
+        value = float(value)
+        return "{:,.2f}".format(value)
+    except (ValueError, TypeError):
+        return "0.00"
 
 
 @register.filter

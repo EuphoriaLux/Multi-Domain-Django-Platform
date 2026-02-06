@@ -1,0 +1,113 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Confirm Your Consent" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="max-w-2xl w-full">
+        <div class="card border-2 border-crush-purple">
+            <div class="card-body">
+                <!-- Header -->
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold mb-4">{% trans "Welcome Back!" %}</h1>
+                    <p class="text-lg text-secondary">
+                        {% trans "We've updated our consent system. Please confirm your agreement to continue using Crush.lu." %}
+                    </p>
+                </div>
+
+                <!-- Explanation -->
+                <div class="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <h2 class="font-semibold mb-2">{% trans "Why am I seeing this?" %}</h2>
+                    <p class="text-sm text-secondary">
+                        {% trans "You signed up before we implemented explicit consent tracking. To comply with GDPR and ensure transparency, we need you to confirm that you agree to our Terms of Service and Privacy Policy." %}
+                    </p>
+                </div>
+
+                <!-- Consent Form -->
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+
+                    <!-- Required Consent -->
+                    <div class="border-2 border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                        <label class="flex items-start cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="crushlu_consent"
+                                id="id_crushlu_consent"
+                                required
+                                class="mt-1 mr-3 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
+                            >
+                            <span class="text-sm">
+                                <strong class="block mb-1">{% trans "Required: Crush.lu Terms & Privacy" %}</strong>
+                                {% trans "I agree to the" %}
+                                <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
+                                {% trans "and" %}
+                                <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Privacy Policy" %}</a>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Optional Marketing Consent -->
+                    <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                        <label class="flex items-start cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="marketing_consent"
+                                id="id_marketing_consent"
+                                class="mt-1 mr-3 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
+                            >
+                            <span class="text-sm">
+                                <strong class="block mb-1">{% trans "Optional: Marketing Communications" %}</strong>
+                                <span class="text-secondary">
+                                    {% trans "I consent to receive marketing emails about new features, events, and promotions." %}
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- What This Means -->
+                    <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <h3 class="font-semibold mb-2 text-sm">{% trans "What this means:" %}</h3>
+                        <ul class="text-xs text-secondary space-y-1">
+                            <li>✓ {% trans "Your account and profile remain active" %}</li>
+                            <li>✓ {% trans "You can continue using all Crush.lu features" %}</li>
+                            <li>✓ {% trans "You can withdraw consent anytime in Account Settings" %}</li>
+                            <li>✓ {% trans "Your data is handled according to our Privacy Policy" %}</li>
+                        </ul>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button
+                        type="submit"
+                        class="btn-crush-primary w-full py-3 text-lg font-semibold"
+                    >
+                        {% trans "Confirm & Continue" %}
+                    </button>
+                </form>
+
+                <!-- Decline Option -->
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-secondary mb-2">
+                        {% trans "Don't want to continue?" %}
+                    </p>
+                    <a
+                        href="{% url 'crush_lu:delete_crushlu_profile' %}"
+                        class="text-sm text-red-600 dark:text-red-400 hover:underline"
+                    >
+                        {% trans "Delete my Crush.lu profile" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Support -->
+        <div class="text-center mt-6 text-sm text-secondary">
+            <p>
+                {% trans "Questions?" %}
+                <a href="mailto:hello@crush.lu" class="text-crush-purple hover:underline">{% trans "Contact us" %}</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

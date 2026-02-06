@@ -1,0 +1,131 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Data Management" %}{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <h1 class="text-3xl font-bold mb-8">{% trans "GDPR Data Management" %}</h1>
+
+    <!-- Consent Status -->
+    <div class="card mb-8">
+        <div class="card-body">
+            <h2 class="card-title">{% trans "Your Consent Status" %}</h2>
+
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <strong>{% trans "PowerUp Account" %}</strong>
+                        <p class="text-sm text-secondary">{% trans "Identity layer (login, email, OAuth)" %}</p>
+                    </div>
+                    <div>
+                        {% if consent.has_powerup_consent %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                {% trans "Active" %}
+                            </span>
+                            <p class="text-xs text-secondary">{{ consent.powerup_consent_date|date:"SHORT_DATETIME_FORMAT" }}</p>
+                        {% else %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                {% trans "Not given" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div>
+                        <strong>{% trans "Crush.lu Profile" %}</strong>
+                        <p class="text-sm text-secondary">{% trans "Dating profile, photos, events" %}</p>
+                    </div>
+                    <div>
+                        {% if consent.has_crushlu_consent %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                {% trans "Active" %}
+                            </span>
+                            <p class="text-xs text-secondary">{{ consent.crushlu_consent_date|date:"SHORT_DATETIME_FORMAT" }}</p>
+                        {% else %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                {% trans "Not given" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deletion Options -->
+    <div class="card mb-8 border-red-200 dark:border-red-900">
+        <div class="card-body">
+            <h2 class="card-title text-red-600 dark:text-red-400">{% trans "Account Deletion" %}</h2>
+
+            <div class="space-y-6">
+                <!-- Option 1: Delete Crush.lu Only -->
+                {% if has_crushlu_profile %}
+                <div class="p-4 border rounded-lg">
+                    <h3 class="font-semibold mb-2">{% trans "Option 1: Delete Crush.lu Profile Only" %}</h3>
+                    <p class="text-sm text-secondary mb-4">
+                        {% trans "Removes your dating profile, photos, and event history. Your PowerUp account remains active for other platforms." %}
+                        <strong class="text-red-600 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
+                    </p>
+
+                    <form method="post" onsubmit="return confirm('{% trans "Are you sure? This cannot be undone and you cannot rejoin Crush.lu." %}');">
+                        {% csrf_token %}
+                        <input type="hidden" name="deletion_type" value="crushlu_only">
+                        <div class="mb-4">
+                            <label class="block text-sm mb-2">{% trans "Confirm your email to proceed:" %}</label>
+                            <input type="email" name="confirm_email" class="w-full px-4 py-2 border rounded-lg" required>
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+                            {% trans "Delete Crush.lu Profile Only" %}
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                    <h3 class="font-semibold mb-2">{% trans "Option 1: Delete Crush.lu Profile Only" %}</h3>
+                    <p class="text-sm text-secondary">
+                        {% trans "You do not have an active Crush.lu profile." %}
+                    </p>
+                </div>
+                {% endif %}
+
+                <!-- Option 2: Delete Full Account -->
+                <div class="p-4 border border-red-300 rounded-lg bg-red-50 dark:bg-red-950">
+                    <h3 class="font-semibold mb-2 text-red-700 dark:text-red-400">
+                        {% trans "Option 2: Delete Entire PowerUp Account" %}
+                    </h3>
+                    <p class="text-sm text-secondary mb-4">
+                        {% trans "Permanently deletes your account from ALL platforms (Crush.lu, VinsDelux, Entreprinder, etc.). This cannot be undone." %}
+                    </p>
+
+                    <form method="post" onsubmit="return confirm('{% trans "This will delete ALL your data across ALL platforms. Are you absolutely sure?" %}');">
+                        {% csrf_token %}
+                        <input type="hidden" name="deletion_type" value="full_account">
+                        <div class="mb-4">
+                            <label class="block text-sm mb-2">{% trans "Confirm your email to proceed:" %}</label>
+                            <input type="email" name="confirm_email" class="w-full px-4 py-2 border rounded-lg" required>
+                        </div>
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            {% trans "Delete Entire Account (All Platforms)" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Export -->
+    <div class="card">
+        <div class="card-body">
+            <h2 class="card-title">{% trans "Download Your Data" %}</h2>
+            <p class="text-secondary mb-4">
+                {% trans "Request a copy of all your personal data in JSON format (GDPR Article 20)." %}
+            </p>
+            <a href="{% url 'crush_lu:export_user_data' %}" class="inline-block px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                {% trans "Download My Data" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,25 +12,33 @@
     <nav class="bg-white border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-14">
-                <div class="flex space-x-8">
+                <div class="flex space-x-8 overflow-x-auto scrollbar-hide min-w-0">
                     <a href="{% url 'finops_hub:dashboard' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'dashboard' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'dashboard' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Dashboard
                     </a>
                     <a href="{% url 'finops_hub:subscriptions' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'subscriptions' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'subscriptions' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Subscriptions
                     </a>
                     <a href="{% url 'finops_hub:services' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'services' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'services' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Services
                     </a>
                     <a href="{% url 'finops_hub:resources' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'resources' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'resources' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Resources
                     </a>
+                    <a href="{% url 'finops_hub:comparison' %}"
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'comparison' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                        Compare
+                    </a>
+                    <a href="{% url 'finops_hub:resource_groups' %}"
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'resource_groups' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                        Resource Groups
+                    </a>
                     <a href="{% url 'finops_hub:anomalies' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'anomalies' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'anomalies' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Anomalies
                         {% if user.is_staff %}
                         <span class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
@@ -39,17 +47,17 @@
                         {% endif %}
                     </a>
                     <a href="{% url 'finops_hub:forecast' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'forecast' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'forecast' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Forecast
                     </a>
                     {% if user.is_staff %}
                     <a href="{% url 'finops_hub:import' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'import' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'import' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         Import
                     </a>
                     {% endif %}
                     <a href="{% url 'finops_hub:faq' %}"
-                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {% if request.resolver_match.url_name == 'faq' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+                       class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap {% if request.resolver_match.url_name == 'faq' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
                         FAQ
                     </a>
                 </div>
@@ -62,4 +70,12 @@
         {% block finops_content %}{% endblock %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'power_up/js/vendor/chart.umd.min.js' %}"></script>
+<script src="{% static 'power_up/js/alpine-components.js' %}"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"></script>
+<script src="{% static 'power_up/js/finops_dashboard.js' %}"></script>
+{% block finops_extra_js %}{% endblock %}
 {% endblock %}

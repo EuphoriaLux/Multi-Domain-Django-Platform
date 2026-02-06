@@ -229,23 +229,22 @@ def configure_azure_monitor_telemetry():
 
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
-        from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
         # Create filtering processors
         exception_filter = ExceptionFilteringProcessor()
         dependency_filter = DependencyFilteringProcessor()
 
-        # Create sampler - keeps only a percentage of traces
-        sampler = TraceIdRatioBased(sampling_rate)
-
-        # Configure Azure Monitor with our custom processors and sampler
+        # Configure Azure Monitor with our custom processors and sampling
         # The SDK automatically instruments Django, requests, urllib, psycopg2
         configure_azure_monitor(
             connection_string=connection_string,
             # Add our custom span processors for filtering
             span_processors=[dependency_filter, exception_filter],
-            # Configure sampling to reduce data ingestion
-            sampler=sampler,
+            # Use Azure Monitor's ApplicationInsightsSampler (NOT TraceIdRatioBased).
+            # TraceIdRatioBased passed as `sampler=` is silently ignored.
+            # sampling_ratio properly sets ItemCount on sampled records for
+            # statistical accuracy and works with Live Metrics.
+            sampling_ratio=sampling_rate,
             # Configure logging integration - use root logger namespace
             logger_name="",  # Empty string = root logger
             # Enable Live Metrics for real-time dashboard monitoring (1-second latency)

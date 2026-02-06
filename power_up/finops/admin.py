@@ -12,7 +12,8 @@ from .models import (
     CostAggregation,
     CostAnomaly,
     CostForecast,
-    ReservationCost
+    ReservationCost,
+    CostBudget,
 )
 
 
@@ -264,6 +265,13 @@ class ReservationCostAdmin(admin.ModelAdmin):
     is_estimate_badge.short_description = 'Status'
 
 
+class CostBudgetAdmin(admin.ModelAdmin):
+    list_display = ['name', 'dimension_type', 'dimension_value', 'monthly_budget',
+                    'alert_threshold', 'currency', 'is_active']
+    list_filter = ['dimension_type', 'is_active', 'currency']
+    search_fields = ['name', 'dimension_value']
+
+
 # Register models with power_up_admin_site
 power_up_admin_site.register(CostExport, CostExportAdmin)
 power_up_admin_site.register(CostRecord, CostRecordAdmin)
@@ -271,3 +279,4 @@ power_up_admin_site.register(CostAggregation, CostAggregationAdmin)
 power_up_admin_site.register(CostAnomaly, CostAnomalyAdmin)
 power_up_admin_site.register(CostForecast, CostForecastAdmin)
 power_up_admin_site.register(ReservationCost, ReservationCostAdmin)
+power_up_admin_site.register(CostBudget, CostBudgetAdmin)

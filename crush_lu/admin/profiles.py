@@ -137,7 +137,7 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
+    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'get_consent_status', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
 
     def save_model(self, request, obj, form, change):
         """
@@ -425,6 +425,24 @@ class CrushProfileAdmin(admin.ModelAdmin):
     is_coach.boolean = True
     is_coach.short_description = _('Is Coach')
 
+    def get_consent_status(self, obj):
+        """Display consent status icons for Crush.lu"""
+        if not hasattr(obj.user, 'data_consent'):
+            return format_html('<span style="color: red;">❌ No consent</span>')
+
+        consent = obj.user.data_consent
+        crushlu_icon = '✅' if consent.crushlu_consent_given else '❌'
+        ban_icon = ' 🚫' if consent.crushlu_banned else ''
+
+        return format_html(
+            '<span title="Crush.lu: {}{}">Crush:{}{}</span>',
+            'Given' if consent.crushlu_consent_given else 'Not given',
+            ' (BANNED)' if consent.crushlu_banned else '',
+            crushlu_icon,
+            ban_icon
+        )
+    get_consent_status.short_description = _('📋 Consent')
+
     def outlook_synced(self, obj):
         """Display Outlook contact sync status with icon"""
         if obj.outlook_contact_id:
@@ -586,6 +604,63 @@ class CrushProfileAdmin(admin.ModelAdmin):
         last_login = user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never'
         user_status = '🟢 Active' if user.is_active else '🔴 Inactive'
 
+        # Get consent information
+        consent_html = ''
+        if hasattr(user, 'data_consent'):
+            consent = user.data_consent
+
+            # PowerUp consent
+            if consent.powerup_consent_given:
+                powerup_date = consent.powerup_consent_date.strftime('%Y-%m-%d %H:%M') if consent.powerup_consent_date else 'Unknown'
+                powerup_ip = f" from {consent.powerup_consent_ip}" if consent.powerup_consent_ip else ""
+                powerup_status = f'<span style="color: green;">✅ Given on {powerup_date}{powerup_ip}</span>'
+            else:
+                powerup_status = '<span style="color: red;">❌ Not given</span>'
+
+            # Crush.lu consent
+            if consent.crushlu_consent_given:
+                crushlu_date = consent.crushlu_consent_date.strftime('%Y-%m-%d %H:%M') if consent.crushlu_consent_date else 'Unknown'
+                crushlu_ip = f" from {consent.crushlu_consent_ip}" if consent.crushlu_consent_ip else ""
+                crushlu_status = f'<span style="color: green;">✅ Given on {crushlu_date}{crushlu_ip}</span>'
+            else:
+                crushlu_status = '<span style="color: red;">❌ Not given</span>'
+
+            # Ban status
+            if consent.crushlu_banned:
+                reason_map = {
+                    'user_deletion': 'User deleted profile',
+                    'admin_action': 'Admin action',
+                    'terms_violation': 'Terms violation',
+                }
+                reason = reason_map.get(consent.crushlu_ban_reason, consent.crushlu_ban_reason or 'Unknown')
+                ban_date = consent.crushlu_ban_date.strftime('%Y-%m-%d') if consent.crushlu_ban_date else 'Unknown'
+                ban_status = f'<span style="color: red; font-weight: bold;">🚫 BANNED since {ban_date} ({reason})</span>'
+            else:
+                ban_status = '<span style="color: green;">✅ Not banned</span>'
+
+            consent_html = f'''
+                <tr>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;"><strong>PowerUp Consent:</strong></td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">{powerup_status}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;"><strong>Crush.lu Consent:</strong></td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">{crushlu_status}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;"><strong>Ban Status:</strong></td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">{ban_status}</td>
+                </tr>
+            '''
+        else:
+            consent_html = '''
+                <tr>
+                    <td colspan="2" style="padding: 6px 12px; border-bottom: 1px solid #eee; background: #fff3cd;">
+                        <span style="color: #856404;">⚠️ No consent record found for this user</span>
+                    </td>
+                </tr>
+            '''
+
         html = f'''
         <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -616,9 +691,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">{date_joined}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 6px 12px;"><strong>Last Login:</strong></td>
-                    <td style="padding: 6px 12px;">{last_login}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;"><strong>Last Login:</strong></td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">{last_login}</td>
                 </tr>
+                {consent_html}
             </table>
         </div>
         '''

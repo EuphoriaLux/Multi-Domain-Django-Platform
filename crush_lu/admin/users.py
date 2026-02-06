@@ -12,7 +12,70 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.urls import reverse
 from django.utils.html import format_html
 
-from crush_lu.models import CrushProfile, CrushCoach
+from crush_lu.models import CrushProfile, CrushCoach, UserDataConsent
+
+
+class UserDataConsentInline(admin.StackedInline):
+    """Inline showing UserDataConsent on User detail page"""
+    model = UserDataConsent
+    can_delete = False
+    verbose_name_plural = 'Data Consent (GDPR)'
+    fields = (
+        'powerup_consent_status',
+        'crushlu_consent_status',
+        'crushlu_ban_status',
+        'marketing_consent',
+    )
+    readonly_fields = (
+        'powerup_consent_status',
+        'crushlu_consent_status',
+        'crushlu_ban_status',
+    )
+    extra = 0
+
+    def powerup_consent_status(self, obj):
+        """Display PowerUp consent with date and IP"""
+        if obj.powerup_consent_given:
+            date_str = obj.powerup_consent_date.strftime('%Y-%m-%d %H:%M') if obj.powerup_consent_date else 'Unknown'
+            ip_str = f" from {obj.powerup_consent_ip}" if obj.powerup_consent_ip else ""
+            return format_html(
+                '<span style="color: green;">✅ Given on {}{}</span>',
+                date_str, ip_str
+            )
+        return format_html('<span style="color: red;">❌ Not given</span>')
+    powerup_consent_status.short_description = 'PowerUp Consent (Identity Layer)'
+
+    def crushlu_consent_status(self, obj):
+        """Display Crush.lu consent with date and IP"""
+        if obj.crushlu_consent_given:
+            date_str = obj.crushlu_consent_date.strftime('%Y-%m-%d %H:%M') if obj.crushlu_consent_date else 'Unknown'
+            ip_str = f" from {obj.crushlu_consent_ip}" if obj.crushlu_consent_ip else ""
+            return format_html(
+                '<span style="color: green;">✅ Given on {}{}</span>',
+                date_str, ip_str
+            )
+        return format_html('<span style="color: red;">❌ Not given</span>')
+    crushlu_consent_status.short_description = 'Crush.lu Consent (Profile Layer)'
+
+    def crushlu_ban_status(self, obj):
+        """Display ban status"""
+        if obj.crushlu_banned:
+            reason_map = {
+                'user_deletion': 'User deleted profile',
+                'admin_action': 'Admin action',
+                'terms_violation': 'Terms violation',
+            }
+            reason = reason_map.get(obj.crushlu_ban_reason, obj.crushlu_ban_reason or 'Unknown')
+            date_str = obj.crushlu_ban_date.strftime('%Y-%m-%d') if obj.crushlu_ban_date else 'Unknown'
+            return format_html(
+                '<span style="color: red; font-weight: bold;">🚫 BANNED since {} ({})</span>',
+                date_str, reason
+            )
+        return format_html('<span style="color: green;">✅ Not banned</span>')
+    crushlu_ban_status.short_description = 'Crush.lu Ban Status'
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class CrushProfileUserInline(admin.StackedInline):
@@ -79,14 +142,34 @@ class CrushUserAdmin(BaseUserAdmin):
     User admin for Crush.lu coach panel.
     Shows users with their Crush.lu profiles and provides bidirectional navigation.
     """
-    inlines = (CrushProfileUserInline, CrushCoachUserInline)
+    inlines = (UserDataConsentInline, CrushProfileUserInline, CrushCoachUserInline)
     list_display = (
         'username', 'email', 'first_name', 'last_name',
-        'get_crush_profile_link', 'is_coach_status', 'is_active', 'date_joined'
+        'get_crush_profile_link', 'get_consent_status', 'is_coach_status', 'is_active', 'date_joined'
     )
     list_filter = (HasCrushProfileFilter, 'is_active', 'date_joined')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
+
+    def get_consent_status(self, obj):
+        """Display consent status icons"""
+        if not hasattr(obj, 'data_consent'):
+            return format_html('<span style="color: red;">❌ No consent record</span>')
+
+        consent = obj.data_consent
+        powerup_icon = '✅' if consent.powerup_consent_given else '❌'
+        crushlu_icon = '✅' if consent.crushlu_consent_given else '❌'
+        ban_icon = '🚫' if consent.crushlu_banned else ''
+
+        return format_html(
+            '<span title="PowerUp: {}, Crush.lu: {}">PowerUp:{} Crush:{} {}</span>',
+            'Given' if consent.powerup_consent_given else 'Not given',
+            'Given' if consent.crushlu_consent_given else 'Not given',
+            powerup_icon,
+            crushlu_icon,
+            ban_icon
+        )
+    get_consent_status.short_description = '📋 Consent'
 
     def get_crush_profile_link(self, obj):
         """Clickable link to CrushProfile if exists"""

@@ -210,10 +210,11 @@ class AzureCostBlobReader:
         # Download blob content as bytes (Azure SDK 12.x compatible)
         stream_downloader = blob_client.download_blob()
 
-        # Read all bytes from the stream
-        compressed_data = b""
+        # Read all bytes from the stream using BytesIO for memory efficiency
+        buffer = io.BytesIO()
         for chunk in stream_downloader.chunks():
-            compressed_data += chunk
+            buffer.write(chunk)
+        compressed_data = buffer.getvalue()
 
         # Decompress gzip data
         with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz_file:

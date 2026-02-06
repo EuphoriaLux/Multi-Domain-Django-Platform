@@ -1,6 +1,7 @@
 {% extends "finops/base_finops.html" %}
 {% load static %}
 {% load i18n %}
+{% load finops_filters %}
 
 {% block title %}{% trans "Cost Forecast - FinOps Hub" %}{% endblock %}
 
@@ -40,27 +41,27 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-lg shadow p-6">
             <div class="text-sm font-medium text-gray-500">{% trans "Avg Daily (Historical)" %}</div>
-            <div class="mt-2 text-3xl font-bold text-gray-900">€{{ avg_historical|floatformat:2 }}</div>
+            <div class="mt-2 text-3xl font-bold text-gray-900">{{ avg_historical|format_currency }}</div>
         </div>
         <div class="bg-blue-50 rounded-lg shadow p-6">
             <div class="text-sm font-medium text-blue-800">{% trans "Avg Daily (Forecast)" %}</div>
-            <div class="mt-2 text-3xl font-bold text-blue-900">€{{ avg_forecast|floatformat:2 }}</div>
+            <div class="mt-2 text-3xl font-bold text-blue-900">{{ avg_forecast|format_currency }}</div>
             <div class="mt-1 text-sm {% if pct_change > 0 %}text-red-600{% else %}text-green-600{% endif %}">
                 {% if pct_change > 0 %}+{% endif %}{{ pct_change|floatformat:1 }}%
             </div>
         </div>
         <div class="bg-green-50 rounded-lg shadow p-6">
             <div class="text-sm font-medium text-green-800">{% trans "Total Forecast" %} ({{ forecast_days }}d)</div>
-            <div class="mt-2 text-3xl font-bold text-green-900">€{{ total_forecast|floatformat:2 }}</div>
+            <div class="mt-2 text-3xl font-bold text-green-900">{{ total_forecast|format_currency }}</div>
         </div>
         <div class="bg-purple-50 rounded-lg shadow p-6">
-            <div class="text-sm font-medium text-purple-800">{% trans "Model Accuracy (R²)" %}</div>
+            <div class="text-sm font-medium text-purple-800">{% trans "Model Accuracy (R2)" %}</div>
             <div class="mt-2 text-3xl font-bold text-purple-900">{{ model_accuracy|floatformat:3 }}</div>
             <div class="mt-1 text-xs text-purple-700">{% trans "0-1 scale, higher is better" %}</div>
         </div>
     </div>
 
-    <!-- Forecast Chart (Placeholder for Chart.js) -->
+    <!-- Forecast Chart -->
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900">{% trans "Cost Trend & Forecast" %}</h2>
@@ -73,57 +74,36 @@
                 </a>
             </div>
         </div>
+        <canvas id="forecastChart" height="80"></canvas>
+    </div>
 
-        <!-- Temporary: Table view until Chart.js is added -->
-        <div class="overflow-x-auto">
-            <div class="text-sm text-gray-600 mb-4">
-                {% trans "Showing historical data (last 30 days) and forecast predictions" %}
+    <!-- Forecast Data Table -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">{% trans "Forecasted Costs" %}</h3>
+        <div class="grid grid-cols-2 md:grid-cols-7 gap-2">
+            {% for forecast in forecasts|slice:":14" %}
+            <div class="bg-blue-50 p-2 rounded border border-blue-200">
+                <div class="text-xs text-blue-600">{{ forecast.forecast_date|date:"M d" }}</div>
+                <div class="text-sm font-semibold text-blue-900">{{ forecast.forecast_cost|format_currency }}</div>
             </div>
-
-            <!-- Historical Data Summary -->
-            <div class="mb-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">{% trans "Recent Historical Costs" %}</h3>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {% for item in historical|slice:"-5:" %}
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-xs text-gray-500">{{ item.period_start|date:"M d" }}</div>
-                        <div class="text-lg font-semibold text-gray-900">€{{ item.total_cost|floatformat:2 }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Forecast Data -->
-            <div>
-                <h3 class="text-lg font-semibold text-blue-800 mb-2">{% trans "Forecasted Costs" %}</h3>
-                <div class="grid grid-cols-2 md:grid-cols-7 gap-2">
-                    {% for forecast in forecasts|slice:":14" %}
-                    <div class="bg-blue-50 p-2 rounded border border-blue-200">
-                        <div class="text-xs text-blue-600">{{ forecast.forecast_date|date:"M d" }}</div>
-                        <div class="text-sm font-semibold text-blue-900">€{{ forecast.forecast_cost|floatformat:2 }}</div>
-                        <div class="text-xs text-blue-600">±{{ forecast.upper_bound|add:"-"|add:forecast.forecast_cost|floatformat:2|stringformat:"s"|slice:"1:" }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                {% if forecasts|length > 14 %}
-                <details class="mt-4">
-                    <summary class="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
-                        {% trans "Show all" %} {{ forecasts|length }} {% trans "forecasts" %}
-                    </summary>
-                    <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
-                        {% for forecast in forecasts|slice:"14:" %}
-                        <div class="bg-blue-50 p-2 rounded border border-blue-200">
-                            <div class="text-xs text-blue-600">{{ forecast.forecast_date|date:"M d" }}</div>
-                            <div class="text-sm font-semibold text-blue-900">€{{ forecast.forecast_cost|floatformat:2 }}</div>
-                            <div class="text-xs text-blue-600">±{{ forecast.upper_bound|add:"-"|add:forecast.forecast_cost|floatformat:2|stringformat:"s"|slice:"1:" }}</div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </details>
-                {% endif %}
-            </div>
+            {% endfor %}
         </div>
+
+        {% if forecasts|length > 14 %}
+        <details class="mt-4">
+            <summary class="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
+                {% trans "Show all" %} {{ forecasts|length }} {% trans "forecasts" %}
+            </summary>
+            <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
+                {% for forecast in forecasts|slice:"14:" %}
+                <div class="bg-blue-50 p-2 rounded border border-blue-200">
+                    <div class="text-xs text-blue-600">{{ forecast.forecast_date|date:"M d" }}</div>
+                    <div class="text-sm font-semibold text-blue-900">{{ forecast.forecast_cost|format_currency }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
     </div>
 
     <!-- Model Information -->
@@ -140,7 +120,7 @@
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900 mb-1">{% trans "Confidence Interval" %}</h4>
-                <p>{% trans "95% confidence interval (±1.96 standard errors)" %}</p>
+                <p>{% trans "95% confidence interval" %}</p>
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900 mb-1">{% trans "Update Frequency" %}</h4>
@@ -151,4 +131,7 @@
 
     {% endif %}
 </div>
+
+<!-- JSON config for finops_dashboard.js -->
+<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
 {% endblock %}

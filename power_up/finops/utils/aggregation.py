@@ -32,51 +32,53 @@ class CostAggregator:
 
         records_created = 0
 
-        # Iterate through each day
-        current_date = start_date
-        while current_date <= end_date:
-            # Overall daily aggregation
-            records_created += CostAggregator._aggregate_for_day(
-                current_date, 'overall', 'Total', currency
-            )
+        # Wrap day-by-day aggregation in a transaction for data integrity
+        with transaction.atomic():
+            # Iterate through each day
+            current_date = start_date
+            while current_date <= end_date:
+                # Overall daily aggregation
+                records_created += CostAggregator._aggregate_for_day(
+                    current_date, 'overall', 'Total', currency
+                )
 
-            # By subscription
-            subscriptions = CostRecord.objects.filter(
-                charge_period_start__date=current_date,
-                billing_currency=currency
-            ).values_list('sub_account_name', flat=True).distinct()
+                # By subscription
+                subscriptions = CostRecord.objects.filter(
+                    charge_period_start__date=current_date,
+                    billing_currency=currency
+                ).values_list('sub_account_name', flat=True).distinct()
 
-            for subscription in subscriptions:
-                if subscription:
-                    records_created += CostAggregator._aggregate_for_day(
-                        current_date, 'subscription', subscription, currency
-                    )
+                for subscription in subscriptions:
+                    if subscription:
+                        records_created += CostAggregator._aggregate_for_day(
+                            current_date, 'subscription', subscription, currency
+                        )
 
-            # By service
-            services = CostRecord.objects.filter(
-                charge_period_start__date=current_date,
-                billing_currency=currency
-            ).values_list('service_name', flat=True).distinct()
+                # By service
+                services = CostRecord.objects.filter(
+                    charge_period_start__date=current_date,
+                    billing_currency=currency
+                ).values_list('service_name', flat=True).distinct()
 
-            for service in services:
-                if service:
-                    records_created += CostAggregator._aggregate_for_day(
-                        current_date, 'service', service, currency
-                    )
+                for service in services:
+                    if service:
+                        records_created += CostAggregator._aggregate_for_day(
+                            current_date, 'service', service, currency
+                        )
 
-            # By resource group
-            resource_groups = CostRecord.objects.filter(
-                charge_period_start__date=current_date,
-                billing_currency=currency
-            ).values_list('resource_group_name', flat=True).distinct()
+                # By resource group
+                resource_groups = CostRecord.objects.filter(
+                    charge_period_start__date=current_date,
+                    billing_currency=currency
+                ).values_list('resource_group_name', flat=True).distinct()
 
-            for rg in resource_groups:
-                if rg:
-                    records_created += CostAggregator._aggregate_for_day(
-                        current_date, 'resource_group', rg, currency
-                    )
+                for rg in resource_groups:
+                    if rg:
+                        records_created += CostAggregator._aggregate_for_day(
+                            current_date, 'resource_group', rg, currency
+                        )
 
-            current_date += timedelta(days=1)
+                current_date += timedelta(days=1)
 
         return records_created
 
@@ -177,36 +179,38 @@ class CostAggregator:
 
         records_created = 0
 
-        # Overall monthly aggregation
-        records_created += CostAggregator._aggregate_for_period(
-            start_date, end_date, 'monthly', 'overall', 'Total', currency
-        )
+        # Wrap monthly aggregation in a transaction for data integrity
+        with transaction.atomic():
+            # Overall monthly aggregation
+            records_created += CostAggregator._aggregate_for_period(
+                start_date, end_date, 'monthly', 'overall', 'Total', currency
+            )
 
-        # By subscription
-        subscriptions = CostRecord.objects.filter(
-            charge_period_start__date__gte=start_date,
-            charge_period_start__date__lte=end_date,
-            billing_currency=currency
-        ).values_list('sub_account_name', flat=True).distinct()
+            # By subscription
+            subscriptions = CostRecord.objects.filter(
+                charge_period_start__date__gte=start_date,
+                charge_period_start__date__lte=end_date,
+                billing_currency=currency
+            ).values_list('sub_account_name', flat=True).distinct()
 
-        for subscription in subscriptions:
-            if subscription:
-                records_created += CostAggregator._aggregate_for_period(
-                    start_date, end_date, 'monthly', 'subscription', subscription, currency
-                )
+            for subscription in subscriptions:
+                if subscription:
+                    records_created += CostAggregator._aggregate_for_period(
+                        start_date, end_date, 'monthly', 'subscription', subscription, currency
+                    )
 
-        # By service
-        services = CostRecord.objects.filter(
-            charge_period_start__date__gte=start_date,
-            charge_period_start__date__lte=end_date,
-            billing_currency=currency
-        ).values_list('service_name', flat=True).distinct()
+            # By service
+            services = CostRecord.objects.filter(
+                charge_period_start__date__gte=start_date,
+                charge_period_start__date__lte=end_date,
+                billing_currency=currency
+            ).values_list('service_name', flat=True).distinct()
 
-        for service in services:
-            if service:
-                records_created += CostAggregator._aggregate_for_period(
-                    start_date, end_date, 'monthly', 'service', service, currency
-                )
+            for service in services:
+                if service:
+                    records_created += CostAggregator._aggregate_for_period(
+                        start_date, end_date, 'monthly', 'service', service, currency
+                    )
 
         return records_created
 

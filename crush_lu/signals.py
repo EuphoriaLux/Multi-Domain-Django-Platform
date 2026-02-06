@@ -190,6 +190,51 @@ def create_email_preference_for_user(sender, instance, created, **kwargs):
         logger.error(f"Error creating email preferences for user {instance.id}: {str(e)}")
 
 
+@receiver(post_save, sender=User)
+def create_user_data_consent(sender, instance, created, **kwargs):
+    """
+    Create UserDataConsent record for every new user.
+    PowerUp consent is given implicitly on account creation.
+    Crush.lu consent must be explicitly given during profile creation (form signup)
+    or implicitly during OAuth signup.
+    """
+    if not created:
+        return
+
+    try:
+        from crush_lu.models.profiles import UserDataConsent
+
+        # Check if OAuth consent data is available (set by pre_social_login)
+        oauth_consent = getattr(_thread_local, 'oauth_consent_data', None)
+
+        defaults = {
+            'powerup_consent_given': True,  # Implicit consent on account creation
+            'powerup_consent_date': timezone.now(),
+            'crushlu_consent_given': False,  # Must be explicitly given (form) or implicit (OAuth)
+        }
+
+        # If OAuth signup, apply implicit Crush.lu consent
+        if oauth_consent:
+            defaults['crushlu_consent_given'] = oauth_consent.get('crushlu_consent', False)
+            defaults['crushlu_consent_date'] = timezone.now()
+            defaults['crushlu_consent_ip'] = oauth_consent.get('crushlu_consent_ip')
+            logger.info(f"OAuth signup detected - applying implicit Crush.lu consent for user {instance.id}")
+
+        UserDataConsent.objects.get_or_create(
+            user=instance,
+            defaults=defaults
+        )
+        logger.info(f"Created data consent for new user {instance.id} ({instance.email})")
+
+        # Clear OAuth consent data after use
+        if hasattr(_thread_local, 'oauth_consent_data'):
+            delattr(_thread_local, 'oauth_consent_data')
+
+    except Exception as e:
+        # Don't fail user creation if consent creation fails
+        logger.error(f"Error creating data consent for user {instance.id}: {str(e)}")
+
+
 # List of Crush.lu domains - profile should be created for logins on these domains
 CRUSH_LU_DOMAINS = ['crush.lu', 'www.crush.lu', 'localhost', '127.0.0.1']
 
@@ -565,6 +610,15 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
     # Set flag to indicate this is a crush.lu Facebook login
     _thread_local.is_crush_facebook_login = True
 
+    # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
+    if not sociallogin.is_existing:
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.oauth_statekit import get_client_ip
+        _thread_local.oauth_consent_data = {
+            'crushlu_consent': True,  # Implicit consent via OAuth signup
+            'crushlu_consent_ip': get_client_ip(request),
+        }
+
     logger.info(f"pre_social_login signal received for Facebook provider on crush.lu")
 
     try:
@@ -883,6 +937,15 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
     # Set flag to indicate this is a crush.lu Google login
     _thread_local.is_crush_google_login = True
 
+    # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
+    if not sociallogin.is_existing:
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.oauth_statekit import get_client_ip
+        _thread_local.oauth_consent_data = {
+            'crushlu_consent': True,  # Implicit consent via OAuth signup
+            'crushlu_consent_ip': get_client_ip(request),
+        }
+
     logger.info(f"pre_social_login signal received for Google provider on crush.lu")
 
     try:
@@ -1005,6 +1068,15 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Set flag to indicate this is a crush.lu Microsoft login
     _thread_local.is_crush_microsoft_login = True
+
+    # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
+    if not sociallogin.is_existing:
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.oauth_statekit import get_client_ip
+        _thread_local.oauth_consent_data = {
+            'crushlu_consent': True,  # Implicit consent via OAuth signup
+            'crushlu_consent_ip': get_client_ip(request),
+        }
 
     logger.info(f"pre_social_login signal received for Microsoft provider on crush.lu")
 

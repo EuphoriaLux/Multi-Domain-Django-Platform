@@ -1,0 +1,100 @@
+{% extends "finops/base_finops.html" %}
+{% load static %}
+{% load i18n %}
+{% load finops_filters %}
+
+{% block title %}{% trans "Resource Groups" %} - FinOps Hub{% endblock %}
+
+{% block finops_content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">{% trans "Resource Group Breakdown" %}</h1>
+        <p class="mt-2 text-sm text-gray-600">{% trans "Cost analysis by Azure resource group" %}</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <form method="get" class="flex flex-wrap items-end gap-4">
+            <div>
+                <label for="days" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Time Period" %}</label>
+                <select name="days" id="days" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <option value="7" {% if period.days == 7 %}selected{% endif %}>{% trans "Last 7 days" %}</option>
+                    <option value="30" {% if period.days == 30 %}selected{% endif %}>{% trans "Last 30 days" %}</option>
+                    <option value="60" {% if period.days == 60 %}selected{% endif %}>{% trans "Last 60 days" %}</option>
+                    <option value="90" {% if period.days == 90 %}selected{% endif %}>{% trans "Last 90 days" %}</option>
+                </select>
+            </div>
+            <div>
+                <label for="subscription" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Subscription" %}</label>
+                <select name="subscription" id="subscription" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <option value="">{% trans "All Subscriptions" %}</option>
+                    {% for sub in available_subscriptions %}
+                    <option value="{{ sub }}" {% if subscription == sub %}selected{% endif %}>{{ sub }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+                {% trans "Apply Filter" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-5">
+            <p class="text-sm text-gray-500 mb-1">{% trans "Analysis Period" %}</p>
+            <p class="font-medium">{{ period.start|date:"Y-m-d" }} to {{ period.end|date:"Y-m-d" }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
+            <p class="text-sm text-gray-500 mb-1">{% trans "Resource Groups" %}</p>
+            <p class="text-2xl font-bold text-green-600">{{ resource_groups_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow border-l-4 border-cyan-500 p-5">
+            <p class="text-sm text-gray-500 mb-1">{% trans "Total Cost" %}</p>
+            <p class="text-2xl font-bold text-cyan-600">{{ total_cost|format_currency }}</p>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="bg-white rounded-lg shadow p-5">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">{% trans "Top Resource Groups by Cost" %}</h3>
+        <canvas id="resourceGroupChart" height="80"></canvas>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-5 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">{% trans "All Resource Groups" %}</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{% trans "Resource Group" %}</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Cost (EUR)" %}</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "Records" %}</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{% trans "% of Total" %}</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for rg in resource_groups_list %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ forloop.counter }}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ rg.resource_group_name|default:"(no group)" }}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-900">{{ rg.total_cost|format_currency }}</td>
+                        <td class="px-6 py-4 text-sm text-right"><span class="px-2 py-1 bg-gray-100 rounded text-gray-600">{{ rg.record_count }}</span></td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-500">{{ rg.total_cost|format_percentage:total_cost }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">{% trans "No resource group data available" %}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- JSON config for finops_dashboard.js -->
+<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
+{% endblock %}

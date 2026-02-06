@@ -1,0 +1,80 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Crush.lu Profile" %}{% endblock %}
+
+{% block content %}
+<div class="section-container max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold mb-8 text-red-600 dark:text-red-400">{% trans "Delete Crush.lu Profile" %}</h1>
+
+    <div class="card border-red-200 dark:border-red-900">
+        <div class="card-body">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4">{% trans "Warning: Permanent Deletion" %}</h2>
+                <p class="text-secondary mb-4">
+                    {% trans "You are about to permanently delete your Crush.lu profile. This action:" %}
+                </p>
+                <ul class="list-disc list-inside text-secondary space-y-2 mb-4">
+                    <li>{% trans "Removes your dating profile, photos, and all event history" %}</li>
+                    <li>{% trans "Deletes all your connections and messages" %}</li>
+                    <li>{% trans "Cancels any pending event registrations" %}</li>
+                    <li class="font-bold text-red-600 dark:text-red-400">{% trans "Prevents you from ever creating a new Crush.lu profile with this account" %}</li>
+                </ul>
+                <p class="text-sm text-secondary">
+                    {% trans "Your PowerUp account will remain active, and you can continue using other platforms." %}
+                </p>
+            </div>
+
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+                <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
+                    {% trans "This deletion is permanent and cannot be undone." %}
+                </p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-2">
+                        {% trans "Confirm your email address to proceed:" %}
+                    </label>
+                    <input
+                        type="email"
+                        name="confirm_email"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="{{ user.email }}"
+                        required
+                    >
+                    <p class="text-xs text-secondary mt-1">
+                        {% trans "Enter your email address:" %} <strong>{{ user.email }}</strong>
+                    </p>
+                </div>
+
+                <div class="flex gap-4">
+                    <button
+                        type="submit"
+                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
+                        onclick="return confirm('{% trans "Are you absolutely sure? This cannot be undone and you cannot rejoin Crush.lu." %}')"
+                    >
+                        {% trans "Delete My Crush.lu Profile" %}
+                    </button>
+                    <a
+                        href="{% url 'crush_lu:account_settings' %}"
+                        class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-semibold"
+                    >
+                        {% trans "Cancel" %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-6 text-sm text-secondary">
+        <p>
+            {% trans "To delete your entire PowerUp account (all platforms), visit the" %}
+            <a href="{% url 'crush_lu:gdpr_data_management' %}" class="text-crush-purple hover:underline">
+                {% trans "GDPR Data Management page" %}
+            </a>.
+        </p>
+    </div>
+</div>
+{% endblock %}

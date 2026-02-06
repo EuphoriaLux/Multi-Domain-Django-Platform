@@ -6,16 +6,16 @@ REST API views for FinOps Hub
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
-from django.db.models import Sum, Count, Q, Avg, Min, Max
+from django.db.models import Sum, Count, Q, Avg
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
-from decimal import Decimal
 import csv
 
 from .models import CostExport, CostRecord, CostAggregation, CostAnomaly
+from .utils.date_helpers import resolve_date_range
 from .serializers import (
     CostExportSerializer,
     CostRecordSerializer,
@@ -87,22 +87,15 @@ class CostAggregationViewSet(viewsets.ReadOnlyModelViewSet):
 def cost_summary(request):
     """Get overall cost summary"""
     currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
 
-    date_range = CostRecord.objects.filter(
-        billing_currency=currency
-    ).aggregate(
-        min_date=Min('billing_period_start'),
-        max_date=Max('billing_period_start')
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostRecord.objects.filter(billing_currency=currency),
+        date_field='billing_period_start',
     )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = max(date_range['min_date'], end_date - timedelta(days=days))
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
 
     records = CostRecord.objects.filter(
         billing_period_start__gte=start_date,
@@ -158,23 +151,14 @@ def cost_summary(request):
 def costs_by_subscription(request):
     """Get costs broken down by subscription"""
     currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
 
-    date_range = CostAggregation.objects.filter(
-        dimension_type='subscription',
-        currency=currency
-    ).aggregate(
-        min_date=Min('period_start'),
-        max_date=Max('period_start')
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostAggregation.objects.filter(dimension_type='subscription', currency=currency),
+        date_field='period_start',
     )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = max(date_range['min_date'], end_date - timedelta(days=days))
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
 
     subscriptions = CostAggregation.objects.filter(
         dimension_type='subscription',
@@ -199,25 +183,19 @@ def costs_by_subscription(request):
 def costs_by_service(request):
     """Get costs broken down by Azure service"""
     currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
     subscription = request.query_params.get('subscription')
 
     base_filters = {'billing_currency': currency}
     if subscription:
         base_filters['sub_account_name'] = subscription
 
-    date_range = CostRecord.objects.filter(**base_filters).aggregate(
-        min_date=Min('billing_period_start'),
-        max_date=Max('billing_period_start')
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostRecord.objects.filter(**base_filters),
+        date_field='billing_period_start',
     )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = max(date_range['min_date'], end_date - timedelta(days=days))
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
 
     filters = {
         **base_filters,
@@ -243,25 +221,19 @@ def costs_by_service(request):
 def costs_by_resource_group(request):
     """Get costs broken down by resource group"""
     currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
     subscription = request.query_params.get('subscription')
 
     base_filters = {'billing_currency': currency}
     if subscription:
         base_filters['sub_account_name'] = subscription
 
-    date_range = CostRecord.objects.filter(**base_filters).aggregate(
-        min_date=Min('billing_period_start'),
-        max_date=Max('billing_period_start')
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostRecord.objects.filter(**base_filters),
+        date_field='billing_period_start',
     )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = max(date_range['min_date'], end_date - timedelta(days=days))
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
 
     filters = {
         **base_filters,
@@ -287,7 +259,6 @@ def costs_by_resource_group(request):
 def cost_trend(request):
     """Get daily cost trend data"""
     currency = request.query_params.get('currency', 'EUR')
-    days = int(request.query_params.get('days', 30))
     subscription = request.query_params.get('subscription')
     service = request.query_params.get('service')
 
@@ -297,31 +268,19 @@ def cost_trend(request):
     if service:
         base_filters['service_name'] = service
 
-    date_range = CostRecord.objects.filter(**base_filters).aggregate(
-        min_date=Min(TruncDate('charge_period_start')),
-        max_date=Max(TruncDate('charge_period_start'))
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostRecord.objects.filter(**base_filters),
     )
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
 
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = end_date - timedelta(days=days - 1)
-            if start_date < date_range['min_date']:
-                start_date = date_range['min_date']
-
-    daily_costs_queryset = CostRecord.objects.filter(**base_filters).annotate(
+    daily_costs = CostRecord.objects.filter(**base_filters).annotate(
         usage_date=TruncDate('charge_period_start')
-    )
-
-    daily_costs_queryset = daily_costs_queryset.filter(
+    ).filter(
         usage_date__gte=start_date,
         usage_date__lte=end_date
-    )
-
-    daily_costs = daily_costs_queryset.values('usage_date').annotate(
+    ).values('usage_date').annotate(
         total_cost=Sum('billed_cost'),
         usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
         purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
@@ -333,10 +292,6 @@ def cost_trend(request):
         'currency': currency,
         'filters': {'subscription': subscription, 'service': service},
         'daily_costs': list(daily_costs),
-        'data_availability': {
-            'earliest_date': date_range['min_date'],
-            'latest_date': date_range['max_date'],
-        }
     })
 
 
@@ -440,112 +395,92 @@ def acknowledge_anomaly(request, anomaly_id):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])  # Allow any to return proper error message
+@permission_classes([IsAuthenticated])
 def export_costs_csv(request):
-    """
-    Export cost data as CSV file.
+    """Export cost data as CSV file."""
+    currency = request.query_params.get('currency', 'EUR')
+    subscription = request.query_params.get('subscription')
+    export_format = request.query_params.get('format', 'daily_summary')
 
-    NOTE: This feature is temporarily disabled - returns "Coming Soon" message.
-    """
-    # Feature temporarily disabled
-    return Response(
-        {
-            'error': 'CSV export is coming soon. This feature is temporarily disabled.',
-            'status': 'coming_soon',
-        },
-        status=status.HTTP_501_NOT_IMPLEMENTED
+    base_filters = {'billing_currency': currency}
+    if subscription:
+        base_filters['sub_account_name'] = subscription
+
+    date_info = resolve_date_range(
+        request.query_params,
+        queryset=CostRecord.objects.filter(**base_filters),
+        date_field='billing_period_start',
     )
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
 
-    # TODO: Uncomment below when CSV export is ready
-    # currency = request.query_params.get('currency', 'EUR')
-    # days = int(request.query_params.get('days', 30))
-    # subscription = request.query_params.get('subscription')
-    # export_format = request.query_params.get('format', 'daily_summary')
-    #
-    # base_filters = {'billing_currency': currency}
-    # if subscription:
-    #     base_filters['sub_account_name'] = subscription
-    #
-    # date_range = CostRecord.objects.filter(**base_filters).aggregate(
-    #     min_date=Min('billing_period_start'),
-    #     max_date=Max('billing_period_start')
-    # )
-    #
-    # end_date = timezone.now().date()
-    # start_date = end_date - timedelta(days=days)
-    #
-    # if date_range['min_date'] and date_range['max_date']:
-    #     if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-    #         end_date = date_range['max_date']
-    #         start_date = max(date_range['min_date'], end_date - timedelta(days=days))
-    #
-    # filters = {
-    #     **base_filters,
-    #     'billing_period_start__gte': start_date,
-    #     'billing_period_start__lte': end_date,
-    # }
-    #
-    # response = HttpResponse(content_type='text/csv')
-    # filename = f'azure_costs_{start_date}_{end_date}.csv'
-    # response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    #
-    # writer = csv.writer(response)
-    #
-    # if export_format == 'daily_summary':
-    #     writer.writerow(['Date', 'Total Cost', 'Usage Cost', 'Purchase Cost', 'Record Count'])
-    #     daily_costs = CostRecord.objects.filter(**filters).annotate(
-    #         usage_date=TruncDate('charge_period_start')
-    #     ).values('usage_date').annotate(
-    #         total_cost=Sum('billed_cost'),
-    #         usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
-    #         purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
-    #         record_count=Count('id'),
-    #     ).order_by('usage_date')
-    #
-    #     for record in daily_costs:
-    #         writer.writerow([
-    #             record['usage_date'],
-    #             f"{float(record['total_cost'] or 0):.2f}",
-    #             f"{float(record['usage_cost'] or 0):.2f}",
-    #             f"{float(record['purchase_cost'] or 0):.2f}",
-    #             record['record_count'],
-    #         ])
-    #
-    # elif export_format == 'by_service':
-    #     writer.writerow(['Service Name', 'Total Cost', 'Record Count', 'Percentage'])
-    #     total = CostRecord.objects.filter(**filters).aggregate(total=Sum('billed_cost'))['total'] or 1
-    #     services = CostRecord.objects.filter(**filters).values('service_name').annotate(
-    #         total_cost=Sum('billed_cost'),
-    #         record_count=Count('id'),
-    #     ).order_by('-total_cost')
-    #
-    #     for service in services:
-    #         cost = float(service['total_cost'] or 0)
-    #         percentage = (cost / float(total)) * 100
-    #         writer.writerow([
-    #             service['service_name'] or 'Unknown',
-    #             f"{cost:.2f}",
-    #             service['record_count'],
-    #             f"{percentage:.1f}%",
-    #         ])
-    #
-    # elif export_format == 'by_resource':
-    #     writer.writerow(['Resource Name', 'Resource Type', 'Service', 'Resource Group', 'Total Cost', 'Record Count'])
-    #     resources = CostRecord.objects.filter(**filters).values(
-    #         'resource_name', 'resource_type', 'service_name', 'resource_group_name'
-    #     ).annotate(
-    #         total_cost=Sum('billed_cost'),
-    #         record_count=Count('id'),
-    #     ).order_by('-total_cost')[:1000]
-    #
-    #     for resource in resources:
-    #         writer.writerow([
-    #             resource['resource_name'] or 'Unknown',
-    #             resource['resource_type'] or 'Unknown',
-    #             resource['service_name'] or 'Unknown',
-    #             resource['resource_group_name'] or 'Unknown',
-    #             f"{float(resource['total_cost'] or 0):.2f}",
-    #             resource['record_count'],
-    #         ])
-    #
-    # return response
+    filters = {
+        **base_filters,
+        'billing_period_start__gte': start_date,
+        'billing_period_start__lte': end_date,
+    }
+
+    response = HttpResponse(content_type='text/csv')
+    filename = f'azure_costs_{start_date}_{end_date}.csv'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+
+    if export_format == 'daily_summary':
+        writer.writerow(['Date', 'Total Cost', 'Usage Cost', 'Purchase Cost', 'Record Count'])
+        daily_costs = CostRecord.objects.filter(**filters).annotate(
+            usage_date=TruncDate('charge_period_start')
+        ).values('usage_date').annotate(
+            total_cost=Sum('billed_cost'),
+            usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
+            purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
+            record_count=Count('id'),
+        ).order_by('usage_date')
+
+        for record in daily_costs:
+            writer.writerow([
+                record['usage_date'],
+                f"{float(record['total_cost'] or 0):.2f}",
+                f"{float(record['usage_cost'] or 0):.2f}",
+                f"{float(record['purchase_cost'] or 0):.2f}",
+                record['record_count'],
+            ])
+
+    elif export_format == 'by_service':
+        writer.writerow(['Service Name', 'Total Cost', 'Record Count', 'Percentage'])
+        total = CostRecord.objects.filter(**filters).aggregate(total=Sum('billed_cost'))['total'] or 1
+        services = CostRecord.objects.filter(**filters).values('service_name').annotate(
+            total_cost=Sum('billed_cost'),
+            record_count=Count('id'),
+        ).order_by('-total_cost')
+
+        for service in services:
+            cost = float(service['total_cost'] or 0)
+            percentage = (cost / float(total)) * 100
+            writer.writerow([
+                service['service_name'] or 'Unknown',
+                f"{cost:.2f}",
+                service['record_count'],
+                f"{percentage:.1f}%",
+            ])
+
+    elif export_format == 'by_resource':
+        writer.writerow(['Resource Name', 'Resource Type', 'Service', 'Resource Group', 'Total Cost', 'Record Count'])
+        resources = CostRecord.objects.filter(**filters).values(
+            'resource_name', 'resource_type', 'service_name', 'resource_group_name'
+        ).annotate(
+            total_cost=Sum('billed_cost'),
+            record_count=Count('id'),
+        ).order_by('-total_cost')[:1000]
+
+        for resource in resources:
+            writer.writerow([
+                resource['resource_name'] or 'Unknown',
+                resource['resource_type'] or 'Unknown',
+                resource['service_name'] or 'Unknown',
+                resource['resource_group_name'] or 'Unknown',
+                f"{float(resource['total_cost'] or 0):.2f}",
+                resource['record_count'],
+            ])
+
+    return response

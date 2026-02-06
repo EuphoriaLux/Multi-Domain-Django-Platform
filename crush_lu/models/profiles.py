@@ -1143,6 +1143,10 @@ class EmailPreference(models.Model):
         default=True,
         help_text=_("Notifications about new messages from connections")
     )
+    email_newsletter = models.BooleanField(
+        default=True,  # ON by default - service-related announcements about events/community
+        help_text=_("Newsletter emails about upcoming events and community news")
+    )
     email_marketing = models.BooleanField(
         default=False,  # OFF by default - GDPR compliance
         help_text=_("Marketing emails, newsletters, promotions (requires explicit opt-in)")
@@ -1188,6 +1192,7 @@ class EmailPreference(models.Model):
             'event_reminders': self.email_event_reminders,
             'new_connections': self.email_new_connections,
             'new_messages': self.email_new_messages,
+            'newsletter': self.email_newsletter,
             'marketing': self.email_marketing,
         }
 
@@ -1204,6 +1209,8 @@ class EmailPreference(models.Model):
             categories.append('new_connections')
         if self.email_new_messages:
             categories.append('new_messages')
+        if self.email_newsletter:
+            categories.append('newsletter')
         if self.email_marketing:
             categories.append('marketing')
         return categories
@@ -1216,6 +1223,78 @@ class EmailPreference(models.Model):
         """
         preference, created = cls.objects.get_or_create(user=user)
         return preference
+
+
+class UserDataConsent(models.Model):
+    """
+    Tracks user consent for data processing across PowerUp (identity layer)
+    and Crush.lu (profile layer).
+
+    Two-tier consent architecture:
+    1. PowerUp consent (identity): Implicit during account creation (User + Allauth)
+    2. Crush.lu consent (profile): Explicit during profile creation
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='data_consent')
+
+    # PowerUp Layer Consent (User + Allauth)
+    powerup_consent_given = models.BooleanField(
+        default=False,
+        help_text=_("User consents to PowerUp identity layer (User model + OAuth data)")
+    )
+    powerup_consent_date = models.DateTimeField(null=True, blank=True)
+    powerup_consent_ip = models.GenericIPAddressField(null=True, blank=True)
+    powerup_terms_version = models.CharField(max_length=10, default='1.0')
+
+    # Crush.lu Layer Consent (CrushProfile + related data)
+    crushlu_consent_given = models.BooleanField(
+        default=False,
+        help_text=_("User consents to Crush.lu profile layer (dating profile + photos)")
+    )
+    crushlu_consent_date = models.DateTimeField(null=True, blank=True)
+    crushlu_consent_ip = models.GenericIPAddressField(null=True, blank=True)
+    crushlu_terms_version = models.CharField(max_length=10, default='1.0')
+
+    # Permanent ban from Crush.lu
+    crushlu_banned = models.BooleanField(
+        default=False,
+        help_text=_("User is permanently banned from creating new Crush.lu profiles")
+    )
+    crushlu_ban_date = models.DateTimeField(null=True, blank=True)
+    crushlu_ban_reason = models.CharField(
+        max_length=50,
+        choices=[
+            ('user_deletion', _('User deleted profile')),
+            ('admin_action', _('Admin action')),
+            ('terms_violation', _('Terms violation')),
+        ],
+        null=True,
+        blank=True
+    )
+
+    # Marketing consent (optional)
+    marketing_consent = models.BooleanField(
+        default=False,
+        help_text=_("User consents to marketing communications")
+    )
+    marketing_consent_date = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("User Data Consent")
+        verbose_name_plural = _("User Data Consents")
+
+    def __str__(self):
+        return f"Consent for {self.user.username}"
+
+    def has_powerup_consent(self):
+        """Check if user has given PowerUp consent"""
+        return self.powerup_consent_given
+
+    def has_crushlu_consent(self):
+        """Check if user has given Crush.lu consent"""
+        return self.crushlu_consent_given
 
 
 class CoachPushSubscription(models.Model):

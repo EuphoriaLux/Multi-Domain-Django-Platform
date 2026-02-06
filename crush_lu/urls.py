@@ -174,7 +174,12 @@ urlpatterns = [
     path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
     path('account/set-password/', views.set_password, name='set_password'),
     path('account/disconnect/<int:social_account_id>/', views.disconnect_social_account, name='disconnect_social_account'),
-    path('account/delete/', views.delete_account, name='delete_account'),
+
+    # GDPR & Account Deletion
+    path('account/delete/', views.delete_account, name='delete_account'),  # Redirects to GDPR dashboard
+    path('account/delete-profile/', views.delete_crushlu_profile_view, name='delete_crushlu_profile'),  # Default action
+    path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
+    path('consent/confirm/', views.consent_confirm, name='consent_confirm'),  # Retroactive consent confirmation
 
     # Email unsubscribe (public access with token)
     path('unsubscribe/<uuid:token>/', views.email_unsubscribe, name='email_unsubscribe'),

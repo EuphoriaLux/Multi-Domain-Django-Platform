@@ -10,6 +10,9 @@
     <div>
         <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Cost Dashboard</h1>
         <p class="text-gray-500">Azure cost analytics and insights</p>
+        {% if last_import_at %}
+        <p class="text-xs text-gray-400 mt-1">Last updated: {{ last_import_at|date:"M d, Y H:i" }} UTC</p>
+        {% endif %}
     </div>
     <div class="mt-4 md:mt-0">
         <form method="get" action="" class="flex items-center space-x-2">
@@ -30,13 +33,10 @@
 </div>
 
 <!-- Advanced Filters -->
-<div class="bg-white rounded-lg shadow p-4 mb-6" x-data="{ showFilters: {% if filters.subscription or filters.service %}true{% else %}false{% endif %} }">
+<div class="bg-white rounded-lg shadow p-4 mb-6" x-data="finopsFilterToggle" data-initial-open="{% if filters.subscription or filters.service %}true{% else %}false{% endif %}">
     <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-gray-700">Filters</h3>
-        <button @click="showFilters = !showFilters" class="text-sm text-blue-600 hover:text-blue-800">
-            <span x-show="!showFilters">Show filters</span>
-            <span x-show="showFilters">Hide filters</span>
-        </button>
+        <button @click="toggle" class="text-sm text-blue-600 hover:text-blue-800" x-text="showLabel"></button>
     </div>
 
     <form method="get" action="" x-show="showFilters" class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -75,6 +75,18 @@
             </select>
         </div>
 
+        {% if filters.tag_keys %}
+        <div>
+            <label for="tag_key" class="block text-sm font-medium text-gray-700 mb-1">Tag</label>
+            <select name="tag_key" id="tag_key" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All Tags</option>
+                {% for key in filters.tag_keys %}
+                <option value="{{ key }}" {% if filters.tag_key == key %}selected{% endif %}>{{ key }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
         <div class="flex items-end space-x-2">
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 Apply Filters
@@ -91,19 +103,19 @@
         {% if filters.charge_type and filters.charge_type != 'payg' %}
         <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
             Pricing: {% if filters.charge_type == 'reserved' %}Reserved Instance{% elif filters.charge_type == 'all' %}All Usage{% else %}{{ filters.charge_type|title }}{% endif %}
-            <a href="?days={{ period.days }}&charge_type=payg{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-purple-600 hover:text-purple-900">×</a>
+            <a href="?days={{ period.days }}&charge_type=payg{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-purple-600 hover:text-purple-900">&times;</a>
         </span>
         {% endif %}
         {% if filters.subscription %}
         <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
             Subscription: {{ filters.subscription }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-blue-600 hover:text-blue-900">×</a>
+            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-blue-600 hover:text-blue-900">&times;</a>
         </span>
         {% endif %}
         {% if filters.service %}
         <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
             Service: {{ filters.service }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}" class="ml-1 text-green-600 hover:text-green-900">×</a>
+            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}" class="ml-1 text-green-600 hover:text-green-900">&times;</a>
         </span>
         {% endif %}
     </div>
@@ -128,7 +140,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
             </svg>
             <p class="text-sm text-green-800">
-                Showing <strong>Reserved Instance usage only</strong>. These costs are covered by your reservation commitment. Effective cost is typically €0 (already paid upfront).
+                Showing <strong>Reserved Instance usage only</strong>. These costs are covered by your reservation commitment. Effective cost is typically &euro;0 (already paid upfront).
             </p>
         </div>
     </div>
@@ -156,30 +168,51 @@
     </div>
 </div>
 
+<!-- Budget Utilization -->
+{% if budgets %}
+<div class="grid grid-cols-1 md:grid-cols-{{ budgets|length }} gap-4 mb-6">
+    {% for budget in budgets %}
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex justify-between items-center mb-2">
+            <h4 class="text-sm font-medium text-gray-700">{{ budget.name }}</h4>
+            <span class="text-xs {% if budget.utilization_pct > budget.alert_threshold_pct %}text-red-600 font-bold{% elif budget.utilization_pct > 80 %}text-amber-600{% else %}text-green-600{% endif %}">
+                {{ budget.utilization_pct|floatformat:0 }}%
+            </span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3">
+            <div class="h-3 rounded-full {% if budget.utilization_pct > budget.alert_threshold_pct %}bg-red-500{% elif budget.utilization_pct > 80 %}bg-amber-500{% else %}bg-green-500{% endif %}"
+                 style="width: {% if budget.utilization_pct > 100 %}100{% else %}{{ budget.utilization_pct|floatformat:0 }}{% endif %}%;"></div>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">&euro;{{ budget.spent|format_currency }} / &euro;{{ budget.monthly_budget|format_currency }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-5">
         <p class="text-sm text-gray-500 mb-1">Usage Cost ({{ period.days }} days)</p>
-        <p class="text-2xl font-bold text-blue-600">€{{ summary.total_cost|floatformat:2 }}</p>
-        <p class="text-sm text-gray-400">Avg: €{{ summary.avg_daily_cost|floatformat:2 }}/day</p>
+        <p class="text-2xl font-bold text-blue-600">&euro;{{ summary.total_cost|format_currency }}</p>
+        <p class="text-sm text-gray-400">Avg: &euro;{{ summary.avg_daily_cost|format_currency }}/day</p>
     </div>
 
     {% if filters.charge_type != 'reserved' %}
     <div class="bg-white rounded-lg shadow border-l-4 border-orange-500 p-5">
         <p class="text-sm text-gray-500 mb-1">Reservation Cost ({{ period.days }} days)</p>
-        <p class="text-2xl font-bold text-orange-600">€{{ summary.reservation_cost|floatformat:2 }}</p>
+        <p class="text-2xl font-bold text-orange-600">&euro;{{ summary.reservation_cost|format_currency }}</p>
         <p class="text-sm text-gray-400">Amortized (from Azure)</p>
     </div>
 
     <div class="bg-white rounded-lg shadow border-l-4 border-indigo-500 p-5">
         <p class="text-sm text-gray-500 mb-1">Total Cost</p>
-        <p class="text-2xl font-bold text-indigo-600">€{{ summary.total_cost_with_reservations|floatformat:2 }}</p>
+        <p class="text-2xl font-bold text-indigo-600">&euro;{{ summary.total_cost_with_reservations|format_currency }}</p>
         <p class="text-sm text-gray-400">Usage + Reservations</p>
     </div>
     {% else %}
     <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
         <p class="text-sm text-gray-500 mb-1">Reserved Instance Usage</p>
-        <p class="text-2xl font-bold text-green-600">€{{ summary.total_list_cost|floatformat:2 }}</p>
+        <p class="text-2xl font-bold text-green-600">&euro;{{ summary.total_list_cost|format_currency }}</p>
         <p class="text-sm text-gray-400">Capacity tracked</p>
     </div>
     {% endif %}
@@ -190,9 +223,9 @@
         </p>
         <p class="text-2xl font-bold text-green-600">
             {% if filters.charge_type == 'reserved' %}
-            €{{ summary.total_savings|floatformat:2 }}
+            &euro;{{ summary.total_savings|format_currency }}
             {% else %}
-            €{{ summary.reservation_savings_estimate|floatformat:2 }}
+            &euro;{{ summary.reservation_savings_estimate|format_currency }}
             {% endif %}
         </p>
         <p class="text-sm text-gray-400">
@@ -221,8 +254,13 @@
         <div>
             <p class="text-sm font-medium text-blue-800">About reservation costs</p>
             <p class="text-sm text-blue-700 mt-1">
-                Reservation costs are amortized from the monthly cost shown in Azure Portal Cost Management (€24.83/month for P0v3 App Service).
-                Costs are prorated for partial months based on the reservation purchase date (Jan 16, 2026).
+                Reservation costs are amortized from the monthly cost shown in Azure Portal Cost Management.
+                {% if active_reservations %}
+                Active reservations:
+                {% for res in active_reservations %}
+                    {{ res.reservation_name }} (&euro;{{ res.monthly_amortization|format_currency }}/month){% if not forloop.last %}, {% endif %}
+                {% endfor %}.
+                {% endif %}
                 Savings estimates assume typical 3-year reservation discounts (~55% off pay-as-you-go rates).
             </p>
         </div>
@@ -241,7 +279,12 @@
                 <button id="weeklyView" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50" onclick="toggleChartView('weekly')">Weekly</button>
             </div>
         </div>
-        <canvas id="costTrendChart" height="100"></canvas>
+        <div class="relative">
+            <div id="costTrendLoading" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+            <canvas id="costTrendChart" height="100"></canvas>
+        </div>
         <div class="mt-4 p-3 bg-blue-50 rounded-lg">
             <div class="flex flex-wrap items-center gap-4 text-sm">
                 <span class="font-medium text-blue-800">Cost Categories:</span>
@@ -290,18 +333,20 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ forloop.counter }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ service.service_name|default:"Unknown" }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="w-full bg-gray-200 rounded-full h-4">
-                            {% with width=service.cost|percentage:summary.total_cost %}
-                            <div class="progress-bar bg-blue-600 h-4 rounded-full flex items-center justify-end pr-2"
-                                 style="width: {{ width }}%;"
+                        {% with width=service.cost|percentage:summary.total_cost %}
+                        <div class="relative w-full bg-gray-200 rounded-full h-4">
+                            <div class="progress-bar bg-blue-600 h-4 rounded-full"
+                                 style="width: {{ width }}%; min-width: 2px;"
                                  data-width="{{ width }}" data-cost="{{ service.cost }}" data-total="{{ summary.total_cost }}">
-                                <span class="progress-bar-text text-xs text-white font-medium">{{ service.cost|format_percentage:summary.total_cost }}</span>
                             </div>
-                            {% endwith %}
+                            <span class="absolute inset-0 flex items-center {% if width|floatformat:0 > '15' %}justify-end pr-2 text-white{% else %}pl-2 text-gray-700{% endif %} text-xs font-medium" style="{% if width|floatformat:0 > '15' %}{% else %}left: {{ width }}%;{% endif %}">
+                                {{ service.cost|format_percentage:summary.total_cost }}
+                            </span>
                         </div>
+                        {% endwith %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <strong class="service-cost text-gray-900">{{ service.cost|floatformat:2 }}</strong>
+                        <strong class="service-cost text-gray-900">{{ service.cost|format_currency }}</strong>
                     </td>
                 </tr>
                 {% empty %}
@@ -330,187 +375,36 @@
     </div>
     <div>
         <h6 class="text-sm font-medium text-gray-500 mb-3">Export Data</h6>
-        {# Export CSV - Temporarily disabled #}
-        <button disabled class="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-md cursor-not-allowed" title="Coming soon">
-            Export CSV
-            <span class="ml-2 text-xs bg-gray-400 text-white px-2 py-0.5 rounded-full">Soon</span>
-        </button>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=daily_summary" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+                Export Daily CSV
+            </a>
+            <a href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=by_service" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+                Export by Service
+            </a>
+        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<!-- JSON config for finops_dashboard.js -->
+<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
+
+<!-- Hide loading spinner once chart renders -->
 <script>
-    let costChart = null;
-    let rawCostData = [];
-    let currentView = 'daily';
-
-    document.addEventListener('DOMContentLoaded', function() {
-        fetchCostTrend();
-        const subscriptionData = {{ top_subscriptions|safe }};
-        renderSubscriptionChart(subscriptionData);
-    });
-
-    function fetchCostTrend() {
-        fetch('/finops/api/costs/trend/?days={{ period.days }}')
-            .then(response => response.json())
-            .then(data => {
-                rawCostData = data.daily_costs;
-                renderCostTrendChart(rawCostData, 'daily');
-            });
-    }
-
-    function toggleChartView(view) {
-        currentView = view;
-        document.getElementById('dailyView').className = view === 'daily'
-            ? 'px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white'
-            : 'px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50';
-        document.getElementById('weeklyView').className = view === 'weekly'
-            ? 'px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white'
-            : 'px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50';
-        renderCostTrendChart(rawCostData, view);
-    }
-
-    function aggregateWeekly(dailyCosts) {
-        const weeklyData = {};
-        dailyCosts.forEach(day => {
-            const date = new Date(day.usage_date);
-            const monday = new Date(date);
-            monday.setDate(date.getDate() - date.getDay() + 1);
-            const weekKey = monday.toISOString().split('T')[0];
-            if (!weeklyData[weekKey]) {
-                weeklyData[weekKey] = { usage_date: weekKey, total_cost: 0, usage_cost: 0, purchase_cost: 0 };
-            }
-            weeklyData[weekKey].total_cost += parseFloat(day.total_cost || 0);
-            weeklyData[weekKey].usage_cost += parseFloat(day.usage_cost || 0);
-            weeklyData[weekKey].purchase_cost += parseFloat(day.purchase_cost || 0);
-        });
-        return Object.values(weeklyData).sort((a, b) => new Date(a.usage_date) - new Date(b.usage_date));
-    }
-
-    function formatDate(dateStr, view) {
-        const date = new Date(dateStr);
-        if (view === 'weekly') {
-            const endDate = new Date(date);
-            endDate.setDate(date.getDate() + 6);
-            const options = { month: 'short', day: 'numeric' };
-            return date.toLocaleDateString('en-US', options) + ' - ' + endDate.toLocaleDateString('en-US', options);
-        }
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    function renderCostTrendChart(dailyCosts, view = 'daily') {
-        const data = view === 'weekly' ? aggregateWeekly(dailyCosts) : dailyCosts;
-        const ctx = document.getElementById('costTrendChart').getContext('2d');
-        const labels = data.map(d => formatDate(d.usage_date, view));
-        const usageCosts = data.map(d => parseFloat(d.usage_cost || 0));
-        const purchaseCosts = data.map(d => parseFloat(d.purchase_cost || 0));
-
-        if (costChart) costChart.destroy();
-
-        costChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'Usage Cost', data: usageCosts, backgroundColor: 'rgba(59, 130, 246, 0.8)', borderWidth: 0 },
-                    { label: 'Purchase Cost', data: purchaseCosts, backgroundColor: 'rgba(251, 146, 60, 0.8)', borderWidth: 0 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { display: true, position: 'top' },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2),
-                            footer: items => 'Total: ' + items.reduce((a, b) => a + b.parsed.y, 0).toFixed(2)
-                        }
-                    }
-                },
-                scales: {
-                    x: { stacked: true, ticks: { maxRotation: 45, minRotation: 45 } },
-                    y: { stacked: true, beginAtZero: true, ticks: { callback: v => '' + v.toFixed(2) } }
-                }
+document.addEventListener('DOMContentLoaded', function() {
+    var loader = document.getElementById('costTrendLoading');
+    if (loader) {
+        var observer = new MutationObserver(function() {
+            var canvas = document.getElementById('costTrendChart');
+            if (canvas && canvas.style.display !== 'none') {
+                loader.style.display = 'none';
+                observer.disconnect();
             }
         });
+        observer.observe(document.getElementById('costTrendChart'), { attributes: true });
+        // Fallback: hide after 5s
+        setTimeout(function() { loader.style.display = 'none'; }, 5000);
     }
-
-    function renderSubscriptionChart(subscriptions) {
-        const ctx = document.getElementById('subscriptionChart').getContext('2d');
-        const labels = subscriptions.map(s => s.sub_account_name || 'Unknown');
-        const costs = subscriptions.map(s => parseFloat(s.cost));
-        const colors = ['rgba(239, 68, 68, 0.9)', 'rgba(59, 130, 246, 0.9)', 'rgba(234, 179, 8, 0.9)', 'rgba(34, 197, 94, 0.9)', 'rgba(168, 85, 247, 0.9)'];
-
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: { labels, datasets: [{ data: costs, backgroundColor: colors.slice(0, costs.length), borderWidth: 0 }] },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                cutout: '60%',
-                plugins: {
-                    legend: { position: 'bottom', labels: { padding: 15, font: { size: 11 }, usePointStyle: true } },
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => {
-                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
-                                return ctx.label + ': ' + ctx.parsed.toFixed(2) + ' (' + pct + '%)';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Discount slider logic
-    document.addEventListener('DOMContentLoaded', function() {
-        const slider = document.getElementById('discountSlider');
-        const input = document.getElementById('discountInput');
-        const savingsEl = document.getElementById('discountSavings');
-        const originalTotal = parseFloat('{{ summary.total_cost }}'.replace(',', '.'));
-
-        slider.addEventListener('input', function() {
-            input.value = this.value;
-            applyDiscount(parseFloat(this.value));
-        });
-
-        input.addEventListener('input', function() {
-            let v = Math.max(0, Math.min(15, parseFloat(this.value) || 0));
-            this.value = v;
-            slider.value = v;
-            applyDiscount(v);
-        });
-
-        function applyDiscount(pct) {
-            let savings = 0, newTotal = 0;
-            document.querySelectorAll('.service-row').forEach(row => {
-                const name = row.dataset.serviceName;
-                const orig = parseFloat(row.dataset.originalCost.replace(',', '.'));
-                const isMicrosoft = name.toLowerCase().includes('azure') || name.toLowerCase().includes('microsoft');
-                let discounted = orig;
-                if (isMicrosoft && pct > 0) {
-                    const disc = orig * (pct / 100);
-                    discounted = orig - disc;
-                    savings += disc;
-                }
-                newTotal += discounted;
-                const costCell = row.querySelector('.service-cost');
-                if (costCell) {
-                    costCell.innerHTML = isMicrosoft && pct > 0
-                        ? '<span class="text-green-600">' + discounted.toFixed(2) + '</span> <small class="text-gray-400">(-' + pct + '%)</small>'
-                        : discounted.toFixed(2);
-                }
-            });
-            savingsEl.innerHTML = '<span class="text-sm text-gray-500">Savings: </span><strong class="text-green-600">' + savings.toFixed(2) + '</strong><br><small class="text-gray-500">New Total: ' + newTotal.toFixed(2) + '</small>';
-        }
-    });
+});
 </script>
 {% endblock %}

@@ -1,0 +1,22 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block header_title %}Crush.lu{% endblock %}
+
+{% block content %}
+<h2 style="color: #9B59B6; font-size: 22px; margin-top: 0;">
+    {% if first_name %}{% blocktrans with name=first_name %}Hey {{ name }}!{% endblocktrans %}{% else %}{% trans "Hey there!" %}{% endif %}
+</h2>
+
+{{ body_html|safe }}
+
+{% if cta_url and cta_text %}
+<p style="text-align: center; margin: 25px 0;">
+    <a href="{{ cta_url }}" class="button" style="display: inline-block; padding: 12px 30px; background-color: #9B59B6; background: linear-gradient(135deg, #9B59B6, #FF6B9D); color: white !important; text-decoration: none; border-radius: 5px; font-weight: 600;">{{ cta_text }}</a>
+</p>
+{% endif %}
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because you're a member of Crush.lu." %}<br>
+{% endblock %}

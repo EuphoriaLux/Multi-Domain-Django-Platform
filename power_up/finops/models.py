@@ -483,3 +483,63 @@ class ReservationCost(models.Model):
             current_date += timedelta(days=1)
 
         return float(total_cost)
+
+
+class CostBudget(models.Model):
+    """Monthly cost budget with alerting thresholds"""
+    name = models.CharField(max_length=200)
+    dimension_type = models.CharField(
+        max_length=30,
+        choices=[
+            ('overall', 'Overall'),
+            ('subscription', 'Subscription'),
+            ('service', 'Service'),
+            ('resource_group', 'Resource Group'),
+        ],
+        default='overall'
+    )
+    dimension_value = models.CharField(
+        max_length=200, blank=True, default='',
+        help_text='Leave blank for overall budget'
+    )
+    monthly_budget = models.DecimalField(max_digits=12, decimal_places=2)
+    alert_threshold = models.IntegerField(
+        default=80,
+        help_text='Alert when utilization exceeds this percentage'
+    )
+    currency = models.CharField(max_length=10, default='EUR')
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'finops_hub_costbudget'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name}: {self.monthly_budget} {self.currency}/month"
+
+    def get_current_spend(self):
+        """Get current month's spend for this budget's dimension."""
+        from django.utils import timezone
+        from django.db.models import Sum
+        now = timezone.now().date()
+        month_start = now.replace(day=1)
+
+        filters = {
+            'charge_period_start__date__gte': month_start,
+            'charge_period_start__date__lte': now,
+            'billing_currency': self.currency,
+        }
+
+        if self.dimension_type == 'subscription' and self.dimension_value:
+            filters['sub_account_name'] = self.dimension_value
+        elif self.dimension_type == 'service' and self.dimension_value:
+            filters['service_name'] = self.dimension_value
+        elif self.dimension_type == 'resource_group' and self.dimension_value:
+            filters['resource_group_name'] = self.dimension_value
+
+        result = CostRecord.objects.filter(**filters).aggregate(
+            total=Sum('billed_cost')
+        )
+        return result['total'] or 0

@@ -1,6 +1,7 @@
 {% extends "finops/base_finops.html" %}
 {% load static %}
 {% load i18n %}
+{% load finops_filters %}
 
 {% block title %}{% trans "Cost Anomalies" %} - FinOps Hub{% endblock %}
 
@@ -99,7 +100,7 @@
                             <!-- Acknowledged Badge -->
                             {% if anomaly.is_acknowledged %}
                             <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
-                                ✓ {% trans "Acknowledged" %}
+                                {% trans "Acknowledged" %}
                             </span>
                             {% endif %}
                         </div>
@@ -116,11 +117,11 @@
                         <div class="flex flex-wrap gap-4 text-sm">
                             <div>
                                 <span class="text-gray-600">{% trans "Actual" %}:</span>
-                                <span class="font-semibold text-red-600">{{ anomaly.actual_cost|floatformat:2 }} {{ anomaly.currency }}</span>
+                                <span class="font-semibold text-red-600">{{ anomaly.actual_cost|format_currency }} {{ anomaly.currency }}</span>
                             </div>
                             <div>
                                 <span class="text-gray-600">{% trans "Expected" %}:</span>
-                                <span class="font-semibold text-gray-900">{{ anomaly.expected_cost|floatformat:2 }} {{ anomaly.currency }}</span>
+                                <span class="font-semibold text-gray-900">{{ anomaly.expected_cost|format_currency }} {{ anomaly.currency }}</span>
                             </div>
                             <div>
                                 <span class="text-gray-600">{% trans "Deviation" %}:</span>
@@ -173,46 +174,6 @@
     </div>
 </div>
 
-{% if user.is_staff %}
-<script>
-function acknowledgeAnomaly(id) {
-    if (!confirm('{% trans "Mark this anomaly as acknowledged?" %}')) return;
-
-    fetch(`/finops/api/anomalies/${id}/acknowledge/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('{% trans "Failed to acknowledge anomaly" %}');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('{% trans "An error occurred" %}');
-    });
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-</script>
-{% endif %}
+<!-- JSON config for finops_dashboard.js (anomalies page auto-init) -->
+<script id="finops-config" type="application/json">{"page": "anomalies"}</script>
 {% endblock %}

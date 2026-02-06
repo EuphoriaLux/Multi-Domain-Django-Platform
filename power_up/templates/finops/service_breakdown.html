@@ -1,5 +1,6 @@
 {% extends "finops/base_finops.html" %}
 {% load static %}
+{% load finops_filters %}
 
 {% block title %}FinOps Hub - Services{% endblock %}
 
@@ -71,9 +72,9 @@
                     <td class="px-6 py-4 text-sm text-gray-500">{{ forloop.counter }}</td>
                     <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ service.service_name }}</td>
                     <td class="px-6 py-4 text-sm">{% if service.service_category %}<span class="px-2 py-1 bg-gray-100 rounded text-gray-600">{{ service.service_category }}</span>{% else %}-{% endif %}</td>
-                    <td class="px-6 py-4 text-sm text-right text-gray-900">{{ service.total_cost|floatformat:2 }}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-900">{{ service.total_cost|format_currency }}</td>
                     <td class="px-6 py-4 text-sm text-right"><span class="px-2 py-1 bg-gray-100 rounded text-gray-600">{{ service.record_count }}</span></td>
-                    <td class="px-6 py-4 text-sm text-right text-gray-500">{% widthratio service.total_cost total_cost 100 as pct %}{{ pct|floatformat:1 }}%</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-500">{{ service.total_cost|format_percentage:total_cost }}</td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No service data available</td></tr>
@@ -88,23 +89,7 @@
     <a href="{% url 'finops_hub:subscriptions' %}" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">Subscriptions</a>
     <a href="{% url 'finops_hub:resources' %}" class="px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">Resources</a>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const data = {{ services|safe }};
-    if (data && data.length > 0) {
-        new Chart(document.getElementById('serviceChart'), {
-            type: 'bar',
-            data: {
-                labels: data.map(s => s.service_name),
-                datasets: [{ label: 'Cost (EUR)', data: data.map(s => parseFloat(s.total_cost)), backgroundColor: 'rgba(20,184,166,0.8)' }]
-            },
-            options: { indexAxis: 'y', responsive: true, scales: { x: { beginAtZero: true, ticks: { callback: v => '' + v.toFixed(2) } } } }
-        });
-    }
-});
-</script>
+<!-- JSON config for finops_dashboard.js -->
+<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
 {% endblock %}

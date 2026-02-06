@@ -220,9 +220,11 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             'pushsubscription': {'order': 1, 'icon': '🔔', 'group': 'Notifications'},
             'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
-            'emailpreference': {'order': 3, 'icon': '📧', 'group': 'Notifications'},
-            'useractivity': {'order': 4, 'icon': '📊', 'group': 'Notifications'},
-            'profilereminder': {'order': 5, 'icon': '📬', 'group': 'Notifications'},
+            'newsletter': {'order': 3, 'icon': '📰', 'group': 'Notifications'},
+            'newsletterrecipient': {'order': 4, 'icon': '📨', 'group': 'Notifications'},
+            'emailpreference': {'order': 5, 'icon': '📧', 'group': 'Notifications'},
+            'useractivity': {'order': 6, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 7, 'icon': '📬', 'group': 'Notifications'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)

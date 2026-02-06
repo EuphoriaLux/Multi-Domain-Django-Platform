@@ -879,14 +879,29 @@
                     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}{% trans "Danger Zone" %}
                 </h5>
             </div>
-            <div class="p-6">
-                <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Account" %}</h6>
-                <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">
-                    {% trans "Once you delete your account, there is no going back. All your data including your profile, photos, event registrations, connections, and messages will be permanently deleted." %}
-                </p>
-                <a href="{% url 'crush_lu:delete_account' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
-                    {% include "shared/icons/trash.html" with class="w-5 h-5" %}{% trans "Delete My Account" %}
-                </a>
+            <div class="p-6 space-y-6">
+                <!-- Default action: Delete Crush.lu profile only -->
+                <div>
+                    <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Permanently delete your dating profile and photos. Your PowerUp account will remain active." %}
+                        <strong class="text-red-600 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
+                    </p>
+                    <a href="{% url 'crush_lu:delete_crushlu_profile' %}" class="border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                        {% include "shared/icons/trash.html" with class="w-5 h-5" %}{% trans "Delete Crush.lu Profile" %}
+                    </a>
+                </div>
+
+                <!-- Link to full GDPR dashboard -->
+                <div>
+                    <h6 class="font-semibold mb-2">{% trans "Privacy & Data Management" %}</h6>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "View your consent status, download your data, or delete your entire PowerUp account (all platforms)." %}
+                    </p>
+                    <a href="{% url 'crush_lu:gdpr_data_management' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}{% trans "GDPR Data Management" %}
+                    </a>
+                </div>
             </div>
         </div>
 

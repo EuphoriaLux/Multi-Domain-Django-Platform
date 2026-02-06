@@ -173,13 +173,38 @@
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "At least 8 characters" %}</p>
                             </div>
 
-                            <div class="mb-6">
+                            <div class="mb-4">
                                 <label for="id_password2" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
                                 <input type="password" class="w-full px-4 py-3 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_password2" name="password2" required>
                                 {% if signup_form.password2.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.password2.errors.0 }}</p>
                                 {% endif %}
+                            </div>
+
+                            <!-- Consent Checkboxes -->
+                            <div class="mb-4">
+                                <label class="flex items-start">
+                                    <input type="checkbox" name="crushlu_consent" id="id_crushlu_consent" required class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                    <span class="text-sm text-gray-700 dark:text-gray-200">
+                                        {% trans "I agree to the" %}
+                                        <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
+                                        {% trans "and" %}
+                                        <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Privacy Policy" %}</a>
+                                    </span>
+                                </label>
+                                {% if signup_form.crushlu_consent.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ signup_form.crushlu_consent.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-6">
+                                <label class="flex items-start">
+                                    <input type="checkbox" name="marketing_consent" id="id_marketing_consent" class="mt-1 mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                                        {% trans "I consent to receive marketing communications (optional)" %}
+                                    </span>
+                                </label>
                             </div>
 
                             <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">{% trans "Create Account" %}</button>

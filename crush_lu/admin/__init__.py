@@ -115,6 +115,11 @@ from .preferences import (
     ProfileReminderAdmin,
 )
 
+from .newsletter import (
+    NewsletterAdmin,
+    NewsletterRecipientAdmin,
+)
+
 from .users import (
     CrushProfileUserInline,
     CrushCoachUserInline,
@@ -184,6 +189,8 @@ from crush_lu.models import (
     OAuthState,
     PasskitDeviceRegistration,
     CrushSiteConfig,
+    Newsletter,
+    NewsletterRecipient,
 )
 
 
@@ -261,6 +268,10 @@ crush_admin_site.register(OAuthState, OAuthStateAdmin)
 
 # PassKit Device Registration (Apple Wallet device tracking)
 crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAdmin)
+
+# Newsletter System
+crush_admin_site.register(Newsletter, NewsletterAdmin)
+crush_admin_site.register(NewsletterRecipient, NewsletterRecipientAdmin)
 
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
@@ -378,6 +389,10 @@ __all__ = [
 
     # PassKit Device Registration
     'PasskitDeviceRegistrationAdmin',
+
+    # Newsletter
+    'NewsletterAdmin',
+    'NewsletterRecipientAdmin',
 
     # Site Configuration
     'CrushSiteConfigAdmin',

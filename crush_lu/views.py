@@ -301,96 +301,141 @@ def parse_facebook_signed_request(signed_request):
         return None
 
 
-def delete_user_data(user, confirmation_code):
+def delete_crushlu_profile_only(user):
     """
-    Delete or anonymize a user's data.
+    Delete ONLY Crush.lu profile data, keeping PowerUp account intact.
 
-    This function:
-    1. Deletes user's blob storage folder (photos, exports, etc.)
-    2. Deletes CrushProfile and related data
-    3. Deletes social account connections
-    4. Anonymizes the user account (or deletes entirely)
+    Deletes:
+    - CrushProfile
+    - Profile photos (Azure Blob)
+    - Event registrations
+    - Connections and messages
+    - Journey progress
+    - Crush.lu consent flag
 
-    Args:
-        user: The Django User instance
-        confirmation_code: Unique code for tracking this deletion
+    KEEPS:
+    - Django User record
+    - EmailAddress records
+    - SocialAccount/SocialToken records
+    - PowerUp consent flag
+
+    Sets permanent ban preventing future Crush.lu profile creation.
     """
-    from allauth.socialaccount.models import SocialAccount, SocialToken
     from crush_lu.storage import delete_user_storage
+    from crush_lu.models.profiles import UserDataConsent
 
-    logger.info(
-        f"Starting data deletion for user {user.id}, confirmation: {confirmation_code}"
-    )
+    logger.info(f"Starting Crush.lu profile deletion for user {user.id}")
+
+    # Delete profile photos from Azure Blob
+    if hasattr(user, 'crushprofile'):
+        profile = user.crushprofile
+
+        # Delete profile photos from storage
+        for photo_field in ["photo_1", "photo_2", "photo_3"]:
+            photo = getattr(profile, photo_field, None)
+            if photo:
+                try:
+                    photo.delete(save=False)
+                except Exception as e:
+                    logger.warning(f"Could not delete {photo_field}: {e}")
+
+        # Delete the profile (cascades to related data via Django's on_delete)
+        profile.delete()
+        logger.info(f"Deleted CrushProfile for user {user.id}")
 
     # Clean up blob storage folder (users/{user_id}/)
-    # This removes the marker file and any orphaned files
-    # Individual photo files are also deleted below, but this ensures the folder is removed
     success, deleted_count = delete_user_storage(user.id)
     if success and deleted_count > 0:
         logger.info(f"Deleted {deleted_count} blob(s) from storage for user {user.id}")
-    elif not success:
-        logger.warning(
-            f"Failed to clean up storage for user {user.id}, continuing with deletion"
-        )
 
-    try:
-        # Delete CrushProfile if exists
-        try:
-            profile = user.crushprofile
+    # Delete ProfileSubmissions (in case profile was deleted manually)
+    ProfileSubmission.objects.filter(profile__user=user).delete()
 
-            # Delete profile photos from storage
-            for photo_field in ["photo_1", "photo_2", "photo_3"]:
-                photo = getattr(profile, photo_field, None)
-                if photo:
-                    try:
-                        photo.delete(save=False)
-                    except Exception as e:
-                        logger.warning(f"Could not delete {photo_field}: {e}")
+    # Delete EventRegistrations
+    EventRegistration.objects.filter(user=user).delete()
 
-            # Delete the profile
-            profile.delete()
-            logger.info(f"Deleted CrushProfile for user {user.id}")
-        except CrushProfile.DoesNotExist:
-            # No profile to delete
-            pass
+    # Delete ConnectionMessages
+    ConnectionMessage.objects.filter(
+        Q(sender=user)
+        | Q(connection__requester=user)
+        | Q(connection__recipient=user)
+    ).delete()
 
-        # Delete ProfileSubmissions
-        ProfileSubmission.objects.filter(profile__user=user).delete()
+    # Delete EventConnections (both as requester and recipient)
+    EventConnection.objects.filter(Q(requester=user) | Q(recipient=user)).delete()
 
-        # Delete EventRegistrations
-        EventRegistration.objects.filter(user=user).delete()
+    # Delete CoachSessions
+    CoachSession.objects.filter(user=user).delete()
 
-        # Delete ConnectionMessages
-        ConnectionMessage.objects.filter(
-            Q(sender=user)
-            | Q(connection__requester=user)
-            | Q(connection__recipient=user)
-        ).delete()
+    # Clear Crush.lu consent and set permanent ban
+    if hasattr(user, 'data_consent'):
+        consent = user.data_consent
+        consent.crushlu_consent_given = False
+        consent.crushlu_consent_date = None
+        consent.crushlu_consent_ip = None
+        consent.crushlu_banned = True
+        consent.crushlu_ban_date = timezone.now()
+        consent.crushlu_ban_reason = 'user_deletion'
+        consent.save()
+        logger.info(f"Set permanent Crush.lu ban for user {user.id}")
 
-        # Delete EventConnections (both as requester and recipient)
-        EventConnection.objects.filter(Q(requester=user) | Q(recipient=user)).delete()
+    logger.info(f"Crush.lu profile deleted for user {user.id} (PowerUp account kept)")
 
-        # Delete CoachSessions
-        CoachSession.objects.filter(user=user).delete()
 
-        # Delete social accounts and tokens
-        SocialToken.objects.filter(account__user=user).delete()
-        SocialAccount.objects.filter(user=user).delete()
+def delete_full_account(user):
+    """
+    Delete ENTIRE PowerUp account including User model and all platform data.
 
-        # Anonymize user account (keep for record-keeping, but remove PII)
-        user.email = f"deleted_{user.id}@deleted.crush.lu"
-        user.username = f"deleted_user_{user.id}"
-        user.first_name = ""
-        user.last_name = ""
-        user.is_active = False
-        user.set_unusable_password()
-        user.save()
+    Deletes:
+    - ALL Crush.lu data (via delete_crushlu_profile_only)
+    - Django User record (anonymized, not deleted)
+    - EmailAddress records
+    - SocialAccount/SocialToken records
+    - All photos across all platforms
 
-        logger.info(f"Successfully anonymized user {user.id}")
+    Anonymizes:
+    - Email → deleted_{user_id}@deleted.crush.lu
+    - Username → deleted_user_{user_id}
+    - First/last names cleared
+    - Password set to unusable
+    - is_active = False
+    """
+    from allauth.socialaccount.models import SocialAccount, SocialToken
 
-    except Exception as e:
-        logger.exception(f"Error during data deletion for user {user.id}: {str(e)}")
-        raise
+    logger.info(f"Starting full account deletion for user {user.id}")
+
+    # First delete Crush.lu profile
+    delete_crushlu_profile_only(user)
+
+    # Anonymize User record (instead of deleting to preserve referential integrity)
+    user.email = f'deleted_{user.id}@deleted.crush.lu'
+    user.username = f'deleted_user_{user.id}'
+    user.first_name = ''
+    user.last_name = ''
+    user.set_unusable_password()
+    user.is_active = False
+    user.save()
+
+    # Delete social accounts and tokens (allauth)
+    SocialToken.objects.filter(account__user=user).delete()
+    SocialAccount.objects.filter(user=user).delete()
+
+    logger.info(f"Full account deleted for user {user.id} (all platforms)")
+
+
+def delete_user_data(user, confirmation_code):
+    """
+    DEPRECATED: Legacy function for backwards compatibility.
+    Use delete_crushlu_profile_only() or delete_full_account() instead.
+
+    This function now calls delete_full_account() for backwards compatibility
+    with existing code that may reference it.
+    """
+    logger.warning(
+        f"delete_user_data() is deprecated. Use delete_full_account() instead. "
+        f"Called for user {user.id}, confirmation: {confirmation_code}"
+    )
+    delete_full_account(user)
 
 
 def data_deletion_status(request):
@@ -755,63 +800,152 @@ def disconnect_social_account(request, social_account_id):
 
 @crush_login_required
 @require_http_methods(["GET", "POST"])
+def delete_crushlu_profile_view(request):
+    """
+    Simplified view for deleting Crush.lu profile only (default action).
+    Permanent deletion - user cannot rejoin Crush.lu with this account.
+    """
+    if not hasattr(request.user, 'crushprofile'):
+        messages.info(request, _('You do not have a Crush.lu profile to delete.'))
+        return redirect('crush_lu:account_settings')
+
+    if request.method == 'POST':
+        confirm_email = request.POST.get('confirm_email', '').strip()
+
+        if confirm_email != request.user.email:
+            messages.error(request, _('Email confirmation does not match'))
+            return redirect('crush_lu:delete_crushlu_profile')
+
+        # Delete Crush.lu profile (sets permanent ban)
+        try:
+            delete_crushlu_profile_only(request.user)
+            messages.success(
+                request,
+                _('Your Crush.lu profile has been permanently deleted. You cannot create a new profile with this account.')
+            )
+            return redirect('crush_lu:account_settings')
+        except Exception as e:
+            logger.exception(f"Error deleting Crush.lu profile for user {request.user.id}: {e}")
+            messages.error(request, _('An error occurred while deleting your profile. Please try again.'))
+            return redirect('crush_lu:delete_crushlu_profile')
+
+    context = {
+        'profile': request.user.crushprofile,
+    }
+    return render(request, 'crush_lu/delete_crushlu_profile_confirm.html', context)
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
+def gdpr_data_management(request):
+    """
+    GDPR data management dashboard.
+    Shows two deletion options:
+    1. Delete Crush.lu profile only (keeps PowerUp account)
+    2. Delete entire PowerUp account (erases everything)
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    consent, created = UserDataConsent.objects.get_or_create(
+        user=request.user,
+        defaults={
+            'powerup_consent_given': True,
+            'powerup_consent_date': timezone.now(),
+        }
+    )
+
+    if request.method == 'POST':
+        deletion_type = request.POST.get('deletion_type')
+        confirm_email = request.POST.get('confirm_email', '').strip()
+
+        if confirm_email != request.user.email:
+            messages.error(request, _('Email confirmation does not match'))
+            return redirect('crush_lu:gdpr_data_management')
+
+        if deletion_type == 'crushlu_only':
+            # Delete Crush.lu profile only
+            try:
+                delete_crushlu_profile_only(request.user)
+                messages.success(request, _('Your Crush.lu profile has been deleted. Your PowerUp account remains active.'))
+                return redirect('crush_lu:account_settings')
+            except Exception as e:
+                logger.exception(f"Error deleting Crush.lu profile for user {request.user.id}: {e}")
+                messages.error(request, _('An error occurred. Please try again.'))
+                return redirect('crush_lu:gdpr_data_management')
+
+        elif deletion_type == 'full_account':
+            # Delete entire PowerUp account
+            try:
+                delete_full_account(request.user)
+                logout(request)
+                messages.success(request, _('Your account has been completely deleted from all platforms.'))
+                return redirect('crush_lu:home')
+            except Exception as e:
+                logger.exception(f"Error deleting full account for user {request.user.id}: {e}")
+                messages.error(request, _('An error occurred. Please try again.'))
+                return redirect('crush_lu:gdpr_data_management')
+
+    context = {
+        'consent': consent,
+        'has_crushlu_profile': hasattr(request.user, 'crushprofile'),
+    }
+    return render(request, 'crush_lu/gdpr_data_management.html', context)
+
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
 def delete_account(request):
     """
-    User-initiated account deletion.
-
-    GET: Shows confirmation page
-    POST: Deletes the account and logs out
+    DEPRECATED: Legacy account deletion view.
+    Redirects to new GDPR data management dashboard.
     """
-    if request.method == "POST":
-        # Verify password for security (if user has a password)
-        password = request.POST.get("password", "")
-        confirm_text = request.POST.get("confirm_text", "")
+    messages.info(request, _('Account deletion has been moved to the data management page.'))
+    return redirect('crush_lu:gdpr_data_management')
 
-        # Check confirmation text
-        if confirm_text.lower() != "delete my account":
-            messages.error(request, _('Please type "DELETE MY ACCOUNT" to confirm.'))
-            return render(request, "crush_lu/delete_account_confirm.html")
 
-        # If user has a usable password, verify it
-        if request.user.has_usable_password():
-            if not request.user.check_password(password):
-                messages.error(request, _("Incorrect password. Please try again."))
-                return render(request, "crush_lu/delete_account_confirm.html")
+@login_required
+@require_http_methods(["GET", "POST"])
+def consent_confirm(request):
+    """
+    Consent confirmation page for users who signed up before consent system.
 
-        # Generate confirmation code
-        confirmation_code = str(uuid.uuid4())
+    This page is shown to authenticated users who don't have Crush.lu consent.
+    Typically this only applies to users who signed up before the consent tracking
+    was implemented.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+    from crush_lu.oauth_statekit import get_client_ip
 
-        # Log the deletion
-        logger.info(
-            f"User {request.user.id} ({request.user.email}) requested account deletion"
-        )
+    # Check if user already has consent (shouldn't happen, but be safe)
+    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_consent_given:
+        messages.info(request, _('You have already given consent.'))
+        return redirect('crush_lu:dashboard')
 
-        # Delete user data
-        try:
-            delete_user_data(request.user, confirmation_code)
+    if request.method == 'POST':
+        # Get consent checkboxes
+        crushlu_consent = request.POST.get('crushlu_consent') == 'on'
+        marketing_consent = request.POST.get('marketing_consent') == 'on'
 
-            # Log the user out
-            logout(request)
+        if not crushlu_consent:
+            messages.error(request, _('You must consent to continue using Crush.lu.'))
+            return redirect('crush_lu:consent_confirm')
 
-            messages.success(request, _("Your account has been successfully deleted."))
+        # Update or create consent record
+        consent, created = UserDataConsent.objects.get_or_create(user=request.user)
+        consent.crushlu_consent_given = True
+        consent.crushlu_consent_date = timezone.now()
+        consent.crushlu_consent_ip = get_client_ip(request)
+        consent.marketing_consent = marketing_consent
+        consent.marketing_consent_date = timezone.now() if marketing_consent else None
+        consent.save()
 
-            # Redirect to status page with confirmation
-            return redirect(f"/data-deletion/status/?code={confirmation_code}")
+        logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
+        messages.success(request, _('Thank you for confirming your consent!'))
+        return redirect('crush_lu:dashboard')
 
-        except Exception as e:
-            logger.exception(
-                f"Error deleting account for user {request.user.id}: {str(e)}"
-            )
-            messages.error(
-                request,
-                _(
-                    "An error occurred while deleting your account. Please contact support."
-                ),
-            )
-            return render(request, "crush_lu/delete_account_confirm.html")
-
-    # GET request - show confirmation page
-    return render(request, "crush_lu/delete_account_confirm.html")
+    # GET request - show consent form
+    context = {}
+    return render(request, 'crush_lu/consent_confirm.html', context)
 
 
 # Onboarding
@@ -908,6 +1042,16 @@ def signup(request):
 @ratelimit(key="user", rate="10/15m", method="POST", block=True)
 def create_profile(request):
     """Profile creation - coaches can also create dating profiles"""
+    from crush_lu.models.profiles import UserDataConsent
+
+    # Check if user is banned from Crush.lu
+    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_banned:
+        messages.error(
+            request,
+            _('You cannot create a new Crush.lu profile. Your previous profile was permanently deleted.')
+        )
+        return redirect('crush_lu:account_settings')
+
     # If it's a POST request, process the form submission first
     if request.method == "POST":
         # Get existing profile if it exists (from Steps 1-2 AJAX saves)

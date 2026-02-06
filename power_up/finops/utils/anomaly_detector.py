@@ -121,8 +121,8 @@ class CostAnomalyDetector:
                 severity = cls._classify_severity(deviation, actual - week_avg)
 
                 # Avoid duplicate detection (already caught by Rule 1)
-                if not any(a.detected_date == record.period_start and
-                          a.dimension_value == dim_value for a in anomalies):
+                seen = {(a.detected_date, a.dimension_value) for a in anomalies}
+                if (record.period_start, dim_value) not in seen:
                     anomalies.append(CostAnomaly(
                         detected_date=record.period_start,
                         anomaly_type='spike',

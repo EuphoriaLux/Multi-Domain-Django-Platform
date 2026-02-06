@@ -14,6 +14,7 @@ from django.core.management import call_command
 import os
 import io
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ def trigger_cost_sync(request):
             'error': 'Sync token not configured on server'
         }, status=500)
 
-    if sync_token != expected_token:
+    if not sync_token or not secrets.compare_digest(sync_token, expected_token):
         return JsonResponse({
             'success': False,
             'error': 'Invalid sync token'

@@ -12,7 +12,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils.translation import gettext as _
 from django.utils import timezone
-from django.db.models import Sum, Count, Min, Max
+from django.core.cache import cache
+from django.db.models import Sum, Count, Min, Max, Q
 from django.db.models.functions import TruncDate
 from django.core.serializers.json import DjangoJSONEncoder
 from datetime import timedelta
@@ -21,6 +22,7 @@ import json
 
 from .models import CostExport, CostRecord, CostAggregation, ReservationCost, CostAnomaly
 from .forms import SubscriptionIDForm
+from .utils.date_helpers import resolve_date_range
 
 
 def is_admin(user):
@@ -28,56 +30,25 @@ def is_admin(user):
     return user.is_staff or user.is_superuser
 
 
+def _build_json_config(page, **kwargs):
+    """Build JSON config dict for finops_dashboard.js auto-init."""
+    config = {'page': page}
+    config.update(kwargs)
+    return json.dumps(config, cls=DjangoJSONEncoder)
+
+
 def dashboard(request):
     """Main FinOps dashboard with cost overview and filtering"""
     subscription_filter = request.GET.get('subscription')
     service_filter = request.GET.get('service')
-    charge_type_filter = request.GET.get('charge_type', 'payg')  # Default to pay-as-you-go only
+    charge_type_filter = request.GET.get('charge_type', 'payg')
 
-    # Smart date range: check actual usage dates in the database
-    date_range = CostRecord.objects.aggregate(
-        min_date=Min(TruncDate('charge_period_start')),
-        max_date=Max(TruncDate('charge_period_start'))
-    )
-
-    # Month-based filtering (new) or day-based (legacy)
-    month_filter = request.GET.get('month')  # Format: YYYY-MM
-
-    if month_filter:
-        # Parse month filter
-        try:
-            year, month = map(int, month_filter.split('-'))
-            start_date = timezone.datetime(year, month, 1).date()
-            # Calculate last day of month
-            if month == 12:
-                end_date = timezone.datetime(year + 1, 1, 1).date() - timedelta(days=1)
-            else:
-                end_date = timezone.datetime(year, month + 1, 1).date() - timedelta(days=1)
-            days = (end_date - start_date).days + 1
-        except (ValueError, AttributeError):
-            # Fall back to current month if invalid
-            end_date = timezone.now().date()
-            start_date = end_date.replace(day=1)
-            days = (end_date - start_date).days + 1
-            month_filter = f"{end_date.year}-{end_date.month:02d}"
-    else:
-        # Legacy day-based filtering
-        try:
-            days = int(request.GET.get('days', 30))
-            # Clamp to reasonable range (1 day to 10 years)
-            days = max(1, min(3650, days))
-        except (ValueError, TypeError):
-            days = 30
-
-        end_date = timezone.now().date()
-        start_date = end_date - timedelta(days=days)
-
-        if date_range['min_date'] and date_range['max_date']:
-            if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-                end_date = date_range['max_date']
-                start_date = end_date - timedelta(days=days - 1)
-                if start_date < date_range['min_date']:
-                    start_date = date_range['min_date']
+    # Resolve date range using shared helper
+    date_info = resolve_date_range(request.GET, use_month_filter=True)
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
+    month_filter = date_info['month_filter']
 
     base_queryset = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')
@@ -88,19 +59,17 @@ def dashboard(request):
 
     # Apply filters
     if subscription_filter:
-        base_queryset = base_queryset.filter(subscription_id__icontains=subscription_filter)
+        base_queryset = base_queryset.filter(sub_account_name=subscription_filter)
     if service_filter:
         base_queryset = base_queryset.filter(service_name__icontains=service_filter)
 
     # Charge type filter for CSP model (based on PricingCategory from extended_data)
     if charge_type_filter and charge_type_filter != 'all':
         if charge_type_filter == 'payg':
-            # Pay-as-you-go: Standard pricing (not committed/reserved)
             base_queryset = base_queryset.filter(
                 extended_data__PricingCategory='Standard'
             )
         elif charge_type_filter == 'reserved':
-            # Reserved Instance: Committed pricing
             base_queryset = base_queryset.filter(
                 extended_data__PricingCategory='Committed'
             )
@@ -112,66 +81,53 @@ def dashboard(request):
     )
     total_cost = cost_aggregates['total_effective'] or 0
     total_list_cost = cost_aggregates['total_list'] or 0
-    total_savings = total_list_cost - total_cost  # Savings from reservations
+    total_savings = total_list_cost - total_cost
 
     # Calculate reservation costs (amortized for selected period)
-    # Only add if NOT filtering by 'reserved' (which shows €0 usage)
     reservation_cost = Decimal('0.00')
     reservation_savings_estimate = Decimal('0.00')
+    active_reservations = ReservationCost.objects.all()
 
-    if charge_type_filter != 'reserved':  # Don't add reservation cost when viewing reserved usage
-        active_reservations = ReservationCost.objects.all()  # Include both estimated and actual costs
-
+    if charge_type_filter != 'reserved':
         for reservation in active_reservations:
-            # Check if reservation is active during the selected period
             if reservation.is_active(start_date) or reservation.is_active(end_date):
-                # Calculate amortized cost for this period
                 period_cost = reservation.get_amortized_cost_for_period(start_date, end_date)
                 reservation_cost += Decimal(str(period_cost))
-
-                # Estimate savings: typical 3-year reservation discount is ~55%
-                # Estimated pay-as-you-go cost = reservation cost / 0.45
                 estimated_payg = period_cost / 0.45
                 reservation_savings_estimate += Decimal(str(estimated_payg - period_cost))
 
-    # Total effective cost = usage cost + reservation amortization
     total_cost_with_reservations = float(total_cost) + float(reservation_cost)
 
+    # Combined MTD/YTD in a single query using conditional aggregation
     month_start = end_date.replace(day=1)
     if month_start < start_date:
         month_start = start_date
-
-    mtd_queryset = CostRecord.objects.annotate(
-        usage_date=TruncDate('charge_period_start')
-    ).filter(
-        usage_date__gte=month_start,
-        usage_date__lte=end_date
-    )
-    # Apply same charge type filter to MTD
-    if charge_type_filter and charge_type_filter != 'all':
-        if charge_type_filter == 'payg':
-            mtd_queryset = mtd_queryset.filter(extended_data__PricingCategory='Standard')
-        elif charge_type_filter == 'reserved':
-            mtd_queryset = mtd_queryset.filter(extended_data__PricingCategory='Committed')
-    mtd_cost = mtd_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
 
     year_start = end_date.replace(month=1, day=1)
     if year_start < start_date:
         year_start = start_date
 
-    ytd_queryset = CostRecord.objects.annotate(
+    mtd_ytd_queryset = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')
     ).filter(
         usage_date__gte=year_start,
         usage_date__lte=end_date
     )
-    # Apply same charge type filter to YTD
     if charge_type_filter and charge_type_filter != 'all':
         if charge_type_filter == 'payg':
-            ytd_queryset = ytd_queryset.filter(extended_data__PricingCategory='Standard')
+            mtd_ytd_queryset = mtd_ytd_queryset.filter(extended_data__PricingCategory='Standard')
         elif charge_type_filter == 'reserved':
-            ytd_queryset = ytd_queryset.filter(extended_data__PricingCategory='Committed')
-    ytd_cost = ytd_queryset.aggregate(total=Sum('billed_cost'))['total'] or 0
+            mtd_ytd_queryset = mtd_ytd_queryset.filter(extended_data__PricingCategory='Committed')
+
+    mtd_ytd = mtd_ytd_queryset.aggregate(
+        mtd=Sum('billed_cost', filter=Q(
+            usage_date__gte=month_start,
+            usage_date__lte=end_date,
+        )),
+        ytd=Sum('billed_cost'),
+    )
+    mtd_cost = mtd_ytd['mtd'] or 0
+    ytd_cost = mtd_ytd['ytd'] or 0
 
     actual_days = (end_date - start_date).days + 1
     avg_daily_cost = total_cost / actual_days if actual_days > 0 else 0
@@ -194,17 +150,38 @@ def dashboard(request):
     top_subscriptions_list = list(top_subscriptions)
     top_services_list = list(top_services)
 
-    # Get all subscriptions, services, and charge types for filter dropdowns
-    all_subscriptions = CostRecord.objects.values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name')
-    all_services = CostRecord.objects.values_list('service_name', flat=True).distinct().order_by('service_name')
-    # CSP Model: Filter options based on PricingCategory instead of ChargeCategory
+    # Get all subscriptions, services for filter dropdowns (cached 5 min)
+    all_subscriptions = cache.get('finops_all_subscriptions')
+    if all_subscriptions is None:
+        all_subscriptions = list(CostRecord.objects.values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name'))
+        cache.set('finops_all_subscriptions', all_subscriptions, 300)
+
+    all_services = cache.get('finops_all_services')
+    if all_services is None:
+        all_services = list(CostRecord.objects.values_list('service_name', flat=True).distinct().order_by('service_name'))
+        cache.set('finops_all_services', all_services, 300)
     pricing_categories = [
         ('payg', 'Pay-as-you-go'),
         ('reserved', 'Reserved Instance'),
         ('all', 'All Usage'),
     ]
 
+    # Get unique tag keys for tag filter
+    tag_keys = []
+    tag_records = CostRecord.objects.exclude(tags__isnull=True).exclude(tags={}).values_list('tags', flat=True)[:100]
+    seen_keys = set()
+    for tags_dict in tag_records:
+        if isinstance(tags_dict, dict):
+            for key in tags_dict.keys():
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    tag_keys.append(key)
+
     # Generate available months from cost data
+    date_range = CostRecord.objects.aggregate(
+        min_date=Min(TruncDate('charge_period_start')),
+        max_date=Max(TruncDate('charge_period_start'))
+    )
     available_months = []
     if date_range['min_date'] and date_range['max_date']:
         current = date_range['min_date'].replace(day=1)
@@ -214,13 +191,34 @@ def dashboard(request):
                 'value': f"{current.year}-{current.month:02d}",
                 'label': current.strftime('%B %Y')
             })
-            # Move to next month
             if current.month == 12:
                 current = current.replace(year=current.year + 1, month=1)
             else:
                 current = current.replace(month=current.month + 1)
-        # Reverse to show newest first
         available_months.reverse()
+
+    # Last import timestamp
+    last_import_at = None
+    if latest_export and latest_export.import_completed_at:
+        last_import_at = latest_export.import_completed_at
+
+    # Budget data
+    budgets = []
+    try:
+        from .models import CostBudget
+        for budget in CostBudget.objects.filter(is_active=True):
+            spent = budget.get_current_spend()
+            utilization = (float(spent) / float(budget.monthly_budget) * 100) if budget.monthly_budget > 0 else 0
+            budgets.append({
+                'name': budget.name,
+                'monthly_budget': float(budget.monthly_budget),
+                'spent': float(spent),
+                'utilization': utilization,
+                'alert_threshold': budget.alert_threshold,
+                'over_threshold': utilization >= budget.alert_threshold,
+            })
+    except (ImportError, Exception):
+        pass
 
     context = {
         'page_title': _('FinOps Hub - Cost Dashboard'),
@@ -236,8 +234,9 @@ def dashboard(request):
             'month': month_filter,
             'all_subscriptions': all_subscriptions,
             'all_services': all_services,
-            'pricing_categories': pricing_categories,  # CSP model filter options
+            'pricing_categories': pricing_categories,
             'available_months': available_months,
+            'tag_keys': tag_keys,
         },
         'summary': {
             'total_cost': total_cost,
@@ -253,8 +252,17 @@ def dashboard(request):
             'completed_exports': completed_exports,
         },
         'latest_export': latest_export,
+        'last_import_at': last_import_at,
+        'active_reservations': active_reservations,
+        'budgets': budgets,
         'top_subscriptions': json.dumps(top_subscriptions_list, cls=DjangoJSONEncoder),
         'top_services': top_services_list,
+        'finops_json_config': _build_json_config(
+            'dashboard',
+            periodDays=days,
+            totalCost=float(total_cost),
+            topSubscriptions=top_subscriptions_list,
+        ),
     }
 
     return render(request, 'finops/dashboard.html', context)
@@ -262,22 +270,10 @@ def dashboard(request):
 
 def subscription_view(request):
     """Multi-subscription cost comparison view"""
-    days = int(request.GET.get('days', 30))
-
-    date_range = CostRecord.objects.aggregate(
-        min_date=Min(TruncDate('charge_period_start')),
-        max_date=Max(TruncDate('charge_period_start'))
-    )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = end_date - timedelta(days=days - 1)
-            if start_date < date_range['min_date']:
-                start_date = date_range['min_date']
+    date_info = resolve_date_range(request.GET)
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
 
     subscriptions = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')
@@ -295,10 +291,13 @@ def subscription_view(request):
     context = {
         'page_title': _('FinOps Hub - Subscriptions'),
         'period': {'start': start_date, 'end': end_date, 'days': days},
-        'subscriptions': json.dumps(subscriptions_list, cls=DjangoJSONEncoder),
         'subscriptions_list': subscriptions_list,
         'subscriptions_count': len(subscriptions_list),
         'total_cost': total_cost_all,
+        'finops_json_config': _build_json_config(
+            'subscriptions',
+            subscriptions=subscriptions_list,
+        ),
     }
 
     return render(request, 'finops/subscription_view.html', context)
@@ -306,23 +305,11 @@ def subscription_view(request):
 
 def service_breakdown(request):
     """Service-level cost breakdown"""
-    days = int(request.GET.get('days', 30))
+    date_info = resolve_date_range(request.GET)
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
     subscription = request.GET.get('subscription')
-
-    date_range = CostRecord.objects.aggregate(
-        min_date=Min(TruncDate('charge_period_start')),
-        max_date=Max(TruncDate('charge_period_start'))
-    )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = end_date - timedelta(days=days - 1)
-            if start_date < date_range['min_date']:
-                start_date = date_range['min_date']
 
     base_queryset = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')
@@ -349,16 +336,19 @@ def service_breakdown(request):
     ).values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name')
 
     services_list = list(services)
-    services_chart_data = json.dumps(services_list[:10], cls=DjangoJSONEncoder)
+    services_chart = services_list[:10]
 
     context = {
         'page_title': _('FinOps Hub - Services'),
         'period': {'start': start_date, 'end': end_date, 'days': days},
         'subscription': subscription,
         'available_subscriptions': available_subscriptions,
-        'services': services_chart_data,
         'services_table': services_list,
         'total_cost': total_cost,
+        'finops_json_config': _build_json_config(
+            'services',
+            services=services_chart,
+        ),
     }
 
     return render(request, 'finops/service_breakdown.html', context)
@@ -366,24 +356,12 @@ def service_breakdown(request):
 
 def resource_explorer(request):
     """Resource-level cost explorer"""
-    days = int(request.GET.get('days', 30))
+    date_info = resolve_date_range(request.GET)
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
     subscription = request.GET.get('subscription')
     resource_group = request.GET.get('resource_group')
-
-    date_range = CostRecord.objects.aggregate(
-        min_date=Min(TruncDate('charge_period_start')),
-        max_date=Max(TruncDate('charge_period_start'))
-    )
-
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=days)
-
-    if date_range['min_date'] and date_range['max_date']:
-        if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-            end_date = date_range['max_date']
-            start_date = end_date - timedelta(days=days - 1)
-            if start_date < date_range['min_date']:
-                start_date = date_range['min_date']
 
     base_queryset = CostRecord.objects.annotate(
         usage_date=TruncDate('charge_period_start')
@@ -510,23 +488,19 @@ def anomalies_view(request):
     severity_filter = request.GET.get('severity')
     acknowledged_filter = request.GET.get('acknowledged')
 
-    # Date range
     end_date = timezone.now().date()
     start_date = end_date - timedelta(days=days)
 
-    # Base queryset
     queryset = CostAnomaly.objects.filter(detected_date__gte=start_date)
 
-    # Apply filters
     if severity_filter:
         queryset = queryset.filter(severity=severity_filter)
     if acknowledged_filter is not None:
         is_ack = acknowledged_filter.lower() == 'true'
         queryset = queryset.filter(is_acknowledged=is_ack)
 
-    anomalies = queryset[:50]  # Limit to 50 most recent
+    anomalies = queryset[:50]
 
-    # Severity counts (unacknowledged only)
     context = {
         'page_title': _('FinOps Hub - Cost Anomalies'),
         'anomalies': anomalies,
@@ -548,13 +522,11 @@ def forecast_view(request):
 
     forecast_days = int(request.GET.get('days', 30))
 
-    # Fetch forecasts
     forecasts = CostForecast.objects.filter(
         dimension_type='overall',
-        dimension_value='Total'  # Match aggregation dimension_value
+        dimension_value='Total'
     ).order_by('forecast_date')[:forecast_days]
 
-    # Fetch last 30 days historical for comparison
     end_date = timezone.now().date()
     start_date = end_date - timedelta(days=30)
 
@@ -565,7 +537,6 @@ def forecast_view(request):
         period_start__lte=end_date
     ).order_by('period_start')
 
-    # Calculate summary stats
     if forecasts:
         avg_forecast = sum(f.forecast_cost for f in forecasts) / len(forecasts)
         total_forecast = sum(f.forecast_cost for f in forecasts)
@@ -580,11 +551,27 @@ def forecast_view(request):
     else:
         avg_historical = 0
 
-    # Calculate percentage change
     if avg_historical > 0:
         pct_change = ((float(avg_forecast) - float(avg_historical)) / float(avg_historical)) * 100
     else:
         pct_change = 0
+
+    has_data = forecasts.count() > 0
+
+    # Build chart JSON config
+    historical_chart = [
+        {'date': h.period_start.isoformat(), 'cost': float(h.total_cost)}
+        for h in historical
+    ]
+    forecast_chart = [
+        {
+            'date': f.forecast_date.isoformat(),
+            'cost': float(f.forecast_cost),
+            'upper': float(f.upper_bound),
+            'lower': float(f.lower_bound),
+        }
+        for f in forecasts
+    ]
 
     context = {
         'page_title': _('FinOps Hub - Cost Forecast'),
@@ -595,8 +582,178 @@ def forecast_view(request):
         'total_forecast': total_forecast,
         'avg_historical': avg_historical,
         'model_accuracy': model_accuracy,
-        'has_data': forecasts.count() > 0,
+        'has_data': has_data,
         'pct_change': pct_change,
+        'finops_json_config': _build_json_config(
+            'forecast',
+            hasData=has_data,
+            historical=historical_chart,
+            forecasts=forecast_chart,
+        ),
     }
 
     return render(request, 'finops/forecast.html', context)
+
+
+def comparison_view(request):
+    """Month-over-month cost comparison"""
+    # Get available months
+    date_range = CostRecord.objects.aggregate(
+        min_date=Min(TruncDate('charge_period_start')),
+        max_date=Max(TruncDate('charge_period_start'))
+    )
+
+    available_months = []
+    if date_range['min_date'] and date_range['max_date']:
+        current = date_range['min_date'].replace(day=1)
+        end = date_range['max_date'].replace(day=1)
+        while current <= end:
+            available_months.append({
+                'value': f"{current.year}-{current.month:02d}",
+                'label': current.strftime('%B %Y')
+            })
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+        available_months.reverse()
+
+    month1 = request.GET.get('month1')
+    month2 = request.GET.get('month2')
+
+    # Default to last two months if available
+    if not month1 and len(available_months) >= 2:
+        month1 = available_months[0]['value']
+        month2 = available_months[1]['value']
+    elif not month1 and len(available_months) >= 1:
+        month1 = available_months[0]['value']
+        month2 = month1
+
+    comparison_data = []
+    month1_total = 0
+    month2_total = 0
+    month1_label = month1 or ''
+    month2_label = month2 or ''
+    delta_pct = 0
+
+    if month1 and month2:
+        # Get monthly aggregations by service
+        m1_data = CostAggregation.objects.filter(
+            aggregation_type='monthly',
+            dimension_type='service',
+            period_start__year=int(month1.split('-')[0]),
+            period_start__month=int(month1.split('-')[1]),
+        ).values('dimension_value', 'total_cost')
+
+        m2_data = CostAggregation.objects.filter(
+            aggregation_type='monthly',
+            dimension_type='service',
+            period_start__year=int(month2.split('-')[0]),
+            period_start__month=int(month2.split('-')[1]),
+        ).values('dimension_value', 'total_cost')
+
+        # Build lookup dicts
+        m1_dict = {row['dimension_value']: float(row['total_cost']) for row in m1_data}
+        m2_dict = {row['dimension_value']: float(row['total_cost']) for row in m2_data}
+
+        all_services = sorted(set(list(m1_dict.keys()) + list(m2_dict.keys())))
+
+        for service in all_services:
+            cost1 = m1_dict.get(service, 0)
+            cost2 = m2_dict.get(service, 0)
+            if cost1 > 0:
+                d_pct = ((cost2 - cost1) / cost1) * 100
+            elif cost2 > 0:
+                d_pct = 100.0
+            else:
+                d_pct = 0
+            comparison_data.append({
+                'service_name': service,
+                'month1_cost': cost1,
+                'month2_cost': cost2,
+                'delta_pct': round(d_pct, 1),
+            })
+
+        # Sort by absolute delta descending
+        comparison_data.sort(key=lambda x: abs(x['delta_pct']), reverse=True)
+
+        month1_total = sum(m1_dict.values())
+        month2_total = sum(m2_dict.values())
+        if month1_total > 0:
+            delta_pct = ((month2_total - month1_total) / month1_total) * 100
+
+    # Chart data (top 10 by combined cost)
+    chart_services = sorted(comparison_data, key=lambda x: x['month1_cost'] + x['month2_cost'], reverse=True)[:10]
+
+    context = {
+        'page_title': _('FinOps Hub - Compare'),
+        'available_months': available_months,
+        'month1': month1,
+        'month2': month2,
+        'month1_label': month1_label,
+        'month2_label': month2_label,
+        'month1_total': month1_total,
+        'month2_total': month2_total,
+        'delta_pct': delta_pct,
+        'comparison_data': comparison_data,
+        'finops_json_config': _build_json_config(
+            'comparison',
+            services=chart_services,
+            month1Label=month1_label,
+            month2Label=month2_label,
+        ),
+    }
+
+    return render(request, 'finops/comparison.html', context)
+
+
+def resource_group_view(request):
+    """Resource group cost breakdown"""
+    date_info = resolve_date_range(request.GET)
+    start_date = date_info['start_date']
+    end_date = date_info['end_date']
+    days = date_info['days']
+    subscription = request.GET.get('subscription')
+
+    base_queryset = CostRecord.objects.annotate(
+        usage_date=TruncDate('charge_period_start')
+    ).filter(
+        usage_date__gte=start_date,
+        usage_date__lte=end_date
+    )
+
+    if subscription:
+        base_queryset = base_queryset.filter(sub_account_name=subscription)
+
+    resource_groups = base_queryset.values('resource_group_name').annotate(
+        total_cost=Sum('billed_cost'),
+        record_count=Count('id')
+    ).order_by('-total_cost')
+
+    total_cost = base_queryset.aggregate(total=Sum('billed_cost'))['total'] or 1
+    resource_groups_list = list(resource_groups)
+
+    available_subscriptions = CostRecord.objects.annotate(
+        usage_date=TruncDate('charge_period_start')
+    ).filter(
+        usage_date__gte=start_date,
+        usage_date__lte=end_date
+    ).values_list('sub_account_name', flat=True).distinct().order_by('sub_account_name')
+
+    chart_data = resource_groups_list[:15]
+
+    context = {
+        'page_title': _('FinOps Hub - Resource Groups'),
+        'period': {'start': start_date, 'end': end_date, 'days': days},
+        'subscription': subscription,
+        'available_subscriptions': available_subscriptions,
+        'resource_groups_list': resource_groups_list,
+        'resource_groups_count': len(resource_groups_list),
+        'total_cost': total_cost,
+        'finops_json_config': _build_json_config(
+            'resource_groups',
+            resourceGroups=chart_data,
+        ),
+    }
+
+    return render(request, 'finops/resource_groups.html', context)

@@ -8,3 +8,4 @@ from .oauth_state import *
 from .referrals import *
 from .passkit import *
 from .site_config import *
+from .newsletter import *
