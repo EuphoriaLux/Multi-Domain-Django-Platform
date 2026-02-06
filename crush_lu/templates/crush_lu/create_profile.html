@@ -331,22 +331,22 @@
                             </div>
 
                             <!-- Completion Summary -->
-                            <div data-dob-summary class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                            <div data-dob-summary class="hidden mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-3">
                                 <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                                     <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                                     </svg>
                                 </div>
                                 <div>
-                                    <p class="font-medium text-green-800" data-dob-formatted></p>
-                                    <p class="text-sm text-green-600">{% trans "Date of birth selected" %}</p>
+                                    <p class="font-medium text-green-800 dark:text-green-200" data-dob-formatted></p>
+                                    <p class="text-sm text-green-600 dark:text-green-400">{% trans "Date of birth selected" %}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Hidden input for form submission -->
                         <input type="hidden" name="date_of_birth"
-                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
+                               value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}">
                     </div>
 
                     {% if form.date_of_birth.errors %}

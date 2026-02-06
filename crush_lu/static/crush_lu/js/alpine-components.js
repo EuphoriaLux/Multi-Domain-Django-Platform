@@ -2989,16 +2989,21 @@ document.addEventListener('alpine:init', function() {
             selectedMonth: null,
             selectedDay: null,
             _translatedMonths: null,
+            _clsUnselected: 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30',
+            _clsSelected: 'border-purple-500 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:border-purple-400 dark:text-purple-300',
 
-            // Age range definitions (for year 2026)
-            ageRanges: [
-                { label: '18-25', emoji: '🌱', minYear: 2001, maxYear: 2008 },
-                { label: '26-35', emoji: '🌿', minYear: 1991, maxYear: 2000 },
-                { label: '36-45', emoji: '🌳', minYear: 1981, maxYear: 1990 },
-                { label: '46-55', emoji: '🍂', minYear: 1971, maxYear: 1980 },
-                { label: '56-65', emoji: '🍁', minYear: 1961, maxYear: 1970 },
-                { label: '66+', emoji: '🌟', minYear: 1926, maxYear: 1960 }
-            ],
+            // Age range definitions (computed from current year)
+            get ageRanges() {
+                var y = new Date().getFullYear();
+                return [
+                    { label: '18-25', emoji: '\u{1F331}', minYear: y - 25, maxYear: y - 18 },
+                    { label: '26-35', emoji: '\u{1F33F}', minYear: y - 35, maxYear: y - 26 },
+                    { label: '36-45', emoji: '\u{1F333}', minYear: y - 45, maxYear: y - 36 },
+                    { label: '46-55', emoji: '\u{1F342}', minYear: y - 55, maxYear: y - 46 },
+                    { label: '56-65', emoji: '\u{1F341}', minYear: y - 65, maxYear: y - 56 },
+                    { label: '66+',   emoji: '\u{1F31F}', minYear: y - 100, maxYear: y - 66 }
+                ];
+            },
 
             // CSP-safe computed getters
             get isStep1() { return this.step === 1; },
@@ -3062,6 +3067,28 @@ document.addEventListener('alpine:init', function() {
                 return monthObj ? monthObj.name : '';
             },
 
+            // Breadcrumb button class getters (with dark mode)
+            get step1ButtonClass() {
+                return this.isStep1
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20';
+            },
+            get step2ButtonClass() {
+                return this.isStep2
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20';
+            },
+            get step3ButtonClass() {
+                return this.isStep3
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20';
+            },
+            get step4ButtonClass() {
+                return this.isStep4
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20';
+            },
+
             // Breadcrumb visibility getters
             get showAgeRangeBreadcrumb() { return this.step > 1; },
             get showYearBreadcrumb() { return this.step > 2; },
@@ -3110,6 +3137,16 @@ document.addEventListener('alpine:init', function() {
                 // Month is 1-based, Date uses 0-based months
                 // Using day 0 of next month gives last day of current month
                 return new Date(year, month, 0).getDate();
+            },
+
+            _validateSelectedDay: function() {
+                if (this.selectedDay && this.selectedMonth && this.selectedYear) {
+                    var maxDay = this._getDaysInMonth(this.selectedYear, this.selectedMonth);
+                    if (this.selectedDay > maxDay) {
+                        this.selectedDay = null;
+                        this._updateCompletionSummary();
+                    }
+                }
             },
 
             _parseInitialDate: function() {
@@ -3184,8 +3221,8 @@ document.addEventListener('alpine:init', function() {
                     btn.type = 'button';
                     btn.className = 'w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105';
                     btn.className += self.selectedAgeRange === range.label
-                        ? ' border-purple-500 bg-purple-100 text-purple-700'
-                        : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                        ? ' ' + self._clsSelected
+                        : ' ' + self._clsUnselected;
                     btn.innerHTML = '<span class="text-xl flex-shrink-0">' + range.emoji + '</span><span class="whitespace-nowrap">' + range.label + '</span>';
                     btn.addEventListener('click', function() {
                         self.selectAgeRange(range.label);
@@ -3219,8 +3256,8 @@ document.addEventListener('alpine:init', function() {
                         btn.type = 'button';
                         btn.className = 'px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
                         btn.className += self.selectedYear === year
-                            ? ' border-purple-500 bg-purple-100 text-purple-700'
-                            : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                            ? ' ' + self._clsSelected
+                            : ' ' + self._clsUnselected;
                         btn.textContent = year;
                         btn.addEventListener('click', function() {
                             self.selectYear(year);
@@ -3242,8 +3279,8 @@ document.addEventListener('alpine:init', function() {
                     btn.type = 'button';
                     btn.className = 'px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
                     btn.className += self.selectedMonth === month.num
-                        ? ' border-purple-500 bg-purple-100 text-purple-700'
-                        : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                        ? ' ' + self._clsSelected
+                        : ' ' + self._clsUnselected;
                     btn.textContent = month.name;
                     btn.addEventListener('click', function() {
                         self.selectMonth(month.num);
@@ -3269,8 +3306,8 @@ document.addEventListener('alpine:init', function() {
                         btn.type = 'button';
                         btn.className = 'w-full aspect-square flex items-center justify-center rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105';
                         btn.className += self.selectedDay === day
-                            ? ' border-purple-500 bg-purple-100 text-purple-700'
-                            : ' border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50';
+                            ? ' ' + self._clsSelected
+                            : ' ' + self._clsUnselected;
                         btn.textContent = day;
                         btn.addEventListener('click', function() {
                             self.selectDay(day);
@@ -3309,6 +3346,7 @@ document.addEventListener('alpine:init', function() {
 
             selectYear: function(year) {
                 this.selectedYear = year;
+                this._validateSelectedDay();
                 this.selectedMonth = null;
                 this.selectedDay = null;
                 this.step = 3;
@@ -3319,6 +3357,7 @@ document.addEventListener('alpine:init', function() {
 
             selectMonth: function(month) {
                 this.selectedMonth = month;
+                this._validateSelectedDay();
                 this.selectedDay = null;
                 this.step = 4;
                 this._updateHiddenInput();
@@ -3356,6 +3395,7 @@ document.addEventListener('alpine:init', function() {
 
             goToStep4: function() {
                 if (this.hasMonth) {
+                    this._validateSelectedDay();
                     this.step = 4;
                     this._renderDays();
                     this._updateCompletionSummary();

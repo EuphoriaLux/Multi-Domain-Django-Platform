@@ -165,6 +165,83 @@
         border-left: 4px solid #9B59B6;
     }
 
+    .segment-card.color-yellow {
+        border-left: 4px solid #ffc107;
+    }
+
+    /* Section group dividers */
+    .segment-group-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 32px 0 16px 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .segment-group-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--card-shadow);
+    }
+
+    /* Gender x Age Matrix Table */
+    .matrix-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-top: 8px;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+        padding: 8px 12px;
+        text-align: center;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+    }
+
+    .matrix-table th {
+        background: rgba(128, 128, 128, 0.08);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .matrix-table th:first-child {
+        text-align: left;
+    }
+
+    .matrix-table td:first-child {
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .matrix-table td {
+        color: var(--text-primary);
+    }
+
+    .matrix-table .cell-zero {
+        color: var(--text-muted);
+    }
+
+    .matrix-table .cell-highlight {
+        background: rgba(155, 89, 182, 0.08);
+        font-weight: 600;
+    }
+
+    .matrix-table tfoot td {
+        font-weight: 600;
+        background: rgba(128, 128, 128, 0.05);
+        color: var(--text-secondary);
+    }
+
     /* Distribution sections */
     .distribution-section {
         background: var(--card-bg);
@@ -452,6 +529,45 @@
         </div>
     </div>
 
+    {% if demographics.gender_age_matrix %}
+    <div class="distribution-section">
+        <h2>🔀 Gender x Age Matrix (Approved Profiles)</h2>
+        <table class="matrix-table">
+            <thead>
+                <tr>
+                    <th>Gender</th>
+                    {% for label in demographics.matrix_age_labels %}
+                    <th>{{ label }}</th>
+                    {% endfor %}
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in demographics.gender_age_matrix %}
+                {% if row.total > 0 %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    {% for cell in row.cells %}
+                    <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                    {% endfor %}
+                    <td class="cell-highlight">{{ row.total }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>Total</td>
+                    {% for col_total in demographics.matrix_col_totals %}
+                    <td>{{ col_total }}</td>
+                    {% endfor %}
+                    <td>{{ demographics.matrix_grand_total }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+
     <div class="distribution-section">
         <h2>📊 More Demographics</h2>
         <div class="distribution-grid">
@@ -513,7 +629,17 @@
     {% endif %}
 
     <!-- Segment Categories -->
-    {% for category_key, category in segments.items %}
+    {% regroup segments.values by group as grouped_segments %}
+    {% for group in grouped_segments %}
+    {% if group.grouper == 'operational' %}
+    <div class="segment-group-divider">Operational Segments</div>
+    {% elif group.grouper == 'demographic' %}
+    <div class="segment-group-divider">Demographic Segments</div>
+    {% elif group.grouper == 'behavioral' %}
+    <div class="segment-group-divider">Behavioral Segments</div>
+    {% endif %}
+
+    {% for category in group.list %}
     <div class="segment-category">
         <div class="category-header">
             <span class="category-icon">{{ category.icon }}</span>
@@ -546,6 +672,7 @@
             {% endfor %}
         </div>
     </div>
+    {% endfor %}
     {% endfor %}
 </div>
 {% endblock %}
