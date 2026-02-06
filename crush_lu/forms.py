@@ -641,9 +641,22 @@ class CrushCoachForm(forms.ModelForm):
         help_text=_('Upload a professional photo that users will see')
     )
 
+    spoken_languages = forms.MultipleChoiceField(
+        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'event-language-checkbox'}),
+        required=False,
+        label=_('Spoken Languages'),
+        help_text=_('Which languages can you speak for profile reviews?')
+    )
+
     class Meta:
         model = CrushCoach
-        fields = ['bio', 'specializations', 'photo']
+        fields = ['bio', 'specializations', 'photo', 'spoken_languages']
+
+    def clean_spoken_languages(self):
+        valid_codes = {code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES}
+        languages = self.cleaned_data.get('spoken_languages', [])
+        return [lang for lang in languages if lang in valid_codes]
 
 
 class CrushSetPasswordForm(forms.Form):

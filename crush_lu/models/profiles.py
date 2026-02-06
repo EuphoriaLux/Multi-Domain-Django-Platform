@@ -262,6 +262,11 @@ class CrushCoach(models.Model):
         storage=crush_photo_storage,
         help_text=_("Coach profile photo shown to users")
     )
+    spoken_languages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Languages the coach can speak for profile reviews")
+    )
     is_active = models.BooleanField(default=True)
     max_active_reviews = models.PositiveIntegerField(
         default=10,
@@ -688,15 +693,27 @@ class ProfileSubmission(models.Model):
         return f"{self.profile.user.username} - {self.get_status_display()}"
 
     def assign_coach(self):
-        """Auto-assign to an available coach"""
-        available_coach = CrushCoach.objects.filter(
+        """Auto-assign to an available coach, preferring language matches"""
+        available_coaches = CrushCoach.objects.filter(
             is_active=True
         ).annotate(
             active_reviews=models.Count('profilesubmission', filter=models.Q(profilesubmission__status='pending'))
         ).filter(
             active_reviews__lt=models.F('max_active_reviews')
-        ).order_by('active_reviews').first()
+        ).order_by('active_reviews')
 
+        # Try language-matching coach first
+        user_languages = getattr(self.profile, 'event_languages', None) or []
+        if user_languages:
+            for coach in available_coaches:
+                coach_langs = coach.spoken_languages or []
+                if set(coach_langs) & set(user_languages):
+                    self.coach = coach
+                    self.save()
+                    return True
+
+        # Fallback: any available coach (original behavior)
+        available_coach = available_coaches.first()
         if available_coach:
             self.coach = available_coach
             self.save()

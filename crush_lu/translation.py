@@ -7,7 +7,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 
 from modeltranslation.translator import translator, TranslationOptions
 
-from .models.profiles import SpecialUserExperience
+from .models.profiles import CrushCoach, SpecialUserExperience
 from .models.events import MeetupEvent
 from .models.journey import (
     JourneyConfiguration,
@@ -15,6 +15,12 @@ from .models.journey import (
     JourneyChallenge,
     JourneyReward,
 )
+
+
+class CrushCoachTranslationOptions(TranslationOptions):
+    """Translatable fields for coach profiles (bio and specializations)."""
+
+    fields = ('bio', 'specializations')
 
 
 class SpecialUserExperienceTranslationOptions(TranslationOptions):
@@ -62,6 +68,7 @@ class JourneyRewardTranslationOptions(TranslationOptions):
 
 
 # Register models with translation options
+translator.register(CrushCoach, CrushCoachTranslationOptions)
 translator.register(SpecialUserExperience, SpecialUserExperienceTranslationOptions)
 translator.register(MeetupEvent, MeetupEventTranslationOptions)
 translator.register(JourneyConfiguration, JourneyConfigurationTranslationOptions)

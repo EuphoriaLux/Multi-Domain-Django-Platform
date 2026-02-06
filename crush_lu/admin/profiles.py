@@ -36,14 +36,14 @@ from .filters import (
 
 
 class CrushCoachAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_email', 'get_photo_preview', 'specializations', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
+    list_display = ('get_user_link', 'get_email', 'get_photo_preview', 'specializations', 'get_spoken_languages', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
     readonly_fields = ('created_at', 'get_photo_preview')
     actions = ['deactivate_coach_allow_dating', 'deactivate_coaches', 'activate_coaches']
     fieldsets = (
         ('Coach Information', {
-            'fields': ('user', 'bio', 'specializations')
+            'fields': ('user', 'bio', 'specializations', 'spoken_languages')
         }),
         ('Photo', {
             'fields': ('photo', 'get_photo_preview'),
@@ -98,6 +98,13 @@ class CrushCoachAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">No photo</span>')
     get_photo_preview.short_description = _('Photo')
+
+    def get_spoken_languages(self, obj):
+        """Display spoken languages as comma-separated labels"""
+        lang_map = dict(CrushProfile.EVENT_LANGUAGE_CHOICES)
+        langs = obj.spoken_languages or []
+        return ', '.join(str(lang_map.get(code, code)) for code in langs) or '-'
+    get_spoken_languages.short_description = _('Languages')
 
     @admin.action(description=_('Deactivate coach role (allows them to date)'))
     def deactivate_coach_allow_dating(self, request, queryset):
@@ -1241,7 +1248,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
 
     @admin.action(description=_('Auto-assign available coach'))
     def bulk_assign_coach(self, request, queryset):
-        """Auto-assign coach to submissions without one"""
+        """Auto-assign coach to submissions without one, preferring language matches"""
         assigned_count = 0
         skipped_count = 0
 
@@ -1260,11 +1267,24 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         coach_index = 0
 
         for submission in queryset.filter(coach__isnull=True):
-            coach = coach_list[coach_index % len(coach_list)]
-            submission.coach = coach
+            # Try language-matching coach first
+            user_languages = getattr(submission.profile, 'event_languages', None) or []
+            matched_coach = None
+            if user_languages:
+                for coach in coach_list:
+                    coach_langs = coach.spoken_languages or []
+                    if set(coach_langs) & set(user_languages):
+                        matched_coach = coach
+                        break
+
+            if matched_coach:
+                submission.coach = matched_coach
+            else:
+                submission.coach = coach_list[coach_index % len(coach_list)]
+                coach_index += 1
+
             submission.save()
             assigned_count += 1
-            coach_index += 1
 
         skipped_count = queryset.filter(coach__isnull=False).count()
 

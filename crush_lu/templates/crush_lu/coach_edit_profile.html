@@ -90,6 +90,26 @@
                         {% endif %}
                     </div>
 
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                            {% trans "Spoken Languages" %}
+                        </label>
+                        <div class="flex flex-wrap gap-4 mt-2">
+                            {% for checkbox in form.spoken_languages %}
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    {{ checkbox.tag }}
+                                    {{ checkbox.choice_label }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                        {% if form.spoken_languages.help_text %}
+                            <small class="text-gray-500">{{ form.spoken_languages.help_text }}</small>
+                        {% endif %}
+                        {% if form.spoken_languages.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.spoken_languages.errors }}</div>
+                        {% endif %}
+                    </div>
+
                     <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                     <!-- Coach Stats (read-only) -->
