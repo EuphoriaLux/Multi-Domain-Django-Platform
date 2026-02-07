@@ -693,9 +693,9 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
 
     # Override content image URLs with platform-specific paths (if not explicitly set in env)
     if "SOCIAL_PREVIEW_IMAGE_URL" not in os.environ:
-        SOCIAL_PREVIEW_IMAGE_URL = f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg"
+        SOCIAL_PREVIEW_IMAGE_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
     if "CRUSH_SOCIAL_PREVIEW_URL" not in os.environ:
-        CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg"
+        CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
     if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
         VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/journey/"
     if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:

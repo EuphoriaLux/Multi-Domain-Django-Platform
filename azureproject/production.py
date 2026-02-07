@@ -205,7 +205,7 @@ MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/" 
 # re-uploaded to their respective platform containers with the same paths.
 #
 # Structure: https://{account}.blob.core.windows.net/{container}/{path}
-# - crush-lu-media/crush-lu/branding/social-preview.jpg
+# - crush-lu-media/branding/social-preview.jpg
 # - vinsdelux-media/vinsdelux/journey/step_01.png
 # - powerup-media/powerup/defaults/profile.png
 
@@ -213,11 +213,11 @@ MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/" 
 CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     "SOCIAL_PREVIEW_IMAGE_URL",
-    f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg",
+    f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
 )
 CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
     "CRUSH_SOCIAL_PREVIEW_URL",
-    f"{CRUSH_MEDIA_BASE_URL}/crush-lu/branding/social-preview.jpg",
+    f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
 )
 
 # VinsDelux images (in vinsdelux-media container)
