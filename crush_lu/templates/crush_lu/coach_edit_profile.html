@@ -89,27 +89,27 @@
                         <!-- English Tab -->
                         <div x-show="isEnglish">
                             <div class="mb-4">
-                                <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label for="{{ form.bio_en.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     {% trans "Coach Bio" %} (English)
                                 </label>
-                                {{ form.bio }}
-                                {% if form.bio.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.bio.help_text }}</small>
+                                {{ form.bio_en }}
+                                {% if form.bio_en.help_text %}
+                                    <small class="text-gray-500 dark:text-gray-400">{{ form.bio_en.help_text }}</small>
                                 {% endif %}
-                                {% if form.bio.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.bio.errors }}</div>
+                                {% if form.bio_en.errors %}
+                                    <div class="text-red-500 text-sm mt-1">{{ form.bio_en.errors }}</div>
                                 {% endif %}
                             </div>
                             <div class="mb-4">
-                                <label for="{{ form.specializations.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label for="{{ form.specializations_en.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     {% trans "Specializations" %} (English)
                                 </label>
-                                {{ form.specializations }}
-                                {% if form.specializations.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.specializations.help_text }}</small>
+                                {{ form.specializations_en }}
+                                {% if form.specializations_en.help_text %}
+                                    <small class="text-gray-500 dark:text-gray-400">{{ form.specializations_en.help_text }}</small>
                                 {% endif %}
-                                {% if form.specializations.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.specializations.errors }}</div>
+                                {% if form.specializations_en.errors %}
+                                    <div class="text-red-500 text-sm mt-1">{{ form.specializations_en.errors }}</div>
                                 {% endif %}
                             </div>
                         </div>

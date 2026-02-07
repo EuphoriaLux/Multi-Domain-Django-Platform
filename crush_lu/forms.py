@@ -603,7 +603,7 @@ class EventRegistrationForm(forms.ModelForm):
 class CrushCoachForm(forms.ModelForm):
     """Form for coaches to edit their coach profile"""
 
-    bio = forms.CharField(
+    bio_en = forms.CharField(
         required=False,
         max_length=500,
         widget=forms.Textarea(attrs={
@@ -611,16 +611,18 @@ class CrushCoachForm(forms.ModelForm):
             'placeholder': _('Share your coaching philosophy and approach...'),
             'class': TAILWIND_TEXTAREA
         }),
+        label=_('Coach Bio (English)'),
         help_text=_('Tell users about your coaching style and experience (max 500 characters)')
     )
 
-    specializations = forms.CharField(
+    specializations_en = forms.CharField(
         required=False,
         max_length=200,
         widget=forms.TextInput(attrs={
             'placeholder': _('e.g., Young professionals, Students, 35+, LGBTQ+'),
             'class': TAILWIND_INPUT
         }),
+        label=_('Specializations (English)'),
         help_text=_('What groups or demographics do you specialize in coaching?')
     )
 
@@ -692,8 +694,8 @@ class CrushCoachForm(forms.ModelForm):
     class Meta:
         model = CrushCoach
         fields = [
-            'bio', 'bio_de', 'bio_fr',
-            'specializations', 'specializations_de', 'specializations_fr',
+            'bio_en', 'bio_de', 'bio_fr',
+            'specializations_en', 'specializations_de', 'specializations_fr',
             'photo', 'spoken_languages',
         ]
 

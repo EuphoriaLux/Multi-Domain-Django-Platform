@@ -19,6 +19,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
+from django.middleware.csrf import get_token
 from django.conf import settings
 
 from django.utils.translation import gettext as _
@@ -120,6 +121,7 @@ def mark_phone_verified(request):
             "message": "Phone number verified successfully",
             "phone_verified": True,
             "phone_number": phone_number,
+            "csrfToken": get_token(request),
         })
 
     except Exception as e:

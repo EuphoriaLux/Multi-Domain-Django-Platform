@@ -374,7 +374,20 @@ class PhoneVerification {
             body: JSON.stringify({ idToken })
         });
 
-        return await response.json();
+        const data = await response.json();
+
+        // Update CSRF token if the server returned a fresh one.
+        // This prevents CSRF mismatch when the form is submitted later,
+        // since Django may rotate the CSRF cookie on POST requests.
+        if (data.csrfToken) {
+            this.csrfToken = data.csrfToken;
+            var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (input) {
+                input.value = data.csrfToken;
+            }
+        }
+
+        return data;
     }
 
     /**
