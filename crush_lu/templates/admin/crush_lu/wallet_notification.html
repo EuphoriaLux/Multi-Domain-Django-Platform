@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<form method="post">
+    {% csrf_token %}
+
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="margin-top: 0;">📨 {{ title }}</h2>
+        <p>This will send a notification to <strong>{{ profile_count }}</strong> Google Wallet pass holder{{ profile_count|pluralize }}.</p>
+    </div>
+
+    <fieldset style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+        <legend style="font-weight: bold; padding: 0 10px;">Notification Content</legend>
+        <div style="margin-bottom: 15px;">
+            <label for="id_header" style="display: block; font-weight: bold; margin-bottom: 5px;">Header:</label>
+            {{ form.header }}
+            {% if form.header.help_text %}<p class="help" style="color: #666; font-size: 12px;">{{ form.header.help_text }}</p>{% endif %}
+            {% if form.header.errors %}<ul class="errorlist">{% for e in form.header.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label for="id_body" style="display: block; font-weight: bold; margin-bottom: 5px;">Body:</label>
+            {{ form.body }}
+            {% if form.body.help_text %}<p class="help" style="color: #666; font-size: 12px;">{{ form.body.help_text }}</p>{% endif %}
+            {% if form.body.errors %}<ul class="errorlist">{% for e in form.body.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+    </fieldset>
+
+    <fieldset style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+        <legend style="font-weight: bold; padding: 0 10px;">Recipients ({{ profile_count }})</legend>
+        <ul style="max-height: 200px; overflow-y: auto; margin: 0; padding-left: 20px;">
+            {% for profile in profiles %}
+            <li>{{ profile.user.get_full_name|default:profile.user.username }} ({{ profile.user.email }}) — {{ profile.membership_tier|default:"basic" }}</li>
+            {% endfor %}
+        </ul>
+    </fieldset>
+
+    {% for profile in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ profile.pk }}" />
+    {% endfor %}
+    <input type="hidden" name="action" value="send_google_wallet_notification" />
+    <input type="hidden" name="send_notification" value="1" />
+
+    <input type="submit" value="Send Notification" style="background: #9B59B6; color: white; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;" />
+    <a href="../" style="margin-left: 15px; color: #666;">Cancel</a>
+</form>
+{% endblock %}

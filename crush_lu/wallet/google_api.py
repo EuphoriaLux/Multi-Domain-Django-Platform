@@ -2,11 +2,13 @@
 Google Wallet REST API client for updating existing passes.
 
 This module provides functions to update Google Wallet passes when user data changes
-(points, tier, event registrations, etc.).
+(points, tier, event registrations, etc.) and to send push notifications via
+the messages array on pass objects.
 """
 import json
 import logging
 import time
+import uuid
 
 import httpx
 from django.conf import settings
@@ -322,6 +324,125 @@ def update_all_google_wallet_passes():
     logger.info(
         "Batch Google Wallet update complete: %d updated, %d failed, %d skipped",
         results["updated"],
+        results["failed"],
+        results["skipped"],
+    )
+
+    return results
+
+
+def send_wallet_notification_to_user(profile, header, body):
+    """
+    Send a notification to a single user's Google Wallet pass by PATCHing
+    a new message onto the pass object.
+
+    Args:
+        profile: CrushProfile instance with google_wallet_object_id set
+        header: Notification title
+        body: Notification body text
+
+    Returns:
+        dict: {"success": bool, "message": str}
+    """
+    if not profile.google_wallet_object_id:
+        return {"success": False, "message": "User has no Google Wallet pass"}
+
+    try:
+        access_token = _get_access_token()
+
+        message_payload = {
+            "messages": [
+                {
+                    "header": header,
+                    "body": body,
+                    "id": f"msg-{uuid.uuid4().hex[:12]}",
+                    "messageType": "TEXT",
+                }
+            ]
+        }
+
+        encoded_object_id = profile.google_wallet_object_id.replace(".", "%2E")
+        url = f"{GOOGLE_WALLET_API_BASE}/genericObject/{encoded_object_id}"
+
+        with httpx.Client(timeout=30.0) as client:
+            response = client.patch(
+                url,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json=message_payload,
+            )
+
+            if response.status_code == 200:
+                logger.info(
+                    "Sent wallet notification to user %s (object: %s)",
+                    profile.user_id,
+                    profile.google_wallet_object_id,
+                )
+                return {"success": True, "message": "Notification sent"}
+
+            elif response.status_code == 404:
+                logger.warning(
+                    "Google Wallet pass not found for user %s (object: %s)",
+                    profile.user_id,
+                    profile.google_wallet_object_id,
+                )
+                return {"success": False, "message": "Pass not found (may have been deleted)"}
+
+            else:
+                logger.error(
+                    "Failed to send wallet notification: %s - %s",
+                    response.status_code,
+                    response.text,
+                )
+                return {"success": False, "message": f"API error: {response.status_code}"}
+
+    except Exception as e:
+        logger.exception(
+            "Error sending wallet notification to user %s: %s", profile.user_id, e
+        )
+        return {"success": False, "message": str(e)}
+
+
+def send_wallet_notification(header, body, tier_filter=None):
+    """
+    Send a notification to all Google Wallet pass holders by PATCHing
+    a message onto each pass object.
+
+    Args:
+        header: Notification title
+        body: Notification body text
+        tier_filter: Optional membership tier to filter by (basic/bronze/silver/gold)
+
+    Returns:
+        dict: {"sent": int, "failed": int, "skipped": int}
+    """
+    from ..models import CrushProfile
+
+    profiles = CrushProfile.objects.exclude(
+        google_wallet_object_id__isnull=True
+    ).exclude(
+        google_wallet_object_id=""
+    )
+
+    if tier_filter:
+        profiles = profiles.filter(membership_tier=tier_filter)
+
+    results = {"sent": 0, "failed": 0, "skipped": 0}
+
+    for profile in profiles:
+        result = send_wallet_notification_to_user(profile, header, body)
+        if result["success"]:
+            results["sent"] += 1
+        elif "not found" in result["message"].lower():
+            results["skipped"] += 1
+        else:
+            results["failed"] += 1
+
+    logger.info(
+        "Batch wallet notification complete: %d sent, %d failed, %d skipped",
+        results["sent"],
         results["failed"],
         results["skipped"],
     )

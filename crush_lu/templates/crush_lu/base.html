@@ -124,10 +124,7 @@
         #page-loading-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);display:none;align-items:center;justify-content:center;z-index:9999}
         #page-loading-overlay.show{display:flex}
         .loading-content{text-align:center;color:#fff}
-        .loading-spinner{width:50px;height:50px;border:3px solid rgba(255,255,255,.3);border-radius:50%;border-top-color:#fff;animation:spin 1s linear infinite;margin:0 auto 1rem}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .loading-heart{font-size:2rem;animation:pulse 1.5s ease-in-out infinite}
-        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+        .loading-ghost{margin:0 auto 1rem;display:flex;justify-content:center}
         .hidden{display:none}
         .lg\:hidden{display:none}
         @media(max-width:1023px){.lg\:hidden{display:block}}
@@ -178,8 +175,9 @@
     <!-- Loading Overlay -->
     <div id="page-loading-overlay" role="status" aria-live="polite" aria-label="Loading">
         <div class="loading-content">
-            <div class="loading-spinner" aria-hidden="true"></div>
-            <div class="loading-heart" aria-hidden="true">{% include "crush_lu/includes/ghost-logo.html" with class="w-12 h-12" %}</div>
+            <div class="loading-ghost" aria-hidden="true">
+                {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}
+            </div>
             <div class="loading-text">{% trans "Loading..." %}</div>
             <div class="loading-subtext">{% trans "Just a moment" %}</div>
         </div>
@@ -450,7 +448,10 @@
                                     <span>{% trans "Special Journey" %}</span>
                                 </a>
                                 {% endif %}
-                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Events") tooltip=_("Complete profile to register") %}
+                                <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Browse Events" %}</span>
+                                </a>
                                 {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
 
                             {% else %}
@@ -465,7 +466,10 @@
                                     {% endif %}
                                 </a>
                                 {% endif %}
-                                {% include "crush_lu/partials/nav_locked_item.html" with label=_("Events") tooltip=_("Complete profile to register") %}
+                                <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Browse Events" %}</span>
+                                </a>
                                 {% include "crush_lu/partials/nav_locked_item.html" with label=_("Connections") tooltip=_("Connect after events") %}
                             {% endif %}
 
@@ -734,11 +738,10 @@
                                     {% trans "Special Journey" %}
                                 </a>
                                 {% endif %}
-                                {# Locked items for mobile - shown as disabled text #}
-                                <span class="block text-white/40 px-4 py-2">
-                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Events" %} <span class="text-xs">({% trans "complete profile" %})</span>
-                                </span>
+                                <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Browse Events" %}
+                                </a>
                                 <span class="block text-white/40 px-4 py-2">
                                     {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>
@@ -770,11 +773,10 @@
                                     {% endif %}
                                 </a>
                                 {% endif %}
-                                {# Locked items for mobile #}
-                                <span class="block text-white/40 px-4 py-2">
-                                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Events" %} <span class="text-xs">({% trans "complete profile" %})</span>
-                                </span>
+                                <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                    {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Browse Events" %}
+                                </a>
                                 <span class="block text-white/40 px-4 py-2">
                                     {% include "shared/icons/lock-closed.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Connections" %} <span class="text-xs">({% trans "after events" %})</span>

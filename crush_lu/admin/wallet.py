@@ -5,14 +5,31 @@ Provides admin interface for managing Apple and Google Wallet passes,
 including viewing pass status, triggering updates, and batch operations.
 """
 
+from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.db.models import Q
+from django.http import HttpResponseRedirect
+from django.shortcuts import render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import CrushProfile
+
+
+class WalletNotificationForm(forms.Form):
+    """Form for sending a notification to Google Wallet pass holders."""
+    header = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"size": 60, "placeholder": "e.g. New Event This Weekend!"}),
+        help_text="Notification title shown to users",
+    )
+    body = forms.CharField(
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 3, "cols": 60, "placeholder": "e.g. Speed Dating Night - Saturday 8PM. Tap to register!"}),
+        help_text="Notification body text",
+    )
 
 
 class WalletPassFilter(admin.SimpleListFilter):
@@ -89,6 +106,7 @@ class WalletPassAdmin(admin.ModelAdmin):
         'update_google_wallet_passes',
         'update_apple_wallet_passes',
         'update_all_wallet_passes',
+        'send_google_wallet_notification',
     ]
 
     # Only show profiles with wallet passes by default
@@ -364,6 +382,60 @@ class WalletPassAdmin(admin.ModelAdmin):
             django_messages.success(request, _('🔄 Updated %(count)d wallet pass(es)') % {'count': updated})
         if skipped > 0:
             django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without any wallet pass') % {'count': skipped})
+
+    @admin.action(description=_('📨 Send notification to Google Wallet'))
+    def send_google_wallet_notification(self, request, queryset):
+        """Send a notification message to selected profiles' Google Wallet passes."""
+        # Filter to only profiles with Google Wallet passes
+        google_profiles = queryset.exclude(
+            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
+        )
+
+        if not google_profiles.exists():
+            django_messages.warning(request, _('None of the selected profiles have a Google Wallet pass.'))
+            return
+
+        if 'send_notification' in request.POST:
+            form = WalletNotificationForm(request.POST)
+            if form.is_valid():
+                from crush_lu.wallet.google_api import send_wallet_notification_to_user
+
+                header = form.cleaned_data['header']
+                body = form.cleaned_data['body']
+                sent = 0
+                failed = 0
+
+                for profile in google_profiles:
+                    result = send_wallet_notification_to_user(profile, header, body)
+                    if result['success']:
+                        sent += 1
+                    else:
+                        failed += 1
+
+                if sent:
+                    django_messages.success(
+                        request,
+                        _('📨 Sent notification to %(count)d Google Wallet pass(es)') % {'count': sent},
+                    )
+                if failed:
+                    django_messages.warning(
+                        request,
+                        _('❌ Failed to notify %(count)d pass(es)') % {'count': failed},
+                    )
+                return HttpResponseRedirect(request.get_full_path().split('?')[0])
+        else:
+            form = WalletNotificationForm()
+
+        context = {
+            'title': _('Send Google Wallet Notification'),
+            'form': form,
+            'profiles': google_profiles,
+            'profile_count': google_profiles.count(),
+            'queryset': queryset,
+            'opts': self.model._meta,
+            'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME,
+        }
+        return render(request, 'admin/crush_lu/wallet_notification.html', context)
 
     def changelist_view(self, request, extra_context=None):
         """Add statistics to the changelist view"""

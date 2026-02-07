@@ -1,9 +1,11 @@
+{% load static %}
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signing you in… - Crush.lu</title>
+    <title>{% trans "Signing you in…" %} - Crush.lu</title>
     <meta name="robots" content="noindex, nofollow">
     <!-- Aggressive no-cache meta tags -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -33,18 +35,14 @@
             max-width: 400px;
             width: 100%;
         }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #9B59B6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .ghost-loading {
             margin: 0 auto 1.5rem;
+            display: flex;
+            justify-content: center;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .ghost-loading svg {
+            width: 80px;
+            height: 80px;
         }
         h2 {
             color: #333;
@@ -83,23 +81,54 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
         }
+        .hidden {
+            display: none;
+        }
+
+        /* Dark mode via OS preference (theme-manager.js not available on this standalone page) */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+            }
+            .container {
+                background: #1e293b;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            }
+            h2 {
+                color: #f1f5f9;
+            }
+            p {
+                color: #94a3b8;
+            }
+            .status {
+                color: #64748b;
+            }
+            .success-icon {
+                color: #A78BFA;
+            }
+            .close-btn {
+                background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container" id="loading-container">
-        <div class="spinner"></div>
-        <h2>Signing you in…</h2>
-        <p>Please wait a moment.</p>
+        <div class="ghost-loading">
+            {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}
+        </div>
+        <h2>{% trans "Signing you in…" %}</h2>
+        <p>{% trans "Please wait a moment." %}</p>
         <p class="status" id="status"></p>
     </div>
 
     <!-- Shown when popup successfully authenticated but can't close automatically -->
     <div class="container hidden" id="popup-success-container">
         <div class="success-icon">&#10004;</div>
-        <h2>Login Successful!</h2>
-        <p>You're now logged in. Please close this window to continue.</p>
-        <button onclick="window.close()" class="close-btn">Close Window</button>
-        <p class="status" style="margin-top: 1rem;">Your main tab is ready to use.</p>
+        <h2>{% trans "Login Successful!" %}</h2>
+        <p>{% trans "You're now logged in. Please close this window to continue." %}</p>
+        <button onclick="window.close()" class="close-btn">{% trans "Close Window" %}</button>
+        <p class="status" style="margin-top: 1rem;">{% trans "Your main tab is ready to use." %}</p>
     </div>
 
     <script nonce="{{ request.csp_nonce }}">

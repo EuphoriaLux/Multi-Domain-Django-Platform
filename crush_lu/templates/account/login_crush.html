@@ -72,7 +72,7 @@
             <div class="space-y-3 mb-6">
                 {% for provider in socialaccount_providers %}
                     {% if provider.id == "google" %}
-                <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                    data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
                     <span class="w-5 h-5">
                         <!-- Official Google "G" Logo SVG -->
@@ -87,7 +87,7 @@
                 </a>
                     {% endif %}
                     {% if provider.id == "facebook" %}
-                <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn flex items-center justify-center gap-3 w-full py-3 px-4 bg-[#1877F2] rounded-lg font-medium text-white hover:bg-[#166FE5] transition-colors"
+                <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-[#1877F2] rounded-lg font-medium text-white hover:bg-[#166FE5] transition-colors"
                    data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
                     <span class="w-5 h-5">
                         <!-- Official Facebook "f" Logo SVG -->
@@ -99,7 +99,7 @@
                 </a>
                     {% endif %}
                     {% if provider.id == "microsoft" %}
-                <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                    data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
                     <span class="w-5 h-5">
                         <!-- Official Microsoft Logo SVG (4 squares) -->

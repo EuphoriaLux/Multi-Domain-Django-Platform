@@ -113,7 +113,7 @@
         );
     }
 
-    // Intercept form submissions (GET forms that navigate, NOT HTMX forms)
+    // Intercept form submissions (all navigating forms, NOT HTMX forms)
     document.addEventListener('submit', function(e) {
         const form = e.target;
 
@@ -122,8 +122,13 @@
             return;
         }
 
-        // Only show for navigation (GET forms that navigate)
-        if (form && form.method.toLowerCase() === 'get') {
+        // Allow opt-out via no-loading class on the form
+        if (form && form.classList.contains('no-loading')) {
+            return;
+        }
+
+        // Show overlay for all navigating forms (GET and POST)
+        if (form) {
             showLoadingOverlay();
         }
     }, true);

@@ -31,19 +31,19 @@
     </div>
 
     {# Compact Profile Summary - Always Visible on Screening & Decision Tabs #}
-    <div x-show="showProfileSummary" x-cloak class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 overflow-hidden">
+    <div x-show="showProfileSummary" x-cloak class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-200 dark:border-purple-700">
         <div class="p-4">
             <div class="flex flex-wrap items-start gap-4">
                 {# Photos - Compact View #}
-                <div class="flex gap-2">
+                <div class="flex shrink-0 gap-2">
                     {% if profile.photo_1 %}
-                        <img src="{{ profile.photo_1.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 1">
+                        <img src="{{ profile.photo_1.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 1">
                     {% endif %}
                     {% if profile.photo_2 %}
-                        <img src="{{ profile.photo_2.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 2">
+                        <img src="{{ profile.photo_2.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 2">
                     {% endif %}
                     {% if profile.photo_3 %}
-                        <img src="{{ profile.photo_3.url }}" class="w-20 h-20 rounded-lg object-cover border-2 border-white shadow-md" alt="Photo 3">
+                        <img src="{{ profile.photo_3.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 3">
                     {% endif %}
                 </div>
 
@@ -60,13 +60,13 @@
                         <hr class="my-2 border-gray-300 dark:border-gray-600">
 
                         {# Account creation date #}
-                        <p class="text-xs text-gray-600">
+                        <p class="text-xs text-gray-600 dark:text-gray-400">
                             🗓️ {% trans "Joined" %} {{ profile.created_at|timesince }} {% trans "ago" %}
                         </p>
 
                         {# Social login provider #}
                         {% if social_account %}
-                            <p class="text-xs text-gray-600">
+                            <p class="text-xs text-gray-600 dark:text-gray-400">
                                 {% if social_account.provider == 'linkedin_oauth2' %}
                                     🔗 {% trans "LinkedIn signup" %}
                                 {% elif social_account.provider == 'facebook' %}
@@ -80,7 +80,7 @@
                                 {% endif %}
                             </p>
                         {% else %}
-                            <p class="text-xs text-gray-600">📧 {% trans "Email signup" %}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">📧 {% trans "Email signup" %}</p>
                         {% endif %}
 
                         {# Phone verification (only show if verified) #}
@@ -90,7 +90,7 @@
 
                         {# Last activity #}
                         {% if profile.user.last_login %}
-                            <p class="text-xs text-gray-600">
+                            <p class="text-xs text-gray-600 dark:text-gray-400">
                                 👁️ {% trans "Active" %} {{ profile.user.last_login|timesince }} {% trans "ago" %}
                             </p>
                         {% endif %}
