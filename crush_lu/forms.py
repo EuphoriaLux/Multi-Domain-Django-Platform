@@ -550,22 +550,11 @@ class EventRegistrationForm(forms.ModelForm):
     class Meta:
         model = EventRegistration
         fields = [
-            "accessibility_needs",
             "dietary_restrictions",
             "bringing_guest",
             "guest_name",
-            "special_requests",
         ]
         widgets = {
-            "accessibility_needs": forms.Textarea(
-                attrs={
-                    "class": TAILWIND_TEXTAREA,
-                    "rows": 3,
-                    "placeholder": _(
-                        "e.g., wheelchair access, hearing assistance, etc."
-                    ),
-                }
-            ),
             "dietary_restrictions": forms.TextInput(
                 attrs={
                     "class": TAILWIND_INPUT,
@@ -585,13 +574,6 @@ class EventRegistrationForm(forms.ModelForm):
                     "placeholder": _("Guest's full name"),
                 }
             ),
-            "special_requests": forms.Textarea(
-                attrs={
-                    "class": TAILWIND_TEXTAREA,
-                    "rows": 4,
-                    "placeholder": _("Any other requests or questions?"),
-                }
-            ),
         }
 
     def __init__(self, *args, event=None, **kwargs):
@@ -606,6 +588,16 @@ class EventRegistrationForm(forms.ModelForm):
             if not event.allow_plus_ones:
                 self.fields.pop("bringing_guest", None)
                 self.fields.pop("guest_name", None)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        bringing_guest = cleaned_data.get("bringing_guest")
+        guest_name = cleaned_data.get("guest_name", "").strip()
+
+        if bringing_guest and not guest_name:
+            self.add_error("guest_name", _("Please provide your guest's name."))
+
+        return cleaned_data
 
 
 class CrushCoachForm(forms.ModelForm):

@@ -7272,51 +7272,6 @@ document.addEventListener('alpine:init', function() {
             // State
             bringingGuest: false,
             isSubmitting: false,
-            charCount: 0,
-            maxChars: 500,
-
-            // Initialize
-            init: function() {
-                // Watch special_requests textarea for character count
-                const textarea = this.$el.querySelector('textarea[name="special_requests"]');
-                if (textarea) {
-                    this.charCount = textarea.value.length;
-                    textarea.addEventListener('input', (e) => {
-                        this.charCount = e.target.value.length;
-                    });
-                }
-
-                // Watch bringing_guest checkbox
-                const checkbox = this.$el.querySelector('input[name="bringing_guest"]');
-                if (checkbox) {
-                    this.bringingGuest = checkbox.checked;
-                    checkbox.addEventListener('change', (e) => {
-                        this.bringingGuest = e.target.checked;
-                    });
-                }
-            },
-
-            // Computed properties
-            get showDietaryField() {
-                return this.$el.dataset.hasFood === 'true';
-            },
-
-            get showPlusOneField() {
-                return this.$el.dataset.allowPlusOnes === 'true';
-            },
-
-            get charCountText() {
-                return this.charCount + ' / ' + this.maxChars;
-            },
-
-            get charCountClass() {
-                if (this.charCount > this.maxChars) {
-                    return 'text-red-600';
-                } else if (this.charCount > this.maxChars * 0.9) {
-                    return 'text-yellow-600';
-                }
-                return 'text-gray-500';
-            },
 
             // CSP-safe getters for button text visibility
             get showSubmitText() {
@@ -7328,6 +7283,10 @@ document.addEventListener('alpine:init', function() {
             },
 
             // Actions
+            toggleGuest: function() {
+                this.bringingGuest = !this.bringingGuest;
+            },
+
             handleSubmit: function(event) {
                 this.isSubmitting = true;
                 // Let native form submission or HTMX continue

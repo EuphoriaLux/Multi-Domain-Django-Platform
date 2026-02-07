@@ -33,7 +33,7 @@
                 <button @click="enablePush"
                         :disabled="isEnabling"
                         class="bg-white dark:bg-gray-100 text-purple-600 dark:text-purple-700 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-purple-50 dark:hover:bg-purple-100 transition-colors disabled:opacity-50">
-                    <span x-show="!isEnabling">{% trans "Enable Now" %}</span>
+                    <span x-show="notEnabling">{% trans "Enable Now" %}</span>
                     <span x-show="isEnabling">{% trans "Enabling..." %}</span>
                 </button>
                 <button @click="dismiss"
@@ -53,11 +53,12 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ request.csp_nonce }}">
 document.addEventListener('alpine:init', () => {
     Alpine.data('pushActivationPrompt', () => ({
         shouldShowPrompt: false,
         isEnabling: false,
+        get notEnabling() { return !this.isEnabling; },
         isPwaUser: false,
         hasPushEnabled: false,
 

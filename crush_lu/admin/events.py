@@ -442,11 +442,9 @@ class MeetupEventAdmin(TranslationAdmin):
                 "Phone",
                 "Status",
                 "Payment Confirmed",
-                "Accessibility Needs",
                 "Dietary Restrictions",
                 "Bringing Guest",
                 "Guest Name",
-                "Special Requests",
                 "Registered At",
             ]
         )
@@ -474,11 +472,9 @@ class MeetupEventAdmin(TranslationAdmin):
                         phone,
                         reg.get_status_display(),
                         "Yes" if reg.payment_confirmed else "No",
-                        reg.accessibility_needs or "",
                         reg.dietary_restrictions or "",
                         "Yes" if reg.bringing_guest else "No",
                         reg.guest_name or "",
-                        reg.special_requests or "",
                         (
                             reg.registered_at.strftime("%Y-%m-%d %H:%M")
                             if reg.registered_at
@@ -527,11 +523,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             "Additional Information",
             {
                 "fields": (
-                    "accessibility_needs",
                     "dietary_restrictions",
                     "bringing_guest",
                     "guest_name",
-                    "special_requests",
                 )
             },
         ),
@@ -562,11 +556,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 "Status",
                 "Payment Confirmed",
                 "Payment Date",
-                "Accessibility Needs",
                 "Dietary Restrictions",
                 "Bringing Guest",
                 "Guest Name",
-                "Special Requests",
                 "Registered At",
             ]
         )
@@ -590,11 +582,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     reg.get_status_display(),
                     "Yes" if reg.payment_confirmed else "No",
                     reg.payment_date.strftime("%Y-%m-%d") if reg.payment_date else "",
-                    reg.accessibility_needs or "",
                     reg.dietary_restrictions or "",
                     "Yes" if reg.bringing_guest else "No",
                     reg.guest_name or "",
-                    reg.special_requests or "",
                     (
                         reg.registered_at.strftime("%Y-%m-%d %H:%M")
                         if reg.registered_at

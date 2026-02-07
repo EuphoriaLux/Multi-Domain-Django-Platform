@@ -6,62 +6,52 @@
 {% block content %}
 {# Track profile submission status view in Application Insights #}
 {% appinsights_event "profile_submission_viewed" status=submission.status %}
-<div class="flex justify-center py-8">
+<div class="flex justify-center py-6 md:py-8">
     <div class="w-full max-w-3xl px-4">
-        <div class="card">
-            <div class="card-body text-center p-8">
+        <div>
+            <div class="text-center">
                 {% if submission.status == 'pending' or submission.status == 'under_review' %}
-                    <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-4xl shadow-lg">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
                             ⏳
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
-                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-4">
                         {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
                     </p>
 
-                    <div class="alert alert-warning text-left">
-                        <div class="flex-shrink-0">
-                            {% include "shared/icons/clock.html" with class="w-5 h-5" %}
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden text-left mb-6">
+                        <div class="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50">
+                            {% include "shared/icons/clock.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" %}
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{{ submission.get_status_display }}</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 mb-0">
+                                    {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}
+                                    {% if submission.coach %} · {% trans "Coach:" %} {{ submission.coach.user.get_full_name }}{% endif %}
+                                </p>
+                            </div>
                         </div>
-                        <div class="flex-1">
-                            <h5 class="font-semibold mb-2">{% trans "Current Status:" %} {{ submission.get_status_display }}</h5>
-                            <p class="mb-2 text-sm"><strong>{% trans "Submitted:" %}</strong> {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</p>
-                            {% if submission.coach %}
-                                <p class="mb-0 text-sm"><strong>{% trans "Assigned Coach:" %}</strong> {{ submission.coach.user.get_full_name }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="alert alert-info text-left">
-                        <div class="flex-shrink-0">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-                        </div>
-                        <div class="flex-1">
-                            <h5 class="font-semibold mb-2">{% trans "What happens next?" %}</h5>
-                            <ol class="mb-0 list-decimal ml-5 space-y-1 text-sm">
+                        <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                            <p class="font-semibold mb-2">{% trans "What happens next?" %}</p>
+                            <ol class="list-decimal ml-5 space-y-1 text-sm mb-3">
                                 <li>{% trans "Your assigned Crush Coach will review your profile" %}</li>
                                 <li>{% trans "You'll receive feedback within 24-48 hours" %}</li>
                                 <li>{% trans "Once approved, you can register for events!" %}</li>
                             </ol>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                                {% trans "You cannot edit your profile while it's under review." %}
+                            </p>
                         </div>
-                    </div>
-
-                    <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg p-4 text-left mb-4">
-                        <p class="mb-0 text-sm flex items-start gap-2">
-                            <span class="flex-shrink-0 mt-0.5">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %}</span>
-                            <span><strong>{% trans "Note:" %}</strong> {% trans "You cannot edit your profile while it's under review. If you need to make changes, please wait for the review to complete." %}</span>
-                        </p>
                     </div>
 
                 {% elif submission.status == 'approved' %}
-                    <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-4xl shadow-lg">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
                     <p class="text-base text-green-600 dark:text-green-300 mb-6 font-medium">
                         {% trans "Congratulations! Your profile has been approved by our coaches." %}
                     </p>
@@ -76,12 +66,12 @@
                     </div>
 
                 {% elif submission.status == 'rejected' %}
-                    <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-4xl shadow-lg">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
                             ❌
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
                     <p class="text-base text-red-600 dark:text-red-300 mb-6 font-medium">
                         {% trans "Your profile needs some updates before it can be approved." %}
                     </p>
@@ -106,12 +96,12 @@
                     </div>
 
                 {% elif submission.status == 'recontact_coach' %}
-                    <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-4xl shadow-lg">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
                             📞
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
                     <p class="text-base text-purple-600 dark:text-purple-300 mb-6 font-medium">
                         {% trans "Your coach tried to reach you but couldn't connect. Please contact them to complete your screening call." %}
                     </p>
@@ -131,58 +121,66 @@
                     </div>
 
                 {% else %}
-                    <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-4xl shadow-lg">
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
                             ✅
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
                     <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
                         {% trans "Your profile has been submitted for review by our Crush Coaches." %}
                     </p>
                 {% endif %}
 
                 {% if submission.coach and submission.status != 'rejected' and submission.status != 'approved' %}
-                <div class="card mb-6 overflow-hidden border-2 border-crush-purple/20">
-                    <div class="bg-gradient-to-r from-crush-purple/10 to-crush-pink/10 px-6 py-3 border-b border-crush-purple/20">
-                        <h6 class="text-sm font-bold text-crush-purple uppercase tracking-wide flex items-center gap-2">
-                            {% include "shared/icons/user.html" with class="w-5 h-5" %}
-                            {% trans "Your Crush Coach" %}
-                        </h6>
-                    </div>
-                    <div class="card-body p-6">
-                        <div class="flex items-start gap-4">
-                            {% if submission.coach.photo %}
-                            <div class="flex-shrink-0">
-                                <img src="{{ submission.coach.photo.url }}"
-                                     alt="{{ submission.coach.user.get_full_name }}"
-                                     class="w-16 h-16 rounded-full object-cover border-2 border-crush-purple/30 shadow-md">
-                            </div>
-                            {% else %}
-                            <div class="flex-shrink-0">
-                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-2xl font-bold shadow-md">
-                                    {{ submission.coach.user.get_full_name|slice:":1"|upper }}
-                                </div>
-                            </div>
-                            {% endif %}
-                            <div class="flex-1">
-                                <h5 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{{ submission.coach.user.get_full_name }}</h5>
-                                {% if submission.coach.specializations %}
-                                <p class="text-sm text-crush-purple font-medium mb-2">{{ submission.coach.specializations }}</p>
-                                {% endif %}
-                                {% if submission.coach.bio %}
-                                <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ submission.coach.bio }}</p>
-                                {% endif %}
-                                <div class="flex items-center gap-2 text-sm">
-                                    <a href="mailto:{{ submission.coach.user.email }}"
-                                       class="inline-flex items-center gap-1.5 text-crush-purple hover:text-crush-pink transition-colors font-medium">
-                                        {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
-                                        <span>{% trans "Contact Coach" %}</span>
-                                    </a>
-                                </div>
-                            </div>
+                <div class="flex items-center gap-4 mb-6 text-left">
+                    {% if submission.coach.photo %}
+                        <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
+                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md flex-shrink-0">
+                    {% else %}
+                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
+                            {{ submission.coach.user.get_full_name|slice:":1"|upper }}
                         </div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-semibold text-crush-purple uppercase tracking-wide mb-0.5">{% trans "Your Crush Coach" %}</p>
+                        <p class="text-base font-bold text-gray-900 dark:text-white mb-0.5">{{ submission.coach.user.get_full_name }}</p>
+                        {% if submission.coach.specializations %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ submission.coach.specializations }}</p>
+                        {% endif %}
+                        {% if submission.coach.bio %}
+                            <p class="text-xs text-gray-600 dark:text-gray-300 mb-1.5">{{ submission.coach.bio }}</p>
+                        {% endif %}
+                        <a href="mailto:{{ submission.coach.user.email }}"
+                           class="inline-flex items-center gap-1 text-xs text-crush-purple hover:text-crush-pink transition-colors font-medium">
+                            {% include "shared/icons/envelope.html" with class="w-3.5 h-3.5" %}
+                            {% trans "Contact Coach" %}
+                        </a>
                     </div>
+                </div>
+                {% endif %}
+
+                {% if submission.status != 'approved' %}
+                <div class="mt-4 mb-4 md:mt-6 md:mb-6">
+                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "While You Wait: Your Love Story Awaits" %}
+                        </p>
+                    {% elif submission.status == 'rejected' %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "Your Perfect Match Is Worth The Effort" %}
+                        </p>
+                    {% elif submission.status == 'recontact_coach' %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "Almost There! Your Story Is About To Begin" %}
+                        </p>
+                    {% endif %}
+
+                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                        {% include "crush_lu/includes/ghost-story-compact.html" %}
+                    {% else %}
+                        {% include "crush_lu/includes/ghost-story-compact.html" with show_cta=False %}
+                    {% endif %}
                 </div>
                 {% endif %}
 

@@ -23,14 +23,9 @@
     </ul>
 </div>
 
-{% if registration.accessibility_needs or registration.dietary_restrictions or registration.bringing_guest or registration.special_requests %}
+{% if registration.dietary_restrictions or registration.bringing_guest %}
 <div class="info-box">
     <strong>{% trans "Your Registration Details:" %}</strong>
-
-    {% if registration.accessibility_needs %}
-    <p><strong>{% trans "Accessibility Needs:" %}</strong><br>
-    {{ registration.accessibility_needs }}</p>
-    {% endif %}
 
     {% if registration.dietary_restrictions %}
     <p><strong>{% trans "Dietary Restrictions:" %}</strong><br>
@@ -39,17 +34,8 @@
 
     {% if registration.bringing_guest %}
     <p><strong>{% trans "Guest:" %}</strong><br>
-    {% if registration.guest_name %}
-        {{ registration.guest_name }}
-    {% else %}
-        {% trans "Bringing a guest" %}
-    {% endif %}
+    {{ registration.guest_name }}
     </p>
-    {% endif %}
-
-    {% if registration.special_requests %}
-    <p><strong>{% trans "Special Requests:" %}</strong><br>
-    {{ registration.special_requests }}</p>
     {% endif %}
 </div>
 {% endif %}

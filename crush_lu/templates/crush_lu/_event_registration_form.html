@@ -17,6 +17,7 @@
         </div>
     {% endif %}
 
+    {% if form.dietary_restrictions %}
     <div class="mb-4">
         <label for="{{ form.dietary_restrictions.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             {% trans "Dietary Restrictions" %}
@@ -27,16 +28,28 @@
             <div class="text-red-500 text-sm mt-1">{{ form.dietary_restrictions.errors.0 }}</div>
         {% endif %}
     </div>
+    {% endif %}
 
-    <div class="mb-6">
-        <label for="{{ form.special_requests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-            {% trans "Special Requests or Questions" %}
-        </label>
-        {{ form.special_requests }}
-        {% if form.special_requests.errors %}
-            <div class="text-red-500 text-sm mt-1">{{ form.special_requests.errors.0 }}</div>
-        {% endif %}
+    {% if form.bringing_guest %}
+    <div class="mb-4">
+        <div class="flex items-center gap-3 mb-3">
+            {{ form.bringing_guest }}
+            <label for="{{ form.bringing_guest.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                {% trans "I'm bringing a guest" %}
+            </label>
+        </div>
+
+        <div class="ml-7">
+            <label for="{{ form.guest_name.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">
+                {% trans "Guest's Name" %}
+            </label>
+            {{ form.guest_name }}
+            {% if form.guest_name.errors %}
+                <div class="text-red-500 text-sm mt-1">{{ form.guest_name.errors.0 }}</div>
+            {% endif %}
+        </div>
     </div>
+    {% endif %}
 
     <div class="flex flex-col gap-3">
         <button type="submit" class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2">

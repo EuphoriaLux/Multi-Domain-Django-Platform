@@ -2060,11 +2060,9 @@ def event_register(request, event_id):
             if cancelled_registration:
                 # Reactivate the cancelled registration
                 registration = cancelled_registration
-                registration.accessibility_needs = form.cleaned_data.get('accessibility_needs', '')
                 registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
                 registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
                 registration.guest_name = form.cleaned_data.get('guest_name', '')
-                registration.special_requests = form.cleaned_data.get('special_requests', '')
             else:
                 # Create new registration
                 registration = form.save(commit=False)

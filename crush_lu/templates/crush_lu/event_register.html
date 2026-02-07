@@ -11,8 +11,6 @@
 
 {# Alpine.js component for dynamic form behavior #}
 <div x-data="eventRegistration"
-     data-has-food="{{ event.has_food_component|yesno:'true,false' }}"
-     data-allow-plus-ones="{{ event.allow_plus_ones|yesno:'true,false' }}"
      class="container mx-auto px-4 py-8 max-w-2xl">
 
     <!-- Header Section -->
@@ -78,27 +76,9 @@
           class="space-y-6">
         {% csrf_token %}
 
-        <!-- Accessibility Needs (Always Shown) -->
-        <div class="form-group">
-            <label for="{{ form.accessibility_needs.id_for_label }}" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"/>
-                </svg>
-                {% trans "Accessibility Needs" %}
-                <span class="text-gray-500 dark:text-gray-400 font-normal">({% trans "Optional" %})</span>
-            </label>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                {% trans "Let us know if you need any accommodations (wheelchair access, hearing assistance, etc.)" %}
-            </p>
-            {{ form.accessibility_needs }}
-            {% if form.accessibility_needs.errors %}
-                <p class="mt-1 text-sm text-red-600 dark:text-red-300">{{ form.accessibility_needs.errors.0 }}</p>
-            {% endif %}
-        </div>
-
         <!-- Dietary Restrictions (Conditional) -->
         {% if event.has_food_component %}
-        <div x-show="showDietaryField" x-transition class="form-group">
+        <div class="form-group">
             <label for="{{ form.dietary_restrictions.id_for_label }}" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                 <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
@@ -119,7 +99,7 @@
 
         <!-- Plus-One (Conditional) -->
         {% if event.allow_plus_ones %}
-        <div x-show="showPlusOneField" x-transition class="form-group">
+        <div class="form-group">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">
                 <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
@@ -128,8 +108,10 @@
             </label>
 
             <div class="flex items-center gap-3 mb-3">
-                {{ form.bringing_guest }}
-                <label for="{{ form.bringing_guest.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                <input type="checkbox" name="bringing_guest" id="id_bringing_guest"
+                       class="h-4 w-4 rounded border-gray-300 text-crush-purple focus:ring-crush-purple"
+                       @change="toggleGuest">
+                <label for="id_bringing_guest" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
                     {% trans "I'm bringing a guest" %}
                 </label>
             </div>
@@ -145,27 +127,6 @@
             </div>
         </div>
         {% endif %}
-
-        <!-- Special Requests (Always Shown) -->
-        <div class="form-group">
-            <label for="{{ form.special_requests.id_for_label }}" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                </svg>
-                {% trans "Special Requests or Questions" %}
-                <span class="text-gray-500 dark:text-gray-400 font-normal">({% trans "Optional" %})</span>
-            </label>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                {% trans "Anything else we should know? Questions about the event?" %}
-            </p>
-            {{ form.special_requests }}
-            <div class="flex justify-end mt-1">
-                <span class="text-xs" :class="charCountClass" x-text="charCountText"></span>
-            </div>
-            {% if form.special_requests.errors %}
-                <p class="mt-1 text-sm text-red-600 dark:text-red-300">{{ form.special_requests.errors.0 }}</p>
-            {% endif %}
-        </div>
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-3 pt-4">

@@ -220,7 +220,7 @@ class SafeCurrentSiteMiddleware:
         host = request.get_host().split(':')[0].lower()
         if host in DEV_DOMAIN_MAPPINGS:
             mapped_host = DEV_DOMAIN_MAPPINGS[host]
-            # Store original and override META for Sites framework compatibility
+            # Store original host for reference
             request._original_http_host = request.META.get('HTTP_HOST', '')
             port = request.get_port()
             request.META['HTTP_HOST'] = f"{mapped_host}:{port}" if port != '80' else mapped_host
