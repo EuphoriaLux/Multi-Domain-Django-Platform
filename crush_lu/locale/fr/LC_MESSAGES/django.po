@@ -10529,10 +10529,9 @@ msgid "Max participants: %(max)s"
 msgstr "Participants max : %(max)s"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:254
-#, fuzzy, python-format
-#| msgid "<strong>Spots remaining: %(spots)s</strong>"
+#, python-format
 msgid "Spots remaining: %(spots)s"
-msgstr "<strong>Places restantes : %(spots)s</strong>"
+msgstr "Places restantes : %(spots)s"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:265
 msgid "Price"
@@ -16704,3 +16703,19 @@ msgstr ""
 
 #~ msgid "Please create a profile first."
 #~ msgstr "Veuillez d'abord créer un profil."
+
+#: .\crush_lu\templates\crush_lu\event_detail.html
+msgid "Sign up to reveal the exact location"
+msgstr "Inscrivez-vous pour voir le lieu exact"
+
+#: .\crush_lu\templates\crush_lu\event_detail.html
+msgid "Create your profile to unlock the location"
+msgstr "Créez votre profil pour voir le lieu exact"
+
+#: .\crush_lu\templates\crush_lu\event_detail.html
+msgid "Almost full!"
+msgstr "Presque complet !"
+
+#: .\crush_lu\templates\crush_lu\event_detail.html
+msgid "Filling up"
+msgstr "Se remplit vite"

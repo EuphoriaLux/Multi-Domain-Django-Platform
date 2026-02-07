@@ -6,15 +6,15 @@
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
-{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
 {% block og_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
 {% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
-{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}.{% endblock %}
+{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
 {% block twitter_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
-{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} at {{ event.location }}, Luxembourg.{% endblock %}
-{% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.location|lower }}, singles event{% endblock %}
+{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}, Luxembourg.{% endblock %}
+{% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.canton|default:"luxembourg"|lower }}, singles event{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -225,16 +225,22 @@
                             </p>
                         {% else %}
                             {# Public visitors or users without profiles: Show canton only #}
-                            <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
-                                <strong>{{ event.canton|default:"Luxembourg" }}</strong>
-                                <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 block mt-1">
-                                    {% if user.is_authenticated %}
-                                        {% trans "Create a Crush profile to see the exact location" %}
-                                    {% else %}
-                                        {% trans "Sign in with a Crush profile to see the exact location" %}
-                                    {% endif %}
-                                </span>
-                            </p>
+                            <div class="ml-7">
+                                <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                                    <strong>{{ event.canton|default:"Luxembourg" }}</strong>
+                                </p>
+                                {% if user.is_authenticated %}
+                                    <a href="{% url 'crush_lu:create_profile' %}" class="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs sm:text-sm rounded-full px-3 py-1.5 hover:shadow-lg hover:scale-105 transition-all duration-200">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                        {% trans "Create your profile to unlock the location" %}
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'crush_lu:signup' %}" class="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs sm:text-sm rounded-full px-3 py-1.5 hover:shadow-lg hover:scale-105 transition-all duration-200">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                        {% trans "Sign up to reveal the exact location" %}
+                                    </a>
+                                {% endif %}
+                            </div>
                         {% endif %}
                     </div>
                 </div>
@@ -250,9 +256,28 @@
                             <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Capacity" %}</span>
                         </div>
                         <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
-                            {% blocktrans with max=event.max_participants %}Max participants: {{ max }}{% endblocktrans %}<br>
-                            <span class="font-semibold text-crush-purple">{% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}</span>
+                            {% blocktrans with max=event.max_participants %}Max participants: {{ max }}{% endblocktrans %}
                         </p>
+                        <div class="ml-7 mt-1.5 flex items-center gap-2 flex-wrap">
+                            {% if event.spots_remaining <= 5 %}
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
+                                <span class="text-xs font-bold text-white bg-rose-500 rounded-full px-2 py-0.5">{% trans "Almost full!" %}</span>
+                            {% elif event.spots_remaining <= 20 %}
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
+                                <span class="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-full px-2 py-0.5">{% trans "Filling up" %}</span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {# Price card #}
