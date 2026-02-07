@@ -697,11 +697,11 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
     if "CRUSH_SOCIAL_PREVIEW_URL" not in os.environ:
         CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
     if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
-        VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/journey/"
+        VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
     if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:
-        VINSDELUX_VINEYARD_DEFAULTS_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/vineyard-defaults/"
+        VINSDELUX_VINEYARD_DEFAULTS_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/"
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
-        POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/powerup/defaults/profile.png"
+        POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png"
 
     if os.environ.get("RUN_MAIN"):
         print("Using Azure Blob Storage with platform-specific containers.")

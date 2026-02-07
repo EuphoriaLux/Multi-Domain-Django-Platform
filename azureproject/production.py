@@ -206,8 +206,8 @@ MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/" 
 #
 # Structure: https://{account}.blob.core.windows.net/{container}/{path}
 # - crush-lu-media/branding/social-preview.jpg
-# - vinsdelux-media/vinsdelux/journey/step_01.png
-# - powerup-media/powerup/defaults/profile.png
+# - vinsdelux-media/journey/step_01.png
+# - powerup-media/defaults/profile.png
 
 # Crush.lu images (in crush-lu-media container)
 CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
@@ -223,18 +223,18 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
 # VinsDelux images (in vinsdelux-media container)
 VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
-    "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/journey/"
+    "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
 )
 VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
     "VINSDELUX_VINEYARD_DEFAULTS_URL",
-    f"{VINSDELUX_MEDIA_BASE_URL}/vinsdelux/vineyard-defaults/",
+    f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/",
 )
 
 # PowerUP/Entreprinder images (in powerup-media container)
 POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     "POWERUP_DEFAULT_PROFILE_URL",
-    f"{POWERUP_MEDIA_BASE_URL}/powerup/defaults/profile.png",
+    f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png",
 )
 
 # ============================================================================

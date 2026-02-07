@@ -518,25 +518,25 @@ from functools import partial
 
 # Domain prefixes for blob storage organization
 DOMAIN_PREFIXES = {
-    'crush_lu': 'crush-lu',
-    'powerup': 'powerup',
-    'vinsdelux': 'vinsdelux',
-    'shared': 'shared',
+    'crush_lu': '',
+    'powerup': '',
+    'vinsdelux': '',
+    'shared': '',
 }
 
 
 def _domain_upload_path(domain: str, subfolder: str, instance, filename: str) -> str:
     """
-    Generate a domain-prefixed upload path with UUID.
+    Generate an upload path with optional domain prefix and UUID.
 
     Args:
-        domain: Domain prefix (e.g., 'vinsdelux', 'crush-lu', 'powerup')
-        subfolder: Subfolder within domain (e.g., 'producers/logos')
+        domain: Domain prefix (empty string if not needed)
+        subfolder: Subfolder (e.g., 'producers/logos')
         instance: Model instance (not used but required by Django)
         filename: Original filename
 
     Returns:
-        Path like: vinsdelux/producers/logos/{uuid}.{ext}
+        Path like: producers/logos/{uuid}.{ext}
     """
     ext = os.path.splitext(filename)[1].lower()
     unique_filename = f"{uuid.uuid4().hex}{ext}"
@@ -544,9 +544,9 @@ def _domain_upload_path(domain: str, subfolder: str, instance, filename: str) ->
     # Normalize subfolder (remove leading/trailing slashes)
     subfolder = subfolder.strip('/')
 
-    if subfolder:
-        return f"{domain}/{subfolder}/{unique_filename}"
-    return f"{domain}/{unique_filename}"
+    parts = [p for p in (domain, subfolder) if p]
+    parts.append(unique_filename)
+    return '/'.join(parts)
 
 
 def _make_upload_path(domain: str, subfolder: str = ''):
@@ -570,10 +570,10 @@ def vinsdelux_upload_path(subfolder: str = ''):
 
     Examples:
         upload_to=vinsdelux_upload_path('producers/logos')
-        -> vinsdelux/producers/logos/{uuid}.{ext}
+        -> producers/logos/{uuid}.{ext}
 
         upload_to=vinsdelux_upload_path('products/gallery')
-        -> vinsdelux/products/gallery/{uuid}.{ext}
+        -> products/gallery/{uuid}.{ext}
     """
     return _make_upload_path('vinsdelux', subfolder)
 
@@ -587,10 +587,10 @@ def crush_upload_path(subfolder: str = ''):
 
     Examples:
         upload_to=crush_upload_path('branding')
-        -> crush-lu/branding/{uuid}.{ext}
+        -> branding/{uuid}.{ext}
 
         upload_to=crush_upload_path('advent/backgrounds')
-        -> crush-lu/advent/backgrounds/{uuid}.{ext}
+        -> advent/backgrounds/{uuid}.{ext}
     """
     return _make_upload_path('crush_lu', subfolder)
 
@@ -601,10 +601,10 @@ def powerup_upload_path(subfolder: str = ''):
 
     Examples:
         upload_to=powerup_upload_path('defaults')
-        -> powerup/defaults/{uuid}.{ext}
+        -> defaults/{uuid}.{ext}
 
         upload_to=powerup_upload_path('companies/logos')
-        -> powerup/companies/logos/{uuid}.{ext}
+        -> companies/logos/{uuid}.{ext}
     """
     return _make_upload_path('powerup', subfolder)
 
@@ -615,7 +615,7 @@ def shared_upload_path(subfolder: str = ''):
 
     Examples:
         upload_to=shared_upload_path('homepage')
-        -> shared/homepage/{uuid}.{ext}
+        -> homepage/{uuid}.{ext}
     """
     return _make_upload_path('shared', subfolder)
 
