@@ -132,7 +132,8 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         if _is_crush_domain(request):
             request.session['oauth_provider'] = sociallogin.account.provider
             is_popup = request.session.get('oauth_popup_mode', False)
-            logger.debug(f"OAuth login via {sociallogin.account.provider} (popup: {is_popup})")
+            # Don't log provider details - just success
+            logger.debug(f"OAuth login successful (popup mode: {is_popup})")
 
     def on_authentication_error(self, request, provider_id, error=None, exception=None, extra_context=None):
         """

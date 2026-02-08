@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.contrib import messages
+from urllib.parse import quote
 
 
 def crush_login_required(function):
@@ -16,9 +17,12 @@ def crush_login_required(function):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             # Redirect to Crush.lu login with next parameter
+            # URL-encode the next parameter to prevent injection
             login_url = reverse('crush_lu:login')
             next_url = request.get_full_path()
-            return redirect(f'{login_url}?next={next_url}')
+            # Use quote to safely encode the URL
+            safe_next = quote(next_url, safe='/')
+            return redirect(f'{login_url}?next={safe_next}')
         return function(request, *args, **kwargs)
     return wrapper
 

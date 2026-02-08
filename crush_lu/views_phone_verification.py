@@ -23,6 +23,7 @@ from django.middleware.csrf import get_token
 from django.conf import settings
 
 from django.utils.translation import gettext as _
+from django.utils.http import url_has_allowed_host_and_scheme
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
 from .models import CrushProfile
 from .decorators import ratelimit
@@ -112,8 +113,10 @@ def mark_phone_verified(request):
             "phone_verification_uid"
         ])
 
+        # Log with properly redacted phone number
+        phone_redacted = phone_number[:4] + "***" if len(phone_number) > 4 else "***"
         logger.info(
-            f"Phone verified for user {request.user.id}: {phone_number[:7]}***"
+            f"Phone verified for user {request.user.id}: {phone_redacted}"
         )
 
         return JsonResponse({
@@ -125,11 +128,11 @@ def mark_phone_verified(request):
         })
 
     except Exception as e:
-        logger.error(f"Phone verification failed for user {request.user.id}: {e}")
+        logger.error(f"Phone verification failed for user {request.user.id}: {e}", exc_info=True)
         return JsonResponse({
             "success": False,
-            "error": str(e)
-        }, status=400)
+            "error": "Phone verification failed. Please try again."
+        }, status=500)
 
 
 @login_required
@@ -197,8 +200,14 @@ def verify_phone_page(request):
     next_url = request.GET.get('next', '')
 
     # Validate next_url to prevent open redirect vulnerabilities
-    # Only allow relative URLs or URLs to our own domain
-    if next_url and not next_url.startswith('/'):
+    # Use Django's built-in URL validation
+    allowed_hosts = [request.get_host()] if request else settings.ALLOWED_HOSTS
+    if next_url and not url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts=allowed_hosts,
+        require_https=request.is_secure() if request else False
+    ):
+        # Invalid redirect target - ignore it
         next_url = ''
 
     # If already verified, redirect to next or dashboard with message

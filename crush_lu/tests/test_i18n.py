@@ -979,10 +979,13 @@ class EmailBaseURLsTests(SiteTestMixin, TestCase):
         base_urls = get_email_base_urls(self.user, self.request)
 
         # All URLs should include the domain
+        # Use proper URL parsing instead of string operations
+        from urllib.parse import urlparse
         for key, url in base_urls.items():
+            parsed = urlparse(url)
             self.assertTrue(
-                url.startswith('https://crush.lu') or url.startswith('http://'),
-                f"{key} should be an absolute URL, got: {url}"
+                parsed.scheme in ('http', 'https') and parsed.netloc,
+                f"{key} should be an absolute URL with scheme and netloc, got: {url}"
             )
 
 

@@ -30,6 +30,8 @@ jobs:
   # Fast validation (syntax + Django checks) - ~30s
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +55,8 @@ jobs:
   # Run tests in parallel with validate
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +77,8 @@ jobs:
   # Build CSS + collectstatic in parallel with tests
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -98,6 +104,9 @@ jobs:
   deploy:
     needs: [validate, test, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for Azure OIDC authentication
     steps:
       - uses: actions/checkout@v4
 

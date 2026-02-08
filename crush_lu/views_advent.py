@@ -368,7 +368,7 @@ def get_advent_status(request):
 
     except Exception as e:
         logger.error(f"Error getting advent status: {e}", exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': 'An error occurred while loading calendar status.'}, status=500)
 
 
 @crush_login_required
@@ -437,4 +437,4 @@ def open_door_api(request):
         return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         logger.error(f"Error opening door via API: {e}", exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': 'An error occurred while opening this door.'}, status=500)

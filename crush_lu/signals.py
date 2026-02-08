@@ -535,9 +535,9 @@ def update_profile_from_facebook_data(profile, extra_data):
             birthday = datetime.strptime(extra_data['birthday'], '%m/%d/%Y').date()
             profile.date_of_birth = birthday
             updated = True
-            logger.info(f"Set date_of_birth from Facebook: {birthday}")
+            logger.info(f"Set date_of_birth from Facebook (year: {birthday.year})")
         except ValueError as e:
-            logger.error(f"Error parsing Facebook birthday '{extra_data['birthday']}': {str(e)}")
+            logger.error(f"Error parsing Facebook birthday (format error): {str(e)}")
 
     # Set gender if available and not already set
     if extra_data.get('gender') and not profile.gender:
@@ -545,7 +545,7 @@ def update_profile_from_facebook_data(profile, extra_data):
         # Map known genders, default to 'O' (Other) for custom/unknown
         profile.gender = FACEBOOK_GENDER_MAPPING.get(fb_gender, 'O')
         updated = True
-        logger.info(f"Set gender from Facebook: {fb_gender} -> {profile.gender}")
+        logger.info(f"Set gender from Facebook (mapped to: {profile.gender})")
 
     return updated
 
