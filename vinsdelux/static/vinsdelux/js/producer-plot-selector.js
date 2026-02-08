@@ -3,6 +3,20 @@
  * Handles the two-step selection process: Producer -> Plots -> Adoption Plan
  */
 
+/**
+ * Escape HTML to prevent XSS (including quotes for attribute safety)
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const str = String(text);
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 class ProducerPlotSelector {
     constructor(options = {}) {
         this.selectedProducer = null;
@@ -194,44 +208,44 @@ class ProducerPlotSelector {
         const plotsGrid = document.getElementById('producer-plots-grid');
         
         plotsGrid.innerHTML = plots.map(plot => `
-            <div class="plot-card" data-plot-id="${plot.id}">
+            <div class="plot-card" data-plot-id="${escapeHtml(plot.id)}">
                 <div class="plot-card-header">
-                    <h6>${plot.name || `Plot ${plot.plot_identifier}`}</h6>
-                    <span class="plot-status ${plot.status}">${plot.status}</span>
+                    <h6>${escapeHtml(plot.name || `Plot ${plot.plot_identifier}`)}</h6>
+                    <span class="plot-status ${escapeHtml(plot.status)}">${escapeHtml(plot.status)}</span>
                 </div>
                 <div class="plot-card-body">
                     <div class="plot-details-grid">
                         <div class="plot-detail">
                             <i class="fas fa-ruler-combined"></i>
-                            <span>${plot.plot_size || 'N/A'}</span>
+                            <span>${escapeHtml(plot.plot_size || 'N/A')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-mountain"></i>
-                            <span>${plot.elevation || 'N/A'}</span>
+                            <span>${escapeHtml(plot.elevation || 'N/A')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-wine-bottle"></i>
-                            <span>${plot.grape_varieties ? plot.grape_varieties[0] : 'Mixed'}</span>
+                            <span>${escapeHtml(plot.grape_varieties ? plot.grape_varieties[0] : 'Mixed')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-sun"></i>
-                            <span>${plot.sun_exposure || 'N/A'}</span>
+                            <span>${escapeHtml(plot.sun_exposure || 'N/A')}</span>
                         </div>
                     </div>
-                    
+
                     ${plot.wine_profile ? `
                     <div class="wine-profile mt-2">
-                        <small class="text-muted">${plot.wine_profile}</small>
+                        <small class="text-muted">${escapeHtml(plot.wine_profile)}</small>
                     </div>
                     ` : ''}
-                    
+
                     <div class="plot-price mt-3">
-                        <strong>€${plot.base_price || '0'}</strong>
+                        <strong>€${escapeHtml(plot.base_price || '0')}</strong>
                     </div>
-                    
-                    <button class="btn btn-sm btn-outline-primary select-plot-btn mt-2" 
-                            data-plot-id="${plot.id}"
-                            data-plot-price="${plot.base_price || 0}"
+
+                    <button class="btn btn-sm btn-outline-primary select-plot-btn mt-2"
+                            data-plot-id="${escapeHtml(plot.id)}"
+                            data-plot-price="${escapeHtml(plot.base_price || 0)}"
                             ${plot.status !== 'available' ? 'disabled' : ''}>
                         <i class="fas fa-check"></i> Select Plot
                     </button>

@@ -26,7 +26,8 @@ class StandalonePlotSelector {
         try {
             // Detect if we're on vinsdelux.com domain (production)
             const hostname = window.location.hostname;
-            const isVinsDeluxDomain = hostname.includes('vinsdelux.com');
+            // Use exact match instead of substring check for security
+            const isVinsDeluxDomain = hostname === 'vinsdelux.com' || hostname === 'www.vinsdelux.com';
             const currentPath = window.location.pathname;
             let apiUrl;
             

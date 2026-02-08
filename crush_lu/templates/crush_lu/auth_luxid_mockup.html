@@ -428,7 +428,13 @@
             button.addEventListener('click', function(e) {
                 var providerName = button.getAttribute('data-provider') || 'OAuth';
                 button.classList.add('disabled');
-                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
+                // Create elements safely to prevent XSS
+                button.textContent = '';
+                var spinner = document.createElement('span');
+                spinner.className = 'spinner-border spinner-border-sm me-2';
+                spinner.setAttribute('role', 'status');
+                button.appendChild(spinner);
+                button.appendChild(document.createTextNode('Redirecting to ' + providerName + '...'));
             });
         });
     });

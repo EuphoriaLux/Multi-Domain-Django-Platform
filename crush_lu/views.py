@@ -2638,7 +2638,7 @@ def coach_preview_email(request, submission_id):
             logger.error(f"Error rendering email template: {e}")
             logger.error(traceback.format_exc())
             return HttpResponse(
-                f"Error rendering template: {str(e)}<br><br><pre>{traceback.format_exc()}</pre>",
+                "An error occurred while rendering the email template. Please check the server logs for details.",
                 status=500,
             )
 
@@ -2701,38 +2701,31 @@ def coach_preview_email(request, submission_id):
     except Exception as e:
         logger.error(f"Error in coach_preview_email: {e}")
         logger.error(traceback.format_exc())
-        error_html = f"""
+        error_html = """
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <title>Preview Error</title>
             <style>
-                body {{
+                body {
                     font-family: monospace;
                     padding: 20px;
                     background: #fee;
-                }}
-                .error {{
+                }
+                .error {
                     background: white;
                     padding: 20px;
                     border: 2px solid #f00;
                     border-radius: 8px;
-                }}
-                h2 {{ color: #c00; }}
-                pre {{
-                    background: #f5f5f5;
-                    padding: 10px;
-                    overflow: auto;
-                }}
+                }
+                h2 { color: #c00; }
             </style>
         </head>
         <body>
             <div class="error">
                 <h2>Preview Error</h2>
-                <p><strong>Error:</strong> {str(e)}</p>
-                <h3>Traceback:</h3>
-                <pre>{traceback.format_exc()}</pre>
+                <p>An error occurred while generating the email preview. Please check the server logs for details.</p>
             </div>
         </body>
         </html>

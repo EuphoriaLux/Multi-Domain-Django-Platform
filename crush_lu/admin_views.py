@@ -9,6 +9,10 @@ from django.shortcuts import render
 from django.db.models import Count, Q, Avg, Sum, F
 from django.utils import timezone
 from datetime import timedelta
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile, CrushCoach, ProfileSubmission, MeetupEvent, EventRegistration,
@@ -820,8 +824,10 @@ def email_template_preview(request):
         html_content = render_to_string(template_meta['template'], context)
         plain_content = _html_to_plain_text(html_content)
     except Exception as e:
+        logger.error(f"Error rendering email template preview: {e}")
+        logger.error(traceback.format_exc())
         return render(request, 'admin/crush_lu/partials/_template_preview_error.html', {
-            'error': f'Error rendering template: {str(e)}'
+            'error': 'Error rendering template. Please check the server logs for details.'
         })
 
     # Base64 encode for safe transfer through HTML attributes
@@ -873,7 +879,8 @@ def email_template_send(request):
     try:
         context = _build_template_context(request, template_meta, user_id)
     except ValueError as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        logger.error(f"Validation error building template context: {e}")
+        return JsonResponse({'success': False, 'error': 'Invalid template parameters'})
 
     # Get recipient email
     recipient_email = _get_recipient_email(template_meta, context)
@@ -885,7 +892,9 @@ def email_template_send(request):
         html_content = render_to_string(template_meta['template'], context)
         plain_content = strip_tags(html_content)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Error rendering template: {str(e)}'})
+        logger.error(f"Error rendering email template: {e}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': 'Error rendering template'})
 
     # Send email
     try:
@@ -907,7 +916,9 @@ def email_template_send(request):
             return JsonResponse({'success': False, 'error': 'Email send returned 0 (possible delivery issue)'})
 
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Failed to send email: {str(e)}'})
+        logger.error(f"Failed to send email: {e}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': 'Failed to send email'})
 
 
 @login_required
@@ -957,7 +968,8 @@ def email_template_create_draft(request):
     try:
         context = _build_template_context(request, template_meta, user_id)
     except ValueError as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        logger.error(f"Validation error building template context: {e}")
+        return JsonResponse({'success': False, 'error': 'Invalid template parameters'})
 
     # Get recipient email
     recipient_email = _get_recipient_email(template_meta, context)
@@ -968,7 +980,9 @@ def email_template_create_draft(request):
     try:
         html_content = render_to_string(template_meta['template'], context)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Error rendering template: {str(e)}'})
+        logger.error(f"Error rendering email template: {e}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': 'Error rendering template'})
 
     # Create draft via Graph API
     try:
@@ -990,7 +1004,9 @@ def email_template_create_draft(request):
             return JsonResponse({'success': False, 'error': result.get('error', 'Unknown error')})
 
     except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Failed to create draft: {str(e)}'})
+        logger.error(f"Failed to create Outlook draft: {e}")
+        logger.error(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': 'Failed to create draft'})
 
 
 @login_required
