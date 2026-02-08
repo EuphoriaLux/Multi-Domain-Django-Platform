@@ -20,21 +20,6 @@ jobs:
     name: Run Tests (Python 3.11)
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,24 +36,12 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django pytest-cov pytest-xdist
 
-      - name: Set up environment variables
+      - name: Run tests (parallel with pytest-xdist, SQLite)
+        env:
+          SECRET_KEY: 'ci-test-key'
+          USE_AZURE_STORAGE: 'False'
         run: |
-          echo "DBNAME=testdb" >> $GITHUB_ENV
-          echo "DBHOST=localhost" >> $GITHUB_ENV
-          echo "DBUSER=postgres" >> $GITHUB_ENV
-          echo "DBPASS=postgres" >> $GITHUB_ENV
-          echo "SECRET_KEY=test-secret-key-for-ci-only" >> $GITHUB_ENV
-          echo "DEBUG=False" >> $GITHUB_ENV
-          echo "ALLOWED_HOSTS=localhost,127.0.0.1" >> $GITHUB_ENV
-          echo "USE_AZURE_STORAGE=False" >> $GITHUB_ENV
-
-      - name: Run migrations
-        run: |
-          python manage.py migrate --noinput
-
-      - name: Run tests (skip Playwright, parallel execution)
-        run: |
-          pytest -v --tb=short -m "not playwright" --cov --cov-report=xml --cov-report=term -n auto
+          pytest -m "not playwright" --tb=short -q -x -n auto --cov --cov-report=xml --cov-report=term
         continue-on-error: false
 
       - name: Upload coverage to Codecov
