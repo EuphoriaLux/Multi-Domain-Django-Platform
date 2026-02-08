@@ -546,7 +546,7 @@ def update_profile_from_facebook_data(profile, extra_data):
         # Map known genders, default to 'O' (Other) for custom/unknown
         profile.gender = FACEBOOK_GENDER_MAPPING.get(fb_gender, 'O')
         updated = True
-        logger.info(f"Set gender from Facebook (mapped to: {profile.gender})")
+        logger.info(f"Set gender from Facebook for profile {profile.pk}")
 
     return updated
 

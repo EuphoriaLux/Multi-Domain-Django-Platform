@@ -31,7 +31,7 @@ def crush_login_required(function):
                 require_https=request.is_secure() if request else False
             ):
                 # Invalid redirect target - use default dashboard
-                next_url = '/dashboard/'
+                return redirect(login_url)  # No next param if validation fails
 
             # Use quote to safely encode the URL
             safe_next = quote(next_url, safe='/')
