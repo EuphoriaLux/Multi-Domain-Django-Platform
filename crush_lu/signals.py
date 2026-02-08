@@ -535,9 +535,10 @@ def update_profile_from_facebook_data(profile, extra_data):
             birthday = datetime.strptime(extra_data['birthday'], '%m/%d/%Y').date()
             profile.date_of_birth = birthday
             updated = True
-            logger.info(f"Set date_of_birth from Facebook (year: {birthday.year})")
+            # Log without birthday details (avoid clear-text PII)
+            logger.info(f"Set date_of_birth from Facebook for profile {profile.pk}")
         except ValueError as e:
-            logger.error(f"Error parsing Facebook birthday (format error): {str(e)}")
+            logger.error(f"Error parsing Facebook birthday for profile {profile.pk}: format error")
 
     # Set gender if available and not already set
     if extra_data.get('gender') and not profile.gender:

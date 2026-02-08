@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.contrib import messages
+from django.conf import settings
+from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import quote
 
 
@@ -20,6 +22,17 @@ def crush_login_required(function):
             # URL-encode the next parameter to prevent injection
             login_url = reverse('crush_lu:login')
             next_url = request.get_full_path()
+
+            # Validate next_url to prevent open redirect vulnerabilities
+            allowed_hosts = [request.get_host()] if request else settings.ALLOWED_HOSTS
+            if not url_has_allowed_host_and_scheme(
+                url=next_url,
+                allowed_hosts=allowed_hosts,
+                require_https=request.is_secure() if request else False
+            ):
+                # Invalid redirect target - use default dashboard
+                next_url = '/dashboard/'
+
             # Use quote to safely encode the URL
             safe_next = quote(next_url, safe='/')
             return redirect(f'{login_url}?next={safe_next}')

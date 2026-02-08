@@ -612,12 +612,9 @@ class GraphContactsService:
 
             if dry_run:
                 action = "update" if profile.outlook_contact_id else "create"
-                # Redact sensitive data in logs
-                email_redacted = profile.user.email[:3] + "***@" + profile.user.email.split('@')[1] if '@' in profile.user.email else "***"
-                phone_redacted = profile.phone_number[:4] + "***" if profile.phone_number and len(profile.phone_number) > 4 else "***"
+                # Log without PII - only use profile ID and user ID
                 logger.info(
-                    f"[DRY RUN] Would {action} contact for profile {profile.pk} "
-                    f"({email_redacted}, {phone_redacted})"
+                    f"[DRY RUN] Would {action} contact for profile {profile.pk} (user ID: {profile.user.id})"
                 )
                 stats["synced"] += 1
             else:

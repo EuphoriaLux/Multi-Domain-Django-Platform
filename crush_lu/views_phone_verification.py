@@ -113,10 +113,9 @@ def mark_phone_verified(request):
             "phone_verification_uid"
         ])
 
-        # Log with properly redacted phone number
-        phone_redacted = phone_number[:4] + "***" if len(phone_number) > 4 else "***"
+        # Log without phone number (avoid clear-text PII - even redacted)
         logger.info(
-            f"Phone verified for user {request.user.id}: {phone_redacted}"
+            f"Phone verified for user ID: {request.user.id}"
         )
 
         return JsonResponse({
