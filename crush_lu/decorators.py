@@ -18,24 +18,11 @@ def crush_login_required(function):
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            # Redirect to Crush.lu login with next parameter
-            # URL-encode the next parameter to prevent injection
+            # Redirect to Crush.lu login with validated next parameter
+            from django.contrib.auth.views import redirect_to_login
             login_url = reverse('crush_lu:login')
-            next_url = request.get_full_path()
-
-            # Validate next_url to prevent open redirect vulnerabilities
-            allowed_hosts = [request.get_host()] if request else settings.ALLOWED_HOSTS
-            if not url_has_allowed_host_and_scheme(
-                url=next_url,
-                allowed_hosts=allowed_hosts,
-                require_https=request.is_secure() if request else False
-            ):
-                # Invalid redirect target - use default dashboard
-                return redirect(login_url)  # No next param if validation fails
-
-            # Use quote to safely encode the URL
-            safe_next = quote(next_url, safe='/')
-            return redirect(f'{login_url}?next={safe_next}')
+            # Use Django's redirect_to_login which safely handles the next parameter
+            return redirect_to_login(request.get_full_path(), login_url)
         return function(request, *args, **kwargs)
     return wrapper
 
