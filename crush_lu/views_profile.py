@@ -678,12 +678,12 @@ def upload_profile_photo(request, slot):
                     'just_uploaded': True,
                 })
             except Exception as e:
-                logger.warning(f"Photo validation failed: {e}")
+                logger.warning(f"Photo validation failed: {e}", exc_info=True)
                 return render(request, 'crush_lu/partials/photo_card.html', {
                     'slot': slot,
                     'photo': getattr(profile, photo_field_name),
                     'is_main': slot == 1,
-                    'error': str(e),
+                    'error': 'Photo validation failed. Please try a different image.',
                 })
 
         # Fallback - save without validation (shouldn't happen)

@@ -291,30 +291,40 @@ class EnhancedProducerSidebar {
                     plotsList.innerHTML = `
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            <p>No plots currently available for ${producer.name}</p>
+                            <p>No plots currently available for ${escapeHtml(producer.name)}</p>
                         </div>
                     `;
                     return;
                 }
                 
-                // Display the real plots
-                plotsList.innerHTML = this.availablePlots.map(plot => `
+                // Display the real plots (with XSS protection)
+                plotsList.innerHTML = this.availablePlots.map(plot => {
+                    const plotName = escapeHtml(plot.name || plot.plot_identifier);
+                    const plotSize = escapeHtml(plot.plot_size || 'Size N/A');
+                    const grapeVarieties = plot.grape_varieties ? escapeHtml(plot.grape_varieties.join(', ')) : 'Varieties N/A';
+                    const elevation = escapeHtml(plot.elevation || 'N/A');
+                    const sunExposure = escapeHtml(plot.sun_exposure || 'N/A');
+                    const soilType = escapeHtml(plot.soil_type || 'Soil type N/A');
+                    const basePrice = (plot.base_price || 0).toLocaleString();
+                    const plotId = escapeHtml(String(plot.id));
+
+                    return `
             <div class="vdl-plot-card" style="background: white; border: 1px solid var(--vdl-gold-alpha-25); border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease;"
-                 onclick="enhancedProducerSidebar.selectPlot('${plot.id}')"
+                 onclick="enhancedProducerSidebar.selectPlot('${plotId}')"
                  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(114, 47, 55, 0.1)';"
                  onmouseout="this.style.transform=''; this.style.boxShadow='';">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h6 class="vdl-body-small fw-bold mb-1" style="color: var(--vdl-burgundy);">
-                            ${plot.name || plot.plot_identifier}
+                            ${plotName}
                         </h6>
                         <div class="vdl-caption" style="color: var(--vdl-slate);">
-                            ${plot.plot_size || 'Size N/A'} • ${plot.grape_varieties ? plot.grape_varieties.join(', ') : 'Varieties N/A'}
+                            ${plotSize} • ${grapeVarieties}
                         </div>
                     </div>
                     <div class="text-end">
                         <div class="vdl-heading-quaternary" style="color: var(--vdl-gold);">
-                            €${(plot.base_price || 0).toLocaleString()}
+                            €${basePrice}
                         </div>
                         <div class="vdl-caption" style="color: var(--vdl-slate);">
                             /year
@@ -323,15 +333,16 @@ class EnhancedProducerSidebar {
                 </div>
                 <div class="mt-2">
                     <div class="d-flex justify-content-between vdl-caption" style="color: var(--vdl-slate);">
-                        <span><i class="fas fa-mountain"></i> ${plot.elevation || 'N/A'}</span>
-                        <span><i class="fas fa-sun"></i> ${plot.sun_exposure || 'N/A'}</span>
+                        <span><i class="fas fa-mountain"></i> ${elevation}</span>
+                        <span><i class="fas fa-sun"></i> ${sunExposure}</span>
                     </div>
                     <div class="vdl-caption mt-1" style="color: var(--vdl-slate);">
-                        <i class="fas fa-layer-group"></i> ${plot.soil_type || 'Soil type N/A'}
+                        <i class="fas fa-layer-group"></i> ${soilType}
                     </div>
                 </div>
             </div>
-        `).join('');
+        `;
+                }).join('');
                 
                 // Update selection list with real plots
                 this.updateSelectionList(producer, this.availablePlots);
@@ -347,24 +358,31 @@ class EnhancedProducerSidebar {
                 // Fall back to mock data if API fails
                 const mockPlots = this.getProducerPlots(producer.name);
                 this.availablePlots = mockPlots;
-                // Display mock plots
-                plotsList.innerHTML = mockPlots.map(plot => `
+                // Display mock plots (with XSS protection)
+                plotsList.innerHTML = mockPlots.map(plot => {
+                    const plotName = escapeHtml(plot.name);
+                    const plotSize = escapeHtml(plot.size);
+                    const grapeVariety = escapeHtml(plot.grapeVariety);
+                    const plotPrice = plot.price.toLocaleString();
+                    const plotId = escapeHtml(String(plot.id));
+
+                    return `
                     <div class="vdl-plot-card" style="background: white; border: 1px solid var(--vdl-gold-alpha-25); border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease;"
-                         onclick="enhancedProducerSidebar.selectPlot('${plot.id}')"
+                         onclick="enhancedProducerSidebar.selectPlot('${plotId}')"
                          onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(114, 47, 55, 0.1)';"
                          onmouseout="this.style.transform=''; this.style.boxShadow='';">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <h6 class="vdl-body-small fw-bold mb-1" style="color: var(--vdl-burgundy);">
-                                    ${plot.name}
+                                    ${plotName}
                                 </h6>
                                 <div class="vdl-caption" style="color: var(--vdl-slate);">
-                                    ${plot.size} • ${plot.grapeVariety}
+                                    ${plotSize} • ${grapeVariety}
                                 </div>
                             </div>
                             <div class="text-end">
                                 <div class="vdl-heading-quaternary" style="color: var(--vdl-gold);">
-                                    €${plot.price.toLocaleString()}
+                                    €${plotPrice}
                                 </div>
                                 <div class="vdl-caption" style="color: var(--vdl-slate);">
                                     /year
@@ -372,7 +390,8 @@ class EnhancedProducerSidebar {
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
                 this.updateSelectionList(producer, mockPlots);
             });
     }
