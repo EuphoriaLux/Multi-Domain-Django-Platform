@@ -15,8 +15,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: Test (Python ${{ matrix.python-version }})
+  # Run actual tests (matrix strategy)
+  run-tests:
+    name: Run Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -160,22 +161,40 @@ jobs:
           pip-audit --requirement requirements.txt
         continue-on-error: true
 
-  test-summary:
-    name: Test Summary
+  # Required check: "test" (for branch protection)
+  test:
+    name: test
     runs-on: ubuntu-latest
-    needs: [test, lint, javascript-lint]
+    needs: [run-tests]
     if: always()
-
     steps:
       - name: Check test results
         run: |
-          echo "Test job status: ${{ needs.test.result }}"
-          echo "Lint job status: ${{ needs.lint.result }}"
-          echo "JavaScript lint job status: ${{ needs.javascript-lint.result }}"
-
-          if [ "${{ needs.test.result }}" != "success" ]; then
-            echo "::error::Tests failed or were cancelled"
+          echo "Test results: ${{ needs.run-tests.result }}"
+          if [ "${{ needs.run-tests.result }}" != "success" ]; then
+            echo "::error::Tests failed"
             exit 1
           fi
+          echo "✅ Tests passed!"
 
-          echo "✅ All checks passed!"
+  # Required check: "validate" (for branch protection)
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    needs: [lint, javascript-lint, security-check]
+    if: always()
+    steps:
+      - name: Check validation results
+        run: |
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "JavaScript lint: ${{ needs.javascript-lint.result }}"
+          echo "Security check: ${{ needs.security-check.result }}"
+
+          # All validation jobs should succeed
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.javascript-lint.result }}" != "success" ] || \
+             [ "${{ needs.security-check.result }}" != "success" ]; then
+            echo "::error::Validation failed"
+            exit 1
+          fi
+          echo "✅ Validation passed!"
