@@ -2638,7 +2638,7 @@ def coach_preview_email(request, submission_id):
             logger.error(f"Error rendering email template: {e}")
             logger.error(traceback.format_exc())
             return HttpResponse(
-                "An error occurred while rendering the email template. Please check the server logs for details.",
+                "An error occurred. Please try again later.",
                 status=500,
             )
 

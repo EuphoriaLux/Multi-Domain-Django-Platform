@@ -11,8 +11,11 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
 import json
+import logging
 
 from .models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
+
+logger = logging.getLogger(__name__)
 
 
 def index(request):
@@ -380,9 +383,11 @@ def place_pixel(request):
         })
 
     except (ValueError, KeyError) as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.error(f"Validation error placing pixel: {e}", exc_info=True)
+        return JsonResponse({'error': 'Invalid request'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': 'Server error: ' + str(e)}, status=500)
+        logger.error(f"Error placing pixel: {e}", exc_info=True)
+        return JsonResponse({'error': 'An error occurred while placing the pixel'}, status=500)
 
 
 def get_pixel_history(request):

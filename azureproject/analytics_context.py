@@ -10,6 +10,7 @@ tracking scripts into templates.
 """
 
 import os
+from urllib.parse import urlparse
 
 
 def analytics_ids(request):
@@ -33,7 +34,10 @@ def analytics_ids(request):
     Returns:
         dict: Context variables for django-analytical template tags
     """
+    # Use proper URL parsing instead of string operations
     host = request.get_host().lower()
+    # Parse the host to get just the domain (handles ports properly)
+    parsed_host = urlparse(f'//{host}').hostname or host
 
     # Default: no analytics (will render nothing in templates)
     context = {
@@ -44,35 +48,36 @@ def analytics_ids(request):
     }
 
     # Domain-specific analytics configuration
-    if 'crush.lu' in host:
+    # Use exact hostname matching to prevent substring bypass
+    if parsed_host == 'crush.lu' or parsed_host == 'www.crush.lu':
         # Crush.lu dating platform
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_CRUSH_LU')
         context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_CRUSH_LU')
 
-    elif 'delegations.lu' in host:
+    elif parsed_host == 'delegations.lu' or parsed_host == 'www.delegations.lu':
         # Delegations.lu - separate domain with its own analytics
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_DELEGATIONS')
         context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_DELEGATIONS')
 
-    elif 'vinsdelux.com' in host:
+    elif parsed_host == 'vinsdelux.com' or parsed_host == 'www.vinsdelux.com':
         # VinsDelux wine platform
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_VINSDELUX')
 
-    elif 'arborist.lu' in host:
+    elif parsed_host == 'arborist.lu' or parsed_host == 'www.arborist.lu':
         # Arborist Tom Aakrann tree care services
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_ARBORIST')
 
-    elif 'powerup.lu' in host or 'entreprinder' in host:
+    elif parsed_host == 'powerup.lu' or parsed_host == 'www.powerup.lu' or parsed_host == 'entreprinder.lu' or parsed_host == 'www.entreprinder.lu':
         # PowerUP / Entreprinder business networking
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_POWERUP')
 
-    elif 'localhost' in host or '127.0.0.1' in host:
+    elif parsed_host == 'localhost' or parsed_host == '127.0.0.1':
         # Development: Use Crush.lu analytics for local testing (since DEV_DEFAULT is crush.lu)
         # Set to None to disable tracking in development, or use a test property
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_CRUSH_LU')
         context['FACEBOOK_PIXEL_ID'] = os.getenv('FB_PIXEL_CRUSH_LU')
 
-    elif 'azurewebsites.net' in host:
+    elif parsed_host and parsed_host.endswith('.azurewebsites.net'):
         # Azure staging/production default (PowerUP)
         context['GOOGLE_ANALYTICS_GTAG_PROPERTY_ID'] = os.getenv('GA4_POWERUP')
 

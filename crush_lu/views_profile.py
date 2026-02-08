@@ -190,10 +190,11 @@ def save_profile_step1(request):
         })
 
     except Exception as e:
+        logger.error(f"Error saving profile step 1: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
-        }, status=400)
+            'error': 'An error occurred while saving your profile. Please try again.'
+        }, status=500)
 
 
 @crush_login_required
@@ -283,10 +284,11 @@ def save_profile_step2(request):
             'error': 'Please complete Step 1 first'
         }, status=400)
     except Exception as e:
+        logger.error(f"Error saving profile step 2: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
-        }, status=400)
+            'error': 'An error occurred while saving your profile. Please try again.'
+        }, status=500)
 
 
 @crush_login_required
@@ -416,10 +418,11 @@ def save_profile_step3(request):
             'error': 'Please complete Step 1 first'
         }, status=400)
     except Exception as e:
+        logger.error(f"Error saving profile step 3: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
-        }, status=400)
+            'error': 'An error occurred while saving your profile. Please try again.'
+        }, status=500)
 
 
 @crush_login_required

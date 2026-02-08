@@ -5,6 +5,9 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.contrib import messages
+from django.conf import settings
+from django.utils.http import url_has_allowed_host_and_scheme
+from urllib.parse import quote
 
 
 def crush_login_required(function):
@@ -15,10 +18,11 @@ def crush_login_required(function):
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            # Redirect to Crush.lu login with next parameter
+            # Redirect to Crush.lu login with validated next parameter
+            from django.contrib.auth.views import redirect_to_login
             login_url = reverse('crush_lu:login')
-            next_url = request.get_full_path()
-            return redirect(f'{login_url}?next={next_url}')
+            # Use Django's redirect_to_login which safely handles the next parameter
+            return redirect_to_login(request.get_full_path(), login_url)
         return function(request, *args, **kwargs)
     return wrapper
 

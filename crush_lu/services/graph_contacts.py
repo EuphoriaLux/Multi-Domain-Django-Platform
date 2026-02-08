@@ -612,9 +612,9 @@ class GraphContactsService:
 
             if dry_run:
                 action = "update" if profile.outlook_contact_id else "create"
+                # Log without PII - only use profile ID and user ID
                 logger.info(
-                    f"[DRY RUN] Would {action} contact for profile {profile.pk} "
-                    f"({profile.user.email}, {profile.phone_number})"
+                    f"[DRY RUN] Would {action} contact for profile {profile.pk} (user ID: {profile.user.id})"
                 )
                 stats["synced"] += 1
             else:
