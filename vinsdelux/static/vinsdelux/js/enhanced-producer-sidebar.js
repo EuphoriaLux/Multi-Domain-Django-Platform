@@ -4,12 +4,17 @@
  */
 
 /**
- * Escape HTML to prevent XSS
+ * Escape HTML to prevent XSS (including quotes for attribute safety)
  */
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (text === null || text === undefined) return '';
+    const str = String(text);
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
 }
 
 class EnhancedProducerSidebar {

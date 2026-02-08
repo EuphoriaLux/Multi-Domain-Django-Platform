@@ -4,13 +4,17 @@
  */
 
 /**
- * Escape HTML to prevent XSS
+ * Escape HTML to prevent XSS (including quotes for attribute safety)
  */
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
+    const str = String(text);
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
