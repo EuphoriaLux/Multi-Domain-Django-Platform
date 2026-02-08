@@ -316,7 +316,8 @@
                 }
                 isLoginSubmitting = true;
                 loginBtn.disabled = true;
-                loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Logging in...';
+                loginBtn.textContent = 'Logging in...';
+                loginBtn.classList.add('opacity-75');
             });
         }
 
@@ -330,7 +331,8 @@
                 }
                 isSignupSubmitting = true;
                 signupBtn.disabled = true;
-                signupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Creating Account...';
+                signupBtn.textContent = 'Creating Account...';
+                signupBtn.classList.add('opacity-75');
             });
         }
 
@@ -354,8 +356,9 @@
                     e.preventDefault();
                     e.stopPropagation();
 
-                    button.classList.add('disabled');
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening ' + browserInfo.name + '...';
+                    button.classList.add('disabled', 'opacity-75');
+                    button.setAttribute('aria-busy', 'true');
+                    button.textContent = 'Opening ' + browserInfo.name + '...';
 
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {
                         var newWindow = window.open(fullOAuthUrl, '_system');
@@ -381,8 +384,9 @@
             if (isAndroid()) {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
-                    button.classList.add('disabled');
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening login...';
+                    button.classList.add('disabled', 'opacity-75');
+                    button.setAttribute('aria-busy', 'true');
+                    button.textContent = 'Opening login...';
                     window.location.href = oauthUrl;
                 });
                 return;
@@ -390,8 +394,9 @@
 
             // iOS and Desktop: Standard redirect
             button.addEventListener('click', function(e) {
-                button.classList.add('disabled');
-                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
+                button.classList.add('disabled', 'opacity-75');
+                button.setAttribute('aria-busy', 'true');
+                button.textContent = 'Redirecting to ' + providerName + '...';
             });
         });
 

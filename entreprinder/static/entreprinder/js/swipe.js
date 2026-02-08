@@ -1,3 +1,17 @@
+/**
+ * Escape HTML to prevent XSS attacks
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const str = String(text);
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -76,8 +90,17 @@ function resetCard() {
 }
 
 function showMatchPopup(matchProfile) {
-    document.getElementById('matchProfilePicture').src = matchProfile.profile_picture;
-    document.getElementById('matchName').textContent = matchProfile.full_name;
+    // Safely set image source (already a URL, but validate it's not javascript:)
+    const imgEl = document.getElementById('matchProfilePicture');
+    const profilePic = matchProfile.profile_picture || '';
+    if (profilePic.startsWith('javascript:') || profilePic.startsWith('data:')) {
+        imgEl.src = ''; // Block dangerous URLs
+    } else {
+        imgEl.src = profilePic;
+    }
+
+    // Safely set text content (prevents XSS)
+    document.getElementById('matchName').textContent = matchProfile.full_name || '';
     document.getElementById('matchPopup').style.display = 'block';
 }
 
@@ -86,14 +109,34 @@ function closeMatchPopup() {
 }
 
 function updateProfile(profile) {
-    document.querySelector('.card-img-top').src = profile.profile_picture;
-    document.querySelector('.card-title').textContent = profile.full_name;
-    document.querySelector('.profile-info').innerHTML = `
-        <p><strong>Company:</strong> ${profile.company}</p>
-        <p><strong>Industry:</strong> ${profile.industry}</p>
-    `;
-    document.querySelector('.bio').textContent = profile.bio;
-    document.getElementById('id_entrepreneur_id').value = profile.id;
+    // Safely set image source (validate against javascript: and data: URLs)
+    const imgEl = document.querySelector('.card-img-top');
+    const profilePic = profile.profile_picture || '';
+    if (profilePic.startsWith('javascript:') || profilePic.startsWith('data:')) {
+        imgEl.src = ''; // Block dangerous URLs
+    } else {
+        imgEl.src = profilePic;
+    }
+
+    // Safely set text content (prevents XSS)
+    document.querySelector('.card-title').textContent = profile.full_name || '';
+
+    // Build profile info safely using DOM methods instead of innerHTML
+    const profileInfoEl = document.querySelector('.profile-info');
+    profileInfoEl.textContent = ''; // Clear existing content
+
+    const companyP = document.createElement('p');
+    companyP.innerHTML = '<strong>Company:</strong> ';
+    companyP.appendChild(document.createTextNode(profile.company || 'N/A'));
+    profileInfoEl.appendChild(companyP);
+
+    const industryP = document.createElement('p');
+    industryP.innerHTML = '<strong>Industry:</strong> ';
+    industryP.appendChild(document.createTextNode(profile.industry || 'N/A'));
+    profileInfoEl.appendChild(industryP);
+
+    document.querySelector('.bio').textContent = profile.bio || '';
+    document.getElementById('id_entrepreneur_id').value = profile.id || '';
 }
 
 document.addEventListener('DOMContentLoaded', function() {

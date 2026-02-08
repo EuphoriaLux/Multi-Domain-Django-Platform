@@ -143,12 +143,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Stop scanning
         html5QrCode.stop();
 
-        statusEl.innerHTML = `
-            <div class="text-success">
-                {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
-                <div class="mt-2">QR Code detected! Redirecting...</div>
-            </div>
-        `;
+        // Clear and safely update status element
+        statusEl.textContent = '';
+        const successDiv = document.createElement('div');
+        successDiv.className = 'text-success';
+        const message = document.createElement('div');
+        message.className = 'mt-2';
+        message.textContent = 'QR Code detected! Redirecting...';
+        successDiv.appendChild(message);
+        statusEl.appendChild(successDiv);
 
         // Extract token from URL or use as-is
         let token = decodedText;
@@ -181,29 +184,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 onScanError
             ).catch(err => {
                 console.error('Camera error:', err);
-                statusEl.innerHTML = `
-                    <div class="text-warning">
-                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-                        Camera access denied. Please use manual input below.
-                    </div>
-                `;
+                statusEl.textContent = '';
+                const warningDiv = document.createElement('div');
+                warningDiv.className = 'text-warning';
+                warningDiv.textContent = 'Camera access denied. Please use manual input below.';
+                statusEl.appendChild(warningDiv);
             });
         } else {
-            statusEl.innerHTML = `
-                <div class="text-warning">
-                    {% include "shared/icons/video-camera-slash.html" with class="w-5 h-5" %}
-                    No camera found. Please use manual input below.
-                </div>
-            `;
+            statusEl.textContent = '';
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'text-warning';
+            warningDiv.textContent = 'No camera found. Please use manual input below.';
+            statusEl.appendChild(warningDiv);
         }
     }).catch(err => {
         console.error('Camera enumeration error:', err);
-        statusEl.innerHTML = `
-            <div class="text-warning">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-                Could not access camera. Please use manual input.
-            </div>
-        `;
+        statusEl.textContent = '';
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'text-warning';
+        warningDiv.textContent = 'Could not access camera. Please use manual input.';
+        statusEl.appendChild(warningDiv);
     });
 
     // Manual code form

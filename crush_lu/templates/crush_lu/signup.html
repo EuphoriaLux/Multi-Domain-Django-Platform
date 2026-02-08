@@ -167,7 +167,8 @@
                 // Mark as submitting and disable button
                 isSubmitting = true;
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Creating Account...';
+                submitBtn.textContent = 'Creating Account...';
+                submitBtn.classList.add('opacity-75');
             });
         }
     });
@@ -260,8 +261,9 @@
                     e.stopPropagation();
 
                     // Show loading state
-                    button.classList.add('disabled');
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Opening ' + browserInfo.name + '...';
+                    button.classList.add('disabled', 'opacity-75');
+                    button.setAttribute('aria-busy', 'true');
+                    button.textContent = 'Opening ' + browserInfo.name + '...';
 
                     // Samsung Internet PWA doesn't support Intent URLs properly
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {
@@ -304,8 +306,9 @@
 
             button.addEventListener('click', function(e) {
                 // Show loading state but let the default link action proceed
-                button.classList.add('disabled');
-                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Redirecting to ' + providerName + '...';
+                button.classList.add('disabled', 'opacity-75');
+                button.setAttribute('aria-busy', 'true');
+                button.textContent = 'Redirecting to ' + providerName + '...';
                 // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
         });
