@@ -90,10 +90,11 @@ function resetCard() {
 }
 
 function showMatchPopup(matchProfile) {
-    // Safely set image source (already a URL, but validate it's not javascript:)
+    // Safely set image source (validate against all dangerous URL schemes)
     const imgEl = document.getElementById('matchProfilePicture');
     const profilePic = matchProfile.profile_picture || '';
-    if (profilePic.startsWith('javascript:') || profilePic.startsWith('data:')) {
+    const lowerPic = profilePic.toLowerCase();
+    if (lowerPic.startsWith('javascript:') || lowerPic.startsWith('data:') || lowerPic.startsWith('vbscript:')) {
         imgEl.src = ''; // Block dangerous URLs
     } else {
         imgEl.src = profilePic;
@@ -109,10 +110,11 @@ function closeMatchPopup() {
 }
 
 function updateProfile(profile) {
-    // Safely set image source (validate against javascript: and data: URLs)
+    // Safely set image source (validate against all dangerous URL schemes)
     const imgEl = document.querySelector('.card-img-top');
     const profilePic = profile.profile_picture || '';
-    if (profilePic.startsWith('javascript:') || profilePic.startsWith('data:')) {
+    const lowerPic = profilePic.toLowerCase();
+    if (lowerPic.startsWith('javascript:') || lowerPic.startsWith('data:') || lowerPic.startsWith('vbscript:')) {
         imgEl.src = ''; // Block dangerous URLs
     } else {
         imgEl.src = profilePic;
