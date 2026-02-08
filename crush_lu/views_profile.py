@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 from django.db import transaction
 import json
 import logging
+import traceback
 
 from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
@@ -350,9 +351,11 @@ def upload_photo_draft(request):
             'error': 'Profile not found'
         }, status=404)
     except Exception as e:
+        logger.error(f"Error saving profile step: {e}")
+        logger.error(traceback.format_exc())
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred while saving your profile'
         }, status=500)
 
 

@@ -3,6 +3,16 @@
  * Provides real-time debugging tools for layout and interaction issues
  */
 
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
 class DebugConsole {
     constructor() {
         this.isVisible = false;
@@ -144,7 +154,7 @@ class DebugConsole {
         const timestamp = new Date().toLocaleTimeString();
         const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
         
-        output.innerHTML += `[${timestamp}] ${prefix} ${message}\n`;
+        output.innerHTML += `[${escapeHtml(timestamp)}] ${prefix} ${escapeHtml(message)}\n`;
         output.scrollTop = output.scrollHeight;
     }
 

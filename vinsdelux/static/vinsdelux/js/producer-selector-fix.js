@@ -3,6 +3,16 @@
  * Direct integration to handle producer selection from map
  */
 
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Producer Selector Fix initializing...');
     
@@ -113,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="modal-content">
                         <div class="modal-header" style="background: linear-gradient(135deg, #722F37, #8B4513);">
                             <h4 class="modal-title text-white">
-                                <i class="fas fa-wine-bottle"></i> ${producer.name}
+                                <i class="fas fa-wine-bottle"></i> ${escapeHtml(producer.name)}
                             </h4>
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
@@ -121,12 +131,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row">
                                 <div class="col-md-6">
                                     <h5>Producer Information</h5>
-                                    <p>${producer.description}</p>
+                                    <p>${escapeHtml(producer.description)}</p>
                                     <ul class="list-unstyled">
-                                        <li><strong>Region:</strong> ${producer.region}</li>
-                                        <li><strong>Elevation:</strong> ${producer.elevation}</li>
-                                        <li><strong>Soil Type:</strong> ${producer.soil_type}</li>
-                                        <li><strong>Sun Exposure:</strong> ${producer.sun_exposure}</li>
+                                        <li><strong>Region:</strong> ${escapeHtml(producer.region)}</li>
+                                        <li><strong>Elevation:</strong> ${escapeHtml(producer.elevation)}</li>
+                                        <li><strong>Soil Type:</strong> ${escapeHtml(producer.soil_type)}</li>
+                                        <li><strong>Sun Exposure:</strong> ${escapeHtml(producer.sun_exposure)}</li>
                                     </ul>
                                 </div>
                                 <div class="col-md-6">
@@ -155,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary" onclick="proceedToAdoptionPlans('${producer.name}')">
+                            <button type="button" class="btn btn-primary" onclick="proceedToAdoptionPlans('${escapeHtml(producer.name)}')">
                                 View Adoption Plans <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
@@ -177,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Store selection
         sessionStorage.setItem('selectedProducer', producerName);
         // You can redirect or load adoption plans here
-        alert(`Loading adoption plans for ${producerName}...`);
+        alert('Loading adoption plans for ' + escapeHtml(producerName) + '...');
     };
     
     // Also fix the existing loadAdoptionPlans function if it exists

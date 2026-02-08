@@ -221,9 +221,32 @@
 
                     this.cleanup();
 
-                    // Redirect to appropriate page
+                    // Redirect to appropriate page (with security validation)
                     if (data.redirectUrl) {
-                        window.location.href = data.redirectUrl;
+                        try {
+                            // Validate URL is from same origin
+                            const redirectUrl = new URL(data.redirectUrl, window.location.origin);
+
+                            // Only allow same-origin redirects
+                            if (redirectUrl.origin === window.location.origin) {
+                                // Additional validation: check against allowlist of safe paths
+                                const allowedPaths = ['/dashboard/', '/events/', '/profile/', '/connections/', '/journey/'];
+                                const isSafePath = allowedPaths.some(path => redirectUrl.pathname.startsWith(path));
+
+                                if (isSafePath) {
+                                    window.location.href = redirectUrl.href;
+                                } else {
+                                    console.warn('[OAuth Popup] Redirect path not in allowlist, using fallback');
+                                    window.location.href = '/dashboard/';
+                                }
+                            } else {
+                                console.error('[OAuth Popup] Cross-origin redirect blocked');
+                                window.location.href = '/dashboard/';
+                            }
+                        } catch (error) {
+                            console.error('[OAuth Popup] Invalid redirect URL:', error);
+                            window.location.href = '/dashboard/';
+                        }
                     }
                 } else {
                     this.cleanup();

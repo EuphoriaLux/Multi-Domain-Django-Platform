@@ -13,6 +13,7 @@ from .decorators import crush_login_required
 from .models import CrushProfile
 import json
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +105,11 @@ def save_draft(request):
             'error': 'Invalid JSON in request body'
         }, status=400)
     except Exception as e:
+        logger.error(f"Error in profile draft operation: {e}")
+        logger.error(traceback.format_exc())
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred while processing your request'
         }, status=500)
 
 
@@ -213,9 +216,11 @@ def get_draft(request):
         return JsonResponse(response_data)
 
     except Exception as e:
+        logger.error(f"Error in profile draft operation: {e}")
+        logger.error(traceback.format_exc())
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred while processing your request'
         }, status=500)
 
 
@@ -248,7 +253,9 @@ def clear_draft(request):
         return JsonResponse({'success': True})
 
     except Exception as e:
+        logger.error(f"Error in profile draft operation: {e}")
+        logger.error(traceback.format_exc())
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred while processing your request'
         }, status=500)

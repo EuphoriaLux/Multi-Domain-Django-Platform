@@ -3,6 +3,15 @@
  * Handles producer selection to show details in sidebar instead of modal
  */
 
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 class EnhancedProducerSidebar {
     constructor() {
         this.currentProducer = null;
@@ -131,10 +140,17 @@ class EnhancedProducerSidebar {
     updateSidebarHeader(producer) {
         const sidebarTitle = document.getElementById('sidebar-title');
         if (sidebarTitle) {
-            sidebarTitle.innerHTML = `
-                <i class="fas fa-wine-bottle" style="color: var(--vdl-gold);"></i>
-                ${producer.name}
-            `;
+            // Clear existing content
+            sidebarTitle.textContent = '';
+
+            // Create and append icon
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-wine-bottle';
+            icon.style.color = 'var(--vdl-gold)';
+            sidebarTitle.appendChild(icon);
+
+            // Add producer name as text
+            sidebarTitle.appendChild(document.createTextNode(' ' + producer.name));
         }
         
         // Update the counter to show producer selection
@@ -164,17 +180,17 @@ class EnhancedProducerSidebar {
         // Show the details panel
         plotDetails.style.display = 'block';
         
-        // Update with producer information
+        // Update with producer information (using escapeHtml for XSS protection)
         plotDetails.innerHTML = `
             <div class="vdl-card-header" style="background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-deep-burgundy) 100%); color: white; border-radius: 12px 12px 0 0;">
                 <h4 class="vdl-heading-tertiary vdl-mb-sm" style="color: var(--vdl-gold);">
-                    <i class="fas fa-crown"></i> ${producer.name}
+                    <i class="fas fa-crown"></i> ${escapeHtml(producer.name)}
                 </h4>
                 <div class="vdl-caption" style="color: var(--vdl-champagne);">
-                    <i class="fas fa-map-marker-alt"></i> ${producer.region}
+                    <i class="fas fa-map-marker-alt"></i> ${escapeHtml(producer.region)}
                 </div>
             </div>
-            
+
             <div class="vdl-card-body">
                 <!-- Producer Image -->
                 <div class="mb-3">
@@ -182,14 +198,14 @@ class EnhancedProducerSidebar {
                         <i class="fas fa-wine-bottle" style="font-size: 48px; color: var(--vdl-gold); opacity: 0.3;"></i>
                     </div>
                 </div>
-                
+
                 <!-- Producer Description -->
                 <div class="mb-4">
                     <p class="vdl-body-small" style="color: var(--vdl-charcoal); line-height: 1.6;">
-                        ${producer.description}
+                        ${escapeHtml(producer.description)}
                     </p>
                 </div>
-                
+
                 <!-- Available Plots Section -->
                 <div class="mb-3">
                     <h5 class="vdl-heading-quaternary mb-3" style="color: var(--vdl-burgundy);">
@@ -204,7 +220,7 @@ class EnhancedProducerSidebar {
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Terroir Information -->
                 <div class="row mb-3">
                     <div class="col-6">
@@ -216,7 +232,7 @@ class EnhancedProducerSidebar {
                         <div class="vdl-body-small">Continental</div>
                     </div>
                 </div>
-                
+
                 <div class="row mb-3">
                     <div class="col-6">
                         <div class="vdl-caption vdl-mb-xs">Soil Type</div>
@@ -228,10 +244,10 @@ class EnhancedProducerSidebar {
                     </div>
                 </div>
             </div>
-            
+
             <div class="vdl-card-footer">
                 <button type="button" class="vdl-btn vdl-btn-accent w-100" onclick="enhancedProducerSidebar.viewAllPlots()">
-                    <i class="fas fa-th"></i> View All ${producer.name} Plots
+                    <i class="fas fa-th"></i> View All ${escapeHtml(producer.name)} Plots
                 </button>
             </div>
         `;
@@ -366,10 +382,10 @@ class EnhancedProducerSidebar {
                     <div>
                         <h5 class="vdl-body fw-bold mb-1" style="color: var(--vdl-burgundy);">
                             <i class="fas fa-check-circle" style="color: var(--vdl-gold);"></i>
-                            ${producer.name}
+                            ${escapeHtml(producer.name)}
                         </h5>
                         <div class="vdl-caption" style="color: var(--vdl-slate);">
-                            ${plots.length} plots available • ${producer.region}
+                            ${plots.length} plots available • ${escapeHtml(producer.region)}
                         </div>
                     </div>
                     <button class="btn btn-sm btn-outline-danger" onclick="enhancedProducerSidebar.clearSelection()">

@@ -702,5 +702,5 @@ def run_subscription_health_check(request):
         logger.error(f"Error running health check: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred during health check'
         }, status=500)
