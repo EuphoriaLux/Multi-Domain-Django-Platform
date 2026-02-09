@@ -30,7 +30,7 @@
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "location": {
         "@type": "Place",
-        {% if user.is_authenticated and user_profile %}
+        {% if user.is_authenticated %}
         "name": "{{ event.location|escapejs }}",
         "address": {
             "@type": "PostalAddress",
@@ -169,7 +169,7 @@
                     </span>
                     <h2 class="text-white font-bold text-2xl sm:text-3xl leading-tight line-clamp-2">{{ event.title }}</h2>
                     <p class="text-white/80 text-sm mt-1.5">
-                        {{ event.date_time|date:"l, F j, Y" }} · {{ event.date_time|date:"g:i A" }} · {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
+                        {{ event.date_time|date:"l, F j, Y" }} · {{ event.date_time|date:"g:i A" }} · {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
                     </p>
                 </div>
             </div>
@@ -217,29 +217,22 @@
                             </svg>
                             <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Location" %}</span>
                         </div>
-                        {% if user.is_authenticated and user_profile %}
-                            {# Authenticated users with Crush profiles: Show full address #}
+                        {% if user.is_authenticated %}
+                            {# Authenticated users: Show full address #}
                             <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
                                 <strong>{{ event.location }}</strong><br>
                                 <span class="text-gray-500 dark:text-gray-400">{{ event.address }}</span>
                             </p>
                         {% else %}
-                            {# Public visitors or users without profiles: Show canton only #}
+                            {# Anonymous visitors: Show canton only #}
                             <div class="ml-7">
                                 <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
                                     <strong>{{ event.canton|default:"Luxembourg" }}</strong>
                                 </p>
-                                {% if user.is_authenticated %}
-                                    <a href="{% url 'crush_lu:create_profile' %}" class="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs sm:text-sm rounded-full px-3 py-1.5 hover:shadow-lg hover:scale-105 transition-all duration-200">
-                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                        {% trans "Create your profile to unlock the location" %}
-                                    </a>
-                                {% else %}
                                     <a href="{% url 'crush_lu:signup' %}" class="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs sm:text-sm rounded-full px-3 py-1.5 hover:shadow-lg hover:scale-105 transition-all duration-200">
                                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                                         {% trans "Sign up to reveal the exact location" %}
                                     </a>
-                                {% endif %}
                             </div>
                         {% endif %}
                     </div>
@@ -489,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const eventData = {
         title: '{{ event.title|escapejs }}',
         description: '{{ event.description|escapejs|linebreaksbr }}',
-        location: '{% if user.is_authenticated and user_profile %}{{ event.location|escapejs }}, {{ event.address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}',
+        location: '{% if user.is_authenticated %}{{ event.location|escapejs }}, {{ event.address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}',
         startTime: '{{ event.date_time|date:"Ymd" }}T{{ event.date_time|date:"His" }}',
         endTime: '{{ event.date_time|date:"Ymd" }}T{% with end_time=event.date_time %}{% endwith %}', // Will calculate in JS
         url: window.location.href

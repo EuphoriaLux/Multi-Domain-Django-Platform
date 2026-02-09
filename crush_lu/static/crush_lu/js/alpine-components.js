@@ -1738,6 +1738,7 @@ document.addEventListener('alpine:init', function() {
                         self.location = e.detail.location;
                         self.locationName = e.detail.name || e.detail.location;
                         self.fieldErrors.location = undefined;
+                        self.saveDraft();
                     }
                 });
 
@@ -1759,6 +1760,7 @@ document.addEventListener('alpine:init', function() {
                 window.addEventListener('dob-selected', function(e) {
                     if (e.detail && e.detail.formatted) {
                         self.dobFormatted = e.detail.formatted;
+                        self.saveDraft();
                     }
                 });
 

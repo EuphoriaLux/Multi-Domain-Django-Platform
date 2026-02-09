@@ -64,7 +64,7 @@ def event_detail(request, event_id):
     if request.user.is_authenticated:
         registration = EventRegistration.objects.filter(
             event=event, user=request.user
-        ).first()
+        ).exclude(status="cancelled").first()
 
     # For private events, verify access
     if event.is_private_invitation and not registration:

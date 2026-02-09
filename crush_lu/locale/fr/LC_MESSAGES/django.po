@@ -10481,19 +10481,19 @@ msgstr "Annuler l'inscription"
 
 #: .\crush_lu\templates\crush_lu\event_cancel.html:21
 msgid "Are you sure you want to cancel your registration for this event?"
-msgstr "Êtes-vous sûr de vouloir vous déconnecter?"
+msgstr "Êtes-vous sûr de vouloir annuler votre inscription à cet événement ?"
 
 #: .\crush_lu\templates\crush_lu\event_cancel.html:29
 msgid "Yes, Cancel Registration"
-msgstr "Annuler l'inscription"
+msgstr "Oui, annuler l'inscription"
 
 #: .\crush_lu\templates\crush_lu\event_cancel.html:33
 msgid "No, Keep Registration"
-msgstr "Annuler l'inscription"
+msgstr "Non, garder l'inscription"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:105
 msgid "Back to Events"
-msgstr "Retour à la connexion"
+msgstr "Retour aux événements"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:147
 #, fuzzy
