@@ -7,13 +7,13 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, HttpResponseForbidden, Http404
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from PIL import Image, ImageFilter
 import os
 import logging
 
-from .models import CrushProfile
-from .decorators import ratelimit
+from .models import CrushProfile, CrushCoach
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +112,14 @@ def apply_blur_to_image(image_path):
 
 
 @login_required
-@ratelimit(key='user', rate='60/m', method='GET')
 def serve_profile_photo(request, user_id, photo_field):
     """
     Serve profile photos with authentication and privacy checks
 
     URL: /crush/media/profile/{user_id}/{photo_field}/
     Where photo_field is: photo_1, photo_2, or photo_3
+
+    Rate limits: 60/min for regular users, 300/min for coaches.
 
     Args:
         user_id: ID of the profile owner
@@ -127,6 +128,30 @@ def serve_profile_photo(request, user_id, photo_field):
     Returns:
         Image file or 403/404 error
     """
+    # Apply rate limit: higher for coaches who review many profiles
+    is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
+    rate = '300/m' if is_coach else '60/m'
+    cache_key = f'ratelimit:serve_profile_photo:user_{request.user.id}'
+    try:
+        current = cache.get(cache_key, 0)
+    except Exception:
+        current = 0
+    count, period = rate.split('/')
+    count = int(count)
+    period_seconds = int(period[:-1]) * 60 if period.endswith('m') else 60
+    if current >= count:
+        return HttpResponse('Rate limit exceeded. Please try again later.', status=429)
+    try:
+        if current == 0:
+            cache.set(cache_key, 1, period_seconds)
+        else:
+            try:
+                cache.incr(cache_key)
+            except ValueError:
+                cache.set(cache_key, 1, period_seconds)
+    except Exception:
+        pass
+
     # Validate photo_field
     if photo_field not in ['photo_1', 'photo_2', 'photo_3']:
         raise Http404("Invalid photo field")
