@@ -1213,11 +1213,7 @@ document.addEventListener('alpine:init', function() {
                         if (data.success) {
                             // Only unsubscribe browser if no other system needs it
                             if (!data.keep_browser_subscription) {
-                                return sub.unsubscribe().then(function() {
-                                    console.log('[CoachPush] Unsubscribed from browser');
-                                });
-                            } else {
-                                console.log('[CoachPush] Keeping browser subscription for user push');
+                                return sub.unsubscribe();
                             }
                         }
                     })
@@ -1266,7 +1262,6 @@ document.addEventListener('alpine:init', function() {
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     self.isSendingTest = false;
-                    console.log('[CoachPush] Test:', data.success ? 'sent' : data.error);
                 })
                 .catch(function(err) {
                     self.isSendingTest = false;
@@ -1451,13 +1446,11 @@ document.addEventListener('alpine:init', function() {
                     .then(function(result) {
                         if (result.success && result.data && result.data.merged) {
                             var draft = result.data.merged;
-                            console.log('[PHOTO UPLOAD] Checking draft for photos...');
 
                             // Check each photo URL in draft
                             for (var i = 1; i <= 3; i++) {
                                 var photoUrlKey = 'photo_' + i + '_url';
                                 if (draft[photoUrlKey]) {
-                                    console.log('[PHOTO UPLOAD] Found photo ' + i + ' in draft:', draft[photoUrlKey]);
                                     self.photos[i - 1].preview = draft[photoUrlKey];
                                     self.photos[i - 1].hasImage = true;
                                     self.photos[i - 1].uploadedUrl = draft[photoUrlKey];
@@ -1503,8 +1496,6 @@ document.addEventListener('alpine:init', function() {
                         formData.append('csrfmiddlewaretoken', csrfToken.value);
                     }
 
-                    console.log('[PHOTO UPLOAD] Uploading photo ' + photoNumber + '...');
-
                     fetch('/api/profile/draft/upload-photo/', {
                         method: 'POST',
                         headers: {
@@ -1517,7 +1508,6 @@ document.addEventListener('alpine:init', function() {
                     })
                     .then(function(result) {
                         if (result.success) {
-                            console.log('[PHOTO UPLOAD] ✅ Photo ' + photoNumber + ' uploaded:', result.photo_url);
                             self.photos[index].uploadedUrl = result.photo_url;
                         } else {
                             console.error('[PHOTO UPLOAD] ❌ Upload failed:', result.error);
@@ -2238,44 +2228,21 @@ document.addEventListener('alpine:init', function() {
             // Load draft data on init
             loadDraft: function() {
                 var self = this;
-                console.log('[DRAFT LOAD] Starting to load draft data...');
-
-                // Debug mode flag - only log when ?debug=1 is in URL
-                var isDebug = window.location.search.indexOf('debug=1') !== -1;
 
                 fetch('/api/profile/draft/get/')
                     .then(function(response) {
-                        if (isDebug) {
-                            console.log('[DRAFT LOAD] Response status:', response.status);
-                        }
                         return response.json();
                     })
                     .then(function(result) {
-                        if (isDebug) {
-                            console.log('[DRAFT LOAD] Response data:', result);
-                        }
-
                         if (result.success && result.data) {
                             self.draftData = result.data.merged || {};
                             self.lastSavedAt = result.data.last_saved;
 
-                            if (isDebug) {
-                                console.log('[DRAFT LOAD] ✅ Draft data loaded:', self.draftData);
-                                console.log('[DRAFT LOAD] Last saved:', self.lastSavedAt);
-                                console.log('[DRAFT LOAD] Calling populateFieldsFromDraft()...');
-                            }
-
                             self.populateFieldsFromDraft();
-
-                            if (isDebug) {
-                                console.log('[DRAFT LOAD] ✅ populateFieldsFromDraft() completed');
-                            }
-                        } else if (isDebug) {
-                            console.warn('[DRAFT LOAD] No draft data in response');
                         }
                     })
                     .catch(function(err) {
-                        console.error('[DRAFT LOAD] ❌ Failed to load draft:', err);
+                        console.error('[DRAFT LOAD] Failed to load draft:', err);
                     });
             },
 
@@ -2284,17 +2251,8 @@ document.addEventListener('alpine:init', function() {
                 var self = this;
                 var form = this.$el.querySelector('form');
 
-                // Debug mode flag - only log when ?debug=1 is in URL
-                var isDebug = window.location.search.indexOf('debug=1') !== -1;
-
                 if (!form) {
-                    if (isDebug) console.warn('[POPULATE] No form found in component');
                     return;
-                }
-
-                if (isDebug) {
-                    console.log('[POPULATE] Starting to populate fields from draft data...');
-                    console.log('[POPULATE] Draft data keys:', Object.keys(this.draftData));
                 }
 
                 for (var key in this.draftData) {
@@ -2302,39 +2260,17 @@ document.addEventListener('alpine:init', function() {
 
                     // CRITICAL: Skip file inputs (photos) - cannot be set programmatically for security
                     if (key === 'photo_1' || key === 'photo_2' || key === 'photo_3') {
-                        if (isDebug) console.log('[POPULATE] Skipping file input:', key);
                         continue;
-                    }
-
-                    if (isDebug) {
-                        console.log('[POPULATE] Processing field:', key, 'Value:', value, 'Type:', typeof value);
                     }
 
                     // Handle checkbox arrays (like event_languages)
                     if (Array.isArray(value)) {
                         var checkboxes = form.querySelectorAll('[name="' + key + '"]');
 
-                        if (isDebug) {
-                            console.log('[POPULATE] Array field:', key, 'Value:', value, 'Length:', value.length);
-                        }
-
-                        if (isDebug) {
-                            console.log('[POPULATE] Found', checkboxes.length, 'checkboxes for', key);
-                        }
-
-                        // Empty arrays are normal when user hasn't made selections yet - no need to warn
-                        // if (value.length === 0) {
-                        //     console.warn('[POPULATE] ⚠️ Array is EMPTY for', key);
-                        // }
-
                         for (var i = 0; i < checkboxes.length; i++) {
                             var checkbox = checkboxes[i];
                             var shouldCheck = value.indexOf(checkbox.value) !== -1;
                             checkbox.checked = shouldCheck;
-
-                            if (isDebug) {
-                                console.log('[POPULATE]   Checkbox', checkbox.value, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(looking for in:', value, ')');
-                            }
                         }
                         continue;
                     }
@@ -2342,46 +2278,24 @@ document.addEventListener('alpine:init', function() {
                     var input = form.querySelector('[name="' + key + '"]');
 
                     if (input) {
-                        if (isDebug) {
-                            console.log('[POPULATE] Found input for', key, '(type:', input.type + ')');
-                        }
-
                         if (input.type === 'checkbox') {
                             // Handle single checkbox - convert string 'true'/'false' or Python 'True'/'False' to boolean
                             var shouldCheck = (value === true || value === 'true' || value === '1' || value === 'True');
                             input.checked = shouldCheck;
-
-                            if (isDebug) {
-                                console.log('[POPULATE]   Single checkbox', key, '→', shouldCheck ? 'CHECKED' : 'unchecked', '(value was:', value, ')');
-                            }
                         } else if (input.type === 'radio') {
                             // For radio buttons, find the one with matching value
                             var radios = form.querySelectorAll('[name="' + key + '"]');
 
-                            if (isDebug) {
-                                console.log('[POPULATE]   Found', radios.length, 'radio buttons');
-                            }
-
                             for (var i = 0; i < radios.length; i++) {
                                 if (radios[i].value === value) {
                                     radios[i].checked = true;
-
-                                    if (isDebug) {
-                                        console.log('[POPULATE]   Radio', key, '=', value, '→ CHECKED');
-                                    }
                                     break;
                                 }
                             }
                         } else if (input.type !== 'file') {
                             // Only set value for non-file inputs
                             input.value = value || '';
-
-                            if (isDebug) {
-                                console.log('[POPULATE]   Text/select', key, '→', value);
-                            }
                         }
-                    } else if (isDebug) {
-                        console.warn('[POPULATE] ⚠️ No input found for field:', key);
                     }
                 }
 
@@ -2431,7 +2345,6 @@ document.addEventListener('alpine:init', function() {
                     self.updateReview();
                 }, 100); // Small delay to ensure DOM is ready
 
-                console.log('[POPULATE] ✅ Finished populating fields');
             },
 
             // Setup auto-save event listeners
@@ -2475,17 +2388,11 @@ document.addEventListener('alpine:init', function() {
 
                 var stepData = self.gatherCurrentStepData();
 
-                console.log('[DRAFT SAVE] Saving step', self.currentStep);
-                console.log('[DRAFT SAVE] Step data:', stepData);
-                console.log('[DRAFT SAVE] event_languages in stepData:', stepData.event_languages);
-
                 var payload = {
                     step: self.currentStep,
                     data: stepData
                 };
                 var jsonPayload = JSON.stringify(payload);
-                console.log('[DRAFT SAVE] JSON payload:', jsonPayload);
-                console.log('[DRAFT SAVE] Parsed back:', JSON.parse(jsonPayload));
 
                 fetch('/api/profile/draft/save/', {
                     method: 'POST',
@@ -2496,18 +2403,15 @@ document.addEventListener('alpine:init', function() {
                     body: jsonPayload
                 })
                 .then(function(response) {
-                    console.log('[DRAFT SAVE] Response status:', response.status);
                     return response.json();
                 })
                 .then(function(result) {
-                    console.log('[DRAFT SAVE] Response:', result);
                     self.isAutoSaving = false;
                     self.isDirty = false;
                     if (result.success) {
                         self.lastSavedAt = result.saved_at;
-                        console.log('[DRAFT SAVE] ✅ Draft saved at', result.saved_at);
                     } else {
-                        console.error('[DRAFT SAVE] ❌ Save failed:', result.error);
+                        console.error('[DRAFT SAVE] Save failed:', result.error);
                     }
                 })
                 .catch(function(err) {
@@ -2523,8 +2427,6 @@ document.addEventListener('alpine:init', function() {
                     console.warn('[GATHER] No form found');
                     return {};
                 }
-
-                console.log('[GATHER] Gathering data from current step...');
 
                 var formData = new FormData(form);
                 var data = {};
@@ -2545,7 +2447,6 @@ document.addEventListener('alpine:init', function() {
                     // overwrite the previous value instead of building an array
                     var field = form.querySelector('[name="' + key + '"]');
                     if (field && field.type === 'checkbox') {
-                        console.log('[GATHER] Skipping checkbox in FormData loop:', key);
                         continue;  // Let the checkbox handling code process these
                     }
 
@@ -2555,13 +2456,10 @@ document.addEventListener('alpine:init', function() {
                     }
                 }
 
-                console.log('[GATHER] FormData collected:', data);
-
                 // CRITICAL: Handle checkboxes properly
                 // Single checkboxes (privacy settings) are stored as boolean
                 // Multiple checkboxes with same name (event_languages) are stored as array
                 var checkboxes = form.querySelectorAll('input[type="checkbox"]');
-                console.log('[GATHER] Found', checkboxes.length, 'checkboxes');
 
                 // First pass: identify checkbox groups (multiple checkboxes with same name)
                 for (var i = 0; i < checkboxes.length; i++) {
@@ -2574,8 +2472,6 @@ document.addEventListener('alpine:init', function() {
                     }
                 }
 
-                console.log('[GATHER] Checkbox groups:', Object.keys(checkboxGroups));
-
                 // Second pass: process each checkbox group
                 for (var name in checkboxGroups) {
                     var group = checkboxGroups[name];
@@ -2583,7 +2479,6 @@ document.addEventListener('alpine:init', function() {
                     if (group.length === 1) {
                         // Single checkbox - store as boolean
                         data[name] = group[0].checked;
-                        console.log('[GATHER]   Single checkbox', name, '→', group[0].checked);
                     } else {
                         // Multiple checkboxes with same name - store as array of checked values
                         var checkedValues = [];
@@ -2593,11 +2488,9 @@ document.addEventListener('alpine:init', function() {
                             }
                         }
                         data[name] = checkedValues;
-                        console.log('[GATHER]   Checkbox array', name, '→', checkedValues);
                     }
                 }
 
-                console.log('[GATHER] ✅ Final gathered data:', data);
                 return data;
             },
 
@@ -3483,7 +3376,6 @@ document.addEventListener('alpine:init', function() {
                 if (this.iti) {
                     try {
                         this.iti.destroy();
-                        console.log('intl-tel-input: Instance destroyed on component cleanup');
                     } catch (e) {
                         console.warn('intl-tel-input: Could not destroy instance', e);
                     }
@@ -4272,8 +4164,8 @@ document.addEventListener('alpine:init', function() {
                         title: gettext('A Magical Journey Awaits!'),
                         text: gettext('I created a special Wonderland journey for') + ' ' + self.recipientName + '!',
                         url: self.giftUrl
-                    }).catch(function(err) {
-                        console.log('Share cancelled or failed:', err);
+                    }).catch(function() {
+                        // Share was cancelled or failed
                     });
                 }
             }
@@ -4665,7 +4557,6 @@ document.addEventListener('alpine:init', function() {
                         if (data.success) {
                             self.lastSaveTime = now;
                             self.totalTimeSeconds = data.total_time;
-                            console.log('⏱️ Journey state saved');
                         }
                     })
                     .catch(function(error) {
@@ -6573,6 +6464,20 @@ document.addEventListener('alpine:init', function() {
             get hasDot3() { return this.images.length > 3; },
             get hasDot4() { return this.images.length > 4; },
 
+            // CSP-safe dot class getters (avoid ternary in template)
+            get dot0ActiveClass() { return this.isDot0Active ? 'slideshow-dot-active' : ''; },
+            get dot1ActiveClass() { return this.isDot1Active ? 'slideshow-dot-active' : ''; },
+            get dot2ActiveClass() { return this.isDot2Active ? 'slideshow-dot-active' : ''; },
+            get dot3ActiveClass() { return this.isDot3Active ? 'slideshow-dot-active' : ''; },
+            get dot4ActiveClass() { return this.isDot4Active ? 'slideshow-dot-active' : ''; },
+
+            // CSP-safe aria-selected getters
+            get dot0AriaSelected() { return this.isDot0Active ? 'true' : 'false'; },
+            get dot1AriaSelected() { return this.isDot1Active ? 'true' : 'false'; },
+            get dot2AriaSelected() { return this.isDot2Active ? 'true' : 'false'; },
+            get dot3AriaSelected() { return this.isDot3Active ? 'true' : 'false'; },
+            get dot4AriaSelected() { return this.isDot4Active ? 'true' : 'false'; },
+
             init: function() {
                 var self = this;
 
@@ -6790,7 +6695,6 @@ document.addEventListener('alpine:init', function() {
                         // Autoplay was blocked by browser
                         self.autoplayBlocked = true;
                         self.isPlaying = false;
-                        console.log('Autoplay blocked by browser. User interaction required.');
                     });
                 }
             },

@@ -7,6 +7,26 @@ from .profiles import CrushCoach, CrushProfile, ProfileSubmission
 class EventConnectionQuerySet(models.QuerySet):
     """Custom QuerySet for EventConnection with performance optimizations."""
 
+    def for_user(self, user):
+        """Connections where user is requester or recipient."""
+        return self.filter(
+            models.Q(requester=user) | models.Q(recipient=user)
+        )
+
+    def pending_for_user(self, user):
+        """Pending connection requests received by user."""
+        return self.filter(recipient=user, status='pending')
+
+    def active_for_user(self, user):
+        """Active connections (accepted through shared) for user."""
+        return self.for_user(user).filter(
+            status__in=['accepted', 'coach_reviewing', 'coach_approved', 'shared']
+        )
+
+    def for_event(self, event, user):
+        """Connections for a specific event involving user."""
+        return self.for_user(user).filter(event=event)
+
     def annotate_is_mutual(self):
         """
         Annotate queryset with is_mutual_annotated field.
@@ -43,6 +63,18 @@ class EventConnectionManager(models.Manager):
 
     def get_queryset(self):
         return EventConnectionQuerySet(self.model, using=self._db)
+
+    def for_user(self, user):
+        return self.get_queryset().for_user(user)
+
+    def pending_for_user(self, user):
+        return self.get_queryset().pending_for_user(user)
+
+    def active_for_user(self, user):
+        return self.get_queryset().active_for_user(user)
+
+    def for_event(self, event, user):
+        return self.get_queryset().for_event(event, user)
 
     def annotate_is_mutual(self):
         return self.get_queryset().annotate_is_mutual()
@@ -110,6 +142,11 @@ class EventConnection(models.Model):
     class Meta:
         unique_together = ('requester', 'recipient', 'event')
         ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['event', 'status'], name='crush_lu_conn_event_status_idx'),
+            models.Index(fields=['requester', 'status'], name='crush_lu_conn_req_status_idx'),
+            models.Index(fields=['recipient', 'status'], name='crush_lu_conn_recip_status_idx'),
+        ]
 
     def __str__(self):
         return f"{self.requester.username} → {self.recipient.username} ({self.event.title})"

@@ -136,7 +136,8 @@
                 <div class="flex items-center gap-4 mb-6 text-left">
                     {% if submission.coach.photo %}
                         <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
-                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md flex-shrink-0">
+                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md flex-shrink-0"
+                             loading="lazy">
                     {% else %}
                         <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
                             {{ submission.coach.user.get_full_name|slice:":1"|upper }}

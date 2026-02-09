@@ -492,7 +492,7 @@
                 <div class="template-list" x-show="isCategoryExpanded('{{ cat_key }}')" x-transition>
                     {% for template in templates_by_category|get_item:cat_key %}
                     <div class="template-item"
-                         :class="isTemplateSelected('{{ template.key }}') ? 'selected' : ''"
+                         :class="templateSelectedClass('{{ template.key }}')"
                          @click="selectTemplate('{{ template.key }}', '{{ template.name|escapejs }}')">
                         {{ template.name }}
                         <div class="template-description">{{ template.description|truncatewords:10 }}</div>
@@ -540,7 +540,7 @@
                         <div class="user-name" x-text="selectedUserName"></div>
                         <div class="user-email" x-text="selectedUserEmail"></div>
                     </div>
-                    <button class="clear-user-btn" @click="clearUser()" title="Clear selection">
+                    <button class="clear-user-btn" @click="clearUser()" title="Clear selection" aria-label="Clear selection">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -634,10 +634,10 @@
 
         <!-- Preview Tabs -->
         <div class="preview-tabs" x-show="hasPreview">
-            <button class="preview-tab" :class="isHtmlTabActive ? 'active' : ''" @click="setHtmlMode()">
+            <button class="preview-tab" :class="htmlTabClass" @click="setHtmlMode()">
                 HTML Preview
             </button>
-            <button class="preview-tab" :class="isPlainTabActive ? 'active' : ''" @click="setPlainMode()">
+            <button class="preview-tab" :class="plainTabClass" @click="setPlainMode()">
                 Plain Text
             </button>
         </div>
@@ -776,6 +776,12 @@ function emailTemplateManager() {
         },
         get isPlainTabActive() {
             return this.previewMode === 'plain';
+        },
+        get htmlTabClass() {
+            return this.previewMode === 'html' ? 'active' : '';
+        },
+        get plainTabClass() {
+            return this.previewMode === 'plain' ? 'active' : '';
         },
         get showSearchDropdown() {
             return this.showSearchResults && this.searchResults.length > 0;
@@ -1083,6 +1089,9 @@ function emailTemplateManager() {
 
         isTemplateSelected(templateKey) {
             return this.selectedTemplate === templateKey;
+        },
+        templateSelectedClass(templateKey) {
+            return this.selectedTemplate === templateKey ? 'selected' : '';
         },
 
         handleSearchInput(event) {

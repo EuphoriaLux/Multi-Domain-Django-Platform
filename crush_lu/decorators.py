@@ -27,6 +27,38 @@ def crush_login_required(function):
     return wrapper
 
 
+def coach_required(function):
+    """
+    Decorator for coach-only views. Checks that the user is an active coach
+    and attaches `request.coach` for convenience.
+
+    Redirects non-coaches to the dashboard with an error message.
+    """
+    @wraps(function)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            login_url = reverse('crush_lu:login')
+            return redirect_to_login(request.get_full_path(), login_url)
+
+        from crush_lu.models import CrushCoach
+        try:
+            coach = CrushCoach.objects.get(user=request.user)
+            if not coach.is_active:
+                messages.error(
+                    request,
+                    'Your coach account has been deactivated. Please contact an administrator.',
+                )
+                return redirect('crush_lu:dashboard')
+        except CrushCoach.DoesNotExist:
+            messages.error(request, 'You do not have coach access.')
+            return redirect('crush_lu:dashboard')
+
+        request.coach = coach
+        return function(request, *args, **kwargs)
+    return wrapper
+
+
 def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
     """
     Simple rate limiting decorator using Django's cache framework.
