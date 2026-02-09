@@ -77,9 +77,15 @@ def event_detail(request, event_id):
             messages.error(request, _("This event is by invitation only."))
             return redirect("crush_lu:event_list")
 
+    # Fetch user profile for template display logic
+    user_profile = None
+    if request.user.is_authenticated:
+        user_profile = CrushProfile.objects.filter(user=request.user).first()
+
     context = {
         "event": event,
-        "registration": registration,
+        "user_registration": registration,
+        "user_profile": user_profile,
     }
     return render(request, "crush_lu/event_detail.html", context)
 
