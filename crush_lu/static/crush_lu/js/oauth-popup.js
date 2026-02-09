@@ -71,7 +71,6 @@
 
             // Check if popup was blocked
             if (!this.popup || this.popup.closed || typeof this.popup.closed === 'undefined') {
-                console.log('[OAuth Popup] Popup was blocked');
                 if (options.onPopupBlocked) {
                     options.onPopupBlocked();
                 } else {
@@ -103,7 +102,6 @@
                 self.handleTimeout();
             }, this.config.timeout);
 
-            console.log('[OAuth Popup] Opened popup for', provider);
         },
 
         /**
@@ -133,7 +131,6 @@
          * @param {string} provider - OAuth provider name
          */
         fallbackToRedirect: function(provider) {
-            console.log('[OAuth Popup] Falling back to redirect');
             var loginBtn = document.querySelector('[data-' + provider + '-url]');
             var url;
 
@@ -182,19 +179,14 @@
         handleMessage: function(event) {
             // Validate origin - must match our domain
             if (event.origin !== window.location.origin) {
-                console.log('[OAuth Popup] Ignoring message from different origin:', event.origin);
                 return;
             }
 
             var data = event.data;
             if (!data || !data.type) return;
 
-            console.log('[OAuth Popup] Received message:', data.type);
-
             if (data.type === 'CRUSH_OAUTH_COMPLETE') {
                 if (data.success) {
-                    console.log('[OAuth Popup] OAuth successful');
-
                     // Send acknowledgment to popup (optional)
                     if (this.popup && !this.popup.closed) {
                         try {
@@ -256,14 +248,12 @@
                     });
                 }
             } else if (data.type === 'CRUSH_OAUTH_ERROR') {
-                console.log('[OAuth Popup] OAuth error:', data.error);
                 this.cleanup();
                 this.onError({
                     error: data.error || 'unknown',
                     description: data.errorDescription || 'Authentication failed',
                 });
             } else if (data.type === 'CRUSH_OAUTH_RETRY') {
-                console.log('[OAuth Popup] User wants to retry');
                 // Just cleanup - user can click button again
                 this.cleanup();
             }
@@ -281,7 +271,6 @@
 
             this.checkTimer = setInterval(function() {
                 if (self.popup && self.popup.closed) {
-                    console.log('[OAuth Popup] Popup was closed');
                     self.handlePopupClosed();
                     return;
                 }
@@ -335,7 +324,6 @@
             })
             .then(function(data) {
                 if (data.authenticated) {
-                    console.log('[OAuth Popup] Auth verified via API');
                     // Close popup if we still have a handle and were polling while open
                     if (options.closePopupOnSuccess && self.popup && !self.popup.closed) {
                         try {
@@ -354,7 +342,6 @@
                     window.location.href = data.redirect_url;
                 } else {
                     // User cancelled or OAuth failed - don't show error, just reset
-                    console.log('[OAuth Popup] Not authenticated after popup closed');
                 }
             })
             .catch(function(error) {
@@ -366,7 +353,6 @@
          * Handle timeout
          */
         handleTimeout: function() {
-            console.log('[OAuth Popup] OAuth timed out');
             this.cleanup();
 
             if (this.popup && !this.popup.closed) {

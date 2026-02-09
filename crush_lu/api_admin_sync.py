@@ -7,6 +7,7 @@ Secured with Bearer token authentication
 
 import json
 import logging
+import secrets
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -35,7 +36,7 @@ def _authenticate_admin_request(request) -> bool:
         logger.error("ADMIN_API_KEY not configured in settings")
         return False
 
-    return token == expected_token
+    return secrets.compare_digest(token, expected_token)
 
 
 @csrf_exempt

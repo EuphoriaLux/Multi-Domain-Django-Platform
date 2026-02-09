@@ -8,7 +8,7 @@
         <div class="flex-shrink-0">
             {% profile_photo_url submission.profile 'photo_1' as photo_url %}
             {% if photo_url %}
-                <img src="{{ photo_url }}" alt="" class="w-16 h-16 rounded-lg object-cover">
+                <img src="{{ photo_url }}" alt="{% trans 'Profile photo' %}" class="w-16 h-16 rounded-lg object-cover" loading="lazy">
             {% else %}
                 <div class="w-16 h-16 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                     <svg class="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

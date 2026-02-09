@@ -75,45 +75,45 @@
                         <template x-if="hasDot0">
                             <button @click="goToDot0"
                                     class="slideshow-dot"
-                                    x-bind:class="isDot0Active ? 'slideshow-dot-active' : ''"
+                                    x-bind:class="dot0ActiveClass"
                                     role="tab"
-                                    x-bind:aria-selected="isDot0Active ? 'true' : 'false'"
+                                    x-bind:aria-selected="dot0AriaSelected"
                                     aria-label="{% trans 'Photo' %} 1">
                             </button>
                         </template>
                         <template x-if="hasDot1">
                             <button @click="goToDot1"
                                     class="slideshow-dot"
-                                    x-bind:class="isDot1Active ? 'slideshow-dot-active' : ''"
+                                    x-bind:class="dot1ActiveClass"
                                     role="tab"
-                                    x-bind:aria-selected="isDot1Active ? 'true' : 'false'"
+                                    x-bind:aria-selected="dot1AriaSelected"
                                     aria-label="{% trans 'Photo' %} 2">
                             </button>
                         </template>
                         <template x-if="hasDot2">
                             <button @click="goToDot2"
                                     class="slideshow-dot"
-                                    x-bind:class="isDot2Active ? 'slideshow-dot-active' : ''"
+                                    x-bind:class="dot2ActiveClass"
                                     role="tab"
-                                    x-bind:aria-selected="isDot2Active ? 'true' : 'false'"
+                                    x-bind:aria-selected="dot2AriaSelected"
                                     aria-label="{% trans 'Photo' %} 3">
                             </button>
                         </template>
                         <template x-if="hasDot3">
                             <button @click="goToDot3"
                                     class="slideshow-dot"
-                                    x-bind:class="isDot3Active ? 'slideshow-dot-active' : ''"
+                                    x-bind:class="dot3ActiveClass"
                                     role="tab"
-                                    x-bind:aria-selected="isDot3Active ? 'true' : 'false'"
+                                    x-bind:aria-selected="dot3AriaSelected"
                                     aria-label="{% trans 'Photo' %} 4">
                             </button>
                         </template>
                         <template x-if="hasDot4">
                             <button @click="goToDot4"
                                     class="slideshow-dot"
-                                    x-bind:class="isDot4Active ? 'slideshow-dot-active' : ''"
+                                    x-bind:class="dot4ActiveClass"
                                     role="tab"
-                                    x-bind:aria-selected="isDot4Active ? 'true' : 'false'"
+                                    x-bind:aria-selected="dot4AriaSelected"
                                     aria-label="{% trans 'Photo' %} 5">
                             </button>
                         </template>

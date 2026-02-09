@@ -98,7 +98,6 @@ class PhoneVerification {
 
                 // Only restore if less than 10 minutes old and was in code_sent state
                 if (ageMinutes < 10 && parsed.state === 'code_sent') {
-                    console.log('Restored phone verification state from localStorage');
                     // Note: We can't restore confirmationResult, user will need to resend
                     // But we can show them a helpful message
                     this.state = 'idle';
@@ -142,14 +141,12 @@ class PhoneVerification {
         try {
             if (!firebase.apps.length) {
                 firebase.initializeApp(this.firebaseConfig);
-                console.log('Firebase initialized');
             }
 
             // Set SMS language BEFORE RecaptchaVerifier is created (per Firebase docs)
             // This ensures both reCAPTCHA display and SMS messages use user's preferred language
             if (window.FIREBASE_LANGUAGE) {
                 firebase.auth().languageCode = window.FIREBASE_LANGUAGE;
-                console.log('Firebase SMS language set to:', window.FIREBASE_LANGUAGE);
             }
 
             this.isInitialized = true;
@@ -207,10 +204,8 @@ class PhoneVerification {
             {
                 size: 'invisible',
                 callback: () => {
-                    console.log('reCAPTCHA verified');
                 },
                 'expired-callback': () => {
-                    console.log('reCAPTCHA expired, resetting');
                     this.setupRecaptcha();
                 }
             }
@@ -262,8 +257,6 @@ class PhoneVerification {
             if (!this.recaptchaVerifier) {
                 this.setupRecaptcha();
             }
-
-            console.log('Sending verification code to:', phone.slice(0, 7) + '***');
 
             this.confirmationResult = await firebase.auth().signInWithPhoneNumber(
                 phone,

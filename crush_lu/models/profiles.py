@@ -686,7 +686,10 @@ class ProfileSubmission(models.Model):
             # Composite index for coach workload queries
             # Used by: assign_coach() and coach performance queries
             models.Index(fields=['coach', 'status'], name='crush_lu_prof_coach_status_idx'),
-            # Individual status index (already exists via db_index=True on field)
+            # Pending submissions sorted by date (coach dashboard queue)
+            models.Index(fields=['status', 'submitted_at'], name='crush_lu_prof_status_date_idx'),
+            # Coach-assigned submissions filtered by status
+            models.Index(fields=['status', 'coach'], name='crush_lu_prof_status_coach_idx'),
         ]
 
     def __str__(self):
