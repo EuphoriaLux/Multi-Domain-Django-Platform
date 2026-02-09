@@ -7,7 +7,7 @@
             <img src="{{ photo.url }}" alt="{% if is_main %}Main profile photo{% else %}Profile photo {{ slot }}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
             <button type="button"
                     class="photo-delete-btn"
-                    hx-delete="{% url 'crush_lu:delete_profile_photo' slot %}"
+                    hx-delete="{% url 'api_delete_profile_photo' slot %}"
                     hx-target="#photo-card-{{ slot }}"
                     hx-swap="innerHTML"
                     hx-confirm="Remove this photo?"
@@ -28,7 +28,7 @@
                name="photo_{{ slot }}"
                id="id_photo_{{ slot }}"
                accept="image/jpeg,image/png,image/webp"
-               hx-post="{% url 'crush_lu:upload_profile_photo' slot %}"
+               hx-post="{% url 'api_upload_profile_photo' slot %}"
                hx-target="#photo-card-{{ slot }}"
                hx-swap="innerHTML"
                hx-encoding="multipart/form-data"

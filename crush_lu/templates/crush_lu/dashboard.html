@@ -130,8 +130,8 @@
     </div>
 
     <!-- Membership Card - PWA Gated -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full">
-        <div class="p-6">
+    <div class="status-card">
+        <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
 
             {% if is_pwa_user %}
@@ -203,8 +203,8 @@
 
 <div class="grid grid-cols-1 gap-6 mb-6">
     <!-- Quick Stats Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full">
-        <div class="p-6">
+    <div class="status-card">
+        <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-4">{% trans "Your Activity" %}</h5>
             <div class="grid grid-cols-3 text-center mt-4">
                 <div>
@@ -227,8 +227,8 @@
 </div>
 
 <!-- Upcoming Events Section -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
-    <div class="p-6">
+<div class="status-card mb-6">
+    <div class="status-card-body">
         <h5 class="font-semibold text-lg mb-4">{% trans "Your Events" %}</h5>
 
         {% if registrations %}
@@ -283,7 +283,7 @@
 
 <!-- Call to Action -->
 {% if profile.is_approved and not registrations %}
-<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl shadow-sm dark:shadow-gray-900/20">
+<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-crush-purple/20 dark:to-crush-pink/20 rounded-xl shadow-sm dark:shadow-gray-900/20 dark:border dark:border-gray-700">
     <div class="text-center p-10">
         <h4 class="text-xl font-bold mb-2">{% trans "Ready to Meet New People?" %}</h4>
         <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Check out our upcoming events and start making connections!" %}</p>

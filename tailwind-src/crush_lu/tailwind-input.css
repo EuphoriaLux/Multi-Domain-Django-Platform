@@ -4108,6 +4108,11 @@ footer hr {
     text-decoration: none;
 }
 
+html.dark .btn-crush-outline {
+    color: var(--crush-purple-light);
+    border-color: var(--crush-purple-light);
+}
+
 /* Hero Button */
 .btn-hero-primary {
     background: white;
@@ -6364,7 +6369,7 @@ html.dark .home-page .cta-section {
     cursor: pointer;
 }
 
-.status-card {
+.voting-status-card {
     background: linear-gradient(135deg, var(--crush-purple) 0%, var(--crush-pink) 100%);
     color: white;
     border-radius: 15px;
@@ -7304,7 +7309,7 @@ html.dark .progress-bar-container {
     @apply text-center mt-5 text-sm text-white/60;
 }
 
-.status-card {
+.gift-status-card {
     @apply text-center;
 }
 

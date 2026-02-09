@@ -11,8 +11,8 @@
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-2xl">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-            <div class="p-8">
+        <div class="card">
+            <div class="card-body p-8">
                 <h2 class="text-2xl font-bold text-center mb-4 dark:text-white">{% trans "Edit Coach Profile" %}</h2>
                 <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
                     {% trans "Update your coaching bio and specializations that users see when assigned to you." %}
@@ -177,9 +177,9 @@
                         </label>
                         <div class="flex flex-wrap gap-4 mt-2">
                             {% for checkbox in form.spoken_languages %}
-                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <label class="form-check">
                                     {{ checkbox.tag }}
-                                    {{ checkbox.choice_label }}
+                                    <span class="form-check-label">{{ checkbox.choice_label }}</span>
                                 </label>
                             {% endfor %}
                         </div>
@@ -224,7 +224,7 @@
                         <button type="submit" class="btn-crush-primary flex-1 py-3">
                             {% trans "Save Changes" %}
                         </button>
-                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center justify-center px-6 py-3 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn-crush-outline inline-flex items-center justify-center">
                             {% trans "Cancel" %}
                         </a>
                     </div>

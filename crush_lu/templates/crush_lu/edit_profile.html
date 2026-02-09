@@ -166,7 +166,7 @@ document.addEventListener('click', function(e) {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    fetch('{% url "crush_lu:import_social_photo" %}', {
+    fetch('{% url "api_import_social_photo" %}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
