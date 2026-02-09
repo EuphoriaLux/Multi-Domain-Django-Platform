@@ -179,6 +179,9 @@ def sample_event(db):
     """Create a sample event for testing."""
     return MeetupEvent.objects.create(
         title='Test Speed Dating Event',
+        title_en='Test Speed Dating Event',
+        title_de='Test Speed Dating Event',
+        title_fr='Test Speed Dating Event',
         description='A test event for unit testing',
         event_type='speed_dating',
         date_time=timezone.now() + timedelta(days=1),
