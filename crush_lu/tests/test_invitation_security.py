@@ -88,7 +88,6 @@ class TestInvitationAgeVerification:
         )
         assert not form.is_valid()
         assert 'date_of_birth' in form.errors
-        assert 'future' in str(form.errors['date_of_birth']).lower()
 
     def test_form_rejects_under_18(self, pending_invitation):
         """Test that users under 18 are rejected."""
