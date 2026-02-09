@@ -130,16 +130,14 @@ def serve_profile_photo(request, user_id, photo_field):
     """
     # Apply rate limit: higher for coaches who review many profiles
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
-    rate = '300/m' if is_coach else '60/m'
+    max_requests = 300 if is_coach else 60
+    period_seconds = 60  # 1 minute window
     cache_key = f'ratelimit:serve_profile_photo:user_{request.user.id}'
     try:
         current = cache.get(cache_key, 0)
     except Exception:
         current = 0
-    count, period = rate.split('/')
-    count = int(count)
-    period_seconds = int(period[:-1]) * 60 if period.endswith('m') else 60
-    if current >= count:
+    if current >= max_requests:
         return HttpResponse('Rate limit exceeded. Please try again later.', status=429)
     try:
         if current == 0:
