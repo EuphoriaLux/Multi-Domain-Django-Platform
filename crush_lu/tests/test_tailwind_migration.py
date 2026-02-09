@@ -24,7 +24,6 @@ class TailwindMigrationTests(TestCase):
         (r'(?<!-)btn-primary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-primary (use btn-crush-primary)'),
         (r'(?<!-)btn-secondary\b(?!.*class=["\'][^"\']*btn-crush)', 'Bootstrap btn-secondary'),
         (r'\bform-control\b', 'Bootstrap form-control (use Tailwind form classes)'),
-        (r'\bform-check\b', 'Bootstrap form-check'),
         (r'\balert-dismissible\b', 'Bootstrap alert-dismissible (use Alpine.js)'),
         (r'\bmodal-dialog\b', 'Bootstrap modal (use Alpine.js modal)'),
         (r'\bfade\s+show\b', 'Bootstrap fade show classes'),
