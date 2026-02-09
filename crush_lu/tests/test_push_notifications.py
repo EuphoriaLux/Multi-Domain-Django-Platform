@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from contextlib import contextmanager
 
 from django.contrib.auth.models import User
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from crush_lu.push_notifications import (
     get_user_language,
@@ -207,8 +207,15 @@ def mock_vapid_settings():
 # TESTS FOR get_user_language()
 # =============================================================================
 
+@pytest.mark.usefixtures('_force_english')
 class TestGetUserLanguage:
     """Tests for get_user_language function."""
+
+    @pytest.fixture(autouse=True)
+    def _force_english(self):
+        """Ensure thread language is English so fallback assertions are deterministic."""
+        with translation.override('en'):
+            yield
 
     def test_returns_english_by_default_when_no_profile(self, user):
         """User without profile should get 'en' as default language."""
