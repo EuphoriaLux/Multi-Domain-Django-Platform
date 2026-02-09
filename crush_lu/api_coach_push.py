@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from .decorators import crush_login_required
+from .decorators import crush_login_required, ratelimit
 from .models import CrushCoach, CoachPushSubscription, PushSubscription
 from .coach_notifications import send_coach_test_notification
 
@@ -57,6 +57,7 @@ def get_vapid_public_key(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='20/m', method='POST')
 @csrf_exempt
 @require_http_methods(["POST"])
 def subscribe_push(request):
@@ -165,6 +166,7 @@ def subscribe_push(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='20/m', method='POST')
 @csrf_exempt
 @require_http_methods(["POST"])
 def unsubscribe_push(request):
@@ -231,6 +233,7 @@ def unsubscribe_push(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='20/m', method='POST')
 @csrf_exempt
 @require_http_methods(["POST"])
 def delete_push_subscription(request):
@@ -316,6 +319,7 @@ def list_subscriptions(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='20/m', method='POST')
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_subscription_preferences(request):
@@ -384,6 +388,7 @@ def update_subscription_preferences(request):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='5/m', method='POST')
 @csrf_exempt
 @require_http_methods(["POST"])
 def send_test_push(request):

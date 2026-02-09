@@ -343,13 +343,14 @@ class CrushProfile(models.Model):
     # Basic Info (Step 1 - REQUIRED for initial save)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=2, choices=GENDER_CHOICES, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True)  # Required in form, not model
+    phone_number = models.CharField(max_length=20, blank=True, db_index=True)  # Required in form, not model
     phone_verified = models.BooleanField(default=False, help_text=_("Whether phone was verified via SMS OTP"))
     phone_verified_at = models.DateTimeField(null=True, blank=True, help_text=_("When phone was verified"))
     phone_verification_uid = models.CharField(
         max_length=128,
         null=True,
         blank=True,
+        db_index=True,
         help_text=_("Firebase UID from phone verification (for audit/anti-replay)")
     )
     location = models.CharField(max_length=100, blank=True, help_text=_("City/Region in Luxembourg"))
@@ -643,7 +644,7 @@ class ProfileSubmission(models.Model):
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
     coach = models.ForeignKey(
         CrushCoach,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True
     )
@@ -831,11 +832,13 @@ class UserActivity(models.Model):
 
     # Activity timestamps
     last_seen = models.DateTimeField(
+        db_index=True,
         help_text=_("Last time user made a request")
     )
     last_pwa_visit = models.DateTimeField(
         null=True,
         blank=True,
+        db_index=True,
         help_text=_("Last time user accessed via PWA (standalone mode)")
     )
 

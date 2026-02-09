@@ -1013,15 +1013,22 @@ class CrushProfileAdmin(admin.ModelAdmin):
         # return HttpResponseRedirect(f'/crush-admin/bulk-email/?profiles={",".join(map(str, queryset.values_list("pk", flat=True)))}')
 
     def get_queryset(self, request):
-        """Optimize queries with select_related and prefetch_related"""
+        """
+        Optimize queries with select_related and prefetch_related.
+        Non-superuser coaches only see profiles assigned to them.
+        """
         qs = super().get_queryset(request)
-        return qs.select_related('user').prefetch_related(
+        qs = qs.select_related('user').prefetch_related(
             Prefetch(
                 'profilesubmission_set',
                 queryset=ProfileSubmission.objects.select_related('coach__user'),
                 to_attr='_prefetched_submissions'
             )
         )
+        if not request.user.is_superuser:
+            # Coaches see only profiles with submissions assigned to them
+            qs = qs.filter(profilesubmission__coach__user=request.user)
+        return qs
 
 
 class CallAttemptInline(admin.TabularInline):
@@ -1077,9 +1084,16 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        """Optimize queries with select_related for profile and coach FKs"""
+        """
+        Optimize queries with select_related for profile and coach FKs.
+        Non-superuser coaches only see their own assigned submissions.
+        """
         qs = super().get_queryset(request)
-        return qs.select_related('profile__user', 'coach__user')
+        qs = qs.select_related('profile__user', 'coach__user')
+        if not request.user.is_superuser:
+            # Coaches see only submissions assigned to them
+            qs = qs.filter(coach__user=request.user)
+        return qs
 
     def get_profile_link(self, obj):
         """Clickable link to the profile"""

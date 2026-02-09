@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
+from django.db import transaction
 from datetime import timedelta
 import logging
 
@@ -225,33 +226,42 @@ def event_register(request, event_id):
         messages.error(request, _("Registration is not available for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
+    # Age confirmation needed when user has no profile (age unverified)
+    requires_age_confirmation = profile is None
+
     if request.method == "POST":
-        form = EventRegistrationForm(request.POST, event=event)
+        form = EventRegistrationForm(request.POST, event=event, requires_age_confirmation=requires_age_confirmation)
         if form.is_valid():
-            cancelled_registration = EventRegistration.objects.filter(
-                event=event, user=request.user, status='cancelled'
-            ).first()
+            # Use select_for_update + atomic to prevent race condition where
+            # concurrent registrations could exceed max_participants
+            with transaction.atomic():
+                # Lock the event row to get accurate capacity count
+                locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
 
-            if cancelled_registration:
-                registration = cancelled_registration
-                registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
-                registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
-                registration.guest_name = form.cleaned_data.get('guest_name', '')
-            else:
-                registration = form.save(commit=False)
-                registration.event = event
-                registration.user = request.user
+                cancelled_registration = EventRegistration.objects.filter(
+                    event=locked_event, user=request.user, status='cancelled'
+                ).first()
 
-            if event.is_full:
-                registration.status = "waitlist"
-                messages.info(
-                    request, _("Event is full. You have been added to the waitlist.")
-                )
-            else:
-                registration.status = "confirmed"
-                messages.success(request, _("Successfully registered for the event!"))
+                if cancelled_registration:
+                    registration = cancelled_registration
+                    registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
+                    registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
+                    registration.guest_name = form.cleaned_data.get('guest_name', '')
+                else:
+                    registration = form.save(commit=False)
+                    registration.event = locked_event
+                    registration.user = request.user
 
-            registration.save()
+                if locked_event.is_full:
+                    registration.status = "waitlist"
+                    messages.info(
+                        request, _("Event is full. You have been added to the waitlist.")
+                    )
+                else:
+                    registration.status = "confirmed"
+                    messages.success(request, _("Successfully registered for the event!"))
+
+                registration.save()
 
             try:
                 if registration.status == "confirmed":
@@ -279,14 +289,16 @@ def event_register(request, event_id):
                     {
                         "event": event,
                         "form": form,
+                        "requires_age_confirmation": requires_age_confirmation,
                     },
                 )
     else:
-        form = EventRegistrationForm(event=event)
+        form = EventRegistrationForm(event=event, requires_age_confirmation=requires_age_confirmation)
 
     context = {
         "event": event,
         "form": form,
+        "requires_age_confirmation": requires_age_confirmation,
     }
     return render(request, "crush_lu/event_register.html", context)
 

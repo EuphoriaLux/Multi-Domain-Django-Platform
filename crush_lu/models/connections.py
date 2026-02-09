@@ -193,10 +193,7 @@ class EventConnection(models.Model):
 
         Optimized to fetch all related data in a single query using select_related.
         """
-        # Fetch both profiles with their submissions in a single query
-        requester_profile = CrushProfile.objects.select_related('user').prefetch_related(
-            'submissions'
-        ).get(user=self.requester)
+        requester_profile = CrushProfile.objects.select_related('user').get(user=self.requester)
 
         # Get the approved submission for the requester with coach pre-fetched
         requester_submission = ProfileSubmission.objects.select_related('coach').filter(

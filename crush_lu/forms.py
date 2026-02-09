@@ -9,25 +9,10 @@ from PIL import Image
 import os
 
 # Tailwind CSS classes for form inputs (replacing Bootstrap form-control)
-TAILWIND_INPUT = (
-    'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
-    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
-    'transition-colors'
-)
-TAILWIND_INPUT_LG = (
-    'w-full px-4 py-3 text-lg border border-gray-300 rounded-lg bg-white text-gray-900 '
-    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
-    'transition-colors'
-)
-TAILWIND_SELECT = (
-    'w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 '
-    'focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors'
-)
-TAILWIND_TEXTAREA = (
-    'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 '
-    'placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 '
-    'transition-colors resize-y'
-)
+TAILWIND_INPUT = 'form-control'
+TAILWIND_INPUT_LG = 'form-control text-lg'
+TAILWIND_SELECT = 'form-select'
+TAILWIND_TEXTAREA = 'form-control resize-y'
 
 
 class CrushSignupForm(SignupForm):
@@ -220,7 +205,7 @@ class CrushProfileForm(forms.ModelForm):
     # Event languages (multi-select checkbox field for languages spoken at events)
     event_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'event-language-checkbox'}),
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         required=False,
         label=_('Languages for Events'),
         help_text=_('Which languages can you speak at in-person events?')
@@ -547,6 +532,16 @@ class CoachSessionForm(forms.ModelForm):
 class EventRegistrationForm(forms.ModelForm):
     """Dynamic registration form based on event configuration"""
 
+    age_confirmation = forms.BooleanField(
+        required=False,
+        label=_("I confirm that I am 18 years or older"),
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "h-4 w-4 rounded border-gray-300 text-crush-purple focus:ring-crush-purple"
+            }
+        ),
+    )
+
     class Meta:
         model = EventRegistration
         fields = [
@@ -576,9 +571,14 @@ class EventRegistrationForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, event=None, **kwargs):
+    def __init__(self, *args, event=None, requires_age_confirmation=False, **kwargs):
         """Initialize form with event context"""
+        self.requires_age_confirmation = requires_age_confirmation
         super().__init__(*args, **kwargs)
+
+        # Age confirmation only needed when user has no profile (age unverified)
+        if not requires_age_confirmation:
+            self.fields.pop("age_confirmation", None)
 
         # Remove fields not applicable to this event
         if event:
@@ -596,6 +596,12 @@ class EventRegistrationForm(forms.ModelForm):
 
         if bringing_guest and not guest_name:
             self.add_error("guest_name", _("Please provide your guest's name."))
+
+        if self.requires_age_confirmation and not cleaned_data.get("age_confirmation"):
+            self.add_error(
+                "age_confirmation",
+                _("You must confirm that you are at least 18 years old to register."),
+            )
 
         return cleaned_data
 
@@ -637,7 +643,7 @@ class CrushCoachForm(forms.ModelForm):
 
     spoken_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'event-language-checkbox'}),
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
         required=False,
         label=_('Spoken Languages'),
         help_text=_('Which languages can you speak for profile reviews?')

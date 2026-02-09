@@ -13,6 +13,7 @@ import os
 import logging
 
 from .models import CrushProfile
+from .decorators import ratelimit
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,7 @@ def apply_blur_to_image(image_path):
 
 
 @login_required
+@ratelimit(key='user', rate='60/m', method='GET')
 def serve_profile_photo(request, user_id, photo_field):
     """
     Serve profile photos with authentication and privacy checks

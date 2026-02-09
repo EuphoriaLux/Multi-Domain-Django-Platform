@@ -9,6 +9,7 @@ from .models import (
     MeetupEvent, EventRegistration, EventVotingSession,
     EventActivityOption, EventActivityVote
 )
+from .decorators import ratelimit
 
 
 @login_required
@@ -82,6 +83,7 @@ def voting_status_api(request, event_id):
 
 
 @login_required
+@ratelimit(key='user', rate='30/m', method='POST')
 @require_http_methods(["POST"])
 def submit_vote_api(request, event_id):
     """

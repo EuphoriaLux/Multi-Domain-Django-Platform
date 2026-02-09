@@ -149,6 +149,17 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/profile/draft/clear/', views_profile_draft.clear_draft, name='api_clear_draft'),
     path('api/profile/draft/upload-photo/', views_profile.upload_photo_draft, name='api_upload_photo_draft'),
 
+    # Social Photo Import APIs (called from alpine-components.js with hardcoded paths)
+    path('api/profile/social-photos/', views_profile.get_social_photos_api, name='api_get_social_photos'),
+    path('api/profile/import-social-photo/', views_profile.import_social_photo, name='api_import_social_photo'),
+
+    # Profile Photo Upload/Delete APIs (called from alpine-components.js with hardcoded paths)
+    path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='api_upload_profile_photo'),
+    path('api/profile/delete-photo/<int:slot>/', views_profile.delete_profile_photo, name='api_delete_profile_photo'),
+
+    # Profile Completion API (called from alpine-components.js with hardcoded paths)
+    path('api/profile/complete/', views_profile.complete_profile_submission, name='api_complete_profile_submission'),
+
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),

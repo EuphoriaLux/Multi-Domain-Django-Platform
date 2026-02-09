@@ -143,20 +143,13 @@ urlpatterns = [
     path('mockup/auth-luxid/', views.luxid_auth_mockup_view, name='luxid_auth_mockup'),
     path('mockup/profile-luxid/', views.luxid_mockup_view, name='luxid_profile_mockup'),
 
-    # Profile step-by-step saving (AJAX endpoints)
-    path('api/profile/save-step1/', views_profile.save_profile_step1, name='save_profile_step1'),
-    path('api/profile/save-step2/', views_profile.save_profile_step2, name='save_profile_step2'),
-    path('api/profile/save-step3/', views_profile.save_profile_step3, name='save_profile_step3'),
-    path('api/profile/complete/', views_profile.complete_profile_submission, name='complete_profile_submission'),
-    path('api/profile/progress/', views_profile.get_profile_progress, name='get_profile_progress'),
-
-    # Social photo import API
-    path('api/profile/social-photos/', views_profile.get_social_photos_api, name='get_social_photos_api'),
-    path('api/profile/import-social-photo/', views_profile.import_social_photo, name='import_social_photo'),
-
-    # HTMX photo upload/delete endpoints
-    path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='upload_profile_photo'),
-    path('api/profile/delete-photo/<int:slot>/', views_profile.delete_profile_photo, name='delete_profile_photo'),
+    # Profile step-by-step saving APIs - MOVED to urls_crush.py (language-neutral)
+    # These APIs are called from alpine-components.js with hardcoded paths:
+    # - api/profile/save-step1/, save-step2/, save-step3/
+    # - api/profile/complete/
+    # - api/profile/progress/
+    # - api/profile/social-photos/, import-social-photo/
+    # - api/profile/upload-photo/<slot>/, delete-photo/<slot>/
 
     # Phone verification API endpoints are in urls_crush.py (language-neutral)
     # to avoid i18n prefix issues with hardcoded JavaScript API paths

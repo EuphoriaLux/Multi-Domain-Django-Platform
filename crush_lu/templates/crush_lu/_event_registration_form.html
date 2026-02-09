@@ -51,6 +51,23 @@
     </div>
     {% endif %}
 
+    {% if requires_age_confirmation and form.age_confirmation %}
+    <div class="bg-amber-50 dark:bg-yellow-900/20 border border-amber-200 dark:border-yellow-700 rounded-lg p-4 mb-4">
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+            {% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}
+        </p>
+        <div class="flex items-center gap-3">
+            {{ form.age_confirmation }}
+            <label for="{{ form.age_confirmation.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                {% trans "I confirm that I am 18 years or older" %}
+            </label>
+        </div>
+        {% if form.age_confirmation.errors %}
+            <div class="text-red-500 text-sm mt-1">{{ form.age_confirmation.errors.0 }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="flex flex-col gap-3">
         <button type="submit" class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2">
             <span class="htmx-indicator">

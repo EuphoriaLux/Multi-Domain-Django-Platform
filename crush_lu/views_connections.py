@@ -51,34 +51,30 @@ def event_attendees(request, event_id):
         .select_related("user__crushprofile")
     )
 
-    # Get user's existing connection requests for this event
-    sent_requests = EventConnection.objects.filter(
-        requester=request.user, event=event
-    ).values_list("recipient_id", flat=True)
+    # Pre-fetch all connections for this user+event into dicts for O(1) lookups
+    # This avoids N+1 queries (previously 1+2N queries in the loop)
+    sent_connections = {
+        c.recipient_id: c
+        for c in EventConnection.objects.filter(requester=request.user, event=event)
+    }
+    received_connections = {
+        c.requester_id: c
+        for c in EventConnection.objects.filter(recipient=request.user, event=event)
+    }
 
-    received_requests = EventConnection.objects.filter(
-        recipient=request.user, event=event
-    ).values_list("requester_id", flat=True)
-
-    # Annotate attendees with connection status
+    # Build attendee data with connection status
     attendee_data = []
     for reg in attendees:
         attendee_user = reg.user
         connection_status = None
         connection_id = None
 
-        if attendee_user.id in sent_requests:
-            connection = EventConnection.objects.get(
-                requester=request.user, recipient=attendee_user, event=event
-            )
+        if attendee_user.id in sent_connections:
             connection_status = "sent"
-            connection_id = connection.id
-        elif attendee_user.id in received_requests:
-            connection = EventConnection.objects.get(
-                requester=attendee_user, recipient=request.user, event=event
-            )
+            connection_id = sent_connections[attendee_user.id].id
+        elif attendee_user.id in received_connections:
             connection_status = "received"
-            connection_id = connection.id
+            connection_id = received_connections[attendee_user.id].id
 
         attendee_data.append(
             {
@@ -345,6 +341,7 @@ def connection_actions(request, event_id, user_id):
 
 
 @crush_login_required
+@ratelimit(key='user', rate='10/h', method='POST')
 @require_http_methods(["GET", "POST"])
 def respond_connection(request, connection_id, action):
     """Accept or decline a connection request"""
