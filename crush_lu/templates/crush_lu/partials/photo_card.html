@@ -2,7 +2,7 @@
     <div class="photo-label" id="photo-label-{{ slot }}">
         {% if is_main %}<span aria-hidden="true">{% include "shared/icons/star.html" with class="w-5 h-5" %}</span> Main Photo{% else %}Add Photo {{ slot }}{% endif %}
     </div>
-    <div class="photo-preview-container">
+    <div class="photo-preview-container{% if photo %} has-photo{% endif %}">
         {% if photo %}
             <img src="{{ photo.url }}" alt="{% if is_main %}Main profile photo{% else %}Profile photo {{ slot }}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
             <button type="button"
@@ -14,9 +14,6 @@
                     aria-label="Remove photo {{ slot }}">
                 {% include "shared/icons/trash.html" with class="w-4 h-4" %}
             </button>
-            <span class="photo-badge {% if just_uploaded %}tw-bg-green-500{% endif %}" aria-live="polite">
-                {% if just_uploaded %}Uploaded{% else %}Current{% endif %}
-            </span>
         {% else %}
             <div class="photo-placeholder" id="preview-photo-{{ slot }}" aria-hidden="true">
                 {% include "shared/icons/camera.html" with class="w-10 h-10" %}

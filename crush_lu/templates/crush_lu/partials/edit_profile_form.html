@@ -143,10 +143,25 @@
         </div>
 
         <div class="mb-3">
-            <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                 Gender *
             </label>
-            {{ form.gender }}
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2" role="radiogroup" aria-label="Select your gender">
+                {% for value, label in form.gender.field.choices %}
+                {% if value %}
+                <label class="cursor-pointer block">
+                    <input type="radio" name="{{ form.gender.html_name }}" value="{{ value }}" class="peer hidden"
+                           {% if form.gender.value == value or profile.gender == value %}checked{% endif %}>
+                    <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                                peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
+                        <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% elif value == 'P' %}🤫{% endif %}</span>
+                        <span class="whitespace-nowrap">{{ label }}</span>
+                    </div>
+                </label>
+                {% endif %}
+                {% endfor %}
+            </div>
             {% if form.gender.errors %}
                 <div class="text-red-600 text-sm mt-1">{{ form.gender.errors.0 }}</div>
             {% endif %}
@@ -196,10 +211,25 @@
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.looking_for.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             What are you looking for? *
         </label>
-        {{ form.looking_for }}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2" role="radiogroup" aria-label="Select what you are looking for">
+            {% for value, label in form.looking_for.field.choices %}
+            {% if value %}
+            <label class="cursor-pointer block">
+                <input type="radio" name="{{ form.looking_for.html_name }}" value="{{ value }}" class="peer hidden"
+                       {% if form.looking_for.value == value or profile.looking_for == value %}checked{% endif %}>
+                <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                            peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
+                    <span class="text-lg flex-shrink-0">{% if value == 'friends' %}👋{% elif value == 'dating' %}💕{% elif value == 'both' %}🌟{% elif value == 'networking' %}🤝{% endif %}</span>
+                    <span class="whitespace-nowrap">{{ label }}</span>
+                </div>
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
         {% if form.looking_for.errors %}
             <div class="text-red-600 text-sm mt-1">{{ form.looking_for.errors.0 }}</div>
         {% endif %}

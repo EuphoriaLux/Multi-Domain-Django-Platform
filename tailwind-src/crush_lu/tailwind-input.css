@@ -205,6 +205,11 @@ body.journey-bg {
     scroll-behavior: smooth;
   }
 
+  /* Dark mode: tell browser to render native form controls (select, date) dark */
+  html.dark {
+    color-scheme: dark;
+  }
+
   /* Base body styles with dark mode support */
   body {
     @apply text-crush-dark dark:text-gray-100 bg-crush-light dark:bg-gray-900 antialiased;
@@ -488,6 +493,18 @@ body.journey-bg {
            appearance-none
            bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')]
            bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+  }
+
+  /*
+   * Dark mode select: revert to native appearance so the browser's
+   * color-scheme: dark renders the dropdown list with dark backgrounds.
+   * The custom SVG arrow is removed; the native arrow will show instead.
+   */
+  html.dark .form-select {
+    appearance: auto;
+    -webkit-appearance: auto;
+    background-image: none;
+    padding-right: 1rem;
   }
 
   /* Checkboxes and radios */

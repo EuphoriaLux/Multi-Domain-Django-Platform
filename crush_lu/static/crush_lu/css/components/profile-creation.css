@@ -636,6 +636,10 @@
     border: 3px solid var(--crush-purple);
 }
 
+.photo-preview-container.has-photo img.photo-preview {
+    border-color: var(--crush-success);
+}
+
 /* Photo Delete Button - positioned inside preview container */
 .photo-delete-btn {
     position: absolute;
@@ -717,15 +721,23 @@
 
 .photo-badge {
     position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 2px;
+    right: 2px;
     background: var(--crush-success);
     color: white;
-    font-size: var(--text-xs);
-    padding: 0.15rem var(--space-2);
-    border-radius: 10px;
-    font-weight: var(--font-semibold);
+    font-size: 0.55rem;
+    padding: 1px 5px;
+    border-radius: 6px;
+    font-weight: var(--font-bold);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border: 1.5px solid white;
+    line-height: 1.3;
+    z-index: 5;
+}
+
+html.dark .photo-badge {
+    border-color: #1e293b;
 }
 
 .photo-placeholder {
@@ -1116,5 +1128,227 @@
     @keyframes fadeIn {
         from { opacity: 1; }
         to { opacity: 1; }
+    }
+}
+
+/* ===================
+   Dark Mode
+   =================== */
+
+html.dark .profile-creation-wrapper {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.1), rgba(159, 18, 57, 0.1));
+}
+
+html.dark .step-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .card-title {
+    color: #f1f5f9;
+}
+
+html.dark .card-subtitle {
+    color: #94a3b8;
+}
+
+html.dark .step-circle {
+    background: #334155;
+    color: #94a3b8;
+}
+
+html.dark .step-label {
+    color: #94a3b8;
+}
+
+html.dark .progress-line {
+    background: #334155;
+}
+
+html.dark .form-group-modern label {
+    color: #f1f5f9;
+}
+
+html.dark .priority-field {
+    background: rgba(255, 107, 157, 0.1);
+}
+
+html.dark .gender-card,
+html.dark .looking-card,
+html.dark .interest-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+html.dark .gender-card:hover {
+    border-color: var(--crush-purple);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+html.dark .looking-card:hover {
+    border-color: var(--crush-pink);
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+}
+
+html.dark .interest-card:hover {
+    border-color: var(--crush-purple);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+html.dark .gender-label,
+html.dark .looking-label,
+html.dark .interest-label {
+    color: #f1f5f9;
+}
+
+html.dark .char-counter {
+    color: #94a3b8;
+}
+
+html.dark .char-counter-bar {
+    background: #334155;
+}
+
+html.dark .photo-preview {
+    border-color: #334155;
+    background: #0f172a;
+}
+
+html.dark .photo-preview:hover {
+    border-color: var(--crush-purple);
+    background: rgba(139, 92, 246, 0.1);
+}
+
+html.dark .photo-text {
+    color: #94a3b8;
+}
+
+html.dark .photo-placeholder {
+    background: #0f172a;
+    color: #64748b;
+}
+
+html.dark .photo-upload-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+html.dark .photo-upload-card:hover {
+    border-color: var(--crush-purple);
+    background: rgba(139, 92, 246, 0.05);
+}
+
+html.dark .photo-upload-card--main {
+    border-color: #9f1239;
+    background: rgba(159, 18, 57, 0.1);
+}
+
+html.dark .photo-upload-card .photo-label {
+    color: #f1f5f9;
+}
+
+html.dark .photo-help {
+    color: #94a3b8;
+}
+
+html.dark .photo-delete-btn {
+    border-color: #1e293b;
+}
+
+html.dark .section-card {
+    background: #1e293b;
+}
+
+html.dark .section-title {
+    color: #f1f5f9;
+    border-bottom-color: #334155;
+}
+
+html.dark .privacy-section {
+    background: #0f172a;
+}
+
+html.dark .privacy-toggle-wrapper {
+    background: #1e293b;
+}
+
+html.dark .privacy-toggle-wrapper:hover {
+    background: rgba(139, 92, 246, 0.08);
+}
+
+html.dark .privacy-toggle-track {
+    background: #374151;
+}
+
+html.dark .privacy-toggle-track:hover {
+    background: #4b5563;
+}
+
+html.dark .privacy-toggle-label-text {
+    color: #f1f5f9;
+}
+
+html.dark .privacy-toggle-label-hint {
+    color: #94a3b8;
+}
+
+html.dark .review-summary {
+    background: #0f172a;
+}
+
+html.dark .summary-item {
+    background: #1e293b;
+}
+
+html.dark .summary-item strong {
+    color: #f1f5f9;
+}
+
+html.dark .summary-item span {
+    color: #94a3b8;
+}
+
+html.dark .next-steps-info {
+    background: #0f172a;
+}
+
+html.dark .timeline-item:not(:last-child)::after {
+    background: #334155;
+}
+
+html.dark .timeline-content strong {
+    color: #f1f5f9;
+}
+
+html.dark .timeline-content p {
+    color: #94a3b8;
+}
+
+html.dark .action-buttons-container {
+    border-top-color: #334155;
+}
+
+@media (max-width: 767px) {
+    html.dark .action-buttons-sticky {
+        background: #0f172a;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+    }
+}
+
+html.dark .btn-cancel {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+html.dark .btn-cancel:hover {
+    background: #334155;
+    border-color: #475569;
+    color: #f1f5f9;
+}
+
+@media (max-width: 480px) {
+    html.dark .privacy-toggle {
+        background: #1e293b;
     }
 }

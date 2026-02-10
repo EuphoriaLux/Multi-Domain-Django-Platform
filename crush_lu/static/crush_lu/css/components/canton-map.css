@@ -484,3 +484,153 @@
     font-size: 0.875rem;
     color: #9CA3AF;
 }
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================== */
+
+html.dark .canton-map-selection-display {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    border-color: #4c1d95;
+    color: #e2e8f0;
+    box-shadow: 0 2px 8px rgba(88, 28, 135, 0.2);
+}
+
+html.dark .canton-map-selection-display.has-selection {
+    background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
+    border-color: transparent;
+    box-shadow:
+        0 4px 20px rgba(109, 40, 217, 0.4),
+        0 2px 8px rgba(190, 24, 93, 0.3);
+}
+
+html.dark .canton-map-wrapper {
+    background: linear-gradient(180deg, #1e293b 0%, #1a1a2e 100%);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.2);
+    border-color: rgba(139, 92, 246, 0.15);
+}
+
+html.dark .map-background {
+    fill: #0f172a;
+}
+
+html.dark .lux-cantons path,
+html.dark .lux-canton {
+    fill: #3b2667;
+    stroke: #7c3aed;
+}
+
+html.dark .lux-cantons path:hover,
+html.dark .lux-canton:hover,
+html.dark .lux-cantons path.region-hover,
+html.dark .lux-canton.region-hover {
+    fill: #4c1d95;
+    stroke: #8b5cf6;
+}
+
+html.dark .lux-cantons path.region-selected,
+html.dark .lux-canton.region-selected {
+    fill: #6d28d9;
+    stroke: #a78bfa;
+}
+
+html.dark .border-belgium {
+    fill: #2d1f4e;
+}
+
+html.dark .border-belgium:hover,
+html.dark .border-belgium.region-hover {
+    fill: #3b2667;
+    stroke: #7c3aed;
+}
+
+html.dark .border-belgium.region-selected {
+    fill: #4c1d95;
+    stroke: #8b5cf6;
+}
+
+html.dark .border-germany {
+    fill: #1e2744;
+}
+
+html.dark .border-germany:hover,
+html.dark .border-germany.region-hover {
+    fill: #283555;
+    stroke: #6366f1;
+}
+
+html.dark .border-germany.region-selected {
+    fill: #312e81;
+    stroke: #818cf8;
+}
+
+html.dark .border-france {
+    fill: #2d1a2e;
+}
+
+html.dark .border-france:hover,
+html.dark .border-france.region-hover {
+    fill: #3d1f3e;
+    stroke: #ec4899;
+}
+
+html.dark .border-france.region-selected {
+    fill: #9f1239;
+    stroke: #fb7185;
+}
+
+html.dark .country-label {
+    fill: #64748b;
+}
+
+html.dark .canton-map-fallback-toggle {
+    border-color: #7c3aed;
+    color: #a78bfa;
+}
+
+html.dark .canton-map-fallback-toggle:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+    border-color: #8b5cf6;
+    border-style: solid;
+}
+
+html.dark .canton-map-fallback-dropdown {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-color: #4c1d95;
+}
+
+html.dark .canton-map-fallback-dropdown select {
+    background: #1e293b;
+    border-color: #4c1d95;
+    color: #f1f5f9;
+}
+
+html.dark .canton-map-fallback-dropdown select:focus {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
+}
+
+html.dark .canton-map-container.has-error .canton-map-wrapper {
+    border-color: #991b1b;
+    box-shadow: 0 0 0 4px rgba(153, 27, 27, 0.2);
+}
+
+html.dark .canton-map-container.has-error .canton-map-selection-display {
+    border-color: #991b1b;
+    background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+}
+
+html.dark .canton-map-error {
+    background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+    color: #fca5a5;
+}
+
+html.dark .canton-map-title {
+    color: #94a3b8;
+}
+
+html.dark .canton-map-subtitle {
+    color: #64748b;
+}

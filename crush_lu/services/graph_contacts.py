@@ -416,10 +416,31 @@ class GraphContactsService:
             payload = self._build_contact_payload(profile)
 
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{profile.outlook_contact_id}"
+            auth_header = {"Authorization": f"Bearer {token}"}
+
+            # Fetch current ETag to avoid 412 concurrency conflicts
+            get_response = requests.get(
+                endpoint,
+                headers=auth_header,
+                params={"$select": "id"},
+                timeout=30,
+            )
+            if get_response.status_code == 404:
+                logger.warning(
+                    f"Outlook contact {profile.outlook_contact_id} not found for "
+                    f"profile {profile.pk}, will recreate"
+                )
+                profile.outlook_contact_id = ""
+                profile.save(update_fields=["outlook_contact_id"])
+                return False
+            etag = get_response.headers.get("ETag")
+
             headers = {
-                "Authorization": f"Bearer {token}",
+                **auth_header,
                 "Content-Type": "application/json",
             }
+            if etag:
+                headers["If-Match"] = etag
 
             response = requests.patch(
                 endpoint, headers=headers, json=payload, timeout=30
@@ -446,6 +467,39 @@ class GraphContactsService:
                 )
                 profile.outlook_contact_id = ""
                 profile.save(update_fields=["outlook_contact_id"])
+                return False
+            elif response.status_code == 412:
+                # ETag mismatch - contact was modified concurrently, retry once
+                logger.warning(
+                    f"Concurrency conflict updating contact for profile "
+                    f"{profile.pk}, retrying"
+                )
+                get_response = requests.get(
+                    endpoint,
+                    headers=auth_header,
+                    params={"$select": "id"},
+                    timeout=30,
+                )
+                etag = get_response.headers.get("ETag")
+                if etag:
+                    headers["If-Match"] = etag
+                response = requests.patch(
+                    endpoint, headers=headers, json=payload, timeout=30
+                )
+                if response.status_code in [200, 204]:
+                    logger.info(
+                        f"Updated Outlook contact for profile {profile.pk} "
+                        f"on retry: {profile.outlook_contact_id}"
+                    )
+                    if profile.photo_1:
+                        self._upload_contact_photo(
+                            profile.outlook_contact_id, profile, token
+                        )
+                    return True
+                logger.error(
+                    f"Failed to update Outlook contact for profile {profile.pk} "
+                    f"after retry: HTTP {response.status_code} - {response.text}"
+                )
                 return False
             else:
                 logger.error(

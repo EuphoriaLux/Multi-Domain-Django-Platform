@@ -316,3 +316,53 @@ input.iti__tel-input {
     border-color: var(--crush-danger) !important;
     box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
 }
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+html.dark .iti__selected-country {
+    background: #374151;
+    border-right-color: #4b5563;
+}
+
+html.dark .iti__selected-country:hover {
+    background: #4b5563;
+    filter: none;
+}
+
+html.dark .iti__selected-dial-code {
+    color: #f1f5f9;
+}
+
+html.dark .iti__dropdown-content {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .iti__search-input {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f1f5f9;
+}
+
+html.dark .iti__search-input::placeholder {
+    color: #94a3b8;
+}
+
+html.dark .iti__country {
+    color: #e2e8f0;
+}
+
+html.dark .iti__country:hover {
+    background-color: rgba(139, 92, 246, 0.15);
+}
+
+html.dark .iti__country--highlight {
+    background-color: rgba(139, 92, 246, 0.2);
+}
+
+html.dark .iti__dial-code {
+    color: #94a3b8;
+}
