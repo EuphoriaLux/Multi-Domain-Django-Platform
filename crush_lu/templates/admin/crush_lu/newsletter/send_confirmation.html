@@ -1,0 +1,64 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Send Newsletter: {{ newsletter.subject }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 20px auto; padding: 24px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <h2 style="margin-top: 0;">Confirm Newsletter Send</h2>
+
+    <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 8px 0; color: #666; width: 120px;">Subject:</td>
+            <td style="padding: 8px 0; font-weight: 600;">{{ newsletter.subject }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 0; color: #666;">Audience:</td>
+            <td style="padding: 8px 0;">{{ newsletter.get_audience_display }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 0; color: #666;">Language:</td>
+            <td style="padding: 8px 0;">{{ newsletter.get_language_display }}</td>
+        </tr>
+        {% if newsletter.segment_key %}
+        <tr>
+            <td style="padding: 8px 0; color: #666;">Segment:</td>
+            <td style="padding: 8px 0;">{{ newsletter.segment_key }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <td style="padding: 8px 0; color: #666;">Recipients:</td>
+            <td style="padding: 8px 0;">
+                <span style="background: #3b82f6; color: white; padding: 2px 10px; border-radius: 10px; font-size: 13px; font-weight: 600;">
+                    {{ recipient_count }}
+                </span>
+            </td>
+        </tr>
+    </table>
+
+    {% if recipient_count == 0 %}
+    <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin: 16px 0; color: #92400e;">
+        No recipients match the current targeting criteria. Adjust the audience or language settings.
+    </div>
+    <a href="{% url 'crush_admin:crush_lu_newsletter_change' newsletter.pk %}" class="button" style="background: #6b7280; padding: 10px 20px;">
+        Back to Newsletter
+    </a>
+    {% else %}
+    <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin: 16px 0; color: #92400e;">
+        This will send the newsletter to <strong>{{ recipient_count }}</strong> recipient{{ recipient_count|pluralize }}. This action cannot be undone.
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button type="submit" class="button" style="background: #16a34a; padding: 10px 24px; font-weight: bold; border: none; color: white; cursor: pointer; border-radius: 4px;">
+                Confirm Send
+            </button>
+            <a href="{% url 'crush_admin:crush_lu_newsletter_change' newsletter.pk %}" class="button" style="background: #6b7280; padding: 10px 20px; color: white; text-decoration: none; border-radius: 4px;">
+                Cancel
+            </a>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

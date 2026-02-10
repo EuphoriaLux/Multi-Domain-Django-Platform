@@ -44,6 +44,17 @@ class Newsletter(models.Model):
         blank=True,
         help_text=_("Segment key from user_segments.py (only used when audience='segment')")
     )
+    language = models.CharField(
+        max_length=5,
+        choices=[
+            ('all', _('All languages')),
+            ('en', _('English')),
+            ('de', _('German')),
+            ('fr', _('French')),
+        ],
+        default='all',
+        help_text=_("Restrict recipients to this language. Use 'All' to send to everyone."),
+    )
 
     # Status
     status = models.CharField(

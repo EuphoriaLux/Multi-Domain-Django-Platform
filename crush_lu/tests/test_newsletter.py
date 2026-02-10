@@ -463,3 +463,146 @@ class EmailPreferenceNewsletterFieldTests(TestCase):
             user=self.user, defaults={'email_newsletter': False},
         )
         self.assertNotIn('newsletter', pref.get_enabled_categories())
+
+
+class NewsletterLanguageFilterTests(TestCase):
+    """Test that language filtering restricts recipients correctly."""
+
+    def setUp(self):
+        # User with no profile (defaults to English)
+        self.user_no_profile = User.objects.create_user(
+            username='nolang@example.com',
+            email='nolang@example.com',
+            password='testpass123',
+        )
+
+        # English-speaking user
+        self.user_en = User.objects.create_user(
+            username='en@example.com',
+            email='en@example.com',
+            password='testpass123',
+        )
+        CrushProfile.objects.create(
+            user=self.user_en,
+            date_of_birth='1995-01-01',
+            gender='M',
+            location='Luxembourg',
+            preferred_language='en',
+        )
+
+        # German-speaking user
+        self.user_de = User.objects.create_user(
+            username='de@example.com',
+            email='de@example.com',
+            password='testpass123',
+        )
+        CrushProfile.objects.create(
+            user=self.user_de,
+            date_of_birth='1995-01-01',
+            gender='F',
+            location='Luxembourg',
+            preferred_language='de',
+        )
+
+        # French-speaking user
+        self.user_fr = User.objects.create_user(
+            username='fr@example.com',
+            email='fr@example.com',
+            password='testpass123',
+        )
+        CrushProfile.objects.create(
+            user=self.user_fr,
+            date_of_birth='1995-01-01',
+            gender='M',
+            location='Luxembourg',
+            preferred_language='fr',
+        )
+
+    def test_language_all_includes_everyone(self):
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+            audience='all_users', language='all',
+        )
+        recipients = get_newsletter_recipients(newsletter)
+        self.assertEqual(recipients.count(), 4)
+
+    def test_language_en_includes_english_and_no_profile(self):
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+            audience='all_users', language='en',
+        )
+        recipients = get_newsletter_recipients(newsletter)
+        self.assertEqual(recipients.count(), 2)
+        self.assertIn(self.user_en, recipients)
+        self.assertIn(self.user_no_profile, recipients)
+
+    def test_language_de_only_german(self):
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+            audience='all_users', language='de',
+        )
+        recipients = get_newsletter_recipients(newsletter)
+        self.assertEqual(recipients.count(), 1)
+        self.assertIn(self.user_de, recipients)
+
+    def test_language_fr_only_french(self):
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+            audience='all_users', language='fr',
+        )
+        recipients = get_newsletter_recipients(newsletter)
+        self.assertEqual(recipients.count(), 1)
+        self.assertIn(self.user_fr, recipients)
+
+    def test_language_filter_combined_with_audience(self):
+        """Language filter should work alongside audience filter."""
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+            audience='all_profiles', language='de',
+        )
+        recipients = get_newsletter_recipients(newsletter)
+        # Only user_de has profile + German language
+        self.assertEqual(recipients.count(), 1)
+        self.assertIn(self.user_de, recipients)
+
+
+class NewsletterAdminFormTests(TestCase):
+    """Test the NewsletterAdminForm validation."""
+
+    def test_segment_audience_requires_segment_key(self):
+        from crush_lu.admin.newsletter import NewsletterAdminForm
+
+        form = NewsletterAdminForm(data={
+            'subject': 'Test',
+            'body_html': '<p>Hi</p>',
+            'audience': 'segment',
+            'segment_key': '',
+            'language': 'all',
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('segment_key', form.errors)
+
+    def test_non_segment_audience_clears_segment_key(self):
+        from crush_lu.admin.newsletter import NewsletterAdminForm
+
+        form = NewsletterAdminForm(data={
+            'subject': 'Test',
+            'body_html': '<p>Hi</p>',
+            'audience': 'all_users',
+            'segment_key': 'some_key',
+            'language': 'all',
+        })
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['segment_key'], '')
+
+    def test_valid_form_with_all_users(self):
+        from crush_lu.admin.newsletter import NewsletterAdminForm
+
+        form = NewsletterAdminForm(data={
+            'subject': 'Test',
+            'body_html': '<p>Hi</p>',
+            'audience': 'all_users',
+            'segment_key': '',
+            'language': 'all',
+        })
+        self.assertTrue(form.is_valid())

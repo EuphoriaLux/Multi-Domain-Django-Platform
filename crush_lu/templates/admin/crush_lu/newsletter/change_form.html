@@ -1,0 +1,16 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block submit_buttons_bottom %}
+{{ block.super }}
+{% if show_send_button %}
+<div class="submit-row" style="margin-top: 10px; padding: 12px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px;">
+    <a href="{{ send_url }}" class="button" style="background: #16a34a; padding: 10px 20px; font-weight: bold;">
+        Send Newsletter
+    </a>
+    <span style="margin-left: 12px; color: #166534; font-size: 13px;">
+        Click to preview recipients and confirm sending.
+    </span>
+</div>
+{% endif %}
+{% endblock %}

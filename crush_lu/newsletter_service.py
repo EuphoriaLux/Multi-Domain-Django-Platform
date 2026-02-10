@@ -61,6 +61,19 @@ def get_newsletter_recipients(newsletter):
     ).values_list('user_id', flat=True)
     users = users.exclude(id__in=opted_out_user_ids)
 
+    # Filter by language preference
+    if newsletter.language and newsletter.language != 'all':
+        if newsletter.language == 'en':
+            # English includes users without a profile (they default to English)
+            users = users.filter(
+                Q(crushprofile__preferred_language='en')
+                | Q(crushprofile__isnull=True)
+            )
+        else:
+            users = users.filter(
+                crushprofile__preferred_language=newsletter.language
+            )
+
     # Exclude users already processed for this newsletter (resumability)
     already_processed_ids = NewsletterRecipient.objects.filter(
         newsletter=newsletter,

@@ -2,19 +2,29 @@
 Newsletter admin classes for Crush.lu Coach Panel.
 
 Includes:
-- NewsletterAdmin (with live HTML preview)
+- NewsletterAdmin (with live HTML preview, send button, async sending)
 - NewsletterRecipientAdmin
 """
+import logging
+import threading
 
 from django import forms
 from django.contrib import admin, messages
+from django.db import close_old_connections
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
-from crush_lu.newsletter_service import send_newsletter
+from crush_lu.newsletter_service import (
+    get_newsletter_recipients,
+    send_newsletter,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _get_segment_choices():
@@ -37,6 +47,57 @@ def _get_segment_choices():
     return choices
 
 
+class NewsletterAdminForm(forms.ModelForm):
+    """Custom form with segment validation."""
+
+    class Meta:
+        model = Newsletter
+        exclude = (
+            'status', 'total_recipients', 'total_sent', 'total_failed',
+            'total_skipped', 'sent_at', 'created_by', 'created_at',
+            'updated_at',
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        segment_field = self.fields.get('segment_key')
+        if segment_field:
+            segment_field.widget = forms.Select(choices=_get_segment_choices())
+            segment_field.help_text = (
+                'Only used when audience is "Specific user segment".'
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        audience = cleaned_data.get('audience')
+        segment_key = cleaned_data.get('segment_key')
+
+        if audience == 'segment' and not segment_key:
+            self.add_error(
+                'segment_key',
+                'You must select a segment when audience is '
+                '"Specific user segment".',
+            )
+        elif audience != 'segment':
+            # Clear segment_key when not using segment audience
+            cleaned_data['segment_key'] = ''
+
+        return cleaned_data
+
+
+def _send_newsletter_in_thread(newsletter):
+    """Wrapper to run send_newsletter in a daemon thread with DB cleanup."""
+    try:
+        close_old_connections()
+        send_newsletter(newsletter)
+    except Exception:
+        logger.exception(
+            "Background newsletter send failed for #%s", newsletter.pk
+        )
+    finally:
+        close_old_connections()
+
+
 class NewsletterRecipientInline(admin.TabularInline):
     model = NewsletterRecipient
     extra = 0
@@ -52,19 +113,25 @@ class NewsletterAdmin(admin.ModelAdmin):
     Newsletter management for Crush.lu with live email preview.
     """
 
+    form = NewsletterAdminForm
+    change_form_template = 'admin/crush_lu/newsletter/change_form.html'
+
     list_display = (
-        'subject', 'get_status_badge', 'audience', 'total_sent',
+        'subject', 'get_status_badge', 'audience', 'language', 'total_sent',
         'total_failed', 'total_skipped', 'created_at', 'sent_at',
     )
-    list_filter = ('status', 'audience', 'created_at')
+    list_filter = ('status', 'audience', 'language', 'created_at')
     search_fields = ('subject',)
     readonly_fields = (
-        'email_preview',
+        'email_preview', 'estimated_recipients',
         'status', 'total_recipients', 'total_sent', 'total_failed',
         'total_skipped', 'sent_at', 'created_by', 'created_at', 'updated_at',
     )
     date_hierarchy = 'created_at'
     inlines = [NewsletterRecipientInline]
+
+    class Media:
+        js = ('crush_lu/admin/js/newsletter_admin.js',)
 
     fieldsets = (
         ('Content', {
@@ -76,16 +143,21 @@ class NewsletterAdmin(admin.ModelAdmin):
                            'The preview shows exactly what recipients will receive.',
         }),
         ('Targeting', {
-            'fields': ('audience', 'segment_key'),
+            'fields': (
+                'audience', 'segment_key', 'language',
+                'estimated_recipients',
+            ),
             'description': (
                 'Choose who receives this newsletter. '
-                'Select "Specific user segment" and pick a segment from the dropdown.'
+                'Select "Specific user segment" and pick a segment from '
+                'the dropdown.'
             ),
         }),
         ('Status & Statistics', {
             'fields': (
                 'status', 'created_by', 'sent_at',
-                'total_recipients', 'total_sent', 'total_failed', 'total_skipped',
+                'total_recipients', 'total_sent', 'total_failed',
+                'total_skipped',
             ),
             'classes': ('collapse',),
         }),
@@ -95,13 +167,21 @@ class NewsletterAdmin(admin.ModelAdmin):
         }),
     )
 
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        segment_field = form.base_fields.get('segment_key')
-        if segment_field:
-            segment_field.widget = forms.Select(choices=_get_segment_choices())
-            segment_field.help_text = 'Only used when audience is "Specific user segment".'
-        return form
+    def estimated_recipients(self, obj):
+        if not obj.pk:
+            return format_html(
+                '<span style="color:#999;">Save the newsletter first to '
+                'see estimated recipients.</span>'
+            )
+        count = get_newsletter_recipients(obj).count()
+        return format_html(
+            '<span style="background:#3b82f6; color:white; padding:2px 10px; '
+            'border-radius:10px; font-size:12px; font-weight:600;">'
+            '{} recipient{}</span>',
+            count,
+            's' if count != 1 else '',
+        )
+    estimated_recipients.short_description = 'Estimated Recipients'
 
     def email_preview(self, obj):
         if not obj.pk:
@@ -160,6 +240,11 @@ class NewsletterAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.preview_view),
                 name='crush_lu_newsletter_preview',
             ),
+            path(
+                '<int:pk>/send/',
+                self.admin_site.admin_view(self.send_view),
+                name='crush_lu_newsletter_send',
+            ),
         ]
         return custom_urls + urls
 
@@ -169,6 +254,81 @@ class NewsletterAdmin(admin.ModelAdmin):
         first_name = request.user.first_name or 'Preview'
         html = self._render_preview(newsletter, first_name=first_name)
         return HttpResponse(html)
+
+    def send_view(self, request, pk):
+        """Two-step send: GET shows confirmation, POST launches async send."""
+        newsletter = get_object_or_404(Newsletter, pk=pk)
+
+        if newsletter.status != 'draft':
+            self.message_user(
+                request,
+                f"Cannot send: newsletter status is '{newsletter.get_status_display()}'.",
+                level=messages.WARNING,
+            )
+            return redirect(
+                reverse('crush_admin:crush_lu_newsletter_change', args=[pk])
+            )
+
+        recipient_count = get_newsletter_recipients(newsletter).count()
+
+        if request.method == 'POST':
+            if recipient_count == 0:
+                self.message_user(
+                    request,
+                    "No recipients match the current targeting criteria.",
+                    level=messages.WARNING,
+                )
+                return redirect(
+                    reverse(
+                        'crush_admin:crush_lu_newsletter_change', args=[pk]
+                    )
+                )
+
+            # Launch async send
+            thread = threading.Thread(
+                target=_send_newsletter_in_thread,
+                args=(newsletter,),
+                daemon=True,
+            )
+            thread.start()
+
+            self.message_user(
+                request,
+                f"Sending started for '{newsletter.subject}' to "
+                f"{recipient_count} recipients. Refresh to check status.",
+                level=messages.SUCCESS,
+            )
+            return redirect(
+                reverse('crush_admin:crush_lu_newsletter_change', args=[pk])
+            )
+
+        # GET: show confirmation page
+        context = {
+            **self.admin_site.each_context(request),
+            'newsletter': newsletter,
+            'recipient_count': recipient_count,
+            'opts': self.model._meta,
+            'title': f'Send Newsletter: {newsletter.subject}',
+        }
+        return TemplateResponse(
+            request,
+            'admin/crush_lu/newsletter/send_confirmation.html',
+            context,
+        )
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            obj = Newsletter.objects.get(pk=object_id)
+            extra_context['show_send_button'] = obj.status == 'draft'
+            extra_context['send_url'] = reverse(
+                'crush_admin:crush_lu_newsletter_send', args=[object_id]
+            )
+        except Newsletter.DoesNotExist:
+            pass
+        return super().change_view(
+            request, object_id, form_url, extra_context=extra_context
+        )
 
     def get_status_badge(self, obj):
         colors = {
@@ -194,7 +354,7 @@ class NewsletterAdmin(admin.ModelAdmin):
     actions = ['send_selected_newsletters']
 
     def send_selected_newsletters(self, request, queryset):
-        """Send selected draft newsletters."""
+        """Send selected draft newsletters (async)."""
         drafts = queryset.filter(status='draft')
         if not drafts.exists():
             self.message_user(
@@ -205,21 +365,18 @@ class NewsletterAdmin(admin.ModelAdmin):
             return
 
         for newsletter in drafts:
-            try:
-                results = send_newsletter(newsletter)
-                self.message_user(
-                    request,
-                    f"Newsletter '{newsletter.subject}': "
-                    f"Sent {results['sent']}, Failed {results['failed']}, "
-                    f"Skipped {results['skipped']}",
-                    level=messages.SUCCESS,
-                )
-            except Exception as e:
-                self.message_user(
-                    request,
-                    f"Error sending '{newsletter.subject}': {e}",
-                    level=messages.ERROR,
-                )
+            thread = threading.Thread(
+                target=_send_newsletter_in_thread,
+                args=(newsletter,),
+                daemon=True,
+            )
+            thread.start()
+            self.message_user(
+                request,
+                f"Sending started for '{newsletter.subject}'. "
+                f"Refresh to check status.",
+                level=messages.SUCCESS,
+            )
     send_selected_newsletters.short_description = "Send selected draft newsletters"
 
 
