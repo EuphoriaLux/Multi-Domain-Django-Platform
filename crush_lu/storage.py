@@ -8,15 +8,15 @@ Supports:
 - Fallback: Local filesystem
 
 Setup Instructions:
-1. Create a separate Azure Blob container named 'crush-profiles-private'
+1. Create a separate Azure Blob container named 'crush-lu-private'
    (or custom name via AZURE_PRIVATE_CONTAINER_NAME env var)
 2. Set container access level to "Private (no anonymous access)"
 3. Photos will be served with time-limited SAS tokens (default 1 hour)
 
 Environment Variables:
     AZURE_PRIVATE_CONTAINER_NAME - Container name for private storage
-                                   Default: 'crush-profiles-private'
-                                   Example for staging: 'crush-profiles-private-staging'
+                                   Default: 'crush-lu-private'
+                                   Example for staging: 'crush-lu-private-staging'
 
 User Storage Structure:
     users/{user_id}/.user_created    # Marker file
@@ -58,21 +58,13 @@ class PrivateAzureStorage(AzureStorage):
     Supports both production Azure Blob Storage and local Azurite emulator.
 
     Container name can be configured via AZURE_CRUSH_PRIVATE_CONTAINER env var.
-    Default: 'crush-profiles-private' (legacy, for backward compatibility)
-    New default: 'crush-lu-private' (aligned with new naming convention)
-    Staging example: 'crush-profiles-private-staging'
-
-    Migration path:
-    1. Code uses AZURE_CRUSH_PRIVATE_CONTAINER (defaults to old name)
-    2. Create new container 'crush-lu-private'
-    3. Copy blobs from old to new
-    4. Set env var: AZURE_CRUSH_PRIVATE_CONTAINER=crush-lu-private
-    5. Delete old container after verification
+    Default: 'crush-lu-private'
+    Staging: 'crush-lu-private-staging' (set via env var)
     """
     # Container name configurable via environment variable
     # Check new env var first, fall back to legacy name for backward compatibility
     azure_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                 os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
+                                 os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
     expiration_secs = 3600  # SAS token valid for 1 hour
 
     def __init__(self, *args, **kwargs):
@@ -85,7 +77,7 @@ class PrivateAzureStorage(AzureStorage):
         container_name = getattr(
             settings, 'AZURE_CRUSH_PRIVATE_CONTAINER',
             os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                     os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
+                     os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
         )
         self.azure_container = container_name
 
@@ -186,8 +178,7 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
     Includes additional security checks and naming conventions
 
     Container: Configured via AZURE_CRUSH_PRIVATE_CONTAINER env var
-    Default: 'crush-profiles-private' (legacy)
-    New: 'crush-lu-private' (recommended)
+    Default: 'crush-lu-private'
     """
     # Inherits container name from PrivateAzureStorage (configurable via env var)
     expiration_secs = 1800  # 30 minutes for profile photos
@@ -303,7 +294,7 @@ def delete_user_storage(user_id):
 
     Removes all files under users/{user_id}/ from:
         - 'media' container (public) - actual photos
-        - 'crush-profiles-private' container - marker files
+        - 'crush-lu-private' container - marker files
 
     Works with both Azurite (local emulator) and production Azure Blob Storage.
     For local filesystem fallback, deletes the entire user directory.
@@ -322,7 +313,7 @@ def delete_user_storage(user_id):
             # Azure Blob Storage (Azurite or production)
             # Need to clean up BOTH containers:
             # 1. 'media' (public) - where actual photos are stored
-            # 2. 'crush-profiles-private' - where marker files are stored
+            # 2. 'crush-lu-private' - where marker files are stored
 
             # Get the private storage to access its blob service client
             private_storage = CrushProfilePhotoStorage()
@@ -347,7 +338,7 @@ def delete_user_storage(user_id):
             # Containers to clean up
             # Use new env var first, fall back to legacy for backward compatibility
             private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
+                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),  # Public media
                 private_container,  # Private profile data
@@ -422,7 +413,7 @@ def list_user_storage_folders():
 
     Containers scanned:
         - 'media' (public) - actual photos
-        - 'crush-profiles-private' - marker files
+        - 'crush-lu-private' - marker files
 
     Returns:
         set: Set of user IDs (as integers) that have storage folders
@@ -448,7 +439,7 @@ def list_user_storage_folders():
             # Scan both containers
             # Use new env var first, fall back to legacy for backward compatibility
             private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-profiles-private'))
+                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
             containers = [
                 getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),
                 private_container,
@@ -583,7 +574,7 @@ def crush_upload_path(subfolder: str = ''):
     Create upload path for Crush.lu PUBLIC assets.
 
     Note: For private user photos, use user_photo_path in models/profiles.py
-    which stores in the crush-profiles-private container.
+    which stores in the crush-lu-private container.
 
     Examples:
         upload_to=crush_upload_path('branding')
