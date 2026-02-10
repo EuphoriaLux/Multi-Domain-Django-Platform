@@ -7580,4 +7580,196 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // =========================================================================
+    // Field Validator - Real-time form field validation (CSP-safe)
+    // =========================================================================
+    // Usage: <div x-data="fieldValidator"
+    //             data-required="true"
+    //             data-min-length="2"
+    //             data-max-length="100"
+    //             data-validation-type="text"
+    //             data-error-required="This field is required"
+    //             data-error-min-length="Must be at least 2 characters"
+    //             data-error-max-length="Must be under 100 characters"
+    //             data-error-email="Please enter a valid email">
+    //   <input type="text" @input="handleInput" @blur="handleBlur" />
+    //   <p x-show="hasError" x-text="errorMessage" class="text-red-600 text-sm mt-1"></p>
+    // </div>
+    Alpine.data('fieldValidator', function() {
+        return {
+            value: '',
+            error: '',
+            isValid: true,
+            touched: false,
+            _debounceTimer: null,
+
+            // Config from data attributes
+            _required: false,
+            _minLength: 0,
+            _maxLength: 0,
+            _validationType: 'text',
+            _errorRequired: 'This field is required',
+            _errorMinLength: '',
+            _errorMaxLength: '',
+            _errorEmail: 'Please enter a valid email address',
+
+            init: function() {
+                var el = this.$el;
+                this._required = el.getAttribute('data-required') === 'true';
+                this._minLength = parseInt(el.getAttribute('data-min-length') || '0', 10);
+                this._maxLength = parseInt(el.getAttribute('data-max-length') || '0', 10);
+                this._validationType = el.getAttribute('data-validation-type') || 'text';
+                this._errorRequired = el.getAttribute('data-error-required') || this._errorRequired;
+                this._errorMinLength = el.getAttribute('data-error-min-length') ||
+                    ('Must be at least ' + this._minLength + ' characters');
+                this._errorMaxLength = el.getAttribute('data-error-max-length') ||
+                    ('Must be under ' + this._maxLength + ' characters');
+                this._errorEmail = el.getAttribute('data-error-email') || this._errorEmail;
+            },
+
+            get hasError() {
+                return this.touched && this.error.length > 0;
+            },
+
+            get errorMessage() {
+                return this.error;
+            },
+
+            get fieldClass() {
+                if (!this.touched) return '';
+                return this.isValid ? 'border-green-500' : 'border-red-500';
+            },
+
+            _validate: function() {
+                var val = this.value.trim();
+
+                if (this._required && val.length === 0) {
+                    this.error = this._errorRequired;
+                    this.isValid = false;
+                    return;
+                }
+
+                if (val.length > 0 && this._minLength > 0 && val.length < this._minLength) {
+                    this.error = this._errorMinLength;
+                    this.isValid = false;
+                    return;
+                }
+
+                if (this._maxLength > 0 && val.length > this._maxLength) {
+                    this.error = this._errorMaxLength;
+                    this.isValid = false;
+                    return;
+                }
+
+                if (this._validationType === 'email' && val.length > 0) {
+                    // Basic email pattern check
+                    var atIdx = val.indexOf('@');
+                    var dotIdx = val.lastIndexOf('.');
+                    if (atIdx < 1 || dotIdx < atIdx + 2 || dotIdx >= val.length - 1) {
+                        this.error = this._errorEmail;
+                        this.isValid = false;
+                        return;
+                    }
+                }
+
+                this.error = '';
+                this.isValid = true;
+            },
+
+            handleInput: function() {
+                var input = this.$el.querySelector('input, textarea, select');
+                if (input) {
+                    this.value = input.value;
+                }
+                // Debounce validation on input (500ms)
+                var self = this;
+                clearTimeout(this._debounceTimer);
+                this._debounceTimer = setTimeout(function() {
+                    if (self.touched) {
+                        self._validate();
+                    }
+                }, 500);
+            },
+
+            handleBlur: function() {
+                var input = this.$el.querySelector('input, textarea, select');
+                if (input) {
+                    this.value = input.value;
+                }
+                this.touched = true;
+                this._validate();
+            }
+        };
+    });
+
+    // =========================================================================
+    // Form Validation Summary - Aggregates field errors at the top of a form
+    // =========================================================================
+    // Usage: <form x-data="formValidationSummary" @submit="handleSubmit">
+    //   <div x-show="hasErrors" role="alert" class="bg-red-50 ...">
+    //     <ul>
+    //       <template x-for="err in errorList"><li x-text="err"></li></template>
+    //     </ul>
+    //   </div>
+    //   ... fieldValidator fields ...
+    //   <button type="submit">Submit</button>
+    // </form>
+    Alpine.data('formValidationSummary', function() {
+        return {
+            errors: [],
+            submitted: false,
+
+            get hasErrors() {
+                return this.submitted && this.errors.length > 0;
+            },
+
+            get errorCount() {
+                return this.errors.length;
+            },
+
+            get errorList() {
+                return this.errors;
+            },
+
+            _collectErrors: function() {
+                var errs = [];
+                var validators = this.$el.querySelectorAll('[x-data="fieldValidator"]');
+                for (var i = 0; i < validators.length; i++) {
+                    var component = validators[i].__x;
+                    if (component && component.$data) {
+                        // Trigger validation on all fields
+                        var input = validators[i].querySelector('input, textarea, select');
+                        if (input) {
+                            component.$data.value = input.value;
+                        }
+                        component.$data.touched = true;
+                        component.$data._validate();
+                        if (component.$data.error) {
+                            errs.push(component.$data.error);
+                        }
+                    }
+                }
+                return errs;
+            },
+
+            handleSubmit: function(e) {
+                this.submitted = true;
+                this.errors = this._collectErrors();
+                if (this.errors.length > 0) {
+                    e.preventDefault();
+                    // Scroll to the summary
+                    var alert = this.$el.querySelector('[role="alert"]');
+                    if (alert) {
+                        alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    // Focus first invalid field
+                    var firstInvalid = this.$el.querySelector('[x-data="fieldValidator"] .border-red-500');
+                    if (firstInvalid) {
+                        firstInvalid.focus();
+                    }
+                }
+            }
+        };
+    });
+
 });

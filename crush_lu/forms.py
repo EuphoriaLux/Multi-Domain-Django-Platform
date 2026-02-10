@@ -8,6 +8,8 @@ from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, E
 from PIL import Image
 import os
 
+from .utils.image_processing import process_uploaded_image
+
 # Tailwind CSS classes for form inputs (replacing Bootstrap form-control)
 TAILWIND_INPUT = 'form-control'
 TAILWIND_INPUT_LG = 'form-control text-lg'
@@ -456,8 +458,8 @@ class CrushProfileForm(forms.ModelForm):
                     f"Minimum: {min_dimension}x{min_dimension}px for clear photos."
                 )
 
-            # Reset file pointer for saving
-            photo.seek(0)
+            # Process image: fix orientation, strip EXIF metadata, resize
+            photo = process_uploaded_image(photo)
 
         except ValidationError:
             # Re-raise our own ValidationErrors

@@ -18,6 +18,8 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 
+from .utils.image_processing import process_uploaded_image
+
 from .models import (
     MeetupEvent,
     EventActivityOption,
@@ -539,9 +541,10 @@ def download_and_save_facebook_photo(profile, photo_url, user_id):
         elif "webp" in content_type:
             ext = "webp"
 
-        profile.photo_1.save(
-            f"facebook_{user_id}.{ext}", ContentFile(response.content), save=False
-        )
+        filename = f"facebook_{user_id}.{ext}"
+        raw_file = ContentFile(response.content, name=filename)
+        processed = process_uploaded_image(raw_file, filename)
+        profile.photo_1.save(filename, processed, save=False)
         return True
     except requests.exceptions.Timeout:
         logger.error(f"Timeout downloading Facebook photo for user {user_id}")
@@ -971,9 +974,10 @@ def download_and_save_google_photo(profile, photo_url, user_id):
         elif "webp" in content_type:
             ext = "webp"
 
-        profile.photo_1.save(
-            f"google_{user_id}.{ext}", ContentFile(response.content), save=False
-        )
+        filename = f"google_{user_id}.{ext}"
+        raw_file = ContentFile(response.content, name=filename)
+        processed = process_uploaded_image(raw_file, filename)
+        profile.photo_1.save(filename, processed, save=False)
         return True
     except requests.exceptions.Timeout:
         logger.error(f"Timeout downloading Google photo for user {user_id}")

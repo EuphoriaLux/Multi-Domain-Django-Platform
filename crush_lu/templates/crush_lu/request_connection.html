@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n crush_media %}
 
 {% block title %}{% trans "Request Connection" %}{% endblock %}
 
@@ -15,8 +15,8 @@
         <!-- Profile Card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
             <div class="text-center py-8 px-6">
-                {% if recipient.crushprofile.photo_1 %}
-                    <img src="{{ recipient.crushprofile.photo_1.url }}"
+                {% if recipient.crushprofile|has_photo:'photo_1' %}
+                    <img src="{% profile_photo_url recipient.crushprofile 'photo_1' %}"
                          alt="{{ recipient.crushprofile.display_name }}"
                          class="w-28 h-28 rounded-full object-cover mx-auto mb-4 {% if recipient.crushprofile.blur_photos %}blur-lg{% endif %}"
                          loading="lazy">

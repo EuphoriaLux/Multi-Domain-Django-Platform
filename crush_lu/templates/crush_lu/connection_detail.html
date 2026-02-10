@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n crush_media %}
 
 {% block title %}{% blocktrans with name=other_profile.display_name %}Connection with {{ name }}{% endblocktrans %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
@@ -217,8 +217,8 @@
                     <div>
                         <!-- Other User's Profile -->
                         <div class="text-center mb-6">
-                            {% if other_profile.photo_1 %}
-                                <img src="{{ other_profile.photo_1.url }}"
+                            {% if other_profile|has_photo:'photo_1' %}
+                                <img src="{% profile_photo_url other_profile 'photo_1' %}"
                                      alt="{{ other_profile.display_name }}"
                                      class="w-24 h-24 rounded-full object-cover mx-auto mb-4"
                                      loading="lazy">

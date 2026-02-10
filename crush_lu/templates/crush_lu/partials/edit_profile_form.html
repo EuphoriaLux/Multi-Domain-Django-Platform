@@ -176,35 +176,45 @@
         About You
     </h5>
 
-    <div class="mb-3">
+    <div class="mb-3" x-data="fieldValidator"
+         data-max-length="500"
+         data-error-max-length="Bio must be under 500 characters">
         <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Bio
             <small class="text-gray-500 dark:text-gray-400">(Tell us about yourself)</small>
         </label>
-        {{ form.bio }}
+        <div @input="handleInput" @focusout="handleBlur">
+            {{ form.bio }}
+        </div>
         <div class="char-counter" id="bio-counter-container" data-max="500">
             <div class="char-counter-bar">
                 <div class="char-counter-bar-fill" id="bio-bar"></div>
             </div>
             <span><span class="char-counter-count" id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500</span>
         </div>
+        <p x-show="hasError" x-text="errorMessage" class="text-red-600 text-sm mt-1" x-cloak></p>
         {% if form.bio.errors %}
             <div class="text-red-600 text-sm mt-1">{{ form.bio.errors.0 }}</div>
         {% endif %}
     </div>
 
-    <div class="mb-3">
+    <div class="mb-3" x-data="fieldValidator"
+         data-max-length="300"
+         data-error-max-length="Interests must be under 300 characters">
         <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Interests
             <small class="text-gray-500 dark:text-gray-400">(What do you enjoy?)</small>
         </label>
-        {{ form.interests }}
+        <div @input="handleInput" @focusout="handleBlur">
+            {{ form.interests }}
+        </div>
         <div class="char-counter" id="interests-counter-container" data-max="300">
             <div class="char-counter-bar">
                 <div class="char-counter-bar-fill" id="interests-bar"></div>
             </div>
             <span><span class="char-counter-count" id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300</span>
         </div>
+        <p x-show="hasError" x-text="errorMessage" class="text-red-600 text-sm mt-1" x-cloak></p>
         {% if form.interests.errors %}
             <div class="text-red-600 text-sm mt-1">{{ form.interests.errors.0 }}</div>
         {% endif %}

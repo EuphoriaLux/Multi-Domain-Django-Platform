@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n crush_media %}
 
 <div class="space-y-4" x-data="profileAccordion">
 
@@ -18,19 +18,19 @@
         <div x-show="photoOpen">
             <div class="p-6 bg-white dark:bg-gray-800">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {% if profile.photo_1 %}
+                    {% if profile|has_photo:'photo_1' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{{ profile.photo_1.url }}" class="w-full h-64 object-cover" alt="Photo 1" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_1' %}" class="w-full h-64 object-cover" alt="Photo 1" loading="lazy">
                         </div>
                     {% endif %}
-                    {% if profile.photo_2 %}
+                    {% if profile|has_photo:'photo_2' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{{ profile.photo_2.url }}" class="w-full h-64 object-cover" alt="Photo 2" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_2' %}" class="w-full h-64 object-cover" alt="Photo 2" loading="lazy">
                         </div>
                     {% endif %}
-                    {% if profile.photo_3 %}
+                    {% if profile|has_photo:'photo_3' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{{ profile.photo_3.url }}" class="w-full h-64 object-cover" alt="Photo 3" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_3' %}" class="w-full h-64 object-cover" alt="Photo 3" loading="lazy">
                         </div>
                     {% endif %}
                 </div>

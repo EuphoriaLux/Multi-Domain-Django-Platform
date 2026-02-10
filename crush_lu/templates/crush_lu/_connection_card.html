@@ -1,10 +1,10 @@
-{% load i18n %}
+{% load i18n crush_media %}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
     <div class="flex items-center gap-4">
         <!-- Profile Photo -->
         <div class="shrink-0">
-            {% if other_user.crushprofile.photo_1 %}
-                <img src="{{ other_user.crushprofile.photo_1.url }}"
+            {% if other_user.crushprofile|has_photo:'photo_1' %}
+                <img src="{% profile_photo_url other_user.crushprofile 'photo_1' %}"
                      alt="{{ other_user.crushprofile.display_name }}"
                      class="w-14 h-14 rounded-full object-cover {% if other_user.crushprofile.blur_photos %}blur-lg{% endif %}"
                      loading="lazy">
@@ -25,7 +25,7 @@
 
             <!-- Status Badge -->
             {% if connection.status == 'accepted' %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-blue-500 text-white rounded-full">
+                <span class="badge badge-info">
                     {% include "shared/icons/clock.html" with class="w-3 h-3" %}
                     {% trans "Assigned to Coach" %}
                     {% if connection.assigned_coach %}
@@ -33,17 +33,17 @@
                     {% endif %}
                 </span>
             {% elif connection.status == 'coach_reviewing' %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-purple-500 text-white rounded-full">
+                <span class="badge badge-primary">
                     {% include "shared/icons/user.html" with class="w-3 h-3" %}
                     {% trans "Coach Reviewing" %}
                 </span>
             {% elif connection.status == 'coach_approved' %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-yellow-500 text-gray-900 rounded-full">
+                <span class="badge badge-warning">
                     {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
                     {% trans "Pending Your Consent" %}
                 </span>
             {% elif connection.status == 'shared' %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-500 text-white rounded-full">
+                <span class="badge badge-success">
                     {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
                     {% trans "Contacts Shared!" %}
                 </span>
@@ -53,7 +53,7 @@
         <!-- Action Button -->
         <div class="shrink-0">
             <a href="{% url 'crush_lu:connection_detail' connection.id %}"
-               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
+               class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
                 <span>{% trans "View Details" %}</span>
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
             </a>

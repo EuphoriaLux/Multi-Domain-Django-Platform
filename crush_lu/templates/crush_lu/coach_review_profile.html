@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Review Profile" %} - Crush.lu{% endblock %}
 
@@ -36,14 +36,14 @@
             <div class="flex flex-wrap items-start gap-4">
                 {# Photos - Compact View #}
                 <div class="flex shrink-0 gap-2">
-                    {% if profile.photo_1 %}
-                        <img src="{{ profile.photo_1.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 1" loading="lazy">
+                    {% if profile|has_photo:'photo_1' %}
+                        <img src="{% profile_photo_url profile 'photo_1' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 1" loading="lazy">
                     {% endif %}
-                    {% if profile.photo_2 %}
-                        <img src="{{ profile.photo_2.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 2" loading="lazy">
+                    {% if profile|has_photo:'photo_2' %}
+                        <img src="{% profile_photo_url profile 'photo_2' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 2" loading="lazy">
                     {% endif %}
-                    {% if profile.photo_3 %}
-                        <img src="{{ profile.photo_3.url }}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 3" loading="lazy">
+                    {% if profile|has_photo:'photo_3' %}
+                        <img src="{% profile_photo_url profile 'photo_3' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 3" loading="lazy">
                     {% endif %}
                 </div>
 
