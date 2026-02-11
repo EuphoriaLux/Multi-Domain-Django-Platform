@@ -25,6 +25,34 @@ class CrushSiteConfig(models.Model):
         verbose_name=_("Default WhatsApp message"),
         help_text=_("Pre-filled message when user clicks the button"),
     )
+
+    # Social media links
+    social_instagram_url = models.URLField(
+        blank=True,
+        verbose_name=_("Instagram URL"),
+        help_text=_("e.g. https://www.instagram.com/crush.lu"),
+    )
+    social_facebook_url = models.URLField(
+        blank=True,
+        verbose_name=_("Facebook URL"),
+        help_text=_("e.g. https://www.facebook.com/crush.lu"),
+    )
+    social_linkedin_url = models.URLField(
+        blank=True,
+        verbose_name=_("LinkedIn URL"),
+        help_text=_("e.g. https://www.linkedin.com/company/crush-lu"),
+    )
+    social_google_business_url = models.URLField(
+        blank=True,
+        verbose_name=_("Google Business URL"),
+        help_text=_("Your Google Business Profile URL"),
+    )
+    social_reddit_url = models.URLField(
+        blank=True,
+        verbose_name=_("Reddit URL"),
+        help_text=_("e.g. https://www.reddit.com/r/crushlu"),
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

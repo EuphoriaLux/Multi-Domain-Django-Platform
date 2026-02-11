@@ -33,7 +33,7 @@
     {# Compact Profile Summary - Always Visible on Screening & Decision Tabs #}
     <div x-show="showProfileSummary" x-cloak class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-200 dark:border-purple-700">
         <div class="p-4">
-            <div class="flex flex-wrap items-start gap-4">
+            <div class="flex flex-col sm:flex-row items-start gap-4">
                 {# Photos - Compact View #}
                 <div class="flex shrink-0 gap-2">
                     {% if profile|has_photo:'photo_1' %}
@@ -48,7 +48,7 @@
                 </div>
 
                 {# Key Info - 3 Columns #}
-                <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div class="min-w-0 w-full grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {# Column 1: Basic Info #}
                     <div class="space-y-1">
                         <p class="font-semibold text-gray-900 dark:text-white">{% trans "Basic Info" %}</p>

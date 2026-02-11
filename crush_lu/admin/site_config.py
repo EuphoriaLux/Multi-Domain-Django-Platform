@@ -20,6 +20,22 @@ class CrushSiteConfigAdmin(admin.ModelAdmin):
                 ),
             },
         ),
+        (
+            _("Social Media Links"),
+            {
+                "fields": (
+                    "social_instagram_url",
+                    "social_facebook_url",
+                    "social_linkedin_url",
+                    "social_google_business_url",
+                    "social_reddit_url",
+                ),
+                "description": _(
+                    "Add social media profile URLs. "
+                    "Leave blank to hide the icon in the footer."
+                ),
+            },
+        ),
     )
     readonly_fields = ("updated_at",)
 

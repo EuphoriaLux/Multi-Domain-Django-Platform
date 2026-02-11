@@ -157,16 +157,33 @@ def site_config_context(request):
 
         try:
             config = CrushSiteConfig.get_config()
+
+            # Build social_links list from non-empty URLs
+            social_platforms = [
+                ("Instagram", config.social_instagram_url, "instagram"),
+                ("Facebook", config.social_facebook_url, "facebook"),
+                ("LinkedIn", config.social_linkedin_url, "linkedin"),
+                ("Google Business", config.social_google_business_url, "google"),
+                ("Reddit", config.social_reddit_url, "reddit"),
+            ]
+            social_links = [
+                {"name": name, "url": url, "icon_id": icon_id}
+                for name, url, icon_id in social_platforms
+                if url
+            ]
+
             _site_config_cache["config"] = {
                 "whatsapp_number": config.whatsapp_number,
                 "whatsapp_enabled": config.whatsapp_enabled and bool(config.whatsapp_number),
                 "whatsapp_default_message": config.whatsapp_default_message,
+                "social_links": social_links,
             }
         except Exception:
             _site_config_cache["config"] = {
                 "whatsapp_number": "",
                 "whatsapp_enabled": False,
                 "whatsapp_default_message": "",
+                "social_links": [],
             }
         _site_config_cache["expires"] = now + 300  # 5 minutes
 

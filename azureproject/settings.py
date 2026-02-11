@@ -730,7 +730,7 @@ else:
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "crush_private": {
-            "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "vinsdelux_media": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",

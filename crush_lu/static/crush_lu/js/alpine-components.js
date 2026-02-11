@@ -7772,4 +7772,58 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Section navigation for meeting guide page
+    Alpine.data('sectionNav', function() {
+        return {
+            activeSection: '',
+            sections: [],
+
+            init() {
+                var self = this;
+                var el = this.$el;
+                var navItems = el.querySelectorAll('[data-section]');
+                self.sections = [];
+                navItems.forEach(function(item) {
+                    self.sections.push(item.getAttribute('data-section'));
+                });
+
+                // Set initial active section
+                if (self.sections.length > 0) {
+                    self.activeSection = self.sections[0];
+                }
+
+                // Intersection observer for active section tracking
+                var observer = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(entry) {
+                        if (entry.isIntersecting) {
+                            self.activeSection = entry.target.id;
+                        }
+                    });
+                }, { rootMargin: '-20% 0px -70% 0px' });
+
+                self.sections.forEach(function(id) {
+                    var target = document.getElementById(id);
+                    if (target) {
+                        observer.observe(target);
+                    }
+                });
+            },
+
+            get activeSectionId() {
+                return this.activeSection;
+            },
+
+            isActive(sectionId) {
+                return this.activeSection === sectionId;
+            },
+
+            scrollTo(sectionId) {
+                var target = document.getElementById(sectionId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        };
+    });
+
 });
