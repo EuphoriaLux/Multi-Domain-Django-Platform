@@ -51,6 +51,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 logs_export/
+crm_plan/
 
 # Translations
 # Note: We DO commit locale/*.mo files for Django i18n (see !locale/ exception below)

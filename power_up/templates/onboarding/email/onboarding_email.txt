@@ -1,0 +1,86 @@
+ONBOARDING — {{ group.name }}
+{% if plan %}Plan: {{ plan.name }} ({{ plan.get_plan_type_display }}){% endif %}
+================================================================================
+
+Dear {{ session.contact_name }},
+
+Welcome to Schneider IT Management support services. This email contains all
+the information you need to get started with your support plan.
+
+{% if grouped_slots %}
+PROPOSED MEETING SLOTS
+----------------------
+Please let us know which time slot works best for the onboarding meeting:
+
+{% for day_key, day_data in grouped_slots.items %}{{ day_data.date|date:"l, F j, Y" }}:
+{% for slot in day_data.morning %}  - {{ slot.start }} - {{ slot.end }}
+{% endfor %}{% for slot in day_data.afternoon %}  - {{ slot.start }} - {{ slot.end }}
+{% endfor %}
+{% endfor %}{% endif %}
+
+{% if plan %}
+YOUR SUPPORT PLAN
+-----------------
+Plan:                    {{ plan.name }} ({{ plan.get_plan_type_display }})
+Support Provider:        {{ plan.support_provider }}
+Products Covered:        {{ plan.products_covered }}
+Severity Levels:         {{ plan.severity_levels }}
+Support Hours:           {{ plan.support_hours }}
+Support Channels:        {{ plan.support_channels }}
+Max Tenants:             {{ plan.max_tenants }}
+Max Authorized Contacts: {{ plan.max_authorized_contacts }}
+Support Requests / Year: {% if plan.support_requests_per_year %}{{ plan.support_requests_per_year }}{% else %}Pay As You Go{% endif %}
+Critical Sit. Mgmt.:     {% if plan.crit_sit_management %}Yes{% else %}No{% endif %}
+{% endif %}
+
+{% if tenants %}
+TENANT INFORMATION
+------------------
+{% for tenant in tenants %}  - {{ tenant.company_name }} | Tenant ID: {{ tenant.tenant_id_azure|default:"N/A" }} | {{ tenant.primary_domain }} | {{ tenant.get_environment_type_display }} | Azure: {% if tenant.has_azure %}Yes{% else %}No{% endif %}
+{% endfor %}{% endif %}
+
+AUTHORIZED CONTACTS
+-------------------
+Please verify and complete the information below:
+{% for contact in contacts %}
+  - {{ contact.display_name }} | {{ contact.email }} | {{ contact.phone|default:"—" }} | {{ contact.job_title|default:"—" }}{% endfor %}
+
+{% if session.include_gdap %}
+GDAP APPROVAL
+-------------
+Please approve the GDAP relationship for each tenant:
+{% for tenant in tenants %}{% if tenant.gdap_link %}
+  {{ tenant.company_name }} ({{ tenant.tenant_id_azure }}): {{ tenant.gdap_link }}{% else %}
+  {{ tenant.company_name }} ({{ tenant.tenant_id_azure }}): GDAP link not yet configured — your service expert will provide it separately.{% endif %}{% endfor %}
+
+Steps:
+  1. Click the GDAP link above for each tenant
+  2. Sign in with a Global Administrator account
+  3. Review and approve the requested permissions
+{% endif %}
+
+{% if session.include_rbac and rbac_script %}
+AZURE RBAC SETUP
+----------------
+Run the following PowerShell script for Azure tenants:
+
+{{ rbac_script }}
+{% endif %}
+
+{% if session.include_conditional_access %}
+CONDITIONAL ACCESS POLICIES
+----------------------------
+We will discuss Conditional Access configuration during the onboarding meeting.
+{% endif %}
+
+{% if session.additional_notes %}
+ADDITIONAL NOTES
+----------------
+{{ session.additional_notes }}
+{% endif %}
+
+If you have any questions, please don't hesitate to reach out.
+
+{% if session.sender_name %}{{ session.sender_name }}{% if session.sender_title %} | {{ session.sender_title }}{% endif %}
+{% if session.sender_email %}{{ session.sender_email }}{% endif %}{% if session.sender_phone %} | {{ session.sender_phone }}{% endif %}{% endif %}
+Schneider IT Management S.A.

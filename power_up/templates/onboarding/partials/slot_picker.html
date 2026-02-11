@@ -1,0 +1,31 @@
+{% for day_key, day_data in grouped_slots.items %}
+<div class="mb-4">
+    <h4 class="text-sm font-semibold text-gray-700 mb-2">
+        {{ day_data.date|date:"l, F j, Y" }}
+    </h4>
+    <div class="grid grid-cols-2 gap-2">
+        {% if day_data.morning %}
+        <div>
+            <p class="text-xs text-gray-500 mb-1">Morning</p>
+            {% for slot in day_data.morning %}
+            <label class="flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 px-2 py-1 rounded cursor-pointer">
+                <input type="checkbox" name="meeting_slots" value="{{ slot|date:'c' }}" class="rounded border-gray-300 text-powerup-orange focus:ring-powerup-orange">
+                {{ format_slot.slot }}
+            </label>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if day_data.afternoon %}
+        <div>
+            <p class="text-xs text-gray-500 mb-1">Afternoon</p>
+            {% for slot in day_data.afternoon %}
+            <label class="flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 px-2 py-1 rounded cursor-pointer">
+                <input type="checkbox" name="meeting_slots" value="{{ slot|date:'c' }}" class="rounded border-gray-300 text-powerup-orange focus:ring-powerup-orange">
+                {{ format_slot.slot }}
+            </label>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}

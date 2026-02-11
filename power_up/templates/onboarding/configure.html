@@ -1,0 +1,182 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block crm_content %}
+<!-- Breadcrumb + Header -->
+<div class="mb-6">
+    <nav class="text-sm mb-3">
+        <a href="{% url 'onboarding:dashboard' %}" class="text-gray-500 hover:text-powerup-orange transition-colors">&larr; Onboarding Dashboard</a>
+    </nav>
+    <h1 class="text-2xl font-bold text-gray-900">Configure Onboarding Email</h1>
+    <p class="text-sm text-gray-500 mt-1">{{ group.name }}</p>
+</div>
+
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Form (2/3) -->
+    <div class="lg:col-span-2">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+                Please correct the errors below.
+            </div>
+            {% endif %}
+
+            <!-- Language & Recipient -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Recipient & Language</h2>
+                <p class="text-xs text-gray-500 mb-3">Select the authorized contact who will receive this onboarding email (typically the Admin / contract owner).</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_recipient" class="block text-sm font-medium text-gray-700 mb-1">Recipient (Authorized Contact)</label>
+                        {{ form.recipient }}
+                        {% if form.recipient.errors %}<p class="text-xs text-red-600 mt-1">{{ form.recipient.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label for="id_language" class="block text-sm font-medium text-gray-700 mb-1">Language</label>
+                        {{ form.language }}
+                        {% if form.language.errors %}<p class="text-xs text-red-600 mt-1">{{ form.language.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tenants -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Tenants</h2>
+                <p class="text-xs text-gray-500 mb-3">Select which tenants to include in the onboarding email. GDAP links and RBAC scripts are generated per-tenant.</p>
+                {% if form.tenants.errors %}<p class="text-xs text-red-600 mb-2">{{ form.tenants.errors.0 }}</p>{% endif %}
+                <div class="space-y-2">
+                    {% for choice in form.tenants %}
+                    <div class="flex items-center justify-between hover:bg-gray-50 px-2 py-1.5 rounded">
+                        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            {{ choice.tag }}
+                            {{ choice.choice_label }}
+                        </label>
+                        <a href="{% url 'onboarding:tenant_edit' session_id=session.pk tenant_id=choice.data.value %}"
+                           class="text-xs text-powerup-orange hover:text-orange-600 font-medium whitespace-nowrap ml-2">Edit</a>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-gray-400">No tenants configured for this group. Add tenants in the CRM first.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Meeting Slots -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Meeting Slots</h2>
+                <p class="text-xs text-gray-500 mb-4">Select time slots to propose. Tuesdays and Thursdays only.</p>
+                {% if form.meeting_slots.errors %}<p class="text-xs text-red-600 mb-2">{{ form.meeting_slots.errors.0 }}</p>{% endif %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto">
+                    {% for choice in form.meeting_slots %}
+                    <label class="flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 px-2 py-1 rounded cursor-pointer">
+                        {{ choice.tag }}
+                        {{ choice.choice_label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Section Toggles -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Email Sections</h2>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3">
+                        {{ form.include_gdap }}
+                        <span class="text-sm text-gray-700">Include GDAP approval section</span>
+                    </label>
+                    <label class="flex items-center gap-3">
+                        {{ form.include_rbac }}
+                        <span class="text-sm text-gray-700">Include RBAC PowerShell scripts (Azure tenants only)</span>
+                    </label>
+                    <label class="flex items-center gap-3">
+                        {{ form.include_conditional_access }}
+                        <span class="text-sm text-gray-700">Include Conditional Access policies</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sender -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Sender (Service Expert)</h2>
+                <p class="text-xs text-gray-500 mb-3">Select the service expert who will send this onboarding email. Their name, email, and phone will appear in the email signature.</p>
+                <div>
+                    <label for="id_sender" class="block text-sm font-medium text-gray-700 mb-1">Service Expert</label>
+                    {{ form.sender }}
+                    {% if form.sender.errors %}<p class="text-xs text-red-600 mt-1">{{ form.sender.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <!-- Additional Notes -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Additional Notes</h2>
+                {{ form.additional_notes }}
+            </div>
+
+            <!-- Submit -->
+            <div class="flex justify-end gap-3">
+                <a href="{% url 'onboarding:dashboard' %}" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancel</a>
+                <button type="submit" class="bg-powerup-orange text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
+                    Preview Email &rarr;
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Right: Group Summary (1/3) -->
+    <div class="space-y-4">
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Group Summary</h3>
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Group</dt>
+                    <dd class="font-medium text-gray-900">{{ group.name }}</dd>
+                </div>
+                {% if active_contract %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Plan</dt>
+                    <dd>
+                        <span class="tier-badge tier-{{ active_contract.plan.plan_type }}">
+                            <span class="tier-dot"></span>
+                            {{ active_contract.plan.get_plan_type_display }}
+                        </span>
+                    </dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Tenants ({{ tenants|length }})</dt>
+                    {% for tenant in tenants %}
+                    <dd class="text-gray-700 text-xs mt-1">
+                        {{ tenant.company_name }}
+                        {% if tenant.tenant_id_azure %}<span class="text-gray-400">({{ tenant.tenant_id_azure|truncatechars:12 }})</span>{% endif %}
+                        {% if tenant.has_azure %}<span class="text-blue-600">Azure</span>{% endif %}
+                        {% if tenant.gdap_link %}<span class="text-green-600">GDAP</span>{% else %}<span class="text-amber-600">No GDAP link</span>{% endif %}
+                    </dd>
+                    {% endfor %}
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Authorized Contacts ({{ contacts|length }})</dt>
+                    {% for contact in contacts %}
+                    <dd class="text-gray-700 text-xs mt-1">
+                        {{ contact.display_name }}
+                        {% if contact.role_label %}<span class="text-purple-600">({{ contact.role_label }})</span>{% endif %}
+                    </dd>
+                    {% endfor %}
+                </div>
+            </dl>
+        </div>
+
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Tips</h3>
+            <ul class="space-y-2 text-xs text-gray-500">
+                <li>Select multiple meeting slots to give the customer flexibility.</li>
+                <li>GDAP links are pulled from each tenant's configuration.</li>
+                <li>RBAC scripts are only generated for tenants with Azure enabled.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

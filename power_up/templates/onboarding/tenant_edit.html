@@ -1,0 +1,134 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block crm_content %}
+<!-- Breadcrumb + Header -->
+<div class="mb-6">
+    <nav class="text-sm mb-3">
+        {% if session_id %}
+        <a href="{% url 'onboarding:configure' session_id=session_id %}" class="text-gray-500 hover:text-powerup-orange transition-colors">&larr; Back to Configure</a>
+        {% else %}
+        <a href="{% url 'onboarding:dashboard' %}" class="text-gray-500 hover:text-powerup-orange transition-colors">&larr; Onboarding Dashboard</a>
+        {% endif %}
+    </nav>
+    <h1 class="text-2xl font-bold text-gray-900">Edit Tenant</h1>
+    <p class="text-sm text-gray-500 mt-1">{{ tenant.company_name }} &mdash; {{ group.name }}</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Form (2/3) -->
+    <div class="lg:col-span-2">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+                Please correct the errors below.
+            </div>
+            {% endif %}
+
+            <!-- Tenant Identity -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Tenant Identity</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_tenant_id_azure" class="block text-sm font-medium text-gray-700 mb-1">Azure Tenant ID (GUID)</label>
+                        {{ form.tenant_id_azure }}
+                        {% if form.tenant_id_azure.errors %}<p class="text-xs text-red-600 mt-1">{{ form.tenant_id_azure.errors.0 }}</p>{% endif %}
+                        <p class="text-xs text-gray-400 mt-1">The Entra ID / Azure AD tenant GUID</p>
+                    </div>
+                    <div>
+                        <label for="id_primary_domain" class="block text-sm font-medium text-gray-700 mb-1">Primary Domain</label>
+                        {{ form.primary_domain }}
+                        {% if form.primary_domain.errors %}<p class="text-xs text-red-600 mt-1">{{ form.primary_domain.errors.0 }}</p>{% endif %}
+                        <p class="text-xs text-gray-400 mt-1">e.g. contoso.onmicrosoft.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onboarding Settings -->
+            <div class="crm-card p-6">
+                <h2 class="text-sm font-semibold text-gray-700 mb-4">Onboarding Settings</h2>
+                <div class="space-y-4">
+                    <label class="flex items-center gap-3">
+                        {{ form.has_azure }}
+                        <span class="text-sm text-gray-700">This tenant has Azure subscriptions (RBAC setup needed)</span>
+                    </label>
+                    <div>
+                        <label for="id_gdap_link" class="block text-sm font-medium text-gray-700 mb-1">GDAP Approval Link</label>
+                        {{ form.gdap_link }}
+                        {% if form.gdap_link.errors %}<p class="text-xs text-red-600 mt-1">{{ form.gdap_link.errors.0 }}</p>{% endif %}
+                        <p class="text-xs text-gray-400 mt-1">The GDAP approval URL from Partner Center. The customer will click this link to approve delegated admin privileges.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex justify-end gap-3">
+                {% if session_id %}
+                <a href="{% url 'onboarding:configure' session_id=session_id %}" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancel</a>
+                {% else %}
+                <a href="{% url 'onboarding:dashboard' %}" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancel</a>
+                {% endif %}
+                <button type="submit" class="bg-powerup-orange text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
+                    Save Tenant
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Right: Tenant Info (1/3) -->
+    <div class="space-y-4">
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Tenant Info</h3>
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Company</dt>
+                    <dd class="font-medium text-gray-900">{{ tenant.company_name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Entity</dt>
+                    <dd class="text-gray-700">{{ tenant.entity.name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Group</dt>
+                    <dd class="text-gray-700">{{ group.name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Environment</dt>
+                    <dd class="text-gray-700">{{ tenant.get_environment_type_display }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500 uppercase tracking-wide">Current Status</dt>
+                    <dd class="mt-1 space-y-1">
+                        {% if tenant.tenant_id_azure %}
+                        <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Tenant ID Set</span>
+                        {% else %}
+                        <span class="inline-block bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">No Tenant ID</span>
+                        {% endif %}
+                        {% if tenant.has_azure %}
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">Azure</span>
+                        {% endif %}
+                        {% if tenant.gdap_link %}
+                        <span class="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">GDAP Link Set</span>
+                        {% else %}
+                        <span class="inline-block bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full">No GDAP Link</span>
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Help</h3>
+            <ul class="space-y-2 text-xs text-gray-500">
+                <li><strong>Tenant ID:</strong> Find it in Entra ID &gt; Overview &gt; Tenant ID, or Azure Portal &gt; Tenant properties.</li>
+                <li><strong>GDAP Link:</strong> Generate in Partner Center &gt; Customers &gt; Admin Relationships &gt; Request new relationship.</li>
+                <li><strong>Azure:</strong> Check this if the customer has Azure subscriptions that need RBAC role assignments.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

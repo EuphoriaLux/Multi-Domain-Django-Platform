@@ -1,0 +1,152 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block crm_content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Support Tickets</h1>
+    <a href="{% url 'crm:ticket_create' %}"
+       class="mt-3 sm:mt-0 inline-flex items-center gap-2 bg-powerup-orange text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        New Ticket
+    </a>
+</div>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="crm-card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Open</p>
+        <p class="text-2xl font-bold text-gray-900">{{ kpi_open }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">New (Unassigned)</p>
+        <p class="text-2xl font-bold text-purple-600">{{ kpi_new }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Resolved / Closed</p>
+        <p class="text-2xl font-bold text-green-600">{{ kpi_resolved }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total</p>
+        <p class="text-2xl font-bold text-gray-900">{{ kpi_total }}</p>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="crm-card p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
+            <input type="text" name="q" value="{{ search }}" placeholder="Reference, title, tenant..."
+                   class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-powerup-orange focus:ring-1 focus:ring-powerup-orange">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+            <select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-powerup-orange focus:ring-1 focus:ring-powerup-orange">
+                <option value="">All</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Severity</label>
+            <select name="severity" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-powerup-orange focus:ring-1 focus:ring-powerup-orange">
+                <option value="">All</option>
+                {% for value, label in severity_choices %}
+                <option value="{{ value }}" {% if severity_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Priority</label>
+            <select name="priority" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-powerup-orange focus:ring-1 focus:ring-powerup-orange">
+                <option value="">All</option>
+                {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Group</label>
+            <select name="group" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-powerup-orange focus:ring-1 focus:ring-powerup-orange">
+                <option value="">All Groups</option>
+                {% for g in groups %}
+                <option value="{{ g.pk }}" {% if group_filter == g.pk|slugify %}selected{% endif %}>{{ g.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors">Filter</button>
+            <a href="{% url 'crm:ticket_list' %}" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Clear</a>
+        </div>
+    </form>
+</div>
+
+<!-- Ticket Table -->
+<div class="crm-card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
+                    <th class="px-5 py-3">Reference</th>
+                    <th class="px-5 py-3">Title</th>
+                    <th class="px-5 py-3">Group / Tenant</th>
+                    <th class="px-5 py-3">Sev</th>
+                    <th class="px-5 py-3">Status</th>
+                    <th class="px-5 py-3">Priority</th>
+                    <th class="px-5 py-3">Assigned To</th>
+                    <th class="px-5 py-3">Expert</th>
+                    <th class="px-5 py-3">Created</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for ticket in tickets %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-5 py-3">
+                        <a href="{% url 'crm:ticket_detail' pk=ticket.pk %}" class="text-sm font-mono text-powerup-orange hover:underline">
+                            {{ ticket.reference_number }}
+                        </a>
+                    </td>
+                    <td class="px-5 py-3">
+                        <a href="{% url 'crm:ticket_detail' pk=ticket.pk %}" class="text-sm font-medium text-gray-900 hover:text-powerup-orange">
+                            {{ ticket.title|truncatewords:12 }}
+                        </a>
+                        {% if ticket.is_billable %}
+                        <span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">$</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-3">
+                        <p class="text-sm text-gray-900">{{ ticket.tenant.entity.group.name }}</p>
+                        <p class="text-xs text-gray-400">{{ ticket.tenant.company_name }}</p>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-semibold sev-{{ ticket.severity }}">{{ ticket.severity }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium prio-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <p class="text-sm text-gray-600">{{ ticket.assigned_to.display_name|default:"&mdash;" }}</p>
+                    </td>
+                    <td class="px-5 py-3">
+                        <p class="text-sm text-gray-600">{{ ticket.assigned_expert.display_name|default:"&mdash;" }}</p>
+                    </td>
+                    <td class="px-5 py-3">
+                        <p class="text-sm text-gray-500">{{ ticket.created_at|timesince }} ago</p>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-5 py-12 text-center text-gray-400">No tickets found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

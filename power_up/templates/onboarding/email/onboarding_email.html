@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="{{ session.language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding - {{ group.name }}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; color: #333333; line-height: 1.6; }
+        .container { max-width: 700px; margin: 0 auto; background: #ffffff; }
+        .header { background: linear-gradient(135deg, #0078D4, #00BCF2); padding: 30px 40px; }
+        .header h1 { color: #ffffff; font-size: 22px; margin: 0; font-weight: 600; }
+        .header p { color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0; }
+        .content { padding: 30px 40px; }
+        .section { margin-bottom: 28px; }
+        .section-title { font-size: 16px; font-weight: 600; color: #0078D4; border-left: 4px solid #0078D4; padding-left: 12px; margin-bottom: 14px; }
+        table.data-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        table.data-table th { background: #f0f6ff; color: #333; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 2px solid #0078D4; }
+        table.data-table td { padding: 10px 14px; font-size: 14px; border-bottom: 1px solid #e8e8e8; }
+        table.data-table tr:last-child td { border-bottom: none; }
+        .slot-table { width: 100%; border-collapse: collapse; }
+        .slot-table th { background: #f0f6ff; padding: 8px 14px; text-align: left; font-size: 13px; font-weight: 600; color: #333; border-bottom: 2px solid #0078D4; }
+        .slot-table td { padding: 8px 14px; font-size: 14px; border-bottom: 1px solid #e8e8e8; }
+        .info-box { background: #f0f6ff; border-left: 4px solid #0078D4; padding: 14px 18px; margin: 12px 0; border-radius: 0 4px 4px 0; }
+        .info-box p { margin: 4px 0; font-size: 14px; }
+        .script-block { background: #1e1e1e; color: #d4d4d4; padding: 16px 20px; border-radius: 6px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; margin: 12px 0; overflow-x: auto; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-number { background: #0078D4; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; margin-right: 12px; }
+        .step-text { font-size: 14px; color: #333; padding-top: 3px; }
+        .signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e8e8e8; }
+        .signature p { margin: 2px 0; font-size: 14px; color: #555; }
+        .signature .name { font-weight: 600; color: #333; font-size: 15px; }
+        .footer { background: #f8f8f8; padding: 20px 40px; text-align: center; border-top: 1px solid #e8e8e8; }
+        .footer p { font-size: 12px; color: #888; margin: 4px 0; }
+        a { color: #0078D4; }
+        .empty-row td { color: #999; font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>Onboarding &mdash; {{ group.name }}</h1>
+        {% if plan %}
+        <p>{{ plan.name }} ({{ plan.get_plan_type_display }})</p>
+        {% endif %}
+    </div>
+
+    <div class="content">
+        <!-- Greeting -->
+        <div class="section">
+            <p>Dear {{ session.contact_name }},</p>
+            <p>Welcome to Schneider IT Management support services. This email contains all the information you need to get started with your support plan.</p>
+        </div>
+
+        <!-- Meeting Slots -->
+        {% if grouped_slots %}
+        <div class="section">
+            <h2 class="section-title">Proposed Meeting Slots</h2>
+            <p>Please let us know which time slot works best for the onboarding meeting:</p>
+            <table class="slot-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day_key, day_data in grouped_slots.items %}
+                    {% for slot in day_data.morning %}
+                    <tr>
+                        {% if forloop.first %}<td rowspan="{{ day_data.morning|length|add:day_data.afternoon|length }}">{{ day_data.date|date:"l, F j, Y" }}</td>{% endif %}
+                        <td>{{ slot.start }} &ndash; {{ slot.end }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for slot in day_data.afternoon %}
+                    <tr>
+                        <td>{{ slot.start }} &ndash; {{ slot.end }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Support Plan Details -->
+        {% if plan %}
+        <div class="section">
+            <h2 class="section-title">Your Support Plan</h2>
+            <table class="data-table">
+                <tr><td style="width:40%;font-weight:600;">Plan</td><td>{{ plan.name }} ({{ plan.get_plan_type_display }})</td></tr>
+                <tr><td style="font-weight:600;">Support Provider</td><td>{{ plan.support_provider }}</td></tr>
+                <tr><td style="font-weight:600;">Products Covered</td><td>{{ plan.products_covered }}</td></tr>
+                <tr><td style="font-weight:600;">Severity Levels</td><td>{{ plan.severity_levels }}</td></tr>
+                <tr><td style="font-weight:600;">Support Hours</td><td>{{ plan.support_hours }}</td></tr>
+                <tr><td style="font-weight:600;">Support Channels</td><td>{{ plan.support_channels }}</td></tr>
+                <tr><td style="font-weight:600;">Max Tenants</td><td>{{ plan.max_tenants }}</td></tr>
+                <tr><td style="font-weight:600;">Max Authorized Contacts</td><td>{{ plan.max_authorized_contacts }}</td></tr>
+                <tr><td style="font-weight:600;">Support Requests / Year</td><td>{% if plan.support_requests_per_year %}{{ plan.support_requests_per_year }}{% else %}Pay As You Go{% endif %}</td></tr>
+                <tr><td style="font-weight:600;">Critical Situation Mgmt.</td><td>{% if plan.crit_sit_management %}Yes{% else %}No{% endif %}</td></tr>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Tenant Information -->
+        {% if tenants %}
+        <div class="section">
+            <h2 class="section-title">Tenant Information</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Tenant ID</th>
+                        <th>Domain</th>
+                        <th>Environment</th>
+                        <th>Azure</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenant in tenants %}
+                    <tr>
+                        <td>{{ tenant.company_name }}</td>
+                        <td style="font-family: 'Consolas', 'Courier New', monospace; font-size: 12px;">{{ tenant.tenant_id_azure|default:"—" }}</td>
+                        <td>{{ tenant.primary_domain }}</td>
+                        <td>{{ tenant.get_environment_type_display }}</td>
+                        <td>{% if tenant.has_azure %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Authorized Contacts -->
+        <div class="section">
+            <h2 class="section-title">Authorized Contacts</h2>
+            <p>The following contacts are authorized to create support tickets. Please verify and complete the information below:</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Job Title</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in contacts %}
+                    <tr>
+                        <td>{{ contact.display_name }}</td>
+                        <td>{{ contact.email }}</td>
+                        <td>{{ contact.phone|default:"—" }}</td>
+                        <td>{{ contact.job_title|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for _ in empty_contact_rows %}
+                    <tr class="empty-row">
+                        <td>&lt;Name&gt;</td>
+                        <td>&lt;Email&gt;</td>
+                        <td>&lt;Phone&gt;</td>
+                        <td>&lt;Title&gt;</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- GDAP Section -->
+        {% if session.include_gdap %}
+        <div class="section">
+            <h2 class="section-title">GDAP Approval</h2>
+            <p>To allow our team to assist you, please approve the Granular Delegated Admin Privileges (GDAP) relationship for each tenant:</p>
+            {% for tenant in tenants %}
+            {% if tenant.gdap_link %}
+            <div class="info-box">
+                <p><strong>{{ tenant.company_name }}</strong> ({{ tenant.tenant_id_azure }})</p>
+                <p><a href="{{ tenant.gdap_link }}">Approve GDAP for {{ tenant.company_name }}</a></p>
+            </div>
+            {% else %}
+            <div class="info-box" style="border-left-color: #D97706; background: #FFFBEB;">
+                <p><strong>{{ tenant.company_name }}</strong> ({{ tenant.tenant_id_azure }})</p>
+                <p style="color: #92400E;">GDAP link not yet configured &mdash; your service expert will provide it separately.</p>
+            </div>
+            {% endif %}
+            {% endfor %}
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-text">Click the GDAP link above for each tenant</span>
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-text">Sign in with a Global Administrator account</span>
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>
+                <span class="step-text">Review and approve the requested permissions</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- RBAC Section -->
+        {% if session.include_rbac and rbac_script %}
+        <div class="section">
+            <h2 class="section-title">Azure RBAC Setup</h2>
+            <p>For tenants with Azure subscriptions, please run the following PowerShell script to grant our team access to create and manage support requests:</p>
+            <div class="info-box">
+                <p><strong>Prerequisites:</strong> Install the <a href="https://docs.microsoft.com/en-us/powershell/azure/install-az-ps">Azure PowerShell module</a> (Az module).</p>
+            </div>
+            <div class="step">
+                <span class="step-number">1</span>
+                <span class="step-text">Open PowerShell as Administrator</span>
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <span class="step-text">Run the script below (it will prompt you to sign in for each tenant)</span>
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>
+                <span class="step-text">Verify the output shows role assignments for each subscription</span>
+            </div>
+            <div class="script-block">{{ rbac_script }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Conditional Access -->
+        {% if session.include_conditional_access %}
+        <div class="section">
+            <h2 class="section-title">Conditional Access Policies</h2>
+            <p>If your organization uses Conditional Access, please ensure the following service accounts and IP ranges are excluded from policies that could block our support access:</p>
+            <div class="info-box">
+                <p>We will discuss the specific Conditional Access configuration during the onboarding meeting.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Additional Notes -->
+        {% if session.additional_notes %}
+        <div class="section">
+            <h2 class="section-title">Additional Notes</h2>
+            <p>{{ session.additional_notes|linebreaksbr }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Closing -->
+        <div class="section">
+            <p>If you have any questions or need assistance, please don't hesitate to reach out. We look forward to working with you!</p>
+        </div>
+
+        <!-- Signature -->
+        <div class="signature">
+            {% if session.sender_name %}
+            <p class="name">{{ session.sender_name }}</p>
+            {% if session.sender_title %}<p>{{ session.sender_title }}</p>{% endif %}
+            {% if session.sender_email %}<p><a href="mailto:{{ session.sender_email }}">{{ session.sender_email }}</a></p>{% endif %}
+            {% if session.sender_phone %}<p>{{ session.sender_phone }}</p>{% endif %}
+            {% endif %}
+            <p style="margin-top:8px;">Schneider IT Management S.A.</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Schneider IT Management S.A.</p>
+        <p>This email was generated by the Schneider IT onboarding system.</p>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,183 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block crm_content %}
+<!-- Header -->
+<div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Customer Groups</h1>
+    <p class="text-gray-500 mt-1">Schneider IT Management support portfolio</p>
+</div>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="crm-card p-5">
+        <div class="flex items-center gap-3">
+            <div class="stat-ring bg-blue-50 text-blue-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ total_groups }}</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Groups</p>
+            </div>
+        </div>
+    </div>
+    <div class="crm-card p-5">
+        <div class="flex items-center gap-3">
+            <div class="stat-ring bg-green-50 text-green-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ total_active }}</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Active Contracts</p>
+            </div>
+        </div>
+    </div>
+    <div class="crm-card p-5">
+        <div class="flex items-center gap-3">
+            <div class="stat-ring bg-purple-50 text-purple-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ total_contacts }}</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Contacts</p>
+            </div>
+        </div>
+    </div>
+    <div class="crm-card p-5">
+        <div class="flex items-center gap-3">
+            <div class="stat-ring bg-orange-50 text-powerup-orange">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ total_tenants }}</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Tenants</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plan Distribution + Expiring Soon -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Plan Distribution -->
+    <div class="crm-card p-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">Plan Distribution</h3>
+        <div class="space-y-3">
+            {% for tier, count in plan_distribution.items %}
+            <div class="flex items-center justify-between">
+                <span class="tier-badge tier-{{ tier|lower }}">
+                    <span class="tier-dot"></span>
+                    {{ tier }}
+                </span>
+                <span class="text-sm font-semibold text-gray-900">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Expiring Soon -->
+    <div class="crm-card p-6 lg:col-span-2">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4">
+            Contracts Expiring Within 90 Days
+            {% if expiring_soon %}
+            <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">{{ expiring_soon|length }}</span>
+            {% endif %}
+        </h3>
+        {% if expiring_soon %}
+        <div class="space-y-3">
+            {% for item in expiring_soon %}
+            <a href="{% url 'crm:group_detail' item.group.pk %}" class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="font-medium text-gray-900">{{ item.group.name }}</span>
+                    <span class="tier-badge tier-{{ item.plan.plan_type }}">
+                        <span class="tier-dot"></span>
+                        {{ item.plan.get_plan_type_display }}
+                    </span>
+                </div>
+                <span class="text-sm font-medium {% if item.days_remaining <= 30 %}health-danger{% elif item.days_remaining <= 60 %}health-warning{% else %}health-good{% endif %}">
+                    {{ item.days_remaining }}d remaining
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 py-4 text-center">No contracts expiring within 90 days</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Group Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    {% for item in group_cards %}
+    <a href="{% url 'crm:group_detail' item.group.pk %}" class="crm-card block">
+        <!-- Card Header -->
+        <div class="p-5 border-b border-gray-100">
+            <div class="flex items-start justify-between mb-1">
+                <h3 class="text-base font-semibold text-gray-900 leading-tight">{{ item.group.name }}</h3>
+                {% if item.plan %}
+                <span class="tier-badge tier-{{ item.plan.plan_type }} ml-2 shrink-0">
+                    <span class="tier-dot"></span>
+                    {{ item.plan.get_plan_type_display }}
+                </span>
+                {% else %}
+                <span class="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">No Plan</span>
+                {% endif %}
+            </div>
+            {% if item.group.description %}
+            <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ item.group.description }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Card Body — metrics -->
+        <div class="p-5">
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="text-center">
+                    <p class="text-lg font-bold text-gray-900">{{ item.group.num_entities }}</p>
+                    <p class="text-xs text-gray-500">Entities</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-bold text-gray-900">{{ item.group.num_tenants }}</p>
+                    <p class="text-xs text-gray-500">Tenants</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-bold text-gray-900">{{ item.group.num_contacts }}</p>
+                    <p class="text-xs text-gray-500">Contacts</p>
+                </div>
+            </div>
+
+            <!-- Contract info -->
+            {% if item.active_contract %}
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-500">{{ item.active_contract.contract_number }}</span>
+                {% if item.days_remaining is not None %}
+                <span class="font-medium {% if item.days_remaining <= 30 %}health-danger{% elif item.days_remaining <= 90 %}health-warning{% else %}health-good{% endif %}">
+                    {{ item.days_remaining }}d left
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Account Manager -->
+            {% if item.primary_manager %}
+            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                <div class="w-6 h-6 rounded-full bg-powerup-orange/10 flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5 text-powerup-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </div>
+                <span class="text-xs text-gray-600">{{ item.primary_manager.display_name }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

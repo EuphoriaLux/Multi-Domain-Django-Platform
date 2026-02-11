@@ -1,0 +1,222 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block crm_content %}
+<!-- Breadcrumb + Header -->
+<div class="mb-6">
+    <nav class="text-sm mb-3">
+        <a href="{% url 'crm:ticket_list' %}" class="text-gray-500 hover:text-powerup-orange transition-colors">&larr; All Tickets</a>
+    </nav>
+    <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <span class="text-sm font-mono text-gray-400">{{ ticket.reference_number }}</span>
+                <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                <span class="inline-block text-xs px-2 py-0.5 rounded-full font-semibold sev-{{ ticket.severity }}">Sev {{ ticket.severity }}</span>
+                <span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium prio-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span>
+                {% if ticket.is_billable %}
+                <span class="inline-block text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">Billable</span>
+                {% endif %}
+            </div>
+            <h1 class="text-xl font-bold text-gray-900">{{ ticket.title }}</h1>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="rounded-lg px-4 py-3 text-sm {% if message.tags == 'success' %}bg-green-50 text-green-800{% else %}bg-blue-50 text-blue-800{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Two Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Main Content (2/3) -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Description -->
+        <div class="crm-card p-6">
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Description</h2>
+            <div class="text-sm text-gray-700 whitespace-pre-wrap">{{ ticket.description }}</div>
+        </div>
+
+        <!-- Comments -->
+        <div class="crm-card">
+            <div class="p-5 border-b border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    Comments
+                    <span class="ml-2 text-xs font-normal normal-case text-gray-400">({{ comments|length }})</span>
+                </h2>
+            </div>
+            {% for comment in comments %}
+            <div class="px-5 py-4 border-b border-gray-50 {% if comment.is_internal %}bg-yellow-50/50{% endif %}">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-900">{{ comment.author_name }}</span>
+                        {% if comment.is_internal %}
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 font-medium">Internal</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-xs text-gray-400">{{ comment.created_at|timesince }} ago</span>
+                </div>
+                <div class="text-sm text-gray-700 whitespace-pre-wrap">{{ comment.message }}</div>
+            </div>
+            {% empty %}
+            <div class="px-5 py-8 text-center text-gray-400 text-sm">No comments yet.</div>
+            {% endfor %}
+
+            <!-- Add Comment Form -->
+            <div class="p-5 bg-gray-50">
+                <form method="post" action="{% url 'crm:ticket_comment_add' pk=ticket.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        {{ comment_form.message }}
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 text-sm text-gray-600">
+                            {{ comment_form.is_internal }}
+                            Internal only
+                        </label>
+                        <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors">
+                            Add Comment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Sidebar (1/3) -->
+    <div class="space-y-6">
+
+        <!-- Update Form -->
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Update Ticket</h3>
+            <form method="post" action="{% url 'crm:ticket_update' pk=ticket.pk %}">
+                {% csrf_token %}
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                        {{ update_form.status }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Priority</label>
+                        {{ update_form.priority }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Assigned To (AM)</label>
+                        {{ update_form.assigned_to }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Assigned Expert</label>
+                        {{ update_form.assigned_expert }}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Microsoft Case ID</label>
+                        {{ update_form.microsoft_case_id }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {{ update_form.is_billable }}
+                        <label class="text-sm text-gray-600">Billable</label>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Internal Notes</label>
+                        {{ update_form.internal_notes }}
+                    </div>
+                    <button type="submit" class="w-full bg-powerup-orange text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Ticket Metadata -->
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Details</h3>
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-xs text-gray-500">Group</dt>
+                    <dd class="font-medium text-gray-900">
+                        <a href="{% url 'crm:group_detail' pk=group.pk %}" class="hover:text-powerup-orange">{{ group.name }}</a>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500">Tenant</dt>
+                    <dd class="font-medium text-gray-900">{{ ticket.tenant.company_name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500">Requester</dt>
+                    <dd class="font-medium text-gray-900">{{ ticket.requester.display_name }}</dd>
+                    <dd class="text-xs text-gray-400">{{ ticket.requester.email }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500">Product</dt>
+                    <dd><span class="inline-block text-xs px-2 py-0.5 rounded-full font-medium prod-{{ ticket.product_category }}">{{ ticket.get_product_category_display }}</span></dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500">Assigned To (AM)</dt>
+                    <dd class="font-medium text-gray-900">{{ ticket.assigned_to.display_name|default:"&mdash;" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-gray-500">Assigned Expert</dt>
+                    <dd class="font-medium text-gray-900">{{ ticket.assigned_expert.display_name|default:"&mdash;" }}</dd>
+                </div>
+                {% if ticket.microsoft_case_id %}
+                <div>
+                    <dt class="text-xs text-gray-500">Microsoft Case</dt>
+                    <dd class="font-mono text-gray-900">{{ ticket.microsoft_case_id }}</dd>
+                </div>
+                {% endif %}
+                <div class="pt-2 border-t border-gray-100">
+                    <dt class="text-xs text-gray-500">Created</dt>
+                    <dd class="text-gray-700">{{ ticket.created_at|date:"M j, Y H:i" }}</dd>
+                </div>
+                {% if ticket.first_response_at %}
+                <div>
+                    <dt class="text-xs text-gray-500">First Response</dt>
+                    <dd class="text-gray-700">{{ ticket.first_response_at|date:"M j, Y H:i" }}</dd>
+                </div>
+                {% endif %}
+                {% if ticket.resolved_at %}
+                <div>
+                    <dt class="text-xs text-gray-500">Resolved</dt>
+                    <dd class="text-gray-700">{{ ticket.resolved_at|date:"M j, Y H:i" }}</dd>
+                </div>
+                {% endif %}
+                {% if ticket.closed_at %}
+                <div>
+                    <dt class="text-xs text-gray-500">Closed</dt>
+                    <dd class="text-gray-700">{{ ticket.closed_at|date:"M j, Y H:i" }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+
+        <!-- Quota Gauge -->
+        {% if active_contract %}
+        <div class="crm-card p-5">
+            <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Ticket Quota</h3>
+            <div class="flex items-end gap-2 mb-2">
+                <span class="text-2xl font-bold text-gray-900">{{ ticket_quota_used }}</span>
+                <span class="text-sm text-gray-400 mb-0.5">
+                    / {% if ticket_quota_max == 0 %}PAYG{% else %}{{ ticket_quota_max }}{% endif %}
+                </span>
+            </div>
+            {% if ticket_quota_max > 0 %}
+            <div class="w-full bg-gray-100 rounded-full h-2">
+                <div class="h-2 rounded-full transition-all {% if ticket_quota_used >= ticket_quota_max %}bg-red-500{% elif ticket_quota_used > ticket_quota_max|floatformat:"0" %}bg-yellow-500{% else %}bg-green-500{% endif %}"
+                     style="width: {% widthratio ticket_quota_used ticket_quota_max 100 %}%"></div>
+            </div>
+            {% endif %}
+            <p class="text-xs text-gray-400 mt-2">Trailing 12-month period</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

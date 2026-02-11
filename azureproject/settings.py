@@ -95,6 +95,7 @@ CSRF_TRUSTED_ORIGINS = getattr(globals(), "CSRF_TRUSTED_ORIGINS", []) + [
     "http://entreprinder.localhost:8000",
     "http://tableau.localhost:8000",
     "http://delegation.localhost:8000",
+    "http://portal.localhost:8000",
 ]
 
 # Application definition
@@ -118,6 +119,8 @@ INSTALLED_APPS = [
     "entreprinder",  # Includes merged: matching, finops, vibe_coding
     "power_up",  # Corporate/investor site for power-up.lu
     "power_up.finops",  # FinOps Hub - Azure cost analytics (submodule)
+    "power_up.crm",  # CRM - Customer relationship management (submodule)
+    "power_up.onboarding",  # Onboarding - Customer onboarding email builder (submodule)
     "tableau",  # AI Art e-commerce site for tableau.lu
     "arborist",  # Tree care informational site for arborist.lu
     # Allauth apps

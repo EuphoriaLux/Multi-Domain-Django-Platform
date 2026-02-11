@@ -28,6 +28,12 @@ urlpatterns = base_patterns + [
 
     # FinOps Hub - Azure cost management dashboard (language-neutral)
     path("finops/", include(("power_up.finops.urls", "finops_hub"))),
+
+    # CRM - Customer groups dashboard (language-neutral)
+    path("crm/", include("power_up.crm.urls")),
+
+    # Onboarding - Customer onboarding email builder (language-neutral)
+    path("onboarding/", include("power_up.onboarding.urls")),
 ]
 
 # Language-prefixed patterns (user-facing pages)

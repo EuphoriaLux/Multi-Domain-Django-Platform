@@ -1,0 +1,110 @@
+{% extends "crm/base_crm.html" %}
+
+{% block title %}Onboarding Dashboard{% endblock %}
+
+{% block crm_content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Onboarding Dashboard</h1>
+    <p class="text-sm text-gray-500 mt-1">Generate onboarding emails for new customers.</p>
+</div>
+
+<!-- KPI Row -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="crm-card p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Groups</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Not Started</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.none }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">In Progress</p>
+        <p class="text-2xl font-bold text-yellow-600 mt-1">{{ stats.in_progress }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Email Sent</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1">{{ stats.email_sent }}</p>
+    </div>
+    <div class="crm-card p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</p>
+        <p class="text-2xl font-bold text-green-600 mt-1">{{ stats.completed }}</p>
+    </div>
+</div>
+
+<!-- Customer Groups Table -->
+<div class="crm-card overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer Group</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Plan</th>
+                <th class="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Tenants</th>
+                <th class="px-5 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Contacts</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-100">
+            {% for group in groups %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-5 py-3">
+                    <a href="{% url 'crm:group_detail' pk=group.pk %}" class="text-sm font-medium text-gray-900 hover:text-powerup-orange transition-colors">
+                        {{ group.name }}
+                    </a>
+                </td>
+                <td class="px-5 py-3">
+                    {% with contract=group.active_contracts.first %}
+                    {% if contract %}
+                    <span class="tier-badge tier-{{ contract.plan.plan_type }}">
+                        <span class="tier-dot"></span>
+                        {{ contract.plan.get_plan_type_display }}
+                    </span>
+                    {% else %}
+                    <span class="text-xs text-gray-400">No active plan</span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                <td class="px-5 py-3 text-center text-sm text-gray-600">{{ group.entity_count }}</td>
+                <td class="px-5 py-3 text-center text-sm text-gray-600">{{ group.authorized_contacts.count }}</td>
+                <td class="px-5 py-3">
+                    {% if group.onboarding_status == 'none' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Not Started</span>
+                    {% elif group.onboarding_status == 'in_progress' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">In Progress</span>
+                    {% elif group.onboarding_status == 'email_sent' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Email Sent</span>
+                    {% elif group.onboarding_status == 'completed' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Completed</span>
+                    {% endif %}
+                </td>
+                <td class="px-5 py-3 text-right">
+                    {% if group.onboarding_status == 'none' %}
+                    <form method="post" action="{% url 'onboarding:start_session' group_id=group.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-powerup-orange text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-orange-600 transition-colors">
+                            Start Onboarding
+                        </button>
+                    </form>
+                    {% else %}
+                    {% with latest=group.onboarding_sessions.first %}
+                    {% if latest %}
+                    <a href="{% url 'onboarding:session_detail' session_id=latest.pk %}" class="text-sm text-powerup-orange hover:text-orange-600 font-medium transition-colors">
+                        View &rarr;
+                    </a>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-5 py-8 text-center text-sm text-gray-400">
+                    No customer groups found. Create groups in the CRM first.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -48,6 +48,12 @@ DOMAINS = {
         'app': 'power_up',
         'aliases': ['www.power-up.lu', 'powerup.lu', 'www.powerup.lu', 'test.power-up.lu', 'test.powerup.lu'],
     },
+    'portal.powerup.lu': {
+        'urlconf': 'azureproject.urls_portal',
+        'name': 'Power-Up Portal',
+        'app': 'power_up',
+        'aliases': ['test-portal.powerup.lu'],
+    },
     'tableau.lu': {
         'urlconf': 'azureproject.urls_tableau',
         'name': 'Tableau',
@@ -71,6 +77,7 @@ DEV_DOMAIN_MAPPINGS = {
     'entreprinder.localhost': 'entreprinder.lu',
     'tableau.localhost': 'tableau.lu',
     'delegation.localhost': 'delegations.lu',
+    'portal.localhost': 'portal.powerup.lu',
 }
 
 # Production fallback (used for unknown domains and Azure hostnames)
