@@ -14,6 +14,7 @@ from .urls_shared import base_patterns
 
 urlpatterns = base_patterns + [
     path("crm/", include("power_up.crm.urls")),
+    path("onboarding/", include("power_up.onboarding.urls")),
     path("power-admin/", power_up_admin_site.urls),
     path("admin/", admin.site.urls),
 ]
