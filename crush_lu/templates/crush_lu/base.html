@@ -609,6 +609,13 @@
                                     <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
                                 {% endif %}
                             </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
+                                {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Review Queue" %}
+                                {% if pending_screening_count > 0 %}
+                                    <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
+                                {% endif %}
+                            </a>
                             {% if has_special_journey %}
                             <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
                                 {% include "shared/icons/star.html" with class="w-4 h-4 inline mr-2 text-yellow-400" %}
@@ -619,15 +626,23 @@
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Sessions" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
+                                {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "All Sessions" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Manage Events" %}
+                                {% trans "Events" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}?user_view=1">
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Profile" %}
                             </a>
                             <div class="border-t border-white/20 my-2"></div>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
+                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Manage Events" %}
+                            </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
                                 {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Journey Management" %}
