@@ -761,6 +761,180 @@ def coach_edit_challenge(request, challenge_id):
 
 
 @coach_required
+def coach_event_list(request):
+    """Coach dashboard for managing events and viewing attendees"""
+    now = timezone.now()
+
+    upcoming_events = (
+        MeetupEvent.objects.filter(date_time__gte=now, is_published=True)
+        .with_registration_counts()
+        .order_by("date_time")
+    )
+
+    past_events = (
+        MeetupEvent.objects.filter(date_time__lt=now, is_published=True)
+        .with_registration_counts()
+        .order_by("-date_time")[:10]
+    )
+
+    context = {
+        "coach": request.coach,
+        "upcoming_events": upcoming_events,
+        "past_events": past_events,
+    }
+    return render(request, "crush_lu/coach_event_list.html", context)
+
+
+@coach_required
+def coach_event_detail(request, event_id):
+    """Detailed view of event registrations for coaches"""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+
+    registrations = (
+        EventRegistration.objects.filter(event=event)
+        .exclude(status="cancelled")
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
+
+    # Status filter
+    status_filter = request.GET.get("status", "all")
+    if status_filter == "confirmed":
+        filtered_registrations = [r for r in registrations if r.status in ("confirmed", "attended")]
+    elif status_filter == "waitlist":
+        filtered_registrations = [r for r in registrations if r.status == "waitlist"]
+    elif status_filter == "other":
+        filtered_registrations = [r for r in registrations if r.status in ("pending", "no_show")]
+    else:
+        filtered_registrations = list(registrations)
+
+    # Count stats
+    confirmed_count = sum(1 for r in registrations if r.status in ("confirmed", "attended"))
+    waitlist_count = sum(1 for r in registrations if r.status == "waitlist")
+    spots_remaining = max(0, event.max_participants - confirmed_count)
+
+    context = {
+        "coach": request.coach,
+        "event": event,
+        "registrations": filtered_registrations,
+        "confirmed_count": confirmed_count,
+        "waitlist_count": waitlist_count,
+        "spots_remaining": spots_remaining,
+        "total_registrations": len(registrations),
+        "status_filter": status_filter,
+    }
+    return render(request, "crush_lu/coach_event_detail.html", context)
+
+
+@coach_required
+def coach_member_overview(request, user_id):
+    """Coach view of a member's profile, event history, and connections"""
+    from django.contrib.auth.models import User
+
+    member = get_object_or_404(User, id=user_id)
+
+    # Get profile (may not exist for invitation-only guests)
+    try:
+        profile = member.crushprofile
+    except CrushProfile.DoesNotExist:
+        profile = None
+
+    # Latest profile submission
+    latest_submission = (
+        ProfileSubmission.objects.filter(profile=profile)
+        .select_related("coach")
+        .order_by("-submitted_at")
+        .first()
+        if profile
+        else None
+    )
+
+    # Event history
+    event_registrations = (
+        EventRegistration.objects.filter(user=member)
+        .select_related("event")
+        .order_by("-event__date_time")
+    )
+
+    # Connections made
+    connections = (
+        EventConnection.objects.filter(Q(requester=member) | Q(recipient=member))
+        .select_related("event", "requester", "recipient")
+        .order_by("-requested_at")[:10]
+    )
+
+    # Available coaches for reassignment dropdown
+    all_coaches = CrushCoach.objects.filter(is_active=True).select_related("user")
+
+    context = {
+        "coach": request.coach,
+        "member": member,
+        "profile": profile,
+        "latest_submission": latest_submission,
+        "event_registrations": event_registrations,
+        "connections": connections,
+        "all_coaches": all_coaches,
+    }
+    return render(request, "crush_lu/coach_member_overview.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_reassign_submission(request, submission_id):
+    """Claim or reassign a profile submission to a different coach"""
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user", "coach"),
+        id=submission_id,
+    )
+
+    action = request.POST.get("action")
+
+    if action == "claim":
+        # Current coach claims this submission for themselves
+        old_coach = submission.coach
+        submission.coach = request.coach
+        submission.save(update_fields=["coach"])
+        logger.info(
+            f"Coach {request.coach} claimed submission #{submission.id} "
+            f"(was: {old_coach})"
+        )
+        messages.success(
+            request,
+            _("You have claimed this profile review."),
+        )
+    elif action == "reassign":
+        # Reassign to a specific coach
+        target_coach_id = request.POST.get("target_coach_id")
+        if not target_coach_id:
+            messages.error(request, _("Please select a coach."))
+            return redirect(
+                "crush_lu:coach_member_overview",
+                user_id=submission.profile.user.id,
+            )
+        target_coach = get_object_or_404(
+            CrushCoach, id=target_coach_id, is_active=True
+        )
+        old_coach = submission.coach
+        submission.coach = target_coach
+        submission.save(update_fields=["coach"])
+        logger.info(
+            f"Coach {request.coach} reassigned submission #{submission.id} "
+            f"from {old_coach} to {target_coach}"
+        )
+        messages.success(
+            request,
+            _("Profile review reassigned to %(coach)s.")
+            % {"coach": target_coach.user.get_full_name()},
+        )
+    else:
+        messages.error(request, _("Invalid action."))
+
+    return redirect(
+        "crush_lu:coach_member_overview", user_id=submission.profile.user.id
+    )
+
+
+@coach_required
 def coach_view_user_progress(request, progress_id):
     """View a specific user's journey progress and answers - Enhanced Report View"""
     coach = request.coach

@@ -236,6 +236,14 @@ urlpatterns = [
     # - /coach/screening/ (replaced by /coach/dashboard/ and /coach/review/)
     # - /coach/screening/<id>/complete/ (replaced by /coach/review/<id>/call-complete/)
 
+    # Coach event management
+    path('coach/events/', views.coach_event_list, name='coach_event_list'),
+    path('coach/events/<int:event_id>/', views.coach_event_detail, name='coach_event_detail'),
+
+    # Coach member overview & assignment
+    path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
+    path('coach/submission/<int:submission_id>/reassign/', views.coach_reassign_submission, name='coach_reassign_submission'),
+
     # Coach journey management
     path('coach/journeys/', views.coach_journey_dashboard, name='coach_journey_dashboard'),
     path('coach/journeys/<int:journey_id>/edit/', views.coach_edit_journey, name='coach_edit_journey'),

@@ -155,6 +155,10 @@ from .views_coach import (  # noqa: F401
     coach_edit_journey,
     coach_edit_challenge,
     coach_view_user_progress,
+    coach_event_list,
+    coach_event_detail,
+    coach_member_overview,
+    coach_reassign_submission,
 )
 
 # Voting & presentations

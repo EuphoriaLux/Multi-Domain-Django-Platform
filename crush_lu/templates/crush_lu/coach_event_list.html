@@ -1,0 +1,116 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Event Management" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "Event Management" %}</h2>
+            <p class="text-gray-500 dark:text-gray-400">{% trans "View events and track registrations" %}</p>
+        </div>
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+            <span>{% trans "Dashboard" %}</span>
+        </a>
+    </div>
+</div>
+
+<!-- Upcoming Events -->
+<div class="mb-8">
+    <h3 class="text-lg font-semibold mb-4 dark:text-white">{% trans "Upcoming Events" %}</h3>
+    {% if upcoming_events %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for event in upcoming_events %}
+                <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 hover:shadow-md dark:hover:shadow-gray-900/40 transition-shadow">
+                    <div class="p-5">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-gray-900 dark:text-white truncate">{{ event.title }}</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {{ event.date_time|date:"D, M j, Y" }} &middot; {{ event.date_time|date:"g:i A" }}
+                                </p>
+                            </div>
+                            {% if event.is_private_invitation %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full ml-2">{% trans "Private" %}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 flex-shrink-0" %}
+                            <span class="truncate">{{ event.location }}</span>
+                        </div>
+
+                        <!-- Capacity Progress Bar -->
+                        <div class="mb-2">
+                            <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                <span>{{ event.confirmed_count_annotated }} / {{ event.max_participants }} {% trans "confirmed" %}</span>
+                                {% if event.waitlist_count_annotated %}
+                                    <span class="text-amber-600 dark:text-amber-400">+{{ event.waitlist_count_annotated }} {% trans "waitlist" %}</span>
+                                {% endif %}
+                            </div>
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div class="{% if event.confirmed_count_annotated >= event.max_participants %}bg-red-500{% else %}bg-green-500{% endif %} h-2 rounded-full transition-all" style="width: {% widthratio event.confirmed_count_annotated event.max_participants 100 %}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="inline-flex items-center px-2 py-0.5 bg-crush-purple/10 dark:bg-crush-purple/20 text-crush-purple rounded-full">{{ event.get_event_type_display }}</span>
+                            <span class="text-gray-400 dark:text-gray-500">
+                                {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+            <p class="text-gray-500 dark:text-gray-400">{% trans "No upcoming events." %}</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Past Events -->
+<div>
+    <h3 class="text-lg font-semibold mb-4 dark:text-white">{% trans "Past Events" %}</h3>
+    {% if past_events %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-100 dark:border-gray-700">
+                            <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{% trans "Event" %}</th>
+                            <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{% trans "Date" %}</th>
+                            <th class="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{% trans "Attended" %}</th>
+                            <th class="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        {% for event in past_events %}
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ event.title }}</span>
+                                    <span class="text-gray-400 dark:text-gray-500 sm:hidden block text-xs mt-0.5">{{ event.date_time|date:"M j, Y" }}</span>
+                                </td>
+                                <td class="px-4 py-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{{ event.date_time|date:"M j, Y" }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{{ event.confirmed_count_annotated }}</span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="text-crush-purple hover:text-crush-pink transition-colors text-xs font-medium">{% trans "View" %}</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+            <p class="text-gray-500 dark:text-gray-400">{% trans "No past events yet." %}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

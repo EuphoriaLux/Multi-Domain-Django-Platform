@@ -278,7 +278,7 @@
                                         {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "All Sessions" %}
                                     </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:event_list' %}">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_event_list' %}">
                                         {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Manage Events" %}
                                     </a>
@@ -619,9 +619,9 @@
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Sessions" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Events" %}
+                                {% trans "Manage Events" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}?user_view=1">
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}

@@ -16,7 +16,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
+from django.utils import translation
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from crush_lu.models.events import MeetupEvent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
@@ -240,12 +242,53 @@ class NewsletterAdmin(admin.ModelAdmin):
             'crush_admin:crush_lu_newsletter_preview', args=[obj.pk]
         )
 
-        # Render the email HTML inline for srcdoc (avoids cross-origin iframe issues)
-        rendered_html = self._render_preview(obj)
-        # Escape for srcdoc attribute: quotes and ampersands
-        escaped_html = rendered_html.replace('&', '&amp;').replace('"', '&quot;')
+        languages = [('en', 'English'), ('de', 'Deutsch'), ('fr', 'Français')]
 
-        return format_html(
+        # Build tab buttons
+        tab_buttons = ''
+        for i, (code, label) in enumerate(languages):
+            active = ' background:#9B59B6; color:white;' if i == 0 else ''
+            tab_buttons += (
+                f'<button type="button" onclick="showPreviewTab(\'{code}\')" '
+                f'id="preview-tab-{code}" '
+                f'style="padding:6px 16px; border:1px solid #ddd; border-bottom:none; '
+                f'border-radius:6px 6px 0 0; cursor:pointer; font-size:13px; '
+                f'font-weight:600;{active}" '
+                f'class="preview-lang-tab">{label}</button> '
+            )
+
+        # Build iframe panels for each language
+        panels = ''
+        for i, (code, label) in enumerate(languages):
+            rendered_html = self._render_preview(obj, lang=code)
+            escaped_html = (
+                rendered_html.replace('&', '&amp;').replace('"', '&quot;')
+            )
+            display = 'block' if i == 0 else 'none'
+            panels += (
+                f'<iframe id="preview-panel-{code}" srcdoc="{escaped_html}" '
+                f'style="width:100%; height:700px; border:none; background:#fff; '
+                f'display:{display};"></iframe>'
+            )
+
+        # JS to switch tabs
+        script = (
+            '<script>'
+            'function showPreviewTab(lang) {'
+            '  ["en","de","fr"].forEach(function(c) {'
+            '    var panel = document.getElementById("preview-panel-" + c);'
+            '    var tab = document.getElementById("preview-tab-" + c);'
+            '    if (panel) panel.style.display = c === lang ? "block" : "none";'
+            '    if (tab) {'
+            '      tab.style.background = c === lang ? "#9B59B6" : "";'
+            '      tab.style.color = c === lang ? "white" : "";'
+            '    }'
+            '  });'
+            '}'
+            '</script>'
+        )
+
+        header = format_html(
             '<div style="border:1px solid #ddd; border-radius:8px; overflow:hidden;">'
             '  <div style="background:#f0f0f0; padding:8px 12px; font-size:12px; '
             '       color:#555; border-bottom:1px solid #ddd;">'
@@ -253,19 +296,27 @@ class NewsletterAdmin(admin.ModelAdmin):
             '    Subject: <strong>{subject}</strong> &nbsp;|&nbsp; '
             '    <a href="{url}" target="_blank" style="color:#9B59B6;">Open in new tab</a>'
             '  </div>'
-            '  <iframe srcdoc="{srcdoc}" style="width:100%; height:700px; border:none; background:#fff;">'
-            '  </iframe>'
-            '</div>',
+            '  <div style="padding:8px 12px 0; background:#fafafa; '
+            '       border-bottom:1px solid #ddd;">',
             subject=obj.subject,
             url=preview_url,
-            srcdoc=escaped_html,
+        )
+        # tab_buttons, panels, and script contain pre-escaped HTML with CSS
+        # curly braces that would break format_html(), so use mark_safe.
+        return mark_safe(
+            header
+            + tab_buttons
+            + '</div>'
+            + panels
+            + script
+            + '</div>'
         )
     email_preview.short_description = 'Email Preview'
 
-    def _render_preview(self, newsletter, first_name='Preview'):
+    def _render_preview(self, newsletter, first_name='Preview', lang='en'):
         """Render the newsletter template with placeholder context."""
         if newsletter.event_id:
-            return self._render_event_preview(newsletter, first_name)
+            return self._render_event_preview(newsletter, first_name, lang)
 
         context = {
             'first_name': first_name,
@@ -275,11 +326,12 @@ class NewsletterAdmin(admin.ModelAdmin):
             'about_url': 'https://crush.lu/about/',
             'events_url': 'https://crush.lu/events/',
             'settings_url': 'https://crush.lu/account/settings/',
-            'LANGUAGE_CODE': 'en',
+            'LANGUAGE_CODE': lang,
         }
-        return render_to_string('crush_lu/emails/newsletter.html', context)
+        with translation.override(lang):
+            return render_to_string('crush_lu/emails/newsletter.html', context)
 
-    def _render_event_preview(self, newsletter, first_name='Preview'):
+    def _render_event_preview(self, newsletter, first_name='Preview', lang='en'):
         """Render the event announcement template for admin preview."""
         event = newsletter.event
 
@@ -290,24 +342,25 @@ class NewsletterAdmin(admin.ModelAdmin):
             except Exception:
                 pass
 
-        context = {
-            'first_name': first_name,
-            'event': event,
-            'event_title': event.title,
-            'event_description': event.description,
-            'event_image_url': event_image_url,
-            'event_url': f'https://crush.lu/en/events/{event.pk}/',
-            'spots_remaining': event.spots_remaining,
-            'unsubscribe_url': '#unsubscribe',
-            'home_url': 'https://crush.lu',
-            'about_url': 'https://crush.lu/about/',
-            'events_url': 'https://crush.lu/events/',
-            'settings_url': 'https://crush.lu/account/settings/',
-            'LANGUAGE_CODE': 'en',
-        }
-        return render_to_string(
-            'crush_lu/emails/event_announcement.html', context
-        )
+        with translation.override(lang):
+            context = {
+                'first_name': first_name,
+                'event': event,
+                'event_title': event.title,
+                'event_description': event.description,
+                'event_image_url': event_image_url,
+                'event_url': f'https://crush.lu/{lang}/events/{event.pk}/',
+                'spots_remaining': event.spots_remaining,
+                'unsubscribe_url': '#unsubscribe',
+                'home_url': 'https://crush.lu',
+                'about_url': 'https://crush.lu/about/',
+                'events_url': 'https://crush.lu/events/',
+                'settings_url': 'https://crush.lu/account/settings/',
+                'LANGUAGE_CODE': lang,
+            }
+            return render_to_string(
+                'crush_lu/emails/event_announcement.html', context
+            )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -360,7 +413,10 @@ class NewsletterAdmin(admin.ModelAdmin):
         """Render the newsletter email template as a standalone HTML page."""
         newsletter = Newsletter.objects.get(pk=pk)
         first_name = request.user.first_name or 'Preview'
-        html = self._render_preview(newsletter, first_name=first_name)
+        lang = request.GET.get('lang', 'en')
+        if lang not in ('en', 'de', 'fr'):
+            lang = 'en'
+        html = self._render_preview(newsletter, first_name=first_name, lang=lang)
         return HttpResponse(html)
 
     def send_view(self, request, pk):

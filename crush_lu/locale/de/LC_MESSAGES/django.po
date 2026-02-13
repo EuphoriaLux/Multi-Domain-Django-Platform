@@ -8965,8 +8965,7 @@ msgid "Fee:"
 msgstr "Gebühr:"
 
 #: .\templates\crush_lu\emails\event_announcement.html:46
-#, fuzzy, python-format
-#| msgid "%(spots)s spots left"
+#, python-format
 msgid "Only %(spots)s spot remaining!"
 msgid_plural "%(spots)s spots remaining"
 msgstr[0] "Nur noch %(spots)s Platz frei!"
@@ -8977,17 +8976,13 @@ msgid "Register Now"
 msgstr "Jetzt anmelden"
 
 #: .\templates\crush_lu\emails\event_announcement.html:55
-#, fuzzy
-#| msgid "See you soon!"
 msgid "See you there!"
 msgstr "Bis dann!"
 
 #: .\templates\crush_lu\emails\event_announcement.html:61
 #: .\templates\crush_lu\emails\newsletter.html:21
-#, fuzzy
-#| msgid "You're receiving this because you have an account on Crush.lu."
 msgid "You're receiving this because you're a member of Crush.lu."
-msgstr "Sie erhalten dies, weil Sie ein Konto bei Crush.lu haben."
+msgstr "Du erhältst diese E-Mail, weil du Mitglied bei Crush.lu bist."
 
 #: .\templates\crush_lu\emails\event_cancellation.html:4
 #: .\templates\crush_lu\emails\event_cancellation.html:6
