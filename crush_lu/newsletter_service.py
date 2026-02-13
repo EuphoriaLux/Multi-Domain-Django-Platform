@@ -49,6 +49,12 @@ def get_newsletter_recipients(newsletter):
         users = User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif newsletter.audience == 'approved_profiles':
         users = User.objects.filter(is_active=True, crushprofile__is_approved=True)
+    elif newsletter.audience == 'pending_review':
+        from .models.profiles import ProfileSubmission
+        pending_user_ids = ProfileSubmission.objects.filter(
+            status='pending',
+        ).values_list('profile__user_id', flat=True)
+        users = User.objects.filter(is_active=True, id__in=pending_user_ids)
     elif newsletter.audience == 'segment':
         users = _get_segment_users(newsletter.segment_key)
     else:
@@ -74,12 +80,23 @@ def get_newsletter_recipients(newsletter):
                 crushprofile__preferred_language=newsletter.language
             )
 
+    # For event announcements, exclude users already registered for the event
+    if newsletter.event_id:
+        from .models.events import EventRegistration
+        registered_user_ids = EventRegistration.objects.filter(
+            event=newsletter.event,
+            status__in=['confirmed', 'waitlist', 'attended'],
+        ).values_list('user_id', flat=True)
+        users = users.exclude(id__in=registered_user_ids)
+
     # Exclude users already processed for this newsletter (resumability)
-    already_processed_ids = NewsletterRecipient.objects.filter(
-        newsletter=newsletter,
-        status__in=['sent', 'skipped'],
-    ).values_list('user_id', flat=True)
-    users = users.exclude(id__in=already_processed_ids)
+    # Skip this filter for unsaved newsletters (e.g. estimate-only calls)
+    if newsletter.pk:
+        already_processed_ids = NewsletterRecipient.objects.filter(
+            newsletter=newsletter,
+            status__in=['sent', 'skipped'],
+        ).values_list('user_id', flat=True)
+        users = users.exclude(id__in=already_processed_ids)
 
     return users.distinct()
 
@@ -277,50 +294,123 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
     return {'sent': sent, 'failed': failed, 'skipped': skipped}
 
 
-def _send_newsletter_to_user(newsletter, user):
+def render_event_announcement(event, user, lang):
     """
-    Render and send a newsletter email to a single user.
+    Render the event announcement email template for a specific user and language.
 
-    Uses the user's preferred language for template rendering and URL generation.
-    Sends from love@crush.lu via Graph API.
+    Uses translation.override() so that event.title/description return the
+    translated version, and all {% trans %} tags render in the user's language.
+
+    Returns:
+        tuple: (subject, html_message)
     """
     from .models import EmailPreference
 
-    lang = get_user_preferred_language(user=user, default='en')
-
-    # Build unsubscribe URL
     email_prefs = EmailPreference.get_or_create_for_user(user)
     unsubscribe_url = build_absolute_url(
         'crush_lu:email_unsubscribe',
         lang=lang,
         kwargs={'token': email_prefs.unsubscribe_token},
     )
+    event_url = build_absolute_url(
+        'crush_lu:event_detail',
+        lang=lang,
+        kwargs={'event_id': event.pk},
+    )
 
-    context = {
-        'user': user,
-        'first_name': user.first_name,
-        'body_html': newsletter.body_html,
-        'unsubscribe_url': unsubscribe_url,
-        'home_url': build_absolute_url('crush_lu:home', lang=lang),
-        'about_url': build_absolute_url('crush_lu:about', lang=lang),
-        'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
-        'settings_url': build_absolute_url('crush_lu:account_settings', lang=lang),
-        'LANGUAGE_CODE': lang,
-    }
+    # Get event image URL if available
+    event_image_url = None
+    if event.image:
+        try:
+            event_image_url = event.image.url
+        except Exception:
+            pass
 
     with translation.override(lang):
+        subject = translation.gettext("New Event: %(title)s") % {
+            'title': event.title,
+        }
+
+        context = {
+            'user': user,
+            'first_name': user.first_name,
+            'event': event,
+            'event_title': event.title,
+            'event_description': event.description,
+            'event_image_url': event_image_url,
+            'event_url': event_url,
+            'spots_remaining': event.spots_remaining,
+            'unsubscribe_url': unsubscribe_url,
+            'home_url': build_absolute_url('crush_lu:home', lang=lang),
+            'about_url': build_absolute_url('crush_lu:about', lang=lang),
+            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
+            'settings_url': build_absolute_url(
+                'crush_lu:account_settings', lang=lang
+            ),
+            'LANGUAGE_CODE': lang,
+        }
+
         html_message = render_to_string(
-            'crush_lu/emails/newsletter.html', context
+            'crush_lu/emails/event_announcement.html', context
         )
 
-    # Plain text fallback
-    if newsletter.body_text:
-        plain_message = newsletter.body_text
-    else:
+    return subject, html_message
+
+
+def _send_newsletter_to_user(newsletter, user):
+    """
+    Render and send a newsletter email to a single user.
+
+    Uses the user's preferred language for template rendering and URL generation.
+    For event announcements, renders event_announcement.html with translated content.
+    Sends from love@crush.lu via Graph API.
+    """
+    from .models import EmailPreference
+
+    lang = get_user_preferred_language(user=user, default='en')
+
+    if newsletter.event_id:
+        # Event announcement: auto-generate content per-user in their language
+        subject, html_message = render_event_announcement(
+            newsletter.event, user, lang
+        )
         plain_message = strip_tags(html_message)
+    else:
+        # Standard newsletter: use static body_html
+        email_prefs = EmailPreference.get_or_create_for_user(user)
+        unsubscribe_url = build_absolute_url(
+            'crush_lu:email_unsubscribe',
+            lang=lang,
+            kwargs={'token': email_prefs.unsubscribe_token},
+        )
+
+        context = {
+            'user': user,
+            'first_name': user.first_name,
+            'body_html': newsletter.body_html,
+            'unsubscribe_url': unsubscribe_url,
+            'home_url': build_absolute_url('crush_lu:home', lang=lang),
+            'about_url': build_absolute_url('crush_lu:about', lang=lang),
+            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
+            'settings_url': build_absolute_url(
+                'crush_lu:account_settings', lang=lang
+            ),
+            'LANGUAGE_CODE': lang,
+        }
+
+        with translation.override(lang):
+            html_message = render_to_string(
+                'crush_lu/emails/newsletter.html', context
+            )
+
+        subject = newsletter.subject
+        if newsletter.body_text:
+            plain_message = newsletter.body_text
+        else:
+            plain_message = strip_tags(html_message)
 
     send_domain_email(
-        subject=newsletter.subject,
+        subject=subject,
         message=plain_message,
         html_message=html_message,
         recipient_list=[user.email],

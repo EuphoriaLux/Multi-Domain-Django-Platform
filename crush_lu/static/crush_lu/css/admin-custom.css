@@ -1044,9 +1044,9 @@ a.metric-card:hover {
     box-sizing: border-box;
 }
 
-/* Make content and sidebar work together without overflow */
+/* Make content fill available width */
 #content {
-    max-width: calc(100% - 280px); /* Account for right sidebar */
+    max-width: 100%;
     box-sizing: border-box;
 }
 
@@ -1059,9 +1059,9 @@ a.metric-card:hover {
     box-sizing: border-box;
 }
 
-/* When nav sidebar is open, adjust content width */
+/* When nav sidebar is open, content still fills available space */
 .main.shifted #content {
-    max-width: calc(100% - 280px);
+    max-width: 100%;
 }
 
 /* Dashboard container should respect parent width */

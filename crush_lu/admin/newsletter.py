@@ -11,16 +11,18 @@ import threading
 from django import forms
 from django.contrib import admin, messages
 from django.db import close_old_connections
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from crush_lu.models.events import MeetupEvent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import (
     get_newsletter_recipients,
+    render_event_announcement,
     send_newsletter,
 )
 
@@ -47,8 +49,25 @@ def _get_segment_choices():
     return choices
 
 
+def _get_event_choices():
+    """Build choices for the event dropdown (published, future events)."""
+    from django.utils import timezone as tz
+
+    choices = [('', '— None —')]
+    events = MeetupEvent.objects.filter(
+        is_published=True,
+        is_cancelled=False,
+        date_time__gte=tz.now(),
+    ).order_by('date_time')
+    for event in events:
+        date_str = event.date_time.strftime('%b %d')
+        label = f"{event.title} ({date_str})"
+        choices.append((event.pk, label))
+    return choices
+
+
 class NewsletterAdminForm(forms.ModelForm):
-    """Custom form with segment validation."""
+    """Custom form with segment validation and event selection."""
 
     class Meta:
         model = Newsletter
@@ -67,10 +86,20 @@ class NewsletterAdminForm(forms.ModelForm):
                 'Only used when audience is "Specific user segment".'
             )
 
+        event_field = self.fields.get('event')
+        if event_field:
+            event_field.widget = forms.Select(choices=_get_event_choices())
+            event_field.help_text = 'Auto-generates content. Registered users excluded.'
+
+        # Make body_html not required (auto-generated for event newsletters)
+        if 'body_html' in self.fields:
+            self.fields['body_html'].required = False
+
     def clean(self):
         cleaned_data = super().clean()
         audience = cleaned_data.get('audience')
         segment_key = cleaned_data.get('segment_key')
+        event = cleaned_data.get('event')
 
         if audience == 'segment' and not segment_key:
             self.add_error(
@@ -81,6 +110,18 @@ class NewsletterAdminForm(forms.ModelForm):
         elif audience != 'segment':
             # Clear segment_key when not using segment audience
             cleaned_data['segment_key'] = ''
+
+        # When event is selected, auto-populate subject if empty
+        if event and not cleaned_data.get('subject'):
+            cleaned_data['subject'] = f"New Event: {event.title}"
+
+        # body_html is required only for non-event newsletters
+        if not event and not cleaned_data.get('body_html'):
+            self.add_error(
+                'body_html',
+                'Body HTML is required for standard newsletters '
+                '(without an event selected).',
+            )
 
         return cleaned_data
 
@@ -117,8 +158,9 @@ class NewsletterAdmin(admin.ModelAdmin):
     change_form_template = 'admin/crush_lu/newsletter/change_form.html'
 
     list_display = (
-        'subject', 'get_status_badge', 'audience', 'language', 'total_sent',
-        'total_failed', 'total_skipped', 'created_at', 'sent_at',
+        'subject', 'get_status_badge', 'get_event_badge', 'audience',
+        'language', 'total_sent', 'total_failed', 'total_skipped',
+        'created_at', 'sent_at',
     )
     list_filter = ('status', 'audience', 'language', 'created_at')
     search_fields = ('subject',)
@@ -131,26 +173,23 @@ class NewsletterAdmin(admin.ModelAdmin):
     inlines = [NewsletterRecipientInline]
 
     class Media:
+        css = {'all': ('crush_lu/admin/css/newsletter_admin.css',)}
         js = ('crush_lu/admin/js/newsletter_admin.js',)
 
     fieldsets = (
+        ('Event', {
+            'fields': ('event',),
+        }),
         ('Content', {
             'fields': ('subject', 'body_html', 'body_text'),
         }),
         ('Email Preview', {
             'fields': ('email_preview',),
-            'description': 'Save the newsletter first to see the preview. '
-                           'The preview shows exactly what recipients will receive.',
         }),
         ('Targeting', {
             'fields': (
                 'audience', 'segment_key', 'language',
                 'estimated_recipients',
-            ),
-            'description': (
-                'Choose who receives this newsletter. '
-                'Select "Specific user segment" and pick a segment from '
-                'the dropdown.'
             ),
         }),
         ('Status & Statistics', {
@@ -169,13 +208,18 @@ class NewsletterAdmin(admin.ModelAdmin):
 
     def estimated_recipients(self, obj):
         if not obj.pk:
-            return format_html(
-                '<span style="color:#999;">Save the newsletter first to '
-                'see estimated recipients.</span>'
-            )
-        count = get_newsletter_recipients(obj).count()
+            count = 0
+            # For new newsletters, still try to estimate from defaults
+            temp = Newsletter(audience='all_users', language='all')
+            try:
+                count = get_newsletter_recipients(temp).count()
+            except Exception:
+                pass
+        else:
+            count = get_newsletter_recipients(obj).count()
         return format_html(
-            '<span style="background:#3b82f6; color:white; padding:2px 10px; '
+            '<span id="estimated-recipients-badge" '
+            'style="background:#3b82f6; color:white; padding:2px 10px; '
             'border-radius:10px; font-size:12px; font-weight:600;">'
             '{} recipient{}</span>',
             count,
@@ -220,6 +264,9 @@ class NewsletterAdmin(admin.ModelAdmin):
 
     def _render_preview(self, newsletter, first_name='Preview'):
         """Render the newsletter template with placeholder context."""
+        if newsletter.event_id:
+            return self._render_event_preview(newsletter, first_name)
+
         context = {
             'first_name': first_name,
             'body_html': newsletter.body_html,
@@ -232,9 +279,44 @@ class NewsletterAdmin(admin.ModelAdmin):
         }
         return render_to_string('crush_lu/emails/newsletter.html', context)
 
+    def _render_event_preview(self, newsletter, first_name='Preview'):
+        """Render the event announcement template for admin preview."""
+        event = newsletter.event
+
+        event_image_url = None
+        if event.image:
+            try:
+                event_image_url = event.image.url
+            except Exception:
+                pass
+
+        context = {
+            'first_name': first_name,
+            'event': event,
+            'event_title': event.title,
+            'event_description': event.description,
+            'event_image_url': event_image_url,
+            'event_url': f'https://crush.lu/en/events/{event.pk}/',
+            'spots_remaining': event.spots_remaining,
+            'unsubscribe_url': '#unsubscribe',
+            'home_url': 'https://crush.lu',
+            'about_url': 'https://crush.lu/about/',
+            'events_url': 'https://crush.lu/events/',
+            'settings_url': 'https://crush.lu/account/settings/',
+            'LANGUAGE_CODE': 'en',
+        }
+        return render_to_string(
+            'crush_lu/emails/event_announcement.html', context
+        )
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
+            path(
+                'estimate-recipients/',
+                self.admin_site.admin_view(self.estimate_recipients_view),
+                name='crush_lu_newsletter_estimate_recipients',
+            ),
             path(
                 '<int:pk>/preview/',
                 self.admin_site.admin_view(self.preview_view),
@@ -247,6 +329,32 @@ class NewsletterAdmin(admin.ModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def estimate_recipients_view(self, request):
+        """AJAX endpoint: estimate recipient count based on form field values."""
+        audience = request.GET.get('audience', 'all_users')
+        segment_key = request.GET.get('segment_key', '')
+        language = request.GET.get('language', 'all')
+        event_id = request.GET.get('event', '')
+
+        # Build a temporary Newsletter-like object for get_newsletter_recipients
+        newsletter = Newsletter(
+            audience=audience,
+            segment_key=segment_key,
+            language=language,
+        )
+        if event_id:
+            try:
+                newsletter.event_id = int(event_id)
+            except (ValueError, TypeError):
+                pass
+
+        try:
+            count = get_newsletter_recipients(newsletter).count()
+        except Exception:
+            count = 0
+
+        return JsonResponse({'count': count})
 
     def preview_view(self, request, pk):
         """Render the newsletter email template as a standalone HTML page."""
@@ -345,6 +453,15 @@ class NewsletterAdmin(admin.ModelAdmin):
         )
     get_status_badge.short_description = 'Status'
     get_status_badge.admin_order_field = 'status'
+
+    def get_event_badge(self, obj):
+        if obj.event_id:
+            return format_html(
+                '<span style="background:#9B59B6; color:white; padding:2px 8px; '
+                'border-radius:10px; font-size:11px;">Event</span>'
+            )
+        return ''
+    get_event_badge.short_description = 'Type'
 
     def save_model(self, request, obj, form, change):
         if not change:

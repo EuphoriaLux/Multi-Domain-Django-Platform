@@ -1,0 +1,62 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event Announcement" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "New Event" %} {% endblock %}
+
+{% block content %}
+<h2 style="color: #9B59B6; font-size: 22px; margin-top: 0;">
+    {% if first_name %}{% blocktrans with name=first_name %}Hey {{ name }}!{% endblocktrans %}{% else %}{% trans "Hey there!" %}{% endif %}
+</h2>
+
+<p>{% trans "We have an exciting event coming up and we'd love for you to join!" %}</p>
+
+{% if event_image_url %}
+<div style="margin: 20px 0; text-align: center;">
+    <img src="{{ event_image_url }}" alt="{{ event_title }}" style="max-width: 100%; height: auto; border-radius: 8px;">
+</div>
+{% endif %}
+
+<h3 style="color: #9B59B6; font-size: 20px; margin-bottom: 5px;">{{ event_title }}</h3>
+
+<div class="info-box">
+    <strong>{% trans "Event Details:" %}</strong>
+    <ul style="margin: 10px 0; list-style: none; padding-left: 0;">
+        <li style="margin: 8px 0;">{% trans "Date:" %} <strong>{{ event.date_time|date:"l, F j, Y" }}</strong></li>
+        <li style="margin: 8px 0;">{% trans "Time:" %} <strong>{{ event.date_time|date:"g:i A" }}</strong></li>
+        <li style="margin: 8px 0;">{% trans "Location:" %} <strong>{{ event.location }}</strong><br>
+            <span style="color: #666; padding-left: 0;">{{ event.address }}<br>
+            {{ event.canton|default:"Luxembourg" }}, Luxembourg</span>
+        </li>
+        {% if event.registration_fee %}
+        <li style="margin: 8px 0;">{% trans "Fee:" %} <strong>&euro;{{ event.registration_fee }}</strong></li>
+        {% endif %}
+    </ul>
+</div>
+
+{% if event_description %}
+<div style="margin: 20px 0; color: #555;">
+    {{ event_description|linebreaks }}
+</div>
+{% endif %}
+
+{% if spots_remaining is not None %}
+<p style="color: #e67e22; font-weight: 600;">
+    {% blocktrans count spots=spots_remaining %}Only {{ spots }} spot remaining!{% plural %}{{ spots }} spots remaining{% endblocktrans %}
+</p>
+{% endif %}
+
+<p style="text-align: center; margin: 25px 0;">
+    <a href="{{ event_url }}" class="button" style="display: inline-block; padding: 14px 35px; background-color: #9B59B6; background: linear-gradient(135deg, #9B59B6, #FF6B9D); color: white !important; text-decoration: none; border-radius: 5px; font-weight: 600; font-size: 16px;">{% trans "Register Now" %}</a>
+</p>
+
+<p>
+    {% trans "See you there!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because you're a member of Crush.lu." %}<br>
+{% endblock %}

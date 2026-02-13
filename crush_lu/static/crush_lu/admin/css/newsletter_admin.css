@@ -1,0 +1,9 @@
+/* Newsletter admin mobile fixes */
+.field-event select,
+.field-audience select,
+.field-segment_key select,
+.field-language select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}

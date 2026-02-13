@@ -13,6 +13,7 @@ class Newsletter(models.Model):
         ('all_users', _('All registered users')),
         ('all_profiles', _('Users who created a profile')),
         ('approved_profiles', _('Users with approved profiles')),
+        ('pending_review', _('Users awaiting coach approval')),
         ('segment', _('Specific user segment')),
     ]
 
@@ -23,10 +24,21 @@ class Newsletter(models.Model):
         ('failed', _('Failed')),
     ]
 
+    # Event (optional - auto-generates content per-user in their language)
+    event = models.ForeignKey(
+        'crush_lu.MeetupEvent',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='newsletters',
+        help_text=_("Select an event to auto-generate announcement content per-user in their language"),
+    )
+
     # Content
     subject = models.CharField(max_length=200)
     body_html = models.TextField(
-        help_text=_("Newsletter body content (HTML)")
+        blank=True,
+        help_text=_("Newsletter body content (HTML). Auto-generated when event is selected.")
     )
     body_text = models.TextField(
         blank=True,
