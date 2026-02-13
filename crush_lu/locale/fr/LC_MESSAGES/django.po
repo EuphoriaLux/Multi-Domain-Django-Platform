@@ -1158,7 +1158,7 @@ msgstr "Requis pour le dépistage des coachs et la coordination des événements
 #: .\crush_lu\forms.py:148
 #: .\crush_lu\templates\crush_lu\create_profile.html:250
 msgid "Must be 18+ to join"
-msgstr "Vous devez avoir 18 ans ou plus pour vous inscrire"
+msgstr "Tu dois avoir 18 ans ou plus pour t'inscrire"
 
 #: .\crush_lu\forms.py:157
 msgid ""
