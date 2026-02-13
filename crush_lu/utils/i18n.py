@@ -132,8 +132,10 @@ def build_absolute_url(url_name, lang=None, domain='crush.lu', https=True, **kwa
     lang = validate_language(lang)
 
     # Use override() to ensure reverse() generates the correct language-prefixed URL
+    # Must specify urlconf because this may run outside a request (e.g., newsletters)
+    # where ROOT_URLCONF doesn't have the crush_lu namespace.
     with override(lang):
-        path = reverse(url_name, **kwargs)
+        path = reverse(url_name, urlconf='azureproject.urls_crush', **kwargs)
 
     protocol = 'https' if https else 'http'
     return f"{protocol}://{domain}{path}"
