@@ -405,9 +405,21 @@ class Command(BaseCommand):
                     'question_fr': scramble_fr.get('question', ''),
                     'success_message_fr': scramble_fr.get('success_message', ''),
                     # Options per language (django-modeltranslation creates options_en, options_de, options_fr)
-                    'options_en': {'scrambled': scramble_en.get('scrambled', 'TFSIR PELIMS')},
-                    'options_de': {'scrambled': scramble_de.get('scrambled', 'SERETS LHCEÄNL')},
-                    'options_fr': {'scrambled': scramble_fr.get('scrambled', 'RPMEERI SRIROUE')},
+                    'options_en': {
+                        'scrambled': scramble_en.get('scrambled', 'TFSIR PELIMS'),
+                        'answer': 'FIRST SMILE',
+                        'alternatives': ['first smile', 'FIRSTSMILE', 'firstsmile'],
+                    },
+                    'options_de': {
+                        'scrambled': scramble_de.get('scrambled', 'SERETS LHCEÄNL'),
+                        'answer': 'ERSTES LÄCHELN',
+                        'alternatives': ['erstes lächeln', 'ERSTESLÄCHELN', 'ersteslächeln'],
+                    },
+                    'options_fr': {
+                        'scrambled': scramble_fr.get('scrambled', 'RPMEERI SRIROUE'),
+                        'answer': 'PREMIER SOURIRE',
+                        'alternatives': ['premier sourire', 'PREMIERSOURIRE', 'premiersourire'],
+                    },
                     'correct_answer': scramble_en.get('answer', 'FIRST SMILE'),
                     'alternative_answers': ['first smile', 'FIRSTSMILE', 'firstsmile'],
                     'points_awarded': 50,

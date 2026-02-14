@@ -5130,10 +5130,10 @@ document.addEventListener('alpine:init', function() {
             updateAnswer: function(event) {
                 // In CSP mode, get value from event parameter or query DOM
                 if (event && event.target) {
-                    this.answer = event.target.value;
+                    this.answer = event.target.value.toUpperCase();
                 } else {
                     var input = this.$el.querySelector('#answerInput');
-                    if (input) this.answer = input.value;
+                    if (input) this.answer = input.value.toUpperCase();
                 }
             },
 

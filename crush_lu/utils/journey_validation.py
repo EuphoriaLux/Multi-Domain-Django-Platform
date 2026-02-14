@@ -35,7 +35,7 @@ def normalize_answer(answer: str, challenge_type: str) -> str:
     normalized = re.sub(r'\s+', ' ', normalized)
 
     # Type-specific normalization
-    if challenge_type in ['text_input', 'riddle']:
+    if challenge_type in ['text_input', 'riddle', 'word_scramble']:
         # Case-insensitive comparison for text inputs and riddles
         normalized = normalized.lower()
         # Remove common punctuation for more forgiving matching

@@ -108,16 +108,24 @@ def submit_challenge(request):
             points_earned = challenge.points_awarded  # Full points awarded
             hints_used = []  # No hints in questionnaire mode
         else:
+            # For word_scramble, use language-specific answer from options if available
+            if challenge.challenge_type == 'word_scramble' and isinstance(challenge.options, dict) and challenge.options.get('answer'):
+                correct = challenge.options['answer']
+                alts = challenge.options.get('alternatives', [])
+            else:
+                correct = challenge.correct_answer
+                alts = challenge.alternative_answers or []
+
             # Regular validation using utility functions
             is_correct = compare_answers(
                 user_answer,
-                challenge.correct_answer,
+                correct,
                 challenge.challenge_type
             )
 
             # Also check alternative answers if provided
-            if not is_correct and challenge.alternative_answers:
-                for alt_answer in challenge.alternative_answers:
+            if not is_correct and alts:
+                for alt_answer in alts:
                     if compare_answers(user_answer, alt_answer, challenge.challenge_type):
                         is_correct = True
                         break
