@@ -145,18 +145,7 @@ def google_event_ticket_jwt(request, registration_id):
     Validates that the current user owns the registration and that the
     registration status is confirmed or attended.
     """
-    if not _is_google_wallet_configured():
-        return JsonResponse(
-            {"error": "Google Wallet is not configured on this server."},
-            status=503,
-        )
-
-    if not getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True):
-        return JsonResponse(
-            {"error": "Event tickets are not enabled."},
-            status=503,
-        )
-
+    # Check ownership first (don't reveal service config to unauthorized users)
     try:
         registration = EventRegistration.objects.select_related(
             "event", "user", "user__crushprofile"
@@ -168,6 +157,18 @@ def google_event_ticket_jwt(request, registration_id):
         return JsonResponse(
             {"error": "Only confirmed registrations can be added to wallet."},
             status=400,
+        )
+
+    if not _is_google_wallet_configured():
+        return JsonResponse(
+            {"error": "Google Wallet is not configured on this server."},
+            status=503,
+        )
+
+    if not getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True):
+        return JsonResponse(
+            {"error": "Event tickets are not enabled."},
+            status=503,
         )
 
     try:
