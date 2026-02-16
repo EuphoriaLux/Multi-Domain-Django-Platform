@@ -55,7 +55,7 @@ heroicons[django]==2.13.0
 
 # Push Notifications
 py-vapid==1.9.4
-pywebpush==2.2.0
+pywebpush==2.3.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
