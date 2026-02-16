@@ -125,9 +125,19 @@ class Command(BaseCommand):
             processed = process_uploaded_image(raw_file, field.name)
             new_size = processed.size
 
-            # Save back to the same path (overwrite)
-            blob_name = field.name
-            field.save(blob_name, processed, save=False)
+            # Delete the old blob first, then save the new one.
+            # The storage backend generates unique names (UUID) on save,
+            # so without deleting first we'd leave orphan blobs.
+            old_blob_name = field.name
+            storage = field.storage
+            field.save(old_blob_name, processed, save=False)
+
+            # Delete old blob if the path changed (storage generated a new name)
+            if field.name != old_blob_name:
+                try:
+                    storage.delete(old_blob_name)
+                except Exception:
+                    logger.warning("Could not delete old blob: %s", old_blob_name)
 
             # Save the model to persist the field reference
             obj.save(update_fields=[field_name])
