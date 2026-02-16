@@ -17,6 +17,7 @@ import re
 import requests
 from django.core.cache import cache
 from django.core.files.base import ContentFile
+from .utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
 
@@ -347,8 +348,12 @@ def download_and_save_social_photo(user, social_account, photo_slot):
             elif 'webp' in content_type:
                 ext = 'webp'
 
-        # Save to appropriate photo field
+        # Process image: fix orientation, strip EXIF metadata, resize
         filename = f'{social_account.provider}_{user.id}.{ext}'
+        raw_file = ContentFile(image_data, name=filename)
+        processed = process_uploaded_image(raw_file, filename)
+
+        # Save to appropriate photo field
         photo_field = getattr(profile, f'photo_{photo_slot}')
 
         # Delete existing photo if any
@@ -359,7 +364,7 @@ def download_and_save_social_photo(user, social_account, photo_slot):
                 pass
 
         # Save new photo
-        photo_field.save(filename, ContentFile(image_data), save=False)
+        photo_field.save(filename, processed, save=False)
         profile.save()
 
         # Get the new photo URL for response

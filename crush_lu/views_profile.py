@@ -16,6 +16,7 @@ from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
 from .coach_notifications import notify_coach_new_submission, notify_coach_user_revision
 from .email_helpers import send_profile_submission_notifications
+from .utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +322,9 @@ def upload_photo_draft(request):
 
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
+
+        # Process image: fix orientation, strip EXIF metadata, resize
+        photo_file = process_uploaded_image(photo_file)
 
         # Save photo to the appropriate field
         photo_field = f'photo_{photo_number}'

@@ -601,9 +601,9 @@ class CrushProfile(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Override save to enforce phone verification protection at model level.
-        Once a phone is verified, it cannot be changed without explicit reset.
-        This is the single source of truth for phone protection logic.
+        Override save to:
+        1. Enforce phone verification protection at model level.
+        2. Delete old photo blobs when photos are replaced to prevent orphans.
         """
         if self.pk:  # Only on update, not create
             try:
@@ -614,6 +614,16 @@ class CrushProfile(models.Model):
                     self.phone_verified = old_instance.phone_verified
                     self.phone_verified_at = old_instance.phone_verified_at
                     self.phone_verification_uid = old_instance.phone_verification_uid
+
+                # Clean up old photo blobs when replaced or cleared
+                for field_name in ("photo_1", "photo_2", "photo_3"):
+                    old_photo = getattr(old_instance, field_name)
+                    new_photo = getattr(self, field_name)
+                    if old_photo and old_photo.name != getattr(new_photo, "name", None):
+                        try:
+                            old_photo.storage.delete(old_photo.name)
+                        except Exception:
+                            pass  # Don't block save if cleanup fails
             except CrushProfile.DoesNotExist:
                 pass
         super().save(*args, **kwargs)
