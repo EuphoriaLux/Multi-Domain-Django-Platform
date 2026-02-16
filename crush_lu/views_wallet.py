@@ -6,7 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 
-from .models import CrushProfile
+from .models import CrushProfile, EventRegistration
 
 logger = logging.getLogger(__name__)
 
@@ -132,5 +132,58 @@ def google_wallet_jwt(request):
         logger.exception("Error generating Google Wallet JWT: %s", e)
         return JsonResponse(
             {"error": "Failed to generate Google Wallet JWT."},
+            status=500,
+        )
+
+
+@login_required
+@require_GET
+def google_event_ticket_jwt(request, registration_id):
+    """
+    Generate and return a JWT for adding an event ticket to Google Wallet.
+
+    Validates that the current user owns the registration and that the
+    registration status is confirmed or attended.
+    """
+    if not _is_google_wallet_configured():
+        return JsonResponse(
+            {"error": "Google Wallet is not configured on this server."},
+            status=503,
+        )
+
+    if not getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True):
+        return JsonResponse(
+            {"error": "Event tickets are not enabled."},
+            status=503,
+        )
+
+    try:
+        registration = EventRegistration.objects.select_related(
+            "event", "user", "user__crushprofile"
+        ).get(id=registration_id, user=request.user)
+    except EventRegistration.DoesNotExist:
+        return JsonResponse({"error": "Registration not found."}, status=404)
+
+    if registration.status not in ("confirmed", "attended"):
+        return JsonResponse(
+            {"error": "Only confirmed registrations can be added to wallet."},
+            status=400,
+        )
+
+    try:
+        from .wallet.google_event_ticket import build_google_event_ticket_jwt
+
+        jwt_token = build_google_event_ticket_jwt(registration, request=request)
+        return JsonResponse({"jwt": jwt_token})
+    except ImproperlyConfigured as e:
+        logger.error("Google Wallet event ticket config error: %s", e)
+        return JsonResponse(
+            {"error": "Google Wallet is not properly configured."},
+            status=503,
+        )
+    except Exception as e:
+        logger.exception("Error generating event ticket JWT: %s", e)
+        return JsonResponse(
+            {"error": "Failed to generate event ticket JWT."},
             status=500,
         )

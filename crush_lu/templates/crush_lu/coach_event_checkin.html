@@ -1,0 +1,173 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Check-In" %} - {{ event.title }} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% trans "Check-In" %}</span>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "Event Check-In" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ event.title }} &middot; {{ event.date_time|date:"D, M j" }} {{ event.date_time|date:"g:i A" }}</p>
+        </div>
+    </div>
+</div>
+
+{# Attendance Stats #}
+<div class="grid grid-cols-2 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-3xl font-bold text-green-600 dark:text-green-400" id="attended-count">{{ attended_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Checked In" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-3xl font-bold dark:text-white">{{ confirmed_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Expected" %}</p>
+    </div>
+</div>
+
+{# QR Scanner Section #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6" x-data="coachCheckin">
+    {# Scanner Controls #}
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-lg dark:text-white">{% trans "QR Scanner" %}</h3>
+        <button @click="toggleScanner" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            <span x-text="scannerButtonText"></span>
+        </button>
+    </div>
+
+    {# Camera viewport #}
+    <div id="qr-reader" class="mb-4 rounded-lg overflow-hidden" style="display: none;"></div>
+
+    {# Scan Result Feedback #}
+    <div x-show="hasResult" class="mb-4" style="display: none;">
+        <div x-show="isSuccess" class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4" style="display: none;">
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-semibold text-green-800 dark:text-green-300" x-text="resultMessage"></span>
+            </div>
+        </div>
+        <div x-show="isError" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4" style="display: none;">
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-semibold text-red-800 dark:text-red-300" x-text="resultMessage"></span>
+            </div>
+        </div>
+    </div>
+
+    {# Recent Check-ins #}
+    <div x-show="recentCheckinCount" style="display: none;">
+        <h4 class="font-medium text-sm text-gray-500 dark:text-gray-400 mb-2">{% trans "Recent Check-ins" %}</h4>
+        <div class="space-y-2">
+            <template x-for="checkin in recentCheckins">
+                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2 text-sm">
+                    <span class="font-medium dark:text-white" x-text="checkin.name"></span>
+                    <span class="text-gray-400 dark:text-gray-500 text-xs" x-text="checkin.time"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+{# Manual Check-in Fallback - Attendee List #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+    <h3 class="font-semibold text-lg mb-4 dark:text-white">{% trans "Manual Check-In" %}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "Tap a name to manually check in an attendee." %}</p>
+
+    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for reg in registrations %}
+        <div class="py-3 flex items-center justify-between" id="manual-reg-{{ reg.id }}">
+            <div class="flex items-center gap-3">
+                {% if reg.status == 'attended' %}
+                    <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                {% else %}
+                    <span class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"></span>
+                {% endif %}
+                <div>
+                    <span class="font-medium text-sm dark:text-white">
+                        {% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}
+                    </span>
+                    {% if reg.checked_in_at %}
+                    <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ reg.checked_in_at|date:"g:i A" }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% if reg.status != 'attended' %}
+            <button
+                type="button"
+                class="manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors"
+                data-checkin-url="/api/events/checkin/{{ reg.id }}/{{ reg.checkin_token }}/"
+                data-reg-id="{{ reg.id }}"
+            >
+                {% trans "Check In" %}
+            </button>
+            {% else %}
+            <span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">{% trans "Checked In" %}</span>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 py-4">{% trans "No confirmed registrations for this event." %}</p>
+        {% endfor %}
+    </div>
+</div>
+
+{# html5-qrcode library #}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manual check-in buttons
+    document.querySelectorAll('.manual-checkin-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var url = btn.getAttribute('data-checkin-url');
+            var regId = btn.getAttribute('data-reg-id');
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            fetch(url, { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        var row = document.getElementById('manual-reg-' + regId);
+                        if (row) {
+                            // Replace circle with checkmark
+                            var circle = row.querySelector('.border-gray-300, .border-gray-600');
+                            if (circle) {
+                                circle.outerHTML = '<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                            }
+                            btn.outerHTML = '<span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">Checked In</span>';
+                        }
+                        // Update counter
+                        var counter = document.getElementById('attended-count');
+                        if (counter) {
+                            counter.textContent = parseInt(counter.textContent) + 1;
+                        }
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = 'Check In';
+                        alert(data.error || 'Check-in failed');
+                    }
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Check In';
+                    alert('Network error');
+                });
+        });
+    });
+});
+</script>
+{% endblock %}

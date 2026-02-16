@@ -1,0 +1,135 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "My Ticket" %} - {{ event.title }} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="flex justify-center">
+    <div class="w-full max-w-md">
+        <div class="flex items-center gap-3 mb-4">
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors text-sm">
+                {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                {% trans "Back to Event" %}
+            </a>
+        </div>
+
+        {# Ticket Card #}
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 overflow-hidden">
+            {# Purple header with event info #}
+            <div class="bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-5 text-white">
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
+                    </svg>
+                    <span class="text-sm font-medium opacity-80">{% trans "EVENT TICKET" %}</span>
+                </div>
+                <h1 class="text-xl font-bold leading-tight">{{ event.title }}</h1>
+                <p class="text-white/80 text-sm mt-1">{{ event.get_event_type_display }}</p>
+            </div>
+
+            {# Event details #}
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Date" %}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"D, M j, Y" }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Time" %}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"g:i A" }}</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Location" %}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.location }}</span>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs">{{ event.address }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {# Attendee name #}
+            <div class="px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <div class="flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4 text-crush-purple" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-semibold text-gray-900 dark:text-white">{{ display_name }}</span>
+                </div>
+            </div>
+
+            {# QR Code section #}
+            <div class="px-6 py-6 text-center">
+                {% if already_checked_in %}
+                    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+                        <svg class="w-8 h-8 text-green-500 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <p class="font-semibold text-green-800 dark:text-green-300">{% trans "You're checked in!" %}</p>
+                        {% if registration.checked_in_at %}
+                        <p class="text-sm text-green-600 dark:text-green-400 mt-1">{{ registration.checked_in_at|date:"g:i A" }}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <div id="qr-code-container" class="inline-block bg-white p-4 rounded-lg">
+                    <canvas id="qr-canvas" width="200" height="200"></canvas>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">{% trans "Show this QR code to the coach at the event entrance" %}</p>
+            </div>
+
+            {% if wallet_enabled %}
+            {# Add to Google Wallet button #}
+            <div class="px-6 pb-6 text-center" x-data="eventTicketButton" data-registration-id="{{ registration.id }}">
+                <button type="button" @click="saveToWallet" x-bind:disabled="isLoading" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {% get_current_language as LANGUAGE_CODE %}
+                    {% if LANGUAGE_CODE == 'de' %}
+                    <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto">
+                    {% elif LANGUAGE_CODE == 'fr' %}
+                    <img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto">
+                    {% else %}
+                    <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto">
+                    {% endif %}
+                </button>
+                <p x-show="hasError" x-text="errorMessage" class="text-sm text-red-500 mt-2" style="display: none;"></p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# QR Code Generator - lightweight canvas-based, CSP-safe #}
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var checkinUrl = '{{ checkin_url|escapejs }}';
+    var canvas = document.getElementById('qr-canvas');
+    if (canvas && checkinUrl) {
+        var qr = qrcode(0, 'M');
+        qr.addData(checkinUrl);
+        qr.make();
+
+        var ctx = canvas.getContext('2d');
+        var cellSize = Math.floor(200 / qr.getModuleCount());
+        var offset = Math.floor((200 - cellSize * qr.getModuleCount()) / 2);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 200, 200);
+
+        ctx.fillStyle = '#000000';
+        for (var row = 0; row < qr.getModuleCount(); row++) {
+            for (var col = 0; col < qr.getModuleCount(); col++) {
+                if (qr.isDark(row, col)) {
+                    ctx.fillRect(
+                        offset + col * cellSize,
+                        offset + row * cellSize,
+                        cellSize,
+                        cellSize
+                    );
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

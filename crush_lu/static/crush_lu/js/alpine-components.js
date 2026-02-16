@@ -13,6 +13,172 @@
 
 document.addEventListener('alpine:init', function() {
 
+    // Event ticket "Add to Google Wallet" button component
+    Alpine.data('eventTicketButton', function() {
+        return {
+            loading: false,
+            error: false,
+            errorMsg: '',
+
+            get isLoading() { return this.loading; },
+            get hasError() { return this.error; },
+            get errorMessage() { return this.errorMsg; },
+
+            saveToWallet: function() {
+                var self = this;
+                var regId = this.$el.closest('[data-registration-id]').getAttribute('data-registration-id');
+                if (!regId) return;
+
+                self.loading = true;
+                self.error = false;
+                self.errorMsg = '';
+
+                fetch('/wallet/google/event-ticket/' + regId + '/jwt/')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        self.loading = false;
+                        if (data.jwt) {
+                            window.open('https://pay.google.com/gp/v/save/' + data.jwt, '_blank');
+                        } else {
+                            self.error = true;
+                            self.errorMsg = data.error || 'Failed to generate ticket.';
+                        }
+                    })
+                    .catch(function(err) {
+                        self.loading = false;
+                        self.error = true;
+                        self.errorMsg = 'Network error. Please try again.';
+                    });
+            }
+        };
+    });
+
+    // Coach check-in scanner component
+    Alpine.data('coachCheckin', function() {
+        return {
+            scannerActive: false,
+            scanner: null,
+            result: false,
+            success: false,
+            errorState: false,
+            message: '',
+            checkins: [],
+
+            get scannerButtonText() { return this.scannerActive ? 'Stop Scanner' : 'Start Scanner'; },
+            get hasResult() { return this.result; },
+            get isSuccess() { return this.success; },
+            get isError() { return this.errorState; },
+            get resultMessage() { return this.message; },
+            get recentCheckins() { return this.checkins; },
+            get recentCheckinCount() { return this.checkins.length; },
+
+            toggleScanner: function() {
+                if (this.scannerActive) {
+                    this.stopScanner();
+                } else {
+                    this.startScanner();
+                }
+            },
+
+            startScanner: function() {
+                var self = this;
+                var readerEl = document.getElementById('qr-reader');
+                if (!readerEl) return;
+                readerEl.style.display = 'block';
+
+                if (typeof Html5Qrcode === 'undefined') {
+                    self.result = true;
+                    self.errorState = true;
+                    self.message = 'QR scanner library not loaded.';
+                    return;
+                }
+
+                self.scanner = new Html5Qrcode('qr-reader');
+                self.scanner.start(
+                    { facingMode: 'environment' },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    function(decodedText) {
+                        self.handleScan(decodedText);
+                    },
+                    function() {}
+                ).then(function() {
+                    self.scannerActive = true;
+                }).catch(function(err) {
+                    self.result = true;
+                    self.errorState = true;
+                    self.message = 'Could not start camera: ' + err;
+                    readerEl.style.display = 'none';
+                });
+            },
+
+            stopScanner: function() {
+                var self = this;
+                if (self.scanner) {
+                    self.scanner.stop().then(function() {
+                        self.scannerActive = false;
+                        var readerEl = document.getElementById('qr-reader');
+                        if (readerEl) readerEl.style.display = 'none';
+                    }).catch(function() {
+                        self.scannerActive = false;
+                    });
+                }
+            },
+
+            handleScan: function(url) {
+                var self = this;
+                // Pause scanning while processing
+                if (self.scanner) {
+                    self.scanner.pause(true);
+                }
+
+                // Extract check-in URL from QR code
+                // URL format: https://host/api/events/checkin/{reg_id}/{token}/
+                fetch(url, { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        self.result = true;
+                        if (data.success) {
+                            self.success = true;
+                            self.errorState = false;
+                            self.message = data.message;
+                            if (!data.already_checked_in) {
+                                self.checkins.unshift({
+                                    name: data.attendee_name,
+                                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+                                });
+                                // Update counter
+                                var counter = document.getElementById('attended-count');
+                                if (counter) {
+                                    counter.textContent = parseInt(counter.textContent) + 1;
+                                }
+                            }
+                        } else {
+                            self.success = false;
+                            self.errorState = true;
+                            self.message = data.error || 'Check-in failed.';
+                        }
+                        // Resume scanning after a brief delay
+                        setTimeout(function() {
+                            if (self.scanner && self.scannerActive) {
+                                try { self.scanner.resume(); } catch(e) {}
+                            }
+                        }, 2000);
+                    })
+                    .catch(function(err) {
+                        self.result = true;
+                        self.success = false;
+                        self.errorState = true;
+                        self.message = 'Network error or invalid QR code.';
+                        setTimeout(function() {
+                            if (self.scanner && self.scannerActive) {
+                                try { self.scanner.resume(); } catch(e) {}
+                            }
+                        }, 2000);
+                    });
+            }
+        };
+    });
+
     // Calendar dropdown component
     Alpine.data('calendarDropdown', function() {
         return {

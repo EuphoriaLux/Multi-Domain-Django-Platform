@@ -31,7 +31,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -163,9 +163,13 @@ urlpatterns = base_patterns + api_patterns + [
     # Profile Completion API (called from alpine-components.js with hardcoded paths)
     path('api/profile/complete/', views_profile.complete_profile_submission, name='api_complete_profile_submission'),
 
+    # Event Check-In API (language-neutral - called from QR codes and scanner)
+    path('api/events/checkin/<int:registration_id>/<str:token>/', views_checkin.event_checkin_api, name='event_checkin_api'),
+
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),
+    path('wallet/google/event-ticket/<int:registration_id>/jwt/', views_wallet.google_event_ticket_jwt, name='event_ticket_jwt'),
 
     # Google Wallet callback (called by Google when users save/delete passes)
     path('wallet/google/callback/', google_callback.google_wallet_callback, name='wallet_google_callback'),

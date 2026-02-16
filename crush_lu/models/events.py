@@ -118,6 +118,14 @@ class MeetupEvent(models.Model):
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
+
+    # Google Wallet Event Ticket
+    google_wallet_event_class_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text=_("Google Wallet EventTicketClass ID for this event"),
+    )
     enable_activity_voting = models.BooleanField(
         default=False,
         help_text=_(
@@ -289,6 +297,27 @@ class EventRegistration(models.Model):
     # Payment (if applicable)
     payment_confirmed = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
+
+    # QR Check-in
+    checkin_token = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text=_("Signed token for QR check-in"),
+    )
+    checked_in_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the attendee was checked in via QR scan"),
+    )
+
+    # Google Wallet Event Ticket
+    google_wallet_ticket_object_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text=_("Google Wallet EventTicketObject ID"),
+    )
 
     # Timestamps
     registered_at = models.DateTimeField(auto_now_add=True)

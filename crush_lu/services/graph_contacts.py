@@ -19,7 +19,10 @@ Graph API endpoints used:
 import logging
 import os
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    import requests
 
 from django.conf import settings
 

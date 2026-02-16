@@ -402,6 +402,43 @@ def sync_language_preference_on_login(sender, request, user, **kwargs):
 
 
 @receiver(post_save, sender=MeetupEvent)
+def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwargs):
+    """
+    Create a Google Wallet EventTicketClass when an event is published.
+
+    Only triggers when is_published changes to True and the event doesn't
+    already have a wallet class. Runs in a separate thread to avoid blocking.
+    """
+    if not instance.is_published:
+        return
+
+    if instance.google_wallet_event_class_id:
+        return
+
+    if not getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True):
+        return
+
+    # Check if Google Wallet is configured
+    if not getattr(settings, "WALLET_GOOGLE_ISSUER_ID", ""):
+        return
+
+    try:
+        from .wallet.google_event_ticket_api import create_event_ticket_class
+
+        result = create_event_ticket_class(instance)
+        if result["success"]:
+            logger.info(
+                f"Created EventTicketClass for event {instance.id}: {result['class_id']}"
+            )
+        else:
+            logger.warning(
+                f"Failed to create EventTicketClass for event {instance.id}: {result['message']}"
+            )
+    except Exception as e:
+        logger.error(f"Error creating EventTicketClass for event {instance.id}: {e}")
+
+
+@receiver(post_save, sender=MeetupEvent)
 def create_default_activity_options(sender, instance, created, **kwargs):
     """
     Automatically create the 6 standard activity options when a new event is created.
@@ -1375,6 +1412,44 @@ def trigger_wallet_pass_update_on_registration_change(
             logger.error(
                 f"Error triggering wallet update on registration change for user {instance.user_id}: {e}"
             )
+
+
+@receiver(post_save, sender=EventRegistration)
+def handle_event_ticket_on_registration_change(sender, instance, created, **kwargs):
+    """
+    Update Google Wallet event ticket when registration status changes.
+
+    - cancelled -> expire the ticket
+    - attended -> complete the ticket
+    """
+    if not instance.google_wallet_ticket_object_id:
+        return
+
+    if not getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True):
+        return
+
+    if created:
+        return
+
+    try:
+        from .wallet.google_event_ticket_api import expire_event_ticket, complete_event_ticket
+
+        if instance.status == "cancelled":
+            result = expire_event_ticket(instance)
+            if result["success"]:
+                logger.info(
+                    f"Expired event ticket for registration {instance.id}"
+                )
+        elif instance.status == "attended":
+            result = complete_event_ticket(instance)
+            if result["success"]:
+                logger.info(
+                    f"Completed event ticket for registration {instance.id}"
+                )
+    except Exception as e:
+        logger.error(
+            f"Error updating event ticket for registration {instance.id}: {e}"
+        )
 
 
 # =============================================================================

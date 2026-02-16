@@ -855,6 +855,38 @@ def coach_event_detail(request, event_id):
 
 
 @coach_required
+def coach_event_checkin(request, event_id):
+    """Coach check-in scanner page for scanning attendee QR codes."""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+
+    registrations = (
+        EventRegistration.objects.filter(event=event)
+        .exclude(status="cancelled")
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
+
+    confirmed = [r for r in registrations if r.status in ("confirmed", "attended")]
+    attended_count = sum(1 for r in confirmed if r.status == "attended")
+
+    # Ensure all confirmed registrations have check-in tokens for manual fallback
+    from crush_lu.views_ticket import _generate_checkin_token
+
+    for reg in confirmed:
+        if not reg.checkin_token:
+            _generate_checkin_token(reg)
+
+    context = {
+        "coach": request.coach,
+        "event": event,
+        "registrations": confirmed,
+        "confirmed_count": len(confirmed),
+        "attended_count": attended_count,
+    }
+    return render(request, "crush_lu/coach_event_checkin.html", context)
+
+
+@coach_required
 def coach_member_overview(request, user_id):
     """Coach view of a member's profile, event history, and connections"""
     from django.contrib.auth.models import User

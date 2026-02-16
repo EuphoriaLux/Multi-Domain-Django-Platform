@@ -91,6 +91,8 @@ from . import api_coach_push
 from . import views_advent
 from . import views_journey_gift
 from . import views_crush_spark
+from . import views_ticket
+from . import views_coach as views_coach_module
 
 app_name = 'crush_lu'
 
@@ -197,6 +199,7 @@ urlpatterns = [
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
     path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
+    path('events/<int:event_id>/ticket/', views_ticket.event_ticket, name='event_ticket'),
 
     # Event Activity Voting (Phase 1)
     path('events/<int:event_id>/voting/lobby/', views.event_voting_lobby, name='event_voting_lobby'),
@@ -263,6 +266,7 @@ urlpatterns = [
     # Coach event management
     path('coach/events/', views.coach_event_list, name='coach_event_list'),
     path('coach/events/<int:event_id>/', views.coach_event_detail, name='coach_event_detail'),
+    path('coach/events/<int:event_id>/checkin/', views_coach_module.coach_event_checkin, name='coach_event_checkin'),
 
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
