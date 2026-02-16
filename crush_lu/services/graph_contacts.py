@@ -18,6 +18,7 @@ Graph API endpoints used:
 
 import logging
 import os
+import time
 from typing import Optional
 
 from django.conf import settings
@@ -26,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 # Graph API endpoint
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
+
+# Rate limiting: delay between profiles during bulk sync (seconds)
+SYNC_DELAY_BETWEEN_PROFILES = 0.5
+
+# Retry config for 429 responses
+MAX_RETRIES = 3
+DEFAULT_RETRY_AFTER = 10  # seconds, if Retry-After header is missing
 
 
 def is_sync_enabled(request=None) -> bool:
@@ -149,6 +157,52 @@ class GraphContactsService:
             )
             logger.error(f"Failed to acquire Graph API access token: {error}")
             raise Exception(f"Failed to acquire access token: {error}")
+
+    def _request_with_retry(self, method, url, **kwargs) -> "requests.Response":
+        """
+        Make an HTTP request with automatic retry on 429 (Too Many Requests).
+
+        Reads the Retry-After header from Graph API and sleeps before retrying.
+
+        Args:
+            method: HTTP method ('get', 'post', 'patch', 'put', 'delete')
+            url: Request URL
+            **kwargs: Passed to requests.request()
+
+        Returns:
+            requests.Response
+
+        Raises:
+            Exception: If all retries are exhausted
+        """
+        import requests
+
+        for attempt in range(MAX_RETRIES + 1):
+            response = requests.request(method, url, **kwargs)
+
+            if response.status_code != 429:
+                return response
+
+            # Parse Retry-After header (seconds)
+            retry_after = DEFAULT_RETRY_AFTER
+            retry_header = response.headers.get("Retry-After")
+            if retry_header:
+                try:
+                    retry_after = int(retry_header)
+                except (ValueError, TypeError):
+                    pass
+
+            if attempt < MAX_RETRIES:
+                logger.warning(
+                    f"Graph API throttled (429), retry {attempt + 1}/{MAX_RETRIES} "
+                    f"after {retry_after}s"
+                )
+                time.sleep(retry_after)
+            else:
+                # All retries exhausted, return the 429 response
+                return response
+
+        return response  # Should not reach here
 
     def _build_contact_payload(self, profile) -> dict:
         """
@@ -287,8 +341,6 @@ class GraphContactsService:
         Returns:
             bool: True if successful, False otherwise
         """
-        import requests
-
         if not profile.photo_1:
             return False
 
@@ -314,8 +366,8 @@ class GraphContactsService:
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{contact_id}/photo/$value"
             headers = {"Authorization": f"Bearer {token}", "Content-Type": content_type}
 
-            response = requests.put(
-                endpoint, headers=headers, data=photo_content, timeout=60
+            response = self._request_with_retry(
+                "put", endpoint, headers=headers, data=photo_content, timeout=60
             )
 
             if response.status_code in [200, 204]:
@@ -343,8 +395,6 @@ class GraphContactsService:
         Returns:
             str: Outlook contact ID if successful, None otherwise
         """
-        import requests
-
         if not force and not is_sync_enabled():
             logger.debug("Outlook contact sync disabled for this environment")
             return None
@@ -359,8 +409,8 @@ class GraphContactsService:
                 "Content-Type": "application/json",
             }
 
-            response = requests.post(
-                endpoint, headers=headers, json=payload, timeout=30
+            response = self._request_with_retry(
+                "post", endpoint, headers=headers, json=payload, timeout=30
             )
 
             if response.status_code in [200, 201]:
@@ -399,8 +449,6 @@ class GraphContactsService:
         Returns:
             bool: True if successful, False otherwise
         """
-        import requests
-
         if not force and not is_sync_enabled():
             logger.debug("Outlook contact sync disabled for this environment")
             return False
@@ -419,7 +467,8 @@ class GraphContactsService:
             auth_header = {"Authorization": f"Bearer {token}"}
 
             # Fetch current ETag to avoid 412 concurrency conflicts
-            get_response = requests.get(
+            get_response = self._request_with_retry(
+                "get",
                 endpoint,
                 headers=auth_header,
                 params={"$select": "id"},
@@ -433,6 +482,12 @@ class GraphContactsService:
                 profile.outlook_contact_id = ""
                 profile.save(update_fields=["outlook_contact_id"])
                 return False
+            if get_response.status_code == 429:
+                logger.error(
+                    f"Failed to update Outlook contact for profile {profile.pk}: "
+                    f"throttled after retries"
+                )
+                return False
             etag = get_response.headers.get("ETag")
 
             headers = {
@@ -442,8 +497,8 @@ class GraphContactsService:
             if etag:
                 headers["If-Match"] = etag
 
-            response = requests.patch(
-                endpoint, headers=headers, json=payload, timeout=30
+            response = self._request_with_retry(
+                "patch", endpoint, headers=headers, json=payload, timeout=30
             )
 
             if response.status_code in [200, 204]:
@@ -474,7 +529,8 @@ class GraphContactsService:
                     f"Concurrency conflict updating contact for profile "
                     f"{profile.pk}, retrying"
                 )
-                get_response = requests.get(
+                get_response = self._request_with_retry(
+                    "get",
                     endpoint,
                     headers=auth_header,
                     params={"$select": "id"},
@@ -483,8 +539,8 @@ class GraphContactsService:
                 etag = get_response.headers.get("ETag")
                 if etag:
                     headers["If-Match"] = etag
-                response = requests.patch(
-                    endpoint, headers=headers, json=payload, timeout=30
+                response = self._request_with_retry(
+                    "patch", endpoint, headers=headers, json=payload, timeout=30
                 )
                 if response.status_code in [200, 204]:
                     logger.info(
@@ -525,8 +581,6 @@ class GraphContactsService:
         Returns:
             bool: True if successful, False otherwise
         """
-        import requests
-
         if not force and not is_sync_enabled():
             logger.debug("Outlook contact sync disabled for this environment")
             return False
@@ -541,7 +595,9 @@ class GraphContactsService:
                 "Authorization": f"Bearer {token}",
             }
 
-            response = requests.delete(endpoint, headers=headers, timeout=30)
+            response = self._request_with_retry(
+                "delete", endpoint, headers=headers, timeout=30
+            )
 
             if response.status_code in [200, 204]:
                 logger.info(f"Deleted Outlook contact: {outlook_contact_id}")
@@ -682,6 +738,9 @@ class GraphContactsService:
                     logger.error(f"Error syncing profile {profile.pk}: {e}")
                     stats["errors"] += 1
 
+                # Rate limit: pause between profiles to avoid Graph API throttling
+                time.sleep(SYNC_DELAY_BETWEEN_PROFILES)
+
         return stats
 
     def list_all_contacts_from_outlook(self) -> list:
@@ -691,8 +750,6 @@ class GraphContactsService:
         Returns:
             list: List of contact objects with id and displayName
         """
-        import requests
-
         if not is_sync_enabled():
             logger.warning("Outlook contact sync disabled for this environment")
             return []
@@ -709,7 +766,9 @@ class GraphContactsService:
 
             # Handle pagination
             while next_link:
-                response = requests.get(next_link, headers=headers, timeout=30)
+                response = self._request_with_retry(
+                    "get", next_link, headers=headers, timeout=30
+                )
 
                 if response.status_code != 200:
                     logger.error(
