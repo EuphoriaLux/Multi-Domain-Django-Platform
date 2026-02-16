@@ -160,6 +160,7 @@ from .views_coach import (  # noqa: F401
     coach_event_detail,
     coach_member_overview,
     coach_reassign_submission,
+    coach_verification_history,
 )
 
 # Voting & presentations

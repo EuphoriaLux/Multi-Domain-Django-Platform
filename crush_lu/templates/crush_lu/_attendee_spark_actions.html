@@ -1,0 +1,49 @@
+{% load i18n static %}
+<div id="spark-actions-{{ attendee.user.id }}">
+    {% if spark %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
+            <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+            {% trans "Crush Spark Sent" %}
+        </span>
+    {% elif spark_deadline_active and sparks_remaining > 0 %}
+        <div x-data="sparkConfirm">
+            <!-- Initial button -->
+            <button x-show="isInitial"
+                    @click="showConfirm"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full transition-colors cursor-pointer">
+                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+                {% trans "Send Crush Spark" %}
+            </button>
+
+            <!-- Confirmation panel -->
+            <div x-show="isConfirming" x-cloak
+                 class="mt-1 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-8 h-8 flex-shrink-0">
+                    <p class="text-xs text-amber-800 dark:text-amber-200">
+                        {% trans "Send a Crush Spark? A coach will review before it proceeds." %}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button hx-post="{% url 'crush_lu:spark_send_inline' event.id attendee.user.id %}"
+                            hx-target="#spark-actions-{{ attendee.user.id }}"
+                            hx-swap="innerHTML"
+                            class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-md transition-colors">
+                        <span class="htmx-indicator">
+                            {% include "shared/icons/loading.html" with class="w-3 h-3 animate-spin" %}
+                        </span>
+                        <span class="htmx-hide-on-request">{% trans "Yes, Send!" %}</span>
+                    </button>
+                    <button @click="cancel"
+                            class="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                        {% trans "Cancel" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% elif not spark_deadline_active %}
+        <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Spark deadline passed" %}</span>
+    {% elif sparks_remaining <= 0 %}
+        <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Max sparks reached" %}</span>
+    {% endif %}
+</div>

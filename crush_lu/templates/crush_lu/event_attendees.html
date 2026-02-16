@@ -22,8 +22,12 @@
             {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
             {% trans "How It Works" %}
         </h5>
-        <p class="mb-0">
+        <p class="mb-2">
             {% trans "Select people you'd like to stay in touch with. If they also select you (mutual interest!), a Crush Coach will help facilitate your introduction and guide you through sharing contact information." %}
+        </p>
+        <p class="mb-0 text-sm">
+            {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline text-amber-500" %}
+            {% trans "You can also send a Crush Spark - an anonymous admirer journey reviewed by a coach before delivery." %}
         </p>
     </div>
 
@@ -73,8 +77,13 @@
                                     {% endif %}
                                 {% endif %}
 
-                                <!-- Connection Status/Actions (HTMX-powered) -->
+                                <!-- Connection Actions (HTMX-powered) -->
                                 {% include 'crush_lu/_attendee_connection_actions.html' %}
+
+                                <!-- Spark Actions (separated, smaller) -->
+                                <div class="mt-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                                    {% include 'crush_lu/_attendee_spark_actions.html' with spark=attendee.spark %}
+                                </div>
                             </div>
                         </div>
                     </div>

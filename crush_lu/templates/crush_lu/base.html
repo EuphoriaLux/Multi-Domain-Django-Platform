@@ -245,6 +245,20 @@
                                 {% include "shared/icons/home.html" with class="w-4 h-4" %}
                                 <span>{% trans "My Profile" %}</span>
                             </a>
+                            <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
+                                {% include "shared/icons/users.html" with class="w-4 h-4" %}
+                                <span>{% trans "Connections" %}</span>
+                                {% if pending_requests_count > 0 %}
+                                    <span class="badge badge-danger">{{ pending_requests_count }}</span>
+                                {% endif %}
+                            </a>
+                            <a class="nav-link" href="{% url 'crush_lu:spark_list' %}">
+                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+                                <span>{% trans "My Sparks" %}</span>
+                                {% if actionable_sparks_count > 0 %}
+                                    <span class="badge badge-danger">{{ actionable_sparks_count }}</span>
+                                {% endif %}
+                            </a>
 
                             <!-- Coach Tools Dropdown -->
                             <div class="dropdown" @click.away="closeCoachTools">
@@ -269,6 +283,10 @@
                                             <span class="badge badge-warning ml-2">{{ pending_screening_count }}</span>
                                         {% endif %}
                                     </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_verification_history' %}">
+                                        {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Verification History" %}
+                                    </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
                                         {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Journey Management" %}
@@ -281,6 +299,10 @@
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_event_list' %}">
                                         {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Manage Events" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_spark_list' %}">
+                                        <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                        {% trans "Crush Sparks" %}
                                     </a>
                                 </div>
                             </div>
@@ -409,6 +431,13 @@
                                     <span>{% trans "Connections" %}</span>
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge badge-danger">{{ pending_requests_count }}</span>
+                                    {% endif %}
+                                </a>
+                                <a class="nav-link" href="{% url 'crush_lu:spark_list' %}">
+                                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+                                    <span>{% trans "My Sparks" %}</span>
+                                    {% if actionable_sparks_count > 0 %}
+                                        <span class="badge badge-danger">{{ actionable_sparks_count }}</span>
                                     {% endif %}
                                 </a>
 
@@ -638,10 +667,32 @@
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Profile" %}
                             </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
+                                {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Connections" %}
+                                {% if pending_requests_count > 0 %}
+                                    <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
+                                {% endif %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:spark_list' %}">
+                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                {% trans "My Sparks" %}
+                                {% if actionable_sparks_count > 0 %}
+                                    <span class="badge badge-danger ml-1">{{ actionable_sparks_count }}</span>
+                                {% endif %}
+                            </a>
                             <div class="border-t border-white/20 my-2"></div>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Manage Events" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
+                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                {% trans "Crush Sparks" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_verification_history' %}">
+                                {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Verification History" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
                                 {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
@@ -704,6 +755,13 @@
                                     {% trans "Connections" %}
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
+                                    {% endif %}
+                                </a>
+                                <a class="nav-link block" href="{% url 'crush_lu:spark_list' %}">
+                                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                    {% trans "My Sparks" %}
+                                    {% if actionable_sparks_count > 0 %}
+                                        <span class="badge badge-danger ml-1">{{ actionable_sparks_count }}</span>
                                     {% endif %}
                                 </a>
                                 <div class="border-t border-white/20 my-2"></div>

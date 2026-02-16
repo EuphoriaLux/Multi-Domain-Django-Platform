@@ -58,6 +58,55 @@
     </div>
 </div>
 
+<!-- Post-Event Activity -->
+{% if connection_count or spark_count %}
+<div class="mb-6">
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Post-Event Activity" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Connections -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
+                        {% include "shared/icons/heart.html" with class="w-5 h-5 text-pink-600 dark:text-pink-400" %}
+                    </div>
+                    <div>
+                        <p class="font-semibold dark:text-white">{{ connection_count }} {% trans "Connections" %}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ mutual_connections }} {% trans "mutual" %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sparks -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
+                    </div>
+                    <div>
+                        <p class="font-semibold dark:text-white">{{ spark_count }} {% trans "Sparks" %}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {% if sparks_pending %}
+                                <span class="text-amber-600 dark:text-amber-400 font-medium">{{ sparks_pending }} {% trans "pending review" %}</span>
+                            {% else %}
+                                {% trans "none pending" %}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                {% if sparks_pending %}
+                    <a href="{% url 'crush_lu:coach_spark_list' %}" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                        {% trans "Review" %} &rarr;
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Status Filter Tabs -->
 <div class="flex flex-wrap gap-2 mb-6">
     <a href="?status=all" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'all' %}bg-crush-purple text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">

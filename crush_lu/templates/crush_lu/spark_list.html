@@ -1,0 +1,80 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "My Crush Sparks" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-3">{% trans "My Crush Sparks" %}</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">{% trans "Track your sent and received sparks" %}</p>
+    </div>
+
+    <!-- Sent Sparks -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">{% trans "Sparks You've Sent" %}</h2>
+
+        {% if sent_sparks %}
+            <div class="space-y-4">
+                {% for spark in sent_sparks %}
+                <a href="{% url 'crush_lu:spark_detail' spark.id %}" class="card block hover:shadow-lg transition-shadow">
+                    <div class="card-body">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold">{{ spark.event.title }}</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    {{ spark.sender_description|truncatewords:15 }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                {% include 'crush_lu/_spark_status_badge.html' %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    {{ spark.created_at|date:"M d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "No sparks sent yet. Attend an event and send your first Crush Spark!" %}</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Received Sparks -->
+    {% if received_sparks %}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">{% trans "Sparks You've Received" %}</h2>
+        <div class="space-y-4">
+            {% for spark in received_sparks %}
+            <a href="{% url 'crush_lu:spark_detail' spark.id %}" class="card block hover:shadow-lg transition-shadow">
+                <div class="card-body">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold">
+                                {% if spark.is_sender_revealed %}
+                                    {% trans "From" %} {{ spark.sender_display_name }}
+                                {% else %}
+                                    {% trans "From a Secret Admirer" %}
+                                {% endif %}
+                            </h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ spark.event.title }}</p>
+                        </div>
+                        <div class="text-right">
+                            {% include 'crush_lu/_spark_status_badge.html' %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

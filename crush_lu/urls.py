@@ -90,6 +90,7 @@ from . import api_push
 from . import api_coach_push
 from . import views_advent
 from . import views_journey_gift
+from . import views_crush_spark
 
 app_name = 'crush_lu'
 
@@ -220,6 +221,27 @@ urlpatterns = [
     # - api/events/<int:event_id>/voting/submit/
     # - api/events/<int:event_id>/voting/results/
 
+    # ============================================================================
+    # CRUSH SPARK SYSTEM
+    # ============================================================================
+
+    # Sender views
+    path('events/<int:event_id>/spark/request/', views_crush_spark.spark_request, name='spark_request'),
+    path('sparks/', views_crush_spark.spark_list, name='spark_list'),
+    path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
+    path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
+
+    # Spark inline actions (HTMX)
+    path('events/<int:event_id>/spark/send/<int:user_id>/', views_crush_spark.spark_send_inline, name='spark_send_inline'),
+    path('events/<int:event_id>/spark/actions/<int:user_id>/', views_crush_spark.spark_actions, name='spark_actions'),
+
+    # Recipient views
+    path('sparks/received/', views_crush_spark.spark_received, name='spark_received'),
+
+    # Coach spark management
+    path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),
+    path('coach/sparks/<int:spark_id>/assign/', views_crush_spark.coach_spark_assign, name='coach_spark_assign'),
+
     # Coach dashboard
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
@@ -228,6 +250,7 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
+    path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
 
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),

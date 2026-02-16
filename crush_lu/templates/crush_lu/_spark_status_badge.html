@@ -1,0 +1,20 @@
+{% load i18n %}
+{% if spark.status == 'requested' %}
+    <span class="badge badge-warning">{% trans "Pending" %}</span>
+{% elif spark.status == 'pending_review' %}
+    <span class="badge badge-warning">{% trans "Pending Review" %}</span>
+{% elif spark.status == 'coach_approved' %}
+    <span class="badge badge-info">{% trans "Approved - Create Journey" %}</span>
+{% elif spark.status == 'coach_assigned' %}
+    <span class="badge badge-info">{% trans "Ready to Create" %}</span>
+{% elif spark.status == 'journey_created' %}
+    <span class="badge badge-info">{% trans "Journey Created" %}</span>
+{% elif spark.status == 'delivered' %}
+    <span class="badge badge-primary">{% trans "Delivered" %}</span>
+{% elif spark.status == 'completed' %}
+    <span class="badge badge-success">{% trans "Completed" %}</span>
+{% elif spark.status == 'cancelled' %}
+    <span class="badge badge-danger">{% trans "Cancelled" %}</span>
+{% elif spark.status == 'expired' %}
+    <span class="badge badge-danger">{% trans "Expired" %}</span>
+{% endif %}

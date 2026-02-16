@@ -711,3 +711,103 @@ def _create_chapter_6(journey, recipient_name):
     # No reward here - the certificate IS the reward
 
     return chapter
+
+
+def create_spark_wonderland_journey(spark):
+    """
+    Create a Wonderland journey for a Crush Spark.
+
+    The journey is anonymous: Chapters 1-5 reference "A Secret Admirer",
+    and Chapter 6's completion message reveals the sender's display name.
+
+    Args:
+        spark: CrushSpark instance with recipient and event set
+
+    Returns:
+        tuple: (JourneyConfiguration, SpecialUserExperience)
+    """
+    from crush_lu.models import (
+        JourneyConfiguration,
+        SpecialUserExperience,
+    )
+    from django.db import transaction
+
+    recipient = spark.recipient
+    sender_name = spark.sender_display_name
+    event = spark.event
+    date_met = event.date_time.date()
+    location_met = event.location
+
+    with transaction.atomic():
+        # Get or create SpecialUserExperience for recipient
+        special_exp = SpecialUserExperience.objects.filter(
+            linked_user=recipient
+        ).first()
+
+        if special_exp:
+            special_exp.is_active = True
+            special_exp.save(update_fields=["is_active"])
+        else:
+            special_exp = SpecialUserExperience.objects.create(
+                linked_user=recipient,
+                first_name=recipient.first_name,
+                last_name=recipient.last_name,
+                is_active=True,
+                custom_welcome_title="A Secret Admirer has created a journey for you!",
+                custom_welcome_message=(
+                    "Someone you met is enchanted by you. "
+                    "Complete this Wonderland journey to discover who they are..."
+                ),
+            )
+
+        # Create JourneyConfiguration
+        journey = JourneyConfiguration.objects.create(
+            special_experience=special_exp,
+            journey_type="wonderland",
+            journey_name="The Wonderland of You",
+            total_chapters=6,
+            date_first_met=date_met,
+            location_first_met=location_met,
+            is_active=True,
+        )
+
+        # Create chapters with "Secret Admirer" as recipient_name
+        # This ensures chapters 1-5 don't reveal the sender
+        create_wonderland_chapters(
+            journey,
+            recipient_name="Secret Admirer",
+            date_met=date_met,
+            location_met=location_met,
+        )
+
+        # Override Chapter 6 completion message to reveal sender
+        from crush_lu.models import JourneyChapter
+
+        chapter_6 = JourneyChapter.objects.filter(
+            journey=journey, chapter_number=6
+        ).first()
+        if chapter_6:
+            reveal_en = (
+                f"This journey was created for you by {sender_name}. "
+                "They were captivated by you at the event and wanted you to know."
+            )
+            reveal_de = (
+                f"Diese Reise wurde für dich von {sender_name} erstellt. "
+                "Du hast einen bleibenden Eindruck beim Event hinterlassen."
+            )
+            reveal_fr = (
+                f"Ce voyage a été créé pour vous par {sender_name}. "
+                "Vous avez fait forte impression lors de l'événement."
+            )
+            chapter_6.completion_message_en = reveal_en
+            chapter_6.completion_message_de = reveal_de
+            chapter_6.completion_message_fr = reveal_fr
+            chapter_6.save(
+                update_fields=[
+                    "completion_message_en",
+                    "completion_message_de",
+                    "completion_message_fr",
+                ]
+            )
+
+    return journey, special_exp

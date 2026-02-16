@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q, Count
@@ -76,6 +77,13 @@ def coach_dashboard(request):
     # Note: Coach push notifications are now managed in Account Settings
     # (see account_settings view for coach push subscription handling)
 
+    # Pending Crush Sparks awaiting review
+    from .models import CrushSpark
+
+    pending_sparks_count = CrushSpark.objects.filter(
+        status="pending_review"
+    ).count()
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -83,6 +91,7 @@ def coach_dashboard(request):
         "pending_men": pending_men,
         "pending_other": pending_other,
         "recent_reviews": recent_reviews,
+        "pending_sparks_count": pending_sparks_count,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 
@@ -813,6 +822,21 @@ def coach_event_detail(request, event_id):
     waitlist_count = sum(1 for r in registrations if r.status == "waitlist")
     spots_remaining = max(0, event.max_participants - confirmed_count)
 
+    # Post-event activity: connections and sparks
+    from .models.crush_spark import CrushSpark
+
+    connections = EventConnection.objects.filter(event=event)
+    connection_count = connections.count()
+    mutual_connections = connections.filter(
+        status__in=["accepted", "coach_reviewing", "coach_approved", "shared"]
+    ).count()
+
+    sparks = CrushSpark.objects.filter(event=event)
+    spark_count = sparks.count()
+    sparks_pending = sparks.filter(
+        status__in=[CrushSpark.Status.PENDING_REVIEW, CrushSpark.Status.REQUESTED]
+    ).count()
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -822,6 +846,10 @@ def coach_event_detail(request, event_id):
         "spots_remaining": spots_remaining,
         "total_registrations": len(registrations),
         "status_filter": status_filter,
+        "connection_count": connection_count,
+        "mutual_connections": mutual_connections,
+        "spark_count": spark_count,
+        "sparks_pending": sparks_pending,
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
 
@@ -1103,3 +1131,70 @@ def coach_view_user_progress(request, progress_id):
         "all_attempts": all_attempts,  # Keep for backward compatibility
     }
     return render(request, "crush_lu/coach_view_user_progress.html", context)
+
+
+@coach_required
+def coach_verification_history(request):
+    """Browse all past profile verifications with filters"""
+    coach = request.coach
+
+    submissions = (
+        ProfileSubmission.objects.filter(
+            coach=coach, status__in=["approved", "rejected", "revision"]
+        )
+        .select_related("profile__user")
+        .order_by("-reviewed_at")
+    )
+
+    # Filter by status
+    status_filter = request.GET.get("status", "all")
+    if status_filter in ("approved", "rejected", "revision"):
+        submissions = submissions.filter(status=status_filter)
+
+    # Filter by gender
+    gender_filter = request.GET.get("gender", "all")
+    if gender_filter == "F":
+        submissions = submissions.filter(profile__gender="F")
+    elif gender_filter == "M":
+        submissions = submissions.filter(profile__gender="M")
+    elif gender_filter == "other":
+        submissions = submissions.filter(profile__gender__in=["NB", "O", "P", ""])
+
+    # Filter by date range
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+    if date_from:
+        try:
+            from datetime import datetime
+
+            dt = datetime.strptime(date_from, "%Y-%m-%d")
+            submissions = submissions.filter(
+                reviewed_at__date__gte=dt.date()
+            )
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import datetime
+
+            dt = datetime.strptime(date_to, "%Y-%m-%d")
+            submissions = submissions.filter(
+                reviewed_at__date__lte=dt.date()
+            )
+        except ValueError:
+            pass
+
+    paginator = Paginator(submissions, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "coach": coach,
+        "page_obj": page_obj,
+        "status_filter": status_filter,
+        "gender_filter": gender_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "total_count": paginator.count,
+    }
+    return render(request, "crush_lu/coach_verification_history.html", context)

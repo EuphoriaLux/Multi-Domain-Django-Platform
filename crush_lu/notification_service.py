@@ -39,6 +39,10 @@ class NotificationType(Enum):
     EVENT_REMINDER = 'event_reminder'
     EVENT_REGISTRATION = 'event_registration'
     EVENT_WAITLIST = 'event_waitlist'
+    SPARK_COACH_ASSIGNMENT = 'spark_coach_assignment'
+    SPARK_RECIPIENT_ASSIGNED = 'spark_recipient_assigned'
+    SPARK_JOURNEY_READY = 'spark_journey_ready'
+    SPARK_COMPLETED = 'spark_completed'
 
     @property
     def preference_key(self) -> str:
@@ -57,6 +61,10 @@ class NotificationType(Enum):
             'event_reminder': 'event_reminders',
             'event_registration': 'event_reminders',
             'event_waitlist': 'event_reminders',
+            'spark_coach_assignment': 'event_reminders',
+            'spark_recipient_assigned': 'new_connections',
+            'spark_journey_ready': 'new_connections',
+            'spark_completed': 'new_connections',
         }
         return preference_mapping.get(self.value, self.value)
 

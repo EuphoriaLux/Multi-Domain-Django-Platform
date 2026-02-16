@@ -1,0 +1,136 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Verification History" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "Verification History" %}</h2>
+            <p class="text-gray-500 dark:text-gray-400">{{ total_count }} {% trans "total reviews" %}</p>
+        </div>
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+            <span>{% trans "Dashboard" %}</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Status" %}</label>
+            <select name="status" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2">
+                <option value="all"{% if status_filter == "all" %} selected{% endif %}>{% trans "All" %}</option>
+                <option value="approved"{% if status_filter == "approved" %} selected{% endif %}>{% trans "Approved" %}</option>
+                <option value="rejected"{% if status_filter == "rejected" %} selected{% endif %}>{% trans "Rejected" %}</option>
+                <option value="revision"{% if status_filter == "revision" %} selected{% endif %}>{% trans "Revision" %}</option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Gender" %}</label>
+            <select name="gender" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2">
+                <option value="all"{% if gender_filter == "all" %} selected{% endif %}>{% trans "All" %}</option>
+                <option value="F"{% if gender_filter == "F" %} selected{% endif %}>{% trans "Female" %}</option>
+                <option value="M"{% if gender_filter == "M" %} selected{% endif %}>{% trans "Male" %}</option>
+                <option value="other"{% if gender_filter == "other" %} selected{% endif %}>{% trans "Other" %}</option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "From" %}</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2">
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "To" %}</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-3 py-2">
+        </div>
+        <div>
+            <button type="submit" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-crush-purple hover:bg-crush-purple/90 rounded-lg transition-colors">
+                {% include "shared/icons/magnifying-glass.html" with class="w-4 h-4" %}
+                {% trans "Filter" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Results -->
+{% if page_obj %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100 dark:border-gray-700">
+                        <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{% trans "Member" %}</th>
+                        <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">{% trans "Gender" %}</th>
+                        <th class="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">{% trans "Status" %}</th>
+                        <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{% trans "Reviewed" %}</th>
+                        <th class="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for submission in page_obj %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <span class="font-medium text-gray-900 dark:text-white">{{ submission.profile.display_name }}</span>
+                                <span class="text-gray-400 dark:text-gray-500 md:hidden block text-xs mt-0.5">{{ submission.reviewed_at|date:"M j, Y" }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+                                {{ submission.profile.get_gender_display }}
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                {% if submission.status == 'approved' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Approved" %}</span>
+                                {% elif submission.status == 'rejected' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">{% trans "Rejected" %}</span>
+                                {% elif submission.status == 'revision' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Revision" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                {{ submission.reviewed_at|date:"M j, Y g:i A" }}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="text-crush-purple hover:text-crush-pink transition-colors text-xs font-medium">{% trans "View" %}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.paginator.num_pages > 1 %}
+        <div class="flex items-center justify-center gap-2 mt-6">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}&gender={{ gender_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-crush-purple rounded-lg">{{ num }}</span>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                    <a href="?page={{ num }}&status={{ status_filter }}&gender={{ gender_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+                       class="inline-flex items-center px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}&gender={{ gender_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+{% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+        <p class="text-gray-500 dark:text-gray-400">{% trans "No reviews match your filters." %}</p>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% load i18n static %}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
+    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+    {% if already_sent %}
+        {% trans "Already Sent" %}
+    {% else %}
+        {% trans "Crush Spark Sent!" %}
+    {% endif %}
+</span>

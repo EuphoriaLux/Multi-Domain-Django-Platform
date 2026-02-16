@@ -126,6 +126,8 @@ from .users import (
     CrushUserAdmin,
 )
 
+from .crush_spark import CrushSparkAdmin
+
 from .referrals import (
     ReferralCodeAdmin,
     ReferralAttributionAdmin,
@@ -150,6 +152,7 @@ from crush_lu.models import (
     SpecialUserExperience,
     CrushCoach,
     CrushProfile,
+    CrushSpark,
     ProfileSubmission,
     CoachSession,
     MeetupEvent,
@@ -211,6 +214,9 @@ crush_admin_site.register(CoachSession, CoachSessionAdmin)
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
+
+# Crush Spark System
+crush_admin_site.register(CrushSpark, CrushSparkAdmin)
 
 # Connection System
 crush_admin_site.register(EventConnection, EventConnectionAdmin)
@@ -318,6 +324,9 @@ __all__ = [
     'MeetupEventAdmin',
     'EventRegistrationAdmin',
     'EventInvitationAdmin',
+
+    # Crush Spark
+    'CrushSparkAdmin',
 
     # Connections
     'EventConnectionAdmin',

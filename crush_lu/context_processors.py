@@ -10,7 +10,8 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from .models import (
     EventConnection, CrushProfile, CrushCoach, SpecialUserExperience,
-    JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent
+    JourneyProgress, ProfileSubmission, EventRegistration, MeetupEvent,
+    CrushSpark,
 )
 
 # Simple in-memory cache for site config (avoids DB hit on every request)
@@ -45,6 +46,13 @@ def crush_user_context(request):
 
         context['connection_count'] = connection_count
         context['pending_requests_count'] = pending_requests_count
+
+        # Sparks needing action (approved by coach, waiting for journey creation)
+        actionable_sparks_count = CrushSpark.objects.filter(
+            sender=request.user,
+            status__in=['coach_approved', 'coach_assigned'],
+        ).count()
+        context['actionable_sparks_count'] = actionable_sparks_count
 
         # Profile submission status for visual indicators
         profile_submission = None

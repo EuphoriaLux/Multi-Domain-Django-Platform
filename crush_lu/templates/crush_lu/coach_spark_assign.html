@@ -1,0 +1,152 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n crush_media %}
+
+{% block title %}{% if is_review_mode %}{% trans "Review Spark" %}{% else %}{% trans "Assign Spark Recipient" %}{% endif %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-4">
+        <a href="{% url 'crush_lu:coach_spark_list' %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% trans "Back to Spark List" %}
+        </a>
+    </div>
+
+    <h1 class="text-2xl font-bold mb-6">
+        {% if is_review_mode %}{% trans "Review Spark" %}{% else %}{% trans "Assign Recipient" %}{% endif %}
+    </h1>
+
+    <!-- Spark Details -->
+    <div class="card card-bordered mb-6">
+        <div class="card-body">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Sender" %}</p>
+                    <p class="font-semibold">{{ spark.sender_display_name }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Event" %}</p>
+                    <p class="font-semibold">{{ event.title }}</p>
+                </div>
+            </div>
+
+            {% if is_review_mode and spark.recipient %}
+            <div class="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <p class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">{% trans "Recipient:" %}</p>
+                <p class="text-blue-700 dark:text-blue-300 font-semibold text-lg">{{ spark.recipient_display_name }}</p>
+            </div>
+            {% endif %}
+
+            {% if spark.sender_description %}
+            <div class="mt-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-1">{% trans "Sender's Description:" %}</p>
+                <p class="text-yellow-700 dark:text-yellow-300">{{ spark.sender_description }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if is_review_mode %}
+        <!-- Review Mode: Approve or Reject -->
+        <div class="card card-bordered">
+            <div class="card-body">
+                <h2 class="text-lg font-semibold mb-4">{% trans "Review Decision" %}</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="coach_notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {% trans "Coach Notes (optional)" %}
+                        </label>
+                        <textarea id="coach_notes" name="coach_notes" rows="2"
+                                  placeholder="{% trans 'Optional notes about this review...' %}"
+                                  class="form-input w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800"></textarea>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" name="action" value="approve"
+                                class="btn btn-primary flex-1"
+                                onclick="return confirm('{% trans "Approve this spark? The sender will be notified to create their journey." %}')">
+                            {% trans "Approve" %}
+                        </button>
+                        <button type="submit" name="action" value="reject"
+                                class="btn btn-danger flex-1"
+                                onclick="return confirm('{% trans "Reject this spark? This cannot be undone." %}')">
+                            {% trans "Reject" %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% else %}
+        <!-- Old Assign Mode: Select recipient from attendee list -->
+        <div class="mb-4">
+            <form method="get" class="flex gap-2">
+                <input type="text" name="q" value="{{ search }}"
+                       placeholder="{% trans 'Search attendees...' %}"
+                       class="form-input flex-1 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800">
+                <button type="submit" class="btn btn-secondary">{% trans "Search" %}</button>
+            </form>
+        </div>
+
+        <div class="space-y-3">
+            {% for registration in attendees %}
+            <div class="card hover:shadow-md transition-shadow">
+                <div class="card-body py-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            {% if registration.user.crushprofile %}
+                                {% with profile=registration.user.crushprofile %}
+                                <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+                                    {% if profile.photo_1 and not profile.blur_photos %}
+                                        <img src="{% profile_photo_url profile 'photo_1' %}"
+                                             alt="" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <div class="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500">
+                                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{{ profile.display_name }}</p>
+                                    {% if profile.show_exact_age %}
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ profile.age }} {% trans "years" %}</p>
+                                    {% endif %}
+                                </div>
+                                {% endwith %}
+                            {% else %}
+                                <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0 flex items-center justify-center text-gray-400">
+                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{{ registration.user.first_name }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="recipient_user_id" value="{{ registration.user.id }}">
+                            <button type="submit" class="btn btn-primary btn-sm"
+                                    onclick="return confirm('{% trans "Assign this person as the recipient?" %}')">
+                                {% trans "Assign" %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="card">
+                <div class="card-body text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">
+                        {% if search %}
+                            {% trans "No attendees match your search." %}
+                        {% else %}
+                            {% trans "No other attendees found for this event." %}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

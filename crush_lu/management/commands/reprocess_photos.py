@@ -125,6 +125,17 @@ class Command(BaseCommand):
             processed = process_uploaded_image(raw_file, field.name)
             new_size = processed.size
 
+            # Skip if already optimized (less than 5% size reduction)
+            size_change = new_size - original_size
+            pct = (size_change / original_size * 100) if original_size else 0
+            if abs(pct) < 5:
+                self.stdout.write(
+                    f"  Skipped {obj_label}: already optimized "
+                    f"({original_size:,} bytes, {pct:+.1f}%)"
+                )
+                stats["skipped"] += 1
+                return
+
             # Delete the old blob first, then save the new one.
             # The storage backend generates unique names (UUID) on save,
             # so without deleting first we'd leave orphan blobs.
@@ -142,27 +153,28 @@ class Command(BaseCommand):
             # Save the model to persist the field reference
             obj.save(update_fields=[field_name])
 
-            size_change = new_size - original_size
-            pct = (size_change / original_size * 100) if original_size else 0
             self.stdout.write(
                 f"  Processed {obj_label}: "
                 f"{original_size:,} -> {new_size:,} bytes ({pct:+.1f}%)"
             )
             stats["processed"] += 1
 
-        except FileNotFoundError:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"  Skipped {obj_label}: file not found in storage"
+        except (FileNotFoundError, Exception) as e:
+            # Catch Azure ResourceNotFoundError (blob missing from storage)
+            err_str = str(e)
+            if "BlobNotFound" in err_str or "does not exist" in err_str or isinstance(e, FileNotFoundError):
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  Skipped {obj_label}: file not found in storage"
+                    )
                 )
-            )
-            stats["skipped"] += 1
-        except Exception as e:
-            self.stdout.write(
-                self.style.ERROR(f"  Error processing {obj_label}: {e}")
-            )
-            logger.exception("Error reprocessing %s", obj_label)
-            stats["errors"] += 1
+                stats["skipped"] += 1
+            else:
+                self.stdout.write(
+                    self.style.ERROR(f"  Error processing {obj_label}: {e}")
+                )
+                logger.exception("Error reprocessing %s", obj_label)
+                stats["errors"] += 1
 
     def _get_label(self, obj, field_name):
         """Get a human-readable label for logging."""

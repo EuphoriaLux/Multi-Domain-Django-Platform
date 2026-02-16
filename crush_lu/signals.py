@@ -28,7 +28,9 @@ from .models import (
     EmailPreference,
     EventRegistration,
     CrushCoach,
+    CrushSpark,
 )
+from .models.journey import JourneyProgress
 from .storage import initialize_user_storage
 from .utils.i18n import is_valid_language
 
@@ -1639,3 +1641,44 @@ def delete_outlook_contact_on_profile_delete(sender, instance, **kwargs):
         logger.error(
             f"Error deleting Outlook contact {instance.outlook_contact_id} for profile {instance.pk}: {e}"
         )
+
+
+# =============================================================================
+# CRUSH SPARK - SENDER REVEAL ON JOURNEY COMPLETION
+# =============================================================================
+
+
+@receiver(post_save, sender=JourneyProgress)
+def reveal_spark_sender_on_journey_completion(sender, instance, **kwargs):
+    """
+    When a journey linked to a CrushSpark is completed (Chapter 6 done),
+    reveal the sender's identity by updating the spark status.
+    """
+    if not instance.is_completed:
+        return
+
+    # Check if this journey is linked to a spark
+    try:
+        spark = CrushSpark.objects.get(
+            journey=instance.journey,
+            status=CrushSpark.Status.DELIVERED,
+        )
+    except CrushSpark.DoesNotExist:
+        return
+
+    spark.is_sender_revealed = True
+    spark.revealed_at = timezone.now()
+    spark.status = CrushSpark.Status.COMPLETED
+    spark.completed_at = timezone.now()
+    spark.save(
+        update_fields=[
+            "is_sender_revealed",
+            "revealed_at",
+            "status",
+            "completed_at",
+        ]
+    )
+    logger.info(
+        f"Crush Spark {spark.pk}: Sender revealed to recipient "
+        f"(sender={spark.sender_id}, recipient={spark.recipient_id})"
+    )

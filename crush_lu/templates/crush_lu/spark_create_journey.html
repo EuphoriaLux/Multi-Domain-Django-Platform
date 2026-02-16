@@ -1,0 +1,153 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Create Journey" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-3">{% trans "Create Your Anonymous Journey" %}</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">
+            {% trans "Add photos, a video, and a personal message for your Secret Admirer journey." %}
+        </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Personal Message (Chapter 6 reveal) -->
+        <div class="card">
+            <div class="card-body">
+                <h2 class="text-lg font-semibold mb-1 dark:text-white">{% trans "Personal Message" %}</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                    {% trans "This message will be revealed along with your identity when they complete Chapter 6." %}
+                </p>
+                <textarea name="sender_message" rows="4" maxlength="2000"
+                          placeholder="{% trans "Write a personal message that will be revealed in Chapter 6..." %}"
+                          class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500">{{ form.sender_message.value|default:"" }}</textarea>
+                {% if form.sender_message.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.sender_message.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chapter 1: Photo Puzzle -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-bold">1</span>
+                    <h2 class="text-lg font-semibold dark:text-white">{% trans "Photo Puzzle" %}</h2>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 ml-9">
+                    {% trans "Upload a photo that will be revealed as puzzle pieces." %}
+                </p>
+                <label class="ml-9 flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-colors">
+                    <div class="flex flex-col items-center justify-center py-4">
+                        <svg class="w-8 h-8 text-gray-400 dark:text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Click to upload photo" %}</span>
+                    </div>
+                    <input type="file" name="chapter1_image" accept="image/*" class="hidden">
+                </label>
+                {% if form.chapter1_image.errors %}
+                    <p class="text-red-500 text-sm mt-1 ml-9">{{ form.chapter1_image.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chapter 3: Photo Slideshow -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 text-xs font-bold">3</span>
+                    <h2 class="text-lg font-semibold dark:text-white">{% trans "Photo Slideshow" %}</h2>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "(optional)" %}</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 ml-9">
+                    {% trans "Upload up to 5 photos for the slideshow." %}
+                </p>
+                <div class="ml-9 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {% with photos="1,2,3,4,5" %}
+                    {% for num in photos|make_list %}
+                    {% if num != "," %}
+                    <label class="flex flex-col items-center justify-center h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-colors">
+                        <svg class="w-6 h-6 text-gray-400 dark:text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path>
+                        </svg>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Photo" %} {{ num }}</span>
+                        <input type="file" name="chapter3_image_{{ num }}" accept="image/*" class="hidden">
+                    </label>
+                    {% endif %}
+                    {% endfor %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Chapter 4: Video Message -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold">4</span>
+                    <h2 class="text-lg font-semibold dark:text-white">{% trans "Video Message" %}</h2>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "(optional)" %}</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 ml-9">
+                    {% trans "Record or upload a video message (MP4, MOV - max 50MB)." %}
+                </p>
+                <label class="ml-9 flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+                    <div class="flex flex-col items-center justify-center py-4">
+                        <svg class="w-8 h-8 text-gray-400 dark:text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Click to upload video" %}</span>
+                    </div>
+                    <input type="file" name="chapter4_video" accept="video/mp4,video/quicktime,video/x-msvideo" class="hidden">
+                </label>
+                {% if form.chapter4_video.errors %}
+                    <p class="text-red-500 text-sm mt-1 ml-9">{{ form.chapter4_video.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chapter 5: Background Music -->
+        <div class="card">
+            <div class="card-body">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold">5</span>
+                    <h2 class="text-lg font-semibold dark:text-white">{% trans "Background Music" %}</h2>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "(optional)" %}</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 ml-9">
+                    {% trans "Upload background music for the Future Letter (MP3, WAV, M4A - max 10MB)." %}
+                </p>
+                <label class="ml-9 flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-green-400 dark:hover:border-green-500 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
+                    <div class="flex flex-col items-center justify-center py-4">
+                        <svg class="w-8 h-8 text-gray-400 dark:text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Click to upload audio" %}</span>
+                    </div>
+                    <input type="file" name="chapter5_letter_music" accept="audio/mpeg,audio/wav,audio/x-m4a,audio/mp4" class="hidden">
+                </label>
+                {% if form.chapter5_letter_music.errors %}
+                    <p class="text-red-500 text-sm mt-1 ml-9">{{ form.chapter5_letter_music.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Info notice -->
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                {% trans "Once you submit, the journey will be created and delivered anonymously. Your identity will only be revealed when the recipient completes Chapter 6." %}
+            </p>
+        </div>
+
+        <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold rounded-xl">
+            {% trans "Create & Deliver Journey" %}
+        </button>
+    </form>
+</div>
+{% endblock %}

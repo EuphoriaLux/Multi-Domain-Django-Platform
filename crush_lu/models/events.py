@@ -154,6 +154,16 @@ class MeetupEvent(models.Model):
         ),
     )
 
+    # Crush Spark Settings
+    max_sparks_per_event = models.PositiveIntegerField(
+        default=3,
+        help_text=_("Maximum number of Crush Sparks a user can send per event"),
+    )
+    spark_request_deadline_hours = models.PositiveIntegerField(
+        default=168,
+        help_text=_("Hours after event end until spark requests close (default: 7 days)"),
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

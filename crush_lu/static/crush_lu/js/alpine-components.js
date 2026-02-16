@@ -7826,4 +7826,98 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // =========================================================================
+    // CRUSH SPARK COMPONENTS
+    // =========================================================================
+
+    /**
+     * sparkRequest - Description form with character counter
+     * Used on spark_request.html
+     */
+    Alpine.data('sparkRequest', function() {
+        return {
+            description: '',
+            maxLength: 1000,
+
+            get charCount() {
+                return this.description.length;
+            },
+
+            get charsRemaining() {
+                return this.maxLength - this.description.length;
+            },
+
+            get isValid() {
+                return this.description.length >= 10;
+            },
+
+            get isOverLimit() {
+                return this.description.length > this.maxLength;
+            }
+        };
+    });
+
+    /**
+     * sparkJourneyBuilder - Multi-step media upload for journey creation
+     * Used on spark_create_journey.html
+     */
+    Alpine.data('sparkJourneyBuilder', function() {
+        return {
+            submitting: false,
+
+            get isSubmitting() {
+                return this.submitting;
+            },
+
+            submitForm() {
+                this.submitting = true;
+            }
+        };
+    });
+
+    /**
+     * coachSparkAssign - Searchable attendee list for coach assignment
+     * Used on coach_spark_assign.html
+     */
+    Alpine.data('coachSparkAssign', function() {
+        return {
+            searchQuery: '',
+            selectedUserId: null,
+
+            get hasSelection() {
+                return this.selectedUserId !== null;
+            },
+
+            selectUser(userId) {
+                this.selectedUserId = userId;
+            },
+
+            clearSelection() {
+                this.selectedUserId = null;
+            },
+
+            isSelected(userId) {
+                return this.selectedUserId === userId;
+            }
+        };
+    });
+
+    // Spark confirm inline component (replaces browser confirm dialog)
+    Alpine.data('sparkConfirm', function() {
+        return {
+            state: 'initial',
+
+            get isInitial() { return this.state === 'initial'; },
+            get isConfirming() { return this.state === 'confirming'; },
+
+            showConfirm() {
+                this.state = 'confirming';
+            },
+
+            cancel() {
+                this.state = 'initial';
+            }
+        };
+    });
+
 });

@@ -1,0 +1,56 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Send a Crush Spark" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-3">{% trans "Send a Crush Spark" %}</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">
+            {% trans "Describe someone you met at" %} <strong>{{ event.title }}</strong>
+        </p>
+        <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            {% blocktrans with used=existing_count max=max_sparks %}{{ used }} of {{ max }} sparks used{% endblocktrans %}
+        </p>
+    </div>
+
+    <div class="card" x-data="sparkRequest">
+        <div class="card-body">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+
+                <div>
+                    <label for="id_sender_description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {{ form.sender_description.label }}
+                    </label>
+                    {{ form.sender_description }}
+                    {% if form.sender_description.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.sender_description.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        {% trans "Be as specific as possible so the coach can identify the right person." %}
+                    </p>
+                </div>
+
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                    <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2">
+                        {% trans "How it works" %}
+                    </h3>
+                    <ol class="text-sm text-purple-700 dark:text-purple-300 space-y-1 list-decimal list-inside">
+                        <li>{% trans "You describe the person you liked" %}</li>
+                        <li>{% trans "A coach identifies them from the attendee list" %}</li>
+                        <li>{% trans "You create an anonymous Wonderland journey for them" %}</li>
+                        <li>{% trans "They play through the journey and discover your identity at the end" %}</li>
+                    </ol>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full">
+                    {% trans "Submit Crush Spark" %}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -189,8 +189,9 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 4: Connections & Messages (Post-event interactions)
             # ═══════════════════════════════════════════════════════════════════
-            'eventconnection': {'order': 1, 'icon': '🔗', 'group': 'Connections'},
-            'connectionmessage': {'order': 2, 'icon': '💬', 'group': 'Connections'},
+            'crushspark': {'order': 1, 'icon': '✨', 'group': 'Connections'},
+            'eventconnection': {'order': 2, 'icon': '🔗', 'group': 'Connections'},
+            'connectionmessage': {'order': 3, 'icon': '💬', 'group': 'Connections'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 5: Special Journey System (VIP personalized experiences)

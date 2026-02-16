@@ -12,6 +12,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from datetime import timedelta
+
+from django.utils import timezone
+
 from .models import (
     CrushProfile,
     MeetupEvent,
@@ -19,6 +23,7 @@ from .models import (
     EventConnection,
     ConnectionMessage,
 )
+from .models.crush_spark import CrushSpark
 from .decorators import crush_login_required, ratelimit
 from .notification_service import (
     notify_new_message,
@@ -62,6 +67,20 @@ def event_attendees(request, event_id):
         for c in EventConnection.objects.filter(recipient=request.user, event=event)
     }
 
+    # Pre-fetch sent sparks for this user+event
+    sent_sparks = {
+        s.recipient_id: s
+        for s in CrushSpark.objects.filter(
+            event=event, sender=request.user,
+        ).exclude(status=CrushSpark.Status.CANCELLED)
+    }
+
+    # Spark deadline and remaining count
+    deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
+    spark_deadline_active = timezone.now() <= deadline
+    spark_count = len(sent_sparks)
+    sparks_remaining = event.max_sparks_per_event - spark_count
+
     # Build attendee data with connection status
     attendee_data = []
     for reg in attendees:
@@ -82,12 +101,15 @@ def event_attendees(request, event_id):
                 "profile": getattr(attendee_user, "crushprofile", None),
                 "connection_status": connection_status,
                 "connection_id": connection_id,
+                "spark": sent_sparks.get(attendee_user.id),
             }
         )
 
     context = {
         "event": event,
         "attendees": attendee_data,
+        "spark_deadline_active": spark_deadline_active,
+        "sparks_remaining": sparks_remaining,
     }
     return render(request, "crush_lu/event_attendees.html", context)
 

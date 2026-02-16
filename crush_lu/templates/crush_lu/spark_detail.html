@@ -1,0 +1,147 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Crush Spark" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-4">
+        <a href="{% url 'crush_lu:spark_list' %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% trans "Back to Sparks" %}
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-2xl font-bold">{% trans "Crush Spark" %}</h1>
+                {% include 'crush_lu/_spark_status_badge.html' %}
+            </div>
+
+            <!-- Event info -->
+            <div class="mb-6">
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Event" %}</p>
+                <p class="font-semibold">{{ spark.event.title }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ spark.event.date_time|date:"M d, Y" }}</p>
+            </div>
+
+            {% if is_sender %}
+                <!-- Sender view -->
+                {% if spark.sender_description %}
+                <div class="mb-6">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{% trans "Your description" %}</p>
+                    <p class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">{{ spark.sender_description }}</p>
+                </div>
+                {% endif %}
+
+                {% if spark.recipient %}
+                <div class="mb-6">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{% trans "Recipient" %}</p>
+                    <p class="font-semibold">{{ spark.recipient_display_name }}</p>
+                </div>
+                {% endif %}
+
+                {% if spark.status == 'requested' %}
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                        <p class="text-yellow-800 dark:text-yellow-200">
+                            {% trans "A coach is working on identifying the person you described. You'll be notified once they're found." %}
+                        </p>
+                    </div>
+                {% elif spark.status == 'pending_review' %}
+                    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
+                        <p class="text-amber-800 dark:text-amber-200">
+                            {% trans "Your spark is being reviewed by a coach. You'll be notified once it's approved." %}
+                        </p>
+                    </div>
+                {% elif spark.status == 'coach_approved' or spark.status == 'coach_assigned' %}
+                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                        <p class="text-blue-800 dark:text-blue-200 mb-2">
+                            {% if spark.status == 'coach_approved' %}
+                                {% trans "Your Crush Spark has been approved! Now create an anonymous Wonderland journey for them!" %}
+                            {% else %}
+                                {% trans "Great news! The coach found the person. Now create an anonymous Wonderland journey for them!" %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <a href="{% url 'crush_lu:spark_create_journey' spark.id %}" class="btn btn-primary w-full">
+                        {% trans "Create Journey" %}
+                    </a>
+                {% elif spark.status == 'delivered' %}
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                        <p class="text-purple-800 dark:text-purple-200">
+                            {% trans "Your anonymous journey has been delivered! You'll be notified when they complete it and discover your identity." %}
+                        </p>
+                    </div>
+                {% elif spark.status == 'completed' %}
+                    <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                        <p class="text-green-800 dark:text-green-200">
+                            {% trans "They've completed the journey and your identity has been revealed!" %}
+                        </p>
+                        {% if spark.recipient %}
+                        <p class="text-green-700 dark:text-green-300 mt-2 font-semibold">
+                            {% trans "Recipient:" %} {{ spark.recipient_display_name }}
+                        </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <!-- Recipient view -->
+                {% if spark.is_sender_revealed %}
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-6 text-center">
+                        <p class="text-lg font-semibold text-purple-800 dark:text-purple-200 mb-2">
+                            {% trans "Your Secret Admirer was..." %}
+                        </p>
+                        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                            {{ spark.sender_display_name }}
+                        </p>
+                        {% if spark.sender_message %}
+                        <p class="mt-4 text-gray-700 dark:text-gray-300 italic">
+                            "{{ spark.sender_message }}"
+                        </p>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-6 text-center">
+                        <p class="text-lg text-purple-800 dark:text-purple-200">
+                            {% trans "A Secret Admirer from" %} <strong>{{ spark.event.title }}</strong>
+                            {% trans "has created a journey for you!" %}
+                        </p>
+                        {% if spark.journey %}
+                        <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn btn-primary mt-4 inline-block">
+                            {% trans "Play the Journey" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+
+            <!-- Timeline -->
+            <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{% trans "Timeline" %}</h3>
+                <div class="space-y-2 text-sm">
+                    <p class="text-gray-600 dark:text-gray-400">
+                        {% trans "Created:" %} {{ spark.created_at|date:"M d, Y H:i" }}
+                    </p>
+                    {% if spark.coach_assigned_at %}
+                    <p class="text-gray-600 dark:text-gray-400">
+                        {% trans "Assigned:" %} {{ spark.coach_assigned_at|date:"M d, Y H:i" }}
+                    </p>
+                    {% endif %}
+                    {% if spark.delivered_at %}
+                    <p class="text-gray-600 dark:text-gray-400">
+                        {% trans "Delivered:" %} {{ spark.delivered_at|date:"M d, Y H:i" }}
+                    </p>
+                    {% endif %}
+                    {% if spark.completed_at %}
+                    <p class="text-gray-600 dark:text-gray-400">
+                        {% trans "Completed:" %} {{ spark.completed_at|date:"M d, Y H:i" }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

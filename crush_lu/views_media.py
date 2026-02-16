@@ -129,8 +129,9 @@ def serve_profile_photo(request, user_id, photo_field):
         Image file or 403/404 error
     """
     # Apply rate limit: higher for coaches who review many profiles
+    # Regular users need ~50 requests just to load the attendees page (15+ photos)
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
-    max_requests = 300 if is_coach else 60
+    max_requests = 300 if is_coach else 200
     period_seconds = 60  # 1 minute window
     cache_key = f'ratelimit:serve_profile_photo:user_{request.user.id}'
     try:

@@ -1,0 +1,61 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Received Sparks" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-3">{% trans "Secret Admirer Journeys" %}</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">{% trans "Someone from an event was enchanted by you!" %}</p>
+    </div>
+
+    {% if sparks %}
+        <div class="space-y-4">
+            {% for spark in sparks %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-lg">
+                                {% if spark.is_sender_revealed %}
+                                    {% trans "From" %} {{ spark.sender_display_name }}
+                                {% else %}
+                                    {% trans "From a Secret Admirer" %}
+                                {% endif %}
+                            </h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {{ spark.event.title }} &middot; {{ spark.event.date_time|date:"M d, Y" }}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            {% include 'crush_lu/_spark_status_badge.html' %}
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        {% if spark.status == 'delivered' and spark.journey %}
+                            <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn btn-primary">
+                                {% trans "Play the Journey" %}
+                            </a>
+                        {% elif spark.is_sender_revealed and spark.sender_message %}
+                            <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 mt-2">
+                                <p class="text-purple-800 dark:text-purple-200 italic">"{{ spark.sender_message }}"</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-12">
+                <p class="text-gray-500 dark:text-gray-400 text-lg">{% trans "No sparks received yet." %}</p>
+                <p class="text-gray-400 dark:text-gray-500 mt-2">{% trans "Attend an event and someone might send you a Crush Spark!" %}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
