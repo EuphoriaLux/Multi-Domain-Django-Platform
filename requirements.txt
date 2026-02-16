@@ -17,7 +17,7 @@ django-components==0.148.0  # React-like components for Django templates
 psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.14.1  # Updated from 65.1.0 (latest stable)
+django-allauth==65.14.3  # Updated from 65.1.0 (latest stable)
 PyJWT==2.11.0
 cryptography>=41.0.0  # Required for JWT token verification with RSA keys
 google-auth==2.48.0  # Required for Google Wallet API authentication
@@ -25,10 +25,10 @@ google-auth==2.48.0  # Required for Google Wallet API authentication
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2
 azure-storage-blob==12.28.0
-azure-identity==1.25.1  # Managed Identity & Azure CLI authentication
+azure-identity==1.25.2  # Managed Identity & Azure CLI authentication
 
 # Image processing
-Pillow==12.1.0  # Updated from 11.0.0 (security fixes)
+Pillow==12.1.1  # Updated from 11.0.0 (security fixes)
 olefile==0.47
 # MIME type detection - platform-specific packages
 # Linux (Azure): python-magic requires libmagic1 (pre-installed on most Linux distros)
