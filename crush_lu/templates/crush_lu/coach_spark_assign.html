@@ -63,7 +63,7 @@
                     </div>
                     <div class="flex gap-3">
                         <button type="submit" name="action" value="approve"
-                                class="btn btn-primary flex-1"
+                                class="btn-crush-primary flex-1"
                                 onclick="return confirm('{% trans "Approve this spark? The sender will be notified to create their journey." %}')">
                             {% trans "Approve" %}
                         </button>
@@ -83,7 +83,7 @@
                 <input type="text" name="q" value="{{ search }}"
                        placeholder="{% trans 'Search attendees...' %}"
                        class="form-input flex-1 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800">
-                <button type="submit" class="btn btn-secondary">{% trans "Search" %}</button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">{% trans "Search" %}</button>
             </form>
         </div>
 
@@ -125,7 +125,7 @@
                         <form method="post">
                             {% csrf_token %}
                             <input type="hidden" name="recipient_user_id" value="{{ registration.user.id }}">
-                            <button type="submit" class="btn btn-primary btn-sm"
+                            <button type="submit" class="btn-crush-primary text-sm px-3 py-1.5"
                                     onclick="return confirm('{% trans "Assign this person as the recipient?" %}')">
                                 {% trans "Assign" %}
                             </button>

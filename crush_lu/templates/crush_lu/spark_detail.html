@@ -64,7 +64,7 @@
                             {% endif %}
                         </p>
                     </div>
-                    <a href="{% url 'crush_lu:spark_create_journey' spark.id %}" class="btn btn-primary w-full">
+                    <a href="{% url 'crush_lu:spark_create_journey' spark.id %}" class="btn-crush-primary w-full">
                         {% trans "Create Journey" %}
                     </a>
                 {% elif spark.status == 'delivered' %}
@@ -109,7 +109,7 @@
                             {% trans "has created a journey for you!" %}
                         </p>
                         {% if spark.journey %}
-                        <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn btn-primary mt-4 inline-block">
+                        <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn-crush-primary mt-4 inline-block">
                             {% trans "Play the Journey" %}
                         </a>
                         {% endif %}

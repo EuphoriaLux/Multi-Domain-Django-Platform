@@ -36,7 +36,7 @@
 
                     <div class="mt-4">
                         {% if spark.status == 'delivered' and spark.journey %}
-                            <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn btn-primary">
+                            <a href="{% url 'crush_lu:journey_map_wonderland' %}" class="btn-crush-primary">
                                 {% trans "Play the Journey" %}
                             </a>
                         {% elif spark.is_sender_revealed and spark.sender_message %}
