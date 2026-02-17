@@ -82,10 +82,19 @@ def event_detail(request, event_id):
     if request.user.is_authenticated:
         user_profile = CrushProfile.objects.filter(user=request.user).first()
 
+    # Language requirement check
+    language_requirement_met = True
+    if event.languages and request.user.is_authenticated:
+        language_requirement_met, _ = event.user_meets_language_requirement(
+            request.user
+        )
+
     context = {
         "event": event,
         "user_registration": registration,
         "user_profile": user_profile,
+        "language_requirement_met": language_requirement_met,
+        "event_languages_display": event.get_languages_display,
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -223,6 +232,13 @@ def event_register(request, event_id):
             _("This event has age restrictions. Please create a profile to verify your age.")
         )
         return redirect("crush_lu:create_profile")
+
+    # Language requirement check
+    if event.languages:
+        meets_req, error_msg = event.user_meets_language_requirement(request.user)
+        if not meets_req:
+            messages.error(request, error_msg)
+            return redirect("crush_lu:event_detail", event_id=event_id)
 
     if EventRegistration.objects.filter(event=event, user=request.user).exclude(status='cancelled').exists():
         messages.warning(request, _("You are already registered for this event."))

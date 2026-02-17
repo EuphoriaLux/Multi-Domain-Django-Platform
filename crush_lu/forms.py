@@ -208,9 +208,12 @@ class CrushProfileForm(forms.ModelForm):
     event_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        required=False,
+        required=True,
         label=_('Languages for Events'),
-        help_text=_('Which languages can you speak at in-person events?')
+        help_text=_('Select the languages you can speak at events. You will only be able to sign up for events in your selected languages (except Open Format events).'),
+        error_messages={
+            'required': _('Please select at least one event language.'),
+        }
     )
 
     class Meta:

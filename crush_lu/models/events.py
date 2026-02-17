@@ -133,6 +133,16 @@ class MeetupEvent(models.Model):
         ),
     )
 
+    # Event Language Requirements
+    languages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "Languages this event will be conducted in (e.g. ['en', 'fr']). "
+            "Empty list means no language restriction."
+        ),
+    )
+
     # Private Invitation Event Settings
     is_private_invitation = models.BooleanField(
         default=False,
@@ -257,6 +267,62 @@ class MeetupEvent(models.Model):
         if hasattr(self, "waitlist_count_annotated"):
             return self.waitlist_count_annotated
         return self.eventregistration_set.filter(status="waitlist").count()
+
+    LANGUAGE_DISPLAY = {
+        "en": {"name": _("English"), "flag": "\U0001f1ec\U0001f1e7"},
+        "de": {"name": _("Deutsch"), "flag": "\U0001f1e9\U0001f1ea"},
+        "fr": {"name": _("Fran\u00e7ais"), "flag": "\U0001f1eb\U0001f1f7"},
+        "lu": {"name": _("L\u00ebtzebuergesch"), "flag": "\U0001f1f1\U0001f1fa"},
+    }
+
+    @property
+    def get_languages_display(self):
+        """Return list of dicts with code/name/flag for each event language."""
+        if not self.languages:
+            return []
+        return [
+            {
+                "code": code,
+                "name": str(self.LANGUAGE_DISPLAY.get(code, {}).get("name", code)),
+                "flag": self.LANGUAGE_DISPLAY.get(code, {}).get("flag", ""),
+            }
+            for code in self.languages
+            if code in self.LANGUAGE_DISPLAY
+        ]
+
+    def user_meets_language_requirement(self, user):
+        """
+        Check if a user meets the event's language requirement.
+        Returns (bool, error_message).
+        """
+        if not self.languages:
+            return True, ""
+
+        try:
+            profile = user.crushprofile
+        except Exception:
+            return False, _(
+                "Please complete your profile before registering for this event."
+            )
+
+        user_languages = profile.event_languages or []
+        if not user_languages:
+            return False, _(
+                "This event requires specific language skills. "
+                "Please update your profile to include your event languages."
+            )
+
+        if not set(self.languages) & set(user_languages):
+            lang_names = [
+                str(self.LANGUAGE_DISPLAY.get(c, {}).get("name", c))
+                for c in self.languages
+            ]
+            return False, _(
+                "This event requires one of these languages: %(languages)s. "
+                "Please update your profile languages if you speak any of them."
+            ) % {"languages": ", ".join(lang_names)}
+
+        return True, ""
 
 
 class EventRegistration(models.Model):

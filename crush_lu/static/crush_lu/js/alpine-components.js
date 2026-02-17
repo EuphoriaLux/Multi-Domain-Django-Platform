@@ -2195,16 +2195,24 @@ document.addEventListener('alpine:init', function() {
                 };
             },
 
-            // Collect Step 3 form data (privacy settings only - photos handled by HTMX)
+            // Collect Step 3 form data (privacy settings + event languages - photos handled by HTMX)
             collectStep3Data: function() {
                 var showFullName = document.querySelector('[name="show_full_name"]');
                 var showExactAge = document.querySelector('[name="show_exact_age"]');
                 var blurPhotos = document.querySelector('[name="blur_photos"]');
 
+                // Collect checked event language checkboxes
+                var langCheckboxes = document.querySelectorAll('[name="event_languages"]:checked');
+                var eventLanguages = [];
+                for (var i = 0; i < langCheckboxes.length; i++) {
+                    eventLanguages.push(langCheckboxes[i].value);
+                }
+
                 return {
                     show_full_name: showFullName ? showFullName.checked : false,
                     show_exact_age: showExactAge ? showExactAge.checked : true,
-                    blur_photos: blurPhotos ? blurPhotos.checked : false
+                    blur_photos: blurPhotos ? blurPhotos.checked : false,
+                    event_languages: eventLanguages
                 };
             },
 
@@ -2307,6 +2315,11 @@ document.addEventListener('alpine:init', function() {
                 if (data.show_full_name) formData.append('show_full_name', 'on');
                 if (data.show_exact_age) formData.append('show_exact_age', 'on');
                 if (data.blur_photos) formData.append('blur_photos', 'on');
+
+                // Append each selected event language
+                for (var i = 0; i < data.event_languages.length; i++) {
+                    formData.append('event_languages', data.event_languages[i]);
+                }
 
                 return fetch('/api/profile/save-step3/', {
                     method: 'POST',

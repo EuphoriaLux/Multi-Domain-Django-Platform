@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 
 {% if has_errors %}
 <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
@@ -379,9 +379,18 @@
 <div class="section-card mb-4">
     <h5 class="section-title">
         {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        Languages for Events
+        {% trans "Languages for Events" %}
+        <span class="text-red-500 text-sm">*</span>
     </h5>
-    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">Which languages can you speak at in-person events?</p>
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
+        <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+            </svg>
+            {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+        </p>
+    </div>
 
     <div class="flex flex-wrap gap-3">
         {% for value, label in form.event_languages.field.choices %}

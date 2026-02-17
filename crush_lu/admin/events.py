@@ -111,6 +111,7 @@ class MeetupEventAdmin(TranslationAdmin):
         "date_time",
         "canton",
         "location",
+        "get_event_languages",
         "get_registration_count",
         "get_confirmed_count",
         "get_waitlist_count",
@@ -196,6 +197,7 @@ class MeetupEventAdmin(TranslationAdmin):
                     "min_age",
                     "max_age",
                     "require_approved_profile",
+                    "languages",
                     "has_food_component",
                     "allow_plus_ones",
                 )
@@ -284,6 +286,16 @@ class MeetupEventAdmin(TranslationAdmin):
             return f"🟢 {remaining}/{obj.max_participants}"
 
     get_spots_remaining.short_description = _("Spots Available")
+
+    def get_event_languages(self, obj):
+        """Display event languages"""
+        if not obj.languages:
+            return _("Any")
+        return ", ".join(
+            lang["flag"] + " " + lang["name"] for lang in obj.get_languages_display
+        )
+
+    get_event_languages.short_description = _("Languages")
 
     def get_revenue(self, obj):
         """Calculate total revenue from confirmed payments"""
@@ -490,8 +502,27 @@ class MeetupEventAdmin(TranslationAdmin):
         return response
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
-        """Customize form field help text for better UX"""
-        if db_field.name == "require_approved_profile":
+        """Customize form fields for better UX"""
+        if db_field.name == "languages":
+            from django import forms
+            from crush_lu.models import CrushProfile
+
+            kwargs["widget"] = forms.CheckboxSelectMultiple(
+                choices=CrushProfile.EVENT_LANGUAGE_CHOICES
+            )
+            kwargs["help_text"] = _(
+                "Select the languages this event will be conducted in. "
+                "Leave all unchecked for no language restriction (any user can register)."
+            )
+            # Return a MultipleChoiceField that stores as JSON list
+            return forms.TypedMultipleChoiceField(
+                choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                help_text=kwargs["help_text"],
+                coerce=str,
+            )
+        elif db_field.name == "require_approved_profile":
             kwargs["help_text"] = _(
                 "Require approved Crush profile for registration?\n"
                 "• Checked (recommended): Only users with approved profiles can register\n"

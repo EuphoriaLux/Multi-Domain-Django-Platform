@@ -120,6 +120,7 @@ class RegistrationFlowTests(TestCase):
             "looking_for": "dating",
             "bio": "Testing bio",
             "interests": "Reading, Hiking",
+            "event_languages": ["en", "fr"],
         }
 
         profile_response = self.client.post(reverse("crush_lu:create_profile"), profile_data, follow=True, HTTP_HOST="crush.lu")

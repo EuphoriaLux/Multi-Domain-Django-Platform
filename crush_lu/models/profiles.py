@@ -592,6 +592,14 @@ class CrushProfile(models.Model):
                 'step': 3
             })
 
+        # Step 3: Event Languages (At least one required)
+        if not self.event_languages:
+            missing.append({
+                'field': 'event_languages',
+                'label': _('Event Languages'),
+                'step': 3
+            })
+
         return missing
 
     @property

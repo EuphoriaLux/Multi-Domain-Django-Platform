@@ -929,22 +929,31 @@
                     </div>
                 </div>
 
-                <!-- Event Languages -->
+                <!-- Event Languages (Required) -->
                 <div class="border-t pt-6 mt-6">
-                    <h5 class="font-semibold mb-4 flex items-center gap-2 dark:text-white">
+                    <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
                         <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
                         </svg>
                         {% trans "Languages for Events" %}
+                        <span class="text-red-500 text-sm">*</span>
                     </h5>
-                    <p class="text-sm text-gray-500 mb-4">{% trans "Which languages can you speak at in-person events?" %}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Which languages can you speak at in-person events?" %}</p>
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                            </svg>
+                            {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+                        </p>
+                    </div>
 
                     <div class="flex flex-wrap gap-3">
                         <label class="cursor-pointer">
                             <input type="checkbox" name="event_languages" value="en" class="peer hidden"
                                    data-language="en"
                                    {% if form.event_languages.value and 'en' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'en' in profile.event_languages %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
                                 🇬🇧 {% trans "English" %}
                             </span>
                         </label>
@@ -952,7 +961,7 @@
                             <input type="checkbox" name="event_languages" value="de" class="peer hidden"
                                    data-language="de"
                                    {% if form.event_languages.value and 'de' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'de' in profile.event_languages %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
                                 🇩🇪 {% trans "Deutsch" %}
                             </span>
                         </label>
@@ -960,7 +969,7 @@
                             <input type="checkbox" name="event_languages" value="fr" class="peer hidden"
                                    data-language="fr"
                                    {% if form.event_languages.value and 'fr' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'fr' in profile.event_languages %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
                                 🇫🇷 {% trans "Français" %}
                             </span>
                         </label>
@@ -968,7 +977,7 @@
                             <input type="checkbox" name="event_languages" value="lu" class="peer hidden"
                                    data-language="lu"
                                    {% if form.event_languages.value and 'lu' in form.event_languages.value %}checked{% elif not form.event_languages.value and profile and 'lu' in profile.event_languages %}checked{% endif %}>
-                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 bg-white transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:text-purple-700 hover:border-purple-300">
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
                                 🇱🇺 {% trans "Lëtzebuergesch" %}
                             </span>
                         </label>

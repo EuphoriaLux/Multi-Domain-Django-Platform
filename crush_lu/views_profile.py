@@ -385,20 +385,22 @@ def save_profile_step3(request):
         profile.show_exact_age = request.POST.get('show_exact_age') == 'on'
         profile.blur_photos = request.POST.get('blur_photos') == 'on'
 
-        # Event languages (multiple checkboxes stored as JSON array)
-        # CRITICAL: Check draft first, then POST data
+        # Event languages (multiple checkboxes stored as JSON array) - REQUIRED
         event_languages = request.POST.getlist('event_languages')
         if not event_languages and profile.draft_data and 'step3' in profile.draft_data:
             # Not in POST, check if it's in the draft
             draft_event_languages = profile.draft_data['step3'].get('event_languages')
             if draft_event_languages and isinstance(draft_event_languages, list):
-                # Use draft value
                 event_languages = draft_event_languages
 
+        if not event_languages and not profile.event_languages:
+            return JsonResponse({
+                'success': False,
+                'error': _('Please select at least one event language. You will only be able to sign up for events in your selected languages.'),
+            }, status=400)
+
         if event_languages:
-            # Update the field with POST or draft value
             profile.event_languages = event_languages
-        # else: Keep existing value
 
         # Note: interest_category checkboxes are UI-only (not stored in model)
         # They're used for filtering/display purposes only

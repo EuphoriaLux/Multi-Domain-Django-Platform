@@ -152,6 +152,16 @@
                 👥 Ages {{ event.min_age }}-{{ event.max_age }}
             </p>
 
+            {% if event.get_languages_display %}
+            <div class="flex flex-wrap gap-1.5 mb-3">
+                {% for lang in event.get_languages_display %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                    {{ lang.flag }} {{ lang.name }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <p class="mb-4 dark:text-gray-300">{{ event.description|truncatewords:25 }}</p>
 
             <div class="mt-auto">
