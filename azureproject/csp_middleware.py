@@ -270,7 +270,7 @@ class CSPMiddleware:
             # Disable dangerous/unused features (standardized only)
             "accelerometer=()",
             "autoplay=()",
-            "camera=()",  # Not used - disable for privacy
+            "camera=(self)",  # Needed for QR check-in scanner
             "display-capture=()",
             "encrypted-media=()",
             "fullscreen=(self)",  # Allow fullscreen on same origin

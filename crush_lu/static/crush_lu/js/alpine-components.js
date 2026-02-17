@@ -106,7 +106,16 @@ document.addEventListener('alpine:init', function() {
                 }).catch(function(err) {
                     self.result = true;
                     self.errorState = true;
-                    self.message = 'Could not start camera: ' + err;
+                    var errStr = String(err);
+                    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+                        self.message = 'Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.';
+                    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('DevicesNotFound') !== -1) {
+                        self.message = 'No camera found on this device.';
+                    } else if (errStr.indexOf('NotReadableError') !== -1 || errStr.indexOf('TrackStartError') !== -1) {
+                        self.message = 'Camera is in use by another application. Please close other apps using the camera and try again.';
+                    } else {
+                        self.message = 'Could not start camera: ' + errStr;
+                    }
                     readerEl.style.display = 'none';
                 });
             },
