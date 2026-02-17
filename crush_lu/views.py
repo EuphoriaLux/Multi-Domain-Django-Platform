@@ -121,6 +121,7 @@ from .views_account import (  # noqa: F401
     consent_confirm,
     referral_redirect,
     signup,
+    export_user_data,
 )
 
 # Events

@@ -227,6 +227,13 @@ class SafeCurrentSiteMiddleware:
 
         # Set request.site safely
         request.site = self._get_site(request)
+
+        # Populate Django's SITE_CACHE so allauth's get_current_site()
+        # finds the site without re-querying the DB (which can raise DoesNotExist)
+        from django.contrib.sites.models import SITE_CACHE
+        if request.site:
+            SITE_CACHE[host] = request.site
+
         return self.get_response(request)
 
     def _get_site(self, request):

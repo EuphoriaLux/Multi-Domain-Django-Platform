@@ -178,6 +178,7 @@ urlpatterns = [
     path('account/delete/', views.delete_account, name='delete_account'),  # Redirects to GDPR dashboard
     path('account/delete-profile/', views.delete_crushlu_profile_view, name='delete_crushlu_profile'),  # Default action
     path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
+    path('account/gdpr/export/', views.export_user_data, name='export_user_data'),  # GDPR data export
     path('consent/confirm/', views.consent_confirm, name='consent_confirm'),  # Retroactive consent confirmation
 
     # Email unsubscribe (public access with token)

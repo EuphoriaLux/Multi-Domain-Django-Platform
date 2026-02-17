@@ -945,3 +945,97 @@ def signup(request):
         "mode": "signup",
     }
     return render(request, "crush_lu/auth.html", context)
+
+
+@crush_login_required
+def export_user_data(request):
+    """
+    GDPR Article 20 - Data Portability.
+    Export all user's personal data as a JSON file download.
+    """
+    from crush_lu.models.profiles import UserDataConsent
+
+    user = request.user
+    data = {
+        "export_date": timezone.now().isoformat(),
+        "account": {
+            "email": user.email,
+            "username": user.username,
+            "date_joined": user.date_joined.isoformat(),
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+        },
+    }
+
+    # Profile data
+    if hasattr(user, "crushprofile"):
+        profile = user.crushprofile
+        data["profile"] = {
+            "display_name": profile.display_name,
+            "gender": profile.gender,
+            "date_of_birth": str(profile.date_of_birth) if profile.date_of_birth else None,
+            "canton": profile.canton,
+            "bio": profile.bio,
+            "interests": profile.interests,
+            "looking_for": profile.looking_for,
+            "status": profile.status,
+            "created_at": profile.created_at.isoformat() if hasattr(profile, "created_at") and profile.created_at else None,
+        }
+
+    # Event registrations
+    registrations = EventRegistration.objects.filter(user=user).select_related("event")
+    if registrations.exists():
+        data["event_registrations"] = [
+            {
+                "event": reg.event.title,
+                "event_date": reg.event.date_time.isoformat() if reg.event.date_time else None,
+                "status": reg.status,
+                "registered_at": reg.created_at.isoformat() if hasattr(reg, "created_at") and reg.created_at else None,
+            }
+            for reg in registrations
+        ]
+
+    # Connections
+    connections = EventConnection.objects.filter(
+        Q(requester=user) | Q(recipient=user)
+    ).select_related("requester", "recipient", "event")
+    if connections.exists():
+        data["connections"] = [
+            {
+                "event": conn.event.title if conn.event else None,
+                "connected_with": conn.recipient.email if conn.requester == user else conn.requester.email,
+                "status": conn.status,
+                "created_at": conn.created_at.isoformat() if hasattr(conn, "created_at") and conn.created_at else None,
+            }
+            for conn in connections
+        ]
+
+    # Messages
+    sent_messages = ConnectionMessage.objects.filter(sender=user)
+    if sent_messages.exists():
+        data["messages_sent"] = [
+            {
+                "content": msg.content,
+                "sent_at": msg.created_at.isoformat() if hasattr(msg, "created_at") and msg.created_at else None,
+            }
+            for msg in sent_messages
+        ]
+
+    # Consent records
+    try:
+        consent = UserDataConsent.objects.get(user=user)
+        data["consent"] = {
+            "crushlu_consent_given": consent.crushlu_consent_given,
+            "crushlu_consent_date": consent.crushlu_consent_date.isoformat() if consent.crushlu_consent_date else None,
+            "powerup_consent_given": consent.powerup_consent_given,
+            "powerup_consent_date": consent.powerup_consent_date.isoformat() if consent.powerup_consent_date else None,
+            "marketing_consent": consent.marketing_consent if hasattr(consent, "marketing_consent") else None,
+        }
+    except UserDataConsent.DoesNotExist:
+        pass
+
+    response = HttpResponse(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        content_type="application/json",
+    )
+    response["Content-Disposition"] = f'attachment; filename="crush_lu_data_{user.id}.json"'
+    return response

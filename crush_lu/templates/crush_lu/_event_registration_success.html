@@ -75,13 +75,16 @@
             };
 
             const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventData.title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&location=${encodeURIComponent(eventData.location)}`;
-            document.getElementById('googleCalendarLink').href = googleUrl;
+            const googleLink = document.getElementById('googleCalendarLink');
+            if (googleLink) googleLink.href = googleUrl;
 
             const outlookUrl = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(eventData.title)}&startdt=${startDate.toISOString()}&enddt=${endDate.toISOString()}&body=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&location=${encodeURIComponent(eventData.location)}&path=/calendar/action/compose&rru=addevent`;
-            document.getElementById('outlookCalendarLink').href = outlookUrl;
+            const outlookLink = document.getElementById('outlookCalendarLink');
+            if (outlookLink) outlookLink.href = outlookUrl;
 
             const yahooUrl = `https://calendar.yahoo.com/?v=60&title=${encodeURIComponent(eventData.title)}&st=${formatDate(startDate)}&et=${formatDate(endDate)}&desc=${encodeURIComponent(eventData.description + '\\n\\n' + eventData.url)}&in_loc=${encodeURIComponent(eventData.location)}`;
-            document.getElementById('yahooCalendarLink').href = yahooUrl;
+            const yahooLink = document.getElementById('yahooCalendarLink');
+            if (yahooLink) yahooLink.href = yahooUrl;
         })();
         </script>
         {% endif %}
