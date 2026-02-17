@@ -12,7 +12,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
 from azureproject.email_utils import send_domain_email
-from .email_helpers import get_user_language_url, get_email_base_urls
+from .email_helpers import get_user_language_url, get_email_base_urls, get_social_links
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,7 @@ def send_existing_user_invitation_email(event, user, request=None):
             'event_url': event_url,
             'dashboard_url': dashboard_url,
             'LANGUAGE_CODE': lang,
+            'social_links': get_social_links(),
             **base_urls,
         }
 
@@ -137,6 +138,7 @@ def send_external_guest_invitation_email(event_invitation, request=None):
             'invitation_url': invitation_url,
             'invited_by': event_invitation.invited_by,
             'LANGUAGE_CODE': lang,
+            'social_links': get_social_links(),
         }
 
         # Render email in English for external guests
@@ -217,6 +219,7 @@ def send_invitation_approval_email(event_invitation, request=None):
             'event_url': event_url,
             'dashboard_url': dashboard_url,
             'LANGUAGE_CODE': lang,
+            'social_links': get_social_links(),
             **base_urls,
         }
 
@@ -291,6 +294,7 @@ def send_invitation_rejection_email(event_invitation, request=None):
             'feedback': event_invitation.approval_notes or _("No specific feedback provided."),
             'events_url': events_url,  # Used by template for "Browse Other Events" button
             'LANGUAGE_CODE': lang,
+            'social_links': get_social_links(),
             **base_urls,
         }
 

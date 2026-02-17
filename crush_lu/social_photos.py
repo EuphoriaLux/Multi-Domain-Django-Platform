@@ -17,6 +17,7 @@ import re
 import requests
 from django.core.cache import cache
 from django.core.files.base import ContentFile
+from django.utils import timezone
 from .utils.image_processing import process_uploaded_image
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,31 @@ PROVIDER_DISPLAY_NAMES = {
     'google': 'Google',
     'microsoft': 'Microsoft',
 }
+
+
+def _get_token_for_account(social_account):
+    """Get the SocialToken for a social account, using prefetch if available."""
+    try:
+        if (
+            hasattr(social_account, '_prefetched_objects_cache')
+            and 'socialtoken_set' in social_account._prefetched_objects_cache
+        ):
+            tokens = list(social_account.socialtoken_set.all())
+            return tokens[0] if tokens else None
+        else:
+            from allauth.socialaccount.models import SocialToken
+            return SocialToken.objects.filter(account=social_account).first()
+    except Exception:
+        return None
+
+
+def _is_token_expired(token):
+    """Check if a SocialToken is expired."""
+    if not token:
+        return True
+    if token.expires_at and token.expires_at <= timezone.now():
+        return True
+    return False
 
 
 def get_facebook_photo_url(social_account):
@@ -58,34 +84,26 @@ def get_facebook_photo_url(social_account):
 
     # Try high-resolution photo first via Graph API
     if facebook_id:
-        # Request 720x720 photo (maximum size for profile pictures)
-        url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
+        token = _get_token_for_account(social_account)
 
-        # Try to get access token for authenticated request
-        # Use prefetched socialtoken_set if available to avoid N+1 query
-        try:
-            if hasattr(social_account, '_prefetched_objects_cache') and 'socialtoken_set' in social_account._prefetched_objects_cache:
-                # Use prefetched tokens
-                tokens = list(social_account.socialtoken_set.all())
-                token = tokens[0] if tokens else None
-            else:
-                # Fall back to query if not prefetched
-                from allauth.socialaccount.models import SocialToken
-                token = SocialToken.objects.filter(account=social_account).first()
+        # Skip API call if token is expired - the result will be a broken URL anyway
+        if _is_token_expired(token):
+            logger.info(f"Facebook token expired for account {social_account.id}, skipping API call")
+        else:
+            # Request 720x720 photo (maximum size for profile pictures)
+            url = f"https://graph.facebook.com/v24.0/{facebook_id}/picture?width=720&height=720&redirect=false"
             if token:
                 url += f"&access_token={token.token}"
-        except Exception:
-            pass
 
-        try:
-            response = requests.get(url, timeout=5)  # Reduced timeout
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = requests.get(url, timeout=5)  # Reduced timeout
+                response.raise_for_status()
+                data = response.json()
 
-            if data.get('data', {}).get('url'):
-                result_url = data['data']['url']
-        except Exception as e:
-            logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
+                if data.get('data', {}).get('url'):
+                    result_url = data['data']['url']
+            except Exception as e:
+                logger.warning(f"Could not get high-res Facebook photo: {str(e)}")
 
     # Fallback to standard picture from extra_data
     if not result_url and 'picture' in extra_data:
@@ -154,18 +172,10 @@ def get_microsoft_photo_url(social_account):
 
     result_url = None
     try:
-        # Use prefetched socialtoken_set if available to avoid N+1 query
-        if hasattr(social_account, '_prefetched_objects_cache') and 'socialtoken_set' in social_account._prefetched_objects_cache:
-            # Use prefetched tokens
-            tokens = list(social_account.socialtoken_set.all())
-            token = tokens[0] if tokens else None
-        else:
-            # Fall back to query if not prefetched
-            from allauth.socialaccount.models import SocialToken
-            token = SocialToken.objects.filter(account=social_account).first()
+        token = _get_token_for_account(social_account)
 
-        if not token:
-            logger.warning(f"No access token found for Microsoft account {social_account.id}")
+        if not token or _is_token_expired(token):
+            logger.warning(f"No valid token for Microsoft account {social_account.id}")
             cache.set(cache_key, '', SOCIAL_PHOTO_CACHE_TIMEOUT)
             return None
 
@@ -255,6 +265,10 @@ def get_all_social_photos(user):
 
     photos = []
     for account in social_accounts:
+        # Check token expiry before making API calls
+        token = _get_token_for_account(account)
+        token_expired = _is_token_expired(token)
+
         photo_url = get_social_photo_url(account)
 
         photo_info = {
@@ -263,12 +277,15 @@ def get_all_social_photos(user):
             'photo_url': photo_url,
             'available': photo_url is not None,
             'account_id': account.id,
+            'token_expired': token_expired,
         }
 
         # Add reason if not available
         if not photo_url:
-            if account.provider == 'microsoft':
-                photo_info['reason'] = 'No photo set or token expired'
+            if token_expired:
+                photo_info['reason'] = 'Token expired - please reconnect'
+            elif account.provider == 'microsoft':
+                photo_info['reason'] = 'No photo set'
             else:
                 photo_info['reason'] = 'No photo available'
 

@@ -27,6 +27,7 @@
                 <option value="approved"{% if status_filter == "approved" %} selected{% endif %}>{% trans "Approved" %}</option>
                 <option value="rejected"{% if status_filter == "rejected" %} selected{% endif %}>{% trans "Rejected" %}</option>
                 <option value="revision"{% if status_filter == "revision" %} selected{% endif %}>{% trans "Revision" %}</option>
+                <option value="recontact_coach"{% if status_filter == "recontact_coach" %} selected{% endif %}>{% trans "Recontact" %}</option>
             </select>
         </div>
         <div class="flex-1 min-w-[140px]">
@@ -86,6 +87,8 @@
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">{% trans "Rejected" %}</span>
                                 {% elif submission.status == 'revision' %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Revision" %}</span>
+                                {% elif submission.status == 'recontact_coach' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full">{% trans "Recontact" %}</span>
                                 {% endif %}
                             </td>
                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell">

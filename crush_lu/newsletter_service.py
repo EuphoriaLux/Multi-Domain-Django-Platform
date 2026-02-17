@@ -14,7 +14,7 @@ from django.utils import timezone, translation
 from django.utils.html import strip_tags
 
 from azureproject.email_utils import send_domain_email
-from .email_helpers import can_send_email
+from .email_helpers import can_send_email, get_social_links
 from .models.newsletter import Newsletter, NewsletterRecipient
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
@@ -347,6 +347,7 @@ def render_event_announcement(event, user, lang):
             'settings_url': build_absolute_url(
                 'crush_lu:account_settings', lang=lang
             ),
+            'social_links': get_social_links(),
             'LANGUAGE_CODE': lang,
         }
 
@@ -395,6 +396,7 @@ def _send_newsletter_to_user(newsletter, user):
             'settings_url': build_absolute_url(
                 'crush_lu:account_settings', lang=lang
             ),
+            'social_links': get_social_links(),
             'LANGUAGE_CODE': lang,
         }
 

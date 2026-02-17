@@ -185,36 +185,14 @@ document.addEventListener('click', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Update photo preview
-            const previewId = 'preview-photo-' + slot;
-            const previewContainer = document.getElementById(previewId);
-
-            if (previewContainer) {
-                if (previewContainer.classList.contains('photo-placeholder')) {
-                    // Replace placeholder with image
-                    const img = document.createElement('img');
-                    img.src = data.photo_url;
-                    img.alt = 'Photo ' + slot;
-                    img.className = 'photo-preview';
-                    img.id = previewId;
-                    previewContainer.parentNode.replaceChild(img, previewContainer);
-
-                    // Add badge
-                    const container = img.closest('.photo-preview-container');
-                    if (container && !container.querySelector('.photo-badge')) {
-                        const badge = document.createElement('span');
-                        badge.className = 'photo-badge bg-green-500';
-                        badge.textContent = 'Imported';
-                        container.appendChild(badge);
-                    }
-                } else {
-                    // Update existing image
-                    previewContainer.src = data.photo_url;
-                    const badge = previewContainer.closest('.photo-preview-container')?.querySelector('.photo-badge');
-                    if (badge) {
-                        badge.textContent = 'Imported';
-                        badge.classList.add('bg-green-500');
-                    }
+            // Replace entire photo card with server-rendered partial
+            var photoCardSlot = data.photo_slot || slot;
+            var photoCard = document.getElementById('photo-card-' + photoCardSlot);
+            if (photoCard && data.html) {
+                photoCard.innerHTML = data.html;
+                // Trigger HTMX to process new content (hx-delete buttons etc.)
+                if (window.htmx) {
+                    htmx.process(photoCard);
                 }
             }
 
@@ -223,7 +201,7 @@ document.addEventListener('click', function(e) {
                 notification.className = 'mt-2 alert alert-success';
                 notification.textContent = 'Photo imported successfully!';
                 notification.style.display = 'block';
-                setTimeout(() => notification.style.display = 'none', 3000);
+                setTimeout(function() { notification.style.display = 'none'; }, 3000);
             }
         } else {
             if (notification) {
@@ -245,6 +223,27 @@ document.addEventListener('click', function(e) {
         btn.disabled = false;
         btn.innerHTML = originalContent;
     });
+});
+
+// Handle broken social photo thumbnails gracefully (CSP-safe, no inline onerror)
+function initSocialPhotoFallbacks() {
+    document.querySelectorAll('.social-mini-img').forEach(function(img) {
+        img.addEventListener('error', function() {
+            this.style.display = 'none';
+            var fallback = this.parentElement.querySelector('.no-photo-fallback');
+            if (fallback) {
+                fallback.style.display = 'flex';
+            }
+        });
+    });
+}
+initSocialPhotoFallbacks();
+
+// Reinitialize after HTMX swaps that might reload the form
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'form-container') {
+        initSocialPhotoFallbacks();
+    }
 });
 
 // Destroy existing intl-tel-input instance to prevent memory leaks

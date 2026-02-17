@@ -74,10 +74,10 @@ def crush_user_context(request):
                 context['profile_submission'] = profile_submission
                 context['profile_status'] = profile_submission.status
                 context['profile_is_approved'] = profile.is_approved
-                context['profile_needs_action'] = profile_submission.status == 'revision'
+                context['profile_needs_action'] = profile_submission.status in ('revision', 'recontact_coach')
 
-                # Coach name for pending review navbar display
-                if profile_submission.coach and profile_submission.status == 'pending':
+                # Coach name for pending review / recontact navbar display
+                if profile_submission.coach and profile_submission.status in ('pending', 'recontact_coach'):
                     context['assigned_coach_name'] = profile_submission.coach.user.first_name
         else:
             # No profile yet - show step 0
@@ -99,7 +99,7 @@ def crush_user_context(request):
         if hasattr(request.user, 'crushcoach') and request.user.crushcoach.is_active:
             pending_screening_count = ProfileSubmission.objects.filter(
                 coach=request.user.crushcoach,
-                status='pending',
+                status__in=['pending', 'recontact_coach'],
                 review_call_completed=False
             ).count()
             context['pending_screening_count'] = pending_screening_count

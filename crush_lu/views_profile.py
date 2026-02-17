@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.db import transaction
@@ -432,10 +433,22 @@ def save_profile_step3(request):
 
 
 @crush_login_required
+@require_http_methods(["POST"])
 def complete_profile_submission(request):
     """Final submission - Mark as completed and submit for review"""
     try:
         profile = CrushProfile.objects.get(user=request.user)
+
+        # Validate profile is complete before allowing submission
+        missing_fields = profile.get_missing_fields()
+        if missing_fields:
+            missing_labels = [f['label'] for f in missing_fields]
+            logger.warning(
+                f"Incomplete profile submission attempt by {request.user.email}: "
+                f"missing {', '.join(f['field'] for f in missing_fields)}"
+            )
+            messages.error(request, _('Please complete all required fields before submitting.'))
+            return redirect('crush_lu:create_profile')
 
         # Mark as completed
         profile.completion_status = 'submitted'
@@ -605,7 +618,19 @@ def import_social_photo(request):
         )
 
         if result['success']:
-            return JsonResponse(result)
+            # Render the updated photo card partial for seamless DOM replacement
+            profile = CrushProfile.objects.get(user=request.user)
+            html = render_to_string('crush_lu/partials/photo_card.html', {
+                'slot': photo_slot,
+                'photo': getattr(profile, f'photo_{photo_slot}'),
+                'is_main': photo_slot == 1,
+            }, request=request)
+            return JsonResponse({
+                'success': True,
+                'photo_url': result['photo_url'],
+                'html': html,
+                'photo_slot': photo_slot,
+            })
         else:
             return JsonResponse(result, status=400)
 

@@ -91,6 +91,24 @@ def get_email_base_urls(user, request):
     }
 
 
+def get_social_links():
+    """Get social media links from CrushSiteConfig for email templates."""
+    from .models import CrushSiteConfig
+
+    try:
+        config = CrushSiteConfig.get_config()
+        platforms = [
+            ("Instagram", config.social_instagram_url, "instagram"),
+            ("Facebook", config.social_facebook_url, "facebook"),
+            ("LinkedIn", config.social_linkedin_url, "linkedin"),
+            ("Google Business", config.social_google_business_url, "google"),
+            ("Reddit", config.social_reddit_url, "reddit"),
+        ]
+        return [{"name": n, "url": u, "icon_id": i} for n, u, i in platforms if u]
+    except Exception:
+        return []
+
+
 def get_email_context_with_unsubscribe(user, request, **extra_context):
     """
     Create email context with unsubscribe URL and footer links.
@@ -117,6 +135,7 @@ def get_email_context_with_unsubscribe(user, request, **extra_context):
         'user': user,  # Include user object for templates that need it
         'unsubscribe_url': get_unsubscribe_url(user, request),
         'LANGUAGE_CODE': lang,  # For email templates that need language-aware rendering
+        'social_links': get_social_links(),
         **base_urls,  # home_url, about_url, events_url, settings_url
         **extra_context
     }
@@ -272,6 +291,7 @@ def send_coach_assignment_notification(coach, profile_submission, request):
         'profile': profile_submission.profile,
         'review_url': review_url,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -370,6 +390,7 @@ def send_profile_revision_request(profile, request, feedback):
         'feedback': feedback,
         'edit_profile_url': edit_profile_url,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -415,6 +436,7 @@ def send_profile_rejected_notification(profile, request, reason):
         'first_name': profile.user.first_name,
         'reason': reason,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -460,6 +482,7 @@ def send_profile_recontact_notification(profile, coach, request):
         'first_name': profile.user.first_name,
         'coach': coach,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -563,6 +586,7 @@ def send_event_waitlist_notification(registration, request):
         'event': registration.event,
         'events_url': events_url,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -611,6 +635,7 @@ def send_event_cancellation_confirmation(user, event, request):
         'event': event,
         'events_url': events_url,
         'LANGUAGE_CODE': lang,
+        'social_links': get_social_links(),
         **base_urls,
     }
 
@@ -1064,6 +1089,7 @@ def send_journey_gift_notification(gift, request):
         'home_url': home_url,
         'about_url': about_url,
         'events_url': events_url,
+        'social_links': get_social_links(),
     }
 
     # Render email template in sender's preferred language
@@ -1168,6 +1194,7 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             'about_url': build_absolute_url('crush_lu:about', lang=lang),
             'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
             'settings_url': build_absolute_url('crush_lu:account_settings', lang=lang),
+            'social_links': get_social_links(),
         }
 
     # Render email and send in user's preferred language

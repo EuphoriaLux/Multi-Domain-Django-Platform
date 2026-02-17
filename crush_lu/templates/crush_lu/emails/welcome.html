@@ -113,6 +113,13 @@
     </div>
 
     <div class="footer">
+        {% if social_links %}
+        <p style="margin: 10px 0; font-size: 14px;">
+            {% for link in social_links %}
+            <a href="{{ link.url }}" style="color: #9B59B6; text-decoration: none; margin: 0 6px;">{{ link.name }}</a>{% if not forloop.last %} |{% endif %}
+            {% endfor %}
+        </p>
+        {% endif %}
         <p>{% blocktrans with email=user.email %}This email was sent to {{ email }} because you created a Crush.lu account.{% endblocktrans %}</p>
         <p>© {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-focused dating in Luxembourg" %}</p>
     </div>

@@ -51,6 +51,13 @@ def coach_dashboard(request):
         .order_by("submitted_at")
     )
 
+    # Get recontact submissions (coach requested callback from user)
+    recontact_submissions = (
+        ProfileSubmission.objects.filter(coach=coach, status="recontact_coach")
+        .select_related("profile__user")
+        .order_by("submitted_at")
+    )
+
     # Calculate wait time and urgency for each submission
     now = timezone.now()
     for submission in pending_submissions:
@@ -68,7 +75,8 @@ def coach_dashboard(request):
     # Get recently reviewed
     recent_reviews = (
         ProfileSubmission.objects.filter(
-            coach=coach, status__in=["approved", "rejected", "revision"]
+            coach=coach,
+            status__in=["approved", "rejected", "revision", "recontact_coach"],
         )
         .select_related("profile__user")
         .order_by("-reviewed_at")[:10]
@@ -90,6 +98,7 @@ def coach_dashboard(request):
         "pending_women": pending_women,
         "pending_men": pending_men,
         "pending_other": pending_other,
+        "recontact_submissions": recontact_submissions,
         "recent_reviews": recent_reviews,
         "pending_sparks_count": pending_sparks_count,
     }
@@ -1172,7 +1181,8 @@ def coach_verification_history(request):
 
     submissions = (
         ProfileSubmission.objects.filter(
-            coach=coach, status__in=["approved", "rejected", "revision"]
+            coach=coach,
+            status__in=["approved", "rejected", "revision", "recontact_coach"],
         )
         .select_related("profile__user")
         .order_by("-reviewed_at")
@@ -1180,7 +1190,7 @@ def coach_verification_history(request):
 
     # Filter by status
     status_filter = request.GET.get("status", "all")
-    if status_filter in ("approved", "rejected", "revision"):
+    if status_filter in ("approved", "rejected", "revision", "recontact_coach"):
         submissions = submissions.filter(status=status_filter)
 
     # Filter by gender

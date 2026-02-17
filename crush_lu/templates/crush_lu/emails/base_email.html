@@ -102,6 +102,13 @@
                 <a href="{{ about_url|default:'https://crush.lu/about/' }}">{% trans "About" %}</a> |
                 <a href="{{ events_url|default:'https://crush.lu/events/' }}">{% trans "Events" %}</a>
             </p>
+            {% if social_links %}
+            <p style="margin: 10px 0; font-size: 14px;">
+                {% for link in social_links %}
+                <a href="{{ link.url }}" style="color: #9B59B6; text-decoration: none; margin: 0 6px;">{{ link.name }}</a>{% if not forloop.last %} |{% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
             <p style="font-size: 12px; color: #999;">
                 {% block footer_message %}
                 {% trans "You're receiving this because you have an account on Crush.lu." %}<br>

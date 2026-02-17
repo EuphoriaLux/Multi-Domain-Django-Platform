@@ -1,4 +1,4 @@
-{% load static i18n %}
+{% load static i18n socialaccount %}
 
 {% if has_errors %}
 <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
@@ -266,15 +266,28 @@
             <div class="social-photo-mini-card">
                 <div class="provider-icon">
                     {% if photo.provider == 'facebook' %}
-                    <i class="fab fa-facebook text-blue-600"></i>
+                    <i class="fab fa-facebook text-blue-600 dark:text-blue-400"></i>
                     {% elif photo.provider == 'google' %}
-                    <i class="fab fa-google text-red-500"></i>
+                    <i class="fab fa-google text-red-500 dark:text-red-400"></i>
                     {% elif photo.provider == 'microsoft' %}
-                    <i class="fab fa-microsoft text-cyan-500"></i>
+                    <i class="fab fa-microsoft text-cyan-500 dark:text-cyan-400"></i>
                     {% endif %}
                 </div>
-                {% if photo.available %}
+                {% if photo.token_expired %}
+                <div class="no-photo-mini flex flex-col items-center gap-1">
+                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                    <a href="{% provider_login_url photo.provider process='connect' %}"
+                       class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium">
+                        Reconnect
+                    </a>
+                </div>
+                {% elif photo.available %}
                 <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img" loading="lazy">
+                <!-- Fallback shown if image fails to load -->
+                <div class="no-photo-fallback hidden flex-col items-center gap-1">
+                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Unavailable</span>
+                </div>
                 <div class="import-btns">
                     <button type="button"
                             class="import-slot-btn import-slot-btn--main import-social-photo-btn"

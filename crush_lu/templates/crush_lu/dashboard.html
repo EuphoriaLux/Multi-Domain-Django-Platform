@@ -52,6 +52,21 @@
                         {% trans "📝 Your coach has requested some revisions" %}
                         <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                     </div>
+                {% elif submission.status == 'recontact_coach' %}
+                    <div class="alert alert-warning">
+                        {% trans "📞 Your coach would like to speak with you" %}
+                        {% if submission.coach %}
+                        <p class="mt-2 mb-0"><strong>{% trans "Coach:" %}</strong> {{ submission.coach.user.first_name }}</p>
+                        {% endif %}
+                        {% if submission.coach.user.email %}
+                        <p class="mt-1 mb-0">
+                            <a href="mailto:{{ submission.coach.user.email }}" class="underline">{{ submission.coach.user.email }}</a>
+                        </p>
+                        {% endif %}
+                        {% if submission.feedback_to_user %}
+                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
+                        {% endif %}
+                    </div>
                 {% elif submission.status == 'rejected' %}
                     <div class="alert alert-danger">
                         {% trans "❌ Your profile was not approved" %}
@@ -65,6 +80,12 @@
                 <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
                     {% include "shared/icons/pencil.html" with class="w-4 h-4" %}
                     {% trans "Edit Profile" %}
+                </a>
+                {% elif submission and submission.status == 'recontact_coach' %}
+                {# Coach wants to speak with user #}
+                <a href="{% url 'crush_lu:profile_submitted' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm bg-orange-500 hover:bg-orange-600">
+                    {% include "shared/icons/phone.html" with class="w-4 h-4" %}
+                    {% trans "Contact Coach" %}
                 </a>
                 {% elif profile.completion_status == 'submitted' and submission and submission.status in 'pending,under_review' %}
                 {# Profile under review - no edit allowed #}
