@@ -20,6 +20,7 @@ from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
 from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft
+from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api
 from crush_lu.admin_views import (
     email_template_manager,
     email_template_user_search,
@@ -205,6 +206,9 @@ urlpatterns = base_patterns + api_patterns + [
     # Dedicated Crush.lu Admin Panel (Coach Panel)
     # Note: Dashboard must come BEFORE admin site to avoid path matching issues
     path('crush-admin/dashboard/', admin_views.crush_admin_dashboard, name='crush_admin_dashboard'),
+    path('crush-admin/api/signup-trend/', signup_trend_api, name='crush_admin_signup_trend'),
+    path('crush-admin/api/verification-trend/', verification_trend_api, name='crush_admin_verification_trend'),
+    path('crush-admin/api/cumulative-growth/', cumulative_growth_api, name='crush_admin_cumulative_growth'),
     path('crush-admin/user-segments/', user_segments_dashboard, name='user_segments_dashboard'),
     path('crush-admin/user-segments/<str:segment_key>/', segment_detail, name='segment_detail'),
     path('crush-admin/profile-reminders/', profile_reminders_panel, name='profile_reminders_panel'),

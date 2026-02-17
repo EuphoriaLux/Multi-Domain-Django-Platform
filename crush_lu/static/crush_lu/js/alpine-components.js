@@ -211,6 +211,7 @@ document.addEventListener('alpine:init', function() {
         return {
             mobileMenuOpen: false,
             coachToolsOpen: false,
+            myCrushOpen: false,
             coachProfileOpen: false,
             eventsOpen: false,
             userMenuOpen: false,
@@ -228,6 +229,7 @@ document.addEventListener('alpine:init', function() {
             get mobileMenuClosed() { return !this.mobileMenuOpen; },
             get mobileMenuAriaExpanded() { return this.mobileMenuOpen ? 'true' : 'false'; },
             get coachToolsAriaExpanded() { return this.coachToolsOpen ? 'true' : 'false'; },
+            get myCrushAriaExpanded() { return this.myCrushOpen ? 'true' : 'false'; },
             get coachProfileAriaExpanded() { return this.coachProfileOpen ? 'true' : 'false'; },
             get eventsAriaExpanded() { return this.eventsOpen ? 'true' : 'false'; },
             get userMenuAriaExpanded() { return this.userMenuOpen ? 'true' : 'false'; },
@@ -237,6 +239,9 @@ document.addEventListener('alpine:init', function() {
             },
             toggleCoachTools: function() {
                 this.coachToolsOpen = !this.coachToolsOpen;
+            },
+            toggleMyCrush: function() {
+                this.myCrushOpen = !this.myCrushOpen;
             },
             toggleCoachProfile: function() {
                 this.coachProfileOpen = !this.coachProfileOpen;
@@ -250,6 +255,9 @@ document.addEventListener('alpine:init', function() {
             closeCoachTools: function() {
                 this.coachToolsOpen = false;
             },
+            closeMyCrush: function() {
+                this.myCrushOpen = false;
+            },
             closeCoachProfile: function() {
                 this.coachProfileOpen = false;
             },
@@ -262,6 +270,7 @@ document.addEventListener('alpine:init', function() {
             closeAllDropdowns: function() {
                 this.mobileMenuOpen = false;
                 this.coachToolsOpen = false;
+                this.myCrushOpen = false;
                 this.coachProfileOpen = false;
                 this.eventsOpen = false;
                 this.userMenuOpen = false;
@@ -6416,6 +6425,7 @@ document.addEventListener('alpine:init', function() {
             get isEvents() { return this.activeTab === 'events'; },
             get isEngagement() { return this.activeTab === 'engagement'; },
             get isTechnical() { return this.activeTab === 'technical'; },
+            get isGrowth() { return this.activeTab === 'growth'; },
 
             // Tab active state classes
             get overviewTabClass() { return this.activeTab === 'overview' ? 'active' : ''; },
@@ -6423,6 +6433,7 @@ document.addEventListener('alpine:init', function() {
             get eventsTabClass() { return this.activeTab === 'events' ? 'active' : ''; },
             get engagementTabClass() { return this.activeTab === 'engagement' ? 'active' : ''; },
             get technicalTabClass() { return this.activeTab === 'technical' ? 'active' : ''; },
+            get growthTabClass() { return this.activeTab === 'growth' ? 'active' : ''; },
 
             init: function() {
                 // Read initial tab from data attribute
@@ -6433,7 +6444,7 @@ document.addEventListener('alpine:init', function() {
                 // Also check URL hash for direct linking
                 if (window.location.hash) {
                     var hashTab = window.location.hash.substring(1);
-                    if (['overview', 'users', 'events', 'engagement', 'technical'].indexOf(hashTab) !== -1) {
+                    if (['overview', 'users', 'events', 'engagement', 'technical', 'growth'].indexOf(hashTab) !== -1) {
                         this.activeTab = hashTab;
                     }
                 }
@@ -6458,6 +6469,291 @@ document.addEventListener('alpine:init', function() {
             setTechnical: function() {
                 this.activeTab = 'technical';
                 history.replaceState(null, '', '#technical');
+            },
+            setGrowth: function() {
+                this.activeTab = 'growth';
+                history.replaceState(null, '', '#growth');
+            }
+        };
+    });
+
+    // Growth Analytics Charts component for admin dashboard
+    // Renders Chart.js charts for signup, verification, and cumulative growth trends
+    Alpine.data('growthCharts', function() {
+        return {
+            loading: false,
+            error: '',
+            range: '30d',
+            granularity: '',
+            signupData: null,
+            verificationData: null,
+            cumulativeData: null,
+            signupChart: null,
+            verificationChart: null,
+            cumulativeChart: null,
+            copied: false,
+
+            get isLoading() { return this.loading; },
+            get hasError() { return this.error !== ''; },
+            get errorMessage() { return this.error; },
+            get isCopied() { return this.copied; },
+            get copyButtonText() { return this.copied ? 'Copied!' : 'Copy to Clipboard'; },
+
+            // Granularity button states
+            get isDayGranularity() { return this.activeGranularity === 'day'; },
+            get isWeekGranularity() { return this.activeGranularity === 'week'; },
+            get isMonthGranularity() { return this.activeGranularity === 'month'; },
+            get dayBtnClass() { return this.activeGranularity === 'day' ? 'active' : ''; },
+            get weekBtnClass() { return this.activeGranularity === 'week' ? 'active' : ''; },
+            get monthBtnClass() { return this.activeGranularity === 'month' ? 'active' : ''; },
+
+            // Range button states
+            get is7d() { return this.range === '7d'; },
+            get is30d() { return this.range === '30d'; },
+            get is90d() { return this.range === '90d'; },
+            get isAll() { return this.range === 'all'; },
+            get range7dClass() { return this.range === '7d' ? 'active' : ''; },
+            get range30dClass() { return this.range === '30d' ? 'active' : ''; },
+            get range90dClass() { return this.range === '90d' ? 'active' : ''; },
+            get rangeAllClass() { return this.range === 'all' ? 'active' : ''; },
+
+            get activeGranularity() {
+                if (this.granularity) return this.granularity;
+                if (this.range === '7d' || this.range === '30d') return 'day';
+                if (this.range === '90d') return 'week';
+                return 'month';
+            },
+
+            // Summary getters for template binding
+            get signupTotal() { return this.signupData ? this.signupData.summary.total_signups : 0; },
+            get signupApproved() { return this.signupData ? this.signupData.summary.total_approved : 0; },
+            get signupRate() { return this.signupData ? this.signupData.summary.approval_rate : 0; },
+            get signupAvgPerDay() { return this.signupData ? this.signupData.summary.avg_per_day : 0; },
+
+            get verifyTotal() { return this.verificationData ? this.verificationData.summary.total_reviews : 0; },
+            get verifyApproved() { return this.verificationData ? this.verificationData.summary.total_approved : 0; },
+            get verifyRejected() { return this.verificationData ? this.verificationData.summary.total_rejected : 0; },
+            get verifyRevision() { return this.verificationData ? this.verificationData.summary.total_revision : 0; },
+            get verifyRate() { return this.verificationData ? this.verificationData.summary.approval_rate : 0; },
+
+            init: function() {
+                this.fetchAllCharts();
+            },
+
+            setRange: function(r) {
+                this.range = r;
+                this.granularity = '';
+                this.fetchAllCharts();
+            },
+
+            setGranularity: function(g) {
+                this.granularity = g;
+                this.fetchAllCharts();
+            },
+
+            fetchAllCharts: function() {
+                var self = this;
+                self.loading = true;
+                self.error = '';
+                var params = 'range=' + self.range;
+                var gran = self.granularity || '';
+                if (gran) params += '&granularity=' + gran;
+
+                Promise.all([
+                    fetch('/crush-admin/api/signup-trend/?' + params).then(function(r) { return r.json(); }),
+                    fetch('/crush-admin/api/verification-trend/?' + params).then(function(r) { return r.json(); }),
+                    fetch('/crush-admin/api/cumulative-growth/?' + params).then(function(r) { return r.json(); })
+                ]).then(function(results) {
+                    self.signupData = results[0];
+                    self.verificationData = results[1];
+                    self.cumulativeData = results[2];
+                    self.loading = false;
+                    // Use requestAnimationFrame to ensure DOM is ready
+                    requestAnimationFrame(function() {
+                        self.renderSignupChart();
+                        self.renderVerificationChart();
+                        self.renderCumulativeChart();
+                    });
+                }).catch(function(err) {
+                    self.error = 'Failed to load chart data: ' + err.message;
+                    self.loading = false;
+                });
+            },
+
+            formatLabel: function(label) {
+                // Format date label for display
+                if (!label) return '';
+                var d = new Date(label);
+                if (isNaN(d.getTime())) return label;
+                var month = d.toLocaleString('en', { month: 'short' });
+                return month + ' ' + d.getDate();
+            },
+
+            renderSignupChart: function() {
+                var canvas = document.getElementById('signupChart');
+                if (!canvas || !this.signupData) return;
+                if (this.signupChart) this.signupChart.destroy();
+                var self = this;
+                var labels = this.signupData.labels.map(function(l) { return self.formatLabel(l); });
+                this.signupChart = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Signups',
+                                data: this.signupData.signups,
+                                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                                borderColor: 'rgb(99, 102, 241)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Approved',
+                                data: this.signupData.approved,
+                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                borderColor: 'rgb(34, 197, 94)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        }
+                    }
+                });
+            },
+
+            renderVerificationChart: function() {
+                var canvas = document.getElementById('verificationChart');
+                if (!canvas || !this.verificationData) return;
+                if (this.verificationChart) this.verificationChart.destroy();
+                var self = this;
+                var labels = this.verificationData.labels.map(function(l) { return self.formatLabel(l); });
+                this.verificationChart = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Approved',
+                                data: this.verificationData.approved,
+                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                borderColor: 'rgb(34, 197, 94)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Rejected',
+                                data: this.verificationData.rejected,
+                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                borderColor: 'rgb(239, 68, 68)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Revision',
+                                data: this.verificationData.revision,
+                                backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                                borderColor: 'rgb(245, 158, 11)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                        }
+                    }
+                });
+            },
+
+            renderCumulativeChart: function() {
+                var canvas = document.getElementById('cumulativeChart');
+                if (!canvas || !this.cumulativeData) return;
+                if (this.cumulativeChart) this.cumulativeChart.destroy();
+                var self = this;
+                var labels = this.cumulativeData.labels.map(function(l) { return self.formatLabel(l); });
+                this.cumulativeChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Total Profiles',
+                                data: this.cumulativeData.total_profiles,
+                                borderColor: 'rgb(139, 92, 246)',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Total Approved',
+                                data: this.cumulativeData.total_approved,
+                                borderColor: 'rgb(34, 197, 94)',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            },
+
+            copyToClipboard: function() {
+                var self = this;
+                var lines = [];
+                lines.push('Crush.lu Growth Summary');
+                lines.push('Range: ' + self.range);
+                lines.push('Generated: ' + new Date().toISOString().split('T')[0]);
+                lines.push('');
+
+                if (self.signupData) {
+                    lines.push('=== Signup Trends ===');
+                    lines.push('Total Signups: ' + self.signupData.summary.total_signups);
+                    lines.push('Total Approved: ' + self.signupData.summary.total_approved);
+                    lines.push('Approval Rate: ' + self.signupData.summary.approval_rate + '%');
+                    lines.push('Avg Signups/Day: ' + self.signupData.summary.avg_per_day);
+                    lines.push('');
+                    lines.push('Period\tSignups\tApproved');
+                    for (var i = 0; i < self.signupData.labels.length; i++) {
+                        lines.push(self.signupData.labels[i] + '\t' + self.signupData.signups[i] + '\t' + self.signupData.approved[i]);
+                    }
+                    lines.push('');
+                }
+
+                if (self.verificationData) {
+                    lines.push('=== Verification Pipeline ===');
+                    lines.push('Total Reviews: ' + self.verificationData.summary.total_reviews);
+                    lines.push('Approved: ' + self.verificationData.summary.total_approved);
+                    lines.push('Rejected: ' + self.verificationData.summary.total_rejected);
+                    lines.push('Revision: ' + self.verificationData.summary.total_revision);
+                    lines.push('Approval Rate: ' + self.verificationData.summary.approval_rate + '%');
+                    lines.push('');
+                    lines.push('Period\tApproved\tRejected\tRevision');
+                    for (var j = 0; j < self.verificationData.labels.length; j++) {
+                        lines.push(self.verificationData.labels[j] + '\t' + self.verificationData.approved[j] + '\t' + self.verificationData.rejected[j] + '\t' + self.verificationData.revision[j]);
+                    }
+                }
+
+                var text = lines.join('\n');
+                navigator.clipboard.writeText(text).then(function() {
+                    self.copied = true;
+                    setTimeout(function() { self.copied = false; }, 2000);
+                });
             }
         };
     });
@@ -6578,6 +6874,10 @@ document.addEventListener('alpine:init', function() {
 
             setRange: function(range) {
                 this.selectedRange = range;
+            },
+
+            onSelectChange: function() {
+                this.selectedRange = this.$refs.rangeSelect.value;
             },
 
             apply: function() {
@@ -8091,6 +8391,43 @@ document.addEventListener('alpine:init', function() {
 
             cancel() {
                 this.state = 'initial';
+            }
+        };
+    });
+
+    // Voting demo success state component
+    Alpine.data('votingDemoSuccess', function() {
+        return {
+            submitted: false,
+            presChoice: '',
+            twistChoice: '',
+
+            get isSubmitted() { return this.submitted; },
+            get isNotSubmitted() { return !this.submitted; },
+            get presChoiceText() { return this.presChoice; },
+            get twistChoiceText() { return this.twistChoice; },
+
+            submitDemo() {
+                var presRadio = document.querySelector('input[name="demo_presentation"]:checked');
+                var twistRadio = document.querySelector('input[name="demo_twist"]:checked');
+                if (!presRadio || !twistRadio) return;
+
+                // Get label text for the selected options
+                var presLabel = presRadio.closest('label') || presRadio.parentElement.querySelector('label') || presRadio.closest('.variant-option-item').querySelector('strong');
+                var twistLabel = twistRadio.closest('label') || twistRadio.parentElement.querySelector('label') || twistRadio.closest('.variant-option-item').querySelector('strong');
+
+                this.presChoice = presLabel ? presLabel.querySelector('strong').textContent.trim() : presRadio.value;
+                this.twistChoice = twistLabel ? twistLabel.querySelector('strong').textContent.trim() : twistRadio.value;
+                this.submitted = true;
+
+                // Auto-scroll to results section after 3 seconds
+                var self = this;
+                setTimeout(function() {
+                    var resultsSection = document.getElementById('step-results');
+                    if (resultsSection) {
+                        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 3000);
             }
         };
     });

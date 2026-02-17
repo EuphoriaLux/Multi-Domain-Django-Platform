@@ -62,11 +62,14 @@
         <button class="tab-btn" :class="technicalTabClass" @click="setTechnical">
             &#x1F527; Technical
         </button>
+        <button class="tab-btn" :class="growthTabClass" @click="setGrowth">
+            &#x1F4C8; Growth
+        </button>
     </div>
 
         <div class="date-filter-bar" x-data="dateFilter" data-default-range="{{ date_range|default:'30d' }}">
         <span class="date-filter-label">Date Range:</span>
-        <select class="date-filter-select" :value="selectedRange" @change="setRange($event.target.value)">
+        <select class="date-filter-select" :value="selectedRange" @change="onSelectChange" x-ref="rangeSelect">
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
             <option value="90d">Last 90 Days</option>
@@ -935,5 +938,163 @@
             {% endif %}
         </div>
     </div>
+
+    {# ================================================================== #}
+    {# GROWTH TAB                                                          #}
+    {# ================================================================== #}
+    <div class="tab-panel" :class="growthTabClass" x-show="isGrowth">
+        <div x-data="growthCharts">
+
+            {# Controls: Range + Granularity #}
+            <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg); align-items: center;">
+                <span style="font-weight: 600; margin-right: var(--spacing-xs);">Range:</span>
+                <button class="btn btn-sm" :class="range7dClass" @click="setRange('7d')">7 Days</button>
+                <button class="btn btn-sm" :class="range30dClass" @click="setRange('30d')">30 Days</button>
+                <button class="btn btn-sm" :class="range90dClass" @click="setRange('90d')">90 Days</button>
+                <button class="btn btn-sm" :class="rangeAllClass" @click="setRange('all')">All Time</button>
+                <span style="margin-left: var(--spacing-md); font-weight: 600; margin-right: var(--spacing-xs);">Group by:</span>
+                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranularity('day')">Day</button>
+                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranularity('week')">Week</button>
+                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranularity('month')">Month</button>
+            </div>
+
+            {# Loading / Error states #}
+            <div x-show="isLoading" style="text-align: center; padding: var(--spacing-xl);">
+                <p>Loading chart data...</p>
+            </div>
+            <div x-show="hasError" style="color: var(--status-danger); padding: var(--spacing-md); background: #fef2f2; border-radius: 8px; margin-bottom: var(--spacing-md);">
+                <p x-text="errorMessage"></p>
+            </div>
+
+            {# Section A: Signup Trends #}
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CA;</span> Signup Trends</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F4DD;</span>
+                    <div class="metric-label">Total Signups</div>
+                    <div class="metric-value" x-text="signupTotal"></div>
+                </div>
+                <div class="metric-card green">
+                    <span class="metric-icon">&#x2705;</span>
+                    <div class="metric-label">Total Approved</div>
+                    <div class="metric-value" x-text="signupApproved"></div>
+                </div>
+                <div class="metric-card blue">
+                    <span class="metric-icon">&#x1F4AF;</span>
+                    <div class="metric-label">Approval Rate</div>
+                    <div class="metric-value"><span x-text="signupRate"></span>%</div>
+                </div>
+                <div class="metric-card orange">
+                    <span class="metric-icon">&#x1F4C5;</span>
+                    <div class="metric-label">Avg / Day</div>
+                    <div class="metric-value" x-text="signupAvgPerDay"></div>
+                </div>
+            </div>
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
+                    <canvas id="signupChart"></canvas>
+                </div>
+            </div>
+
+            {# Section B: Verification Pipeline #}
+            <h2 class="section-header"><span class="section-header-icon">&#x1F50D;</span> Verification Pipeline</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F4CB;</span>
+                    <div class="metric-label">Reviews Completed</div>
+                    <div class="metric-value" x-text="verifyTotal"></div>
+                </div>
+                <div class="metric-card green">
+                    <span class="metric-icon">&#x2705;</span>
+                    <div class="metric-label">Approved</div>
+                    <div class="metric-value" x-text="verifyApproved"></div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid var(--status-danger);">
+                    <span class="metric-icon">&#x274C;</span>
+                    <div class="metric-label">Rejected</div>
+                    <div class="metric-value" x-text="verifyRejected"></div>
+                </div>
+                <div class="metric-card orange">
+                    <span class="metric-icon">&#x1F504;</span>
+                    <div class="metric-label">Revision</div>
+                    <div class="metric-value" x-text="verifyRevision"></div>
+                </div>
+            </div>
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
+                    <canvas id="verificationChart"></canvas>
+                </div>
+            </div>
+
+            {# Section C: Cumulative Growth #}
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4C8;</span> Cumulative Growth</h2>
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
+                    <canvas id="cumulativeChart"></canvas>
+                </div>
+            </div>
+
+            {# Section D: Business Plan Summary #}
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CB;</span> Business Plan Summary</h2>
+            <div class="chart-container" style="margin-bottom: var(--spacing-md);">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border-color);">
+                                <th style="text-align: left; padding: 8px;">Metric</th>
+                                <th style="text-align: right; padding: 8px;">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Total Signups (period)</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupTotal"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Total Approved (period)</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupApproved"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Approval Rate</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="signupRate"></span>%</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Avg Signups / Day</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupAvgPerDay"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Reviews Completed</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="verifyTotal"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Reviews - Approved</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-success);" x-text="verifyApproved"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Reviews - Rejected</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-danger);" x-text="verifyRejected"></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">Reviews - Revision</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-warning);" x-text="verifyRevision"></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px;">Verification Approval Rate</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="verifyRate"></span>%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: var(--spacing-md);">
+                    <button class="btn btn-primary" @click="copyToClipboard" x-text="copyButtonText"></button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </div>
+
+<script src="{% static 'crush_lu/js/vendor/chart.umd.min.js' %}"></script>
+
 {% endblock %}

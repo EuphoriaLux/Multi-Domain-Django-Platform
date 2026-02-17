@@ -7,6 +7,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.db.models import Count, Q, Avg, Sum, F
+from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
+from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -718,6 +720,241 @@ def crush_admin_dashboard(request):
     }
 
     return render(request, 'admin/crush_lu/dashboard.html', context)
+
+
+# =============================================================================
+# GROWTH ANALYTICS API VIEWS
+# =============================================================================
+
+
+def _parse_growth_params(request):
+    """
+    Parse range and granularity from request query params.
+
+    Returns:
+        tuple: (start_date_or_None, granularity, trunc_function)
+    """
+    range_param = request.GET.get('range', '30d')
+    granularity = request.GET.get('granularity', '')
+    now = timezone.now()
+
+    if range_param == '7d':
+        start_date = now - timedelta(days=7)
+        auto_gran = 'day'
+    elif range_param == '90d':
+        start_date = now - timedelta(days=90)
+        auto_gran = 'week'
+    elif range_param == 'all':
+        start_date = None
+        auto_gran = 'month'
+    else:
+        start_date = now - timedelta(days=30)
+        auto_gran = 'day'
+
+    # Use explicit granularity if provided, otherwise auto
+    gran = granularity if granularity in ('day', 'week', 'month') else auto_gran
+    trunc_fn = {'day': TruncDate, 'week': TruncWeek, 'month': TruncMonth}[gran]
+    return start_date, gran, trunc_fn
+
+
+def _check_admin_access(request):
+    """Check if user is a coach or superuser. Returns error response or None."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    if request.user.is_superuser:
+        return None
+    try:
+        if request.user.crushcoach.is_active:
+            return None
+    except Exception:
+        pass
+    return JsonResponse({'error': 'Access denied'}, status=403)
+
+
+@login_required
+def signup_trend_api(request):
+    """
+    API: Signups and approvals per period.
+
+    Query params:
+        - range: 7d, 30d, 90d, all
+        - granularity: day, week, month (auto-detected if omitted)
+
+    Returns JSON with labels and two datasets (signups, approved).
+    """
+    error = _check_admin_access(request)
+    if error:
+        return error
+
+    start_date, gran, trunc_fn = _parse_growth_params(request)
+
+    # Signups per period
+    qs = CrushProfile.objects.all()
+    if start_date:
+        qs = qs.filter(created_at__gte=start_date)
+
+    signups = (
+        qs.annotate(period=trunc_fn('created_at'))
+        .values('period')
+        .annotate(count=Count('id'))
+        .order_by('period')
+    )
+
+    # Approvals per period (using approved_at)
+    aq = CrushProfile.objects.filter(is_approved=True, approved_at__isnull=False)
+    if start_date:
+        aq = aq.filter(approved_at__gte=start_date)
+
+    approvals = (
+        aq.annotate(period=trunc_fn('approved_at'))
+        .values('period')
+        .annotate(count=Count('id'))
+        .order_by('period')
+    )
+
+    # Merge into aligned labels
+    signup_map = {str(r['period']): r['count'] for r in signups}
+    approval_map = {str(r['period']): r['count'] for r in approvals}
+    all_labels = sorted(set(list(signup_map.keys()) + list(approval_map.keys())))
+
+    total_signups = sum(signup_map.values())
+    total_approved = sum(approval_map.values())
+    days = max((timezone.now() - start_date).days, 1) if start_date else max(len(all_labels), 1)
+
+    return JsonResponse({
+        'labels': all_labels,
+        'signups': [signup_map.get(l, 0) for l in all_labels],
+        'approved': [approval_map.get(l, 0) for l in all_labels],
+        'granularity': gran,
+        'summary': {
+            'total_signups': total_signups,
+            'total_approved': total_approved,
+            'approval_rate': round(total_approved / total_signups * 100, 1) if total_signups else 0,
+            'avg_per_day': round(total_signups / days, 1),
+        }
+    })
+
+
+@login_required
+def verification_trend_api(request):
+    """
+    API: Profile verification outcomes per period.
+
+    Returns JSON with stacked bar data: approved, rejected, revision counts per period.
+    """
+    error = _check_admin_access(request)
+    if error:
+        return error
+
+    start_date, gran, trunc_fn = _parse_growth_params(request)
+
+    qs = ProfileSubmission.objects.filter(reviewed_at__isnull=False)
+    if start_date:
+        qs = qs.filter(reviewed_at__gte=start_date)
+
+    results = (
+        qs.annotate(period=trunc_fn('reviewed_at'))
+        .values('period')
+        .annotate(
+            approved=Count('id', filter=Q(status='approved')),
+            rejected=Count('id', filter=Q(status='rejected')),
+            revision=Count('id', filter=Q(status='revision')),
+        )
+        .order_by('period')
+    )
+
+    labels = [str(r['period']) for r in results]
+    approved = [r['approved'] for r in results]
+    rejected = [r['rejected'] for r in results]
+    revision = [r['revision'] for r in results]
+
+    total_approved = sum(approved)
+    total_rejected = sum(rejected)
+    total_revision = sum(revision)
+    total_reviews = total_approved + total_rejected + total_revision
+
+    return JsonResponse({
+        'labels': labels,
+        'approved': approved,
+        'rejected': rejected,
+        'revision': revision,
+        'granularity': gran,
+        'summary': {
+            'total_reviews': total_reviews,
+            'total_approved': total_approved,
+            'total_rejected': total_rejected,
+            'total_revision': total_revision,
+            'approval_rate': round(total_approved / total_reviews * 100, 1) if total_reviews else 0,
+        }
+    })
+
+
+@login_required
+def cumulative_growth_api(request):
+    """
+    API: Cumulative profile and approval totals over time.
+
+    Returns JSON with two line datasets: total profiles and total approved (running sum).
+    """
+    error = _check_admin_access(request)
+    if error:
+        return error
+
+    start_date, gran, trunc_fn = _parse_growth_params(request)
+
+    # All profiles grouped by period
+    pq = CrushProfile.objects.all()
+    if start_date:
+        # For cumulative, we need all data but only show labels from start_date
+        # Get count before start_date as baseline
+        baseline_total = CrushProfile.objects.filter(created_at__lt=start_date).count()
+        baseline_approved = CrushProfile.objects.filter(
+            is_approved=True, approved_at__isnull=False, approved_at__lt=start_date
+        ).count()
+        pq = pq.filter(created_at__gte=start_date)
+    else:
+        baseline_total = 0
+        baseline_approved = 0
+
+    signups = (
+        pq.annotate(period=trunc_fn('created_at'))
+        .values('period')
+        .annotate(count=Count('id'))
+        .order_by('period')
+    )
+
+    aq = CrushProfile.objects.filter(is_approved=True, approved_at__isnull=False)
+    if start_date:
+        aq = aq.filter(approved_at__gte=start_date)
+
+    approvals = (
+        aq.annotate(period=trunc_fn('approved_at'))
+        .values('period')
+        .annotate(count=Count('id'))
+        .order_by('period')
+    )
+
+    signup_map = {str(r['period']): r['count'] for r in signups}
+    approval_map = {str(r['period']): r['count'] for r in approvals}
+    all_labels = sorted(set(list(signup_map.keys()) + list(approval_map.keys())))
+
+    # Build cumulative arrays
+    cum_total = []
+    cum_approved = []
+    running_total = baseline_total
+    running_approved = baseline_approved
+    for l in all_labels:
+        running_total += signup_map.get(l, 0)
+        running_approved += approval_map.get(l, 0)
+        cum_total.append(running_total)
+        cum_approved.append(running_approved)
+
+    return JsonResponse({
+        'labels': all_labels,
+        'total_profiles': cum_total,
+        'total_approved': cum_approved,
+        'granularity': gran,
+    })
 
 
 # =============================================================================
