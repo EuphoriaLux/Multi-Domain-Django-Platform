@@ -6426,6 +6426,7 @@ document.addEventListener('alpine:init', function() {
             get isEngagement() { return this.activeTab === 'engagement'; },
             get isTechnical() { return this.activeTab === 'technical'; },
             get isGrowth() { return this.activeTab === 'growth'; },
+            get isNotGrowth() { return this.activeTab !== 'growth'; },
 
             // Tab active state classes
             get overviewTabClass() { return this.activeTab === 'overview' ? 'active' : ''; },
@@ -6447,6 +6448,13 @@ document.addEventListener('alpine:init', function() {
                     if (['overview', 'users', 'events', 'engagement', 'technical', 'growth'].indexOf(hashTab) !== -1) {
                         this.activeTab = hashTab;
                     }
+                }
+                // If growth tab is active on load, notify growthCharts
+                if (this.activeTab === 'growth') {
+                    var self = this;
+                    setTimeout(function() {
+                        document.dispatchEvent(new CustomEvent('growth-tab-shown'));
+                    }, 0);
                 }
             },
 
@@ -6473,6 +6481,9 @@ document.addEventListener('alpine:init', function() {
             setGrowth: function() {
                 this.activeTab = 'growth';
                 history.replaceState(null, '', '#growth');
+                setTimeout(function() {
+                    document.dispatchEvent(new CustomEvent('growth-tab-shown'));
+                }, 0);
             }
         };
     });
@@ -6536,18 +6547,56 @@ document.addEventListener('alpine:init', function() {
             get verifyRevision() { return this.verificationData ? this.verificationData.summary.total_revision : 0; },
             get verifyRate() { return this.verificationData ? this.verificationData.summary.approval_rate : 0; },
 
+            manualGranularity: false,
+
             init: function() {
+                var self = this;
+                // Listen for tab activation event from dashboardTabs
+                document.addEventListener('growth-tab-shown', function() {
+                    if (!self.signupData) {
+                        self.fetchAllCharts();
+                    }
+                });
+                // Handle case where tab is already visible on page load
+                if (self.$el && self.$el.offsetParent !== null) {
+                    self.fetchAllCharts();
+                }
+            },
+
+            setRange7d: function() {
+                this.range = '7d';
+                if (!this.manualGranularity) this.granularity = '';
+                this.fetchAllCharts();
+            },
+            setRange30d: function() {
+                this.range = '30d';
+                if (!this.manualGranularity) this.granularity = '';
+                this.fetchAllCharts();
+            },
+            setRange90d: function() {
+                this.range = '90d';
+                if (!this.manualGranularity) this.granularity = '';
+                this.fetchAllCharts();
+            },
+            setRangeAll: function() {
+                this.range = 'all';
+                if (!this.manualGranularity) this.granularity = '';
                 this.fetchAllCharts();
             },
 
-            setRange: function(r) {
-                this.range = r;
-                this.granularity = '';
+            setGranDay: function() {
+                this.granularity = 'day';
+                this.manualGranularity = true;
                 this.fetchAllCharts();
             },
-
-            setGranularity: function(g) {
-                this.granularity = g;
+            setGranWeek: function() {
+                this.granularity = 'week';
+                this.manualGranularity = true;
+                this.fetchAllCharts();
+            },
+            setGranMonth: function() {
+                this.granularity = 'month';
+                this.manualGranularity = true;
                 this.fetchAllCharts();
             },
 
@@ -6591,7 +6640,7 @@ document.addEventListener('alpine:init', function() {
 
             renderSignupChart: function() {
                 var canvas = document.getElementById('signupChart');
-                if (!canvas || !this.signupData) return;
+                if (!canvas || !this.signupData || !canvas.offsetParent) return;
                 if (this.signupChart) this.signupChart.destroy();
                 var self = this;
                 var labels = this.signupData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6629,7 +6678,7 @@ document.addEventListener('alpine:init', function() {
 
             renderVerificationChart: function() {
                 var canvas = document.getElementById('verificationChart');
-                if (!canvas || !this.verificationData) return;
+                if (!canvas || !this.verificationData || !canvas.offsetParent) return;
                 if (this.verificationChart) this.verificationChart.destroy();
                 var self = this;
                 var labels = this.verificationData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6675,7 +6724,7 @@ document.addEventListener('alpine:init', function() {
 
             renderCumulativeChart: function() {
                 var canvas = document.getElementById('cumulativeChart');
-                if (!canvas || !this.cumulativeData) return;
+                if (!canvas || !this.cumulativeData || !canvas.offsetParent) return;
                 if (this.cumulativeChart) this.cumulativeChart.destroy();
                 var self = this;
                 var labels = this.cumulativeData.labels.map(function(l) { return self.formatLabel(l); });

@@ -67,7 +67,7 @@
         </button>
     </div>
 
-        <div class="date-filter-bar" x-data="dateFilter" data-default-range="{{ date_range|default:'30d' }}">
+        <div class="date-filter-bar" x-data="dateFilter" x-show="isNotGrowth" data-default-range="{{ date_range|default:'30d' }}">
         <span class="date-filter-label">Date Range:</span>
         <select class="date-filter-select" :value="selectedRange" @change="onSelectChange" x-ref="rangeSelect">
             <option value="7d">Last 7 Days</option>
@@ -948,14 +948,14 @@
             {# Controls: Range + Granularity #}
             <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg); align-items: center;">
                 <span style="font-weight: 600; margin-right: var(--spacing-xs);">Range:</span>
-                <button class="btn btn-sm" :class="range7dClass" @click="setRange('7d')">7 Days</button>
-                <button class="btn btn-sm" :class="range30dClass" @click="setRange('30d')">30 Days</button>
-                <button class="btn btn-sm" :class="range90dClass" @click="setRange('90d')">90 Days</button>
-                <button class="btn btn-sm" :class="rangeAllClass" @click="setRange('all')">All Time</button>
+                <button class="btn btn-sm" :class="range7dClass" @click="setRange7d">7 Days</button>
+                <button class="btn btn-sm" :class="range30dClass" @click="setRange30d">30 Days</button>
+                <button class="btn btn-sm" :class="range90dClass" @click="setRange90d">90 Days</button>
+                <button class="btn btn-sm" :class="rangeAllClass" @click="setRangeAll">All Time</button>
                 <span style="margin-left: var(--spacing-md); font-weight: 600; margin-right: var(--spacing-xs);">Group by:</span>
-                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranularity('day')">Day</button>
-                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranularity('week')">Week</button>
-                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranularity('month')">Month</button>
+                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranDay">Day</button>
+                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranWeek">Week</button>
+                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranMonth">Month</button>
             </div>
 
             {# Loading / Error states #}
