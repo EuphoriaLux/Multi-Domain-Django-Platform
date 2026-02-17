@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
-{% load static l10n %}
+{% load static l10n i18n %}
 
-{% block title %}User Segments - Crush.lu Admin{% endblock %}
+{% block title %}{% trans "User Segments" %} - Crush.lu{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -440,11 +440,11 @@
 {% block content %}
 <div class="segments-container">
     <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
-        &larr; Back to Dashboard
+        &larr; {% trans "Back to Dashboard" %}
     </a>
 
     <div class="segments-header">
-        <h1>User Segments</h1>
+        <h1>{% trans "User Segments" %}</h1>
     </div>
 
     <!-- Summary Cards -->
@@ -453,42 +453,42 @@
             <span class="summary-icon">💕</span>
             <div class="summary-content">
                 <h3>{{ total_profiles }}</h3>
-                <p>Total Profiles</p>
+                <p>{% trans "Total Profiles" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">✅</span>
             <div class="summary-content">
                 <h3>{{ total_approved }}</h3>
-                <p>Approved</p>
+                <p>{% trans "Approved" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">👤</span>
             <div class="summary-content">
                 <h3>{{ total_incomplete }}</h3>
-                <p>Incomplete Profiles</p>
+                <p>{% trans "Incomplete Profiles" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">📝</span>
             <div class="summary-content">
                 <h3>{{ total_pending }}</h3>
-                <p>Pending Reviews</p>
+                <p>{% trans "Pending Reviews" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">😴</span>
             <div class="summary-content">
                 <h3>{{ total_inactive }}</h3>
-                <p>Inactive Users</p>
+                <p>{% trans "Inactive Users" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">🔔</span>
             <div class="summary-content">
                 <h3>{{ total_reminder_eligible }}</h3>
-                <p>Reminder Eligible</p>
+                <p>{% trans "Reminder Eligible" %}</p>
             </div>
         </div>
     </div>
@@ -496,10 +496,10 @@
     <!-- Demographic Distributions -->
     {% if demographics %}
     <div class="distribution-section">
-        <h2>⚧ Gender Distribution</h2>
+        <h2>⚧ {% trans "Gender Distribution" %}</h2>
         <div class="distribution-columns">
             <div class="distribution-column">
-                <h3>All Active Profiles</h3>
+                <h3>{% trans "All Active Profiles" %}</h3>
                 {% for g in demographics.gender_all %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
@@ -509,11 +509,11 @@
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">No gender data available</p>
+                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No gender data available" %}</p>
                 {% endfor %}
             </div>
             <div class="distribution-column">
-                <h3>Approved Only</h3>
+                <h3>{% trans "Approved Only" %}</h3>
                 {% for g in demographics.gender_approved %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
@@ -523,7 +523,7 @@
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">No approved profiles yet</p>
+                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No approved profiles yet" %}</p>
                 {% endfor %}
             </div>
         </div>
@@ -531,15 +531,15 @@
 
     {% if demographics.gender_age_matrix %}
     <div class="distribution-section">
-        <h2>🔀 Gender x Age Matrix (Approved Profiles)</h2>
+        <h2>🔀 {% trans "Gender x Age Matrix (Approved Profiles)" %}</h2>
         <table class="matrix-table">
             <thead>
                 <tr>
-                    <th>Gender</th>
+                    <th>{% trans "Gender" %}</th>
                     {% for label in demographics.matrix_age_labels %}
                     <th>{{ label }}</th>
                     {% endfor %}
-                    <th>Total</th>
+                    <th>{% trans "Total" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -557,7 +557,7 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td>Total</td>
+                    <td>{% trans "Total" %}</td>
                     {% for col_total in demographics.matrix_col_totals %}
                     <td>{{ col_total }}</td>
                     {% endfor %}
@@ -569,10 +569,10 @@
     {% endif %}
 
     <div class="distribution-section">
-        <h2>📊 More Demographics</h2>
+        <h2>📊 {% trans "More Demographics" %}</h2>
         <div class="distribution-grid">
             <div class="distribution-column">
-                <h3>Age Distribution</h3>
+                <h3>{% trans "Age Distribution" %}</h3>
                 {% for a in demographics.age_ranges %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ a.label }}</span>
@@ -584,7 +584,7 @@
                 {% endfor %}
             </div>
             <div class="distribution-column">
-                <h3>Looking For</h3>
+                <h3>{% trans "Looking For" %}</h3>
                 {% for lf in demographics.looking_for %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ lf.label }}</span>
@@ -596,7 +596,7 @@
                 {% endfor %}
             </div>
             <div class="distribution-column">
-                <h3>Language Preference</h3>
+                <h3>{% trans "Language Preference" %}</h3>
                 {% for l in demographics.languages %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ l.label }}</span>
@@ -612,7 +612,7 @@
 
     {% if demographics.locations %}
     <div class="distribution-section">
-        <h2>📍 Top Locations</h2>
+        <h2>📍 {% trans "Top Locations" %}</h2>
         <div class="distribution-column" style="max-width: 600px;">
             {% for loc in demographics.locations %}
             <div class="dist-bar-row">
@@ -632,11 +632,11 @@
     {% regroup segments.values by group as grouped_segments %}
     {% for group in grouped_segments %}
     {% if group.grouper == 'operational' %}
-    <div class="segment-group-divider">Operational Segments</div>
+    <div class="segment-group-divider">{% trans "Operational Segments" %}</div>
     {% elif group.grouper == 'demographic' %}
-    <div class="segment-group-divider">Demographic Segments</div>
+    <div class="segment-group-divider">{% trans "Demographic Segments" %}</div>
     {% elif group.grouper == 'behavioral' %}
-    <div class="segment-group-divider">Behavioral Segments</div>
+    <div class="segment-group-divider">{% trans "Behavioral Segments" %}</div>
     {% endif %}
 
     {% for category in group.list %}
@@ -650,7 +650,7 @@
             {% for segment in category.segments %}
             <div class="segment-card color-{{ segment.color }}">
                 {% if segment.is_urgent %}
-                <span class="urgent-badge">Urgent</span>
+                <span class="urgent-badge">{% trans "Urgent" %}</span>
                 {% endif %}
 
                 <div class="segment-header">
@@ -662,10 +662,10 @@
 
                 <div class="segment-actions">
                     <a href="{% url 'segment_detail' segment.key %}" class="segment-btn segment-btn-primary">
-                        View Users
+                        {% trans "View Users" %}
                     </a>
                     <a href="{% url 'segment_detail' segment.key %}?export=csv" class="segment-btn segment-btn-secondary">
-                        Export CSV
+                        {% trans "Export CSV" %}
                     </a>
                 </div>
             </div>

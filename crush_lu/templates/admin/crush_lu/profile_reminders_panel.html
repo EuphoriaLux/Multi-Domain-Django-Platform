@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Profile Reminders - Crush.lu Admin{% endblock %}
+{% block title %}{% trans "Profile Reminders" %} - Crush.lu{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -474,12 +474,12 @@
 {% block content %}
 <div class="reminders-container">
     <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
-        &larr; Back to Dashboard
+        &larr; {% trans "Back to Dashboard" %}
     </a>
 
     <div class="page-header">
-        <h1>Profile Reminder Panel</h1>
-        <p>Send profile completion reminder emails to users who haven't finished their profiles.</p>
+        <h1>{% trans "Profile Reminder Panel" %}</h1>
+        <p>{% trans "Send profile completion reminder emails to users who haven't finished their profiles." %}</p>
     </div>
 
     <!-- Summary Cards -->
@@ -488,28 +488,28 @@
             <span class="summary-icon">📬</span>
             <div class="summary-content">
                 <h3>{{ total_eligible }}</h3>
-                <p>Total Eligible</p>
+                <p>{% trans "Total Eligible" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">⏰</span>
             <div class="summary-content">
                 <h3>{{ preview.24h.count }}</h3>
-                <p>24h Reminders</p>
+                <p>{% trans "24h Reminders" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">📅</span>
             <div class="summary-content">
                 <h3>{{ preview.72h.count }}</h3>
-                <p>72h Reminders</p>
+                <p>{% trans "72h Reminders" %}</p>
             </div>
         </div>
         <div class="summary-card">
             <span class="summary-icon">🔔</span>
             <div class="summary-content">
                 <h3>{{ preview.7d.count }}</h3>
-                <p>7d Final Reminders</p>
+                <p>{% trans "7d Final Reminders" %}</p>
             </div>
         </div>
     </div>
@@ -519,28 +519,28 @@
     <div class="panel-section">
         <div class="section-header">
             <span class="section-icon">📊</span>
-            <h2>Execution Results</h2>
+            <h2>{% trans "Execution Results" %}</h2>
         </div>
 
         <div class="results-banner {% if results.dry_run %}info{% elif results.failed > 0 %}warning{% else %}success{% endif %}">
             {% if results.dry_run %}
-            <strong>Dry Run Complete</strong> - No emails were actually sent.
+            <strong>{% trans "Dry Run Complete" %}</strong> - {% trans "No emails were actually sent." %}
             {% else %}
-            <strong>Reminders Sent!</strong> - Execution completed at {{ results.executed_at|date:"H:i:s" }}.
+            <strong>{% trans "Reminders Sent!" %}</strong> - {% trans "Execution completed at" %} {{ results.executed_at|date:"H:i:s" }}.
             {% endif %}
 
             <div class="results-stats">
                 <div class="stat-item">
                     <span class="stat-value">{{ results.sent }}</span>
-                    <span class="stat-label">{% if results.dry_run %}Would Send{% else %}Sent{% endif %}</span>
+                    <span class="stat-label">{% if results.dry_run %}{% trans "Would Send" %}{% else %}{% trans "Sent" %}{% endif %}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-value">{{ results.skipped }}</span>
-                    <span class="stat-label">Skipped</span>
+                    <span class="stat-label">{% trans "Skipped" %}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-value">{{ results.failed }}</span>
-                    <span class="stat-label">Failed</span>
+                    <span class="stat-label">{% trans "Failed" %}</span>
                 </div>
             </div>
         </div>
@@ -550,10 +550,10 @@
             <table class="results-table">
                 <thead>
                     <tr>
-                        <th>User</th>
-                        <th>Type</th>
-                        <th>Profile Status</th>
-                        <th>Result</th>
+                        <th>{% trans "User" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Profile Status" %}</th>
+                        <th>{% trans "Result" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -579,37 +579,37 @@
     <div class="panel-section">
         <div class="section-header">
             <span class="section-icon">📤</span>
-            <h2>Send Reminders</h2>
+            <h2>{% trans "Send Reminders" %}</h2>
         </div>
 
         <form method="post" class="reminder-form">
             {% csrf_token %}
 
             <div class="form-group select-group">
-                <label for="reminder_type">Reminder Type</label>
+                <label for="reminder_type">{% trans "Reminder Type" %}</label>
                 <select name="reminder_type" id="reminder_type">
-                    <option value="all">All Types</option>
-                    <option value="24h">24h Only ({{ preview.24h.count }})</option>
-                    <option value="72h">72h Only ({{ preview.72h.count }})</option>
-                    <option value="7d">7d Final ({{ preview.7d.count }})</option>
+                    <option value="all">{% trans "All Types" %}</option>
+                    <option value="24h">{% trans "24h Only" %} ({{ preview.24h.count }})</option>
+                    <option value="72h">{% trans "72h Only" %} ({{ preview.72h.count }})</option>
+                    <option value="7d">{% trans "7d Final" %} ({{ preview.7d.count }})</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label for="limit">Max Emails to Send</label>
+                <label for="limit">{% trans "Max Emails to Send" %}</label>
                 <input type="number" name="limit" id="limit" value="100" min="1" max="500">
             </div>
 
             <div class="form-group">
                 <div class="checkbox-group">
                     <input type="checkbox" name="dry_run" id="dry_run">
-                    <label for="dry_run">Dry Run (preview without sending)</label>
+                    <label for="dry_run">{% trans "Dry Run (preview without sending)" %}</label>
                 </div>
             </div>
 
             <div class="form-group">
                 <button type="submit" class="btn-submit" {% if total_eligible == 0 %}disabled{% endif %}>
-                    Send Reminders
+                    {% trans "Send Reminders" %}
                 </button>
             </div>
         </form>
@@ -619,13 +619,13 @@
     <div class="panel-section">
         <div class="section-header">
             <span class="section-icon">👀</span>
-            <h2>Eligible Users Preview</h2>
+            <h2>{% trans "Eligible Users Preview" %}</h2>
         </div>
 
         <div class="preview-grid">
             <div class="preview-card">
                 <h4>
-                    24 Hour Reminders
+                    {% trans "24 Hour Reminders" %}
                     <span class="preview-count">{{ preview.24h.count }}</span>
                 </h4>
                 {% if preview.24h.users %}
@@ -638,13 +638,13 @@
                     {% endif %}
                 </ul>
                 {% else %}
-                <p class="no-users">No users eligible for 24h reminder</p>
+                <p class="no-users">{% trans "No users eligible for 24h reminder" %}</p>
                 {% endif %}
             </div>
 
             <div class="preview-card">
                 <h4>
-                    72 Hour Reminders
+                    {% trans "72 Hour Reminders" %}
                     <span class="preview-count">{{ preview.72h.count }}</span>
                 </h4>
                 {% if preview.72h.users %}
@@ -657,13 +657,13 @@
                     {% endif %}
                 </ul>
                 {% else %}
-                <p class="no-users">No users eligible for 72h reminder</p>
+                <p class="no-users">{% trans "No users eligible for 72h reminder" %}</p>
                 {% endif %}
             </div>
 
             <div class="preview-card">
                 <h4>
-                    7 Day Final Reminders
+                    {% trans "7 Day Final Reminders" %}
                     <span class="preview-count">{{ preview.7d.count }}</span>
                 </h4>
                 {% if preview.7d.users %}
@@ -676,7 +676,7 @@
                     {% endif %}
                 </ul>
                 {% else %}
-                <p class="no-users">No users eligible for 7d reminder</p>
+                <p class="no-users">{% trans "No users eligible for 7d reminder" %}</p>
                 {% endif %}
             </div>
         </div>
@@ -686,16 +686,16 @@
     <div class="panel-section">
         <div class="section-header">
             <span class="section-icon">📜</span>
-            <h2>Recent Reminders Sent</h2>
+            <h2>{% trans "Recent Reminders Sent" %}</h2>
         </div>
 
         {% if recent_reminders %}
         <table class="history-table">
             <thead>
                 <tr>
-                    <th>User</th>
-                    <th>Type</th>
-                    <th>Sent At</th>
+                    <th>{% trans "User" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Sent At" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -709,7 +709,7 @@
             </tbody>
         </table>
         {% else %}
-        <p class="no-users">No reminders have been sent yet.</p>
+        <p class="no-users">{% trans "No reminders have been sent yet." %}</p>
         {% endif %}
     </div>
 </div>

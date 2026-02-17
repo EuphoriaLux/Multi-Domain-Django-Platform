@@ -218,11 +218,11 @@ def coach_manage_invitations(request, event_id):
                         invitation, request
                     )
                     if email_sent:
-                        messages.success(request, f"Invitation sent to {email}.")
+                        messages.success(request, _("Invitation sent to %(email)s.") % {"email": email})
                     else:
                         messages.warning(
                             request,
-                            f"Invitation created for {email}, but email could not be sent. Code: {invitation.invitation_code}",
+                            _("Invitation created for %(email)s, but email could not be sent. Code: %(code)s") % {"email": email, "code": invitation.invitation_code},
                         )
                     logger.info(
                         f"Invitation created for {email} to event {event.title}"

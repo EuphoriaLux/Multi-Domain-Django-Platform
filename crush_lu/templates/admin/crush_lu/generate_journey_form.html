@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Generate Special Journey{% endblock %}
+{% block title %}{% trans "Generate Special Journey" %}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -554,14 +554,14 @@
 {% block content %}
 <div class="journey-form-container">
     <div class="journey-header">
-        <h1>Generate Special Journey</h1>
-        <p class="subtitle">Create a personalized experience for this special user</p>
+        <h1>{% trans "Generate Special Journey" %}</h1>
+        <p class="subtitle">{% trans "Create a personalized experience for this special user" %}</p>
     </div>
 
     <div class="user-info">
         <h2>{{ special_exp.first_name }} {{ special_exp.last_name }}</h2>
         <div class="details">
-            Special User Experience | {{ special_exp.animation_style|title }} Animation
+            {% trans "Special User Experience" %} | {{ special_exp.animation_style|title }} {% trans "Animation" %}
         </div>
     </div>
 
@@ -569,39 +569,39 @@
         {% csrf_token %}
 
         <!-- Journey Type Selector -->
-        <h3 style="text-align: center; color: #333; margin-bottom: 20px;">Select Journey Type</h3>
+        <h3 style="text-align: center; color: #333; margin-bottom: 20px;">{% trans "Select Journey Type" %}</h3>
 
         <div class="journey-type-selector">
             <label class="journey-type-card selected" id="wonderland-card">
                 <input type="radio" name="journey_type" value="wonderland" checked>
                 <div class="icon">&#127917;</div>
-                <h3>Wonderland Journey</h3>
-                <p>A 6-chapter interactive experience with riddles, puzzles, and personalized content. Perfect for revealing feelings through a magical narrative.</p>
+                <h3>{% trans "Wonderland Journey" %}</h3>
+                <p>{% trans "A 6-chapter interactive experience with riddles, puzzles, and personalized content. Perfect for revealing feelings through a magical narrative." %}</p>
             </label>
 
             <label class="journey-type-card" id="advent-card">
                 <input type="radio" name="journey_type" value="advent_calendar">
                 <div class="icon">&#127876;</div>
-                <h3>Advent Calendar</h3>
-                <p>A 24-door December experience with daily surprises. Mix poems, photos, videos, gifts, and more. Supports QR codes for physical gifts.</p>
+                <h3>{% trans "Advent Calendar" %}</h3>
+                <p>{% trans "A 24-door December experience with daily surprises. Mix poems, photos, videos, gifts, and more. Supports QR codes for physical gifts." %}</p>
             </label>
         </div>
 
         <!-- ==================== WONDERLAND SECTION ==================== -->
         <div class="journey-section active" id="wonderland-section">
             <div class="info-card">
-                <h3>What will be created:</h3>
+                <h3>{% trans "What will be created:" %}</h3>
                 <ul>
-                    <li><strong>6 Complete Chapters</strong> with personalized themes</li>
-                    <li><strong>Multiple Challenges</strong> per chapter (riddles, puzzles, questionnaires)</li>
-                    <li><strong>Rewards & Media</strong> (poems, photos, voice messages)</li>
-                    <li><strong>Progressive Unlocking</strong> system with points tracking</li>
-                    <li><strong>Completion Certificate</strong> with final reveal message</li>
+                    <li><strong>{% trans "6 Complete Chapters" %}</strong> {% trans "with personalized themes" %}</li>
+                    <li><strong>{% trans "Multiple Challenges" %}</strong> {% trans "per chapter (riddles, puzzles, questionnaires)" %}</li>
+                    <li><strong>{% trans "Rewards & Media" %}</strong> {% trans "(poems, photos, voice messages)" %}</li>
+                    <li><strong>{% trans "Progressive Unlocking" %}</strong> {% trans "system with points tracking" %}</li>
+                    <li><strong>{% trans "Completion Certificate" %}</strong> {% trans "with final reveal message" %}</li>
                 </ul>
             </div>
 
             <div class="form-group">
-                <label for="date_met">Date You First Met</label>
+                <label for="date_met">{% trans "Date You First Met" %}</label>
                 <input
                     type="date"
                     name="date_met"
@@ -610,34 +610,34 @@
                     required
                 >
                 <div class="help-text">
-                    This date will be used in Chapter 1's riddle. The user must solve it to progress.
+                    {% trans "This date will be used in Chapter 1's riddle. The user must solve it to progress." %}
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="location_met">Location Where You Met</label>
+                <label for="location_met">{% trans "Location Where You Met" %}</label>
                 <input
                     type="text"
                     name="location_met"
                     id="location_met"
                     value="Cafe de Paris"
-                    placeholder="e.g., Cafe de Paris, Luxembourg Gardens, etc."
+                    placeholder="{% trans "e.g., Cafe de Paris, Luxembourg Gardens, etc." %}"
                     required
                 >
                 <div class="help-text">
-                    This location appears in Chapter 3's memory timeline and other personalized content.
+                    {% trans "This location appears in Chapter 3's memory timeline and other personalized content." %}
                 </div>
             </div>
 
             <div class="example-section">
-                <h3>The 6 Chapters:</h3>
+                <h3>{% trans "The 6 Chapters:" %}</h3>
                 <ul>
-                    <li><strong>Chapter 1: Down the Rabbit Hole</strong> - Mystery & date riddle</li>
-                    <li><strong>Chapter 2: Garden of Rare Flowers</strong> - Personality questionnaire</li>
-                    <li><strong>Chapter 3: Gallery of Moments</strong> - Shared memories timeline</li>
-                    <li><strong>Chapter 4: Carnival of Courage</strong> - Vulnerability & truth questions</li>
-                    <li><strong>Chapter 5: Starlit Observatory</strong> - Dreams & future together</li>
-                    <li><strong>Chapter 6: Door to Tomorrow</strong> - Final reveal & response</li>
+                    <li><strong>{% trans "Chapter 1: Down the Rabbit Hole" %}</strong> - {% trans "Mystery & date riddle" %}</li>
+                    <li><strong>{% trans "Chapter 2: Garden of Rare Flowers" %}</strong> - {% trans "Personality questionnaire" %}</li>
+                    <li><strong>{% trans "Chapter 3: Gallery of Moments" %}</strong> - {% trans "Shared memories timeline" %}</li>
+                    <li><strong>{% trans "Chapter 4: Carnival of Courage" %}</strong> - {% trans "Vulnerability & truth questions" %}</li>
+                    <li><strong>{% trans "Chapter 5: Starlit Observatory" %}</strong> - {% trans "Dreams & future together" %}</li>
+                    <li><strong>{% trans "Chapter 6: Door to Tomorrow" %}</strong> - {% trans "Final reveal & response" %}</li>
                 </ul>
             </div>
         </div>
@@ -645,19 +645,19 @@
         <!-- ==================== ADVENT CALENDAR SECTION ==================== -->
         <div class="journey-section" id="advent-section">
             <div class="info-card advent">
-                <h3>&#127876; What will be created:</h3>
+                <h3>&#127876; {% trans "What will be created:" %}</h3>
                 <ul>
-                    <li><strong>24 Unique Doors</strong> - One for each day of December (1-24)</li>
-                    <li><strong>Mixed Content Types</strong> - Poems, photos, videos, audio, gifts, and more</li>
-                    <li><strong>QR Code Support</strong> - For physical gift unlocking and bonus content</li>
-                    <li><strong>Progress Tracking</strong> - User can see which doors they've opened</li>
-                    <li><strong>Date-Based Access</strong> - Doors unlock according to the calendar date</li>
+                    <li><strong>{% trans "24 Unique Doors" %}</strong> - {% trans "One for each day of December (1-24)" %}</li>
+                    <li><strong>{% trans "Mixed Content Types" %}</strong> - {% trans "Poems, photos, videos, audio, gifts, and more" %}</li>
+                    <li><strong>{% trans "QR Code Support" %}</strong> - {% trans "For physical gift unlocking and bonus content" %}</li>
+                    <li><strong>{% trans "Progress Tracking" %}</strong> - {% trans "User can see which doors they've opened" %}</li>
+                    <li><strong>{% trans "Date-Based Access" %}</strong> - {% trans "Doors unlock according to the calendar date" %}</li>
                 </ul>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="advent_year">Year</label>
+                    <label for="advent_year">{% trans "Year" %}</label>
                     <input
                         type="number"
                         name="advent_year"
@@ -667,55 +667,55 @@
                         max="2030"
                     >
                     <div class="help-text">
-                        The year for this advent calendar.
+                        {% trans "The year for this advent calendar." %}
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="advent_title">Calendar Title</label>
+                    <label for="advent_title">{% trans "Calendar Title" %}</label>
                     <input
                         type="text"
                         name="advent_title"
                         id="advent_title"
                         value="Your Advent Calendar"
-                        placeholder="e.g., 24 Days of Love"
+                        placeholder="{% trans "e.g., 24 Days of Love" %}"
                     >
                     <div class="help-text">
-                        Custom title displayed on the calendar.
+                        {% trans "Custom title displayed on the calendar." %}
                     </div>
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="advent_welcome">Welcome Message</label>
+                <label for="advent_welcome">{% trans "Welcome Message" %}</label>
                 <textarea
                     name="advent_welcome"
                     id="advent_welcome"
                     rows="3"
-                    placeholder="Every day in December, a new door awaits. Behind each one is a little piece of my heart..."
+                    placeholder="{% trans "Every day in December, a new door awaits. Behind each one is a little piece of my heart..." %}"
                 ></textarea>
                 <div class="help-text">
-                    Optional welcome message shown on the calendar page.
+                    {% trans "Optional welcome message shown on the calendar page." %}
                 </div>
             </div>
 
             <div class="form-group">
                 <label>
                     <input type="checkbox" name="allow_catch_up" checked style="margin-right: 8px;">
-                    Allow Catch-Up (users can open past doors)
+                    {% trans "Allow Catch-Up (users can open past doors)" %}
                 </label>
                 <div class="help-text">
-                    If enabled, users can open all doors from day 1 up to the current date. If disabled, only today's door is available.
+                    {% trans "If enabled, users can open all doors from day 1 up to the current date. If disabled, only today's door is available." %}
                 </div>
             </div>
 
             <div class="form-group">
                 <label>
                     <input type="checkbox" name="generate_qr_tokens" style="margin-right: 8px;">
-                    Generate QR Code Tokens
+                    {% trans "Generate QR Code Tokens" %}
                 </label>
                 <div class="help-text">
-                    Generate unique QR codes for doors that require physical gift unlocking.
+                    {% trans "Generate unique QR codes for doors that require physical gift unlocking." %}
                 </div>
             </div>
 
@@ -1002,10 +1002,10 @@
         <!-- Submit Buttons -->
         <div class="button-group">
             <a href="{% url 'crush_admin:crush_lu_specialuserexperience_changelist' %}" class="btn-secondary">
-                Cancel
+                {% trans "Cancel" %}
             </a>
             <button type="submit" class="btn-primary" id="submit-btn">
-                Generate Journey
+                {% trans "Generate Journey" %}
             </button>
         </div>
     </form>

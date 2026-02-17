@@ -7,6 +7,7 @@ Handles VIP/personalized journey experiences configuration.
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     SpecialUserExperience,
@@ -143,7 +144,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
-            django_messages.error(request, f"Error generating Wonderland journey: {str(e)}")
+            django_messages.error(request, _("Error generating Wonderland journey: %(error)s") % {"error": str(e)})
             print(f"Error details: {error_detail}")
 
         return HttpResponseRedirect(reverse('crush_admin:crush_lu_specialuserexperience_changelist'))
@@ -288,7 +289,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
-            django_messages.error(request, f"Error generating Advent Calendar: {str(e)}")
+            django_messages.error(request, _("Error generating Advent Calendar: %(error)s") % {"error": str(e)})
             print(f"Error details: {error_detail}")
 
         return HttpResponseRedirect(reverse('crush_admin:crush_lu_specialuserexperience_changelist'))
@@ -416,12 +417,12 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
     @admin.action(description='✅ Activate selected experiences')
     def activate_experiences(self, request, queryset):
         updated = queryset.update(is_active=True)
-        django_messages.success(request, f"Activated {updated} special experience(s)")
+        django_messages.success(request, _("Activated %(count)s special experience(s)") % {"count": updated})
 
     @admin.action(description='❌ Deactivate selected experiences')
     def deactivate_experiences(self, request, queryset):
         updated = queryset.update(is_active=False)
-        django_messages.success(request, f"Deactivated {updated} special experience(s)")
+        django_messages.success(request, _("Deactivated %(count)s special experience(s)") % {"count": updated})
 
     @admin.action(description='🎭 Generate Wonderland Journey (with customization)')
     def generate_wonderland_journey(self, request, queryset):

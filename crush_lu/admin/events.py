@@ -633,7 +633,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     def confirm_registrations(self, request, queryset):
         """Confirm selected registrations"""
         updated = queryset.update(status="confirmed")
-        django_messages.success(request, f"Confirmed {updated} registration(s).")
+        django_messages.success(request, _("Confirmed %(count)s registration(s).") % {"count": updated})
 
     @admin.action(description=_("⏳ Move to waitlist"))
     def move_to_waitlist(self, request, queryset):

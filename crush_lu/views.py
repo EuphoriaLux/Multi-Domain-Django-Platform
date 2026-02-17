@@ -424,10 +424,10 @@ def create_profile(request):
             for field, errors in form.errors.items():
                 for error in errors:
                     if field == "__all__":
-                        messages.error(request, f"Form error: {error}")
+                        messages.error(request, _("Form error: %(error)s") % {"error": error})
                     else:
                         messages.error(
-                            request, f"{field.replace('_', ' ').title()}: {error}"
+                            request, _("%(field)s: %(error)s") % {"field": field.replace('_', ' ').title(), "error": error}
                         )
 
             from .social_photos import get_all_social_photos

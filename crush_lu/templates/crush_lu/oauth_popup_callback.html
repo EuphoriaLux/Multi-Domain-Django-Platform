@@ -1,10 +1,10 @@
-{% load static %}
+{% load static i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if is_authenticated %}Login Successful{% else %}Completing Login{% endif %} - Crush.lu</title>
+    <title>{% if is_authenticated %}{% trans "Login Successful" %}{% else %}{% trans "Completing Login" %}{% endif %} - Crush.lu</title>
     <meta name="robots" content="noindex, nofollow">
     <style>
         * {
@@ -123,22 +123,22 @@
                 <path class="success-icon-check" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
             </svg>
         </div>
-        <h2>Welcome{% if user_name %}, {{ user_name }}{% endif %}!</h2>
-        <p>You've successfully logged in to Crush.lu.</p>
-        <p class="small">This window will close automatically...</p>
+        <h2>{% if user_name %}{% blocktrans with name=user_name %}Welcome, {{ name }}!{% endblocktrans %}{% else %}{% trans "Welcome!" %}{% endif %}</h2>
+        <p>{% trans "You've successfully logged in to Crush.lu." %}</p>
+        <p class="small">{% trans "This window will close automatically..." %}</p>
         {% else %}
         <!-- Loading/Processing State -->
         <div class="icon-wrapper">
             <div class="spinner"></div>
         </div>
-        <h2>Completing Login...</h2>
-        <p>Please wait a moment.</p>
+        <h2>{% trans "Completing Login..." %}</h2>
+        <p>{% trans "Please wait a moment." %}</p>
         {% endif %}
 
         <!-- Fallback button (shown if auto-close fails) -->
         <div id="fallback-container" class="hidden">
-            <p class="small" style="margin-top: 1rem;">Your main tab is ready to use.</p>
-            <button onclick="window.close()" class="btn">Close This Window</button>
+            <p class="small" style="margin-top: 1rem;">{% trans "Your main tab is ready to use." %}</p>
+            <button onclick="window.close()" class="btn">{% trans "Close This Window" %}</button>
         </div>
     </div>
 

@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
-{% load static math_filters %}
+{% load static math_filters i18n %}
 
-{% block title %}Email Template Manager - Crush.lu{% endblock %}
+{% block title %}{% trans "Email Template Manager" %} - Crush.lu{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -463,7 +463,7 @@
     <!-- Template List Panel -->
     <div class="panel">
         <div class="panel-header">
-            <h2>Email Templates</h2>
+            <h2>{% trans "Email Templates" %}</h2>
         </div>
         <div class="panel-content">
             {% for cat_key, cat_info in categories.items %}
@@ -507,16 +507,16 @@
     <!-- Context Panel -->
     <div class="panel">
         <div class="panel-header">
-            <h2>Context & Recipients</h2>
+            <h2>{% trans "Context & Recipients" %}</h2>
         </div>
         <div class="panel-content">
             <!-- User Search -->
             <div class="context-section">
-                <label>Select User</label>
+                <label>{% trans "Select User" %}</label>
                 <div class="search-input-wrapper">
                     <input type="text"
                            class="search-input"
-                           placeholder="Search by name or email..."
+                           placeholder="{% trans "Search by name or email..." %}"
                            :value="userSearchQuery"
                            @input="handleSearchInput"
                            @focus="openSearchResults"
@@ -550,7 +550,7 @@
 
             <!-- Event Selector (shown for event templates) -->
             <div class="context-section" x-show="templateRequiresEvent" x-transition>
-                <label>Select Event</label>
+                <label>{% trans "Select Event" %}</label>
                 <select class="context-select"
                         :value="selectedEventId"
                         @change="handleEventChange"
@@ -558,13 +558,13 @@
                         hx-trigger="load"
                         hx-target="this"
                         hx-swap="innerHTML">
-                    <option value="">Loading events...</option>
+                    <option value="">{% trans "Loading events..." %}</option>
                 </select>
             </div>
 
             <!-- Connection Selector (shown for connection templates) -->
             <div class="context-section" x-show="showConnectionSelector" x-transition>
-                <label>Select Connection</label>
+                <label>{% trans "Select Connection" %}</label>
                 <select class="context-select"
                         :value="selectedConnectionId"
                         @change="handleConnectionChange"
@@ -572,13 +572,13 @@
                         hx-trigger="load"
                         hx-target="this"
                         hx-swap="innerHTML">
-                    <option value="">Select a user first...</option>
+                    <option value="">{% trans "Select a user first..." %}</option>
                 </select>
             </div>
 
             <!-- Invitation Selector (shown for invitation templates) -->
             <div class="context-section" x-show="templateRequiresInvitation" x-transition>
-                <label>Select Invitation</label>
+                <label>{% trans "Select Invitation" %}</label>
                 <select class="context-select"
                         :value="selectedInvitationId"
                         @change="handleInvitationChange"
@@ -586,13 +586,13 @@
                         hx-trigger="load"
                         hx-target="this"
                         hx-swap="innerHTML">
-                    <option value="">Loading invitations...</option>
+                    <option value="">{% trans "Loading invitations..." %}</option>
                 </select>
             </div>
 
             <!-- Gift Selector (shown for journey templates) -->
             <div class="context-section" x-show="templateRequiresGift" x-transition>
-                <label>Select Journey Gift</label>
+                <label>{% trans "Select Journey Gift" %}</label>
                 <select class="context-select"
                         :value="selectedGiftId"
                         @change="handleGiftChange"
@@ -600,13 +600,13 @@
                         hx-trigger="load"
                         hx-target="this"
                         hx-swap="innerHTML">
-                    <option value="">Loading gifts...</option>
+                    <option value="">{% trans "Loading gifts..." %}</option>
                 </select>
             </div>
 
             <!-- Info Box -->
             <div class="alert alert-info" x-show="showUserRequiredMessage">
-                Select a user to preview this email template.
+                {% trans "Select a user to preview this email template." %}
             </div>
 
             <!-- Load Preview Button -->
@@ -615,7 +615,7 @@
                     :disabled="cannotLoadPreview"
                     x-show="selectedTemplate">
                 <span class="loading-indicator"><span class="loading-spinner"></span></span>
-                <span>Load Preview</span>
+                <span>{% trans "Load Preview" %}</span>
             </button>
         </div>
     </div>
@@ -623,22 +623,22 @@
     <!-- Preview Panel -->
     <div class="panel preview-panel">
         <div class="panel-header">
-            <h2>Email Preview</h2>
+            <h2>{% trans "Email Preview" %}</h2>
         </div>
 
         <!-- Subject Line -->
         <div class="subject-line" x-show="hasPreview">
-            <span class="subject-label">Subject:</span>
+            <span class="subject-label">{% trans "Subject:" %}</span>
             <span x-text="previewSubject"></span>
         </div>
 
         <!-- Preview Tabs -->
         <div class="preview-tabs" x-show="hasPreview">
             <button class="preview-tab" :class="htmlTabClass" @click="setHtmlMode()">
-                HTML Preview
+                {% trans "HTML Preview" %}
             </button>
             <button class="preview-tab" :class="plainTabClass" @click="setPlainMode()">
-                Plain Text
+                {% trans "Plain Text" %}
             </button>
         </div>
 
@@ -656,7 +656,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
             </div>
-            <p>Select a template and user to preview the email</p>
+            <p>{% trans "Select a template and user to preview the email" %}</p>
         </div>
 
         <!-- Actions -->
@@ -665,13 +665,13 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                 </svg>
-                Copy HTML
+                {% trans "Copy HTML" %}
             </button>
             <button class="action-btn btn-secondary" @click="copyPlain()" :disabled="noPreview">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
-                Copy Plain Text
+                {% trans "Copy Plain Text" %}
             </button>
             <button class="action-btn btn-secondary" @click="openInOutlook()" :disabled="cannotCreateDraft" title="Create draft in Outlook with full HTML formatting">
                 <span x-show="creatingDraft" class="loading-spinner"></span>

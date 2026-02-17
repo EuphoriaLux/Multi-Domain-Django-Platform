@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-06 00:46+0100\n"
+"POT-Creation-Date: 2026-02-17 21:48+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -953,34 +953,34 @@ msgstr "Édition TypeScript - Navigation mobile améliorée !"
 msgid "Version:"
 msgstr "Version :"
 
-#: .\entreprinder\vibe\views.py:20
+#: .\entreprinder\vibe\views.py:23
 msgid "Vibe Coding Projects"
 msgstr "Projets Vibe Coding"
 
-#: .\entreprinder\vibe\views.py:48
+#: .\entreprinder\vibe\views.py:51
 msgid "Lux Pixel War"
 msgstr "Lux Pixel War"
 
-#: .\entreprinder\vibe\views.py:79
+#: .\entreprinder\vibe\views.py:82
 msgid "Lux Pixel War - Optimized"
 msgstr "Lux Pixel War - Optimisé"
 
-#: .\entreprinder\vibe\views.py:110
+#: .\entreprinder\vibe\views.py:113
 msgid "Lux Pixel War - PixiJS"
 msgstr "Lux Pixel War - PixiJS"
 
-#: .\entreprinder\vibe\views.py:141
+#: .\entreprinder\vibe\views.py:144
 msgid "Lux Pixel War - TypeScript"
 msgstr "Lux Pixel War - TypeScript"
 
-#: .\entreprinder\vibe\views.py:172
+#: .\entreprinder\vibe\views.py:175
 msgid "Lux Pixel War - React"
 msgstr "Lux Pixel War - React"
 
-#: .\entreprinder\vibe\views.py:203
+#: .\entreprinder\vibe\views.py:206
 msgid "Pixel Wars React Demo"
 msgstr "Démo Pixel Wars React"
 
-#: .\entreprinder\vibe\views.py:416
+#: .\entreprinder\vibe\views.py:421
 msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
 msgstr "Découverte en Road Trip avec Musique - 90 Minutes vers la Connexion"

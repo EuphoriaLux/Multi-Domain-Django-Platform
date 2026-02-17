@@ -113,18 +113,18 @@ class CrushCoachAdmin(TranslationAdmin):
         deactivated = queryset.update(is_active=False)
         django_messages.success(
             request,
-            f"Deactivated {deactivated} coach(es). They can now create/use dating profiles."
+            _("Deactivated %(count)s coach(es). They can now create/use dating profiles.") % {"count": deactivated},
         )
 
     @admin.action(description=_('Deactivate selected coaches'))
     def deactivate_coaches(self, request, queryset):
         updated = queryset.update(is_active=False)
-        django_messages.success(request, f"Deactivated {updated} coach(es)")
+        django_messages.success(request, _("Deactivated %(count)s coach(es)") % {"count": updated})
 
     @admin.action(description=_('Activate selected coaches'))
     def activate_coaches(self, request, queryset):
         updated = queryset.update(is_active=True)
-        django_messages.success(request, f"Activated {updated} coach(es)")
+        django_messages.success(request, _("Activated %(count)s coach(es)") % {"count": updated})
 
     def get_queryset(self, request):
         """Optimize queries with select_related for user FK"""
@@ -872,12 +872,12 @@ class CrushProfileAdmin(admin.ModelAdmin):
     @admin.action(description=_('Approve selected profiles'))
     def approve_profiles(self, request, queryset):
         updated = queryset.update(is_approved=True, approved_at=timezone.now())
-        django_messages.success(request, f"Approved {updated} profile(s)")
+        django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": updated})
 
     @admin.action(description=_('Deactivate selected profiles'))
     def deactivate_profiles(self, request, queryset):
         updated = queryset.update(is_active=False)
-        django_messages.success(request, f"Deactivated {updated} profile(s)")
+        django_messages.success(request, _("Deactivated %(count)s profile(s)") % {"count": updated})
 
     @admin.action(description=_('Reset phone verification (allows re-verification)'))
     def reset_phone_verification(self, request, queryset):
@@ -913,7 +913,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         try:
             service = GraphContactsService()
         except Exception as e:
-            django_messages.error(request, f"Failed to initialize sync service: {e}")
+            django_messages.error(request, _("Failed to initialize sync service: %(error)s") % {"error": e})
             return
 
         synced = 0
@@ -935,11 +935,11 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 errors += 1
 
         if synced > 0:
-            django_messages.success(request, f"Synced {synced} profile(s) to Outlook contacts.")
+            django_messages.success(request, _("Synced %(count)s profile(s) to Outlook contacts.") % {"count": synced})
         if skipped > 0:
-            django_messages.info(request, f"Skipped {skipped} profile(s) without phone numbers.")
+            django_messages.info(request, _("Skipped %(count)s profile(s) without phone numbers.") % {"count": skipped})
         if errors > 0:
-            django_messages.error(request, f"Failed to sync {errors} profile(s).")
+            django_messages.error(request, _("Failed to sync %(count)s profile(s).") % {"count": errors})
 
     @admin.action(description=_('Export selected profiles to CSV'))
     def export_profiles_csv(self, request, queryset):
@@ -975,7 +975,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 profile.completion_status,
             ])
 
-        django_messages.success(request, f"Exported {queryset.count()} profile(s) to CSV.")
+        django_messages.success(request, _("Exported %(count)s profile(s) to CSV.") % {"count": queryset.count()})
         return response
 
     @admin.action(description=_('Send bulk email to selected users'))
@@ -1240,11 +1240,11 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 approved_count += 1
 
         if approved_count > 0:
-            django_messages.success(request, f"✅ Approved {approved_count} profile(s)")
+            django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": approved_count})
         if skipped_count > 0:
             django_messages.warning(
                 request,
-                f"⚠️ Skipped {skipped_count} profile(s) - screening call not completed"
+                _("Skipped %(count)s profile(s) - screening call not completed") % {"count": skipped_count},
             )
 
     @admin.action(description=_('Reject selected profiles'))
@@ -1252,14 +1252,14 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         """Bulk reject profiles"""
         now = timezone.now()
         updated = queryset.update(status='rejected', reviewed_at=now)
-        django_messages.success(request, f"Rejected {updated} profile(s)")
+        django_messages.success(request, _("Rejected %(count)s profile(s)") % {"count": updated})
 
     @admin.action(description=_('Request revision for selected profiles'))
     def bulk_request_revision(self, request, queryset):
         """Request revision for profiles"""
         now = timezone.now()
         updated = queryset.update(status='revision', reviewed_at=now)
-        django_messages.success(request, f"Requested revision for {updated} profile(s)")
+        django_messages.success(request, _("Requested revision for %(count)s profile(s)") % {"count": updated})
 
     @admin.action(description=_('Auto-assign available coach'))
     def bulk_assign_coach(self, request, queryset):
@@ -1304,16 +1304,16 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         skipped_count = queryset.filter(coach__isnull=False).count()
 
         if assigned_count > 0:
-            django_messages.success(request, f"👤 Assigned coach to {assigned_count} profile(s)")
+            django_messages.success(request, _("Assigned coach to %(count)s profile(s)") % {"count": assigned_count})
         if skipped_count > 0:
-            django_messages.info(request, f"ℹ️ Skipped {skipped_count} profile(s) - already have coach assigned")
+            django_messages.info(request, _("Skipped %(count)s profile(s) - already have coach assigned") % {"count": skipped_count})
 
     @admin.action(description=_('Mark screening call as completed'))
     def bulk_mark_call_completed(self, request, queryset):
         """Mark screening call as completed for selected submissions"""
         now = timezone.now()
         updated = queryset.update(review_call_completed=True, review_call_date=now)
-        django_messages.success(request, f"Marked {updated} screening call(s) as completed")
+        django_messages.success(request, _("Marked %(count)s screening call(s) as completed") % {"count": updated})
 
     @admin.action(description=_('Export selected submissions to CSV'))
     def export_submissions_csv(self, request, queryset):
@@ -1355,7 +1355,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 submission.feedback_to_user or '',
             ])
 
-        django_messages.success(request, f"Exported {queryset.count()} submission(s) to CSV.")
+        django_messages.success(request, _("Exported %(count)s submission(s) to CSV.") % {"count": queryset.count()})
         return response
 
 

@@ -703,7 +703,7 @@ def disconnect_social_account(request, social_account_id):
     # Delete the social account
     social_account.delete()
 
-    messages.success(request, f"{provider_name} account has been disconnected.")
+    messages.success(request, _("%(provider_name)s account has been disconnected.") % {"provider_name": provider_name})
     return redirect("crush_lu:account_settings")
 
 

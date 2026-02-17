@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.translation import gettext_lazy as _
 from .events import MeetupEvent
 from .profiles import CrushCoach, CrushProfile, ProfileSubmission
 
@@ -104,7 +105,7 @@ class EventConnection(models.Model):
     requester_note = models.TextField(
         max_length=300,
         blank=True,
-        help_text="Optional note: What did you talk about? What interested you?"
+        help_text=_("Optional note: What did you talk about? What interested you?")
     )
 
     # Coach facilitation
@@ -113,22 +114,22 @@ class EventConnection(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="Coach who will facilitate this connection"
+        help_text=_("Coach who will facilitate this connection")
     )
-    coach_notes = models.TextField(blank=True, help_text="Coach's guidance for the introduction")
+    coach_notes = models.TextField(blank=True, help_text=_("Coach's guidance for the introduction"))
     coach_introduction = models.TextField(
         blank=True,
-        help_text="Personalized introduction message from coach"
+        help_text=_("Personalized introduction message from coach")
     )
 
     # Mutual consent tracking
     requester_consents_to_share = models.BooleanField(
         default=False,
-        help_text="Requester agrees to share contact info"
+        help_text=_("Requester agrees to share contact info")
     )
     recipient_consents_to_share = models.BooleanField(
         default=False,
-        help_text="Recipient agrees to share contact info"
+        help_text=_("Recipient agrees to share contact info")
     )
 
     # Timestamps
@@ -220,11 +221,11 @@ class ConnectionMessage(models.Model):
     # Coach moderation
     is_coach_message = models.BooleanField(
         default=False,
-        help_text="True if sent by the coach"
+        help_text=_("True if sent by the coach")
     )
     coach_approved = models.BooleanField(
         default=True,
-        help_text="Coach can moderate messages if needed"
+        help_text=_("Coach can moderate messages if needed")
     )
 
     sent_at = models.DateTimeField(auto_now_add=True)

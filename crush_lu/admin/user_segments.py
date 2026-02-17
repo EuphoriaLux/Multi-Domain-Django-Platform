@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
 from django.db.models import Count, Q, F, Exists, OuterRef, Case, When, Value, CharField
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.http import HttpResponse
 from datetime import timedelta, date
@@ -1078,7 +1079,7 @@ def segment_detail(request, segment_key):
             break
 
     if not target_segment:
-        messages.error(request, f"Segment '{segment_key}' not found.")
+        messages.error(request, _("Segment '%(key)s' not found.") % {"key": segment_key})
         return redirect("user_segments_dashboard")
 
     # Get the queryset

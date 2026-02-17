@@ -1,45 +1,45 @@
 {% extends "admin/base_site.html" %}
-{% load static math_filters %}
+{% load static math_filters i18n %}
 
-{% block title %}Crush.lu Analytics Dashboard{% endblock %}
+{% block title %}{% trans "Crush.lu Analytics Dashboard" %}{% endblock %}
 
 {% block content %}
 <div class="dashboard-container" x-data="dashboardTabs">
         <div class="dashboard-header">
-        <h1>Analytics Dashboard</h1>
-        <p>Real-time insights and metrics for the Crush.lu platform</p>
+        <h1>{% trans "Analytics Dashboard" %}</h1>
+        <p>{% trans "Real-time insights and metrics for the Crush.lu platform" %}</p>
     </div>
 
         {% if pending_actions.total_pending > 0 %}
     <div class="action-center" style="margin-bottom: var(--spacing-lg);">
         <div class="action-center-header">
             <h2 class="action-center-title">
-                <span>&#x26A1;</span> Pending Actions
+                <span>&#x26A1;</span> {% trans "Pending Actions" %}
             </h2>
         </div>
         <div class="action-center-grid">
             {% if pending_actions.urgent_reviews > 0 %}
             <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="action-item urgent">
                 <span class="action-item-count">{{ pending_actions.urgent_reviews }}</span>
-                <span class="action-item-label">Urgent (&gt;24h)</span>
+                <span class="action-item-label">{% trans "Urgent" %} (&gt;24h)</span>
             </a>
             {% endif %}
             {% if pending_actions.awaiting_call > 0 %}
             <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call" class="action-item warning">
                 <span class="action-item-count">{{ pending_actions.awaiting_call }}</span>
-                <span class="action-item-label">Awaiting Call</span>
+                <span class="action-item-label">{% trans "Awaiting Call" %}</span>
             </a>
             {% endif %}
             {% if pending_actions.ready_to_approve > 0 %}
             <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve" class="action-item success">
                 <span class="action-item-count">{{ pending_actions.ready_to_approve }}</span>
-                <span class="action-item-label">Ready to Approve</span>
+                <span class="action-item-label">{% trans "Ready to Approve" %}</span>
             </a>
             {% endif %}
             {% if pending_actions.unassigned > 0 %}
             <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending" class="action-item">
                 <span class="action-item-count">{{ pending_actions.unassigned }}</span>
-                <span class="action-item-label">Unassigned</span>
+                <span class="action-item-label">{% trans "Unassigned" %}</span>
             </a>
             {% endif %}
         </div>
@@ -48,34 +48,34 @@
 
         <div class="tab-nav">
         <button class="tab-btn" :class="overviewTabClass" @click="setOverview">
-            &#x1F4CA; Overview
+            &#x1F4CA; {% trans "Overview" %}
         </button>
         <button class="tab-btn" :class="usersTabClass" @click="setUsers">
-            &#x1F465; Users
+            &#x1F465; {% trans "Users" %}
         </button>
         <button class="tab-btn" :class="eventsTabClass" @click="setEvents">
-            &#x1F389; Events
+            &#x1F389; {% trans "Events" %}
         </button>
         <button class="tab-btn" :class="engagementTabClass" @click="setEngagement">
-            &#x1F4AC; Engagement
+            &#x1F4AC; {% trans "Engagement" %}
         </button>
         <button class="tab-btn" :class="technicalTabClass" @click="setTechnical">
-            &#x1F527; Technical
+            &#x1F527; {% trans "Technical" %}
         </button>
         <button class="tab-btn" :class="growthTabClass" @click="setGrowth">
-            &#x1F4C8; Growth
+            &#x1F4C8; {% trans "Growth" %}
         </button>
     </div>
 
         <div class="date-filter-bar" x-data="dateFilter" x-show="isNotGrowth" data-default-range="{{ date_range|default:'30d' }}">
-        <span class="date-filter-label">Date Range:</span>
+        <span class="date-filter-label">{% trans "Date Range:" %}</span>
         <select class="date-filter-select" :value="selectedRange" @change="onSelectChange" x-ref="rangeSelect">
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-            <option value="90d">Last 90 Days</option>
-            <option value="all">All Time</option>
+            <option value="7d">{% trans "Last 7 Days" %}</option>
+            <option value="30d">{% trans "Last 30 Days" %}</option>
+            <option value="90d">{% trans "Last 90 Days" %}</option>
+            <option value="all">{% trans "All Time" %}</option>
         </select>
-        <button class="date-filter-btn" @click="apply">Apply</button>
+        <button class="date-filter-btn" @click="apply">{% trans "Apply" %}</button>
     </div>
 
         <div class="tab-panel" :class="overviewTabClass" x-show="isOverview">
@@ -83,47 +83,47 @@
         <div class="metric-grid">
             <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="metric-card purple">
                 <span class="metric-icon">&#x1F464;</span>
-                <div class="metric-label">Total Profiles</div>
+                <div class="metric-label">{% trans "Total Profiles" %}</div>
                 <div class="metric-value">{{ total_profiles }}</div>
-                <div class="metric-subtitle">{{ active_profiles }} active</div>
+                <div class="metric-subtitle">{% blocktrans with count=active_profiles %}{{ count }} active{% endblocktrans %}</div>
             </a>
             <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=1" class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Approved</div>
+                <div class="metric-label">{% trans "Approved" %}</div>
                 <div class="metric-value">{{ approved_profiles }}</div>
-                <div class="metric-subtitle">{{ approval_rate }}% approval rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{% endblocktrans %}</div>
             </a>
             <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
-                <div class="metric-label">Upcoming Events</div>
+                <div class="metric-label">{% trans "Upcoming Events" %}</div>
                 <div class="metric-value">{{ upcoming_events }}</div>
-                <div class="metric-subtitle">{{ total_events }} total</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_events %}{{ count }} total{% endblocktrans %}</div>
             </a>
             <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual" class="metric-card pink">
                 <span class="metric-icon">&#x1F495;</span>
-                <div class="metric-label">Connections</div>
+                <div class="metric-label">{% trans "Connections" %}</div>
                 <div class="metric-value">{{ mutual_connections }}</div>
-                <div class="metric-subtitle">{{ connection_rate }}% match rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=connection_rate %}{{ rate }}% match rate{% endblocktrans %}</div>
             </a>
         </div>
 
         {# Quick Actions #}
         <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
-            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="btn btn-primary">&#x1F464; All Profiles</a>
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="btn btn-primary">&#x1F4DD; Pending Reviews ({{ pending_reviews }})</a>
-            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="btn btn-primary">&#x1F389; Events</a>
-            <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">&#x1F3AF; User Segments</a>
-            <a href="{% url 'email_template_manager' %}" class="btn btn-secondary">&#x1F4E7; Email Templates</a>
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="btn btn-primary">&#x1F464; {% trans "All Profiles" %}</a>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="btn btn-primary">&#x1F4DD; {% blocktrans with count=pending_reviews %}Pending Reviews ({{ count }}){% endblocktrans %}</a>
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="btn btn-primary">&#x1F389; {% trans "Events" %}</a>
+            <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">&#x1F3AF; {% trans "User Segments" %}</a>
+            <a href="{% url 'email_template_manager' %}" class="btn btn-secondary">&#x1F4E7; {% trans "Email Templates" %}</a>
         </div>
 
         {# Profile Completion Funnel (Simplified) #}
         <div class="chart-container">
-            <h3>Profile Completion Status</h3>
-            <p style="margin-bottom: var(--spacing-md);">Where users are currently stuck in the profile creation process</p>
+            <h3>{% trans "Profile Completion Status" %}</h3>
+            <p style="margin-bottom: var(--spacing-md);">{% trans "Where users are currently stuck in the profile creation process" %}</p>
 
             <div class="funnel-step not-started">
                 <div>
-                    <span class="funnel-step-name">&#x274C; Not Started</span>
+                    <span class="funnel-step-name">&#x274C; {% trans "Not Started" %}</span>
                 </div>
                 <div style="text-align: right;">
                     <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_not_started }}</a>
@@ -133,7 +133,7 @@
 
             <div class="funnel-step step1">
                 <div>
-                    <span class="funnel-step-name">&#x1F4DD; Step 1: Basic Info</span>
+                    <span class="funnel-step-name">&#x1F4DD; {% trans "Step 1: Basic Info" %}</span>
                 </div>
                 <div style="text-align: right;">
                     <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1" class="funnel-step-value" style="color: #d39e00;">{{ funnel_step1 }}</a>
@@ -143,7 +143,7 @@
 
             <div class="funnel-step step2">
                 <div>
-                    <span class="funnel-step-name">&#x1F4F7; Step 2: Photos & Bio</span>
+                    <span class="funnel-step-name">&#x1F4F7; {% trans "Step 2: Photos & Bio" %}</span>
                 </div>
                 <div style="text-align: right;">
                     <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2" class="funnel-step-value" style="color: var(--status-info);">{{ funnel_step2 }}</a>
@@ -153,7 +153,7 @@
 
             <div class="funnel-step submitted">
                 <div>
-                    <span class="funnel-step-name">&#x2705; Submitted for Review</span>
+                    <span class="funnel-step-name">&#x2705; {% trans "Submitted for Review" %}</span>
                 </div>
                 <div style="text-align: right;">
                     <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_submitted }}</a>
@@ -165,13 +165,13 @@
         {# Recent Activity (Combined) #}
         <div class="two-col">
             <div class="table-container">
-                <h3>Recent Profile Submissions</h3>
+                <h3>{% trans "Recent Profile Submissions" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th>User</th>
-                            <th>Status</th>
-                            <th>Submitted</th>
+                            <th>{% trans "User" %}</th>
+                            <th>{% trans "Status" %}</th>
+                            <th>{% trans "Submitted" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -179,11 +179,11 @@
                         <tr>
                             <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
                             <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
-                            <td>{{ submission.submitted_at|timesince }} ago</td>
+                            <td>{% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">No recent submissions</td>
+                            <td colspan="3" class="empty-state">{% trans "No recent submissions" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -191,13 +191,13 @@
             </div>
 
             <div class="table-container">
-                <h3>Recent Event Registrations</h3>
+                <h3>{% trans "Recent Event Registrations" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th>User</th>
-                            <th>Event</th>
-                            <th>Registered</th>
+                            <th>{% trans "User" %}</th>
+                            <th>{% trans "Event" %}</th>
+                            <th>{% trans "Registered" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -205,11 +205,11 @@
                         <tr>
                             <td>{{ registration.user.get_full_name|default:registration.user.username }}</td>
                             <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title|truncatechars:25 }}</a></td>
-                            <td>{{ registration.registered_at|timesince }} ago</td>
+                            <td>{% blocktrans with time=registration.registered_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">No recent registrations</td>
+                            <td colspan="3" class="empty-state">{% trans "No recent registrations" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -223,38 +223,38 @@
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F464;</span>
-                <div class="metric-label">Total Profiles</div>
+                <div class="metric-label">{% trans "Total Profiles" %}</div>
                 <div class="metric-value">{{ total_profiles }}</div>
-                <div class="metric-subtitle">{{ active_profiles }} active</div>
+                <div class="metric-subtitle">{% blocktrans with count=active_profiles %}{{ count }} active{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Approved</div>
+                <div class="metric-label">{% trans "Approved" %}</div>
                 <div class="metric-value">{{ approved_profiles }}</div>
-                <div class="metric-subtitle">{{ approval_rate }}% approval rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F3;</span>
-                <div class="metric-label">Pending Approval</div>
+                <div class="metric-label">{% trans "Pending Approval" %}</div>
                 <div class="metric-value">{{ pending_approval }}</div>
-                <div class="metric-subtitle">Awaiting review</div>
+                <div class="metric-subtitle">{% trans "Awaiting review" %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C8;</span>
-                <div class="metric-label">New This Period</div>
+                <div class="metric-label">{% trans "New This Period" %}</div>
                 <div class="metric-value">{{ recent_signups }}</div>
-                <div class="metric-subtitle">Based on date filter</div>
+                <div class="metric-subtitle">{% trans "Based on date filter" %}</div>
             </div>
         </div>
 
         {# Full Profile Funnel #}
         <div class="chart-container">
-            <h3>Profile Completion Funnel</h3>
-            <p>Shows where users are currently stuck in the profile creation process</p>
+            <h3>{% trans "Profile Completion Funnel" %}</h3>
+            <p>{% trans "Shows where users are currently stuck in the profile creation process" %}</p>
 
             <div class="funnel-step not-started">
                 <div>
-                    <span class="funnel-step-name">&#x274C; Not Started</span>
+                    <span class="funnel-step-name">&#x274C; {% trans "Not Started" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
                     </div>
@@ -267,7 +267,7 @@
 
             <div class="funnel-step step1">
                 <div>
-                    <span class="funnel-step-name">&#x1F4DD; Step 1: Basic Info</span>
+                    <span class="funnel-step-name">&#x1F4DD; {% trans "Step 1: Basic Info" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
                     </div>
@@ -280,7 +280,7 @@
 
             <div class="funnel-step step2">
                 <div>
-                    <span class="funnel-step-name">&#x1F4F7; Step 2: Photos & Bio</span>
+                    <span class="funnel-step-name">&#x1F4F7; {% trans "Step 2: Photos & Bio" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
                     </div>
@@ -293,7 +293,7 @@
 
             <div class="funnel-step step3">
                 <div>
-                    <span class="funnel-step-name">&#x1F512; Step 3: Privacy Settings</span>
+                    <span class="funnel-step-name">&#x1F512; {% trans "Step 3: Privacy Settings" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
                     </div>
@@ -306,7 +306,7 @@
 
             <div class="funnel-step completed">
                 <div>
-                    <span class="funnel-step-name">&#x270F;&#xFE0F; Completed (Not Submitted)</span>
+                    <span class="funnel-step-name">&#x270F;&#xFE0F; {% trans "Completed (Not Submitted)" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_completed_pct }}%; background: linear-gradient(90deg, #fd7e14, #ffb347);"></div>
                     </div>
@@ -319,7 +319,7 @@
 
             <div class="funnel-step submitted">
                 <div>
-                    <span class="funnel-step-name">&#x2705; Submitted for Review</span>
+                    <span class="funnel-step-name">&#x2705; {% trans "Submitted for Review" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
                         <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
                     </div>
@@ -331,14 +331,14 @@
             </div>
 
             <div class="insight-box">
-                <strong>&#x1F4A1; Insight:</strong>
+                <strong>&#x1F4A1; {% trans "Insight:" %}</strong>
                 <span>
                     {% if funnel_not_started > funnel_submitted %}
-                        {{ funnel_not_started }} users haven't started their profile yet - consider sending reminder emails.
+                        {% blocktrans with count=funnel_not_started %}{{ count }} users haven't started their profile yet - consider sending reminder emails.{% endblocktrans %}
                     {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
-                        {{ funnel_step1|add:funnel_step2 }} users are stuck in steps 1-2 - they may need help with photos or bio.
+                        {% blocktrans with count=funnel_step1|add:funnel_step2 %}{{ count }} users are stuck in steps 1-2 - they may need help with photos or bio.{% endblocktrans %}
                     {% else %}
-                        Great progress! Most users are completing their profiles.
+                        {% trans "Great progress! Most users are completing their profiles." %}
                     {% endif %}
                 </span>
             </div>
@@ -347,25 +347,25 @@
         {# Demographics #}
         <div class="two-col">
             <div class="table-container">
-                <h3>Gender Distribution</h3>
+                <h3>{% trans "Gender Distribution" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th>Gender</th>
-                            <th>Count</th>
+                            <th>{% trans "Gender" %}</th>
+                            <th>{% trans "Count" %}</th>
                             <th>%</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for stat in gender_stats %}
                         <tr>
-                            <td>{{ stat.gender|default:"Not specified" }}</td>
+                            <td>{{ stat.gender|default:_("Not specified") }}</td>
                             <td>{{ stat.count }}</td>
                             <td>{% widthratio stat.count total_profiles 100 %}%</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">No data available</td>
+                            <td colspan="3" class="empty-state">{% trans "No data available" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -373,14 +373,14 @@
             </div>
 
             <div class="table-container" style="border-left: 4px solid var(--crush-purple);">
-                <h3>&#x1F4CD; Top 10 Locations</h3>
+                <h3>&#x1F4CD; {% trans "Top 10 Locations" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
                             <th style="width: 40px;">#</th>
-                            <th>Location</th>
-                            <th style="width: 60px;">Count</th>
-                            <th style="width: 150px;">Distribution</th>
+                            <th>{% trans "Location" %}</th>
+                            <th style="width: 60px;">{% trans "Count" %}</th>
+                            <th style="width: 150px;">{% trans "Distribution" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -389,7 +389,7 @@
                             <td style="font-weight: bold; color: var(--crush-purple);">{{ forloop.counter }}</td>
                             <td>
                                 <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}">
-                                    {{ stat.location|default:"Not specified" }}
+                                    {{ stat.location|default:_("Not specified") }}
                                 </a>
                             </td>
                             <td>{{ stat.count }}</td>
@@ -404,7 +404,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="empty-state">No data available</td>
+                            <td colspan="4" class="empty-state">{% trans "No data available" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -413,38 +413,38 @@
         </div>
 
         {# Coach Performance #}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F3AF;</span> Coach Performance</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F3AF;</span> {% trans "Coach Performance" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F468;&#x200D;&#x1F3EB;</span>
-                <div class="metric-label">Active Coaches</div>
+                <div class="metric-label">{% trans "Active Coaches" %}</div>
                 <div class="metric-value">{{ active_coaches }}</div>
-                <div class="metric-subtitle">Out of {{ total_coaches }} total</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_coaches %}Out of {{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
-                <div class="metric-label">Avg Review Time</div>
+                <div class="metric-label">{% trans "Avg Review Time" %}</div>
                 <div class="metric-value">{{ avg_review_hours }}h</div>
-                <div class="metric-subtitle">Per profile</div>
+                <div class="metric-subtitle">{% trans "Per profile" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4CB;</span>
-                <div class="metric-label">Pending Reviews</div>
+                <div class="metric-label">{% trans "Pending Reviews" %}</div>
                 <div class="metric-value">{{ pending_reviews }}</div>
-                <div class="metric-subtitle">Across all coaches</div>
+                <div class="metric-subtitle">{% trans "Across all coaches" %}</div>
             </div>
         </div>
 
         <div class="table-container">
-            <h3>Top Coach Performance</h3>
+            <h3>{% trans "Top Coach Performance" %}</h3>
             <table class="stats-table">
                 <thead>
                     <tr>
-                        <th>Coach</th>
-                        <th>Total Reviews</th>
-                        <th>Pending</th>
-                        <th>Approved</th>
-                        <th>Rejected</th>
+                        <th>{% trans "Coach" %}</th>
+                        <th>{% trans "Total Reviews" %}</th>
+                        <th>{% trans "Pending" %}</th>
+                        <th>{% trans "Approved" %}</th>
+                        <th>{% trans "Rejected" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -458,7 +458,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="empty-state">No coach performance data available</td>
+                        <td colspan="5" class="empty-state">{% trans "No coach performance data available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -471,40 +471,40 @@
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
-                <div class="metric-label">Upcoming Events</div>
+                <div class="metric-label">{% trans "Upcoming Events" %}</div>
                 <div class="metric-value">{{ upcoming_events }}</div>
-                <div class="metric-subtitle">{{ total_events }} total events</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_events %}{{ count }} total events{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Confirmed Registrations</div>
+                <div class="metric-label">{% trans "Confirmed Registrations" %}</div>
                 <div class="metric-value">{{ confirmed_registrations }}</div>
-                <div class="metric-subtitle">{{ total_registrations }} total</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_registrations %}{{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4B0;</span>
-                <div class="metric-label">Total Revenue</div>
+                <div class="metric-label">{% trans "Total Revenue" %}</div>
                 <div class="metric-value">&#x20AC;{{ total_revenue }}</div>
-                <div class="metric-subtitle">From confirmed payments</div>
+                <div class="metric-subtitle">{% trans "From confirmed payments" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4CA;</span>
-                <div class="metric-label">Attendance Rate</div>
+                <div class="metric-label">{% trans "Attendance Rate" %}</div>
                 <div class="metric-value">{{ attendance_rate }}%</div>
-                <div class="metric-subtitle">Show-up rate</div>
+                <div class="metric-subtitle">{% trans "Show-up rate" %}</div>
             </div>
         </div>
 
         {# Popular Events #}
         <div class="table-container">
-            <h3>Most Popular Events</h3>
+            <h3>{% trans "Most Popular Events" %}</h3>
             <table class="stats-table">
                 <thead>
                     <tr>
-                        <th>Event</th>
-                        <th>Type</th>
-                        <th>Date</th>
-                        <th>Registrations</th>
+                        <th>{% trans "Event" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Date" %}</th>
+                        <th>{% trans "Registrations" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -517,7 +517,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="empty-state">No events available</td>
+                        <td colspan="4" class="empty-state">{% trans "No events available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -526,31 +526,31 @@
 
         {# Event Invitations #}
         {% if invitation_metrics.total_invitations > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F48C;</span> Event Invitations</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F48C;</span> {% trans "Event Invitations" %}</h2>
         <div class="metric-grid">
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Accepted</div>
+                <div class="metric-label">{% trans "Accepted" %}</div>
                 <div class="metric-value">{{ invitation_metrics.accepted_invitations }}</div>
-                <div class="metric-subtitle">{{ invitation_metrics.acceptance_rate }}% acceptance rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=invitation_metrics.acceptance_rate %}{{ rate }}% acceptance rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F3;</span>
-                <div class="metric-label">Pending</div>
+                <div class="metric-label">{% trans "Pending" %}</div>
                 <div class="metric-value">{{ invitation_metrics.pending_invitations }}</div>
-                <div class="metric-subtitle">Awaiting response</div>
+                <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x274C;</span>
-                <div class="metric-label">Declined</div>
+                <div class="metric-label">{% trans "Declined" %}</div>
                 <div class="metric-value">{{ invitation_metrics.declined_invitations }}</div>
-                <div class="metric-subtitle">{{ invitation_metrics.expired_invitations }} expired</div>
+                <div class="metric-subtitle">{% blocktrans with count=invitation_metrics.expired_invitations %}{{ count }} expired{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F464;</span>
-                <div class="metric-label">External Guests</div>
+                <div class="metric-label">{% trans "External Guests" %}</div>
                 <div class="metric-value">{{ invitation_metrics.external_guests }}</div>
-                <div class="metric-subtitle">Non-registered invitees</div>
+                <div class="metric-subtitle">{% trans "Non-registered invitees" %}</div>
             </div>
         </div>
         {% endif %}
@@ -558,129 +558,129 @@
 
         <div class="tab-panel" :class="engagementTabClass" x-show="isEngagement">
         {# Connection Metrics #}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> Connections</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Connections" %}</h2>
         <div class="metric-grid">
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F491;</span>
-                <div class="metric-label">Mutual Connections</div>
+                <div class="metric-label">{% trans "Mutual Connections" %}</div>
                 <div class="metric-value">{{ mutual_connections }}</div>
-                <div class="metric-subtitle">{{ connection_rate }}% match rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=connection_rate %}{{ rate }}% match rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F517;</span>
-                <div class="metric-label">Total Connections</div>
+                <div class="metric-label">{% trans "Total Connections" %}</div>
                 <div class="metric-value">{{ total_connections }}</div>
-                <div class="metric-subtitle">All connection requests</div>
+                <div class="metric-subtitle">{% trans "All connection requests" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F3;</span>
-                <div class="metric-label">Pending</div>
+                <div class="metric-label">{% trans "Pending" %}</div>
                 <div class="metric-value">{{ pending_connections }}</div>
-                <div class="metric-subtitle">Awaiting response</div>
+                <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
             </div>
         </div>
 
         {# Messages #}
         {% if message_metrics.total_messages > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F4AC;</span> Messages</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4AC;</span> {% trans "Messages" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4AC;</span>
-                <div class="metric-label">Total Messages</div>
+                <div class="metric-label">{% trans "Total Messages" %}</div>
                 <div class="metric-value">{{ message_metrics.total_messages }}</div>
-                <div class="metric-subtitle">{{ message_metrics.avg_messages_per_connection }} avg per connection</div>
+                <div class="metric-subtitle">{% blocktrans with avg=message_metrics.avg_messages_per_connection %}{{ avg }} avg per connection{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F465;</span>
-                <div class="metric-label">User Messages</div>
+                <div class="metric-label">{% trans "User Messages" %}</div>
                 <div class="metric-value">{{ message_metrics.user_messages }}</div>
-                <div class="metric-subtitle">Between connections</div>
+                <div class="metric-subtitle">{% trans "Between connections" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F4ED;</span>
-                <div class="metric-label">Unread</div>
+                <div class="metric-label">{% trans "Unread" %}</div>
                 <div class="metric-value">{{ message_metrics.unread_messages }}</div>
-                <div class="metric-subtitle">Awaiting response</div>
+                <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
             </div>
         </div>
         {% endif %}
 
         {# Journey System #}
-        <h2 class="section-header"><span class="section-header-icon">&#x2728;</span> Special Journey System</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x2728;</span> {% trans "Special Journey System" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F3AD;</span>
-                <div class="metric-label">Active Experiences</div>
+                <div class="metric-label">{% trans "Active Experiences" %}</div>
                 <div class="metric-value">{{ active_special_experiences }}</div>
-                <div class="metric-subtitle">{{ total_special_experiences }} total</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_special_experiences %}{{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F5FA;&#xFE0F;</span>
-                <div class="metric-label">Active Journeys</div>
+                <div class="metric-label">{% trans "Active Journeys" %}</div>
                 <div class="metric-value">{{ total_journeys }}</div>
-                <div class="metric-subtitle">{{ completed_journeys }} completed</div>
+                <div class="metric-subtitle">{% blocktrans with count=completed_journeys %}{{ count }} completed{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x1F3C6;</span>
-                <div class="metric-label">Avg Points</div>
+                <div class="metric-label">{% trans "Avg Points" %}</div>
                 <div class="metric-value">{{ avg_points }}</div>
-                <div class="metric-subtitle">Per journey</div>
+                <div class="metric-subtitle">{% trans "Per journey" %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x23F1;&#xFE0F;</span>
-                <div class="metric-label">Avg Time</div>
+                <div class="metric-label">{% trans "Avg Time" %}</div>
                 <div class="metric-value">{{ avg_time_minutes }}m</div>
-                <div class="metric-subtitle">Per journey</div>
+                <div class="metric-subtitle">{% trans "Per journey" %}</div>
             </div>
         </div>
 
         {% if total_journeys > 0 %}
         <div class="chart-container">
-            <h3>Journey Completion Rate</h3>
+            <h3>{% trans "Journey Completion Rate" %}</h3>
             <div class="progress-bar-container">
                 <div class="progress-bar" style="width: {{ journey_completion_rate }}%;">
-                    {{ journey_completion_rate }}% Complete
+                    {% blocktrans with rate=journey_completion_rate %}{{ rate }}% Complete{% endblocktrans %}
                 </div>
             </div>
             <p style="margin-top: 10px;">
-                {{ completed_journeys }} out of {{ total_journeys }} journeys completed
+                {% blocktrans with completed=completed_journeys total=total_journeys %}{{ completed }} out of {{ total }} journeys completed{% endblocktrans %}
             </p>
         </div>
         {% endif %}
 
         {# Referral Program #}
         {% if referral_metrics.total_codes > 0 or referral_metrics.total_attributions > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F9F2;</span> Referral Program</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F9F2;</span> {% trans "Referral Program" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F517;</span>
-                <div class="metric-label">Active Codes</div>
+                <div class="metric-label">{% trans "Active Codes" %}</div>
                 <div class="metric-value">{{ referral_metrics.active_codes }}</div>
-                <div class="metric-subtitle">{{ referral_metrics.total_codes }} total codes</div>
+                <div class="metric-subtitle">{% blocktrans with count=referral_metrics.total_codes %}{{ count }} total codes{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Conversions</div>
+                <div class="metric-label">{% trans "Conversions" %}</div>
                 <div class="metric-value">{{ referral_metrics.converted_attributions }}</div>
-                <div class="metric-subtitle">{{ referral_metrics.conversion_rate }}% conversion rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=referral_metrics.conversion_rate %}{{ rate }}% conversion rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F3C6;</span>
-                <div class="metric-label">Reward Points Given</div>
+                <div class="metric-label">{% trans "Reward Points Given" %}</div>
                 <div class="metric-value">{{ referral_metrics.total_reward_points }}</div>
-                <div class="metric-subtitle">{{ referral_metrics.rewards_applied }} rewards applied</div>
+                <div class="metric-subtitle">{% blocktrans with count=referral_metrics.rewards_applied %}{{ count }} rewards applied{% endblocktrans %}</div>
             </div>
         </div>
 
         {% if top_referrers %}
         <div class="table-container">
-            <h3>&#x1F31F; Top Referrers</h3>
+            <h3>&#x1F31F; {% trans "Top Referrers" %}</h3>
             <table class="stats-table">
                 <thead>
                     <tr>
-                        <th>User</th>
-                        <th>Referral Code</th>
-                        <th>Conversions</th>
+                        <th>{% trans "User" %}</th>
+                        <th>{% trans "Referral Code" %}</th>
+                        <th>{% trans "Conversions" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -698,68 +698,68 @@
         {% endif %}
 
         {# Email Preferences #}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F4E7;</span> Email Preferences</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4E7;</span> {% trans "Email Preferences" %}</h2>
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4EC;</span>
-                <div class="metric-label">Active Email Users</div>
+                <div class="metric-label">{% trans "Active Email Users" %}</div>
                 <div class="metric-value">{{ email_active_users }}</div>
-                <div class="metric-subtitle">{{ total_email_preferences }} total preferences</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_email_preferences %}{{ count }} total preferences{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4E2;</span>
-                <div class="metric-label">Marketing Opt-ins</div>
+                <div class="metric-label">{% trans "Marketing Opt-ins" %}</div>
                 <div class="metric-value">{{ marketing_opted_in }}</div>
-                <div class="metric-subtitle">{{ marketing_opt_in_rate }}% opt-in rate</div>
+                <div class="metric-subtitle">{% blocktrans with rate=marketing_opt_in_rate %}{{ rate }}% opt-in rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F6AB;</span>
-                <div class="metric-label">Unsubscribed All</div>
+                <div class="metric-label">{% trans "Unsubscribed All" %}</div>
                 <div class="metric-value">{{ unsubscribed_all }}</div>
-                <div class="metric-subtitle">Opted out of all emails</div>
+                <div class="metric-subtitle">{% trans "Opted out of all emails" %}</div>
             </div>
         </div>
     </div>
 
         <div class="tab-panel" :class="technicalTabClass" x-show="isTechnical">
         {# PWA Analytics #}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F4F1;</span> PWA Analytics</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4F1;</span> {% trans "PWA Analytics" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4F2;</span>
-                <div class="metric-label">Total Installations</div>
+                <div class="metric-label">{% trans "Total Installations" %}</div>
                 <div class="metric-value">{{ pwa_metrics.total_installations }}</div>
-                <div class="metric-subtitle">{{ pwa_metrics.unique_users }} unique users</div>
+                <div class="metric-subtitle">{% blocktrans with count=pwa_metrics.unique_users %}{{ count }} unique users{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Active (7 Days)</div>
+                <div class="metric-label">{% trans "Active (7 Days)" %}</div>
                 <div class="metric-value">{{ pwa_metrics.active_7d }}</div>
-                <div class="metric-subtitle">Recently active</div>
+                <div class="metric-subtitle">{% trans "Recently active" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F4F4;</span>
-                <div class="metric-label">Likely Uninstalled</div>
+                <div class="metric-label">{% trans "Likely Uninstalled" %}</div>
                 <div class="metric-value">{{ pwa_metrics.inactive_7d }}</div>
-                <div class="metric-subtitle">No activity 7+ days</div>
+                <div class="metric-subtitle">{% trans "No activity 7+ days" %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C8;</span>
-                <div class="metric-label">New This Month</div>
+                <div class="metric-label">{% trans "New This Month" %}</div>
                 <div class="metric-value">{{ pwa_metrics.new_this_month }}</div>
-                <div class="metric-subtitle">Last 30 days</div>
+                <div class="metric-subtitle">{% trans "Last 30 days" %}</div>
             </div>
         </div>
 
         {# Platform & Browser Distribution #}
         <div class="two-col">
             <div class="table-container">
-                <h3>&#x1F4CA; Platform Distribution</h3>
+                <h3>&#x1F4CA; {% trans "Platform Distribution" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th>Platform</th>
-                            <th>Count</th>
+                            <th>{% trans "Platform" %}</th>
+                            <th>{% trans "Count" %}</th>
                             <th>%</th>
                         </tr>
                     </thead>
@@ -780,7 +780,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">No PWA installations yet</td>
+                            <td colspan="3" class="empty-state">{% trans "No PWA installations yet" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -788,12 +788,12 @@
             </div>
 
             <div class="table-container">
-                <h3>&#x1F310; Browser Distribution</h3>
+                <h3>&#x1F310; {% trans "Browser Distribution" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th>Browser</th>
-                            <th>Count</th>
+                            <th>{% trans "Browser" %}</th>
+                            <th>{% trans "Count" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -804,14 +804,14 @@
                                 {% elif item.browser == 'Safari' %}&#x1F535; Safari
                                 {% elif item.browser == 'Edge' %}&#x1F537; Edge
                                 {% elif item.browser == 'Firefox' %}&#x1F98A; Firefox
-                                {% else %}{{ item.browser|default:"Unknown" }}
+                                {% else %}{{ item.browser|default:_("Unknown") }}
                                 {% endif %}
                             </td>
                             <td>{{ item.count }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="2" class="empty-state">No data</td>
+                            <td colspan="2" class="empty-state">{% trans "No data" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -821,120 +821,120 @@
 
         {# OAuth State (if data exists) #}
         {% if oauth_metrics.total_states > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F510;</span> OAuth State (Debugging)</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F510;</span> {% trans "OAuth State (Debugging)" %}</h2>
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F504;</span>
-                <div class="metric-label">Active States</div>
+                <div class="metric-label">{% trans "Active States" %}</div>
                 <div class="metric-value">{{ oauth_metrics.active_states }}</div>
-                <div class="metric-subtitle">Unused, not expired</div>
+                <div class="metric-subtitle">{% trans "Unused, not expired" %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
-                <div class="metric-label">Completed Auth</div>
+                <div class="metric-label">{% trans "Completed Auth" %}</div>
                 <div class="metric-value">{{ oauth_metrics.completed_auth }}</div>
-                <div class="metric-subtitle">Successful authentications</div>
+                <div class="metric-subtitle">{% trans "Successful authentications" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
-                <div class="metric-label">Expired States</div>
+                <div class="metric-label">{% trans "Expired States" %}</div>
                 <div class="metric-value">{{ oauth_metrics.expired_states }}</div>
-                <div class="metric-subtitle">Should be cleaned up</div>
+                <div class="metric-subtitle">{% trans "Should be cleaned up" %}</div>
             </div>
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F552;</span>
-                <div class="metric-label">Recent (1h)</div>
+                <div class="metric-label">{% trans "Recent (1h)" %}</div>
                 <div class="metric-value">{{ oauth_metrics.recent_states }}</div>
-                <div class="metric-subtitle">Created in last hour</div>
+                <div class="metric-subtitle">{% trans "Created in last hour" %}</div>
             </div>
         </div>
         {% endif %}
 
         {# PassKit Device Registration (Apple Wallet) #}
         {% if passkit_metrics.total_registrations > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F34E;</span> Apple Wallet Devices</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F34E;</span> {% trans "Apple Wallet Devices" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4F2;</span>
-                <div class="metric-label">Total Registrations</div>
+                <div class="metric-label">{% trans "Total Registrations" %}</div>
                 <div class="metric-value">{{ passkit_metrics.total_registrations }}</div>
-                <div class="metric-subtitle">Device-pass pairings</div>
+                <div class="metric-subtitle">{% trans "Device-pass pairings" %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4F1;</span>
-                <div class="metric-label">Unique Devices</div>
+                <div class="metric-label">{% trans "Unique Devices" %}</div>
                 <div class="metric-value">{{ passkit_metrics.unique_devices }}</div>
-                <div class="metric-subtitle">Apple Wallet devices</div>
+                <div class="metric-subtitle">{% trans "Apple Wallet devices" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F3AB;</span>
-                <div class="metric-label">Unique Passes</div>
+                <div class="metric-label">{% trans "Unique Passes" %}</div>
                 <div class="metric-value">{{ passkit_metrics.unique_passes }}</div>
-                <div class="metric-subtitle">Installed passes</div>
+                <div class="metric-subtitle">{% trans "Installed passes" %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x1F195;</span>
-                <div class="metric-label">New This Month</div>
+                <div class="metric-label">{% trans "New This Month" %}</div>
                 <div class="metric-value">{{ passkit_metrics.recent_registrations }}</div>
-                <div class="metric-subtitle">Last 30 days</div>
+                <div class="metric-subtitle">{% trans "Last 30 days" %}</div>
             </div>
         </div>
         {% endif %}
 
         {# Profile Reminders #}
         {% if reminder_metrics.total_reminders > 0 %}
-        <h2 class="section-header"><span class="section-header-icon">&#x1F4EC;</span> Profile Reminders</h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4EC;</span> {% trans "Profile Reminders" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4E7;</span>
-                <div class="metric-label">Total Sent</div>
+                <div class="metric-label">{% trans "Total Sent" %}</div>
                 <div class="metric-value">{{ reminder_metrics.total_reminders }}</div>
-                <div class="metric-subtitle">{{ reminder_metrics.recent_reminders }} this month</div>
+                <div class="metric-subtitle">{% blocktrans with count=reminder_metrics.recent_reminders %}{{ count }} this month{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
-                <div class="metric-label">24h Reminders</div>
+                <div class="metric-label">{% trans "24h Reminders" %}</div>
                 <div class="metric-value">{{ reminder_metrics.reminders_24h }}</div>
-                <div class="metric-subtitle">First reminder</div>
+                <div class="metric-subtitle">{% trans "First reminder" %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
-                <div class="metric-label">72h Reminders</div>
+                <div class="metric-label">{% trans "72h Reminders" %}</div>
                 <div class="metric-value">{{ reminder_metrics.reminders_72h }}</div>
-                <div class="metric-subtitle">Second reminder</div>
+                <div class="metric-subtitle">{% trans "Second reminder" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F514;</span>
-                <div class="metric-label">7d Final</div>
+                <div class="metric-label">{% trans "7d Final" %}</div>
                 <div class="metric-value">{{ reminder_metrics.reminders_7d }}</div>
-                <div class="metric-subtitle">Final push</div>
+                <div class="metric-subtitle">{% trans "Final push" %}</div>
             </div>
         </div>
 
         <div class="chart-container">
-            <h3>&#x1F4C8; Reminder Effectiveness</h3>
+            <h3>&#x1F4C8; {% trans "Reminder Effectiveness" %}</h3>
             <div class="progress-bar-container">
                 <div class="progress-bar" style="width: {{ reminder_metrics.effectiveness_rate }}%;">
-                    {{ reminder_metrics.effectiveness_rate }}% Completed After Reminder
+                    {% blocktrans with rate=reminder_metrics.effectiveness_rate %}{{ rate }}% Completed After Reminder{% endblocktrans %}
                 </div>
             </div>
             <p style="margin-top: 10px;">
-                Percentage of users who completed their profile after receiving a reminder
+                {% trans "Percentage of users who completed their profile after receiving a reminder" %}
             </p>
         </div>
         {% endif %}
 
         {# Quick Links to Technical Admin Pages #}
         <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
-            <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="btn btn-secondary">View All PWA Devices</a>
+            <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="btn btn-secondary">{% trans "View All PWA Devices" %}</a>
             {% if oauth_metrics.total_states > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="btn btn-secondary">View OAuth States</a>
+            <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="btn btn-secondary">{% trans "View OAuth States" %}</a>
             {% endif %}
             {% if passkit_metrics.total_registrations > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="btn btn-secondary">View PassKit Devices</a>
+            <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="btn btn-secondary">{% trans "View PassKit Devices" %}</a>
             {% endif %}
             {% if reminder_metrics.total_reminders > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="btn btn-secondary">View All Reminders</a>
+            <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="btn btn-secondary">{% trans "View All Reminders" %}</a>
             {% endif %}
         </div>
     </div>
@@ -947,46 +947,46 @@
 
             {# Controls: Range + Granularity #}
             <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg); align-items: center;">
-                <span style="font-weight: 600; margin-right: var(--spacing-xs);">Range:</span>
-                <button class="btn btn-sm" :class="range7dClass" @click="setRange7d">7 Days</button>
-                <button class="btn btn-sm" :class="range30dClass" @click="setRange30d">30 Days</button>
-                <button class="btn btn-sm" :class="range90dClass" @click="setRange90d">90 Days</button>
-                <button class="btn btn-sm" :class="rangeAllClass" @click="setRangeAll">All Time</button>
-                <span style="margin-left: var(--spacing-md); font-weight: 600; margin-right: var(--spacing-xs);">Group by:</span>
-                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranDay">Day</button>
-                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranWeek">Week</button>
-                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranMonth">Month</button>
+                <span style="font-weight: 600; margin-right: var(--spacing-xs);">{% trans "Range:" %}</span>
+                <button class="btn btn-sm" :class="range7dClass" @click="setRange7d">{% trans "7 Days" %}</button>
+                <button class="btn btn-sm" :class="range30dClass" @click="setRange30d">{% trans "30 Days" %}</button>
+                <button class="btn btn-sm" :class="range90dClass" @click="setRange90d">{% trans "90 Days" %}</button>
+                <button class="btn btn-sm" :class="rangeAllClass" @click="setRangeAll">{% trans "All Time" %}</button>
+                <span style="margin-left: var(--spacing-md); font-weight: 600; margin-right: var(--spacing-xs);">{% trans "Group by:" %}</span>
+                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranDay">{% trans "Day" %}</button>
+                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranWeek">{% trans "Week" %}</button>
+                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranMonth">{% trans "Month" %}</button>
             </div>
 
             {# Loading / Error states #}
             <div x-show="isLoading" style="text-align: center; padding: var(--spacing-xl);">
-                <p>Loading chart data...</p>
+                <p>{% trans "Loading chart data..." %}</p>
             </div>
             <div x-show="hasError" style="color: var(--status-danger); padding: var(--spacing-md); background: #fef2f2; border-radius: 8px; margin-bottom: var(--spacing-md);">
                 <p x-text="errorMessage"></p>
             </div>
 
             {# Section A: Signup Trends #}
-            <h2 class="section-header"><span class="section-header-icon">&#x1F4CA;</span> Signup Trends</h2>
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CA;</span> {% trans "Signup Trends" %}</h2>
             <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4DD;</span>
-                    <div class="metric-label">Total Signups</div>
+                    <div class="metric-label">{% trans "Total Signups" %}</div>
                     <div class="metric-value" x-text="signupTotal"></div>
                 </div>
                 <div class="metric-card green">
                     <span class="metric-icon">&#x2705;</span>
-                    <div class="metric-label">Total Approved</div>
+                    <div class="metric-label">{% trans "Total Approved" %}</div>
                     <div class="metric-value" x-text="signupApproved"></div>
                 </div>
                 <div class="metric-card blue">
                     <span class="metric-icon">&#x1F4AF;</span>
-                    <div class="metric-label">Approval Rate</div>
+                    <div class="metric-label">{% trans "Approval Rate" %}</div>
                     <div class="metric-value"><span x-text="signupRate"></span>%</div>
                 </div>
                 <div class="metric-card orange">
                     <span class="metric-icon">&#x1F4C5;</span>
-                    <div class="metric-label">Avg / Day</div>
+                    <div class="metric-label">{% trans "Avg / Day" %}</div>
                     <div class="metric-value" x-text="signupAvgPerDay"></div>
                 </div>
             </div>
@@ -997,26 +997,26 @@
             </div>
 
             {# Section B: Verification Pipeline #}
-            <h2 class="section-header"><span class="section-header-icon">&#x1F50D;</span> Verification Pipeline</h2>
+            <h2 class="section-header"><span class="section-header-icon">&#x1F50D;</span> {% trans "Verification Pipeline" %}</h2>
             <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4CB;</span>
-                    <div class="metric-label">Reviews Completed</div>
+                    <div class="metric-label">{% trans "Reviews Completed" %}</div>
                     <div class="metric-value" x-text="verifyTotal"></div>
                 </div>
                 <div class="metric-card green">
                     <span class="metric-icon">&#x2705;</span>
-                    <div class="metric-label">Approved</div>
+                    <div class="metric-label">{% trans "Approved" %}</div>
                     <div class="metric-value" x-text="verifyApproved"></div>
                 </div>
                 <div class="metric-card" style="border-left: 4px solid var(--status-danger);">
                     <span class="metric-icon">&#x274C;</span>
-                    <div class="metric-label">Rejected</div>
+                    <div class="metric-label">{% trans "Rejected" %}</div>
                     <div class="metric-value" x-text="verifyRejected"></div>
                 </div>
                 <div class="metric-card orange">
                     <span class="metric-icon">&#x1F504;</span>
-                    <div class="metric-label">Revision</div>
+                    <div class="metric-label">{% trans "Revision" %}</div>
                     <div class="metric-value" x-text="verifyRevision"></div>
                 </div>
             </div>
@@ -1027,7 +1027,7 @@
             </div>
 
             {# Section C: Cumulative Growth #}
-            <h2 class="section-header"><span class="section-header-icon">&#x1F4C8;</span> Cumulative Growth</h2>
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4C8;</span> {% trans "Cumulative Growth" %}</h2>
             <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
                 <div style="position: relative; height: 300px;">
                     <canvas id="cumulativeChart"></canvas>
@@ -1035,51 +1035,51 @@
             </div>
 
             {# Section D: Business Plan Summary #}
-            <h2 class="section-header"><span class="section-header-icon">&#x1F4CB;</span> Business Plan Summary</h2>
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CB;</span> {% trans "Business Plan Summary" %}</h2>
             <div class="chart-container" style="margin-bottom: var(--spacing-md);">
                 <div style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--border-color);">
-                                <th style="text-align: left; padding: 8px;">Metric</th>
-                                <th style="text-align: right; padding: 8px;">Value</th>
+                                <th style="text-align: left; padding: 8px;">{% trans "Metric" %}</th>
+                                <th style="text-align: right; padding: 8px;">{% trans "Value" %}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Total Signups (period)</td>
+                                <td style="padding: 8px;">{% trans "Total Signups (period)" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupTotal"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Total Approved (period)</td>
+                                <td style="padding: 8px;">{% trans "Total Approved (period)" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupApproved"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Approval Rate</td>
+                                <td style="padding: 8px;">{% trans "Approval Rate" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="signupRate"></span>%</td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Avg Signups / Day</td>
+                                <td style="padding: 8px;">{% trans "Avg Signups / Day" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupAvgPerDay"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Reviews Completed</td>
+                                <td style="padding: 8px;">{% trans "Reviews Completed" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="verifyTotal"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Reviews - Approved</td>
+                                <td style="padding: 8px;">{% trans "Reviews - Approved" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-success);" x-text="verifyApproved"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Reviews - Rejected</td>
+                                <td style="padding: 8px;">{% trans "Reviews - Rejected" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-danger);" x-text="verifyRejected"></td>
                             </tr>
                             <tr style="border-bottom: 1px solid var(--border-light);">
-                                <td style="padding: 8px;">Reviews - Revision</td>
+                                <td style="padding: 8px;">{% trans "Reviews - Revision" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-warning);" x-text="verifyRevision"></td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px;">Verification Approval Rate</td>
+                                <td style="padding: 8px;">{% trans "Verification Approval Rate" %}</td>
                                 <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="verifyRate"></span>%</td>
                             </tr>
                         </tbody>

@@ -1,10 +1,10 @@
-{% load static %}
+{% load static i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Failed - Crush.lu</title>
+    <title>{% trans "Login Failed" %} - Crush.lu</title>
     <meta name="robots" content="noindex, nofollow">
     <style>
         * {
@@ -87,21 +87,21 @@
 <body>
     <div class="container">
         <div class="error-icon">&#9888;</div>
-        <h2>Login Failed</h2>
+        <h2>{% trans "Login Failed" %}</h2>
         <p>{{ error_description }}</p>
 
         {% if error_code and error_code != 'unknown' %}
         <div class="error-details">
-            Error code: {{ error_code }}
+            {% trans "Error code:" %} {{ error_code }}
         </div>
         {% endif %}
 
         <div class="buttons">
             <button class="btn" onclick="closeAndRetry()">
-                Try Again
+                {% trans "Try Again" %}
             </button>
             <button class="btn btn-secondary" onclick="closeWindow()">
-                Close
+                {% trans "Close" %}
             </button>
         </div>
     </div>
