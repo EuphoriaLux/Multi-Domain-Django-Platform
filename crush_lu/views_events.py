@@ -85,7 +85,7 @@ def event_detail(request, event_id):
     # Language requirement check
     language_requirement_met = True
     if event.languages and request.user.is_authenticated:
-        language_requirement_met, _ = event.user_meets_language_requirement(
+        language_requirement_met, _msg = event.user_meets_language_requirement(
             request.user
         )
 
