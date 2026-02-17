@@ -80,6 +80,7 @@
 {% block content %}
 {# Track event list view with count in Application Insights #}
 {% appinsights_event "events_page_viewed" event_count=events|length %}
+{% ga4_event "view_item_list" item_list_id="events" item_list_name="Upcoming Events" %}
 <h2 class="text-2xl font-bold mb-6">{% trans "Upcoming Events" %}</h2>
 
 {% if unpublished_count > 0 %}

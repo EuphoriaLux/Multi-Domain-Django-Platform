@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n analytics %}
 
 {% block title %}{% trans "Create Your Profile - Crush.lu" %}{% endblock %}
 
@@ -15,6 +15,7 @@
 {% endblock %}
 
 {% block content %}
+{% ga4_event "tutorial_begin" %}
 {# Main Alpine.js component for wizard state management #}
 <div x-data="profileWizard"
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"

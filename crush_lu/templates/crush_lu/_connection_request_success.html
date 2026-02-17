@@ -1,4 +1,5 @@
-{% load i18n %}
+{% load i18n analytics %}
+{% ga4_event "generate_lead" item_id="connection_request" %}
 <div id="connection-actions-{{ recipient.id }}">
     {% if is_mutual %}
         <div class="text-center">

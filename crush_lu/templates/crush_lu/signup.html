@@ -8,6 +8,8 @@
 {% block content %}
 {# Track signup page view in Application Insights #}
 {% appinsights_event "signup_page_viewed" %}
+{% ga4_event "sign_up" method="page_view" %}
+{% fb_event "CompleteRegistration" %}
 <div class="flex justify-center">
     <div class="w-full max-w-lg">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20">

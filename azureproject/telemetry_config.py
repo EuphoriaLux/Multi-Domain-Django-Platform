@@ -225,7 +225,7 @@ def configure_azure_monitor_telemetry():
 
     # Sampling rate: 0.1 = 10% (keep 10% of traces, drop 90%)
     # This can reduce costs by 90% while maintaining statistical visibility
-    sampling_rate = float(os.environ.get('TELEMETRY_SAMPLING_RATE', '0.1'))
+    sampling_rate = float(os.environ.get('TELEMETRY_SAMPLING_RATE', '0.05'))
 
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
@@ -250,11 +250,15 @@ def configure_azure_monitor_telemetry():
             # Enable Live Metrics for real-time dashboard monitoring (1-second latency)
             # Can be disabled by setting ENABLE_LIVE_METRICS=false
             enable_live_metrics=enable_live_metrics,
+            # Disable performance counters (CPU, memory, GC metrics sent every few seconds).
+            # These are redundant with free Azure Monitor platform metrics and were
+            # consuming ~1.13 GB/month (~$3/mo) that bypasses sampling.
+            enable_performance_counters=False,
         )
 
         logger.info(
-            f"Azure Monitor OpenTelemetry configured with exception filtering "
-            f"and {sampling_rate*100:.0f}% sampling "
+            f"Azure Monitor OpenTelemetry configured with exception filtering, "
+            f"{sampling_rate*100:.0f}% sampling, performance counters disabled "
             f"(Live Metrics: {'enabled' if enable_live_metrics else 'disabled'}). "
             "Auto-instrumentation should be DISABLED in Azure App Service."
         )

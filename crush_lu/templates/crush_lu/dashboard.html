@@ -9,6 +9,7 @@
 {% block content %}
 {# Track dashboard view with profile status in Application Insights #}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
+{% ga4_event "login" %}
 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
     <h2 class="text-2xl font-bold">{% blocktrans with name=user.first_name %}Welcome back, {{ name }}! 👋{% endblocktrans %}</h2>
     <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors w-full sm:w-auto">

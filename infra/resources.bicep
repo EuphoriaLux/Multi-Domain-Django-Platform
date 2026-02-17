@@ -411,10 +411,6 @@ resource webdiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-previe
     workspaceId: logAnalyticsWorkspace.id
     logs: [
       {
-        category: 'AppServiceHTTPLogs'
-        enabled: true
-      }
-      {
         category: 'AppServiceConsoleLogs'
         enabled: true
       }

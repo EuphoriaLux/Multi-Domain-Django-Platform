@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static analytics %}
 {% load i18n %}
 
 {% block title %}{{ event.title }} - Crush.lu{% endblock %}
@@ -97,6 +97,8 @@
 {% endblock %}
 
 {% block content %}
+{% ga4_event "view_item" item_id=event.id item_name=event.title item_category=event.get_event_type_display %}
+{% fb_event "ViewContent" content_name=event.title content_category=event.get_event_type_display %}
 <div class="flex justify-center">
     <div class="w-full lg:w-2/3">
         <div class="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">

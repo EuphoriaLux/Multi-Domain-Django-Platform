@@ -8,6 +8,8 @@
 {% block content %}
 {# Track event registration page view in Application Insights #}
 {% appinsights_event "event_registration_started" event_type=event.event_type %}
+{% ga4_event "begin_checkout" item_id=event.id item_name=event.title %}
+{% fb_event "InitiateCheckout" %}
 
 {# Alpine.js component for dynamic form behavior #}
 <div x-data="eventRegistration"

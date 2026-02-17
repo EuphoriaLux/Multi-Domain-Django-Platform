@@ -6,6 +6,8 @@
 {% block content %}
 {# Track profile submission status view in Application Insights #}
 {% appinsights_event "profile_submission_viewed" status=submission.status %}
+{% ga4_event "tutorial_complete" %}
+{% fb_event "Lead" %}
 <div class="flex justify-center py-6 md:py-8">
     <div class="w-full max-w-3xl px-4">
         <div>

@@ -97,7 +97,13 @@
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     z-index: 9999;
     padding: 1rem;
-    border-top: 3px solid var(--bs-primary, #9B59B6);
+    border-top: 3px solid #9B59B6;
+}
+
+html.dark .cookie-banner {
+    background: #1e293b;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    border-top-color: #7C3AED;
 }
 
 .cookie-banner-content {
@@ -115,6 +121,11 @@
     min-width: 300px;
 }
 
+html.dark .cookie-banner-text h4,
+html.dark .cookie-modal-header h4 {
+    color: #f1f5f9;
+}
+
 .cookie-banner-text h4 {
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
@@ -124,6 +135,10 @@
     margin: 0;
     font-size: 0.9rem;
     color: #666;
+}
+
+html.dark .cookie-banner-text p {
+    color: #94a3b8;
 }
 
 .cookie-banner-actions {
@@ -260,7 +275,7 @@
 }
 
 .cookie-toggle input:checked + .cookie-toggle-slider {
-    background-color: var(--bs-primary, #9B59B6);
+    background-color: #9B59B6;
 }
 
 .cookie-toggle input:checked + .cookie-toggle-slider:before {
@@ -270,6 +285,152 @@
 .cookie-toggle input:disabled + .cookie-toggle-slider {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* Button Styles (replaces Bootstrap classes) */
+.cookie-banner .btn,
+.cookie-modal .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.cookie-banner .btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.cookie-banner .btn-primary,
+.cookie-modal .btn-primary {
+    background: #9B59B6;
+    color: #fff;
+    border-color: #9B59B6;
+}
+
+.cookie-banner .btn-primary:hover,
+.cookie-modal .btn-primary:hover {
+    background: #8E44AD;
+    border-color: #8E44AD;
+}
+
+.cookie-banner .btn-secondary,
+.cookie-modal .btn-secondary {
+    background: #6b7280;
+    color: #fff;
+    border-color: #6b7280;
+}
+
+.cookie-banner .btn-secondary:hover,
+.cookie-modal .btn-secondary:hover {
+    background: #4b5563;
+    border-color: #4b5563;
+}
+
+.cookie-banner .btn-outline-secondary {
+    background: transparent;
+    color: #6b7280;
+    border-color: #d1d5db;
+}
+
+.cookie-banner .btn-outline-secondary:hover {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #9ca3af;
+}
+
+/* Badge Styles */
+.cookie-modal .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 0.25rem;
+    line-height: 1;
+}
+
+.cookie-modal .bg-secondary {
+    background: #6b7280;
+    color: #fff;
+}
+
+/* Dark mode: modal and groups */
+html.dark .cookie-modal-content {
+    background: #1e293b;
+}
+
+html.dark .cookie-modal-header {
+    border-bottom-color: #334155;
+}
+
+html.dark .cookie-modal-footer {
+    border-top-color: #334155;
+}
+
+html.dark .cookie-modal-close {
+    color: #94a3b8;
+}
+
+html.dark .cookie-group {
+    border-bottom-color: #334155;
+}
+
+html.dark .cookie-group-description {
+    color: #94a3b8;
+}
+
+html.dark .cookie-group-info strong {
+    color: #f1f5f9;
+}
+
+/* Dark mode: buttons */
+html.dark .cookie-banner .btn-primary,
+html.dark .cookie-modal .btn-primary {
+    background: #7C3AED;
+    border-color: #7C3AED;
+}
+
+html.dark .cookie-banner .btn-primary:hover,
+html.dark .cookie-modal .btn-primary:hover {
+    background: #6D28D9;
+    border-color: #6D28D9;
+}
+
+html.dark .cookie-banner .btn-secondary,
+html.dark .cookie-modal .btn-secondary {
+    background: #475569;
+    border-color: #475569;
+}
+
+html.dark .cookie-banner .btn-secondary:hover,
+html.dark .cookie-modal .btn-secondary:hover {
+    background: #64748b;
+    border-color: #64748b;
+}
+
+html.dark .cookie-banner .btn-outline-secondary {
+    color: #94a3b8;
+    border-color: #475569;
+}
+
+html.dark .cookie-banner .btn-outline-secondary:hover {
+    background: #334155;
+    color: #e2e8f0;
+    border-color: #64748b;
+}
+
+html.dark .cookie-modal .bg-secondary {
+    background: #475569;
 }
 
 /* Mobile responsiveness */
