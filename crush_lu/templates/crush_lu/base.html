@@ -217,12 +217,11 @@
                         {# Check if user is a coach #}
                         {% if user.crushcoach and user.crushcoach.is_active %}
                             {# COACH NAVIGATION #}
-                            <a class="nav-link" href="{% url 'crush_lu:coach_dashboard' %}">
-                                {% include "shared/icons/chart-bar.html" with class="w-4 h-4" %}
-                                <span>{% trans "Coach Dashboard" %}</span>
-                                {% if pending_screening_count > 0 %}
-                                    <span class="badge badge-warning">{{ pending_screening_count }}</span>
-                                {% endif %}
+
+                            {# Top-level shared links #}
+                            <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
+                                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                <span>{% trans "Events" %}</span>
                             </a>
                             {% if has_special_journey %}
                             <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
@@ -233,38 +232,15 @@
                                 {% endif %}
                             </a>
                             {% endif %}
-                            <a class="nav-link" href="{% url 'crush_lu:coach_sessions' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                                <span>{% trans "My Sessions" %}</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'crush_lu:event_list' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                                <span>{% trans "Events" %}</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'crush_lu:dashboard' %}?user_view=1">
-                                {% include "shared/icons/home.html" with class="w-4 h-4" %}
-                                <span>{% trans "My Profile" %}</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'crush_lu:my_connections' %}">
-                                {% include "shared/icons/users.html" with class="w-4 h-4" %}
-                                <span>{% trans "Connections" %}</span>
-                                {% if pending_requests_count > 0 %}
-                                    <span class="badge badge-danger">{{ pending_requests_count }}</span>
-                                {% endif %}
-                            </a>
-                            <a class="nav-link" href="{% url 'crush_lu:spark_list' %}">
-                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
-                                <span>{% trans "My Sparks" %}</span>
-                                {% if actionable_sparks_count > 0 %}
-                                    <span class="badge badge-danger">{{ actionable_sparks_count }}</span>
-                                {% endif %}
-                            </a>
 
-                            <!-- Coach Tools Dropdown -->
+                            <!-- Coach Dropdown (all coach work) -->
                             <div class="dropdown" @click.away="closeCoachTools">
                                 <button type="button" @click="toggleCoachTools" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="coachToolsAriaExpanded">
-                                    {% include "shared/icons/cog.html" with class="w-4 h-4" %}
-                                    <span>{% trans "Coach Tools" %}</span>
+                                    {% include "shared/icons/chart-bar.html" with class="w-4 h-4" %}
+                                    <span>{% trans "Coach" %}</span>
+                                    {% if pending_screening_count > 0 %}
+                                        <span class="badge badge-warning">{{ pending_screening_count }}</span>
+                                    {% endif %}
                                     {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
                                 </button>
                                 <div x-show="coachToolsOpen"
@@ -294,7 +270,7 @@
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
                                         {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "All Sessions" %}
+                                        {% trans "Coach Sessions" %}
                                     </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_event_list' %}">
                                         {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
@@ -307,14 +283,17 @@
                                 </div>
                             </div>
 
-                            <!-- Coach Profile Dropdown -->
-                            <div class="dropdown" @click.away="closeCoachProfile">
-                                <button type="button" @click="toggleCoachProfile" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="coachProfileAriaExpanded">
-                                    {% include "shared/icons/user-circle.html" with class="w-4 h-4" %}
-                                    <span>{{ user.first_name|default:user.username }}</span>
+                            <!-- My Crush Dropdown (personal dating profile) -->
+                            <div class="dropdown" @click.away="closeMyCrush">
+                                <button type="button" @click="toggleMyCrush" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="myCrushAriaExpanded">
+                                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                                    <span>{% trans "My Crush" %}</span>
+                                    {% if pending_requests_count > 0 or actionable_sparks_count > 0 %}
+                                        <span class="badge badge-danger">{{ pending_requests_count|add:actionable_sparks_count }}</span>
+                                    {% endif %}
                                     {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
                                 </button>
-                                <div x-show="coachProfileOpen"
+                                <div x-show="myCrushOpen"
                                      x-transition:enter="transition ease-out duration-100"
                                      x-transition:enter-start="opacity-0 scale-95"
                                      x-transition:enter-end="opacity-100 scale-100"
@@ -327,6 +306,21 @@
                                         {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "My Dashboard" %}
                                     </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:my_connections' %}">
+                                        {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Connections" %}
+                                        {% if pending_requests_count > 0 %}
+                                            <span class="badge badge-danger ml-2">{{ pending_requests_count }}</span>
+                                        {% endif %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:spark_list' %}">
+                                        <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                        {% trans "My Sparks" %}
+                                        {% if actionable_sparks_count > 0 %}
+                                            <span class="badge badge-danger ml-2">{{ actionable_sparks_count }}</span>
+                                        {% endif %}
+                                    </a>
+                                    <div class="dropdown-divider"></div>
                                     {% if user.crushprofile %}
                                         {% if profile_is_approved %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
@@ -345,6 +339,25 @@
                                         </a>
                                         {% endif %}
                                     {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- User Name Dropdown (account-level) -->
+                            <div class="dropdown" @click.away="closeCoachProfile">
+                                <button type="button" @click="toggleCoachProfile" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="coachProfileAriaExpanded">
+                                    {% include "shared/icons/user-circle.html" with class="w-4 h-4" %}
+                                    <span>{{ user.first_name|default:user.username }}</span>
+                                    {% include "shared/icons/chevron-down.html" with class="w-3 h-3" %}
+                                </button>
+                                <div x-show="coachProfileOpen"
+                                     x-transition:enter="transition ease-out duration-100"
+                                     x-transition:enter-start="opacity-0 scale-95"
+                                     x-transition:enter-end="opacity-100 scale-100"
+                                     x-transition:leave="transition ease-in duration-75"
+                                     x-transition:leave-start="opacity-100 scale-100"
+                                     x-transition:leave-end="opacity-0 scale-95"
+                                     x-cloak
+                                     class="dropdown-menu">
                                     <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
@@ -631,19 +644,11 @@
                     {% if user.is_authenticated %}
                         {% if user.crushcoach and user.crushcoach.is_active %}
                             {# COACH MOBILE NAVIGATION #}
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
-                                {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Coach Dashboard" %}
-                                {% if pending_screening_count > 0 %}
-                                    <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
-                                {% endif %}
-                            </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
-                                {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Review Queue" %}
-                                {% if pending_screening_count > 0 %}
-                                    <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
-                                {% endif %}
+
+                            {# Shared links #}
+                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Events" %}
                             </a>
                             {% if has_special_journey %}
                             <a class="nav-link block special-journey" href="{% url 'crush_lu:journey_map' %}">
@@ -651,21 +656,44 @@
                                 {% trans "Special Journey" %}
                             </a>
                             {% endif %}
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "My Sessions" %}
+
+                            {# Coach Section #}
+                            <div class="border-t border-white/20 my-2"></div>
+                            <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "Coach" %}</span>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
+                                {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Review Queue" %}
+                                {% if pending_screening_count > 0 %}
+                                    <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
+                                {% endif %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
                                 {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "All Sessions" %}
+                                {% trans "Coach Sessions" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
                                 {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Events" %}
+                                {% trans "Manage Events" %}
                             </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_verification_history' %}">
+                                {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Verification History" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
+                                {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Journey Management" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
+                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                {% trans "Crush Sparks" %}
+                            </a>
+
+                            {# My Crush Section #}
+                            <div class="border-t border-white/20 my-2"></div>
+                            <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "My Profile" %}</span>
                             <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}?user_view=1">
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "My Profile" %}
+                                {% trans "My Dashboard" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:my_connections' %}">
                                 {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
@@ -680,23 +708,6 @@
                                 {% if actionable_sparks_count > 0 %}
                                     <span class="badge badge-danger ml-1">{{ actionable_sparks_count }}</span>
                                 {% endif %}
-                            </a>
-                            <div class="border-t border-white/20 my-2"></div>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Manage Events" %}
-                            </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
-                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
-                                {% trans "Crush Sparks" %}
-                            </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_verification_history' %}">
-                                {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Verification History" %}
-                            </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
-                                {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Journey Management" %}
                             </a>
                             {% if user.crushprofile %}
                                 {% if profile_is_approved %}
@@ -716,11 +727,13 @@
                                 </a>
                                 {% endif %}
                             {% endif %}
+
+                            {# Account Section #}
+                            <div class="border-t border-white/20 my-2"></div>
                             <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
                             </a>
-                            <div class="border-t border-white/20 my-2"></div>
                             <a class="nav-link block text-red-200" href="{% url 'crush_lu:logout' %}">
                                 {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Logout" %}

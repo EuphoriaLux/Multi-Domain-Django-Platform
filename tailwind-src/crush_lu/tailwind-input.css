@@ -754,11 +754,9 @@ body.journey-bg {
   }
 
   .dropdown-menu {
-    @apply absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl
+    @apply absolute right-0 mt-2 min-w-56 w-max bg-white dark:bg-gray-800 rounded-xl
            shadow-lg border border-gray-100 dark:border-gray-700 py-2 z-50;
     max-width: calc(100vw - 2rem);
-    max-height: calc(100vh - 4rem);
-    overflow-y: auto;
     /* Visibility handled by Alpine.js x-show + x-transition */
   }
 
@@ -6328,7 +6326,6 @@ html.dark .home-page .cta-section {
 
 /* ===================
    Voting Page Styles
-   (from pages/voting.css)
    =================== */
 .countdown-timer {
     font-size: 4rem;
@@ -6336,6 +6333,23 @@ html.dark .home-page .cta-section {
     color: var(--crush-purple);
     text-align: center;
     margin: 2rem 0;
+}
+
+html.dark .countdown-timer {
+    color: #a78bfa;
+}
+
+.countdown-banner {
+    background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+    color: white;
+    padding: 1rem;
+    border-radius: 15px;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+html.dark .countdown-banner {
+    background: linear-gradient(135deg, #9F1239 0%, #6D28D9 100%);
 }
 
 .countdown-demo {
@@ -6346,10 +6360,40 @@ html.dark .home-page .cta-section {
     text-align: center;
 }
 
+html.dark .countdown-demo {
+    background: linear-gradient(135deg, #9F1239 0%, #6D28D9 100%);
+}
+
 .timer-display {
     font-size: 3rem;
     font-weight: bold;
     font-family: monospace;
+}
+
+.section-header {
+    color: #9B59B6;
+    border-bottom: 2px solid #9B59B6;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+html.dark .section-header {
+    color: #a78bfa;
+    border-bottom-color: #7c3aed;
+}
+
+.category-badge {
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+html.dark .category-badge {
+    background: linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
 }
 
 .activity-preview-card {
@@ -6360,10 +6404,20 @@ html.dark .home-page .cta-section {
     transition: all 0.3s ease;
 }
 
+html.dark .activity-preview-card {
+    border-color: #374151;
+    background-color: rgba(30, 41, 59, 0.6);
+}
+
 .activity-preview-card:hover {
     border-color: var(--crush-purple);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(155, 89, 182, 0.15);
+}
+
+html.dark .activity-preview-card:hover {
+    border-color: #7c3aed;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
 .activity-icon {
@@ -6378,6 +6432,11 @@ html.dark .home-page .cta-section {
     margin-bottom: 2rem;
 }
 
+html.dark .activity-group-card {
+    border-color: #374151;
+    background-color: rgba(30, 41, 59, 0.4);
+}
+
 .variant-option-item {
     border: 2px solid #e9ecef;
     border-radius: 10px;
@@ -6387,9 +6446,19 @@ html.dark .home-page .cta-section {
     transition: all 0.3s ease;
 }
 
+html.dark .variant-option-item {
+    border-color: #374151;
+    background-color: rgba(30, 41, 59, 0.3);
+}
+
 .variant-option-item:hover {
     border-color: var(--crush-purple);
     background-color: rgba(155, 89, 182, 0.05);
+}
+
+html.dark .variant-option-item:hover {
+    border-color: #7c3aed;
+    background-color: rgba(124, 58, 237, 0.1);
 }
 
 .variant-option-item:has(input:checked) {
@@ -6398,10 +6467,25 @@ html.dark .home-page .cta-section {
     box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
 }
 
+html.dark .variant-option-item:has(input:checked) {
+    border-color: #7c3aed;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
 .variant-radio {
     width: 1.5rem;
     height: 1.5rem;
     cursor: pointer;
+}
+
+.vote-option-label {
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+html.dark .vote-option-label {
+    color: #e2e8f0;
 }
 
 .voting-status-card {
@@ -6412,14 +6496,36 @@ html.dark .home-page .cta-section {
     text-align: center;
 }
 
+html.dark .voting-status-card {
+    background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
+}
+
 .winner-banner {
-    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-    color: #333;
-    padding: 3rem;
+    color: white;
+    padding: 2rem;
     border-radius: 20px;
     text-align: center;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+    margin-bottom: 1rem;
+}
+
+.winner-banner-presentation {
+    background: linear-gradient(135deg, #7C3AED 0%, #9B59B6 100%);
+    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3);
+}
+
+html.dark .winner-banner-presentation {
+    background: linear-gradient(135deg, #6D28D9 0%, #581C87 100%);
+    box-shadow: 0 10px 30px rgba(109, 40, 217, 0.4);
+}
+
+.winner-banner-twist {
+    background: linear-gradient(135deg, #EC4899 0%, #FF6B9D 100%);
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
+}
+
+html.dark .winner-banner-twist {
+    background: linear-gradient(135deg, #BE185D 0%, #9F1239 100%);
+    box-shadow: 0 10px 30px rgba(190, 24, 93, 0.4);
 }
 
 .winner-icon {
@@ -6435,14 +6541,29 @@ html.dark .home-page .cta-section {
     transition: all 0.3s ease;
 }
 
+html.dark .result-option-card {
+    border-color: #374151;
+    background-color: rgba(30, 41, 59, 0.4);
+}
+
 .result-option-card.winner-option {
     border: 3px solid #FFD700;
     background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
     box-shadow: 0 8px 24px rgba(255, 215, 0, 0.2);
 }
 
+html.dark .result-option-card.winner-option {
+    border-color: #ca8a04;
+    background: linear-gradient(135deg, rgba(202, 138, 4, 0.15) 0%, rgba(180, 83, 9, 0.15) 100%);
+    box-shadow: 0 8px 24px rgba(202, 138, 4, 0.2);
+}
+
 .result-option-card.user-voted {
     border-color: var(--crush-purple);
+}
+
+html.dark .result-option-card.user-voted {
+    border-color: #7c3aed;
 }
 
 .vote-progress {
@@ -6451,6 +6572,10 @@ html.dark .home-page .cta-section {
     background-color: #e9ecef;
     overflow: hidden;
     margin-top: 1rem;
+}
+
+html.dark .vote-progress {
+    background-color: #1e293b;
 }
 
 .vote-progress-bar {
@@ -6469,12 +6594,21 @@ html.dark .home-page .cta-section {
     color: #333;
 }
 
+html.dark .winner-option .vote-progress-bar {
+    background: linear-gradient(135deg, #ca8a04 0%, #b45309 100%);
+    color: #fef3c7;
+}
+
 .progress-bar-demo {
     height: 30px;
     border-radius: 15px;
     background-color: #e9ecef;
     overflow: hidden;
     margin-top: 1rem;
+}
+
+html.dark .progress-bar-demo {
+    background-color: #1e293b;
 }
 
 .progress-fill {
@@ -6497,12 +6631,20 @@ html.dark .home-page .cta-section {
     margin-bottom: 2rem;
 }
 
+html.dark .stats-card {
+    background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
+}
+
 .badge-user-vote {
     background-color: var(--crush-purple);
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 20px;
     font-size: 0.9rem;
+}
+
+html.dark .badge-user-vote {
+    background-color: #7c3aed;
 }
 
 .results-preview {
@@ -6513,6 +6655,11 @@ html.dark .home-page .cta-section {
     margin-bottom: 1rem;
 }
 
+html.dark .results-preview {
+    border-color: #ca8a04;
+    background: linear-gradient(135deg, rgba(202, 138, 4, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
+}
+
 .demo-section {
     border: 2px solid #e9ecef;
     border-radius: 15px;
@@ -6521,9 +6668,19 @@ html.dark .home-page .cta-section {
     background: white;
 }
 
+html.dark .demo-section {
+    border-color: #374151;
+    background: #1e293b;
+}
+
 .demo-section.active {
     border-color: var(--crush-purple);
     box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
+}
+
+html.dark .demo-section.active {
+    border-color: #7c3aed;
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
 }
 
 .tour-overlay {
@@ -6552,6 +6709,11 @@ html.dark .home-page .cta-section {
     display: none;
 }
 
+html.dark .tour-tooltip {
+    background: #1e293b;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
 .tour-tooltip.active {
     display: block;
 }
@@ -6559,6 +6721,14 @@ html.dark .home-page .cta-section {
 .tour-tooltip h3 {
     color: var(--crush-purple);
     margin-bottom: 1rem;
+}
+
+html.dark .tour-tooltip h3 {
+    color: #a78bfa;
+}
+
+html.dark .tour-tooltip p {
+    color: #cbd5e1;
 }
 
 .tour-tooltip-buttons {

@@ -4,10 +4,8 @@
  */
 
 class EventVotingManager {
-    constructor(eventId, resultsUrl = null) {
+    constructor(eventId, resultsUrl) {
         this.eventId = eventId;
-        // Use provided resultsUrl or fallback to current path replacement
-        // This allows templates to pass language-prefixed URLs
         this.resultsUrl = resultsUrl || window.location.pathname.replace('/voting/', '/voting/results/');
         this.statusCheckInterval = null;
         this.countdownInterval = null;
@@ -15,26 +13,23 @@ class EventVotingManager {
     }
 
     init() {
-        // Start checking voting status
         this.checkVotingStatus();
-        this.statusCheckInterval = setInterval(() => {
+        this.statusCheckInterval = setInterval(function() {
             this.checkVotingStatus();
-        }, 5000); // Check every 5 seconds
+        }.bind(this), 5000);
 
-        // Setup vote form submission if on voting page
         this.setupVoteForm();
 
-        // Setup live results updates if on results page
         if (document.getElementById('voting-results-container')) {
             this.updateResultsDisplay();
-            setInterval(() => this.updateResultsDisplay(), 10000); // Update every 10 seconds
+            setInterval(function() { this.updateResultsDisplay(); }.bind(this), 10000);
         }
     }
 
     async checkVotingStatus() {
         try {
-            const response = await fetch(`/api/events/${this.eventId}/voting/status/`);
-            const data = await response.json();
+            var response = await fetch('/api/events/' + this.eventId + '/voting/status/');
+            var data = await response.json();
 
             if (data.success) {
                 this.updateStatusDisplay(data.data);
@@ -45,65 +40,57 @@ class EventVotingManager {
     }
 
     updateStatusDisplay(status) {
-        const phase = status.phase;
+        var phase = status.phase;
 
-        // Update countdown timer
         if (phase === 'waiting') {
-            this.startCountdown('time-until-start', status.time_until_start, () => {
-                // Voting has started, reload to voting interface
+            this.startCountdown('time-until-start', status.time_until_start, function() {
                 window.location.reload();
             });
         } else if (phase === 'active') {
-            this.startCountdown('time-remaining', status.time_remaining, () => {
-                // Voting has ended, redirect to results
+            this.startCountdown('time-remaining', status.time_remaining, function() {
                 window.location.href = this.resultsUrl;
-            });
+            }.bind(this));
         }
 
-        // Update vote count display
-        const voteCountElement = document.getElementById('total-votes-count');
+        var voteCountElement = document.getElementById('total-votes-count');
         if (voteCountElement) {
             voteCountElement.textContent = status.total_votes;
         }
 
-        // Update voting status badge
         this.updateStatusBadge(phase, status.is_voting_open);
     }
 
     updateStatusBadge(phase, isOpen) {
-        const badge = document.getElementById('voting-status-badge');
+        var badge = document.getElementById('voting-status-badge');
         if (!badge) return;
 
-        badge.className = 'badge fs-6';
+        badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium';
 
         if (phase === 'waiting') {
-            badge.className += ' bg-warning';
+            badge.className += ' bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
             badge.textContent = gettext('Voting Starts Soon');
         } else if (phase === 'active' && isOpen) {
-            badge.className += ' bg-success';
+            badge.className += ' bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
             badge.textContent = gettext('Voting Open');
         } else if (phase === 'ended') {
-            badge.className += ' bg-secondary';
+            badge.className += ' bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
             badge.textContent = gettext('Voting Closed');
         }
     }
 
     startCountdown(elementId, initialSeconds, onComplete) {
-        const element = document.getElementById(elementId);
+        var element = document.getElementById(elementId);
         if (!element) return;
 
-        let secondsRemaining = Math.max(0, Math.floor(initialSeconds));
+        var secondsRemaining = Math.max(0, Math.floor(initialSeconds));
 
-        // Clear any existing countdown
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
         }
 
-        // Update display immediately
         this.updateCountdownDisplay(element, secondsRemaining);
 
-        // Start countdown
-        this.countdownInterval = setInterval(() => {
+        this.countdownInterval = setInterval(function() {
             secondsRemaining--;
 
             if (secondsRemaining <= 0) {
@@ -117,87 +104,60 @@ class EventVotingManager {
             } else {
                 this.updateCountdownDisplay(element, secondsRemaining);
             }
-        }, 1000);
+        }.bind(this), 1000);
     }
 
     updateCountdownDisplay(element, seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        element.textContent = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        var minutes = Math.floor(seconds / 60);
+        var secs = seconds % 60;
+        element.textContent = String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
     }
 
     setupVoteForm() {
-        const voteForm = document.getElementById('vote-form');
+        var voteForm = document.getElementById('vote-form');
         if (!voteForm) return;
 
-        // Handle radio button selection
-        const radioButtons = document.querySelectorAll('.variant-radio');
-        radioButtons.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                // Set the hidden input value
-                const optionId = e.target.value;
-                document.getElementById('selected-option-id').value = optionId;
+        var presentationHidden = document.getElementById('presentation-option-id');
+        var twistHidden = document.getElementById('twist-option-id');
+        var submitBtn = document.getElementById('submit-vote-btn');
 
-                // Enable submit button
-                document.getElementById('submit-vote-btn').disabled = false;
+        // Handle presentation radio selection
+        var presentationRadios = document.querySelectorAll('.presentation-radio');
+        presentationRadios.forEach(function(radio) {
+            radio.addEventListener('change', function(e) {
+                if (presentationHidden) {
+                    presentationHidden.value = e.target.value;
+                }
+                checkBothSelected();
             });
         });
 
-        // Handle form submission
-        voteForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.submitVote();
-        });
-    }
-
-    async submitVote() {
-        const optionId = document.getElementById('selected-option-id').value;
-
-        if (!optionId) {
-            this.showMessage(gettext('Please select an activity option'), 'error');
-            return;
-        }
-
-        const submitBtn = document.getElementById('submit-vote-btn');
-        const originalText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        submitBtn.textContent = gettext('Submitting...');
-
-        try {
-            const response = await fetch(`/api/events/${this.eventId}/voting/submit/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': this.getCsrfToken(),
-                },
-                body: JSON.stringify({ option_id: parseInt(optionId) })
+        // Handle twist radio selection
+        var twistRadios = document.querySelectorAll('.twist-radio');
+        twistRadios.forEach(function(radio) {
+            radio.addEventListener('change', function(e) {
+                if (twistHidden) {
+                    twistHidden.value = e.target.value;
+                }
+                checkBothSelected();
             });
+        });
 
-            const data = await response.json();
-
-            if (data.success) {
-                this.showMessage(data.message, 'success');
-                // Redirect to results page after short delay
-                setTimeout(() => {
-                    window.location.href = this.resultsUrl;
-                }, 1500);
-            } else {
-                this.showMessage(data.error || 'Failed to submit vote', 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }
-        } catch (error) {
-            console.error('Error submitting vote:', error);
-            this.showMessage(gettext('An error occurred. Please try again.'), 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+        function checkBothSelected() {
+            if (!submitBtn || !presentationHidden || !twistHidden) return;
+            var presentationSelected = presentationHidden.value !== '';
+            var twistSelected = twistHidden.value !== '';
+            submitBtn.disabled = !(presentationSelected && twistSelected);
         }
+
+        // The form submits normally (POST) -- no JS interception needed
+        // since the view handles POST with presentation_option_id and twist_option_id
     }
 
     async updateResultsDisplay() {
         try {
-            const response = await fetch(`/api/events/${this.eventId}/voting/results/`);
-            const data = await response.json();
+            var response = await fetch('/api/events/' + this.eventId + '/voting/results/');
+            var data = await response.json();
 
             if (data.success) {
                 this.renderResults(data.data);
@@ -208,72 +168,67 @@ class EventVotingManager {
     }
 
     renderResults(resultsData) {
-        const container = document.getElementById('voting-results-container');
+        var container = document.getElementById('voting-results-container');
         if (!container) return;
 
-        const options = resultsData.options;
-        const totalVotes = resultsData.total_votes;
+        var options = resultsData.options;
+        var totalVotes = resultsData.total_votes;
 
-        options.forEach(option => {
-            // Update vote count
-            const countElement = document.getElementById(`option-${option.id}-count`);
+        options.forEach(function(option) {
+            var countElement = document.getElementById('option-' + option.id + '-count');
             if (countElement) {
                 countElement.textContent = option.vote_count;
             }
 
-            // Update percentage
-            const percentElement = document.getElementById(`option-${option.id}-percent`);
+            var percentElement = document.getElementById('option-' + option.id + '-percent');
             if (percentElement) {
-                percentElement.textContent = `${option.percentage}%`;
+                percentElement.textContent = '(' + option.percentage + '%)';
             }
 
-            // Update progress bar
-            const progressBar = document.getElementById(`option-${option.id}-progress`);
+            var progressBar = document.getElementById('option-' + option.id + '-progress');
             if (progressBar) {
-                progressBar.style.width = `${option.percentage}%`;
+                progressBar.style.width = option.percentage + '%';
                 progressBar.setAttribute('aria-valuenow', option.percentage);
             }
 
-            // Highlight winner
             if (option.is_winner) {
-                const card = document.getElementById(`option-${option.id}-card`);
+                var card = document.getElementById('option-' + option.id + '-card');
                 if (card) {
                     card.classList.add('winner-option');
                 }
             }
         });
 
-        // Update total votes count
-        const totalVotesElement = document.getElementById('total-votes-display');
+        var totalVotesElement = document.getElementById('total-votes-display');
         if (totalVotesElement) {
             totalVotesElement.textContent = totalVotes;
         }
     }
 
-    showMessage(message, type = 'info') {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    showMessage(message, type) {
+        type = type || 'info';
+        var alertDiv = document.createElement('div');
+        var bgClass = type === 'error'
+            ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300'
+            : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300';
+        alertDiv.className = 'border rounded-lg p-4 mb-4 ' + bgClass;
         alertDiv.setAttribute('role', 'alert');
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
+        alertDiv.textContent = message;
 
-        const container = document.querySelector('.container');
+        var container = document.querySelector('.flex.justify-center');
         if (container) {
             container.insertBefore(alertDiv, container.firstChild);
 
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
+            setTimeout(function() {
                 alertDiv.remove();
             }, 5000);
         }
     }
 
     getCsrfToken() {
-        const cookie = document.cookie
+        var cookie = document.cookie
             .split('; ')
-            .find(row => row.startsWith('csrftoken='));
+            .find(function(row) { return row.startsWith('csrftoken='); });
         return cookie ? cookie.split('=')[1] : '';
     }
 
@@ -288,12 +243,11 @@ class EventVotingManager {
 }
 
 // Auto-initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const eventIdElement = document.getElementById('event-id-data');
+document.addEventListener('DOMContentLoaded', function() {
+    var eventIdElement = document.getElementById('event-id-data');
     if (eventIdElement) {
-        const eventId = eventIdElement.dataset.eventId;
-        // Read results URL from data attribute (set by template with language prefix)
-        const resultsUrl = eventIdElement.dataset.resultsUrl || null;
+        var eventId = eventIdElement.dataset.eventId;
+        var resultsUrl = eventIdElement.dataset.resultsUrl || null;
         window.votingManager = new EventVotingManager(eventId, resultsUrl);
     }
 });

@@ -46,13 +46,31 @@ def event_voting_lobby(request, event_id):
     # Get or create voting session
     voting_session, created = EventVotingSession.objects.get_or_create(event=event)
 
-    # Get all activity options
-    activity_options = EventActivityOption.objects.filter(event=event).order_by(
-        "activity_type", "activity_variant"
-    )
+    # Get global activity options by category
+    from .models import GlobalActivityOption
 
-    # Check if user has already voted
-    user_vote = EventActivityVote.objects.filter(event=event, user=request.user).first()
+    presentation_options = GlobalActivityOption.objects.filter(
+        activity_type="presentation_style", is_active=True
+    ).order_by("sort_order")
+
+    twist_options = GlobalActivityOption.objects.filter(
+        activity_type="speed_dating_twist", is_active=True
+    ).order_by("sort_order")
+
+    # Check if user has already voted on each category
+    presentation_vote = EventActivityVote.objects.filter(
+        event=event,
+        user=request.user,
+        selected_option__activity_type="presentation_style",
+    ).first()
+
+    twist_vote = EventActivityVote.objects.filter(
+        event=event,
+        user=request.user,
+        selected_option__activity_type="speed_dating_twist",
+    ).first()
+
+    has_voted_both = bool(presentation_vote and twist_vote)
 
     # Get total confirmed attendees count
     total_attendees = EventRegistration.objects.filter(
@@ -62,8 +80,11 @@ def event_voting_lobby(request, event_id):
     context = {
         "event": event,
         "voting_session": voting_session,
-        "activity_options": activity_options,
-        "user_vote": user_vote,
+        "presentation_options": presentation_options,
+        "twist_options": twist_options,
+        "presentation_vote": presentation_vote,
+        "twist_vote": twist_vote,
+        "has_voted_both": has_voted_both,
         "total_attendees": total_attendees,
     }
     return render(request, "crush_lu/event_voting_lobby.html", context)
@@ -300,9 +321,19 @@ def event_voting_results(request, event_id):
                 "event": event,
                 "voting_session": voting_session,
                 "activity_options": activity_options_with_votes,
+                "presentation_options": [
+                    o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+                ],
+                "twist_options": [
+                    o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+                ],
+                "presentation_winner": voting_session.winning_presentation_style,
+                "twist_winner": voting_session.winning_speed_dating_twist,
+                "presentation_vote": presentation_vote,
+                "twist_vote": twist_vote,
                 "user_has_voted_both": user_has_voted_both,
                 "total_votes": total_votes,
-                "redirect_to_presentations": True,  # Signal to template
+                "redirect_to_presentations": True,
             }
             return render(request, "crush_lu/event_voting_results.html", context)
 
@@ -310,6 +341,16 @@ def event_voting_results(request, event_id):
         "event": event,
         "voting_session": voting_session,
         "activity_options": activity_options_with_votes,
+        "presentation_options": [
+            o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+        ],
+        "twist_options": [
+            o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+        ],
+        "presentation_winner": voting_session.winning_presentation_style,
+        "twist_winner": voting_session.winning_speed_dating_twist,
+        "presentation_vote": presentation_vote,
+        "twist_vote": twist_vote,
         "user_has_voted_both": user_has_voted_both,
         "total_votes": total_votes,
         "redirect_to_presentations": False,

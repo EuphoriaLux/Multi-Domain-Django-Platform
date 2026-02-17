@@ -4,10 +4,6 @@
 
 {% block title %}{% trans "Event Voting Lobby" %} - {{ event.title }} - Crush.lu{% endblock %}
 
-{% block extra_css %}
-{# Styles moved to static/crush_lu/css/pages/voting.css #}
-{% endblock %}
-
 {% block content %}
 <!-- Hidden data for JavaScript -->
 <div id="event-id-data" class="hidden" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}"></div>
@@ -26,10 +22,11 @@
                     <span id="voting-status-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Waiting to Start" %}</span>
                 </div>
 
-                {% if user_vote %}
+                {% if has_voted_both %}
                 <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-4">
-                    <h5 class="font-semibold">{% trans "✓ You've Already Voted!" %}</h5>
-                    <p class="mb-2">{% blocktrans with choice=user_vote.selected_option.display_name %}Your choice: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
+                    <h5 class="font-semibold">{% trans "You've Voted on Both Categories!" %}</h5>
+                    <p class="mb-1">🎤 {% blocktrans with choice=presentation_vote.selected_option.display_name %}Presentation Style: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
+                    <p class="mb-2">💕 {% blocktrans with choice=twist_vote.selected_option.display_name %}Speed Dating Twist: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
                     <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors mt-2">
                         {% trans "View Results" %}
                     </a>
@@ -50,7 +47,7 @@
                     <div class="countdown-timer" id="time-until-start">
                         {{ voting_session.time_until_start|floatformat:0 }}s
                     </div>
-                    <p class="mb-0 dark:text-gray-300">{% trans "Get ready to choose your favorite activity!" %}</p>
+                    <p class="mb-0 dark:text-gray-300">{% trans "Get ready to choose your favorite activities!" %}</p>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -72,37 +69,44 @@
                     </div>
                 </div>
 
-                <h3 class="mb-3 dark:text-white">{% trans "Activity Options Preview" %}</h3>
+                <h3 class="mb-3 dark:text-white">{% trans "What You'll Vote On" %}</h3>
                 <p class="text-gray-500 dark:text-gray-400 mb-4">
-                    {% trans "Here's what you'll be voting on. The winning activity will determine how the event flows!" %}
+                    {% trans "You'll vote on TWO categories. The most voted option in each shapes a different phase of the event!" %}
                 </p>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Speed Dating -->
-                    <div class="activity-preview-card">
-                        <div class="activity-icon text-center">💕</div>
-                        <h5 class="text-center mb-2 dark:text-white">{% trans "Speed Dating" %}</h5>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm text-center">
-                            {% trans "Choose from random order, alphabetic, or by hair color variants. Quick 3-5 minute conversations in organized formats." %}
-                        </p>
-                    </div>
-
-                    <!-- Presentation Round -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Category A: Presentation Style -->
                     <div class="activity-preview-card">
                         <div class="activity-icon text-center">🎤</div>
-                        <h5 class="text-center mb-2 dark:text-white">{% trans "90 Second Presentations" %}</h5>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm text-center">
-                            {% trans "Everyone introduces themselves creatively. Options include favorite music, predefined questions, or sharing a favorite photo story." %}
+                        <h5 class="text-center mb-2 dark:text-white">{% trans "Presentation Style" %}</h5>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm text-center mb-3">
+                            {% trans "How will everyone introduce themselves in 90 seconds?" %}
                         </p>
+                        <div class="space-y-1">
+                            {% for option in presentation_options %}
+                            <div class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 bg-crush-purple rounded-full flex-shrink-0"></span>
+                                {{ option.display_name }}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
 
-                    <!-- Mystery Event -->
+                    <!-- Category B: Speed Dating Twist -->
                     <div class="activity-preview-card">
-                        <div class="activity-icon text-center">🎭</div>
-                        <h5 class="text-center mb-2 dark:text-white">{% trans "Mystery Event" %}</h5>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm text-center">
-                            {% trans "Trust the coaches! A surprise activity designed to help you connect in unexpected ways." %}
+                        <div class="activity-icon text-center">💕</div>
+                        <h5 class="text-center mb-2 dark:text-white">{% trans "Speed Dating Twist" %}</h5>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm text-center mb-3">
+                            {% trans "What fun twist will spice up the speed dating phase?" %}
                         </p>
+                        <div class="space-y-1">
+                            {% for option in twist_options %}
+                            <div class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 bg-crush-pink rounded-full flex-shrink-0"></span>
+                                {{ option.display_name }}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
 
@@ -110,10 +114,9 @@
                     <h5 class="font-semibold mb-2">{% trans "How It Works:" %}</h5>
                     <ol class="list-decimal list-inside space-y-1">
                         <li>{% trans "Voting opens <strong>15 minutes after the event starts</strong>" %}</li>
-                        <li>{% trans "You have <strong>30 minutes</strong> to cast your vote" %}</li>
-                        <li>{% trans "Choose your favorite activity format" %}</li>
-                        <li>{% trans "The option with the most votes wins!" %}</li>
-                        <li>{% trans "We'll announce the winner and the event continues with that activity" %}</li>
+                        <li>{% trans "You have <strong>30 minutes</strong> to cast your votes" %}</li>
+                        <li>{% trans "Vote on <strong>TWO categories</strong>: Presentation Style and Speed Dating Twist" %}</li>
+                        <li>{% trans "The most voted options shape phases 2 and 3 of the event!" %}</li>
                     </ol>
                 </div>
             </div>
