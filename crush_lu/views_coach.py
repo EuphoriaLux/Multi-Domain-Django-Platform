@@ -92,6 +92,11 @@ def coach_dashboard(request):
         status="pending_review"
     ).count()
 
+    # Connections needing coach review (accepted or coach_reviewing)
+    pending_connections_count = EventConnection.objects.filter(
+        status__in=["accepted", "coach_reviewing"]
+    ).count()
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -101,6 +106,7 @@ def coach_dashboard(request):
         "recontact_submissions": recontact_submissions,
         "recent_reviews": recent_reviews,
         "pending_sparks_count": pending_sparks_count,
+        "pending_connections_count": pending_connections_count,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 
@@ -1240,3 +1246,227 @@ def coach_verification_history(request):
         "total_count": paginator.count,
     }
     return render(request, "crush_lu/coach_verification_history.html", context)
+
+
+# ============================================================================
+# COACH CONNECTION MANAGEMENT - Review and approve post-event connections
+# ============================================================================
+
+
+@coach_required
+def coach_connections(request):
+    """Coach view to review and manage post-event connections."""
+    coach = request.coach
+
+    # Filter by event if specified
+    event_id = request.GET.get("event")
+    status_filter = request.GET.get("status", "needs_review")
+
+    # Base queryset: connections assigned to this coach (or all for now)
+    connections_qs = (
+        EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach",
+        )
+        .order_by("-requested_at")
+    )
+
+    # Status filter
+    if status_filter == "needs_review":
+        # Accepted (mutual) connections that need coach to review and approve
+        connections_qs = connections_qs.filter(
+            status__in=["accepted", "coach_reviewing"]
+        )
+    elif status_filter == "approved":
+        connections_qs = connections_qs.filter(status="coach_approved")
+    elif status_filter == "shared":
+        connections_qs = connections_qs.filter(status="shared")
+    elif status_filter == "all":
+        connections_qs = connections_qs.exclude(status__in=["pending", "declined"])
+
+    # Event filter
+    event = None
+    if event_id:
+        try:
+            event = MeetupEvent.objects.get(id=event_id)
+            connections_qs = connections_qs.filter(event=event)
+        except MeetupEvent.DoesNotExist:
+            pass
+
+    # Coach filter - show connections assigned to this coach, plus unassigned
+    my_connections_filter = request.GET.get("mine", "")
+    if my_connections_filter == "1":
+        connections_qs = connections_qs.filter(
+            Q(assigned_coach=coach) | Q(assigned_coach__isnull=True)
+        )
+
+    # Use mutual annotation to avoid N+1 queries
+    connections_qs = connections_qs.annotate_is_mutual()
+
+    # Paginate
+    paginator = Paginator(connections_qs, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    # Stats for the header
+    needs_review_count = EventConnection.objects.filter(
+        status__in=["accepted", "coach_reviewing"]
+    ).count()
+    approved_count = EventConnection.objects.filter(status="coach_approved").count()
+    shared_count = EventConnection.objects.filter(status="shared").count()
+
+    # Get events that have connections for the filter dropdown
+    events_with_connections = (
+        MeetupEvent.objects.filter(
+            id__in=EventConnection.objects.values_list("event_id", flat=True).distinct()
+        )
+        .order_by("-date_time")[:20]
+    )
+
+    context = {
+        "coach": coach,
+        "page_obj": page_obj,
+        "status_filter": status_filter,
+        "event_filter": event,
+        "event_id": event_id or "",
+        "mine_filter": my_connections_filter,
+        "needs_review_count": needs_review_count,
+        "approved_count": approved_count,
+        "shared_count": shared_count,
+        "events_with_connections": events_with_connections,
+    }
+    return render(request, "crush_lu/coach_connections.html", context)
+
+
+@coach_required
+@require_http_methods(["GET", "POST"])
+def coach_connection_review(request, connection_id):
+    """Coach review of an individual connection - write introduction and approve."""
+    coach = request.coach
+
+    connection = get_object_or_404(
+        EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach",
+        ),
+        id=connection_id,
+    )
+
+    # Get messages for this connection
+    connection_messages = (
+        connection.messages.select_related("sender")
+        .order_by("sent_at")
+    )
+
+    # Check for the reverse connection (mutual)
+    reverse_connection = EventConnection.objects.filter(
+        requester=connection.recipient,
+        recipient=connection.requester,
+        event=connection.event,
+    ).first()
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "start_review":
+            # Coach starts reviewing - transition from accepted to coach_reviewing
+            if connection.status == "accepted":
+                connection.status = "coach_reviewing"
+                connection.assigned_coach = coach
+                connection.save(update_fields=["status", "assigned_coach"])
+                if reverse_connection and reverse_connection.status == "accepted":
+                    reverse_connection.status = "coach_reviewing"
+                    reverse_connection.assigned_coach = coach
+                    reverse_connection.save(update_fields=["status", "assigned_coach"])
+                messages.success(request, _("Connection is now under your review."))
+
+        elif action == "save_notes":
+            # Save coach notes and introduction without changing status
+            connection.coach_notes = request.POST.get("coach_notes", "").strip()
+            connection.coach_introduction = request.POST.get(
+                "coach_introduction", ""
+            ).strip()
+            connection.assigned_coach = coach
+            connection.save(
+                update_fields=["coach_notes", "coach_introduction", "assigned_coach"]
+            )
+            messages.success(request, _("Notes saved."))
+
+        elif action == "approve":
+            # Approve the connection - move to coach_approved
+            connection.coach_notes = request.POST.get("coach_notes", "").strip()
+            connection.coach_introduction = request.POST.get(
+                "coach_introduction", ""
+            ).strip()
+            connection.status = "coach_approved"
+            connection.assigned_coach = coach
+            connection.coach_approved_at = timezone.now()
+            connection.save()
+
+            # Also approve the reverse connection if it exists
+            if reverse_connection and reverse_connection.status in [
+                "accepted",
+                "coach_reviewing",
+            ]:
+                reverse_connection.status = "coach_approved"
+                reverse_connection.assigned_coach = coach
+                reverse_connection.coach_approved_at = timezone.now()
+                reverse_connection.coach_notes = connection.coach_notes
+                reverse_connection.coach_introduction = connection.coach_introduction
+                reverse_connection.save()
+
+            messages.success(
+                request,
+                _("Connection approved! Both users can now consent to share contact info."),
+            )
+            return redirect("crush_lu:coach_connections")
+
+        elif action == "claim":
+            # Claim unassigned connection
+            connection.assigned_coach = coach
+            connection.save(update_fields=["assigned_coach"])
+            if reverse_connection:
+                reverse_connection.assigned_coach = coach
+                reverse_connection.save(update_fields=["assigned_coach"])
+            messages.success(request, _("Connection claimed."))
+
+        elif action == "send_message":
+            # Coach sends a facilitation message
+            message_text = request.POST.get("message", "").strip()
+            if message_text and len(message_text) <= 2000:
+                from .models import ConnectionMessage
+
+                ConnectionMessage.objects.create(
+                    connection=connection,
+                    sender=request.user,
+                    message=message_text,
+                    is_coach_message=True,
+                )
+                messages.success(request, _("Coach message sent."))
+            else:
+                messages.error(
+                    request, _("Please enter a valid message (max 2000 characters).")
+                )
+
+        return redirect(
+            "crush_lu:coach_connection_review", connection_id=connection_id
+        )
+
+    # GET: Show review page
+    requester_profile = getattr(connection.requester, "crushprofile", None)
+    recipient_profile = getattr(connection.recipient, "crushprofile", None)
+
+    context = {
+        "coach": coach,
+        "connection": connection,
+        "reverse_connection": reverse_connection,
+        "requester_profile": requester_profile,
+        "recipient_profile": recipient_profile,
+        "connection_messages": connection_messages,
+        "is_mutual": reverse_connection is not None,
+    }
+    return render(request, "crush_lu/coach_connection_review.html", context)

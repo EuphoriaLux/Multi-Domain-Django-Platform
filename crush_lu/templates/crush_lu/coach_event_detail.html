@@ -83,6 +83,9 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ mutual_connections }} {% trans "mutual" %}</p>
                     </div>
                 </div>
+                <a href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                    {% trans "Review" %} &rarr;
+                </a>
             </div>
         </div>
 
