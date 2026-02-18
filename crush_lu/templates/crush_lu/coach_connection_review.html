@@ -1,0 +1,303 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Review Connection" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Dashboard" %}</a>
+            <span>/</span>
+            <a href="{% url 'crush_lu:coach_connections' %}" class="hover:text-crush-purple transition-colors">{% trans "Connections" %}</a>
+            <span>/</span>
+            <span class="text-gray-700 dark:text-gray-300">{% trans "Review" %}</span>
+        </div>
+    </div>
+
+    <!-- Connection Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row items-center gap-6">
+            <!-- Requester -->
+            <div class="text-center flex-1">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
+                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.requester.first_name|first|upper }}</span>
+                </div>
+                <h3 class="font-semibold dark:text-white">{{ connection.requester.get_full_name }}</h3>
+                {% if requester_profile %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {% if requester_profile.gender == 'F' %}&#9792;{% elif requester_profile.gender == 'M' %}&#9794;{% endif %}
+                        {% if requester_profile.age %}{{ requester_profile.age }} {% trans "years" %}{% endif %}
+                    </p>
+                {% endif %}
+                <a href="{% url 'crush_lu:coach_member_overview' connection.requester.id %}" class="text-xs text-crush-purple dark:text-purple-400 hover:underline mt-1 inline-block">{% trans "View Profile" %}</a>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="text-center px-4">
+                {% if is_mutual %}
+                    <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-2">
+                        {% include "shared/icons/heart.html" with class="w-6 h-6 text-green-600 dark:text-green-400" %}
+                    </div>
+                    <p class="text-sm font-semibold text-green-600 dark:text-green-400">{% trans "Mutual" %}</p>
+                {% else %}
+                    <div class="text-gray-400 dark:text-gray-500 text-2xl mb-2">&rarr;</div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "One-way" %}</p>
+                {% endif %}
+
+                <!-- Status badge -->
+                <div class="mt-2">
+                    {% if connection.status == 'accepted' %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{% trans "Needs Review" %}</span>
+                    {% elif connection.status == 'coach_reviewing' %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Reviewing" %}</span>
+                    {% elif connection.status == 'coach_approved' %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Approved" %}</span>
+                    {% elif connection.status == 'shared' %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{% trans "Contacts Shared" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recipient -->
+            <div class="text-center flex-1">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
+                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.recipient.first_name|first|upper }}</span>
+                </div>
+                <h3 class="font-semibold dark:text-white">{{ connection.recipient.get_full_name }}</h3>
+                {% if recipient_profile %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {% if recipient_profile.gender == 'F' %}&#9792;{% elif recipient_profile.gender == 'M' %}&#9794;{% endif %}
+                        {% if recipient_profile.age %}{{ recipient_profile.age }} {% trans "years" %}{% endif %}
+                    </p>
+                {% endif %}
+                <a href="{% url 'crush_lu:coach_member_overview' connection.recipient.id %}" class="text-xs text-crush-purple dark:text-purple-400 hover:underline mt-1 inline-block">{% trans "View Profile" %}</a>
+            </div>
+        </div>
+
+        <!-- Event Info -->
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline" %}
+                <a href="{% url 'crush_lu:coach_event_detail' connection.event.id %}" class="text-crush-purple dark:text-purple-400 hover:underline">{{ connection.event.title }}</a>
+                &middot; {{ connection.event.date_time|date:"D, M j, Y" }}
+            </p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {% trans "Connection requested" %} {{ connection.requested_at|timesince }} {% trans "ago" %}
+                {% if connection.assigned_coach %}
+                    &middot; {% trans "Assigned to" %} {{ connection.assigned_coach.user.first_name }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Connection Details -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Requester's Note -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+            <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">
+                {% blocktrans with name=connection.requester.first_name %}{{ name }}'s Note{% endblocktrans %}
+            </h4>
+            {% if connection.requester_note %}
+                <p class="text-gray-600 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 italic">"{{ connection.requester_note }}"</p>
+            {% else %}
+                <p class="text-gray-400 dark:text-gray-500 text-sm italic">{% trans "No note provided." %}</p>
+            {% endif %}
+        </div>
+
+        <!-- Consent Status -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+            <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">{% trans "Consent Status" %}</h4>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">{{ connection.requester.first_name }} {% trans "consents" %}</span>
+                    {% if connection.requester_consents_to_share %}
+                        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "Yes" %}
+                        </span>
+                    {% else %}
+                        <span class="text-gray-400 dark:text-gray-500">{% trans "Not yet" %}</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">{{ connection.recipient.first_name }} {% trans "consents" %}</span>
+                    {% if connection.recipient_consents_to_share %}
+                        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "Yes" %}
+                        </span>
+                    {% else %}
+                        <span class="text-gray-400 dark:text-gray-500">{% trans "Not yet" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coach Action: Start Review / Claim -->
+    {% if connection.status == 'accepted' and not connection.assigned_coach %}
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <div class="flex-1">
+                    <p class="font-semibold text-amber-800 dark:text-amber-300">{% trans "This connection is unassigned" %}</p>
+                    <p class="text-sm text-amber-700 dark:text-amber-400 mt-1">{% trans "Claim this connection to start the review and facilitation process." %}</p>
+                    <form method="post" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="claim">
+                        <button type="submit" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors">
+                            {% trans "Claim Connection" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% elif connection.status == 'accepted' %}
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5 mb-6">
+            <div class="flex items-start gap-3">
+                <div class="flex-1">
+                    <p class="font-semibold text-blue-800 dark:text-blue-300">{% trans "Ready to start reviewing" %}</p>
+                    <p class="text-sm text-blue-700 dark:text-blue-400 mt-1">{% trans "Begin the review process to write an introduction and facilitate this connection." %}</p>
+                    <form method="post" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="start_review">
+                        <button type="submit" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                            {% trans "Start Review" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Coach Notes & Introduction Form -->
+    {% if connection.status == 'coach_reviewing' or connection.status == 'coach_approved' or connection.status == 'accepted' and connection.assigned_coach %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+        <h4 class="font-semibold dark:text-white mb-4">{% trans "Coach Facilitation" %}</h4>
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Coach Notes (internal) -->
+            <div class="mb-4">
+                <label for="coach_notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% trans "Internal Notes" %}
+                    <span class="text-gray-400 dark:text-gray-500 font-normal">({% trans "only visible to coaches" %})</span>
+                </label>
+                <textarea id="coach_notes" name="coach_notes" rows="3"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent"
+                    placeholder="{% trans 'Notes about this connection, observations from the event, etc.' %}">{{ connection.coach_notes }}</textarea>
+            </div>
+
+            <!-- Coach Introduction (shared with users) -->
+            <div class="mb-4">
+                <label for="coach_introduction" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% trans "Introduction Message" %}
+                    <span class="text-gray-400 dark:text-gray-500 font-normal">({% trans "visible to both users" %})</span>
+                </label>
+                <textarea id="coach_introduction" name="coach_introduction" rows="4"
+                    class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent"
+                    placeholder="{% trans 'Write a personalized introduction to help break the ice between these two members...' %}">{{ connection.coach_introduction }}</textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" name="action" value="save_notes" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% trans "Save Notes" %}
+                </button>
+
+                {% if connection.status != 'coach_approved' and connection.status != 'shared' %}
+                    <button type="submit" name="action" value="approve"
+                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
+                        onclick="return confirm('{% trans "Approve this connection? Both users will be able to consent to share contact information." %}')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        {% trans "Approve Connection" %}
+                    </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Coach Message -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+        <h4 class="font-semibold dark:text-white mb-4">{% trans "Conversation" %}</h4>
+
+        <!-- Existing Messages -->
+        {% if connection_messages %}
+            <div class="space-y-3 mb-4 max-h-96 overflow-y-auto">
+                {% for msg in connection_messages %}
+                    <div class="{% if msg.is_coach_message %}bg-crush-purple/5 dark:bg-crush-purple/10 border border-crush-purple/20{% else %}bg-gray-50 dark:bg-gray-700/50{% endif %} rounded-lg p-3">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-semibold {% if msg.is_coach_message %}text-crush-purple dark:text-purple-400{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                                {% if msg.is_coach_message %}
+                                    {% trans "Coach" %}
+                                {% else %}
+                                    {{ msg.sender.first_name }}
+                                {% endif %}
+                            </span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ msg.sent_at|date:"M j, g:i A" }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ msg.message }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-sm text-gray-400 dark:text-gray-500 italic mb-4">{% trans "No messages yet." %}</p>
+        {% endif %}
+
+        <!-- Send Coach Message -->
+        {% if connection.status == 'accepted' or connection.status == 'coach_reviewing' or connection.status == 'coach_approved' %}
+        <form method="post" class="border-t border-gray-100 dark:border-gray-700 pt-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="send_message">
+            <div class="flex gap-2">
+                <input type="text" name="message" maxlength="2000"
+                    class="flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent"
+                    placeholder="{% trans 'Send a coach message to help facilitate...' %}">
+                <button type="submit" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-crush-purple text-white hover:bg-crush-purple/90 rounded-lg transition-colors">
+                    {% trans "Send" %}
+                </button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Timeline -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+        <h4 class="font-semibold dark:text-white mb-4">{% trans "Timeline" %}</h4>
+        <div class="space-y-3">
+            <div class="flex items-center gap-3 text-sm">
+                <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                <span class="text-gray-600 dark:text-gray-400">{% trans "Connection requested" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 ml-auto">{{ connection.requested_at|date:"M j, g:i A" }}</span>
+            </div>
+            {% if connection.responded_at %}
+            <div class="flex items-center gap-3 text-sm">
+                <div class="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
+                <span class="text-gray-600 dark:text-gray-400">{% trans "Response received" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 ml-auto">{{ connection.responded_at|date:"M j, g:i A" }}</span>
+            </div>
+            {% endif %}
+            {% if connection.coach_approved_at %}
+            <div class="flex items-center gap-3 text-sm">
+                <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                <span class="text-gray-600 dark:text-gray-400">{% trans "Coach approved" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 ml-auto">{{ connection.coach_approved_at|date:"M j, g:i A" }}</span>
+            </div>
+            {% endif %}
+            {% if connection.shared_at %}
+            <div class="flex items-center gap-3 text-sm">
+                <div class="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></div>
+                <span class="text-gray-600 dark:text-gray-400">{% trans "Contacts shared" %}</span>
+                <span class="text-gray-400 dark:text-gray-500 ml-auto">{{ connection.shared_at|date:"M j, g:i A" }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

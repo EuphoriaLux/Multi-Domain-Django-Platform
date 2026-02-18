@@ -269,6 +269,10 @@ urlpatterns = [
     path('coach/events/<int:event_id>/', views.coach_event_detail, name='coach_event_detail'),
     path('coach/events/<int:event_id>/checkin/', views_coach_module.coach_event_checkin, name='coach_event_checkin'),
 
+    # Coach connection management
+    path('coach/connections/', views.coach_connections, name='coach_connections'),
+    path('coach/connections/<int:connection_id>/', views.coach_connection_review, name='coach_connection_review'),
+
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
     path('coach/submission/<int:submission_id>/reassign/', views.coach_reassign_submission, name='coach_reassign_submission'),

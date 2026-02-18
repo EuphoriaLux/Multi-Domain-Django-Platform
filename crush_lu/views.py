@@ -162,6 +162,8 @@ from .views_coach import (  # noqa: F401
     coach_member_overview,
     coach_reassign_submission,
     coach_verification_history,
+    coach_connections,
+    coach_connection_review,
 )
 
 # Voting & presentations
