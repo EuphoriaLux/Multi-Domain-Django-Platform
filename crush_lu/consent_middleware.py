@@ -3,6 +3,8 @@ Middleware to enforce Crush.lu consent requirements.
 
 Ensures all authenticated users have given Crush.lu consent before accessing
 protected features. Users without consent are redirected to a consent page.
+
+Only active on the Crush.lu domain (checks request.urlconf).
 """
 import logging
 from django.shortcuts import redirect
@@ -11,6 +13,8 @@ from django.contrib import messages
 from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
+
+CRUSH_URLCONF = 'azureproject.urls_crush'
 
 
 class CrushConsentMiddleware:
@@ -79,10 +83,15 @@ class CrushConsentMiddleware:
         Determine if this request requires consent checking.
 
         Returns True if:
+        - Request is on the Crush.lu domain
         - User is authenticated
         - Path is not exempt
         - Path is protected
         """
+        # Only apply on Crush.lu domain
+        if getattr(request, 'urlconf', None) != CRUSH_URLCONF:
+            return False
+
         # Not authenticated - no check needed
         if not request.user.is_authenticated:
             return False

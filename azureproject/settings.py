@@ -165,6 +165,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage
+    "crush_lu.consent_middleware.CrushConsentMiddleware",  # Enforce Crush.lu GDPR consent
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
