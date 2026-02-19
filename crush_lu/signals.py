@@ -742,6 +742,16 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
                     f"No CrushProfile exists yet for user {sociallogin.user.email}"
                 )
 
+        # Refresh persisted social photo cache (fresh token available now)
+        # Only for existing users - new users are handled in post_save
+        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+            try:
+                from .social_photos import refresh_social_photo_cache
+                token = sociallogin.token if sociallogin.token else None
+                refresh_social_photo_cache(sociallogin.account, token)
+            except Exception as e:
+                logger.warning(f"Failed to refresh Facebook photo cache: {e}")
+
     except Exception as e:
         logger.error(f"Error in pre_social_login handler: {str(e)}", exc_info=True)
 
@@ -806,6 +816,13 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
 
         profile.save()
         logger.info(f"Updated CrushProfile from Facebook data in post_save")
+
+        # Persist social photo to cache for token-expiry fallback
+        try:
+            from .social_photos import refresh_social_photo_cache
+            refresh_social_photo_cache(instance)
+        except Exception as e:
+            logger.warning(f"Failed to persist Facebook photo cache for new user: {e}")
 
     except Exception as e:
         logger.error(
@@ -1097,6 +1114,15 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
                     f"No CrushProfile exists yet for user {sociallogin.user.email}"
                 )
 
+        # Refresh persisted social photo cache
+        # Only for existing users - new users are handled in post_save
+        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+            try:
+                from .social_photos import refresh_social_photo_cache
+                refresh_social_photo_cache(sociallogin.account)
+            except Exception as e:
+                logger.warning(f"Failed to refresh Google photo cache: {e}")
+
     except Exception as e:
         logger.error(
             f"Error in Google pre_social_login handler: {str(e)}", exc_info=True
@@ -1154,6 +1180,13 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
 
         profile.save()
         logger.info(f"Updated CrushProfile from Google data in post_save")
+
+        # Persist social photo to cache for consistency
+        try:
+            from .social_photos import refresh_social_photo_cache
+            refresh_social_photo_cache(instance)
+        except Exception as e:
+            logger.warning(f"Failed to persist Google photo cache for new user: {e}")
 
     except Exception as e:
         logger.error(
@@ -1246,6 +1279,16 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
                     f"No CrushProfile exists yet for user {sociallogin.user.email}"
                 )
 
+        # Refresh persisted social photo cache (fresh token available now)
+        # Only for existing users - new users are handled in post_save
+        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+            try:
+                from .social_photos import refresh_social_photo_cache
+                token = sociallogin.token if sociallogin.token else None
+                refresh_social_photo_cache(sociallogin.account, token)
+            except Exception as e:
+                logger.warning(f"Failed to refresh Microsoft photo cache: {e}")
+
     except Exception as e:
         logger.error(
             f"Error in Microsoft pre_social_login handler: {str(e)}", exc_info=True
@@ -1292,6 +1335,13 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
 
         profile.save()
         logger.info(f"Updated CrushProfile from Microsoft data in post_save")
+
+        # Persist social photo to cache for token-expiry fallback
+        try:
+            from .social_photos import refresh_social_photo_cache
+            refresh_social_photo_cache(instance)
+        except Exception as e:
+            logger.warning(f"Failed to persist Microsoft photo cache for new user: {e}")
 
     except Exception as e:
         logger.error(
