@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction
 from django.db.models import Q, Count
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
@@ -88,9 +89,7 @@ def coach_dashboard(request):
     # Pending Crush Sparks awaiting review
     from .models import CrushSpark
 
-    pending_sparks_count = CrushSpark.objects.filter(
-        status="pending_review"
-    ).count()
+    pending_sparks_count = CrushSpark.objects.filter(status="pending_review").count()
 
     # Connections needing coach review (accepted or coach_reviewing)
     pending_connections_count = EventConnection.objects.filter(
@@ -669,7 +668,9 @@ def coach_journey_dashboard(request):
         .prefetch_related("chapters__challenges")
         .annotate(
             total_users=Count("journeyprogress"),
-            completed_users=Count("journeyprogress", filter=Q(journeyprogress__is_completed=True)),
+            completed_users=Count(
+                "journeyprogress", filter=Q(journeyprogress__is_completed=True)
+            ),
         )
     )
 
@@ -824,16 +825,22 @@ def coach_event_detail(request, event_id):
     # Status filter
     status_filter = request.GET.get("status", "all")
     if status_filter == "confirmed":
-        filtered_registrations = [r for r in registrations if r.status in ("confirmed", "attended")]
+        filtered_registrations = [
+            r for r in registrations if r.status in ("confirmed", "attended")
+        ]
     elif status_filter == "waitlist":
         filtered_registrations = [r for r in registrations if r.status == "waitlist"]
     elif status_filter == "other":
-        filtered_registrations = [r for r in registrations if r.status in ("pending", "no_show")]
+        filtered_registrations = [
+            r for r in registrations if r.status in ("pending", "no_show")
+        ]
     else:
         filtered_registrations = list(registrations)
 
     # Count stats
-    confirmed_count = sum(1 for r in registrations if r.status in ("confirmed", "attended"))
+    confirmed_count = sum(
+        1 for r in registrations if r.status in ("confirmed", "attended")
+    )
     waitlist_count = sum(1 for r in registrations if r.status == "waitlist")
     spots_remaining = max(0, event.max_participants - confirmed_count)
 
@@ -986,9 +993,7 @@ def coach_reassign_submission(request, submission_id):
                 "crush_lu:coach_member_overview",
                 user_id=submission.profile.user.id,
             )
-        target_coach = get_object_or_404(
-            CrushCoach, id=target_coach_id, is_active=True
-        )
+        target_coach = get_object_or_404(CrushCoach, id=target_coach_id, is_active=True)
         old_coach = submission.coach
         submission.coach = target_coach
         submission.save(update_fields=["coach"])
@@ -1216,9 +1221,7 @@ def coach_verification_history(request):
             from datetime import datetime
 
             dt = datetime.strptime(date_from, "%Y-%m-%d")
-            submissions = submissions.filter(
-                reviewed_at__date__gte=dt.date()
-            )
+            submissions = submissions.filter(reviewed_at__date__gte=dt.date())
         except ValueError:
             pass
     if date_to:
@@ -1226,9 +1229,7 @@ def coach_verification_history(request):
             from datetime import datetime
 
             dt = datetime.strptime(date_to, "%Y-%m-%d")
-            submissions = submissions.filter(
-                reviewed_at__date__lte=dt.date()
-            )
+            submissions = submissions.filter(reviewed_at__date__lte=dt.date())
         except ValueError:
             pass
 
@@ -1263,15 +1264,12 @@ def coach_connections(request):
     status_filter = request.GET.get("status", "needs_review")
 
     # Base queryset: connections assigned to this coach (or all for now)
-    connections_qs = (
-        EventConnection.objects.select_related(
-            "requester__crushprofile",
-            "recipient__crushprofile",
-            "event",
-            "assigned_coach",
-        )
-        .order_by("-requested_at")
-    )
+    connections_qs = EventConnection.objects.select_related(
+        "requester__crushprofile",
+        "recipient__crushprofile",
+        "event",
+        "assigned_coach",
+    ).order_by("-requested_at")
 
     # Status filter
     if status_filter == "needs_review":
@@ -1318,12 +1316,9 @@ def coach_connections(request):
     shared_count = EventConnection.objects.filter(status="shared").count()
 
     # Get events that have connections for the filter dropdown
-    events_with_connections = (
-        MeetupEvent.objects.filter(
-            id__in=EventConnection.objects.values_list("event_id", flat=True).distinct()
-        )
-        .order_by("-date_time")[:20]
-    )
+    events_with_connections = MeetupEvent.objects.filter(
+        id__in=EventConnection.objects.values_list("event_id", flat=True).distinct()
+    ).order_by("-date_time")[:20]
 
     context = {
         "coach": coach,
@@ -1357,9 +1352,8 @@ def coach_connection_review(request, connection_id):
     )
 
     # Get messages for this connection
-    connection_messages = (
-        connection.messages.select_related("sender")
-        .order_by("sent_at")
+    connection_messages = connection.messages.select_related("sender").order_by(
+        "sent_at"
     )
 
     # Check for the reverse connection (mutual)
@@ -1375,13 +1369,16 @@ def coach_connection_review(request, connection_id):
         if action == "start_review":
             # Coach starts reviewing - transition from accepted to coach_reviewing
             if connection.status == "accepted":
-                connection.status = "coach_reviewing"
-                connection.assigned_coach = coach
-                connection.save(update_fields=["status", "assigned_coach"])
-                if reverse_connection and reverse_connection.status == "accepted":
-                    reverse_connection.status = "coach_reviewing"
-                    reverse_connection.assigned_coach = coach
-                    reverse_connection.save(update_fields=["status", "assigned_coach"])
+                with transaction.atomic():
+                    connection.status = "coach_reviewing"
+                    connection.assigned_coach = coach
+                    connection.save(update_fields=["status", "assigned_coach"])
+                    if reverse_connection and reverse_connection.status == "accepted":
+                        reverse_connection.status = "coach_reviewing"
+                        reverse_connection.assigned_coach = coach
+                        reverse_connection.save(
+                            update_fields=["status", "assigned_coach"]
+                        )
                 messages.success(request, _("Connection is now under your review."))
 
         elif action == "save_notes":
@@ -1398,40 +1395,46 @@ def coach_connection_review(request, connection_id):
 
         elif action == "approve":
             # Approve the connection - move to coach_approved
-            connection.coach_notes = request.POST.get("coach_notes", "").strip()
-            connection.coach_introduction = request.POST.get(
-                "coach_introduction", ""
-            ).strip()
-            connection.status = "coach_approved"
-            connection.assigned_coach = coach
-            connection.coach_approved_at = timezone.now()
-            connection.save()
+            with transaction.atomic():
+                connection.coach_notes = request.POST.get("coach_notes", "").strip()
+                connection.coach_introduction = request.POST.get(
+                    "coach_introduction", ""
+                ).strip()
+                connection.status = "coach_approved"
+                connection.assigned_coach = coach
+                connection.coach_approved_at = timezone.now()
+                connection.save()
 
-            # Also approve the reverse connection if it exists
-            if reverse_connection and reverse_connection.status in [
-                "accepted",
-                "coach_reviewing",
-            ]:
-                reverse_connection.status = "coach_approved"
-                reverse_connection.assigned_coach = coach
-                reverse_connection.coach_approved_at = timezone.now()
-                reverse_connection.coach_notes = connection.coach_notes
-                reverse_connection.coach_introduction = connection.coach_introduction
-                reverse_connection.save()
+                # Also approve the reverse connection if it exists
+                if reverse_connection and reverse_connection.status in [
+                    "accepted",
+                    "coach_reviewing",
+                ]:
+                    reverse_connection.status = "coach_approved"
+                    reverse_connection.assigned_coach = coach
+                    reverse_connection.coach_approved_at = timezone.now()
+                    reverse_connection.coach_notes = connection.coach_notes
+                    reverse_connection.coach_introduction = (
+                        connection.coach_introduction
+                    )
+                    reverse_connection.save()
 
             messages.success(
                 request,
-                _("Connection approved! Both users can now consent to share contact info."),
+                _(
+                    "Connection approved! Both users can now consent to share contact info."
+                ),
             )
             return redirect("crush_lu:coach_connections")
 
         elif action == "claim":
             # Claim unassigned connection
-            connection.assigned_coach = coach
-            connection.save(update_fields=["assigned_coach"])
-            if reverse_connection:
-                reverse_connection.assigned_coach = coach
-                reverse_connection.save(update_fields=["assigned_coach"])
+            with transaction.atomic():
+                connection.assigned_coach = coach
+                connection.save(update_fields=["assigned_coach"])
+                if reverse_connection:
+                    reverse_connection.assigned_coach = coach
+                    reverse_connection.save(update_fields=["assigned_coach"])
             messages.success(request, _("Connection claimed."))
 
         elif action == "send_message":
@@ -1452,13 +1455,17 @@ def coach_connection_review(request, connection_id):
                     request, _("Please enter a valid message (max 2000 characters).")
                 )
 
-        return redirect(
-            "crush_lu:coach_connection_review", connection_id=connection_id
-        )
+        return redirect("crush_lu:coach_connection_review", connection_id=connection_id)
 
     # GET: Show review page
     requester_profile = getattr(connection.requester, "crushprofile", None)
     recipient_profile = getattr(connection.recipient, "crushprofile", None)
+
+    # Show facilitation form when reviewing, approved, or accepted with assigned coach
+    show_facilitation = connection.status in (
+        "coach_reviewing",
+        "coach_approved",
+    ) or (connection.status == "accepted" and connection.assigned_coach)
 
     context = {
         "coach": coach,
@@ -1468,5 +1475,6 @@ def coach_connection_review(request, connection_id):
         "recipient_profile": recipient_profile,
         "connection_messages": connection_messages,
         "is_mutual": reverse_connection is not None,
+        "show_facilitation": show_facilitation,
     }
     return render(request, "crush_lu/coach_connection_review.html", context)

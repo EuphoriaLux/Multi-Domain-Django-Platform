@@ -176,7 +176,7 @@
     {% endif %}
 
     <!-- Coach Notes & Introduction Form -->
-    {% if connection.status == 'coach_reviewing' or connection.status == 'coach_approved' or connection.status == 'accepted' and connection.assigned_coach %}
+    {% if show_facilitation %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
         <h4 class="font-semibold dark:text-white mb-4">{% trans "Coach Facilitation" %}</h4>
         <form method="post">
