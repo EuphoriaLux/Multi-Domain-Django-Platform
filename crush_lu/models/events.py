@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.functional import cached_property
 from datetime import timedelta
 import uuid
-from .profiles import SpecialUserExperience
+from .profiles import CrushCoach, SpecialUserExperience
 from crush_lu.storage import crush_upload_path, crush_media_storage
 
 
@@ -170,6 +170,14 @@ class MeetupEvent(models.Model):
         help_text=_(
             "Existing users invited to this private event (no external invitation needed)"
         ),
+    )
+
+    # Event Coaches
+    coaches = models.ManyToManyField(
+        CrushCoach,
+        blank=True,
+        related_name="assigned_events",
+        help_text=_("Coaches assigned to facilitate this event."),
     )
 
     # Crush Spark Settings

@@ -161,7 +161,7 @@ class MeetupEventAdmin(TranslationAdmin):
         "send_event_reminders",
         "export_attendees_csv",
     ]
-    filter_horizontal = ("invited_users",)
+    filter_horizontal = ("invited_users", "coaches")
 
     fieldsets = (
         (
@@ -201,6 +201,13 @@ class MeetupEventAdmin(TranslationAdmin):
                     "has_food_component",
                     "allow_plus_ones",
                 )
+            },
+        ),
+        (
+            "Event Coaches",
+            {
+                "fields": ("coaches",),
+                "description": "Assign coaches to facilitate this event. They will be shown on the attendees page.",
             },
         ),
         ("Registration", {"fields": ("registration_deadline", "registration_fee")}),

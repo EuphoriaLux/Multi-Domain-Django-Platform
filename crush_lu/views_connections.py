@@ -89,11 +89,21 @@ def event_attendees(request, event_id):
         connection_id = None
 
         if attendee_user.id in sent_connections:
-            connection_status = "sent"
-            connection_id = sent_connections[attendee_user.id].id
+            conn = sent_connections[attendee_user.id]
+            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
+                connection_status = "mutual"
+            else:
+                connection_status = "sent"
+            connection_id = conn.id
         elif attendee_user.id in received_connections:
-            connection_status = "received"
-            connection_id = received_connections[attendee_user.id].id
+            conn = received_connections[attendee_user.id]
+            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
+                connection_status = "mutual"
+            elif conn.status == "pending":
+                connection_status = "received"
+            else:
+                connection_status = "sent"  # declined or other non-actionable
+            connection_id = conn.id
 
         attendee_data.append(
             {
@@ -105,11 +115,19 @@ def event_attendees(request, event_id):
             }
         )
 
+    # Event coaches
+    event_coaches = event.coaches.filter(is_active=True).select_related("user")
+
+    # Own profile for "How Others See You" section
+    own_profile = getattr(request.user, "crushprofile", None)
+
     context = {
         "event": event,
         "attendees": attendee_data,
         "spark_deadline_active": spark_deadline_active,
         "sparks_remaining": sparks_remaining,
+        "event_coaches": event_coaches,
+        "own_profile": own_profile,
     }
     return render(request, "crush_lu/event_attendees.html", context)
 
@@ -368,8 +386,23 @@ def connection_actions(request, event_id, user_id):
 def respond_connection(request, connection_id, action):
     """Accept or decline a connection request"""
     connection = get_object_or_404(
-        EventConnection, id=connection_id, recipient=request.user, status="pending"
+        EventConnection, id=connection_id, recipient=request.user
     )
+
+    # Handle already-processed connections (e.g. auto-mutual-accept)
+    if connection.status != "pending":
+        if request.headers.get("HX-Request"):
+            attendee = {
+                "user": connection.requester,
+                "connection_status": "mutual" if connection.status in ("accepted", "coach_reviewing", "coach_approved", "shared") else "declined",
+                "connection_id": connection.id,
+            }
+            return render(
+                request,
+                "crush_lu/_attendee_connection_response.html",
+                {"attendee": attendee, "action": "accept" if connection.status in ("accepted", "coach_reviewing", "coach_approved", "shared") else "decline"},
+            )
+        return redirect("crush_lu:my_connections")
 
     # Security: Verify user actually attended the event
     try:

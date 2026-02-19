@@ -31,6 +31,91 @@
         </p>
     </div>
 
+    <!-- How Others See You -->
+    {% if own_profile %}
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
+            {% include "shared/icons/eye.html" with class="w-5 h-5 text-crush-purple" %}
+            {% trans "How Others See You" %}
+        </h2>
+        <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink">
+            <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4">
+                <div class="flex items-start gap-4">
+                    <div class="shrink-0">
+                        {% if own_profile|has_photo:'photo_1' %}
+                            <img src="{% profile_photo_url own_profile 'photo_1' %}"
+                                 alt="{{ own_profile.display_name }}"
+                                 class="w-20 h-20 rounded-full object-cover {% if own_profile.blur_photos %}blur-lg{% endif %}"
+                                 loading="lazy">
+                        {% else %}
+                            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                                <span class="text-white text-2xl font-semibold">
+                                    {{ own_profile.display_name|first }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h5 class="font-semibold mb-1 dark:text-white">
+                            {{ own_profile.display_name }}
+                            <span class="text-gray-500 dark:text-gray-400 font-normal text-sm">({{ own_profile.age_display }})</span>
+                        </h5>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
+                            {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
+                            {% if own_profile.city %}{{ own_profile.city }}{% else %}Luxembourg{% endif %}
+                        </p>
+                        {% if own_profile.interests %}
+                            <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
+                                {{ own_profile.interests|truncatewords:8 }}
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Event Coaches -->
+    {% if event_coaches %}
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
+            {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+            {% trans "Your Event Coaches" %}
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for coach in event_coaches %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+                <div class="flex items-center gap-3">
+                    <div class="shrink-0">
+                        {% if coach.photo %}
+                            <img src="{{ coach.photo.url }}"
+                                 alt="{{ coach.user.get_full_name }}"
+                                 class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md"
+                                 loading="lazy">
+                        {% else %}
+                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                                <span class="text-white text-xl font-semibold">
+                                    {{ coach.user.first_name|first }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="min-w-0">
+                        <h5 class="font-semibold dark:text-white">{{ coach.user.get_full_name }}</h5>
+                        <p class="text-xs text-crush-purple dark:text-purple-400 font-medium">{% trans "Crush Coach" %}</p>
+                        {% if coach.specializations %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ coach.specializations }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Attendees List -->
     {% if attendees %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
