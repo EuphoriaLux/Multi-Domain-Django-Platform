@@ -60,9 +60,12 @@
 
             <!-- Event Filter -->
             {% if events_with_connections %}
-            <div class="ml-auto">
-                <select onchange="window.location.href='?status={{ status_filter }}&event='+this.value+'{% if mine_filter %}&mine=1{% endif %}'"
-                        class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+            <form method="get" class="ml-auto">
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                {% if mine_filter %}<input type="hidden" name="mine" value="1">{% endif %}
+                <select name="event"
+                        class="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                        x-data="autoSubmitSelect" @change="submit">
                     <option value="">{% trans "All Events" %}</option>
                     {% for ev in events_with_connections %}
                         <option value="{{ ev.id }}" {% if event_id == ev.id|stringformat:"d" %}selected{% endif %}>
@@ -70,7 +73,7 @@
                         </option>
                     {% endfor %}
                 </select>
-            </div>
+            </form>
             {% endif %}
         </div>
     </div>

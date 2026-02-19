@@ -8494,4 +8494,13 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Auto-submit select: submits the parent form on change
+    Alpine.data('autoSubmitSelect', function() {
+        return {
+            submit() {
+                this.$el.closest('form').submit();
+            }
+        };
+    });
+
 });
