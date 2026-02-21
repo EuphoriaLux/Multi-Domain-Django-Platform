@@ -966,6 +966,31 @@
                 <p x-text="errorMessage"></p>
             </div>
 
+            {# Section: Daily Active Users #}
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4E5;</span> {% trans "Daily Active Users" %}</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F4CA;</span>
+                    <div class="metric-label">{% trans "Avg DAU" %}</div>
+                    <div class="metric-value" x-text="dauAvg"></div>
+                </div>
+                <div class="metric-card green">
+                    <span class="metric-icon">&#x1F4C8;</span>
+                    <div class="metric-label">{% trans "Max DAU" %}</div>
+                    <div class="metric-value" x-text="dauMax"></div>
+                </div>
+                <div class="metric-card orange">
+                    <span class="metric-icon">&#x1F4C9;</span>
+                    <div class="metric-label">{% trans "Min DAU" %}</div>
+                    <div class="metric-value" x-text="dauMin"></div>
+                </div>
+            </div>
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
+                    <canvas id="dauChart"></canvas>
+                </div>
+            </div>
+
             {# Section A: Signup Trends #}
             <h2 class="section-header"><span class="section-header-icon">&#x1F4CA;</span> {% trans "Signup Trends" %}</h2>
             <div class="metric-grid" style="margin-bottom: var(--spacing-md);">

@@ -22,7 +22,7 @@ from .models import (
     EmailPreference, PWADeviceInstallation, OAuthState, PasskitDeviceRegistration,
     # Additional models for expanded analytics
     ReferralCode, ReferralAttribution, EventInvitation, ConnectionMessage,
-    ProfileReminder
+    ProfileReminder, UserActivity
 )
 
 
@@ -954,6 +954,57 @@ def cumulative_growth_api(request):
         'total_profiles': cum_total,
         'total_approved': cum_approved,
         'granularity': gran,
+    })
+
+
+@login_required
+def daily_active_users_api(request):
+    """
+    API: Daily active users (DAU) per period.
+
+    Counts distinct users with UserActivity.last_seen in each period.
+
+    Query params:
+        - range: 7d, 30d, 90d, all
+        - granularity: day, week, month (auto-detected if omitted)
+
+    Returns JSON with labels, active_users array, and summary stats.
+    """
+    error = _check_admin_access(request)
+    if error:
+        return error
+
+    start_date, gran, trunc_fn = _parse_growth_params(request)
+
+    qs = UserActivity.objects.all()
+    if start_date:
+        qs = qs.filter(last_seen__gte=start_date)
+
+    results = (
+        qs.annotate(period=trunc_fn('last_seen'))
+        .values('period')
+        .annotate(count=Count('user', distinct=True))
+        .order_by('period')
+    )
+
+    labels = [str(r['period']) for r in results]
+    active_users = [r['count'] for r in results]
+
+    total_days = len(active_users)
+    avg_dau = round(sum(active_users) / total_days, 1) if total_days else 0
+    max_dau = max(active_users) if active_users else 0
+    min_dau = min(active_users) if active_users else 0
+
+    return JsonResponse({
+        'labels': labels,
+        'active_users': active_users,
+        'granularity': gran,
+        'summary': {
+            'total_days': total_days,
+            'avg_dau': avg_dau,
+            'max_dau': max_dau,
+            'min_dau': min_dau,
+        }
     })
 
 
