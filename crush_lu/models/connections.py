@@ -180,6 +180,19 @@ class EventConnection(models.Model):
         ).exists()
 
     @property
+    def is_same_gender(self):
+        """Check if both parties have the same gender (and it's specified)."""
+        req_profile = getattr(self.requester, 'crushprofile', None)
+        rec_profile = getattr(self.recipient, 'crushprofile', None)
+        if not req_profile or not rec_profile:
+            return False
+        req_gender = req_profile.gender
+        rec_gender = rec_profile.gender
+        if not req_gender or not rec_gender:
+            return False
+        return req_gender == rec_gender
+
+    @property
     def can_share_contacts(self):
         """Both must consent and coach must approve"""
         return (

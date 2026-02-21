@@ -3,6 +3,9 @@ Connection-related views for Crush.lu
 Handles event attendee connections, connection requests, and messaging
 """
 
+import re
+from collections import OrderedDict
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
@@ -115,6 +118,26 @@ def event_attendees(request, event_id):
             }
         )
 
+    # Group attendees by gender
+    gender_order = ["F", "M", "NB", "O", "P", ""]
+    gender_labels = {
+        "F": _("Women"),
+        "M": _("Men"),
+        "NB": _("Non-binary"),
+        "O": _("Other"),
+        "P": _("Prefer not to say"),
+        "": _("Not specified"),
+    }
+    grouped_attendees = OrderedDict()
+    for gender_code in gender_order:
+        group = [
+            a
+            for a in attendee_data
+            if (getattr(a["profile"], "gender", "") or "") == gender_code
+        ]
+        if group:
+            grouped_attendees[gender_labels[gender_code]] = group
+
     # Event coaches
     event_coaches = event.coaches.filter(is_active=True).select_related("user")
 
@@ -124,6 +147,7 @@ def event_attendees(request, event_id):
     context = {
         "event": event,
         "attendees": attendee_data,
+        "grouped_attendees": grouped_attendees,
         "spark_deadline_active": spark_deadline_active,
         "sparks_remaining": sparks_remaining,
         "event_coaches": event_coaches,
@@ -182,16 +206,29 @@ def request_connection(request, event_id, user_id):
         ).first()
 
         if reverse_connection:
-            # Mutual interest! Both move to accepted
-            connection.status = "accepted"
-            connection.save()
-            reverse_connection.status = "accepted"
-            reverse_connection.save()
+            # Mutual interest!
+            if connection.is_same_gender:
+                # Same-gender: skip coach review, auto-share
+                connection.status = "shared"
+                connection.requester_consents_to_share = True
+                connection.recipient_consents_to_share = True
+                connection.shared_at = timezone.now()
+                connection.save()
+                reverse_connection.status = "shared"
+                reverse_connection.requester_consents_to_share = True
+                reverse_connection.recipient_consents_to_share = True
+                reverse_connection.shared_at = timezone.now()
+                reverse_connection.save()
+            else:
+                # Cross-gender: assign coach to facilitate
+                connection.status = "accepted"
+                connection.save()
+                reverse_connection.status = "accepted"
+                reverse_connection.save()
 
-            # Assign coach to facilitate
-            connection.assign_coach()
-            reverse_connection.assigned_coach = connection.assigned_coach
-            reverse_connection.save()
+                connection.assign_coach()
+                reverse_connection.assigned_coach = connection.assigned_coach
+                reverse_connection.save()
 
             # Notify both users about mutual connection
             try:
@@ -210,10 +247,16 @@ def request_connection(request, event_id, user_id):
             except Exception as e:
                 logger.error(f"Failed to send mutual connection notifications: {e}")
 
-            messages.success(
-                request,
-                f"Mutual connection! 🎉 A coach will help facilitate your introduction.",
-            )
+            if connection.is_same_gender:
+                messages.success(
+                    request,
+                    _("Mutual connection! 🎉 Contact info is now shared."),
+                )
+            else:
+                messages.success(
+                    request,
+                    _("Mutual connection! 🎉 A coach will help facilitate your introduction."),
+                )
         else:
             # Notify recipient about the connection request
             try:
@@ -296,16 +339,29 @@ def request_connection_inline(request, event_id, user_id):
 
         is_mutual = False
         if reverse_connection:
-            # Mutual interest! Both move to accepted
-            connection.status = "accepted"
-            connection.save()
-            reverse_connection.status = "accepted"
-            reverse_connection.save()
+            # Mutual interest!
+            if connection.is_same_gender:
+                # Same-gender: skip coach review, auto-share
+                connection.status = "shared"
+                connection.requester_consents_to_share = True
+                connection.recipient_consents_to_share = True
+                connection.shared_at = timezone.now()
+                connection.save()
+                reverse_connection.status = "shared"
+                reverse_connection.requester_consents_to_share = True
+                reverse_connection.recipient_consents_to_share = True
+                reverse_connection.shared_at = timezone.now()
+                reverse_connection.save()
+            else:
+                # Cross-gender: assign coach to facilitate
+                connection.status = "accepted"
+                connection.save()
+                reverse_connection.status = "accepted"
+                reverse_connection.save()
 
-            # Assign coach to facilitate
-            connection.assign_coach()
-            reverse_connection.assigned_coach = connection.assigned_coach
-            reverse_connection.save()
+                connection.assign_coach()
+                reverse_connection.assigned_coach = connection.assigned_coach
+                reverse_connection.save()
             is_mutual = True
 
         return render(
@@ -440,11 +496,19 @@ def respond_connection(request, connection_id, action):
     is_attendees_page = "connection-actions-" in hx_target
 
     if action == "accept":
-        connection.status = "accepted"
-        connection.save()
+        if connection.is_same_gender:
+            # Same-gender: skip coach review, auto-share
+            connection.status = "shared"
+            connection.requester_consents_to_share = True
+            connection.recipient_consents_to_share = True
+            connection.shared_at = timezone.now()
+            connection.save()
+        else:
+            connection.status = "accepted"
+            connection.save()
 
-        # Assign coach
-        connection.assign_coach()
+            # Assign coach
+            connection.assign_coach()
 
         # Notify requester that their connection was accepted
         try:
@@ -476,10 +540,16 @@ def respond_connection(request, connection_id, action):
                 "crush_lu/_connection_response.html",
                 {"connection": connection, "action": "accept"},
             )
-        messages.success(
-            request,
-            _("Connection accepted! A coach will help facilitate your introduction."),
-        )
+        if connection.is_same_gender:
+            messages.success(
+                request,
+                _("Connection accepted! Contact info is now shared."),
+            )
+        else:
+            messages.success(
+                request,
+                _("Connection accepted! A coach will help facilitate your introduction."),
+            )
     elif action == "decline":
         connection.status = "declined"
         connection.save()
@@ -637,6 +707,7 @@ def connection_detail(request, connection_id):
 
     # Get the other person in the connection
     other_user = connection.recipient if is_requester else connection.requester
+    other_profile = getattr(other_user, "crushprofile", None)
 
     # Get messages for this connection
     connection_messages = (
@@ -645,11 +716,41 @@ def connection_detail(request, connection_id):
         .order_by("sent_at")
     )
 
+    # Can the current user send messages?
+    can_message = connection.status in [
+        "accepted",
+        "coach_reviewing",
+        "coach_approved",
+        "shared",
+    ]
+
+    # Does the current user need to give consent?
+    user_needs_consent = False
+    if connection.status == "coach_approved":
+        if is_requester and not connection.requester_consents_to_share:
+            user_needs_consent = True
+        elif not is_requester and not connection.recipient_consents_to_share:
+            user_needs_consent = True
+
+    # Has the current user already consented (waiting for the other)?
+    user_already_consented = False
+    if connection.status == "coach_approved" and not user_needs_consent:
+        user_already_consented = True
+
+    # WhatsApp number (clean phone for wa.me link, only when shared)
+    whatsapp_number = ""
+    if connection.status == "shared" and other_profile and other_profile.phone_number:
+        whatsapp_number = re.sub(r"[^\d+]", "", other_profile.phone_number)
+
     context = {
         "connection": connection,
         "is_requester": is_requester,
         "other_user": other_user,
-        "other_profile": getattr(other_user, "crushprofile", None),
+        "other_profile": other_profile,
         "messages": connection_messages,
+        "can_message": can_message,
+        "user_needs_consent": user_needs_consent,
+        "user_already_consented": user_already_consented,
+        "whatsapp_number": whatsapp_number,
     }
     return render(request, "crush_lu/connection_detail.html", context)
