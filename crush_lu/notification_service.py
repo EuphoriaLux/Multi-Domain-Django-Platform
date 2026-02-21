@@ -2,12 +2,10 @@
 """
 Unified Notification Service for Crush.lu
 
-Implements "push first, email fallback" strategy:
-1. If user has active push subscriptions, send push notification first
-2. If push succeeds on at least one device, skip email
-3. If no push subscription or all pushes fail, send email as fallback
-
-This reduces notification fatigue while ensuring users always get notified.
+Sends push and email as independent channels based on user preferences:
+1. If user has active push subscriptions with preference enabled, send push
+2. If user has email preference enabled, send email
+Both channels are attempted independently — push success does not suppress email.
 """
 import logging
 from dataclasses import dataclass, field
@@ -83,7 +81,7 @@ class NotificationResult:
     # Email notification results
     email_attempted: bool = False
     email_sent: bool = False
-    email_skipped_reason: Optional[str] = None  # 'push_succeeded', 'user_unsubscribed', 'no_email'
+    email_skipped_reason: Optional[str] = None  # 'user_unsubscribed', 'no_email'
 
     # Errors for debugging
     errors: list = field(default_factory=list)
@@ -101,7 +99,7 @@ class NotificationResult:
 
 class NotificationService:
     """
-    Unified notification service implementing push-first, email-fallback strategy.
+    Unified notification service with independent push and email channels based on user preferences.
 
     Usage:
         result = NotificationService.notify(
@@ -120,7 +118,10 @@ class NotificationService:
         request: Optional[HttpRequest] = None
     ) -> NotificationResult:
         """
-        Send notification using push-first, email-fallback strategy.
+        Send notification via independent push and email channels.
+
+        Both channels are attempted based on user preferences — push success
+        does not suppress email delivery.
 
         Args:
             user: Django User object (recipient)
@@ -134,7 +135,7 @@ class NotificationService:
         result = NotificationResult()
         preference_key = notification_type.preference_key
 
-        # Step 1: Check if user has active push subscriptions for this type
+        # --- Push channel (independent) ---
         try:
             from .models import PushSubscription
             push_filter = {f'notify_{preference_key}': True}
@@ -143,34 +144,21 @@ class NotificationService:
                 enabled=True,
                 **push_filter
             )
-            has_push = push_subscriptions.exists()
+            if push_subscriptions.exists():
+                result.push_attempted = True
+                try:
+                    push_result = NotificationService._send_push(user, notification_type, context)
+                    result.push_success_count = push_result.get('success', 0)
+                    result.push_failed_count = push_result.get('failed', 0)
+                except Exception as e:
+                    logger.error(f"Error sending push to {user.username}: {e}")
+                    result.errors.append(f"Push error: {e}")
+                    result.push_failed_count = 1
         except Exception as e:
             logger.error(f"Error checking push subscriptions: {e}")
-            has_push = False
             result.errors.append(f"Push check error: {e}")
 
-        # Step 2: Attempt push notification if user has subscriptions
-        if has_push:
-            result.push_attempted = True
-            try:
-                push_result = NotificationService._send_push(user, notification_type, context)
-                result.push_success_count = push_result.get('success', 0)
-                result.push_failed_count = push_result.get('failed', 0)
-            except Exception as e:
-                logger.error(f"Error sending push to {user.username}: {e}")
-                result.errors.append(f"Push error: {e}")
-                result.push_failed_count = 1
-
-            # If at least one push succeeded, skip email
-            if result.push_success:
-                result.email_skipped_reason = 'push_succeeded'
-                logger.info(
-                    f"Push succeeded for {user.username} ({notification_type.name}), "
-                    f"skipping email"
-                )
-                return result
-
-        # Step 3: Fallback to email (no push subscription or all pushes failed)
+        # --- Email channel (independent) ---
         try:
             from .email_helpers import can_send_email
             if can_send_email(user, preference_key):

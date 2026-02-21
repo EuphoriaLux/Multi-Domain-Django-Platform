@@ -825,6 +825,10 @@ def consent_confirm(request):
     from crush_lu.models.profiles import UserDataConsent
     from crush_lu.oauth_statekit import get_client_ip
 
+    # Block banned users from re-consenting
+    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_banned:
+        return redirect('crush_lu:account_banned')
+
     # Check if user already has consent (shouldn't happen, but be safe)
     if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_consent_given:
         messages.info(request, _('You have already given consent.'))
@@ -855,6 +859,37 @@ def consent_confirm(request):
     # GET request - show consent form
     context = {}
     return render(request, 'crush_lu/consent_confirm.html', context)
+
+
+@login_required
+def account_banned(request):
+    """
+    Info page shown to banned users explaining their account status.
+    """
+    reason = None
+    ban_date = None
+
+    if hasattr(request.user, 'data_consent'):
+        consent = request.user.data_consent
+        if not consent.crushlu_banned:
+            return redirect('crush_lu:dashboard')
+        reason = consent.crushlu_ban_reason
+        ban_date = consent.crushlu_ban_date
+    else:
+        # No consent record means not banned - redirect
+        return redirect('crush_lu:dashboard')
+
+    reason_display = {
+        'user_deletion': _('You deleted your Crush.lu profile.'),
+        'admin_action': _('Your account was suspended by an administrator.'),
+        'terms_violation': _('Your account was suspended due to a terms of service violation.'),
+    }
+
+    context = {
+        'ban_reason': reason_display.get(reason, _('Your account has been suspended.')),
+        'ban_date': ban_date,
+    }
+    return render(request, 'crush_lu/account_banned.html', context)
 
 
 # Onboarding

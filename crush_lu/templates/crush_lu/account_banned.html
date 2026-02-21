@@ -1,0 +1,43 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Account Suspended" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12">
+    <div class="max-w-lg w-full">
+        <div class="card border-2 border-red-300 dark:border-red-700">
+            <div class="card-body text-center">
+                <div class="text-5xl mb-4">🚫</div>
+                <h1 class="text-2xl font-bold mb-4">{% trans "Account Suspended" %}</h1>
+
+                <p class="text-secondary mb-4">
+                    {{ ban_reason }}
+                </p>
+
+                {% if ban_date %}
+                <p class="text-sm text-secondary mb-6">
+                    {% trans "Since:" %} {{ ban_date|date:"N j, Y" }}
+                </p>
+                {% endif %}
+
+                <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-6">
+                    <h2 class="font-semibold mb-2 text-sm">{% trans "What can I do?" %}</h2>
+                    <p class="text-sm text-secondary">
+                        {% trans "If you believe this is an error or would like to appeal, please contact us. We will review your case as soon as possible." %}
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <a href="mailto:hello@crush.lu" class="btn-crush-primary w-full block py-3">
+                        {% trans "Contact Support" %}
+                    </a>
+                    <a href="{% url 'crush_lu:logout' %}" class="block text-sm text-secondary hover:text-red-500">
+                        {% trans "Log out" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

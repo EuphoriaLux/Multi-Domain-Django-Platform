@@ -180,6 +180,7 @@ urlpatterns = [
     path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
     path('account/gdpr/export/', views.export_user_data, name='export_user_data'),  # GDPR data export
     path('consent/confirm/', views.consent_confirm, name='consent_confirm'),  # Retroactive consent confirmation
+    path('account/banned/', views.account_banned, name='account_banned'),  # Banned user info page
 
     # Email unsubscribe (public access with token)
     path('unsubscribe/<uuid:token>/', views.email_unsubscribe, name='email_unsubscribe'),

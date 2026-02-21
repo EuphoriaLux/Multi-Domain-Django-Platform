@@ -38,6 +38,7 @@ class CrushConsentMiddleware:
         '/signup/',
         '/logout/',
         '/consent/confirm/',  # The consent confirmation page
+        '/account/banned/',  # Banned user info page
         '/api/',
         '/static/',
         '/media/',
@@ -68,6 +69,15 @@ class CrushConsentMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Check ban status before anything else (for authenticated Crush.lu users)
+        if self.is_on_crush_domain(request) and request.user.is_authenticated:
+            if self.is_banned(request.user):
+                path = request.path
+                # Allow access to banned page, logout, and static assets
+                if not any(path.startswith(p) for p in ['/account/banned/', '/logout/', '/static/', '/media/', '/healthz/']):
+                    logger.info(f"Banned user {request.user.id} redirected from {path} to banned page")
+                    return redirect('crush_lu:account_banned')
+
         # Check if consent is required
         if self.requires_consent_check(request):
             # Check if user has consent
@@ -77,6 +87,16 @@ class CrushConsentMiddleware:
 
         response = self.get_response(request)
         return response
+
+    def is_on_crush_domain(self, request):
+        """Check if request is on the Crush.lu domain."""
+        return getattr(request, 'urlconf', None) == CRUSH_URLCONF
+
+    def is_banned(self, user):
+        """Check if user is banned from Crush.lu."""
+        if not hasattr(user, 'data_consent'):
+            return False
+        return user.data_consent.crushlu_banned
 
     def requires_consent_check(self, request):
         """
@@ -115,7 +135,6 @@ class CrushConsentMiddleware:
 
         Returns True if:
         - User has UserDataConsent record with crushlu_consent_given=True
-        - OR user is banned (already deleted profile, should be handled elsewhere)
         """
         if not hasattr(user, 'data_consent'):
             # No consent record - should not happen with signals, but be safe

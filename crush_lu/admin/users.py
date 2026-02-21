@@ -10,6 +10,7 @@ Includes:
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 
 from crush_lu.models import CrushProfile, CrushCoach, UserDataConsent
@@ -137,17 +138,92 @@ class HasCrushProfileFilter(admin.SimpleListFilter):
         return queryset
 
 
+class BannedUserFilter(admin.SimpleListFilter):
+    """Filter users by Crush.lu ban status"""
+    title = 'Ban Status'
+    parameter_name = 'banned'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('banned', '🚫 Banned'),
+            ('not_banned', '✅ Not Banned'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Exists, OuterRef
+
+        if self.value() == 'banned':
+            return queryset.filter(
+                Exists(
+                    UserDataConsent.objects.filter(
+                        user_id=OuterRef('id'),
+                        crushlu_banned=True,
+                    )
+                )
+            )
+        elif self.value() == 'not_banned':
+            return queryset.filter(
+                ~Exists(
+                    UserDataConsent.objects.filter(
+                        user_id=OuterRef('id'),
+                        crushlu_banned=True,
+                    )
+                )
+            )
+        return queryset
+
+
+def ban_users(modeladmin, request, queryset):
+    """Admin action to ban selected users from Crush.lu."""
+    count = 0
+    for user in queryset:
+        consent, _ = UserDataConsent.objects.get_or_create(user=user)
+        if not consent.crushlu_banned:
+            consent.crushlu_banned = True
+            consent.crushlu_ban_reason = 'admin_action'
+            consent.crushlu_ban_date = timezone.now()
+            consent.crushlu_consent_given = False
+            consent.save()
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+            count += 1
+    modeladmin.message_user(request, f'{count} user(s) banned from Crush.lu.')
+
+
+ban_users.short_description = '🚫 Ban selected users from Crush.lu'
+
+
+def unban_users(modeladmin, request, queryset):
+    """Admin action to unban selected users."""
+    count = 0
+    for user in queryset:
+        if hasattr(user, 'data_consent') and user.data_consent.crushlu_banned:
+            consent = user.data_consent
+            consent.crushlu_banned = False
+            consent.crushlu_ban_reason = ''
+            consent.crushlu_ban_date = None
+            consent.save()
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+            count += 1
+    modeladmin.message_user(request, f'{count} user(s) unbanned.')
+
+
+unban_users.short_description = '✅ Unban selected users'
+
+
 class CrushUserAdmin(BaseUserAdmin):
     """
     User admin for Crush.lu coach panel.
     Shows users with their Crush.lu profiles and provides bidirectional navigation.
     """
     inlines = (UserDataConsentInline, CrushProfileUserInline, CrushCoachUserInline)
+    actions = [ban_users, unban_users]
     list_display = (
         'username', 'email', 'first_name', 'last_name',
         'get_crush_profile_link', 'get_consent_status', 'is_coach_status', 'is_active', 'date_joined'
     )
-    list_filter = (HasCrushProfileFilter, 'is_active', 'date_joined')
+    list_filter = (HasCrushProfileFilter, BannedUserFilter, 'is_active', 'date_joined')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('-date_joined',)
 

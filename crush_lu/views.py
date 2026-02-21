@@ -119,6 +119,7 @@ from .views_account import (  # noqa: F401
     gdpr_data_management,
     delete_account,
     consent_confirm,
+    account_banned,
     referral_redirect,
     signup,
     export_user_data,
