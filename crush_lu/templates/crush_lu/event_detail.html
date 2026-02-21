@@ -192,7 +192,7 @@
 
                 {# Description section #}
                 <div class="mb-6 sm:mb-8">
-                    <div class="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">{{ event.description|linebreaks }}</div>
+                    <div class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300">{{ event.description|linebreaks }}</div>
                 </div>
 
                 {# Event information grid with visual cards #}
@@ -319,6 +319,44 @@
                     </div>
                     {% endif %}
                 </div>
+
+                {% if event_coaches %}
+                <div class="mb-6 sm:mb-8">
+                    <h3 class="text-base sm:text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+                        {% trans "Your Event Coaches" %}
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {% for coach in event_coaches %}
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="shrink-0">
+                                    {% if coach.photo %}
+                                        <img src="{{ coach.photo.url }}"
+                                             alt="{{ coach.user.get_full_name }}"
+                                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md"
+                                             loading="lazy">
+                                    {% else %}
+                                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                                            <span class="text-white text-xl font-semibold">
+                                                {{ coach.user.first_name|first }}
+                                            </span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="min-w-0">
+                                    <h5 class="font-semibold dark:text-white">{{ coach.user.get_full_name }}</h5>
+                                    <p class="text-xs text-crush-purple dark:text-purple-400 font-medium">{% trans "Crush Coach" %}</p>
+                                    {% if coach.specializations %}
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ coach.specializations }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 
                 {% if event.enable_activity_voting %}
                 <div class="mb-6 sm:mb-8">
