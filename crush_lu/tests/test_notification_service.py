@@ -101,16 +101,17 @@ class TestNotificationResult:
         assert result.any_delivered is False
 
 
-class TestNotificationServicePushFirst:
-    """Tests for push-first notification strategy."""
+class TestNotificationServiceChannels:
+    """Tests for independent push and email notification channels."""
 
     @patch('crush_lu.notification_service.NotificationService._send_push')
     @patch('crush_lu.notification_service.NotificationService._send_email')
-    def test_push_only_when_subscribed_and_succeeds(
+    def test_both_channels_when_push_subscribed(
         self, mock_email, mock_push, user_with_push_subscription
     ):
-        """User with push subscription receives push, no email when push succeeds."""
+        """User with push subscription receives both push and email independently."""
         mock_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        mock_email.return_value = True
 
         result = NotificationService.notify(
             user=user_with_push_subscription,
@@ -120,17 +121,17 @@ class TestNotificationServicePushFirst:
 
         assert result.push_attempted is True
         assert result.push_success is True
-        assert result.email_sent is False
-        assert result.email_skipped_reason == 'push_succeeded'
+        assert result.email_attempted is True
+        assert result.email_sent is True
         mock_push.assert_called_once()
-        mock_email.assert_not_called()
+        mock_email.assert_called_once()
 
     @patch('crush_lu.notification_service.NotificationService._send_push')
     @patch('crush_lu.notification_service.NotificationService._send_email')
-    def test_email_fallback_when_push_fails(
+    def test_email_still_sent_when_push_fails(
         self, mock_email, mock_push, user_with_push_subscription
     ):
-        """When all push attempts fail, fall back to email."""
+        """Email is sent regardless of push failure (independent channels)."""
         mock_push.return_value = {'success': 0, 'failed': 1, 'total': 1}
         mock_email.return_value = True
 
@@ -150,7 +151,7 @@ class TestNotificationServicePushFirst:
     def test_email_only_when_no_push_subscription(
         self, mock_email, user_with_profile
     ):
-        """User without push subscription receives email directly."""
+        """User without push subscription receives email only."""
         mock_email.return_value = True
 
         result = NotificationService.notify(
