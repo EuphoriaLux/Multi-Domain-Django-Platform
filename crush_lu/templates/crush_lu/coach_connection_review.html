@@ -23,9 +23,9 @@
             <!-- Requester -->
             <div class="text-center flex-1">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
-                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.requester.first_name|first|upper }}</span>
+                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.requester.crushprofile.display_name|first|upper }}</span>
                 </div>
-                <h3 class="font-semibold dark:text-white">{{ connection.requester.get_full_name }}</h3>
+                <h3 class="font-semibold dark:text-white">{{ connection.requester.crushprofile.display_name }}</h3>
                 {% if requester_profile %}
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         {% if requester_profile.gender == 'F' %}&#9792;{% elif requester_profile.gender == 'M' %}&#9794;{% endif %}
@@ -64,9 +64,9 @@
             <!-- Recipient -->
             <div class="text-center flex-1">
                 <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
-                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.recipient.first_name|first|upper }}</span>
+                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.recipient.crushprofile.display_name|first|upper }}</span>
                 </div>
-                <h3 class="font-semibold dark:text-white">{{ connection.recipient.get_full_name }}</h3>
+                <h3 class="font-semibold dark:text-white">{{ connection.recipient.crushprofile.display_name }}</h3>
                 {% if recipient_profile %}
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         {% if recipient_profile.gender == 'F' %}&#9792;{% elif recipient_profile.gender == 'M' %}&#9794;{% endif %}
@@ -211,12 +211,25 @@
                 </button>
 
                 {% if connection.status != 'coach_approved' and connection.status != 'shared' %}
-                    <button type="submit" name="action" value="approve"
-                        class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-                        onclick="return confirm('{% trans "Approve this connection? Both users will be able to consent to share contact information." %}')">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        {% trans "Approve Connection" %}
-                    </button>
+                    <div x-data="confirmAction">
+                        <button type="button" @click="requestConfirm"
+                            x-show="isIdle"
+                            class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "Approve Connection" %}
+                        </button>
+                        <div x-show="isConfirming" class="inline-flex items-center gap-2">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">{% trans "Approve this connection? Both users will be able to consent to share contact information." %}</span>
+                            <button type="submit" name="action" value="approve"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors">
+                                {% trans "Confirm" %}
+                            </button>
+                            <button type="button" @click="cancel"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                                {% trans "Cancel" %}
+                            </button>
+                        </div>
+                    </div>
                 {% endif %}
             </div>
         </form>

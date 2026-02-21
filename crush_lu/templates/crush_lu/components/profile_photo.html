@@ -1,8 +1,9 @@
+{% load i18n %}
 {% if has_photo %}
     <img src="{{ photo_url }}" alt="{{ alt_text }}" class="{{ css_class }}" loading="lazy">
 {% else %}
-    <div class="profile-photo-placeholder {{ css_class }}" aria-label="No photo available">
+    <div class="profile-photo-placeholder {{ css_class }}" aria-label="{% trans "No photo available" %}">
         {% include "shared/icons/user-circle.html" with class="w-5 h-5" %}
-        <span class="sr-only">{{ display_name }} - No photo</span>
+        <span class="sr-only">{% blocktrans with name=display_name %}{{ name }} - No photo{% endblocktrans %}</span>
     </div>
 {% endif %}

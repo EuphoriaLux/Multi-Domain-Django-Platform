@@ -37,13 +37,13 @@
                 {# Photos - Compact View #}
                 <div class="flex shrink-0 gap-2">
                     {% if profile|has_photo:'photo_1' %}
-                        <img src="{% profile_photo_url profile 'photo_1' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 1" loading="lazy">
+                        <img src="{% profile_photo_url profile 'photo_1' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 1" loading="lazy">
                     {% endif %}
                     {% if profile|has_photo:'photo_2' %}
-                        <img src="{% profile_photo_url profile 'photo_2' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 2" loading="lazy">
+                        <img src="{% profile_photo_url profile 'photo_2' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 2" loading="lazy">
                     {% endif %}
                     {% if profile|has_photo:'photo_3' %}
-                        <img src="{% profile_photo_url profile 'photo_3' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="Photo 3" loading="lazy">
+                        <img src="{% profile_photo_url profile 'photo_3' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 3" loading="lazy">
                     {% endif %}
                 </div>
 
@@ -53,7 +53,7 @@
                     <div class="space-y-1">
                         <p class="font-semibold text-gray-900 dark:text-white">{% trans "Basic Info" %}</p>
                         <p class="text-gray-700 dark:text-gray-200">{{ profile.age }} {% trans "years old" %} • {{ profile.get_gender_display }}</p>
-                        <p class="text-gray-700 dark:text-gray-200">📍 {{ profile.location|default:"Not set" }}</p>
+                        <p class="text-gray-700 dark:text-gray-200">📍 {% trans "Not set" as not_set %}{{ profile.location|default:not_set }}</p>
                         <p class="text-gray-700 dark:text-gray-200">📞 {{ profile.phone_number }}</p>
 
                         {# Divider before account metadata #}

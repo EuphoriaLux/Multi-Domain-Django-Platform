@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Login Successful - Crush.lu{% endblock %}
+{% block title %}{% trans "Login Successful" %} - Crush.lu{% endblock %}
 
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
@@ -19,16 +19,16 @@
                 </div>
             </div>
 
-            <h2 class="text-2xl font-bold mb-3">Welcome, {{ user.first_name|default:user.username }}!</h2>
+            <h2 class="text-2xl font-bold mb-3">{% blocktrans with name=user.first_name|default:user.username %}Welcome, {{ name }}!{% endblocktrans %}</h2>
             <p class="text-gray-500 dark:text-gray-400 mb-6">
-                You've successfully logged in to Crush.lu.
+                {% trans "You've successfully logged in to Crush.lu." %}
             </p>
 
             <!-- PWA Return Instructions (shown on Android browser) -->
             <div id="pwa-instructions" class="hidden bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4">
-                <p class="font-semibold mb-1">Almost there!</p>
+                <p class="font-semibold mb-1">{% trans "Almost there!" %}</p>
                 <p class="text-sm">
-                    If you're using the Crush.lu app, tap the button below to return to the app.
+                    {% trans "If you're using the Crush.lu app, tap the button below to return to the app." %}
                 </p>
             </div>
 
@@ -36,7 +36,7 @@
             <a href="{{ final_destination }}"
                id="continue-btn"
                class="btn-crush-primary w-full py-4 text-lg mb-4 inline-block text-center">
-                Continue to Crush.lu
+                {% trans "Continue to Crush.lu" %}
             </a>
 
             <!-- PWA Return Button (hidden by default, shown on Android) -->
@@ -44,12 +44,12 @@
                     class="hidden w-full py-3 px-4 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors"
                     onclick="returnToPWA()">
                 {% include "shared/icons/device-mobile.html" with class="w-4 h-4" %}
-                Open in Crush.lu App
+                {% trans "Open in Crush.lu App" %}
             </button>
 
             <p class="text-gray-400 dark:text-gray-500 text-sm mt-6 flex items-center justify-center gap-1">
                 {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
-                Your session is secure
+                {% trans "Your session is secure" %}
             </p>
         </div>
     </div>

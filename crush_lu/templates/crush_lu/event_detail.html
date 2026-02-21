@@ -124,19 +124,19 @@
                     <div x-show="isOpen" @click.away="close" class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/20 border border-gray-200 dark:border-gray-700 py-2 z-50" style="display: none;">
                         <a href="#" id="googleCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📗</span>
-                            <span class="font-medium">Google Calendar</span>
+                            <span class="font-medium">{% trans "Google Calendar" %}</span>
                         </a>
                         <a href="#" id="outlookCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📘</span>
-                            <span class="font-medium">Outlook Calendar</span>
+                            <span class="font-medium">{% trans "Outlook Calendar" %}</span>
                         </a>
                         <a href="#" id="yahooCalendarLink" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📙</span>
-                            <span class="font-medium">Yahoo Calendar</span>
+                            <span class="font-medium">{% trans "Yahoo Calendar" %}</span>
                         </a>
                         <a href="{% url 'crush_lu:event_calendar_download' event.id %}" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">🍎</span>
-                            <span class="font-medium">Apple Calendar (.ics)</span>
+                            <span class="font-medium">{% trans "Apple Calendar (.ics)" %}</span>
                         </a>
                     </div>
                 </div>

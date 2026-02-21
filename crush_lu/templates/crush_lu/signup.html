@@ -145,6 +145,10 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
+var _i18n = {
+    creatingAccount: '{% trans "Creating Account..." %}',
+    redirectingTo: '{% trans "Redirecting to" %}'
+};
 /**
  * Double-submit prevention for signup form
  * Prevents users from clicking the button multiple times while waiting
@@ -169,7 +173,7 @@
                 // Mark as submitting and disable button
                 isSubmitting = true;
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Creating Account...';
+                submitBtn.textContent = _i18n.creatingAccount;
                 submitBtn.classList.add('opacity-75');
             });
         }
@@ -310,7 +314,7 @@
                 // Show loading state but let the default link action proceed
                 button.classList.add('disabled', 'opacity-75');
                 button.setAttribute('aria-busy', 'true');
-                button.textContent = 'Redirecting to ' + providerName + '...';
+                button.textContent = _i18n.redirectingTo + ' ' + providerName + '...';
                 // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
         });

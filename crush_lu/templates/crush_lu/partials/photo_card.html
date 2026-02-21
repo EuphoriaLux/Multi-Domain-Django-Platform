@@ -1,17 +1,18 @@
+{% load i18n %}
 <div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}" role="group" aria-labelledby="photo-label-{{ slot }}">
     <div class="photo-label" id="photo-label-{{ slot }}">
-        {% if is_main %}<span aria-hidden="true">{% include "shared/icons/star.html" with class="w-5 h-5" %}</span> Main Photo{% else %}Add Photo {{ slot }}{% endif %}
+        {% if is_main %}<span aria-hidden="true">{% include "shared/icons/star.html" with class="w-5 h-5" %}</span> {% trans "Main Photo" %}{% else %}{% blocktrans with slot=slot %}Add Photo {{ slot }}{% endblocktrans %}{% endif %}
     </div>
     <div class="photo-preview-container{% if photo %} has-photo{% endif %}">
         {% if photo %}
-            <img src="{{ photo.url }}" alt="{% if is_main %}Main profile photo{% else %}Profile photo {{ slot }}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
+            <img src="{{ photo.url }}" alt="{% if is_main %}{% trans "Main profile photo" %}{% else %}{% blocktrans with slot=slot %}Profile photo {{ slot }}{% endblocktrans %}{% endif %}" class="photo-preview" id="preview-photo-{{ slot }}" loading="lazy">
             <button type="button"
                     class="photo-delete-btn"
                     hx-delete="{% url 'api_delete_profile_photo' slot %}"
                     hx-target="#photo-card-{{ slot }}"
                     hx-swap="innerHTML"
-                    hx-confirm="Remove this photo?"
-                    aria-label="Remove photo {{ slot }}">
+                    hx-confirm="{% trans "Remove this photo?" %}"
+                    aria-label="{% blocktrans with slot=slot %}Remove photo {{ slot }}{% endblocktrans %}">
                 {% include "shared/icons/trash.html" with class="w-4 h-4" %}
             </button>
         {% else %}
@@ -30,25 +31,25 @@
                hx-swap="innerHTML"
                hx-encoding="multipart/form-data"
                hx-indicator="#photo-indicator-{{ slot }}"
-               aria-label="{% if is_main %}Upload main profile photo{% else %}Upload profile photo {{ slot }}{% endif %}"
+               aria-label="{% if is_main %}{% trans "Upload main profile photo" %}{% else %}{% blocktrans with slot=slot %}Upload profile photo {{ slot }}{% endblocktrans %}{% endif %}"
                aria-describedby="photo-help-{{ slot }}">
         <div class="photo-upload-btn" aria-hidden="true">
             {% include "shared/icons/camera.html" with class="w-4 h-4" %}
-            <span>{% if photo %}Change Photo{% else %}Upload Photo{% endif %}</span>
+            <span>{% if photo %}{% trans "Change Photo" %}{% else %}{% trans "Upload Photo" %}{% endif %}</span>
         </div>
     </div>
     <div id="photo-indicator-{{ slot }}" class="htmx-indicator tw-mt-2 tw-text-center">
         <span class="tw-text-crush-purple tw-text-sm">
-            {% include "shared/icons/arrow-path.html" with class="w-5 h-5 tw-animate-spin" %} Uploading...
+            {% include "shared/icons/arrow-path.html" with class="w-5 h-5 tw-animate-spin" %} {% trans "Uploading..." %}
         </span>
     </div>
     <div class="photo-help" id="photo-help-{{ slot }}">
         {% if is_main %}
-            {% if photo %}Upload to replace{% else %}Your primary photo{% endif %}
+            {% if photo %}{% trans "Upload to replace" %}{% else %}{% trans "Your primary photo" %}{% endif %}
         {% elif slot == 2 %}
-            Show more of you
+            {% trans "Show more of you" %}
         {% else %}
-            Add variety
+            {% trans "Add variety" %}
         {% endif %}
     </div>
 </div>

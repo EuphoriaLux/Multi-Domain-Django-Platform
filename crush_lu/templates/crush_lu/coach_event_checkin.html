@@ -128,6 +128,12 @@
 {# html5-qrcode library #}
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
+var _i18n = {
+    checkedIn: '{% trans "Checked In" %}',
+    checkIn: '{% trans "Check In" %}',
+    checkinFailed: '{% trans "Check-in failed" %}',
+    networkError: '{% trans "Network error" %}'
+};
 document.addEventListener('DOMContentLoaded', function() {
     // Manual check-in buttons
     document.querySelectorAll('.manual-checkin-btn').forEach(function(btn) {
@@ -148,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (circle) {
                                 circle.outerHTML = '<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
                             }
-                            btn.outerHTML = '<span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">Checked In</span>';
+                            btn.outerHTML = '<span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' + _i18n.checkedIn + '</span>';
                         }
                         // Update counter
                         var counter = document.getElementById('attended-count');
@@ -157,14 +163,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     } else {
                         btn.disabled = false;
-                        btn.textContent = 'Check In';
-                        alert(data.error || 'Check-in failed');
+                        btn.textContent = _i18n.checkIn;
+                        alert(data.error || _i18n.checkinFailed);
                     }
                 })
                 .catch(function() {
                     btn.disabled = false;
-                    btn.textContent = 'Check In';
-                    alert('Network error');
+                    btn.textContent = _i18n.checkIn;
+                    alert(_i18n.networkError);
                 });
         });
     });

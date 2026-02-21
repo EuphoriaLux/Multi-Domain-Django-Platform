@@ -8495,6 +8495,20 @@ document.addEventListener('alpine:init', function() {
     });
 
     // Auto-submit select: submits the parent form on change
+    Alpine.data('confirmAction', function() {
+        return {
+            confirming: false,
+            get isConfirming() { return this.confirming; },
+            get isIdle() { return !this.confirming; },
+            requestConfirm() { this.confirming = true; },
+            cancel() { this.confirming = false; },
+            proceed() {
+                this.confirming = false;
+                this.$el.closest('form').submit();
+            }
+        };
+    });
+
     Alpine.data('autoSubmitSelect', function() {
         return {
             submit() {

@@ -299,6 +299,10 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
+var _i18n = {
+    copied: '{% trans "Copied!" %}',
+    failedToCopy: '{% trans "Failed to copy link. Please copy manually." %}'
+};
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.copy-invitation-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -306,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const originalHTML = btn.innerHTML;
 
             navigator.clipboard.writeText(url).then(function() {
-                btn.innerHTML = `{% include "shared/icons/check.html" with class="w-5 h-5" %} Copied!`;
+                btn.innerHTML = `{% include "shared/icons/check.html" with class="w-5 h-5" %} ` + _i18n.copied;
                 btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
                 btn.classList.remove('text-purple-600', 'border-purple-500');
 
@@ -316,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.classList.add('text-purple-600', 'border-purple-500');
                 }, 2000);
             }, function(err) {
-                alert('Failed to copy link. Please copy manually.');
+                alert(_i18n.failedToCopy);
             });
         });
     });

@@ -1,9 +1,10 @@
+{% load i18n %}
 {% if target_id %}
 <div id="{{ target_id }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 mb-4 overflow-hidden">
     <div class="bg-red-500 text-white px-6 py-4">
         <h6 class="font-semibold flex items-center gap-2">
             {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
-            Error
+            {% trans "Error" %}
         </h6>
     </div>
     <div class="p-6">

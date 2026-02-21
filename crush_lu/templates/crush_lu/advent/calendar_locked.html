@@ -1,7 +1,7 @@
 {% extends 'crush_lu/advent/advent_base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Advent Calendar - Coming Soon{% endblock %}
+{% block title %}{% trans "Advent Calendar - Coming Soon" %}{% endblock %}
 
 {% block advent_content %}
 <div class="advent-header">
@@ -16,10 +16,10 @@
                 <span style="font-size: 5rem;">🎄</span>
             </div>
 
-            <h2 class="mb-4">Your Advent Calendar Awaits!</h2>
+            <h2 class="mb-4">{% trans "Your Advent Calendar Awaits!" %}</h2>
 
             <p class="lead mb-4">
-                The magic begins on <strong>December 1st, {{ calendar.year }}</strong>
+                {% blocktrans with year=calendar.year %}The magic begins on <strong>December 1st, {{ year }}</strong>{% endblocktrans %}
             </p>
 
             <div class="countdown-preview mb-4">
@@ -33,11 +33,11 @@
             </div>
 
             <p class="text-gray-300 dark:text-gray-400">
-                24 doors filled with surprises, just for you.
+                {% trans "24 doors filled with surprises, just for you." %}
             </p>
 
             <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-6 py-3 border border-white dark:border-gray-600 text-white dark:text-gray-200 hover:bg-white/10 dark:hover:bg-white/5 font-medium rounded-lg transition-colors mt-4">
-                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Home
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Home" %}
             </a>
         </div>
     </div>

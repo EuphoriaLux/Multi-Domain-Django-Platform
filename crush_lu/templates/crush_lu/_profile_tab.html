@@ -20,17 +20,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {% if profile|has_photo:'photo_1' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{% profile_photo_url profile 'photo_1' %}" class="w-full h-64 object-cover" alt="Photo 1" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_1' %}" class="w-full h-64 object-cover" alt="{% trans "Photo" %} 1" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile|has_photo:'photo_2' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{% profile_photo_url profile 'photo_2' %}" class="w-full h-64 object-cover" alt="Photo 2" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_2' %}" class="w-full h-64 object-cover" alt="{% trans "Photo" %} 2" loading="lazy">
                         </div>
                     {% endif %}
                     {% if profile|has_photo:'photo_3' %}
                         <div class="rounded-lg overflow-hidden shadow-md dark:shadow-gray-900/20">
-                            <img src="{% profile_photo_url profile 'photo_3' %}" class="w-full h-64 object-cover" alt="Photo 3" loading="lazy">
+                            <img src="{% profile_photo_url profile 'photo_3' %}" class="w-full h-64 object-cover" alt="{% trans "Photo" %} 3" loading="lazy">
                         </div>
                     {% endif %}
                 </div>
@@ -68,17 +68,19 @@
                         <span class="text-sm text-gray-500 dark:text-gray-400">({{ profile.date_of_birth }})</span>
                     {% endif %}
                 </div>
+                {% trans "Not set" as not_set %}
+                {% trans "Not provided" as not_provided %}
                 <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Gender:" %}</span>
-                    <span>{{ profile.get_gender_display|default:"Not set" }}</span>
+                    <span>{{ profile.get_gender_display|default:not_set }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Location:" %}</span>
-                    <span>{{ profile.location|default:"Not set" }}</span>
+                    <span>{{ profile.location|default:not_set }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Phone:" %}</span>
-                    <span>{{ profile.phone_number|default:"Not provided" }}</span>
+                    <span>{{ profile.phone_number|default:not_provided }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Looking for:" %}</span>

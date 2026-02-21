@@ -91,10 +91,10 @@
                                     <!-- Requester -->
                                     <div class="flex items-center gap-2">
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester.first_name|first|upper }}</span>
+                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester.crushprofile.display_name|first|upper }}</span>
                                         </div>
                                         <div>
-                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.requester.get_full_name|truncatechars:20 }}</p>
+                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.requester.crushprofile.display_name|truncatechars:20 }}</p>
                                             {% with profile=conn.requester.crushprofile %}
                                                 {% if profile.gender == 'F' %}
                                                     <span class="text-pink-500 text-xs">&#9792;</span>
@@ -117,10 +117,10 @@
                                     <!-- Recipient -->
                                     <div class="flex items-center gap-2">
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient.first_name|first|upper }}</span>
+                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient.crushprofile.display_name|first|upper }}</span>
                                         </div>
                                         <div>
-                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.recipient.get_full_name|truncatechars:20 }}</p>
+                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.recipient.crushprofile.display_name|truncatechars:20 }}</p>
                                             {% with profile=conn.recipient.crushprofile %}
                                                 {% if profile.gender == 'F' %}
                                                     <span class="text-pink-500 text-xs">&#9792;</span>
@@ -186,7 +186,7 @@
         {% if page_obj.has_other_pages %}
             <div class="flex justify-center mt-8 gap-2">
                 {% if page_obj.has_previous %}
-                    <a href="?status={{ status_filter }}&page={{ page_obj.previous_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}"
+                    <a href="?status={{ status_filter }}&page={{ page_obj.previous_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}{% if mine_filter %}&mine={{ mine_filter }}{% endif %}"
                        class="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                         &larr; {% trans "Previous" %}
                     </a>
@@ -195,7 +195,7 @@
                     {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages %}Page {{ current }} of {{ total }}{% endblocktrans %}
                 </span>
                 {% if page_obj.has_next %}
-                    <a href="?status={{ status_filter }}&page={{ page_obj.next_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}"
+                    <a href="?status={{ status_filter }}&page={{ page_obj.next_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}{% if mine_filter %}&mine={{ mine_filter }}{% endif %}"
                        class="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                         {% trans "Next" %} &rarr;
                     </a>

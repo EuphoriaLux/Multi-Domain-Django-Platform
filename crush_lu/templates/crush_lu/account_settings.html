@@ -192,7 +192,7 @@
 
                         {% if photo.available %}
                         <div class="social-photo-preview">
-                            <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }} photo" loading="lazy">
+                            <img src="{{ photo.photo_url }}" alt="{% blocktrans with provider=photo.provider_display %}{{ provider }} photo{% endblocktrans %}" loading="lazy">
                         </div>
                         {% if photo.is_cached %}
                         <small class="text-amber-600 mt-2 block">

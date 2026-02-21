@@ -244,6 +244,13 @@
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">
+var _i18n = {
+    loggingIn: '{% trans "Logging in..." %}',
+    creatingAccount: '{% trans "Creating Account..." %}',
+    openingLogin: '{% trans "Opening login..." %}',
+    redirectingTo: '{% trans "Redirecting to" %}',
+    opening: '{% trans "Opening" %}'
+};
 /**
  * Unified Auth Page Handler
  */
@@ -316,7 +323,7 @@
                 }
                 isLoginSubmitting = true;
                 loginBtn.disabled = true;
-                loginBtn.textContent = 'Logging in...';
+                loginBtn.textContent = _i18n.loggingIn;
                 loginBtn.classList.add('opacity-75');
             });
         }
@@ -331,7 +338,7 @@
                 }
                 isSignupSubmitting = true;
                 signupBtn.disabled = true;
-                signupBtn.textContent = 'Creating Account...';
+                signupBtn.textContent = _i18n.creatingAccount;
                 signupBtn.classList.add('opacity-75');
             });
         }
@@ -358,7 +365,7 @@
 
                     button.classList.add('disabled', 'opacity-75');
                     button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening ' + browserInfo.name + '...';
+                    button.textContent = _i18n.opening + ' ' + browserInfo.name + '...';
 
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {
                         var newWindow = window.open(fullOAuthUrl, '_system');
@@ -386,7 +393,7 @@
                     e.preventDefault();
                     button.classList.add('disabled', 'opacity-75');
                     button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening login...';
+                    button.textContent = _i18n.openingLogin;
                     window.location.href = oauthUrl;
                 });
                 return;
@@ -396,7 +403,7 @@
             button.addEventListener('click', function(e) {
                 button.classList.add('disabled', 'opacity-75');
                 button.setAttribute('aria-busy', 'true');
-                button.textContent = 'Redirecting to ' + providerName + '...';
+                button.textContent = _i18n.redirectingTo + ' ' + providerName + '...';
             });
         });
 

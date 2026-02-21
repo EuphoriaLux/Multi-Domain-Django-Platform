@@ -4,7 +4,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Case, When, Value, IntegerField
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import json
@@ -1263,12 +1263,17 @@ def coach_connections(request):
     event_id = request.GET.get("event")
     status_filter = request.GET.get("status", "needs_review")
 
+    # Validate status filter
+    valid_statuses = {"needs_review", "approved", "shared", "all"}
+    if status_filter not in valid_statuses:
+        status_filter = "needs_review"
+
     # Base queryset: connections assigned to this coach (or all for now)
     connections_qs = EventConnection.objects.select_related(
         "requester__crushprofile",
         "recipient__crushprofile",
         "event",
-        "assigned_coach",
+        "assigned_coach__user",
     ).order_by("-requested_at")
 
     # Status filter
@@ -1290,7 +1295,7 @@ def coach_connections(request):
         try:
             event = MeetupEvent.objects.get(id=event_id)
             connections_qs = connections_qs.filter(event=event)
-        except MeetupEvent.DoesNotExist:
+        except (MeetupEvent.DoesNotExist, ValueError):
             pass
 
     # Coach filter - show connections assigned to this coach, plus unassigned
@@ -1308,12 +1313,30 @@ def coach_connections(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    # Stats for the header
-    needs_review_count = EventConnection.objects.filter(
-        status__in=["accepted", "coach_reviewing"]
-    ).count()
-    approved_count = EventConnection.objects.filter(status="coach_approved").count()
-    shared_count = EventConnection.objects.filter(status="shared").count()
+    # Stats for the header (single query instead of 3)
+    stats = EventConnection.objects.aggregate(
+        needs_review_count=Count(
+            Case(
+                When(status__in=["accepted", "coach_reviewing"], then=Value(1)),
+                output_field=IntegerField(),
+            )
+        ),
+        approved_count=Count(
+            Case(
+                When(status="coach_approved", then=Value(1)),
+                output_field=IntegerField(),
+            )
+        ),
+        shared_count=Count(
+            Case(
+                When(status="shared", then=Value(1)),
+                output_field=IntegerField(),
+            )
+        ),
+    )
+    needs_review_count = stats["needs_review_count"]
+    approved_count = stats["approved_count"]
+    shared_count = stats["shared_count"]
 
     # Get events that have connections for the filter dropdown
     events_with_connections = MeetupEvent.objects.filter(
@@ -1346,7 +1369,7 @@ def coach_connection_review(request, connection_id):
             "requester__crushprofile",
             "recipient__crushprofile",
             "event",
-            "assigned_coach",
+            "assigned_coach__user",
         ),
         id=connection_id,
     )
@@ -1365,6 +1388,14 @@ def coach_connection_review(request, connection_id):
 
     if request.method == "POST":
         action = request.POST.get("action")
+
+        # Ownership check: only the assigned coach (or unassigned) can act
+        if action != "claim":
+            if connection.assigned_coach and connection.assigned_coach != coach:
+                messages.error(
+                    request, _("This connection is assigned to another coach.")
+                )
+                return redirect("crush_lu:coach_connections")
 
         if action == "start_review":
             # Coach starts reviewing - transition from accepted to coach_reviewing
@@ -1403,7 +1434,15 @@ def coach_connection_review(request, connection_id):
                 connection.status = "coach_approved"
                 connection.assigned_coach = coach
                 connection.coach_approved_at = timezone.now()
-                connection.save()
+                connection.save(
+                    update_fields=[
+                        "coach_notes",
+                        "coach_introduction",
+                        "status",
+                        "assigned_coach",
+                        "coach_approved_at",
+                    ]
+                )
 
                 # Also approve the reverse connection if it exists
                 if reverse_connection and reverse_connection.status in [
@@ -1417,7 +1456,15 @@ def coach_connection_review(request, connection_id):
                     reverse_connection.coach_introduction = (
                         connection.coach_introduction
                     )
-                    reverse_connection.save()
+                    reverse_connection.save(
+                        update_fields=[
+                            "status",
+                            "assigned_coach",
+                            "coach_approved_at",
+                            "coach_notes",
+                            "coach_introduction",
+                        ]
+                    )
 
             messages.success(
                 request,

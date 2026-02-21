@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Accept Invitation - Crush.lu{% endblock %}
+{% block title %}{% trans "Accept Invitation" %} - Crush.lu{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -56,28 +56,28 @@
             <!-- Header -->
             <div class="confirm-header">
                 <div class="confirm-icon">🎉</div>
-                <h2 style="color: var(--crush-purple);">Confirm Your Acceptance</h2>
-                <p class="text-muted">You're about to accept your exclusive invitation to:</p>
+                <h2 style="color: var(--crush-purple);">{% trans "Confirm Your Acceptance" %}</h2>
+                <p class="text-muted">{% trans "You're about to accept your exclusive invitation to:" %}</p>
                 <h4 class="mt-3">{{ event.title }}</h4>
             </div>
 
             <!-- Guest Info Box -->
             <div class="guest-info-box">
-                <h6 class="mb-3">{% include "shared/icons/identification.html" with class="w-5 h-5" %} Your Information</h6>
+                <h6 class="mb-3">{% include "shared/icons/identification.html" with class="w-5 h-5" %} {% trans "Your Information" %}</h6>
                 <div class="guest-info-item">
-                    <span class="guest-info-label">Name:</span>
+                    <span class="guest-info-label">{% trans "Name:" %}</span>
                     <span class="guest-info-value">{{ invitation.guest_first_name }} {{ invitation.guest_last_name }}</span>
                 </div>
                 <div class="guest-info-item">
-                    <span class="guest-info-label">Email:</span>
+                    <span class="guest-info-label">{% trans "Email:" %}</span>
                     <span class="guest-info-value">{{ invitation.guest_email }}</span>
                 </div>
                 <div class="guest-info-item">
-                    <span class="guest-info-label">Event:</span>
+                    <span class="guest-info-label">{% trans "Event:" %}</span>
                     <span class="guest-info-value">{{ event.title }}</span>
                 </div>
                 <div class="guest-info-item">
-                    <span class="guest-info-label">Date:</span>
+                    <span class="guest-info-label">{% trans "Date:" %}</span>
                     <span class="guest-info-value">{{ event.date_time|date:"F j, Y \a\t g:i A" }}</span>
                 </div>
             </div>
@@ -86,28 +86,28 @@
             <div class="mb-4">
                 <h6 class="mb-3 flex items-center gap-2">
                     {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                    Age Verification Required
+                    {% trans "Age Verification Required" %}
                 </h6>
                 <p class="text-sm text-gray-600 mb-3">
-                    To complete your registration, please verify that you are 18 years or older by providing your date of birth.
+                    {% trans "To complete your registration, please verify that you are 18 years or older by providing your date of birth." %}
                 </p>
             </div>
 
             <!-- What Will Happen -->
             <div class="alert alert-info bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
-                <h6 class="alert-heading text-gray-900 dark:text-white font-semibold mb-2">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} What happens next:</h6>
+                <h6 class="alert-heading text-gray-900 dark:text-white font-semibold mb-2">{% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "What happens next:" %}</h6>
                 <ul class="mb-0 text-gray-700 dark:text-gray-300">
-                    <li>A guest account will be created for you automatically</li>
-                    <li>You'll be logged in immediately</li>
-                    <li>Our Crush Coach will review your attendance request</li>
-                    <li>Once approved, you'll receive an email with event details</li>
+                    <li>{% trans "A guest account will be created for you automatically" %}</li>
+                    <li>{% trans "You'll be logged in immediately" %}</li>
+                    <li>{% trans "Our Crush Coach will review your attendance request" %}</li>
+                    <li>{% trans "Once approved, you'll receive an email with event details" %}</li>
                 </ul>
             </div>
 
             <!-- Privacy Notice -->
             <div class="alert alert-success bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 p-4 rounded-lg text-green-800 dark:text-green-300">
                 {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                <strong>Privacy Protected:</strong> This is a private event. Your information will only be shared with your assigned Crush Coach.
+                <strong>{% trans "Privacy Protected:" %}</strong> {% trans "This is a private event. Your information will only be shared with your assigned Crush Coach." %}
             </div>
 
             <!-- Confirmation Form with Age Verification -->
@@ -142,8 +142,8 @@
                     {{ form.agree_to_terms }}
                     <label for="{{ form.agree_to_terms.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">
                         {{ form.agree_to_terms.label }}
-                        (<a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">Terms</a>,
-                        <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">Privacy</a>)
+                        (<a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Terms" %}</a>,
+                        <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" rel="noopener" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Privacy" %}</a>)
                     </label>
                 </div>
                 {% if form.agree_to_terms.errors %}
@@ -154,11 +154,11 @@
 
                 <div class="text-center">
                     <button type="submit" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-3 text-lg">
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Confirm & Accept Invitation
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Confirm & Accept Invitation" %}
                     </button>
                     <p class="mt-4">
                         <a href="{% url 'crush_lu:invitation_landing' code=invitation.invitation_code %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
-                            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} Go Back
+                            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Go Back" %}
                         </a>
                     </p>
                 </div>

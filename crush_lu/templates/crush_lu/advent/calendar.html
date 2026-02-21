@@ -1,5 +1,5 @@
 {% extends 'crush_lu/advent/advent_base.html' %}
-{% load static %}
+{% load static i18n %}
 
 {% block title %}{{ calendar.calendar_title }} - Crush.lu{% endblock %}
 
@@ -22,9 +22,9 @@
             </div>
         </div>
         <div class="progress-text text-white">
-            {{ doors_opened_count }}/24 doors opened
+            {% blocktrans with opened=doors_opened_count %}{{ opened }}/24 doors opened{% endblocktrans %}
             {% if current_day %}
-                - Day {{ current_day }}
+                - {% blocktrans with day=current_day %}Day {{ day }}{% endblocktrans %}
             {% endif %}
         </div>
     </div>
@@ -65,7 +65,7 @@
                         <div class="door-link qr-required">
                             <div class="door-number">{{ door_data.door_number }}</div>
                             <div class="door-icon">🔒</div>
-                            <div class="door-teaser">Scan QR to unlock</div>
+                            <div class="door-teaser">{% trans "Scan QR to unlock" %}</div>
                         </div>
 
                     {% else %}
@@ -82,7 +82,7 @@
 </div>
 
 <!-- QR Scanner Button -->
-<a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="Scan QR Code">
+<a href="{% url 'crush_lu:advent_qr_scanner' %}" class="qr-scanner-btn" title="{% trans "Scan QR Code" %}">
     {% include "shared/icons/qr-code.html" with class="w-5 h-5" %}
 </a>
 

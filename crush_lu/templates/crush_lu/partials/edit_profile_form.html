@@ -4,9 +4,9 @@
 <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
     <div class="flex items-center gap-2">
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-        Please correct the errors below.
+        {% trans "Please correct the errors below." %}
     </div>
-    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
         {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
     </button>
 </div>
@@ -15,7 +15,7 @@
 {% if form.non_field_errors %}
     <div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
         <div>{{ form.non_field_errors }}</div>
-        <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="Dismiss">
+        <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
             {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
         </button>
     </div>
@@ -25,15 +25,15 @@
 <div class="section-card mb-4">
     <h5 class="section-title">
         {% include "shared/icons/phone.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        Contact Information
+        {% trans "Contact Information" %}
     </h5>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="mb-3">
             <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                Phone Number *
+                {% trans "Phone Number" %} *
                 {% if profile.phone_verified %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} Verified</span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} {% trans "Verified" %}</span>
                 {% endif %}
             </label>
             {% if profile.phone_verified %}
@@ -45,8 +45,8 @@
                     </span>
                 </div>
                 <small class="text-gray-500 dark:text-gray-400 text-sm">
-                    {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} Verified phone numbers cannot be changed.
-                    Contact support if you need to update it.
+                    {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} {% trans "Verified phone numbers cannot be changed." %}
+                    {% trans "Contact support if you need to update it." %}
                 </small>
             {% else %}
                 <div class="phone-input-wrapper">
@@ -54,7 +54,7 @@
                 </div>
                 <small class="text-yellow-600 dark:text-yellow-400 text-sm">
                     {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
-                    <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">Verify your phone number</a> to lock it.
+                    <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
                 </small>
             {% endif %}
             {% if form.phone_number.errors %}
@@ -64,9 +64,9 @@
 
         <div class="mb-3">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                Your Region *
+                {% trans "Your Region" %} *
             </label>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">Click the map or use the dropdown to select your location</p>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Click the map or use the dropdown to select your location" %}</p>
 
             <div x-data="cantonMap"
                  data-initial-value="{{ profile.location|default:'' }}"
@@ -95,12 +95,12 @@
                             @click="toggleFallbackDropdown"
                             class="canton-map-fallback-toggle">
                         {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
-                        Can't use the map? Select from list
+                        {% trans "Can't use the map? Select from list" %}
                     </button>
                     <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
                         <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="">Select your region...</option>
-                            <optgroup label="Luxembourg Cantons">
+                            <option value="">{% trans "Select your region..." %}</option>
+                            <optgroup label="{% trans "Luxembourg Cantons" %}">
                                 <option value="canton-capellen">Capellen</option>
                                 <option value="canton-clervaux">Clervaux</option>
                                 <option value="canton-diekirch">Diekirch</option>
@@ -114,10 +114,10 @@
                                 <option value="canton-vianden">Vianden</option>
                                 <option value="canton-wiltz">Wiltz</option>
                             </optgroup>
-                            <optgroup label="Border Regions">
-                                <option value="border-belgium">Belgium (Arlon/Virton area)</option>
-                                <option value="border-germany">Germany (Trier/Saarland area)</option>
-                                <option value="border-france">France (Thionville/Metz area)</option>
+                            <optgroup label="{% trans "Border Regions" %}">
+                                <option value="border-belgium">{% trans "Belgium (Arlon/Virton area)" %}</option>
+                                <option value="border-germany">{% trans "Germany (Trier/Saarland area)" %}</option>
+                                <option value="border-france">{% trans "France (Thionville/Metz area)" %}</option>
                             </optgroup>
                         </select>
                     </div>
@@ -134,7 +134,7 @@
 
         <div class="mb-3">
             <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                Date of Birth *
+                {% trans "Date of Birth" %} *
             </label>
             {{ form.date_of_birth }}
             {% if form.date_of_birth.errors %}
@@ -144,7 +144,7 @@
 
         <div class="mb-3">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                Gender *
+                {% trans "Gender" %} *
             </label>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-2" role="radiogroup" aria-label="Select your gender">
                 {% for value, label in form.gender.field.choices %}
@@ -173,15 +173,15 @@
 <div class="section-card mb-4">
     <h5 class="section-title">
         {% include "shared/icons/pencil-square.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        About You
+        {% trans "About You" %}
     </h5>
 
     <div class="mb-3" x-data="fieldValidator"
          data-max-length="500"
          data-error-max-length="Bio must be under 500 characters">
         <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-            Bio
-            <small class="text-gray-500 dark:text-gray-400">(Tell us about yourself)</small>
+            {% trans "Bio" %}
+            <small class="text-gray-500 dark:text-gray-400">({% trans "Tell us about yourself" %})</small>
         </label>
         <div @input="handleInput" @focusout="handleBlur">
             {{ form.bio }}
@@ -202,8 +202,8 @@
          data-max-length="300"
          data-error-max-length="Interests must be under 300 characters">
         <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-            Interests
-            <small class="text-gray-500 dark:text-gray-400">(What do you enjoy?)</small>
+            {% trans "Interests" %}
+            <small class="text-gray-500 dark:text-gray-400">({% trans "What do you enjoy?" %})</small>
         </label>
         <div @input="handleInput" @focusout="handleBlur">
             {{ form.interests }}
@@ -222,7 +222,7 @@
 
     <div class="mb-3">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-            What are you looking for? *
+            {% trans "What are you looking for?" %} *
         </label>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2" role="radiogroup" aria-label="Select what you are looking for">
             {% for value, label in form.looking_for.field.choices %}
@@ -249,17 +249,17 @@
 <!-- Photos Section -->
 <div class="section-card mb-4">
     <div class="photo-section-header">
-        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} Photos</h5>
-        <span class="photo-count">Up to 3</span>
+        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} {% trans "Photos" %}</h5>
+        <span class="photo-count">{% trans "Up to 3" %}</span>
     </div>
-    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">Your main photo will be displayed first to other users.</p>
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "Your main photo will be displayed first to other users." %}</p>
 
     <!-- Social Photo Import -->
     {% if social_photos %}
     <div class="social-import-section mb-4">
         <div class="flex items-center gap-2 mb-2">
             {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
-            <span class="font-semibold">Import from Social Accounts</span>
+            <span class="font-semibold">{% trans "Import from Social Accounts" %}</span>
         </div>
         <div class="social-photos-row">
             {% for photo in social_photos %}
@@ -278,7 +278,7 @@
                     <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
                     <a href="{% provider_login_url photo.provider process='connect' %}"
                        class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium">
-                        Reconnect
+                        {% trans "Reconnect" %}
                     </a>
                 </div>
                 {% elif photo.available %}
@@ -286,29 +286,29 @@
                 <!-- Fallback shown if image fails to load -->
                 <div class="no-photo-fallback hidden flex-col items-center gap-1">
                     <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Unavailable</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Unavailable" %}</span>
                 </div>
                 <div class="import-btns">
                     <button type="button"
                             class="import-slot-btn import-slot-btn--main import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="1"
-                            title="Set as your main profile photo">
-                        Main
+                            title="{% trans "Set as your main profile photo" %}">
+                        {% trans "Main" %}
                     </button>
                     <button type="button"
                             class="import-slot-btn import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="2"
-                            title="Import as your second photo">
-                        2nd
+                            title="{% trans "Import as your second photo" %}">
+                        {% trans "2nd" %}
                     </button>
                     <button type="button"
                             class="import-slot-btn import-social-photo-btn"
                             data-account-id="{{ photo.account_id }}"
                             data-slot="3"
-                            title="Import as your third photo">
-                        3rd
+                            title="{% trans "Import as your third photo" %}">
+                        {% trans "3rd" %}
                     </button>
                 </div>
                 {% else %}
@@ -345,7 +345,7 @@
 <div class="section-card mb-4">
     <h5 class="section-title">
         {% include "shared/icons/shield-check.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        Privacy Settings
+        {% trans "Privacy Settings" %}
     </h5>
 
     <div class="privacy-toggle-wrapper">
@@ -356,8 +356,8 @@
                {% if form.show_full_name.value %}checked{% endif %}>
         <label for="{{ form.show_full_name.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
         <label for="{{ form.show_full_name.id_for_label }}" class="privacy-toggle-label">
-            <span class="privacy-toggle-label-text">Show my full name</span>
-            <span class="privacy-toggle-label-hint">Otherwise only your first name is shown</span>
+            <span class="privacy-toggle-label-text">{% trans "Show my full name" %}</span>
+            <span class="privacy-toggle-label-hint">{% trans "Otherwise only your first name is shown" %}</span>
         </label>
     </div>
 
@@ -369,8 +369,8 @@
                {% if form.show_exact_age.value %}checked{% endif %}>
         <label for="{{ form.show_exact_age.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
         <label for="{{ form.show_exact_age.id_for_label }}" class="privacy-toggle-label">
-            <span class="privacy-toggle-label-text">Show my exact age</span>
-            <span class="privacy-toggle-label-hint">Otherwise show age range (e.g., 25-29)</span>
+            <span class="privacy-toggle-label-text">{% trans "Show my exact age" %}</span>
+            <span class="privacy-toggle-label-hint">{% trans "Otherwise show age range (e.g., 25-29)" %}</span>
         </label>
     </div>
 
@@ -382,8 +382,8 @@
                {% if form.blur_photos.value %}checked{% endif %}>
         <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
         <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-label">
-            <span class="privacy-toggle-label-text">Blur my photos until mutual interest</span>
-            <span class="privacy-toggle-label-hint">Photos will be revealed once you both connect</span>
+            <span class="privacy-toggle-label-text">{% trans "Blur my photos until mutual interest" %}</span>
+            <span class="privacy-toggle-label-hint">{% trans "Photos will be revealed once you both connect" %}</span>
         </label>
     </div>
 </div>
@@ -430,16 +430,16 @@
 <div class="action-buttons-container action-buttons-sticky">
     <a href="{% url 'crush_lu:dashboard' %}" class="btn-cancel">
         {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
-        Cancel
+        {% trans "Cancel" %}
     </a>
     <button type="submit" class="btn-crush-primary relative gap-2">
         <span id="submit-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
             {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
-            <span>Saving...</span>
+            <span>{% trans "Saving..." %}</span>
         </span>
         <span class="button-text inline-flex items-center gap-2">
             {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-            <span>Save Changes</span>
+            <span>{% trans "Save Changes" %}</span>
         </span>
     </button>
 </div>

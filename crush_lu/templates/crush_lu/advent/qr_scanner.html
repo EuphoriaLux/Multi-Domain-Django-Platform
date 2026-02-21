@@ -1,12 +1,12 @@
 {% extends 'crush_lu/advent/advent_base.html' %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Scan QR Code - {{ calendar.calendar_title }}{% endblock %}
+{% block title %}{% trans "Scan QR Code" %} - {{ calendar.calendar_title }}{% endblock %}
 
 {% block advent_content %}
 <div class="advent-header">
     <a href="{% url 'crush_lu:advent_calendar' %}" class="advent-back-btn">
-        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} Back to Calendar
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Calendar" %}
     </a>
 </div>
 
@@ -14,11 +14,11 @@
     <div class="container">
         <div class="qr-scanner-card">
             <h2 class="text-center mb-4">
-                {% include "shared/icons/qr-code.html" with class="w-5 h-5" %} Scan QR Code
+                {% include "shared/icons/qr-code.html" with class="w-5 h-5" %} {% trans "Scan QR Code" %}
             </h2>
 
             <p class="text-center text-gray-600 dark:text-gray-300 mb-4">
-                Point your camera at the QR code on your physical gift to unlock bonus content!
+                {% trans "Point your camera at the QR code on your physical gift to unlock bonus content!" %}
             </p>
 
             <!-- QR Scanner Video -->
@@ -33,20 +33,20 @@
             <div id="scanner-status" class="text-center mt-3">
                 <div class="scanning-indicator">
                     <div class="spinner-border spinner-border-sm text-primary" role="status">
-                        <span class="visually-hidden">Scanning...</span>
+                        <span class="visually-hidden">{% trans "Scanning..." %}</span>
                     </div>
-                    <span class="ml-2">Looking for QR code...</span>
+                    <span class="ml-2">{% trans "Looking for QR code..." %}</span>
                 </div>
             </div>
 
             <!-- Manual input fallback -->
             <div class="manual-input mt-4">
                 <p class="text-center text-gray-500 dark:text-gray-400 text-sm">
-                    Camera not working? Enter the code manually:
+                    {% trans "Camera not working? Enter the code manually:" %}
                 </p>
                 <form id="manual-code-form" class="flex gap-2">
                     <input type="text" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" id="manual-code"
-                           placeholder="Enter code from QR" autocomplete="off">
+                           placeholder="{% trans "Enter code from QR" %}" autocomplete="off">
                     <button type="submit" class="btn-crush-primary px-4 py-2">
                         {% include "shared/icons/check.html" with class="w-5 h-5" %}
                     </button>
@@ -127,13 +127,18 @@
 
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
-    const statusEl = document.getElementById('scanner-status');
-    const videoEl = document.getElementById('qr-video');
+    var statusEl = document.getElementById('scanner-status');
+    var videoEl = document.getElementById('qr-video');
+
+    var msgQrDetected = '{% trans "QR Code detected! Redirecting..." %}';
+    var msgCameraDenied = '{% trans "Camera access denied. Please use manual input below." %}';
+    var msgNoCamera = '{% trans "No camera found. Please use manual input below." %}';
+    var msgCameraError = '{% trans "Could not access camera. Please use manual input." %}';
 
     // Initialize scanner
-    const html5QrCode = new Html5Qrcode("qr-video");
+    var html5QrCode = new Html5Qrcode("qr-video");
 
-    const config = {
+    var config = {
         fps: 10,
         qrbox: { width: 250, height: 250 },
         aspectRatio: 1,
@@ -145,73 +150,70 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Clear and safely update status element
         statusEl.textContent = '';
-        const successDiv = document.createElement('div');
+        var successDiv = document.createElement('div');
         successDiv.className = 'text-success';
-        const message = document.createElement('div');
+        var message = document.createElement('div');
         message.className = 'mt-2';
-        message.textContent = 'QR Code detected! Redirecting...';
+        message.textContent = msgQrDetected;
         successDiv.appendChild(message);
         statusEl.appendChild(successDiv);
 
         // Extract token from URL or use as-is
-        let token = decodedText;
+        var token = decodedText;
         if (decodedText.includes('/advent/qr/')) {
             // Extract UUID from URL
-            const match = decodedText.match(/\/advent\/qr\/([a-f0-9-]+)/i);
+            var match = decodedText.match(/\/advent\/qr\/([a-f0-9-]+)/i);
             if (match) {
                 token = match[1];
             }
         }
 
         // Redirect to QR scan endpoint
-        window.location.href = `{% url 'crush_lu:advent_scan_qr' '00000000-0000-0000-0000-000000000000' %}`.replace('00000000-0000-0000-0000-000000000000', token);
+        window.location.href = '{% url "crush_lu:advent_scan_qr" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', token);
     }
 
     function onScanError(errorMessage) {
         // Ignore scan errors (no QR found yet)
     }
 
+    function showWarning(msg) {
+        statusEl.textContent = '';
+        var warningDiv = document.createElement('div');
+        warningDiv.className = 'text-warning';
+        warningDiv.textContent = msg;
+        statusEl.appendChild(warningDiv);
+    }
+
     // Start scanning
-    Html5Qrcode.getCameras().then(devices => {
+    Html5Qrcode.getCameras().then(function(devices) {
         if (devices && devices.length) {
             // Use back camera if available
-            const cameraId = devices.find(d => d.label.toLowerCase().includes('back'))?.id || devices[0].id;
+            var backCamera = devices.find(function(d) { return d.label.toLowerCase().includes('back'); });
+            var cameraId = backCamera ? backCamera.id : devices[0].id;
 
             html5QrCode.start(
                 cameraId,
                 config,
                 onScanSuccess,
                 onScanError
-            ).catch(err => {
+            ).catch(function(err) {
                 console.error('Camera error:', err);
-                statusEl.textContent = '';
-                const warningDiv = document.createElement('div');
-                warningDiv.className = 'text-warning';
-                warningDiv.textContent = 'Camera access denied. Please use manual input below.';
-                statusEl.appendChild(warningDiv);
+                showWarning(msgCameraDenied);
             });
         } else {
-            statusEl.textContent = '';
-            const warningDiv = document.createElement('div');
-            warningDiv.className = 'text-warning';
-            warningDiv.textContent = 'No camera found. Please use manual input below.';
-            statusEl.appendChild(warningDiv);
+            showWarning(msgNoCamera);
         }
-    }).catch(err => {
+    }).catch(function(err) {
         console.error('Camera enumeration error:', err);
-        statusEl.textContent = '';
-        const warningDiv = document.createElement('div');
-        warningDiv.className = 'text-warning';
-        warningDiv.textContent = 'Could not access camera. Please use manual input.';
-        statusEl.appendChild(warningDiv);
+        showWarning(msgCameraError);
     });
 
     // Manual code form
     document.getElementById('manual-code-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const code = document.getElementById('manual-code').value.trim();
+        var code = document.getElementById('manual-code').value.trim();
         if (code) {
-            window.location.href = `{% url 'crush_lu:advent_scan_qr' '00000000-0000-0000-0000-000000000000' %}`.replace('00000000-0000-0000-0000-000000000000', code);
+            window.location.href = '{% url "crush_lu:advent_scan_qr" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', code);
         }
     });
 });

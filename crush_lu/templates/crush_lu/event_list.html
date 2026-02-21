@@ -149,7 +149,7 @@
                 📅 {{ event.date_time|date:"D, M j, Y" }}<br>
                 ⏰ {{ event.date_time|date:"g:i A" }} ({{ event.duration_minutes }} min)<br>
                 📍 {% if user.is_authenticated and user_profile %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}<br>
-                👥 Ages {{ event.min_age }}-{{ event.max_age }}
+                👥 {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}
             </p>
 
             {% if event.get_languages_display %}

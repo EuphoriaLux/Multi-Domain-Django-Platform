@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: azureproject 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-17 21:48+0100\n"
+"POT-Creation-Date: 2026-02-21 01:56+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -16,15 +16,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: .\azureproject\settings.py:553
+#: .\azureproject\settings.py:554
 msgid "English"
 msgstr ""
 
-#: .\azureproject\settings.py:554
+#: .\azureproject\settings.py:555
 msgid "German"
 msgstr ""
 
-#: .\azureproject\settings.py:555
+#: .\azureproject\settings.py:556
 msgid "French"
 msgstr ""
 
