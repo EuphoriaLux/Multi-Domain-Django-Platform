@@ -53,15 +53,40 @@
             "item": {
                 "@type": "Event",
                 "name": "{{ event.title|escapejs }}",
+                "description": "{{ event.description|truncatewords:50|escapejs }}",
                 "startDate": "{{ event.date_time|date:'c' }}",
+                "eventStatus": "{% if event.is_cancelled %}https://schema.org/EventCancelled{% else %}https://schema.org/EventScheduled{% endif %}",
+                "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
                 "location": {
                     "@type": "Place",
                     {% if user.is_authenticated and user_profile %}
                     "name": "{{ event.location|escapejs }}",
-                    "address": "{{ event.address|escapejs }}"
+                    "address": {
+                        "@type": "PostalAddress",
+                        "streetAddress": "{{ event.address|escapejs }}",
+                        "addressLocality": "{{ event.location|escapejs }}",
+                        "addressCountry": "LU"
+                    }
                     {% else %}
-                    "name": "{{ event.canton|default:'Luxembourg'|escapejs }}"
+                    "name": "{{ event.canton|default:'Luxembourg'|escapejs }}",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": "{{ event.canton|default:'Luxembourg'|escapejs }}",
+                        "addressCountry": "LU"
+                    }
                     {% endif %}
+                },
+                "organizer": {
+                    "@type": "Organization",
+                    "name": "Crush.lu",
+                    "url": "https://crush.lu"
+                },
+                "offers": {
+                    "@type": "Offer",
+                    "url": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}",
+                    "price": "{{ event.registration_fee }}",
+                    "priceCurrency": "EUR",
+                    "availability": "{% if event.is_full %}https://schema.org/SoldOut{% elif event.is_registration_open %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}"
                 },
                 "url": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}"
             }

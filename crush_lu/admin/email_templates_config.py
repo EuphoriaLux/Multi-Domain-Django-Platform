@@ -2,7 +2,7 @@
 """
 Email Template Manager Configuration
 
-Metadata for all 22 Crush.lu email templates, organized by category.
+Metadata for all 23 Crush.lu email templates, organized by category.
 Used by the Email Template Manager admin page for preview and sending.
 """
 
@@ -46,7 +46,7 @@ EMAIL_CATEGORIES = {
 # Value: metadata dict with template path, context requirements, etc.
 EMAIL_TEMPLATE_METADATA = {
     # =========================================================================
-    # PROFILE & ONBOARDING CATEGORY (9 templates)
+    # PROFILE & ONBOARDING CATEGORY (10 templates)
     # =========================================================================
     'welcome': {
         'name': 'Welcome Email',
@@ -138,6 +138,16 @@ EMAIL_TEMPLATE_METADATA = {
         'required_context': ['user'],
         'optional_context': ['profile'],
         'context_builder': 'build_profile_reminder_context',
+    },
+    'profile_recontact': {
+        'name': 'Recontact After Missed Call',
+        'category': 'profile',
+        'template': 'crush_lu/emails/profile_recontact.html',
+        'subject': 'Your Crush Coach Needs to Speak With You',
+        'description': 'Sent when coach attempts to reach user for screening call but cannot connect',
+        'required_context': ['user', 'coach'],
+        'optional_context': [],
+        'context_builder': 'build_profile_recontact_context',
     },
 
     # =========================================================================

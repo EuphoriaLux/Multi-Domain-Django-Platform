@@ -1437,6 +1437,29 @@ def _build_template_context(request, template_meta, user_id):
                 # Create mock submission for preview
                 context['submission'] = _create_mock_submission(user)
 
+    # Handle coach context (for recontact email)
+    if 'coach' in required:
+        user = context.get('user')
+        if user:
+            try:
+                submission = ProfileSubmission.objects.filter(
+                    profile__user=user
+                ).select_related('coach', 'coach__user').latest('submitted_at')
+                if submission.coach:
+                    context['coach'] = submission.coach
+            except ProfileSubmission.DoesNotExist:
+                pass
+        if 'coach' not in context:
+            # Create mock coach for preview
+            from types import SimpleNamespace
+            mock_coach_user = SimpleNamespace(
+                first_name='Sarah',
+                last_name='Coach',
+                email='coach@crush.lu',
+                get_full_name=lambda: 'Sarah Coach',
+            )
+            context['coach'] = SimpleNamespace(user=mock_coach_user)
+
     # Handle event context
     if 'event' in required:
         event_id = request.GET.get('event_id') or request.POST.get('event_id')
