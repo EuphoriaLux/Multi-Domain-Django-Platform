@@ -89,6 +89,33 @@ class MeetupEvent(models.Model):
 
     # Capacity & Requirements
     max_participants = models.PositiveIntegerField(default=20)
+    max_participants_m = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Max spots (Men)"),
+        help_text=_(
+            "Maximum confirmed spots for Male attendees. "
+            "Leave blank to use total-only cap."
+        ),
+    )
+    max_participants_f = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Max spots (Women)"),
+        help_text=_(
+            "Maximum confirmed spots for Female attendees. "
+            "Leave blank to use total-only cap."
+        ),
+    )
+    max_participants_nb = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Max spots (Other genders)"),
+        help_text=_(
+            "Maximum confirmed spots for Non-binary/Other/Prefer-not-to-say. "
+            "Leave blank to use total-only cap."
+        ),
+    )
     min_age = models.PositiveIntegerField(default=18)
     max_age = models.PositiveIntegerField(default=99)
     require_approved_profile = models.BooleanField(
@@ -202,6 +229,55 @@ class MeetupEvent(models.Model):
     def __str__(self):
         return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"
 
+    # Maps a profile gender code to a capacity pool key
+    GENDER_POOL_MAP = {"M": "m", "F": "f", "NB": "nb", "O": "nb", "P": "nb"}
+    # Maps a pool key back to the gender codes that belong to it
+    POOL_TO_CODES = {"m": ["M"], "f": ["F"], "nb": ["NB", "O", "P"]}
+
+    @property
+    def gender_limits_active(self):
+        """True when all three per-gender caps are set."""
+        return all(
+            v is not None
+            for v in [
+                self.max_participants_m,
+                self.max_participants_f,
+                self.max_participants_nb,
+            ]
+        )
+
+    def get_gender_pool(self, gender_code):
+        """Return the pool key ('m', 'f', 'nb') for a gender code, or None."""
+        return self.GENDER_POOL_MAP.get(gender_code)
+
+    def get_gender_pool_limit(self, gender_code):
+        """Return the capacity limit for the pool this gender belongs to."""
+        if not self.gender_limits_active:
+            return None
+        pool = self.get_gender_pool(gender_code)
+        return {
+            "m": self.max_participants_m,
+            "f": self.max_participants_f,
+            "nb": self.max_participants_nb,
+        }.get(pool)
+
+    def get_confirmed_count_for_gender(self, gender_code):
+        """Count confirmed/attended registrations in the same gender pool."""
+        pool = self.get_gender_pool(gender_code)
+        if pool is None:
+            return 0
+        return self.eventregistration_set.filter(
+            status__in=["confirmed", "attended"],
+            user__crushprofile__gender__in=self.POOL_TO_CODES.get(pool, []),
+        ).count()
+
+    def is_gender_pool_full(self, gender_code):
+        """True when the gender pool for this code has reached its cap."""
+        limit = self.get_gender_pool_limit(gender_code)
+        if limit is None:
+            return False
+        return self.get_confirmed_count_for_gender(gender_code) >= limit
+
     def clean(self):
         """Validate event data before saving"""
         from django.core.exceptions import ValidationError
@@ -213,6 +289,33 @@ class MeetupEvent(models.Model):
             raise ValidationError(
                 {"canton": _("Canton is required for published events.")}
             )
+
+        # Gender caps: all three must be set together or all left blank
+        gender_caps = [
+            self.max_participants_m,
+            self.max_participants_f,
+            self.max_participants_nb,
+        ]
+        set_caps = [c for c in gender_caps if c is not None]
+        if 0 < len(set_caps) < 3:
+            raise ValidationError(
+                _(
+                    "Set all three gender caps together, or leave all blank "
+                    "for a total-only cap."
+                )
+            )
+
+        # Sum of gender caps must not exceed total max_participants
+        if len(set_caps) == 3:
+            total_gender = sum(set_caps)
+            if total_gender > self.max_participants:
+                raise ValidationError(
+                    _(
+                        "Sum of gender caps (%(gender_total)d) must not exceed "
+                        "total max participants (%(max)d)."
+                    )
+                    % {"gender_total": total_gender, "max": self.max_participants}
+                )
 
     @property
     def is_registration_open(self):

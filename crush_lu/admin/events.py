@@ -194,13 +194,18 @@ class MeetupEventAdmin(TranslationAdmin):
             {
                 "fields": (
                     "max_participants",
+                    ("max_participants_m", "max_participants_f", "max_participants_nb"),
                     "min_age",
                     "max_age",
                     "require_approved_profile",
                     "languages",
                     "has_food_component",
                     "allow_plus_ones",
-                )
+                ),
+                "description": (
+                    "Set all three gender caps to activate gender-aware waitlisting. "
+                    "Leave all blank for total-only cap."
+                ),
             },
         ),
         (
@@ -283,14 +288,26 @@ class MeetupEventAdmin(TranslationAdmin):
     get_waitlist_count.short_description = _("⏳ Waitlist")
 
     def get_spots_remaining(self, obj):
-        """Calculate remaining spots"""
+        """Calculate remaining spots with optional gender breakdown"""
         remaining = obj.spots_remaining
         if remaining == 0:
-            return f"🔴 FULL (0/{obj.max_participants})"
+            label = f"🔴 FULL (0/{obj.max_participants})"
         elif remaining <= 5:
-            return f"🟡 {remaining}/{obj.max_participants}"
+            label = f"🟡 {remaining}/{obj.max_participants}"
         else:
-            return f"🟢 {remaining}/{obj.max_participants}"
+            label = f"🟢 {remaining}/{obj.max_participants}"
+
+        if obj.gender_limits_active:
+            m_count = obj.get_confirmed_count_for_gender("M")
+            f_count = obj.get_confirmed_count_for_gender("F")
+            nb_count = obj.get_confirmed_count_for_gender("NB")
+            label += (
+                f" | M:{m_count}/{obj.max_participants_m}"
+                f" F:{f_count}/{obj.max_participants_f}"
+                f" NB:{nb_count}/{obj.max_participants_nb}"
+            )
+
+        return label
 
     get_spots_remaining.short_description = _("Spots Available")
 

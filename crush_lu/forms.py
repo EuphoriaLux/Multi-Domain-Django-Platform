@@ -547,6 +547,13 @@ class EventRegistrationForm(forms.ModelForm):
         ),
     )
 
+    gender = forms.ChoiceField(
+        required=False,
+        choices=[("", _("Select your gender"))] + CrushProfile.GENDER_CHOICES,
+        label=_("Gender"),
+        widget=forms.Select(attrs={"class": TAILWIND_SELECT}),
+    )
+
     class Meta:
         model = EventRegistration
         fields = [
@@ -576,14 +583,27 @@ class EventRegistrationForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, event=None, requires_age_confirmation=False, **kwargs):
+    def __init__(
+        self,
+        *args,
+        event=None,
+        requires_age_confirmation=False,
+        requires_gender_selection=False,
+        **kwargs,
+    ):
         """Initialize form with event context"""
         self.requires_age_confirmation = requires_age_confirmation
+        self.requires_gender_selection = requires_gender_selection
         super().__init__(*args, **kwargs)
 
         # Age confirmation only needed when user has no profile (age unverified)
         if not requires_age_confirmation:
             self.fields.pop("age_confirmation", None)
+
+        # Gender selection only needed when event has gender limits and user
+        # has no gender on their profile
+        if not requires_gender_selection:
+            self.fields.pop("gender", None)
 
         # Remove fields not applicable to this event
         if event:
@@ -606,6 +626,12 @@ class EventRegistrationForm(forms.ModelForm):
             self.add_error(
                 "age_confirmation",
                 _("You must confirm that you are at least 18 years old to register."),
+            )
+
+        if self.requires_gender_selection and not cleaned_data.get("gender"):
+            self.add_error(
+                "gender",
+                _("Please select your gender to register for this event."),
             )
 
         return cleaned_data

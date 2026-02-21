@@ -26,6 +26,79 @@ from .email_helpers import (
 )
 
 
+def _promote_from_waitlist(event, cancelled_user=None):
+    """
+    Promote the best waitlisted candidate to confirmed.
+
+    When gender limits are active:
+    1. Try to promote a waitlisted user from the same gender pool as the
+       cancelled user (maintains balance).
+    2. If no same-pool candidate, try any waitlisted user whose pool has room.
+
+    When gender limits are inactive: simple FIFO.
+
+    Must be called inside a transaction with the event locked via
+    select_for_update().
+
+    Returns the promoted EventRegistration, or None.
+    """
+    waitlisted = EventRegistration.objects.filter(
+        event=event, status="waitlist"
+    ).select_related("user__crushprofile").order_by("registered_at")
+
+    if not waitlisted.exists():
+        return None
+
+    # If gender limits are not active, just promote first in line
+    if not event.gender_limits_active:
+        if not event.is_full:
+            candidate = waitlisted.first()
+            candidate.status = "confirmed"
+            candidate.save()
+            return candidate
+        return None
+
+    # Gender-aware promotion
+    cancelled_gender = None
+    if cancelled_user:
+        cancelled_profile = getattr(cancelled_user, "crushprofile", None)
+        if cancelled_profile:
+            cancelled_gender = cancelled_profile.gender
+
+    # 1. Try same-pool candidates first
+    if cancelled_gender:
+        pool = event.get_gender_pool(cancelled_gender)
+        if pool:
+            pool_codes = event.POOL_TO_CODES.get(pool, [])
+            for candidate in waitlisted:
+                cand_gender = getattr(
+                    getattr(candidate.user, "crushprofile", None), "gender", None
+                )
+                if cand_gender in pool_codes:
+                    if (
+                        not event.is_full
+                        and not event.is_gender_pool_full(cand_gender)
+                    ):
+                        candidate.status = "confirmed"
+                        candidate.save()
+                        return candidate
+
+    # 2. Try any waitlisted user whose pool has room
+    for candidate in waitlisted:
+        if event.is_full:
+            break
+        cand_gender = getattr(
+            getattr(candidate.user, "crushprofile", None), "gender", None
+        )
+        if cand_gender and event.is_gender_pool_full(cand_gender):
+            continue
+        candidate.status = "confirmed"
+        candidate.save()
+        return candidate
+
+    return None
+
+
 def event_list(request):
     """List of upcoming events"""
     events = MeetupEvent.objects.filter(
@@ -89,12 +162,15 @@ def event_detail(request, event_id):
             request.user
         )
 
+    event_coaches = event.coaches.filter(is_active=True).select_related("user")
+
     context = {
         "event": event,
         "user_registration": registration,
         "user_profile": user_profile,
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
+        "event_coaches": event_coaches,
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -251,14 +327,35 @@ def event_register(request, event_id):
     # Age confirmation needed when user has no profile (age unverified)
     requires_age_confirmation = profile is None
 
+    # Gender selection needed when event uses per-gender caps and user has no gender
+    requires_gender_selection = event.gender_limits_active and (
+        profile is None or not profile.gender
+    )
+
     if request.method == "POST":
-        form = EventRegistrationForm(request.POST, event=event, requires_age_confirmation=requires_age_confirmation)
+        form = EventRegistrationForm(
+            request.POST,
+            event=event,
+            requires_age_confirmation=requires_age_confirmation,
+            requires_gender_selection=requires_gender_selection,
+        )
         if form.is_valid():
             # Use select_for_update + atomic to prevent race condition where
             # concurrent registrations could exceed max_participants
             with transaction.atomic():
                 # Lock the event row to get accurate capacity count
                 locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
+
+                # If the user submitted a gender, persist it to their profile
+                submitted_gender = form.cleaned_data.get("gender")
+                if requires_gender_selection and submitted_gender:
+                    if profile is None:
+                        profile = CrushProfile.objects.create(
+                            user=request.user, gender=submitted_gender
+                        )
+                    else:
+                        profile.gender = submitted_gender
+                        profile.save(update_fields=["gender"])
 
                 cancelled_registration = EventRegistration.objects.filter(
                     event=locked_event, user=request.user, status='cancelled'
@@ -274,11 +371,30 @@ def event_register(request, event_id):
                     registration.event = locked_event
                     registration.user = request.user
 
-                if locked_event.is_full:
+                # Determine confirmed vs waitlist using both total and gender caps
+                user_gender = getattr(profile, "gender", None)
+                total_full = locked_event.is_full
+                gender_pool_full = (
+                    locked_event.gender_limits_active
+                    and user_gender
+                    and locked_event.is_gender_pool_full(user_gender)
+                )
+
+                if total_full or gender_pool_full:
                     registration.status = "waitlist"
-                    messages.info(
-                        request, _("Event is full. You have been added to the waitlist.")
-                    )
+                    if gender_pool_full and not total_full:
+                        messages.info(
+                            request,
+                            _(
+                                "All spots for your gender group are taken. "
+                                "You have been added to the waitlist."
+                            ),
+                        )
+                    else:
+                        messages.info(
+                            request,
+                            _("Event is full. You have been added to the waitlist."),
+                        )
                 else:
                     registration.status = "confirmed"
                     messages.success(request, _("Successfully registered for the event!"))
@@ -312,15 +428,21 @@ def event_register(request, event_id):
                         "event": event,
                         "form": form,
                         "requires_age_confirmation": requires_age_confirmation,
+                        "requires_gender_selection": requires_gender_selection,
                     },
                 )
     else:
-        form = EventRegistrationForm(event=event, requires_age_confirmation=requires_age_confirmation)
+        form = EventRegistrationForm(
+            event=event,
+            requires_age_confirmation=requires_age_confirmation,
+            requires_gender_selection=requires_gender_selection,
+        )
 
     context = {
         "event": event,
         "form": form,
         "requires_age_confirmation": requires_age_confirmation,
+        "requires_gender_selection": requires_gender_selection,
     }
     return render(request, "crush_lu/event_register.html", context)
 
@@ -332,29 +454,28 @@ def event_cancel(request, event_id):
     registration = get_object_or_404(EventRegistration, event=event, user=request.user)
 
     if request.method == "POST":
-        registration.status = "cancelled"
-        registration.save()
-        messages.success(request, _("Your registration has been cancelled."))
+        with transaction.atomic():
+            locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
+            registration = EventRegistration.objects.select_for_update().get(
+                pk=registration.pk
+            )
+            registration.status = "cancelled"
+            registration.save()
 
-        try:
-            send_event_cancellation_confirmation(request.user, event, request)
-        except Exception as e:
-            logger.error(f"Failed to send event cancellation email: {e}")
+            messages.success(request, _("Your registration has been cancelled."))
 
-        # Check if there's a waitlisted user to promote
-        next_waitlisted = (
-            EventRegistration.objects.filter(event=event, status="waitlist")
-            .order_by("registered_at")
-            .first()
-        )
-
-        if next_waitlisted:
-            next_waitlisted.status = "confirmed"
-            next_waitlisted.save()
             try:
-                send_event_registration_confirmation(next_waitlisted, request)
+                send_event_cancellation_confirmation(request.user, locked_event, request)
             except Exception as e:
-                logger.error(f"Failed to send waitlist promotion email: {e}")
+                logger.error(f"Failed to send event cancellation email: {e}")
+
+            # Gender-aware waitlist promotion
+            promoted = _promote_from_waitlist(locked_event, request.user)
+            if promoted:
+                try:
+                    send_event_registration_confirmation(promoted, request)
+                except Exception as e:
+                    logger.error(f"Failed to send waitlist promotion email: {e}")
 
         return redirect("crush_lu:dashboard")
 
