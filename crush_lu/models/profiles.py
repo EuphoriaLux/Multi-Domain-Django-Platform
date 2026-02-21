@@ -521,6 +521,15 @@ class CrushProfile(models.Model):
         return self.age_range
 
     @property
+    def age_display(self):
+        """Returns age string respecting show_exact_age privacy setting."""
+        if self.age is None:
+            return ""
+        if self.show_exact_age:
+            return str(self.age)
+        return self.age_range
+
+    @property
     def display_name(self):
         if self.show_full_name:
             return self.user.get_full_name() or self.user.username

@@ -1584,6 +1584,9 @@ document.addEventListener('alpine:init', function() {
                 this.charCount = initialCount ? parseInt(initialCount) : 0;
                 this.maxLength = maxLength ? parseInt(maxLength) : 500;
             },
+            get charDisplay() {
+                return this.charCount + '/' + this.maxLength;
+            },
             updateCount: function(event) {
                 this.charCount = event.target.value.length;
             }
@@ -6509,9 +6512,11 @@ document.addEventListener('alpine:init', function() {
             error: '',
             range: '30d',
             granularity: '',
+            dauData: null,
             signupData: null,
             verificationData: null,
             cumulativeData: null,
+            dauChart: null,
             signupChart: null,
             verificationChart: null,
             cumulativeChart: null,
@@ -6559,6 +6564,11 @@ document.addEventListener('alpine:init', function() {
             get verifyRejected() { return this.verificationData ? this.verificationData.summary.total_rejected : 0; },
             get verifyRevision() { return this.verificationData ? this.verificationData.summary.total_revision : 0; },
             get verifyRate() { return this.verificationData ? this.verificationData.summary.approval_rate : 0; },
+
+            get dauAvg() { return this.dauData ? this.dauData.summary.avg_dau : 0; },
+            get dauMax() { return this.dauData ? this.dauData.summary.max_dau : 0; },
+            get dauMin() { return this.dauData ? this.dauData.summary.min_dau : 0; },
+            get dauTotal() { return this.dauData ? this.dauData.summary.total_days : 0; },
 
             manualGranularity: false,
 
@@ -6622,16 +6632,19 @@ document.addEventListener('alpine:init', function() {
                 if (gran) params += '&granularity=' + gran;
 
                 Promise.all([
+                    fetch('/crush-admin/api/daily-active-users/?' + params).then(function(r) { return r.json(); }),
                     fetch('/crush-admin/api/signup-trend/?' + params).then(function(r) { return r.json(); }),
                     fetch('/crush-admin/api/verification-trend/?' + params).then(function(r) { return r.json(); }),
                     fetch('/crush-admin/api/cumulative-growth/?' + params).then(function(r) { return r.json(); })
                 ]).then(function(results) {
-                    self.signupData = results[0];
-                    self.verificationData = results[1];
-                    self.cumulativeData = results[2];
+                    self.dauData = results[0];
+                    self.signupData = results[1];
+                    self.verificationData = results[2];
+                    self.cumulativeData = results[3];
                     self.loading = false;
                     // Use requestAnimationFrame to ensure DOM is ready
                     requestAnimationFrame(function() {
+                        self.renderDauChart();
                         self.renderSignupChart();
                         self.renderVerificationChart();
                         self.renderCumulativeChart();
@@ -6649,6 +6662,40 @@ document.addEventListener('alpine:init', function() {
                 if (isNaN(d.getTime())) return label;
                 var month = d.toLocaleString('en', { month: 'short' });
                 return month + ' ' + d.getDate();
+            },
+
+            renderDauChart: function() {
+                var canvas = document.getElementById('dauChart');
+                if (!canvas || !this.dauData || !canvas.offsetParent) return;
+                if (this.dauChart) this.dauChart.destroy();
+                var self = this;
+                var labels = this.dauData.labels.map(function(l) { return self.formatLabel(l); });
+                this.dauChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Active Users',
+                                data: this.dauData.active_users,
+                                borderColor: 'rgb(139, 92, 246)',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        }
+                    }
+                });
             },
 
             renderSignupChart: function() {
@@ -6782,6 +6829,19 @@ document.addEventListener('alpine:init', function() {
                 lines.push('Range: ' + self.range);
                 lines.push('Generated: ' + new Date().toISOString().split('T')[0]);
                 lines.push('');
+
+                if (self.dauData) {
+                    lines.push('=== Daily Active Users ===');
+                    lines.push('Avg DAU: ' + self.dauData.summary.avg_dau);
+                    lines.push('Max DAU: ' + self.dauData.summary.max_dau);
+                    lines.push('Min DAU: ' + self.dauData.summary.min_dau);
+                    lines.push('');
+                    lines.push('Period\tActive Users');
+                    for (var k = 0; k < self.dauData.labels.length; k++) {
+                        lines.push(self.dauData.labels[k] + '\t' + self.dauData.active_users[k]);
+                    }
+                    lines.push('');
+                }
 
                 if (self.signupData) {
                     lines.push('=== Signup Trends ===');

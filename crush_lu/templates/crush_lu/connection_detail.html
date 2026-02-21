@@ -5,456 +5,462 @@
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <!-- Header -->
-    <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold mb-3">{% blocktrans with name=other_profile.display_name %}Connection with {{ name }}{% endblocktrans %} <span aria-hidden="true">💕</span></h1>
-        <p class="text-gray-500 dark:text-gray-400">{{ connection.event.title }}</p>
+
+{# ===== SECTION A: Hero Header ===== #}
+<div class="cta-gradient py-8 px-4 mb-8 -mx-4 sm:-mx-6 lg:-mx-8">
+    <div class="cta-gradient-decorations">
+        <div class="absolute top-0 left-1/4 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 right-1/4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
     </div>
-
-    <!-- Connection Status Timeline -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
-        <div class="p-6">
-            <h5 class="font-semibold mb-6">{% trans "Connection Progress" %}</h5>
-
-            <div class="timeline">
-                <!-- Step 1: Requested -->
-                <div class="timeline-item {% if connection.status != 'pending' %}completed{% endif %}">
-                    <div class="timeline-marker"></div>
-                    <div class="timeline-content">
-                        <h6 class="font-medium">{% trans "Connection Requested" %}</h6>
-                        <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
-                        {% if connection.requester_note %}
-                            <p class="text-sm mt-2 mb-0 flex items-center gap-1">
-                                {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
-                                "{{ connection.requester_note }}"
-                            </p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Step 2: Accepted -->
-                <div class="timeline-item {% if connection.status not in 'pending,declined' %}completed{% endif %}">
-                    <div class="timeline-marker"></div>
-                    <div class="timeline-content">
-                        <h6 class="font-medium">{% trans "Mutual Interest Confirmed" %}</h6>
-                        {% if connection.status != 'pending' %}
-                            <small class="text-gray-500 dark:text-gray-400">{% trans "Accepted" %}</small>
-                        {% else %}
-                            <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for response..." %}</small>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Step 3: Coach Assigned -->
-                <div class="timeline-item {% if connection.status in 'coach_reviewing,coach_approved,shared' %}completed{% endif %}">
-                    <div class="timeline-marker"></div>
-                    <div class="timeline-content">
-                        <h6 class="font-medium">{% trans "Coach Facilitation" %}</h6>
-                        {% if connection.assigned_coach %}
-                            <small class="text-gray-500 dark:text-gray-400">
-                                {% blocktrans with name=connection.assigned_coach.user.first_name %}Coach {{ name }} is helping facilitate{% endblocktrans %}
-                            </small>
-                        {% else %}
-                            <small class="text-gray-500 dark:text-gray-400">{% trans "Pending coach assignment..." %}</small>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Step 4: Consent -->
-                <div class="timeline-item {% if connection.status in 'coach_approved,shared' %}completed{% endif %}">
-                    <div class="timeline-marker"></div>
-                    <div class="timeline-content">
-                        <h6 class="font-medium">{% trans "Consent to Share Contacts" %}</h6>
-                        <div class="mt-2">
-                            <small class="block text-gray-600 dark:text-gray-300">
-                                {% trans "You:" %} {% if is_requester %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
-                            </small>
-                            <small class="block text-gray-600 dark:text-gray-300">
-                                {{ other_profile.display_name }}: {% if is_requester %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 5: Shared -->
-                <div class="timeline-item {% if connection.status == 'shared' %}completed{% endif %}">
-                    <div class="timeline-marker"></div>
-                    <div class="timeline-content">
-                        <h6 class="font-medium">{% trans "Contacts Shared!" %} 🎉</h6>
-                        {% if connection.status == 'shared' %}
-                            <small class="text-gray-500 dark:text-gray-400">{% trans "You can now see each other's contact information" %}</small>
-                        {% else %}
-                            <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for consents..." %}</small>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
+    <div class="relative max-w-5xl mx-auto">
+        <a href="{% url 'crush_lu:my_connections' %}" class="inline-flex items-center gap-1 text-white/80 hover:text-white text-sm mb-4 transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+            {% trans "Back to Connections" %}
+        </a>
+        <div class="flex items-center gap-2 text-white/70 text-sm mb-2">
+            {% include "shared/icons/calendar-days.html" with class="w-4 h-4" %}
+            {{ connection.event.title }}
         </div>
-    </div>
+        <h1 class="text-2xl sm:text-3xl font-bold text-white mb-3">
+            {% blocktrans with name=other_profile.display_name %}Connection with {{ name }}{% endblocktrans %}
+        </h1>
 
-    <!-- Coach Introduction Message -->
-    {% if connection.coach_introduction %}
-        <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-lg mb-6">
-            <div class="p-6">
-                <div class="flex items-start gap-4">
-                    <div class="text-purple-600">
-                        {% include "shared/icons/chat-bubble-left.html" with class="w-8 h-8" %}
-                    </div>
-                    <div>
-                        <h6 class="font-medium mb-2">
-                            {% blocktrans with name=connection.assigned_coach.user.first_name %}Message from Coach {{ name }}{% endblocktrans %}
-                        </h6>
-                        <p class="mb-0 text-gray-600 dark:text-gray-300">{{ connection.coach_introduction }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    <!-- Consent Form (if coach_approved but not yet consented) -->
-    {% if connection.status == 'coach_approved' %}
-        {% if is_requester and not connection.requester_consents_to_share %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
-                <div class="p-6">
-                    <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                        {% trans "Consent Required" %}
-                    </h5>
-                    <p class="text-gray-600 dark:text-gray-300 mb-4">
-                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
-                    </p>
-
-                    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
-                        <h6 class="font-medium mb-2">{% trans "What will be shared:" %}</h6>
-                        <ul class="list-disc list-inside text-sm">
-                            <li>{% trans "Full name:" %} {{ request.user.first_name }} {{ request.user.last_name }}</li>
-                            <li>{% trans "Email:" %} {{ request.user.email }}</li>
-                            {% if request.user.crushprofile.phone_number %}
-                                <li>{% trans "Phone:" %} {{ request.user.crushprofile.phone_number }}</li>
-                            {% endif %}
-                            <li>{% trans "Profile details and photos" %}</li>
-                        </ul>
-                    </div>
-
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="consent" value="yes">
-
-                        <div class="flex items-center gap-2 mb-4">
-                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
-                            <label class="text-sm" for="consent_checkbox">
-                                {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
-                            </label>
-                        </div>
-
-                        <button type="submit" class="btn-crush-primary inline-flex items-center gap-2">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                            {% trans "Give Consent" %}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        {% elif not is_requester and not connection.recipient_consents_to_share %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-yellow-500">
-                <div class="p-6">
-                    <h5 class="font-semibold mb-3 flex items-center gap-2">
-                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
-                        {% trans "Consent Required" %}
-                    </h5>
-                    <p class="text-gray-600 dark:text-gray-300 mb-4">
-                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
-                    </p>
-
-                    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-4">
-                        <h6 class="font-medium mb-2">{% trans "What will be shared:" %}</h6>
-                        <ul class="list-disc list-inside text-sm">
-                            <li>{% trans "Full name:" %} {{ request.user.first_name }} {{ request.user.last_name }}</li>
-                            <li>{% trans "Email:" %} {{ request.user.email }}</li>
-                            {% if request.user.crushprofile.phone_number %}
-                                <li>{% trans "Phone:" %} {{ request.user.crushprofile.phone_number }}</li>
-                            {% endif %}
-                            <li>{% trans "Profile details and photos" %}</li>
-                        </ul>
-                    </div>
-
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="consent" value="yes">
-
-                        <div class="flex items-center gap-2 mb-4">
-                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
-                            <label class="text-sm" for="consent_checkbox">
-                                {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
-                            </label>
-                        </div>
-
-                        <button type="submit" class="btn-crush-primary inline-flex items-center gap-2">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                            {% trans "Give Consent" %}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        {% else %}
-            <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-6 flex items-center gap-2">
-                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                {% blocktrans with name=other_profile.display_name %}You've given consent! Waiting for {{ name }} to consent as well...{% endblocktrans %}
-            </div>
+        {# Status badge #}
+        {% if connection.status == 'pending' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-400/20 text-yellow-100 border border-yellow-400/30">
+                {% include "shared/icons/clock.html" with class="w-4 h-4" %}
+                {% trans "Pending" %}
+            </span>
+        {% elif connection.status == 'accepted' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-400/20 text-blue-100 border border-blue-400/30">
+                {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
+                {% trans "Accepted" %}
+            </span>
+        {% elif connection.status == 'coach_reviewing' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-400/20 text-purple-100 border border-purple-400/30">
+                {% include "shared/icons/user-circle.html" with class="w-4 h-4" %}
+                {% trans "Coach Reviewing" %}
+            </span>
+        {% elif connection.status == 'coach_approved' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-emerald-400/20 text-emerald-100 border border-emerald-400/30">
+                {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
+                {% trans "Coach Approved" %}
+            </span>
+        {% elif connection.status == 'shared' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-400/20 text-green-100 border border-green-400/30">
+                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% trans "Contacts Shared" %}
+            </span>
+        {% elif connection.status == 'declined' %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-red-400/20 text-red-100 border border-red-400/30">
+                {% include "shared/icons/x-circle.html" with class="w-4 h-4" %}
+                {% trans "Declined" %}
+            </span>
         {% endif %}
-    {% endif %}
+    </div>
+</div>
 
-    <!-- Contact Information (if shared) -->
-    {% if connection.status == 'shared' %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 border-l-4 border-green-500">
-            <div class="p-6">
-                <h5 class="font-semibold text-green-600 flex items-center gap-2 mb-6">
-                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    {% trans "Contact Information Shared!" %} 🎉
-                </h5>
+{# ===== TWO-COLUMN LAYOUT ===== #}
+<div class="max-w-5xl mx-auto">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <!-- Other User's Profile -->
-                        <div class="text-center mb-6">
-                            {% if other_profile|has_photo:'photo_1' %}
-                                <img src="{% profile_photo_url other_profile 'photo_1' %}"
-                                     alt="{{ other_profile.display_name }}"
-                                     class="w-24 h-24 rounded-full object-cover mx-auto mb-4"
-                                     loading="lazy">
-                            {% else %}
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-4">
-                                    <span class="text-white text-3xl font-semibold">{{ other_profile.display_name|first }}</span>
-                                </div>
-                            {% endif %}
+        {# ===== LEFT COLUMN: Profile Card ===== #}
+        <div class="lg:col-span-1">
+            <div class="card-bordered p-6 sticky top-24">
+                {# Photo #}
+                <div class="text-center mb-4">
+                    {% if connection.status == 'shared' and other_profile|has_photo:'photo_1' %}
+                        <img src="{% profile_photo_url other_profile 'photo_1' %}"
+                             alt="{{ other_profile.display_name }}"
+                             class="w-28 h-28 rounded-full object-cover mx-auto mb-3 ring-4 ring-purple-100 dark:ring-purple-900/50"
+                             loading="lazy">
+                    {% else %}
+                        <div class="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3 ring-4 ring-purple-100 dark:ring-purple-900/50">
+                            <span class="text-white text-4xl font-semibold">{{ other_profile.display_name|first }}</span>
+                        </div>
+                        {% if connection.status != 'shared' %}
+                            <p class="text-xs text-gray-400 dark:text-gray-500 italic">{% trans "Photo visible after contact is shared" %}</p>
+                        {% endif %}
+                    {% endif %}
 
-                            <h5 class="font-semibold dark:text-white">{{ other_profile.display_name }}</h5>
+                    <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ other_profile.display_name }}</h2>
+                    {% if other_profile %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ other_profile.age_display }}</p>
+                    {% endif %}
+                </div>
 
-                            {% if other_profile %}
-                                <p class="text-gray-500 dark:text-gray-400 mb-4">{{ other_profile.age_display }}</p>
+                {% if other_profile %}
+                    {# Location #}
+                    {% if other_profile.city %}
+                        <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-3">
+                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" %}
+                            {{ other_profile.city }}
+                        </div>
+                    {% endif %}
 
-                                <div class="text-left space-y-2">
-                                    <p class="flex items-center gap-2">
-                                        {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
-                                        <a href="mailto:{{ other_user.email }}" class="text-purple-600 hover:underline">{{ other_user.email }}</a>
+                    {# Looking for #}
+                    {% if other_profile.looking_for %}
+                        <div class="flex items-center gap-2 text-sm mb-3">
+                            {% include "shared/icons/heart.html" with class="w-4 h-4 text-pink-500 shrink-0" %}
+                            <span class="text-gray-500 dark:text-gray-400">{% trans "Looking for:" %}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+                                {{ other_profile.get_looking_for_display }}
+                            </span>
+                        </div>
+                    {% endif %}
+
+                    {# Event languages #}
+                    {% if other_profile.event_languages %}
+                        <div class="flex items-start gap-2 text-sm mb-3">
+                            {% include "shared/icons/language.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0 mt-0.5" %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for lang_code in other_profile.event_languages %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                        {% if lang_code == 'en' %}English{% elif lang_code == 'de' %}Deutsch{% elif lang_code == 'fr' %}Fran&ccedil;ais{% elif lang_code == 'lu' %}L&euml;tzebuergesch{% else %}{{ lang_code }}{% endif %}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {# Bio #}
+                    {% if other_profile.bio %}
+                        <hr class="my-3 border-gray-200 dark:border-gray-700">
+                        {% if connection.status == 'shared' %}
+                            <p class="text-sm text-gray-600 dark:text-gray-300">{{ other_profile.bio }}</p>
+                        {% else %}
+                            <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{{ other_profile.bio }}</p>
+                        {% endif %}
+                    {% endif %}
+
+                    {# Interests #}
+                    {% if other_profile.interests and connection.status == 'shared' %}
+                        <hr class="my-3 border-gray-200 dark:border-gray-700">
+                        <div class="flex items-start gap-2 text-sm">
+                            {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" %}
+                            <div>
+                                <span class="font-medium text-gray-700 dark:text-gray-200">{% trans "Interests:" %}</span>
+                                <p class="text-gray-600 dark:text-gray-300 mt-1">{{ other_profile.interests }}</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-sm text-gray-400 dark:text-gray-500 text-center italic">{% trans "Privacy-protected profile" %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ===== RIGHT COLUMN ===== #}
+        <div class="lg:col-span-2 space-y-6">
+
+            {# ===== SECTION C: Connection Timeline ===== #}
+            <div class="card-bordered p-6">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                    {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5 text-purple-500" %}
+                    {% trans "Connection Progress" %}
+                </h3>
+
+                <div class="connection-timeline">
+                    {# Step 1: Requested #}
+                    <div class="connection-timeline-item {% if connection.status != 'pending' %}completed{% endif %}">
+                        <div class="connection-timeline-marker"></div>
+                        {% if connection.status != 'pending' %}<div class="connection-timeline-connector"></div>{% endif %}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 {% if connection.status != 'pending' %}bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400{% else %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                                {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Connection Requested" %}</h4>
+                                <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
+                                {% if connection.requester_note %}
+                                    <p class="text-sm mt-1 text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                        {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4 shrink-0" %}
+                                        "{{ connection.requester_note }}"
                                     </p>
-
-                                    {% if other_profile.phone_number %}
-                                        <p class="flex items-center gap-2">
-                                            {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
-                                            <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 hover:underline">{{ other_profile.phone_number }}</a>
-                                        </p>
-                                    {% endif %}
-
-                                    {% if other_profile.city %}
-                                        <p class="flex items-center gap-2">
-                                            {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
-                                            {{ other_profile.city }}
-                                        </p>
-                                    {% endif %}
-
-                                    {% if other_profile.bio %}
-                                        <hr class="my-4 border-gray-200 dark:border-gray-700">
-                                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ other_profile.bio }}</p>
-                                    {% endif %}
-
-                                    {% if other_profile.interests %}
-                                        <p class="text-sm flex items-center gap-2">
-                                            {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
-                                            <strong>{% trans "Interests:" %}</strong> {{ other_profile.interests }}
-                                        </p>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <!-- Coach Tips -->
-                        <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
-                            <h6 class="font-medium mb-3 flex items-center gap-2">
-                                {% include "shared/icons/light-bulb.html" with class="w-5 h-5 text-yellow-500" %}
+                    {# Step 2: Accepted #}
+                    {% with step2_complete=connection.status|cut:"pending"|cut:"declined" %}
+                    <div class="connection-timeline-item {% if step2_complete %}completed{% endif %}">
+                        <div class="connection-timeline-marker"></div>
+                        {% if step2_complete %}<div class="connection-timeline-connector"></div>{% endif %}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 {% if step2_complete %}bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400{% else %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Mutual Interest Confirmed" %}</h4>
+                                {% if connection.status == 'pending' %}
+                                    <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for response..." %}</small>
+                                {% elif connection.responded_at %}
+                                    <small class="text-gray-500 dark:text-gray-400">{{ connection.responded_at|date:"M d, Y g:i A" }}</small>
+                                {% else %}
+                                    <small class="text-gray-500 dark:text-gray-400">{% trans "Accepted" %}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+
+                    {# Step 3: Coach Facilitation #}
+                    <div class="connection-timeline-item {% if connection.status in 'coach_reviewing,coach_approved,shared' %}completed{% endif %}">
+                        <div class="connection-timeline-marker"></div>
+                        {% if connection.status in 'coach_reviewing,coach_approved,shared' %}<div class="connection-timeline-connector"></div>{% endif %}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 {% if connection.status in 'coach_reviewing,coach_approved,shared' %}bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400{% else %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                                {% include "shared/icons/user-circle.html" with class="w-4 h-4" %}
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Coach Facilitation" %}</h4>
+                                {% if connection.assigned_coach %}
+                                    <small class="text-gray-500 dark:text-gray-400">
+                                        {% blocktrans with name=connection.assigned_coach.user.first_name %}Coach {{ name }} is helping facilitate{% endblocktrans %}
+                                    </small>
+                                {% else %}
+                                    <small class="text-gray-500 dark:text-gray-400">{% trans "Pending coach assignment..." %}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Step 4: Consent #}
+                    <div class="connection-timeline-item {% if connection.status in 'coach_approved,shared' %}completed{% endif %}">
+                        <div class="connection-timeline-marker"></div>
+                        {% if connection.status in 'coach_approved,shared' %}<div class="connection-timeline-connector"></div>{% endif %}
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 {% if connection.status in 'coach_approved,shared' %}bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400{% else %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                                {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Consent to Share Contacts" %}</h4>
+                                <div class="mt-1 space-y-0.5">
+                                    <small class="block text-gray-600 dark:text-gray-300">
+                                        {% trans "You:" %} {% if is_requester %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
+                                    </small>
+                                    <small class="block text-gray-600 dark:text-gray-300">
+                                        {{ other_profile.display_name }}: {% if is_requester %}{{ connection.recipient_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% else %}{{ connection.requester_consents_to_share|yesno:"✅ Consented,⏳ Pending" }}{% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Step 5: Shared #}
+                    <div class="connection-timeline-item {% if connection.status == 'shared' %}completed{% endif %}">
+                        <div class="connection-timeline-marker"></div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 {% if connection.status == 'shared' %}bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400{% else %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Contacts Shared!" %}</h4>
+                                {% if connection.status == 'shared' %}
+                                    {% if connection.shared_at %}
+                                        <small class="text-gray-500 dark:text-gray-400">{{ connection.shared_at|date:"M d, Y g:i A" }}</small>
+                                    {% else %}
+                                        <small class="text-green-600 dark:text-green-400">{% trans "You can now see each other's contact information" %}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for consents..." %}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ===== SECTION D: Coach Introduction ===== #}
+            {% if connection.coach_introduction %}
+                <div class="card-accent p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center shrink-0">
+                            <span class="text-purple-600 dark:text-purple-400">
+                                {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5" %}
+                            </span>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-1">
+                                {% blocktrans with name=connection.assigned_coach.user.first_name %}Message from Coach {{ name }}{% endblocktrans %}
+                            </h4>
+                            <p class="text-gray-600 dark:text-gray-300">{{ connection.coach_introduction }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {# ===== SECTION E: Consent Form ===== #}
+            {% if user_needs_consent %}
+                <div class="card-bordered border-l-4 border-l-yellow-500 p-6">
+                    <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-yellow-500" %}
+                        {% trans "Consent Required" %}
+                    </h3>
+                    <p class="text-gray-600 dark:text-gray-300 mb-4">
+                        {% blocktrans with name=other_profile.display_name %}Your Crush Coach has approved this connection! Before your contact information is shared with {{ name }}, we need your explicit consent.{% endblocktrans %}
+                    </p>
+
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-lg p-4 mb-4">
+                        <h4 class="font-medium mb-2">{% trans "What will be shared:" %}</h4>
+                        <ul class="list-disc list-inside text-sm space-y-1">
+                            <li>{% trans "Full name:" %} {{ request.user.first_name }} {{ request.user.last_name }}</li>
+                            <li>{% trans "Email:" %} {{ request.user.email }}</li>
+                            {% if request.user.crushprofile.phone_number %}
+                                <li>{% trans "Phone:" %} {{ request.user.crushprofile.phone_number }}</li>
+                            {% endif %}
+                            <li>{% trans "Profile details and photos" %}</li>
+                        </ul>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="consent" value="yes">
+
+                        <div class="flex items-center gap-2 mb-4">
+                            <input class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500" type="checkbox" id="consent_checkbox" required>
+                            <label class="text-sm text-gray-700 dark:text-gray-200" for="consent_checkbox">
+                                {% blocktrans with name=other_profile.display_name %}I consent to share my contact information with {{ name }}{% endblocktrans %}
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn-crush-primary inline-flex items-center gap-2">
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            {% trans "Give Consent" %}
+                        </button>
+                    </form>
+                </div>
+            {% elif user_already_consented %}
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 rounded-lg p-4 flex items-center gap-2">
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    {% blocktrans with name=other_profile.display_name %}You've given consent! Waiting for {{ name }} to consent as well...{% endblocktrans %}
+                </div>
+            {% endif %}
+
+            {# ===== SECTION F: Contact Actions (shared only) ===== #}
+            {% if connection.status == 'shared' %}
+                <div class="card-bordered border-l-4 border-l-green-500 p-6">
+                    <h3 class="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2 mb-6">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                        {% trans "Contact Information Shared!" %}
+                    </h3>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        {# Contact details #}
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 text-sm">
+                                {% include "shared/icons/envelope.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
+                                <a href="mailto:{{ other_user.email }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ other_user.email }}</a>
+                            </div>
+                            {% if other_profile.phone_number %}
+                                <div class="flex items-center gap-2 text-sm">
+                                    {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
+                                    <a href="tel:{{ other_profile.phone_number }}" class="text-purple-600 dark:text-purple-400 hover:underline">{{ other_profile.phone_number }}</a>
+                                </div>
+                            {% endif %}
+                            {% if other_profile.show_full_name %}
+                                <div class="flex items-center gap-2 text-sm">
+                                    {% include "shared/icons/user.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
+                                    <span class="text-gray-700 dark:text-gray-200">{{ other_user.first_name }} {{ other_user.last_name }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {# Tips box #}
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+                            <h4 class="font-medium mb-2 text-sm flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                                {% include "shared/icons/light-bulb.html" with class="w-4 h-4 text-yellow-500" %}
                                 {% trans "Next Steps" %}
-                            </h6>
-                            <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            </h4>
+                            <ul class="list-disc list-inside text-xs text-gray-600 dark:text-gray-300 space-y-1">
                                 <li>{% trans "Take your time getting to know each other" %}</li>
                                 <li>{% trans "Suggest a casual first meetup (coffee, walk, etc.)" %}</li>
                                 <li>{% trans "Be yourself and communicate openly" %}</li>
                                 <li>{% trans "Your coach is still here if you need guidance!" %}</li>
                             </ul>
                         </div>
+                    </div>
 
-                        <div class="space-y-3">
-                            <a href="mailto:{{ other_user.email }}" class="btn-crush-primary w-full inline-flex items-center justify-center gap-2">
-                                {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
-                                {% trans "Send Email" %}
+                    {# Action buttons #}
+                    <div class="flex flex-wrap gap-3">
+                        <a href="mailto:{{ other_user.email }}" class="btn-crush-primary inline-flex items-center gap-2">
+                            {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
+                            {% blocktrans with name=other_profile.display_name %}Contact {{ name }}{% endblocktrans %}
+                        </a>
+                        {% if whatsapp_number %}
+                            <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 font-medium rounded-full py-3 px-6 transition-all duration-300 bg-green-500 hover:bg-green-600 text-white hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                {% trans "WhatsApp" %}
                             </a>
-                            {% if other_profile.phone_number %}
-                                <a href="tel:{{ other_profile.phone_number }}" class="w-full border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center gap-2">
-                                    {% include "shared/icons/phone.html" with class="w-5 h-5" %}
-                                    {% trans "Call" %}
-                                </a>
-                            {% endif %}
-                        </div>
+                        {% endif %}
+                        {% if other_profile.phone_number %}
+                            <a href="tel:{{ other_profile.phone_number }}" class="btn-outline-primary inline-flex items-center gap-2">
+                                {% include "shared/icons/phone.html" with class="w-5 h-5" %}
+                                {% trans "Call" %}
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
-        </div>
-    {% endif %}
+            {% endif %}
 
-    <!-- Messages (if any) -->
-    {% if messages %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
-            <div class="p-6">
-                <h5 class="font-semibold mb-4">{% trans "Messages" %}</h5>
-                <div class="messages-container space-y-3">
-                    {% for msg in messages %}
-                        <div class="message-bubble {% if msg.sender == request.user %}sent{% else %}received{% endif %} {% if msg.is_coach_message %}coach{% endif %}">
-                            <div class="flex items-center justify-between mb-2">
-                                <strong class="text-sm">
-                                    {% if msg.is_coach_message %}
-                                        <span class="inline-flex items-center gap-1">
-                                            {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
-                                            {% blocktrans with name=msg.sender.first_name %}Coach {{ name }}{% endblocktrans %}
-                                        </span>
-                                    {% else %}
-                                        {{ msg.sender.crushprofile.display_name }}
-                                    {% endif %}
-                                </strong>
-                                <small class="text-gray-500 dark:text-gray-400">{{ msg.sent_at|date:"M d, g:i A" }}</small>
+            {# ===== SECTION G: Messages + Compose ===== #}
+            {% if can_message %}
+                <div class="card-bordered p-6">
+                    <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-purple-500" %}
+                        {% trans "Messages" %}
+                    </h3>
+
+                    {# Message list #}
+                    <div id="messages-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                        {% if messages %}
+                            {% for msg in messages %}
+                                {% if msg.sender == request.user %}
+                                    {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=True %}
+                                {% else %}
+                                    {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=False %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-8">
+                                <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                                    {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-gray-400 dark:text-gray-500" %}
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No messages yet. Start the conversation!" %}</p>
                             </div>
-                            <p class="mb-0 text-gray-700 dark:text-gray-200">{{ msg.message }}</p>
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    {% endif %}
+                        {% endif %}
+                    </div>
 
-    <!-- Back Button -->
-    <div class="text-center mt-8">
-        <a href="{% url 'crush_lu:my_connections' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-700 font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-            {% trans "Back to Connections" %}
-        </a>
-    </div>
+                    {# Compose form #}
+                    <form method="post"
+                          hx-post="{% url 'crush_lu:connection_detail' connection.id %}"
+                          hx-target="#messages-container"
+                          hx-swap="beforeend"
+                          hx-on::after-request="if(event.detail.successful) this.reset()">
+                        {% csrf_token %}
+                        <div x-data="charCounter" data-max-length="2000" class="space-y-2">
+                            <textarea name="message"
+                                      rows="3"
+                                      maxlength="2000"
+                                      required
+                                      placeholder="{% trans "Write a message..." %}"
+                                      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+                                      @input="updateCount"></textarea>
+                            <div class="flex items-center justify-between">
+                                <small class="text-gray-400 dark:text-gray-500" x-text="charDisplay"></small>
+                                <button type="submit" class="btn-crush-primary inline-flex items-center gap-2 text-sm py-2 px-4">
+                                    {% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
+                                    {% trans "Send" %}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+
+        </div>{# end right column #}
+    </div>{# end grid #}
 </div>
 
-<style>
-.timeline {
-    position: relative;
-    padding-left: 30px;
-}
-
-.timeline-item {
-    position: relative;
-    padding-bottom: 30px;
-}
-
-.timeline-item:last-child {
-    padding-bottom: 0;
-}
-
-.timeline-marker {
-    position: absolute;
-    left: -30px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #e9ecef;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 2px #e9ecef;
-}
-
-.timeline-item.completed .timeline-marker {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    box-shadow: 0 0 0 2px #9B59B6;
-}
-
-.timeline-item:not(:last-child)::before {
-    content: '';
-    position: absolute;
-    left: -20px;
-    top: 20px;
-    width: 2px;
-    height: calc(100% - 20px);
-    background: #e9ecef;
-}
-
-.timeline-item.completed:not(:last-child)::before {
-    background: linear-gradient(180deg, #9B59B6, #FF6B9D);
-}
-
-.coach-message {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
-}
-
-.message-bubble {
-    padding: 12px 16px;
-    border-radius: 12px;
-    margin-bottom: 12px;
-}
-
-.message-bubble.sent {
-    background: #e3f2fd;
-    margin-left: 20%;
-}
-
-.message-bubble.received {
-    background: #f5f5f5;
-    margin-right: 20%;
-}
-
-.message-bubble.coach {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(255, 107, 157, 0.2));
-    margin-left: 0;
-    margin-right: 0;
-}
-
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    color: white;
-}
-
-.btn-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    border: none;
-    color: white;
-}
-
-.btn-gradient-primary:hover {
-    background: linear-gradient(135deg, #8E44AD, #E74C3C);
-    color: white;
-}
-
-/* Dark mode overrides */
-html.dark .timeline-marker {
-    background: #374151;
-    border: 3px solid #1f2937;
-    box-shadow: 0 0 0 2px #374151;
-}
-
-html.dark .timeline-item:not(:last-child)::before {
-    background: #374151;
-}
-
-html.dark .message-bubble.sent {
-    background: #1e3a5f;
-    color: #dbeafe;
-}
-
-html.dark .message-bubble.received {
-    background: #374151;
-    color: #f1f5f9;
-}
-
-html.dark .coach-message {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.25), rgba(255, 107, 157, 0.25));
-}
-
-html.dark .message-bubble.coach {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.3), rgba(255, 107, 157, 0.3));
-    color: #f1f5f9;
-}
-</style>
 {% endblock %}

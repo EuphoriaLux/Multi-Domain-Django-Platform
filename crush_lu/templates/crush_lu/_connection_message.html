@@ -1,0 +1,17 @@
+{% load i18n %}
+<div class="{% if is_own_message %}msg-bubble msg-bubble-sent{% elif msg.is_coach_message %}msg-bubble msg-bubble-coach{% else %}msg-bubble msg-bubble-received{% endif %}">
+    <div class="flex items-center justify-between mb-2">
+        <strong class="text-sm">
+            {% if msg.is_coach_message %}
+                <span class="inline-flex items-center gap-1">
+                    {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                    {% blocktrans with name=msg.sender.first_name %}Coach {{ name }}{% endblocktrans %}
+                </span>
+            {% else %}
+                {{ msg.sender.crushprofile.display_name }}
+            {% endif %}
+        </strong>
+        <small class="text-gray-500 dark:text-gray-400">{{ msg.sent_at|date:"M d, g:i A" }}</small>
+    </div>
+    <p class="mb-0 text-gray-700 dark:text-gray-200">{{ msg.message }}</p>
+</div>
