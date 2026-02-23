@@ -8,6 +8,7 @@ Secured with Bearer token authentication
 import json
 import logging
 import secrets
+import threading
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -86,35 +87,30 @@ def sync_contacts_endpoint(request):
             'error': 'Outlook contact sync is not enabled for this environment'
         }, status=503)
 
-    try:
-        # Parse request body (optional - for future extensions)
-        data = json.loads(request.body) if request.body else {}
+    # Run sync in background thread to avoid App Service request timeout (230s)
+    def _run_sync():
+        try:
+            import django
+            django.db.connections.close_all()
+            service = GraphContactsService()
+            logger.info("Starting scheduled Outlook contact sync via admin API (background)")
+            stats = service.sync_all_profiles(dry_run=False)
+            logger.info(
+                f"Scheduled contact sync completed: "
+                f"total={stats['total']}, synced={stats['synced']}, "
+                f"skipped={stats['skipped']}, errors={stats['errors']}"
+            )
+        except Exception as e:
+            logger.error(f"Error during scheduled contact sync: {e}", exc_info=True)
 
-        # Initialize service
-        service = GraphContactsService()
+    thread = threading.Thread(target=_run_sync, daemon=True)
+    thread.start()
 
-        # Perform full sync
-        logger.info("Starting scheduled Outlook contact sync via admin API")
-        stats = service.sync_all_profiles(dry_run=False)
-
-        logger.info(
-            f"Scheduled contact sync completed: "
-            f"total={stats['total']}, synced={stats['synced']}, "
-            f"skipped={stats['skipped']}, errors={stats['errors']}"
-        )
-
-        return JsonResponse({
-            'success': True,
-            'stats': stats,
-            'timestamp': timezone.now().isoformat()
-        })
-
-    except Exception as e:
-        logger.error(f"Error during scheduled contact sync: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred during contact synchronization'
-        }, status=500)
+    return JsonResponse({
+        'success': True,
+        'message': 'Sync started in background',
+        'timestamp': timezone.now().isoformat()
+    }, status=202)
 
 
 @csrf_exempt

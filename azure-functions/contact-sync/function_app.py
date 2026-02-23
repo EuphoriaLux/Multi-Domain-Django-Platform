@@ -74,6 +74,7 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
 
     try:
         # Call Django admin API endpoint to trigger sync
+        # The endpoint runs sync in a background thread and returns 202 immediately
         response = requests.post(
             command_url,
             json={
@@ -86,27 +87,23 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
                 'Content-Type': 'application/json',
                 'Host': 'crush.lu'  # Route to Crush URL config via domain middleware
             },
-            timeout=300  # 5 minute timeout for large syncs
+            timeout=60  # Short timeout - endpoint returns 202 immediately
         )
 
         response.raise_for_status()
         result = response.json()
 
-        if result.get('success'):
-            stats = result.get('stats', {})
-            logging.info(
-                f"Daily contact sync completed successfully:\n"
-                f"  Total profiles: {stats.get('total', 'N/A')}\n"
-                f"  Synced: {stats.get('synced', 'N/A')}\n"
-                f"  Skipped: {stats.get('skipped', 'N/A')}\n"
-                f"  Errors: {stats.get('errors', 'N/A')}"
-            )
+        if response.status_code == 202:
+            logging.info("Daily contact sync triggered successfully (running in background on server)")
+        elif result.get('success'):
+            logging.info("Daily contact sync request accepted")
         else:
             error_msg = result.get('error', 'Unknown error')
             logging.error(f"Daily contact sync failed: {error_msg}")
+            raise RuntimeError(f"Sync endpoint returned error: {error_msg}")
 
     except requests.exceptions.Timeout:
-        logging.error("Daily contact sync timed out after 5 minutes")
+        logging.error("Daily contact sync request timed out")
         raise  # Let Azure Functions mark this as Failed
     except requests.exceptions.RequestException as e:
         logging.error(f"Error calling Django management command: {e}")
