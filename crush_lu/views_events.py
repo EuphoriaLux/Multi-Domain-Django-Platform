@@ -100,31 +100,44 @@ def _promote_from_waitlist(event, cancelled_user=None):
     return None
 
 
-def event_list(request):
-    """List of upcoming events"""
-    events = MeetupEvent.objects.filter(
-        is_published=True, is_cancelled=False, date_time__gte=timezone.now()
-    ).order_by("date_time")
-
-    # Filter out private invitation events unless user is invited
-    visible_events = []
+def _filter_private_events(events, user):
+    """Filter out private invitation events unless user is invited."""
+    visible = []
     for event in events:
         if event.is_private_invitation:
-            # Only show if user is invited
-            if request.user.is_authenticated and (
-                event.invited_users.filter(id=request.user.id).exists()
+            if user.is_authenticated and (
+                event.invited_users.filter(id=user.id).exists()
                 or EventInvitation.objects.filter(
                     event=event,
-                    created_user=request.user,
+                    created_user=user,
                     approval_status="approved",
                 ).exists()
             ):
-                visible_events.append(event)
+                visible.append(event)
         else:
-            visible_events.append(event)
+            visible.append(event)
+    return visible
+
+
+def event_list(request):
+    """List of upcoming and past events"""
+    now = timezone.now()
+
+    upcoming_events = MeetupEvent.objects.filter(
+        is_published=True, is_cancelled=False, date_time__gte=now
+    ).order_by("date_time")
+
+    past_events = MeetupEvent.objects.filter(
+        is_published=True, is_cancelled=False, date_time__lt=now
+    ).order_by("-date_time")[:10]
+
+    visible_upcoming = _filter_private_events(upcoming_events, request.user)
+    visible_past = _filter_private_events(past_events, request.user)
 
     context = {
-        "events": visible_events,
+        "events": visible_upcoming,  # backward compat for structured data
+        "upcoming_events": visible_upcoming,
+        "past_events": visible_past,
     }
     return render(request, "crush_lu/event_list.html", context)
 

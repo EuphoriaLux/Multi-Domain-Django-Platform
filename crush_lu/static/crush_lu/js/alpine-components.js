@@ -342,6 +342,29 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Event list tabs (upcoming / past)
+    Alpine.data('eventTabs', function() {
+        return {
+            activeTab: 'upcoming',
+
+            get isUpcoming() { return this.activeTab === 'upcoming'; },
+            get isPast() { return this.activeTab === 'past'; },
+            get upcomingTabClass() {
+                return this.activeTab === 'upcoming'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80';
+            },
+            get pastTabClass() {
+                return this.activeTab === 'past'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80';
+            },
+
+            showUpcoming() { this.activeTab = 'upcoming'; },
+            showPast() { this.activeTab = 'past'; }
+        };
+    });
+
     // Screening dashboard row component
     Alpine.data('screeningRow', function() {
         return {
