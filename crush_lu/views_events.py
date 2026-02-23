@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from datetime import timedelta
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -164,6 +165,102 @@ def event_detail(request, event_id):
 
     event_coaches = event.coaches.filter(is_active=True).select_related("user")
 
+    # Build JSON-LD structured data in Python to guarantee valid JSON
+    # (Django's escapejs produces \x27 for apostrophes, which is invalid JSON)
+    if request.user.is_authenticated:
+        location_data = {
+            "@type": "Place",
+            "name": event.location,
+            "address": {
+                "@type": "PostalAddress",
+                "streetAddress": event.address,
+                "addressLocality": event.location,
+                "addressCountry": "LU",
+            },
+        }
+    else:
+        canton = event.canton or "Luxembourg"
+        location_data = {
+            "@type": "Place",
+            "name": canton,
+            "address": {
+                "@type": "PostalAddress",
+                "addressLocality": canton,
+                "addressRegion": canton,
+                "addressCountry": "LU",
+            },
+        }
+
+    event_url = reverse("crush_lu:event_detail", args=[event.id])
+    event_jsonld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "Event",
+            "name": event.title,
+            "description": event.description,
+            "startDate": event.date_time.isoformat(),
+            "endDate": event.end_time.isoformat(),
+            "eventStatus": "https://schema.org/EventCancelled"
+            if event.is_cancelled
+            else "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "location": location_data,
+            "organizer": {
+                "@type": "Organization",
+                "name": "Crush.lu",
+                "url": "https://crush.lu",
+            },
+            "offers": {
+                "@type": "Offer",
+                "url": f"https://crush.lu{event_url}",
+                "price": format(event.registration_fee, ".2f"),
+                "priceCurrency": "EUR",
+                "availability": "https://schema.org/SoldOut"
+                if event.is_full
+                else "https://schema.org/InStock"
+                if event.is_registration_open
+                else "https://schema.org/OutOfStock",
+                "validFrom": event.created_at.isoformat(),
+            },
+            "maximumAttendeeCapacity": event.max_participants,
+            "remainingAttendeeCapacity": event.spots_remaining,
+            "typicalAgeRange": f"{event.min_age}-{event.max_age}",
+            "image": event.image.url
+            if event.image
+            else "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
+        },
+        ensure_ascii=False,
+    )
+
+    event_list_url = reverse("crush_lu:event_list")
+    breadcrumb_jsonld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": str(_("Home")),
+                    "item": "https://crush.lu/",
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": str(_("Events")),
+                    "item": f"https://crush.lu{event_list_url}",
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 3,
+                    "name": event.title,
+                    "item": f"https://crush.lu{event_url}",
+                },
+            ],
+        },
+        ensure_ascii=False,
+    )
+
     context = {
         "event": event,
         "user_registration": registration,
@@ -171,6 +268,8 @@ def event_detail(request, event_id):
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
         "event_coaches": event_coaches,
+        "event_jsonld": event_jsonld,
+        "breadcrumb_jsonld": breadcrumb_jsonld,
     }
     return render(request, "crush_lu/event_detail.html", context)
 

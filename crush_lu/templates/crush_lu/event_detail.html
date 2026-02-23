@@ -19,81 +19,12 @@
 {% block structured_data %}
 {{ block.super }}
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "Event",
-    "name": "{{ event.title|escapejs }}",
-    "description": "{{ event.description|escapejs }}",
-    "startDate": "{{ event.date_time|date:'c' }}",
-    "endDate": "{{ event.end_time|date:'c' }}",
-    "eventStatus": "{% if event.is_cancelled %}https://schema.org/EventCancelled{% else %}https://schema.org/EventScheduled{% endif %}",
-    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-    "location": {
-        "@type": "Place",
-        {% if user.is_authenticated %}
-        "name": "{{ event.location|escapejs }}",
-        "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "{{ event.address|escapejs }}",
-            "addressLocality": "{{ event.location|escapejs }}",
-            "addressCountry": "LU"
-        }
-        {% else %}
-        "name": "{{ event.canton|default:'Luxembourg'|escapejs }}",
-        "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "{{ event.canton|default:'Luxembourg'|escapejs }}",
-            "addressRegion": "{{ event.canton|default:'Luxembourg'|escapejs }}",
-            "addressCountry": "LU"
-        }
-        {% endif %}
-    },
-    "organizer": {
-        "@type": "Organization",
-        "name": "Crush.lu",
-        "url": "https://crush.lu"
-    },
-    "offers": {
-        "@type": "Offer",
-        "url": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}",
-        "price": "{{ event.registration_fee }}",
-        "priceCurrency": "EUR",
-        "availability": "{% if event.is_full %}https://schema.org/SoldOut{% elif event.is_registration_open %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}",
-        "validFrom": "{{ event.created_at|date:'c' }}"
-    },
-    "maximumAttendeeCapacity": {{ event.max_participants }},
-    "remainingAttendeeCapacity": {{ event.spots_remaining }},
-    "typicalAgeRange": "{{ event.min_age }}-{{ event.max_age }}",
-    "image": "{% if event.image %}{{ event.image.url }}{% else %}https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}{% endif %}"
-}
+{{ event_jsonld|safe }}
 </script>
 
 <!-- Breadcrumb Schema -->
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-        {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "{% trans "Home" %}",
-            "item": "https://crush.lu/"
-        },
-        {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "{% trans "Events" %}",
-            "item": "https://crush.lu{% url 'crush_lu:event_list' %}"
-        },
-        {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "{{ event.title|escapejs }}",
-            "item": "https://crush.lu{% url 'crush_lu:event_detail' event.id %}"
-        }
-    ]
-}
+{{ breadcrumb_jsonld|safe }}
 </script>
 {% endblock %}
 
@@ -566,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Calendar URLs
     const eventData = {
         title: '{{ event.title|escapejs }}',
-        description: '{{ event.description|escapejs|linebreaksbr }}',
+        description: '{{ event.description|escapejs }}',
         location: '{% if user.is_authenticated %}{{ event.location|escapejs }}, {{ event.address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}',
         startTime: '{{ event.date_time|date:"Ymd" }}T{{ event.date_time|date:"His" }}',
         endTime: '{{ event.date_time|date:"Ymd" }}T{% with end_time=event.date_time %}{% endwith %}', // Will calculate in JS
