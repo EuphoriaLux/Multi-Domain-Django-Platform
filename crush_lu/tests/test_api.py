@@ -228,7 +228,7 @@ class VotingAPITests(SiteTestMixin, TestCase):
         """Set up test data for voting tests."""
         from crush_lu.models import (
             MeetupEvent, EventRegistration, EventVotingSession,
-            GlobalActivityOption, CrushProfile
+            EventActivityOption, GlobalActivityOption, CrushProfile
         )
 
         self.client = Client()
@@ -276,8 +276,7 @@ class VotingAPITests(SiteTestMixin, TestCase):
             voting_end_time=timezone.now() + timedelta(minutes=25)
         )
 
-        # Create GlobalActivityOption instances (these are global, not per-event)
-        # EventActivityVote.selected_option references GlobalActivityOption
+        # Create GlobalActivityOption instances (master templates)
         self.global_option1, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='spicy_questions',
             defaults={
@@ -294,6 +293,19 @@ class VotingAPITests(SiteTestMixin, TestCase):
                 'display_name': 'With Favorite Music',
                 'description': 'Introduce yourself while your favorite song plays',
             }
+        )
+
+        # Get EventActivityOption instances (auto-created by signal on event creation)
+        self.event_option1 = EventActivityOption.objects.get(
+            event=self.event,
+            activity_type='speed_dating_twist',
+            activity_variant='spicy_questions',
+        )
+
+        self.event_option2 = EventActivityOption.objects.get(
+            event=self.event,
+            activity_type='presentation_style',
+            activity_variant='music',
         )
 
     def test_voting_status_api(self):
@@ -313,23 +325,42 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.assertFalse(data['data']['has_voted'])
 
     def test_submit_vote_api(self):
-        """Test submitting a vote.
+        """Test submitting a vote."""
+        self.client.login(username='voter@example.com', password='testpass123')
 
-        NOTE: This test is skipped because the API code (api_views.py:146) uses
-        EventActivityOption instead of GlobalActivityOption, but the model
-        (EventActivityVote.selected_option) expects GlobalActivityOption.
-        This is a production bug that needs to be fixed separately.
-        """
-        import unittest
-        raise unittest.SkipTest("API uses EventActivityOption but model expects GlobalActivityOption - needs API fix")
+        response = self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.event_option1.id) + '}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['action'], 'created')
 
     def test_submit_vote_change(self):
-        """Test changing a vote.
+        """Test changing a vote."""
+        self.client.login(username='voter@example.com', password='testpass123')
 
-        NOTE: Skipped due to same API bug as test_submit_vote_api.
-        """
-        import unittest
-        raise unittest.SkipTest("API uses EventActivityOption but model expects GlobalActivityOption - needs API fix")
+        # Submit initial vote
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.event_option1.id) + '}',
+            content_type='application/json',
+        )
+
+        # Change vote
+        response = self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.event_option2.id) + '}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['action'], 'updated')
 
     def test_voting_results_api(self):
         """Test getting voting results.

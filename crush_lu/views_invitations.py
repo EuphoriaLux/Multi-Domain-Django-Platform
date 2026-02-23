@@ -177,6 +177,11 @@ def coach_manage_invitations(request, event_id):
 
     event = get_object_or_404(MeetupEvent, id=event_id, is_private_invitation=True)
 
+    # Verify coach is assigned to this event (or is a superuser)
+    if not request.user.is_superuser and not event.coaches.filter(pk=coach.pk).exists():
+        messages.error(request, _("You are not assigned to manage this event."))
+        return redirect("crush_lu:coach_dashboard")
+
     if request.method == "POST":
         action = request.POST.get("action")
 

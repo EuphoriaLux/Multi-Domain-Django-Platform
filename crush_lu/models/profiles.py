@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
@@ -343,7 +344,13 @@ class CrushProfile(models.Model):
     # Basic Info (Step 1 - REQUIRED for initial save)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=2, choices=GENDER_CHOICES, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True, db_index=True)  # Required in form, not model
+    phone_number = models.CharField(
+        max_length=20, blank=True, db_index=True,
+        validators=[RegexValidator(
+            regex=r'^\+?[\d\s\-().]{7,20}$',
+            message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
+        )],
+    )  # Required in form, not model
     phone_verified = models.BooleanField(default=False, help_text=_("Whether phone was verified via SMS OTP"))
     phone_verified_at = models.DateTimeField(null=True, blank=True, help_text=_("When phone was verified"))
     phone_verification_uid = models.CharField(
@@ -671,7 +678,7 @@ class ProfileSubmission(models.Model):
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
     coach = models.ForeignKey(
         CrushCoach,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True
     )

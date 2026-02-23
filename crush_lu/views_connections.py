@@ -41,9 +41,9 @@ def event_attendees(request, event_id):
     """Show attendees after user has attended event - allows connection requests"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user attended this event
+    # Verify user attended this event (status must be 'attended')
     user_registration = get_object_or_404(
-        EventRegistration, event=event, user=request.user
+        EventRegistration, event=event, user=request.user, status='attended'
     )
 
     if not user_registration.can_make_connections:

@@ -305,6 +305,21 @@ class MeetupEvent(models.Model):
                 )
             )
 
+        # Age range validation
+        if self.min_age > self.max_age:
+            raise ValidationError(
+                _("Minimum age (%(min)d) cannot exceed maximum age (%(max)d).")
+                % {"min": self.min_age, "max": self.max_age}
+            )
+        if self.min_age < 18:
+            raise ValidationError(
+                {"min_age": _("Minimum age must be at least 18.")}
+            )
+        if self.max_age > 120:
+            raise ValidationError(
+                {"max_age": _("Maximum age cannot exceed 120.")}
+            )
+
         # Sum of gender caps must not exceed total max_participants
         if len(set_caps) == 3:
             total_gender = sum(set_caps)
@@ -741,12 +756,12 @@ class EventActivityVote(models.Model):
         MeetupEvent, on_delete=models.CASCADE, related_name="activity_votes"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    selected_option = models.ForeignKey(GlobalActivityOption, on_delete=models.CASCADE)
+    selected_option = models.ForeignKey(EventActivityOption, on_delete=models.CASCADE)
     voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Each user can vote once PER CATEGORY (presentation_style AND speed_dating_twist)
-        unique_together = ("event", "user", "selected_option")
+        # Each user can vote once per event (view enforces update-or-create logic)
+        unique_together = ("event", "user")
         ordering = ["-voted_at"]
 
     def __str__(self):
@@ -877,40 +892,46 @@ class EventVotingSession(models.Model):
         self.save()
 
     def calculate_winner(self):
-        """Determine winning global activity option for each category"""
+        """Determine winning activity option for each category"""
         from django.db.models import Count
 
-        # Count votes for each GlobalActivityOption for presentation style
+        # Count votes for each EventActivityOption for presentation style
         presentation_votes = (
             EventActivityVote.objects.filter(
                 event=self.event, selected_option__activity_type="presentation_style"
             )
-            .values("selected_option")
+            .values("selected_option__activity_variant")
             .annotate(vote_count=Count("id"))
             .order_by("-vote_count")
         )
 
         if presentation_votes:
-            winner_id = presentation_votes[0]["selected_option"]
-            self.winning_presentation_style = GlobalActivityOption.objects.get(
-                id=winner_id
-            )
+            winner_variant = presentation_votes[0]["selected_option__activity_variant"]
+            try:
+                self.winning_presentation_style = GlobalActivityOption.objects.get(
+                    activity_variant=winner_variant
+                )
+            except GlobalActivityOption.DoesNotExist:
+                pass
 
-        # Count votes for each GlobalActivityOption for speed dating twist
+        # Count votes for each EventActivityOption for speed dating twist
         twist_votes = (
             EventActivityVote.objects.filter(
                 event=self.event, selected_option__activity_type="speed_dating_twist"
             )
-            .values("selected_option")
+            .values("selected_option__activity_variant")
             .annotate(vote_count=Count("id"))
             .order_by("-vote_count")
         )
 
         if twist_votes:
-            winner_id = twist_votes[0]["selected_option"]
-            self.winning_speed_dating_twist = GlobalActivityOption.objects.get(
-                id=winner_id
-            )
+            winner_variant = twist_votes[0]["selected_option__activity_variant"]
+            try:
+                self.winning_speed_dating_twist = GlobalActivityOption.objects.get(
+                    activity_variant=winner_variant
+                )
+            except GlobalActivityOption.DoesNotExist:
+                pass
 
     def initialize_presentation_queue(self):
         """Initialize presentation queue with all confirmed/attended users in random order"""

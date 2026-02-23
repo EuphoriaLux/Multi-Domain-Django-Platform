@@ -305,7 +305,7 @@
                     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-lg p-4 mb-4">
                         <h4 class="font-medium mb-2">{% trans "What will be shared:" %}</h4>
                         <ul class="list-disc list-inside text-sm space-y-1">
-                            <li>{% trans "Full name:" %} {{ request.user.first_name }} {{ request.user.last_name }}</li>
+                            <li>{% trans "Full name:" %} {{ request.user.crushprofile.display_name }}</li>
                             <li>{% trans "Email:" %} {{ request.user.email }}</li>
                             {% if request.user.crushprofile.phone_number %}
                                 <li>{% trans "Phone:" %} {{ request.user.crushprofile.phone_number }}</li>
@@ -362,7 +362,7 @@
                             {% if other_profile.show_full_name %}
                                 <div class="flex items-center gap-2 text-sm">
                                     {% include "shared/icons/user.html" with class="w-4 h-4 text-gray-400 dark:text-gray-500" %}
-                                    <span class="text-gray-700 dark:text-gray-200">{{ other_user.first_name }} {{ other_user.last_name }}</span>
+                                    <span class="text-gray-700 dark:text-gray-200">{{ other_profile.display_name }}</span>
                                 </div>
                             {% endif %}
                         </div>

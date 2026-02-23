@@ -170,19 +170,20 @@ def redeem_points(request):
 
     points_required = reward_costs[reward_type]
 
-    # Check if user has enough points
-    if profile.referral_points < points_required:
-        return Response(
-            {
-                "error": "Insufficient points",
-                "points_required": points_required,
-                "current_points": profile.referral_points,
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Process the reward
+    # Process the reward atomically with select_for_update to prevent double-spend
     with transaction.atomic():
+        profile = CrushProfile.objects.select_for_update().get(pk=profile.pk)
+
+        if profile.referral_points < points_required:
+            return Response(
+                {
+                    "error": "Insufficient points",
+                    "points_required": points_required,
+                    "current_points": profile.referral_points,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Deduct points
         CrushProfile.objects.filter(pk=profile.pk).update(
             referral_points=F("referral_points") - points_required

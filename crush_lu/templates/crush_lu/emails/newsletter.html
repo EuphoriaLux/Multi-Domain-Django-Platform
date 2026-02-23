@@ -8,6 +8,7 @@
     {% if first_name %}{% blocktrans with name=first_name %}Hey {{ name }}!{% endblocktrans %}{% else %}{% trans "Hey there!" %}{% endif %}
 </h2>
 
+{# body_html is admin-only content from Newsletter model - safe filter is intentional #}
 {{ body_html|safe }}
 
 {% if cta_url and cta_text %}

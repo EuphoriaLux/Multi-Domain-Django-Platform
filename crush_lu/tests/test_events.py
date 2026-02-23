@@ -236,8 +236,8 @@ class EventVotingTests(TestCase):
     def setUp(self):
         """Set up test data."""
         from crush_lu.models import (
-            MeetupEvent, EventVotingSession, GlobalActivityOption,
-            EventRegistration, CrushProfile
+            MeetupEvent, EventVotingSession, EventActivityOption,
+            GlobalActivityOption, EventRegistration, CrushProfile
         )
 
         self.user = User.objects.create_user(
@@ -283,8 +283,7 @@ class EventVotingTests(TestCase):
             voting_end_time=timezone.now() + timedelta(minutes=25)  # Open for 25 more mins
         )
 
-        # Create GlobalActivityOption instances (these are global, not per-event)
-        # EventActivityVote.selected_option references GlobalActivityOption
+        # Create GlobalActivityOption instances (master templates)
         self.global_option1, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='spicy_questions',
             defaults={
@@ -303,6 +302,19 @@ class EventVotingTests(TestCase):
             }
         )
 
+        # Get EventActivityOption instances (auto-created by signal on event creation)
+        self.event_option1 = EventActivityOption.objects.get(
+            event=self.event,
+            activity_type='speed_dating_twist',
+            activity_variant='spicy_questions',
+        )
+
+        self.event_option2 = EventActivityOption.objects.get(
+            event=self.event,
+            activity_type='presentation_style',
+            activity_variant='music',
+        )
+
     def test_vote_submission(self):
         """Test user can submit a vote."""
         from crush_lu.models import EventActivityVote
@@ -310,11 +322,11 @@ class EventVotingTests(TestCase):
         vote = EventActivityVote.objects.create(
             event=self.event,
             user=self.user,
-            selected_option=self.global_option1
+            selected_option=self.event_option1
         )
 
         self.assertIsNotNone(vote)
-        self.assertEqual(vote.selected_option, self.global_option1)
+        self.assertEqual(vote.selected_option, self.event_option1)
 
     def test_vote_count_tracking(self):
         """Test that votes are counted correctly via EventVotingSession."""
@@ -324,13 +336,13 @@ class EventVotingTests(TestCase):
         EventActivityVote.objects.create(
             event=self.event,
             user=self.user,
-            selected_option=self.global_option1
+            selected_option=self.event_option1
         )
 
         # Count votes for this event and option
         vote_count = EventActivityVote.objects.filter(
             event=self.event,
-            selected_option=self.global_option1
+            selected_option=self.event_option1
         ).count()
 
         self.assertEqual(vote_count, 1)
@@ -379,7 +391,7 @@ class EventVotingTests(TestCase):
             EventActivityVote.objects.create(
                 event=self.event,
                 user=user,
-                selected_option=self.global_option1
+                selected_option=self.event_option1
             )
 
         # Update total votes on session
@@ -389,7 +401,7 @@ class EventVotingTests(TestCase):
         # Count votes for this option
         vote_count = EventActivityVote.objects.filter(
             event=self.event,
-            selected_option=self.global_option1
+            selected_option=self.event_option1
         ).count()
 
         # Calculate percentage

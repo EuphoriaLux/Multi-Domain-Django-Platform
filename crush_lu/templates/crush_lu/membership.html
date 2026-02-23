@@ -86,7 +86,7 @@
                         {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.emoji }}{% endif %}{% endfor %}
                     </div>
                     <div>
-                        <p class="font-semibold text-lg">{{ user.first_name }} {{ user.last_name }}</p>
+                        <p class="font-semibold text-lg">{{ profile.display_name }}</p>
                         <p class="text-gray-600 dark:text-gray-300">
                             {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.name }}{% endif %}{% endfor %} {% trans "Member" %}
                         </p>
@@ -136,7 +136,7 @@
                                 {{ user.first_name|slice:":1" }}
                             </div>
                             <div>
-                                <p class="font-semibold text-gray-900 dark:text-white">{{ user.first_name }} {{ user.last_name }}</p>
+                                <p class="font-semibold text-gray-900 dark:text-white">{{ profile.display_name }}</p>
                                 <p class="text-gray-600 dark:text-gray-300 text-sm">{% trans "Member since" %} {{ user.date_joined|date:"M Y" }}</p>
                             </div>
                         </div>

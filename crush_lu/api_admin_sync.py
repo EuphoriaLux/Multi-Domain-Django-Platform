@@ -186,10 +186,19 @@ def sync_contacts_health(request):
     """
     Health check endpoint for contact sync service.
 
+    Requires admin API key authentication to prevent information disclosure.
+
     Returns:
         JSON response with service status and configuration
     """
     from django.utils import timezone
+
+    if not _authenticate_admin_request(request):
+        return JsonResponse({
+            'success': False,
+            'error': 'Unauthorized'
+        }, status=401)
+
     # Check if API key is configured
     has_api_key = bool(getattr(settings, 'ADMIN_API_KEY', None))
 

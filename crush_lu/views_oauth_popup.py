@@ -13,7 +13,7 @@ Solution: Return 200 OK with a JavaScript-delayed redirect (400ms) to allow
 Chrome to commit cookies before navigating.
 """
 
-import json
+
 import logging
 from django.shortcuts import render, redirect
 from django.views.decorators.http import require_http_methods
@@ -75,7 +75,7 @@ def oauth_popup_callback(request):
     origin = request.build_absolute_uri('/').rstrip('/')
 
     return render(request, 'crush_lu/oauth_popup_callback.html', {
-        'oauth_result': json.dumps(oauth_result),
+        'oauth_result': oauth_result,
         'redirect_url': redirect_url,
         'origin': origin,
         'is_authenticated': is_authenticated,

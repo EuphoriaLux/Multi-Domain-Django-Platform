@@ -57,6 +57,7 @@ def crush_user_context(request):
         # Profile submission status for visual indicators
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
+        context['profile'] = profile
         if profile:
             completion_status = profile.completion_status
             context['profile_completion_status'] = completion_status

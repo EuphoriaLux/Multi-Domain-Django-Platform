@@ -142,12 +142,13 @@
         </div>
     </div>
 
+    {{ oauth_result|json_script:"oauth-data" }}
     <script nonce="{{ request.csp_nonce }}">
     (function() {
         'use strict';
 
         var ALLOWED_ORIGIN = '{{ origin|escapejs }}';
-        var OAUTH_RESULT = {{ oauth_result|safe }};
+        var OAUTH_RESULT = JSON.parse(document.getElementById('oauth-data').textContent);
         var REDIRECT_URL = '{{ redirect_url|escapejs }}';
         var fallbackTimer = null;
 

@@ -346,6 +346,11 @@ def event_register(request, event_id):
                 # Lock the event row to get accurate capacity count
                 locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
 
+                # Re-check registration deadline under lock to prevent race condition
+                if not locked_event.is_registration_open:
+                    messages.error(request, _("Registration is not available for this event."))
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+
                 # If the user submitted a gender, persist it to their profile
                 submitted_gender = form.cleaned_data.get("gender")
                 if requires_gender_selection and submitted_gender:
