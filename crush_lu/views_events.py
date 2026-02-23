@@ -191,46 +191,53 @@ def event_detail(request, event_id):
             },
         }
 
+    # Build performer list from event coaches (first name only for privacy)
+    performers = [
+        {"@type": "Person", "name": coach.user.first_name}
+        for coach in event_coaches
+        if coach.user.first_name
+    ]
+
     event_url = reverse("crush_lu:event_detail", args=[event.id])
-    event_jsonld = json.dumps(
-        {
-            "@context": "https://schema.org",
-            "@type": "Event",
-            "name": event.title,
-            "description": event.description,
-            "startDate": event.date_time.isoformat(),
-            "endDate": event.end_time.isoformat(),
-            "eventStatus": "https://schema.org/EventCancelled"
-            if event.is_cancelled
-            else "https://schema.org/EventScheduled",
-            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-            "location": location_data,
-            "organizer": {
-                "@type": "Organization",
-                "name": "Crush.lu",
-                "url": "https://crush.lu",
-            },
-            "offers": {
-                "@type": "Offer",
-                "url": f"https://crush.lu{event_url}",
-                "price": format(event.registration_fee, ".2f"),
-                "priceCurrency": "EUR",
-                "availability": "https://schema.org/SoldOut"
-                if event.is_full
-                else "https://schema.org/InStock"
-                if event.is_registration_open
-                else "https://schema.org/OutOfStock",
-                "validFrom": event.created_at.isoformat(),
-            },
-            "maximumAttendeeCapacity": event.max_participants,
-            "remainingAttendeeCapacity": event.spots_remaining,
-            "typicalAgeRange": f"{event.min_age}-{event.max_age}",
-            "image": event.image.url
-            if event.image
-            else "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
+    event_jsonld_data = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": event.title,
+        "description": event.description,
+        "startDate": event.date_time.isoformat(),
+        "endDate": event.end_time.isoformat(),
+        "eventStatus": "https://schema.org/EventCancelled"
+        if event.is_cancelled
+        else "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        "location": location_data,
+        "organizer": {
+            "@type": "Organization",
+            "name": "Crush.lu",
+            "url": "https://crush.lu",
         },
-        ensure_ascii=False,
-    )
+        "offers": {
+            "@type": "Offer",
+            "url": f"https://crush.lu{event_url}",
+            "price": format(event.registration_fee, ".2f"),
+            "priceCurrency": "EUR",
+            "availability": "https://schema.org/SoldOut"
+            if event.is_full
+            else "https://schema.org/InStock"
+            if event.is_registration_open
+            else "https://schema.org/OutOfStock",
+            "validFrom": event.created_at.isoformat(),
+        },
+        "maximumAttendeeCapacity": event.max_participants,
+        "remainingAttendeeCapacity": event.spots_remaining,
+        "typicalAgeRange": f"{event.min_age}-{event.max_age}",
+        "image": event.image.url
+        if event.image
+        else "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
+    }
+    if performers:
+        event_jsonld_data["performer"] = performers
+    event_jsonld = json.dumps(event_jsonld_data, ensure_ascii=False)
 
     event_list_url = reverse("crush_lu:event_list")
     breadcrumb_jsonld = json.dumps(
