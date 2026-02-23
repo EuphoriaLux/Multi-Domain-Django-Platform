@@ -83,7 +83,8 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
             },
             headers={
                 'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Host': 'crush.lu'  # Route to Crush URL config via domain middleware
             },
             timeout=300  # 5 minute timeout for large syncs
         )
@@ -106,7 +107,10 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
 
     except requests.exceptions.Timeout:
         logging.error("Daily contact sync timed out after 5 minutes")
+        raise  # Let Azure Functions mark this as Failed
     except requests.exceptions.RequestException as e:
         logging.error(f"Error calling Django management command: {e}")
+        raise  # Let Azure Functions mark this as Failed
     except Exception as e:
         logging.error(f"Unexpected error during daily contact sync: {e}")
+        raise  # Let Azure Functions mark this as Failed

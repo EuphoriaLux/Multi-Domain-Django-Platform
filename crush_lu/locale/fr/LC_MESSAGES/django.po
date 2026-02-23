@@ -13733,13 +13733,13 @@ msgstr "Ce que tu peux faire maintenant :"
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:22
 msgid "Browse and register for upcoming events"
 msgstr ""
-"Parcourez et inscrivez-vous aux prochaines soirées speed dating etmeetups "
+"Parcourez et inscrivez-vous aux prochaines soirées speed dating et meetups "
 "sociaux."
 
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:23
 msgid "Meet new people at speed dating and social mixers"
 msgstr ""
-"Rencontre de nouvelles personnes lors de speed dating et soiréesrencontre"
+"Rencontre de nouvelles personnes lors de speed dating et soirées rencontre"
 
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:24
 msgid "Connect with attendees after events"
