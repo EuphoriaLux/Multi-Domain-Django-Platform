@@ -74,16 +74,16 @@ class CrushConsentMiddleware:
             if self.is_banned(request.user):
                 path = request.path
                 # Allow access to banned page, logout, and static assets
-                if not any(path.startswith(p) for p in ['/account/banned/', '/logout/', '/static/', '/media/', '/healthz/']):
+                if not any(path.startswith(p) for p in ['/account/banned/', '/logout/', '/static/', '/media/', '/healthz/']) and '/account/banned/' not in path:
                     logger.info(f"Banned user {request.user.id} redirected from {path} to banned page")
-                    return redirect('crush_lu:account_banned')
+                    return redirect(reverse('crush_lu:account_banned', urlconf=CRUSH_URLCONF))
 
         # Check if consent is required
         if self.requires_consent_check(request):
             # Check if user has consent
             if not self.has_crushlu_consent(request.user):
                 logger.info(f"User {request.user.id} attempted to access {request.path} without Crush.lu consent")
-                return redirect('crush_lu:consent_confirm')
+                return redirect(reverse('crush_lu:consent_confirm', urlconf=CRUSH_URLCONF))
 
         response = self.get_response(request)
         return response
