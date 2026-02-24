@@ -209,8 +209,16 @@ MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/" 
 # - vinsdelux-media/journey/step_01.png
 # - powerup-media/defaults/profile.png
 
+# CDN endpoint for public media (set via Azure Portal after CDN deployment)
+# Falls back to direct blob storage URL if CDN is not configured
+CDN_ENDPOINT_HOSTNAME = os.getenv("CDN_ENDPOINT_HOSTNAME", "")
+
 # Crush.lu images (in crush-lu-media container)
-CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+CRUSH_MEDIA_BASE_URL = (
+    f"https://{CDN_ENDPOINT_HOSTNAME}/crush-lu-media"
+    if CDN_ENDPOINT_HOSTNAME
+    else f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+)
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     "SOCIAL_PREVIEW_IMAGE_URL",
     f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
@@ -221,7 +229,11 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
 )
 
 # VinsDelux images (in vinsdelux-media container)
-VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
+VINSDELUX_MEDIA_BASE_URL = (
+    f"https://{CDN_ENDPOINT_HOSTNAME}/vinsdelux-media"
+    if CDN_ENDPOINT_HOSTNAME
+    else f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
+)
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
     "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
 )
@@ -231,7 +243,11 @@ VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
 )
 
 # PowerUP/Entreprinder images (in powerup-media container)
-POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+POWERUP_MEDIA_BASE_URL = (
+    f"https://{CDN_ENDPOINT_HOSTNAME}/powerup-media"
+    if CDN_ENDPOINT_HOSTNAME
+    else f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+)
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     "POWERUP_DEFAULT_PROFILE_URL",
     f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png",
@@ -284,33 +300,43 @@ DATABASES = {
         "HOST": conn_str_params["host"],
         "USER": conn_str_params["user"],
         "PASSWORD": conn_str_params["password"],
+        "CONN_MAX_AGE": 600,  # Reuse connections for 10 minutes (saves 20-50ms/request)
+        "CONN_HEALTH_CHECKS": True,  # Django 4.1+ verify connection before reuse
     }
 }
 
 # ============================================================================
 # CACHE CONFIGURATION
 # ============================================================================
-# Using database-backed cache for rate limiting consistency across instances.
-# Azure App Service can run multiple instances behind load balancer - LocMemCache
-# would fail to enforce rate limits across instances. Database cache is slower
-# but works correctly and doesn't require Redis (which adds Azure cost).
+# Redis cache provides sub-millisecond access for rate limiting, sessions,
+# and cached queries. Falls back to database cache if Redis is unavailable.
 #
-# OPTIMIZATION: Increased timeout from 300s to 600s (10 minutes) and MAX_ENTRIES
-# from 1000 to 5000 for better cache hit rates and fewer database queries.
-#
-# IMPORTANT: Run `python manage.py createcachetable` in deployment to create
-# the cache table. This is handled in the Azure startup script.
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "django_cache",  # Table name for cache entries
-        "TIMEOUT": 600,  # Increased from 300 to 600 seconds (10 minutes)
-        "OPTIONS": {
-            "MAX_ENTRIES": 5000,  # Increased from 1000 for better cache retention
-            "CULL_FREQUENCY": 4,  # More aggressive culling (remove 25% when max reached)
-        },
+# Redis connection string set via AZURE_REDIS_CONNECTIONSTRING env var
+# (provisioned by Bicep in resources.bicep)
+AZURE_REDIS_URL = os.getenv("AZURE_REDIS_CONNECTIONSTRING", "")
+
+if AZURE_REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": AZURE_REDIS_URL,
+            "TIMEOUT": 600,  # 10 minutes default
+        }
     }
-}
+else:
+    # Fallback: database-backed cache (slower but works without Redis)
+    # IMPORTANT: Run `python manage.py createcachetable` in deployment
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "django_cache",
+            "TIMEOUT": 600,
+            "OPTIONS": {
+                "MAX_ENTRIES": 5000,
+                "CULL_FREQUENCY": 4,
+            },
+        }
+    }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from signed_cookies to db for PWA persistence
 

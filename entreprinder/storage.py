@@ -68,6 +68,10 @@ class EntreprinderMediaStorage(AzureStorage):
             self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
         else:
             self.azure_ssl = True  # Production uses HTTPS
+            # Production: prefer Managed Identity over account key
+            if not self.account_key:
+                from azure.identity import DefaultAzureCredential
+                self.credential = DefaultAzureCredential()
 
         super().__init__(*args, **kwargs)
         self.overwrite_files = False

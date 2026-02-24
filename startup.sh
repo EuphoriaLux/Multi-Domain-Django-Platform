@@ -13,9 +13,13 @@ echo "🐍 Python version: $(python --version)"
 python manage.py migrate --no-input
 
 # Create cache table for database-backed caching (rate limiting)
-# This is idempotent - safe to run on every deployment
-echo "📦 Creating cache table if needed..."
-python manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
+# Only needed when Redis is NOT configured (fallback to database cache)
+if [ -z "$AZURE_REDIS_CONNECTIONSTRING" ]; then
+    echo "📦 Creating cache table if needed (no Redis configured)..."
+    python manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
+else
+    echo "✅ Redis cache configured - skipping createcachetable"
+fi
 
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
@@ -37,6 +41,11 @@ if [ "$POPULATE_SAMPLE_DATA" = "true" ]; then
     echo "🍷 Auto-populating sample data with images..."
     python manage.py populate_with_images --force-refresh
 fi
+
+# Clean expired sessions to prevent django_session table bloat
+# Sessions expire after SESSION_COOKIE_AGE (14 days) but rows remain until cleaned
+echo "🧹 Cleaning expired sessions..."
+python manage.py clearsessions
 
 echo "✅ Migrations complete. Starting Gunicorn..."
 

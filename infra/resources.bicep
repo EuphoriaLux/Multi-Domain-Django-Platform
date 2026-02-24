@@ -13,11 +13,8 @@ var pgServerName = '${prefix}-postgres-server'
 var databaseSubnetName = 'database-subnet'
 var webappSubnetName = 'webapp-subnet'
 
-// Added for Azure Redis Cache
-//var cacheServerName = '${prefix}-redisCache'
-//var cacheSubnetName = 'cache-subnet'
-//var cachePrivateEndpointName = 'cache-privateEndpoint'
-//var cachePvtEndpointDnsGroupName = 'cacheDnsGroup'
+// Azure Redis Cache
+var cacheServerName = '${prefix}-redisCache'
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   name: '${prefix}-vnet'
@@ -58,12 +55,6 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
           ]
         }
       }
- //     {
-  //      name: cacheSubnetName
-   //     properties:{
-  //        addressPrefix: '10.0.2.0/24'
-   //     }
-  //    }
     ]
   }
   resource databaseSubnet 'subnets' existing = {
@@ -72,10 +63,6 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   resource webappSubnet 'subnets' existing = {
     name: webappSubnetName
   }
-  // Added for Azure Redis Cache
-//  resource cacheSubnet 'subnets' existing = {
-//    name: cacheSubnetName
-//  }
 }
 
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
@@ -86,16 +73,6 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
     virtualNetwork
   ]
 }
-
-// Added for Azure Redis Cache
-//resource privateDnsZoneCache 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-//  name: 'privatelink.redis.cache.windows.net'
-//  location: 'global'
-//  tags: tags
-//  dependsOn:[
-//    virtualNetwork
-//  ]
-//}
 
 resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: privateDnsZone
@@ -108,55 +85,6 @@ resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
     }
   }
 }
-
-// Added for Azure Redis Cache
-//resource privateDnsZoneLinkCache 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-// parent: privateDnsZoneCache
-// name: 'privatelink.redis.cache.windows.net-applink'
-// location: 'global'
-// properties: {
-//   registrationEnabled: false
-//   virtualNetwork: {
-//     id: virtualNetwork.id
-//   }
-// }
-//}
-
-
-//resource cachePrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = {
- // name: cachePrivateEndpointName
-//  location: location
- // properties: {
- //   subnet: {
- //     id: virtualNetwork::cacheSubnet.id
- //   }
- //   privateLinkServiceConnections: [
- //     {
- //       name: cachePrivateEndpointName
-  //      properties: {
-  //        privateLinkServiceId: redisCache.id
-  //        groupIds: [
- //           'redisCache'
-  //        ]
- //       }
- //     }
- //   ]
- // }
-
- // resource cachePvtEndpointDnsGroup 'privateDnsZoneGroups' = {
- //   name: cachePvtEndpointDnsGroupName
- //   properties: {
- //     privateDnsZoneConfigs: [
- //       {
- //         name: 'privatelink-redis-cache-windows-net'
- //         properties: {
- //           privateDnsZoneId: privateDnsZoneCache.id
-//          }
- //       }
- //     ]
- //   }
-//  }
-//}
 
 resource web 'Microsoft.Web/sites@2022-03-01' = {
   name: '${prefix}-app-service'
@@ -171,13 +99,14 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
+      healthCheckPath: '/healthz/'
     }
     httpsOnly: true
   }
   identity: {
     type: 'SystemAssigned'
   }
-  
+
   resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
@@ -206,8 +135,8 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Legacy options (kept for backward compatibility)
       SYNC_MEDIA_TO_AZURE: 'false'
       POPULATE_SAMPLE_DATA: 'false'
-      //Added for Azure Redis Cache
- //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
+      // Azure Redis Cache connection string (TLS, port 6380)
+      AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
 
       // =============================================================================
       // WALLET PASS CONFIGURATION (Crush.lu)
@@ -304,6 +233,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
+      healthCheckPath: '/healthz/'
     }
     httpsOnly: true
   }
@@ -454,6 +384,68 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   }
 }
 
+// Autoscale rules for handling event registration peaks
+// Scales between 1-3 instances based on CPU usage
+resource autoscaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
+  name: '${prefix}-autoscale'
+  location: location
+  tags: tags
+  properties: {
+    enabled: true
+    targetResourceUri: appServicePlan.id
+    profiles: [
+      {
+        name: 'Default'
+        capacity: {
+          minimum: '1'
+          maximum: '3'
+          default: '1'
+        }
+        rules: [
+          {
+            // Scale OUT when CPU > 70% for 5 minutes
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricResourceUri: appServicePlan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'GreaterThan'
+              threshold: 70
+            }
+            scaleAction: {
+              direction: 'Increase'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+          {
+            // Scale IN when CPU < 30% for 10 minutes
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricResourceUri: appServicePlan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT10M'
+              timeAggregation: 'Average'
+              operator: 'LessThan'
+              threshold: 30
+            }
+            scaleAction: {
+              direction: 'Decrease'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT10M'
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${prefix}-workspace'
   location: location
@@ -506,9 +498,9 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-pr
       mode: 'Disabled'
     }
     maintenanceWindow: {
-      customWindow: 'Disabled'
-      dayOfWeek: 0
-      startHour: 0
+      customWindow: 'Enabled'
+      dayOfWeek: 2       // Tuesday
+      startHour: 3       // 3 AM UTC (4 AM CET) - lowest traffic window
       startMinute: 0
     }
   }
@@ -529,22 +521,24 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
   name: 'pythonapp_staging'
 }
 
-//added for Redis Cache
-//resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
-//  location:location
-//  name:cacheServerName
-//  properties:{
-//    sku:{
-//      capacity: 1
-//      family:'C'
-//      name:'Standard'
-//    }
-//    enableNonSslPort:false
-//    redisVersion:'6'
-//    publicNetworkAccess:'Disabled'
-//    minimumTlsVersion: '1.2'
-//  }
-//}    
+// Azure Redis Cache - Basic C0 tier (~$16/month)
+// Sub-millisecond cache for rate limiting, sessions, and cached queries
+resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
+  location: location
+  name: cacheServerName
+  tags: tags
+  properties: {
+    sku: {
+      capacity: 0       // C0 = 250MB (sufficient for cache + sessions)
+      family: 'C'
+      name: 'Basic'     // Basic tier (no replication needed for cache)
+    }
+    enableNonSslPort: false
+    redisVersion: '6'
+    publicNetworkAccess: 'Enabled'  // Access via firewall rules (Basic tier doesn't support Private Endpoint)
+    minimumTlsVersion: '1.2'
+  }
+}
 
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString

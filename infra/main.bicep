@@ -57,6 +57,19 @@ module keyVault 'keyvault.bicep' = {
   }
 }
 
+// Azure CDN for public blob media (faster image loading from edge PoPs)
+module cdn 'cdn.bicep' = {
+  name: 'cdn'
+  scope: resourceGroup
+  params: {
+    prefix: '${name}-${resourceToken}'
+    location: location
+    tags: tags
+    storageBlobEndpoint: resources.outputs.AZURE_STORAGE_BLOB_ENDPOINT
+    storageHostname: replace(replace(resources.outputs.AZURE_STORAGE_BLOB_ENDPOINT, 'https://', ''), '/', '')
+  }
+}
+
 // Azure Monitor Alerts for proactive monitoring
 module alerts 'alerts.bicep' = {
   name: 'alerts'
@@ -79,3 +92,4 @@ output WEB_APP_SSH string = resources.outputs.WEB_APP_SSH
 output WEB_APP_CONFIG string = resources.outputs.WEB_APP_CONFIG
 output KEY_VAULT_NAME string = keyVault.outputs.keyVaultName
 output KEY_VAULT_URI string = keyVault.outputs.keyVaultUri
+output CDN_ENDPOINT_HOSTNAME string = cdn.outputs.cdnEndpointHostname

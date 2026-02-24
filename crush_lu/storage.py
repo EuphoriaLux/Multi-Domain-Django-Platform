@@ -57,6 +57,11 @@ class PrivateAzureStorage(AzureStorage):
 
     Supports both production Azure Blob Storage and local Azurite emulator.
 
+    Authentication:
+    - Production: Managed Identity (DefaultAzureCredential) with UserDelegationKey SAS
+    - Migration fallback: AZURE_ACCOUNT_KEY if still set
+    - Development: Azurite connection string
+
     Container name can be configured via AZURE_CRUSH_PRIVATE_CONTAINER env var.
     Default: 'crush-lu-private'
     Staging: 'crush-lu-private-staging' (set via env var)
@@ -98,6 +103,9 @@ class PrivateAzureStorage(AzureStorage):
         """
         Generate a time-limited SAS URL for accessing the blob.
 
+        Uses UserDelegationKey SAS (Managed Identity) in production,
+        falls back to account key SAS during migration period.
+
         Args:
             name: Blob name (file path)
             expire: Optional expiration time in seconds (default: 1 hour)
@@ -108,25 +116,29 @@ class PrivateAzureStorage(AzureStorage):
         if not expire:
             expire = self.expiration_secs
 
-        # Generate SAS token with read permissions
-        sas_token = generate_blob_sas(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            container_name=self.azure_container,
-            blob_name=name,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
-        )
-
-        # Build URL based on environment
         if self._is_azurite:
-            # Azurite URL format: http://host:port/account/container/blob?sas
+            # Azurite: use account key SAS (Managed Identity not supported)
+            sas_token = generate_blob_sas(
+                account_name=self.account_name,
+                account_key=self.account_key,
+                container_name=self.azure_container,
+                blob_name=name,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+            )
             return (
                 f"http://{self._azurite_host}/{self.account_name}/"
                 f"{self.azure_container}/{name}?{sas_token}"
             )
         else:
-            # Production Azure URL format: https://account.blob.core.windows.net/container/blob?sas
+            # Production: use shared utility (Managed Identity or account key fallback)
+            from azureproject.storage_utils import generate_sas_token
+            sas_token = generate_sas_token(
+                container_name=self.azure_container,
+                blob_name=name,
+                permission=BlobSasPermissions(read=True),
+                expiry_seconds=expire,
+            )
             return (
                 f"https://{self.account_name}.blob.core.windows.net/"
                 f"{self.azure_container}/{name}?{sas_token}"
@@ -167,6 +179,10 @@ class CrushMediaStorage(AzureStorage):
             self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
         else:
             self.azure_ssl = True  # Production uses HTTPS
+            # Production: prefer Managed Identity over account key
+            if not self.account_key:
+                from azure.identity import DefaultAzureCredential
+                self.credential = DefaultAzureCredential()
 
         super().__init__(*args, **kwargs)
         self.overwrite_files = False
@@ -315,25 +331,8 @@ def delete_user_storage(user_id):
             # 1. 'media' (public) - where actual photos are stored
             # 2. 'crush-lu-private' - where marker files are stored
 
-            # Get the private storage to access its blob service client
-            private_storage = CrushProfilePhotoStorage()
-
-            # Get BlobServiceClient from the container client
-            # We need to access both containers
-            account_url = private_storage.client.url.rsplit('/', 1)[0]
-
-            from azure.storage.blob import BlobServiceClient
-
-            if is_azurite_mode():
-                # Azurite connection
-                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
-                blob_service = BlobServiceClient.from_connection_string(connection_string)
-            else:
-                # Production Azure
-                blob_service = BlobServiceClient(
-                    account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
-                    credential=private_storage.account_key
-                )
+            from azureproject.storage_utils import get_blob_service_client
+            blob_service = get_blob_service_client()
 
             # Containers to clean up
             # Use new env var first, fall back to legacy for backward compatibility
@@ -423,18 +422,8 @@ def list_user_storage_folders():
     try:
         if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
             # Azure Blob Storage (Azurite or production)
-            from azure.storage.blob import BlobServiceClient
-
-            private_storage = CrushProfilePhotoStorage()
-
-            if is_azurite_mode():
-                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
-                blob_service = BlobServiceClient.from_connection_string(connection_string)
-            else:
-                blob_service = BlobServiceClient(
-                    account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
-                    credential=private_storage.account_key
-                )
+            from azureproject.storage_utils import get_blob_service_client
+            blob_service = get_blob_service_client()
 
             # Scan both containers
             # Use new env var first, fall back to legacy for backward compatibility

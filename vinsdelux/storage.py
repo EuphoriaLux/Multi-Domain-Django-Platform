@@ -73,6 +73,10 @@ class VdlMediaStorage(AzureStorage):
             self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
         else:
             self.azure_ssl = True  # Production uses HTTPS
+            # Production: prefer Managed Identity over account key
+            if not self.account_key:
+                from azure.identity import DefaultAzureCredential
+                self.credential = DefaultAzureCredential()
 
         super().__init__(*args, **kwargs)
         self.overwrite_files = False  # Prevent accidental overwrites
@@ -83,6 +87,11 @@ class VdlPrivateStorage(AzureStorage):
     Storage backend for VinsDelux private documents (future use)
 
     Container: vinsdelux-private (private, SAS token access)
+
+    Authentication:
+    - Production: Managed Identity (DefaultAzureCredential) with UserDelegationKey SAS
+    - Migration fallback: AZURE_ACCOUNT_KEY if still set
+    - Development: Azurite connection string
 
     Planned for:
     - Order invoices (PDF)
@@ -122,6 +131,9 @@ class VdlPrivateStorage(AzureStorage):
         """
         Generate a time-limited SAS URL for accessing private documents.
 
+        Uses UserDelegationKey SAS (Managed Identity) in production,
+        falls back to account key SAS during migration period.
+
         Args:
             name: Blob name (file path)
             expire: Optional expiration time in seconds (default: 2 hours)
@@ -136,23 +148,29 @@ class VdlPrivateStorage(AzureStorage):
         if not expire:
             expire = self.expiration_secs
 
-        # Generate SAS token with read permissions
-        sas_token = generate_blob_sas(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            container_name=self.azure_container,
-            blob_name=name,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
-        )
-
-        # Build URL based on environment
         if self._is_azurite:
+            # Azurite: use account key SAS (Managed Identity not supported)
+            sas_token = generate_blob_sas(
+                account_name=self.account_name,
+                account_key=self.account_key,
+                container_name=self.azure_container,
+                blob_name=name,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+            )
             return (
                 f"http://{self._azurite_host}/{self.account_name}/"
                 f"{self.azure_container}/{name}?{sas_token}"
             )
         else:
+            # Production: use shared utility (Managed Identity or account key fallback)
+            from azureproject.storage_utils import generate_sas_token
+            sas_token = generate_sas_token(
+                container_name=self.azure_container,
+                blob_name=name,
+                permission=BlobSasPermissions(read=True),
+                expiry_seconds=expire,
+            )
             return (
                 f"https://{self.account_name}.blob.core.windows.net/"
                 f"{self.azure_container}/{name}?{sas_token}"

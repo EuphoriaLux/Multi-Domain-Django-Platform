@@ -35,7 +35,7 @@ resource responseTimeAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   location: 'global'
   tags: tags
   properties: {
-    description: 'Alert when average response time exceeds 5 seconds'
+    description: 'Alert when average response time exceeds 3 seconds'
     severity: 2 // Warning
     enabled: true
     scopes: [
@@ -51,7 +51,7 @@ resource responseTimeAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
           metricName: 'requests/duration'
           metricNamespace: 'microsoft.insights/components'
           operator: 'GreaterThan'
-          threshold: 5000 // 5 seconds in milliseconds
+          threshold: 3000 // 3 seconds - users leave after 3s
           timeAggregation: 'Average'
           criterionType: 'StaticThresholdCriterion'
         }
@@ -161,6 +161,111 @@ resource crushAvailabilityTest 'Microsoft.Insights/webtests@2022-06-15' = {
     ]
     Request: {
       RequestUrl: 'https://crush.lu/healthz/'
+      HttpVerb: 'GET'
+      ParseDependentRequests: false
+    }
+    ValidationRules: {
+      ExpectedHttpStatusCode: 200
+      SSLCheck: true
+      SSLCertRemainingLifetimeCheck: 7
+    }
+  }
+}
+
+// Availability Test for Entreprinder.lu
+resource entreprinderAvailabilityTest 'Microsoft.Insights/webtests@2022-06-15' = {
+  name: '${prefix}-entreprinder-availability'
+  location: location
+  tags: union(tags, {
+    'hidden-link:${appInsightsId}': 'Resource'
+  })
+  kind: 'standard'
+  properties: {
+    SyntheticMonitorId: '${prefix}-entreprinder-availability'
+    Name: 'Entreprinder.lu Availability'
+    Description: 'Availability test for entreprinder.lu'
+    Enabled: true
+    Frequency: 300 // 5 minutes
+    Timeout: 120
+    Kind: 'standard'
+    RetryEnabled: true
+    Locations: [
+      { Id: 'emea-nl-ams-azr' }  // Amsterdam
+      { Id: 'emea-gb-db3-azr' }  // Dublin
+      { Id: 'emea-fr-pra-edge' } // Paris
+    ]
+    Request: {
+      RequestUrl: 'https://entreprinder.lu/healthz/'
+      HttpVerb: 'GET'
+      ParseDependentRequests: false
+    }
+    ValidationRules: {
+      ExpectedHttpStatusCode: 200
+      SSLCheck: true
+      SSLCertRemainingLifetimeCheck: 7
+    }
+  }
+}
+
+// Availability Test for VinsDelux.com
+resource vinsdeluxAvailabilityTest 'Microsoft.Insights/webtests@2022-06-15' = {
+  name: '${prefix}-vinsdelux-availability'
+  location: location
+  tags: union(tags, {
+    'hidden-link:${appInsightsId}': 'Resource'
+  })
+  kind: 'standard'
+  properties: {
+    SyntheticMonitorId: '${prefix}-vinsdelux-availability'
+    Name: 'VinsDelux.com Availability'
+    Description: 'Availability test for vinsdelux.com'
+    Enabled: true
+    Frequency: 300 // 5 minutes
+    Timeout: 120
+    Kind: 'standard'
+    RetryEnabled: true
+    Locations: [
+      { Id: 'emea-nl-ams-azr' }  // Amsterdam
+      { Id: 'emea-gb-db3-azr' }  // Dublin
+      { Id: 'emea-fr-pra-edge' } // Paris
+    ]
+    Request: {
+      RequestUrl: 'https://vinsdelux.com/healthz/'
+      HttpVerb: 'GET'
+      ParseDependentRequests: false
+    }
+    ValidationRules: {
+      ExpectedHttpStatusCode: 200
+      SSLCheck: true
+      SSLCertRemainingLifetimeCheck: 7
+    }
+  }
+}
+
+// Availability Test for Power-up.lu
+resource powerupAvailabilityTest 'Microsoft.Insights/webtests@2022-06-15' = {
+  name: '${prefix}-powerup-availability'
+  location: location
+  tags: union(tags, {
+    'hidden-link:${appInsightsId}': 'Resource'
+  })
+  kind: 'standard'
+  properties: {
+    SyntheticMonitorId: '${prefix}-powerup-availability'
+    Name: 'Power-up.lu Availability'
+    Description: 'Availability test for power-up.lu'
+    Enabled: true
+    Frequency: 300 // 5 minutes
+    Timeout: 120
+    Kind: 'standard'
+    RetryEnabled: true
+    Locations: [
+      { Id: 'emea-nl-ams-azr' }  // Amsterdam
+      { Id: 'emea-gb-db3-azr' }  // Dublin
+      { Id: 'emea-fr-pra-edge' } // Paris
+    ]
+    Request: {
+      RequestUrl: 'https://power-up.lu/healthz/'
       HttpVerb: 'GET'
       ParseDependentRequests: false
     }
