@@ -227,8 +227,8 @@ def event_list(request):
     )
 
     context = {
-        "upcoming_events": visible_upcoming,
-        "past_events": visible_past,
+        "upcoming_event_list": visible_upcoming,
+        "past_event_list": visible_past,
         "event_list_jsonld": event_list_jsonld,
     }
     return render(request, "crush_lu/event_list.html", context)

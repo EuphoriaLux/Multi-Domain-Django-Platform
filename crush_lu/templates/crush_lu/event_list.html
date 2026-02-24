@@ -51,7 +51,7 @@
 {% load analytics %}
 {% block content %}
 {# Track event list view with count in Application Insights #}
-{% appinsights_event "events_page_viewed" event_count=upcoming_events|length %}
+{% appinsights_event "events_page_viewed" event_count=upcoming_event_list|length %}
 {% ga4_event "view_item_list" item_list_id="events" item_list_name="Upcoming Events" %}
 
 {% if unpublished_count > 0 %}
@@ -85,7 +85,7 @@
     {# Upcoming events tab #}
     <div x-show="isUpcoming">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for event in upcoming_events %}
+            {% for event in upcoming_event_list %}
                 {% include "crush_lu/includes/event_card.html" with event=event is_past=False %}
             {% empty %}
             <div class="col-span-full">
@@ -103,7 +103,7 @@
     {# Past events tab #}
     <div x-show="isPast" style="display: none;">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for event in past_events %}
+            {% for event in past_event_list %}
                 {% include "crush_lu/includes/event_card.html" with event=event is_past=True %}
             {% empty %}
             <div class="col-span-full">
