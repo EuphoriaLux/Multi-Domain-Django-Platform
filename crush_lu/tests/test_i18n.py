@@ -21,6 +21,8 @@ from django.template import Context, Template
 from django.utils import timezone
 from django.contrib.sites.models import Site
 
+from crush_lu.models.profiles import UserDataConsent
+
 User = get_user_model()
 
 
@@ -170,6 +172,7 @@ class OAuthI18nTests(SiteTestMixin, TestCase):
             email='oauth@test.com',
             password='testpass123'
         )
+        UserDataConsent.objects.filter(user=self.user).update(crushlu_consent_given=True)
 
     def _create_profile(self, user, preferred_language='en'):
         """Helper to create a CrushProfile for a user."""

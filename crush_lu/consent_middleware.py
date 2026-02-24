@@ -1,8 +1,9 @@
 """
 Middleware to enforce Crush.lu consent requirements.
 
-Ensures all authenticated users have given Crush.lu consent before accessing
-protected features. Users without consent are redirected to a consent page.
+Uses a deny-by-default approach: all authenticated Crush.lu requests require
+consent unless the path is explicitly exempt. Users without consent are
+redirected to the consent confirmation page.
 
 Only active on the Crush.lu domain (checks request.urlconf).
 """
@@ -21,48 +22,63 @@ class CrushConsentMiddleware:
     """
     Middleware to check if authenticated users have given Crush.lu consent.
 
-    If a user is authenticated but hasn't given Crush.lu consent, redirect them
-    to a consent confirmation page before allowing access to protected features.
+    Uses a deny-by-default approach: all authenticated requests on the Crush.lu
+    domain require consent UNLESS the path is in EXEMPT_PATHS. This ensures new
+    routes are automatically protected without needing to update an allowlist.
 
-    Exemptions:
-    - Public pages (login, signup, landing pages)
-    - Consent confirmation page itself
-    - API endpoints
-    - Static files
-    - Admin panel
+    Exempt paths include auth flows, public pages, infrastructure endpoints,
+    and the consent page itself (to avoid redirect loops).
     """
 
-    # Paths that don't require consent
+    # Paths that DON'T require consent - everything else does.
+    # Uses prefix matching: '/about/' matches '/about/', '/about/team/', etc.
     EXEMPT_PATHS = [
+        # Auth
         '/login/',
         '/signup/',
         '/logout/',
-        '/consent/confirm/',  # The consent confirmation page
-        '/account/banned/',  # Banned user info page
+        '/oauth-complete/',
+        '/oauth/',
+        '/accounts/',  # Allauth endpoints
+
+        # Consent & ban flow (must be exempt to avoid redirect loops)
+        '/consent/confirm/',
+        '/account/banned/',
+
+        # Public/landing pages
+        '/about/',
+        '/how-it-works/',
+        '/membership/',
+        '/privacy-policy/',
+        '/terms-of-service/',
+        '/data-deletion/',
+        '/test-ghost-story/',
+        '/test-upstair/',
+
+        # Public landing pages
+        '/r/',  # Referral redirect
+        '/invite/',  # Invitation landing
+        '/unsubscribe/',
+        '/facebook/',  # Data deletion callback
+        '/voting-demo/',
+
+        # LuxID mockups
+        '/mockup/',
+
+        # Infrastructure
         '/api/',
         '/static/',
         '/media/',
         '/admin/',
         '/crush-admin/',
-        '/accounts/',  # Allauth endpoints
         '/healthz/',
         '/robots.txt',
         '/sitemap.xml',
         '/favicon.ico',
-        '/',  # Landing page
-        '/fr/',
-        '/de/',
-        '/en/',
-    ]
-
-    # Paths that require consent (profile features)
-    PROTECTED_PATHS = [
-        '/dashboard/',
-        '/profile/',
-        '/events/',
-        '/connections/',
-        '/messages/',
-        '/create-profile/',
+        '/pwa-debug/',
+        '/sw-workbox.js',
+        '/manifest.json',
+        '/offline/',
     ]
 
     def __init__(self, get_response):
@@ -102,11 +118,14 @@ class CrushConsentMiddleware:
         """
         Determine if this request requires consent checking.
 
+        Uses a deny-by-default approach: all paths require consent unless
+        explicitly listed in EXEMPT_PATHS. Language prefixes (/en/, /fr/, /de/)
+        are stripped before matching.
+
         Returns True if:
         - Request is on the Crush.lu domain
         - User is authenticated
-        - Path is not exempt
-        - Path is protected
+        - Path is not in EXEMPT_PATHS
         """
         # Only apply on Crush.lu domain
         if getattr(request, 'urlconf', None) != CRUSH_URLCONF:
@@ -116,18 +135,25 @@ class CrushConsentMiddleware:
         if not request.user.is_authenticated:
             return False
 
-        # Check if path is explicitly exempt
         path = request.path
+
+        # Strip language prefix for consistent matching
+        for lang_prefix in ['/en/', '/fr/', '/de/']:
+            if path.startswith(lang_prefix):
+                path = '/' + path[len(lang_prefix):]
+                break
+
+        # Check if path is exempt (exact match or prefix match)
         for exempt_path in self.EXEMPT_PATHS:
-            if path.startswith(exempt_path):
+            if path == exempt_path or path.startswith(exempt_path):
                 return False
 
-        # Check if path is protected
-        for protected_path in self.PROTECTED_PATHS:
-            if path.startswith(protected_path) or f'/en{protected_path}' in path or f'/fr{protected_path}' in path or f'/de{protected_path}' in path:
-                return True
+        # The bare root path '/' is always exempt (landing page)
+        if path == '/':
+            return False
 
-        return False
+        # All non-exempt paths require consent for authenticated users
+        return True
 
     def has_crushlu_consent(self, user):
         """

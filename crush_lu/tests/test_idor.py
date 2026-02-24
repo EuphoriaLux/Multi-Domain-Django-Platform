@@ -18,6 +18,7 @@ from crush_lu.models import (
     EventRegistration,
     EventConnection,
 )
+from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
 
@@ -47,6 +48,10 @@ class TestConnectionIDOR(SiteTestMixin, TestCase):
             username='userc@test.com', email='userc@test.com',
             password='testpass123', first_name='Charlie', last_name='C'
         )
+
+        # Grant consent for all users
+        for user in [self.user_a, self.user_b, self.user_c]:
+            UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
 
         for user, gender in [(self.user_a, 'F'), (self.user_b, 'M'), (self.user_c, 'M')]:
             CrushProfile.objects.create(
@@ -178,6 +183,7 @@ class TestEventAttendeeIDOR(SiteTestMixin, TestCase):
             username='attendee@test.com', email='attendee@test.com',
             password='testpass123'
         )
+        UserDataConsent.objects.filter(user=self.attendee).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=self.attendee, date_of_birth=date(1995, 1, 1),
             gender='M', location='Luxembourg', is_approved=True, is_active=True
@@ -192,6 +198,7 @@ class TestEventAttendeeIDOR(SiteTestMixin, TestCase):
             username='outsider@test.com', email='outsider@test.com',
             password='testpass123'
         )
+        UserDataConsent.objects.filter(user=outsider).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=outsider, date_of_birth=date(1995, 1, 1),
             gender='M', location='Luxembourg', is_approved=True, is_active=True

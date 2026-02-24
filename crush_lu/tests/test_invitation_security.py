@@ -21,6 +21,7 @@ from crush_lu.models import (
     CrushProfile,
     CrushCoach,
 )
+from crush_lu.models.profiles import UserDataConsent
 from crush_lu.forms import InvitationAcceptanceForm
 
 
@@ -271,6 +272,7 @@ class TestEventRegistrationSecurity:
             first_name='Existing',
             last_name='User'
         )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
 
         # Add user to invited_users
         private_event.invited_users.add(user)
@@ -298,6 +300,7 @@ class TestEventRegistrationSecurity:
             first_name='Guest',
             last_name='User'
         )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
 
         # Mark invitation as approved
         pending_invitation.approval_status = 'approved'

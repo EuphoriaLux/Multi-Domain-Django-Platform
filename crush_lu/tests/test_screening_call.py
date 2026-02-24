@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
+from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
 
@@ -26,6 +27,8 @@ class TestScreeningCallView(TestCase):
             first_name='Test',
             last_name='Coach'
         )
+
+        UserDataConsent.objects.filter(user=self.coach_user).update(crushlu_consent_given=True)
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
@@ -184,6 +187,7 @@ class TestScreeningCallView(TestCase):
             email='othercoach@example.com',
             password='otherpass123'
         )
+        UserDataConsent.objects.filter(user=other_coach_user).update(crushlu_consent_given=True)
         CrushCoach.objects.create(
             user=other_coach_user,
             bio='Other coach',

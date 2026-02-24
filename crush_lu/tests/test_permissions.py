@@ -16,6 +16,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.utils import timezone
 
+from crush_lu.models.profiles import UserDataConsent
+
 User = get_user_model()
 
 CRUSH_LU_URL_SETTINGS = {
@@ -54,6 +56,8 @@ class ProfileApprovalTests(SiteTestMixin, TestCase):
             last_name='User'
         )
 
+        UserDataConsent.objects.filter(user=self.unapproved_user).update(crushlu_consent_given=True)
+
         self.unapproved_profile = CrushProfile.objects.create(
             user=self.unapproved_user,
             date_of_birth=date(1995, 5, 15),
@@ -71,6 +75,7 @@ class ProfileApprovalTests(SiteTestMixin, TestCase):
             first_name='Approved',
             last_name='User'
         )
+        UserDataConsent.objects.filter(user=self.approved_user).update(crushlu_consent_given=True)
 
         self.approved_profile = CrushProfile.objects.create(
             user=self.approved_user,
@@ -151,6 +156,7 @@ class CoachAccessTests(SiteTestMixin, TestCase):
             first_name='Regular',
             last_name='User'
         )
+        UserDataConsent.objects.filter(user=self.regular_user).update(crushlu_consent_given=True)
 
         CrushProfile.objects.create(
             user=self.regular_user,
@@ -169,6 +175,7 @@ class CoachAccessTests(SiteTestMixin, TestCase):
             first_name='Coach',
             last_name='Marie'
         )
+        UserDataConsent.objects.filter(user=self.coach_user).update(crushlu_consent_given=True)
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
@@ -186,6 +193,7 @@ class CoachAccessTests(SiteTestMixin, TestCase):
             first_name='Inactive',
             last_name='Coach'
         )
+        UserDataConsent.objects.filter(user=self.inactive_coach_user).update(crushlu_consent_given=True)
 
         self.inactive_coach = CrushCoach.objects.create(
             user=self.inactive_coach_user,

@@ -16,10 +16,19 @@
         <li>{% trans "Contact your coach to schedule your screening call" %}</li>
         <li>{% trans "Coach:" %} {{ coach.user.get_full_name }}</li>
         <li>{% trans "Email:" %} <a href="mailto:{{ coach.user.email }}" style="color: #9B59B6;">{{ coach.user.email }}</a></li>
+        {% if whatsapp_enabled and whatsapp_number %}
+        <li>{% trans "Phone:" %} <a href="tel:+{{ whatsapp_number }}" style="color: #9B59B6;">+{{ whatsapp_number }}</a></li>
+        {% endif %}
     </ul>
 </div>
 
-<a href="mailto:{{ coach.user.email }}" class="button">{% trans "Contact Your Coach" %}</a>
+{% if whatsapp_enabled and whatsapp_number %}
+<a href="https://wa.me/{{ whatsapp_number }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}" class="button" style="background-color: #25D366; margin-bottom: 10px;">{% trans "WhatsApp Coach" %}</a>
+<br>
+<a href="tel:+{{ whatsapp_number }}" class="button" style="margin-bottom: 10px;">{% trans "Call Coach" %}</a>
+<br>
+{% endif %}
+<a href="mailto:{{ coach.user.email }}" class="button" style="background-color: {% if whatsapp_enabled and whatsapp_number %}transparent; color: #9B59B6; border: 2px solid #9B59B6{% else %}#9B59B6{% endif %};">{% trans "Email Coach" %}</a>
 
 <p>{% trans "Once you complete the screening call, your profile can be approved and you'll be able to register for events!" %}</p>
 

@@ -42,6 +42,7 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
     def setUp(self):
         """Set up coach and regular user."""
         from crush_lu.models import CrushCoach, CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
 
         self.client = Client()
 
@@ -52,6 +53,11 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
             password='coachpass123',
             first_name='Coach',
             last_name='Marie'
+        )
+
+        # Grant consent (created by signal, update it)
+        UserDataConsent.objects.filter(user=self.coach_user).update(
+            crushlu_consent_given=True
         )
 
         self.coach = CrushCoach.objects.create(
@@ -69,6 +75,11 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
             password='testpass123',
             first_name='Regular',
             last_name='User'
+        )
+
+        # Grant consent for regular user too
+        UserDataConsent.objects.filter(user=self.regular_user).update(
+            crushlu_consent_given=True
         )
 
         CrushProfile.objects.create(

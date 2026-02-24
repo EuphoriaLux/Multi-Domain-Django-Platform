@@ -14,6 +14,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.utils import timezone
 
+from crush_lu.models.profiles import UserDataConsent
+
 User = get_user_model()
 
 
@@ -105,6 +107,7 @@ class AuthenticatedHTMXTests(SiteTestMixin, HTMXTestMixin, TestCase):
             email='testuser@example.com',
             password='testpass123'
         )
+        UserDataConsent.objects.filter(user=self.user).update(crushlu_consent_given=True)
 
         from crush_lu.models import CrushProfile
 
@@ -160,6 +163,7 @@ class EventHTMXTests(SiteTestMixin, HTMXTestMixin, TestCase):
             email='eventuser@example.com',
             password='testpass123'
         )
+        UserDataConsent.objects.filter(user=self.user).update(crushlu_consent_given=True)
 
         from crush_lu.models import CrushProfile, MeetupEvent
 

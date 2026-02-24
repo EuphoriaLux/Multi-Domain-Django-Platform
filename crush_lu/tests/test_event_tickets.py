@@ -17,6 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
+from crush_lu.models.profiles import UserDataConsent
 from crush_lu.views_ticket import _generate_checkin_token
 
 # All crush_lu HTTP tests must use the crush-specific URL config
@@ -25,7 +26,7 @@ pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 @pytest.fixture
 def event_user(db):
-    """Create a user with an approved profile."""
+    """Create a user with an approved profile and consent."""
     user = User.objects.create_user(
         username="ticketuser",
         email="ticket@example.com",
@@ -40,17 +41,20 @@ def event_user(db):
         is_approved=True,
         is_active=True,
     )
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
     return user
 
 
 @pytest.fixture
 def other_user(db):
-    """Create another user."""
-    return User.objects.create_user(
+    """Create another user with consent."""
+    user = User.objects.create_user(
         username="otheruser",
         email="other@example.com",
         password="testpass123",
     )
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+    return user
 
 
 @pytest.fixture

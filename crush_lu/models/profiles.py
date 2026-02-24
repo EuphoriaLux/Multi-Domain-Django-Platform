@@ -275,8 +275,30 @@ class CrushCoach(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    LANGUAGE_DISPLAY = {
+        "en": {"name": _("English"), "flag": "\U0001f1ec\U0001f1e7"},
+        "de": {"name": _("Deutsch"), "flag": "\U0001f1e9\U0001f1ea"},
+        "fr": {"name": _("Français"), "flag": "\U0001f1eb\U0001f1f7"},
+        "lu": {"name": _("Lëtzebuergesch"), "flag": "\U0001f1f1\U0001f1fa"},
+    }
+
     def __str__(self):
         return f"Coach: {self.user.get_full_name() or self.user.username}"
+
+    @property
+    def get_spoken_languages_display(self):
+        """Return list of dicts with code/name/flag for each spoken language."""
+        if not self.spoken_languages:
+            return []
+        return [
+            {
+                "code": code,
+                "name": str(self.LANGUAGE_DISPLAY.get(code, {}).get("name", code)),
+                "flag": self.LANGUAGE_DISPLAY.get(code, {}).get("flag", ""),
+            }
+            for code in self.spoken_languages
+            if code in self.LANGUAGE_DISPLAY
+        ]
 
     def get_active_reviews_count(self):
         return self.profilesubmission_set.filter(status='pending').count()

@@ -134,10 +134,102 @@ def event_list(request):
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
 
+    # Build ItemList JSON-LD in Python to avoid template rendering issues
+    # (escapejs produces \x27 for apostrophes, which is invalid JSON)
+    has_profile = False
+    if request.user.is_authenticated:
+        has_profile = CrushProfile.objects.filter(user=request.user).exists()
+
+    item_list_elements = []
+    for position, event in enumerate(visible_upcoming, start=1):
+        if not event.id:
+            continue
+        event_url = reverse("crush_lu:event_detail", args=[event.id])
+        description = event.description or ""
+        words = description.split()
+        if len(words) > 50:
+            description = " ".join(words[:50]) + " \u2026"
+
+        if request.user.is_authenticated and has_profile:
+            location_data = {
+                "@type": "Place",
+                "name": event.location or "",
+                "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": event.address or "",
+                    "addressLocality": event.location or "",
+                    "addressCountry": "LU",
+                },
+            }
+        else:
+            canton = event.canton or "Luxembourg"
+            location_data = {
+                "@type": "Place",
+                "name": canton,
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": canton,
+                    "addressCountry": "LU",
+                },
+            }
+
+        if event.is_full:
+            availability = "https://schema.org/SoldOut"
+        elif event.is_registration_open:
+            availability = "https://schema.org/InStock"
+        else:
+            availability = "https://schema.org/OutOfStock"
+
+        item_list_elements.append(
+            {
+                "@type": "ListItem",
+                "position": position,
+                "item": {
+                    "@type": "Event",
+                    "name": event.title or "",
+                    "description": description,
+                    "startDate": event.date_time.isoformat(),
+                    "eventStatus": "https://schema.org/EventCancelled"
+                    if event.is_cancelled
+                    else "https://schema.org/EventScheduled",
+                    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                    "location": location_data,
+                    "organizer": {
+                        "@type": "Organization",
+                        "name": "Crush.lu",
+                        "url": "https://crush.lu",
+                    },
+                    "offers": {
+                        "@type": "Offer",
+                        "url": f"https://crush.lu{event_url}",
+                        "price": format(event.registration_fee, ".2f"),
+                        "priceCurrency": "EUR",
+                        "availability": availability,
+                    },
+                    "url": f"https://crush.lu{event_url}",
+                },
+            }
+        )
+
+    event_list_jsonld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": str(_("Upcoming Dating Events in Luxembourg")),
+            "description": str(
+                _(
+                    "Speed dating, social mixers, and singles meetups organized by Crush.lu"
+                )
+            ),
+            "itemListElement": item_list_elements,
+        },
+        ensure_ascii=False,
+    )
+
     context = {
-        "events": visible_upcoming,  # backward compat for structured data
         "upcoming_events": visible_upcoming,
         "past_events": visible_past,
+        "event_list_jsonld": event_list_jsonld,
     }
     return render(request, "crush_lu/event_list.html", context)
 
