@@ -156,7 +156,7 @@
     <span class="crush-filter-section">⚠️ Critical Bottlenecks</span>
 
     <!-- PRIORITY 0: Users without profiles (signed in but never started) -->
-    <a href="{% url 'crush_admin:auth_user_changelist' %}?has_profile=no" class="unverified-email" target="_blank">
+    <a href="/admin/auth/user/?has_profile=no" class="unverified-email" target="_blank">
         🚫 Never Started Profile
         <span class="count">{{ filter_counts.users_without_profile }}</span>
     </a>

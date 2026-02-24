@@ -56,6 +56,7 @@ def coach_dashboard(request):
     recontact_submissions = (
         ProfileSubmission.objects.filter(coach=coach, status="recontact_coach")
         .select_related("profile__user")
+        .annotate(call_attempt_count=Count("call_attempts"))
         .order_by("submitted_at")
     )
 
@@ -65,6 +66,12 @@ def coach_dashboard(request):
         hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
         submission.is_urgent = hours_waiting > 48  # Red: > 48 hours
         submission.is_warning = 24 < hours_waiting <= 48  # Yellow: 24-48 hours
+
+    # Add urgency indicators for recontact submissions too
+    for submission in recontact_submissions:
+        hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+        submission.is_urgent = hours_waiting > 48
+        submission.is_warning = 24 < hours_waiting <= 48
 
     # Split by gender: Women (F), Men (M), Other (NB, O, P)
     pending_women = [s for s in pending_submissions if s.profile.gender == "F"]

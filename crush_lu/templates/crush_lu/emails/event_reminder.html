@@ -18,7 +18,7 @@
         <li><strong>{% trans "Location:" %}</strong><br>
             {{ event.location }}<br>
             {{ event.address }}<br>
-            {{ event.canton|default:"Luxembourg" }}, Luxembourg
+            {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}
         </li>
     </ul>
 </div>

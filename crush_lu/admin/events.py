@@ -30,6 +30,7 @@ from .filters import EventCapacityFilter
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
     extra = 0
+    autocomplete_fields = ['user']
     fields = ("user", "status", "payment_confirmed", "registered_at")
     readonly_fields = ("registered_at",)
     can_delete = False
@@ -72,6 +73,7 @@ class EventVotingSessionInline(admin.StackedInline):
 class PresentationQueueInline(admin.TabularInline):
     model = PresentationQueue
     extra = 0
+    autocomplete_fields = ['user']
     fields = (
         "user",
         "presentation_order",
@@ -90,6 +92,7 @@ class PresentationQueueInline(admin.TabularInline):
 class SpeedDatingPairInline(admin.TabularInline):
     model = SpeedDatingPair
     extra = 0
+    autocomplete_fields = ['user1', 'user2']
     fields = (
         "round_number",
         "user1",
@@ -565,9 +568,10 @@ class MeetupEventAdmin(TranslationAdmin):
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):
-    list_display = ("user", "event", "status", "payment_confirmed", "registered_at")
+    list_display = ("get_user_display", "event", "status", "payment_confirmed", "registered_at")
     list_filter = ("status", "payment_confirmed", "registered_at")
-    search_fields = ("user__username", "event__title")
+    search_fields = ("user__username", "user__first_name", "user__last_name", "user__email", "event__title")
+    autocomplete_fields = ['user', 'event']
     readonly_fields = ("registered_at", "updated_at")
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
@@ -587,6 +591,14 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         ("Payment", {"fields": ("payment_confirmed", "payment_date")}),
         ("Timestamps", {"fields": ("registered_at", "updated_at")}),
     )
+
+    def get_user_display(self, obj):
+        full_name = obj.user.get_full_name()
+        if full_name:
+            return format_html('{} <span style="color: #888; font-size: 11px;">({})</span>', full_name, obj.user.username)
+        return obj.user.username
+    get_user_display.short_description = _('User')
+    get_user_display.admin_order_field = 'user__first_name'
 
     @admin.action(description=_("📋 Export selected registrations to CSV"))
     def export_registrations_csv(self, request, queryset):

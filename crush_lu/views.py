@@ -333,7 +333,7 @@ def create_profile(request):
 
                     revision_submission = (
                         ProfileSubmission.objects.select_for_update()
-                        .filter(profile=profile, status__in=["revision", "rejected"])
+                        .filter(profile=profile, status__in=["revision", "rejected", "recontact_coach"])
                         .first()
                     )
 
@@ -581,7 +581,7 @@ def edit_profile(request):
                     ),
                 )
                 return redirect("crush_lu:profile_submitted")
-            elif submission.status in ["rejected", "revision"]:
+            elif submission.status in ["rejected", "revision", "recontact_coach"]:
                 messages.warning(
                     request,
                     _(
@@ -646,7 +646,7 @@ def edit_profile(request):
         pass
 
     current_step_to_show = None
-    if latest_submission and latest_submission.status in ["rejected", "revision"]:
+    if latest_submission and latest_submission.status in ["rejected", "revision", "recontact_coach"]:
         current_step_to_show = None
     elif profile.completion_status == "submitted":
         current_step_to_show = None

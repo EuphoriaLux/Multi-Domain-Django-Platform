@@ -136,7 +136,8 @@
 
 <!-- Awaiting User Callback -->
 {% if recontact_submissions %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 border-l-4 border-orange-500">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 border-l-4 border-orange-500"
+     x-data="callbackList" data-count="{{ recontact_submissions|length }}">
     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
         <h5 class="font-semibold mb-0 flex items-center gap-2 dark:text-white">
             {% include "shared/icons/phone.html" with class="w-5 h-5 text-orange-500" %}
@@ -147,15 +148,18 @@
     <div class="p-6">
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
             {% for submission in recontact_submissions %}
-                <div class="py-3 first:pt-0 last:pb-0 flex justify-between items-center">
-                    <div>
-                        <span class="font-medium text-gray-900 dark:text-white">{{ submission.profile.user.get_full_name }}</span>
-                        <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">{{ submission.submitted_at|date:"M j, Y" }}</span>
-                    </div>
-                    <a href="{% url 'crush_lu:coach_review_profile' submission.id %}" class="text-crush-purple hover:text-crush-pink transition-colors text-xs font-medium">{% trans "View" %}</a>
+                <div {% if forloop.counter > 3 %}x-show="isExpanded" x-cloak{% endif %}>
+                    {% include "crush_lu/_pending_submission_card.html" %}
                 </div>
             {% endfor %}
         </div>
+        {% if recontact_submissions|length > 3 %}
+        <div class="mt-4 text-center">
+            <button @click="toggle" class="text-sm text-crush-purple hover:text-crush-pink transition-colors font-medium">
+                <span x-text="toggleLabel"></span>
+            </button>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endif %}

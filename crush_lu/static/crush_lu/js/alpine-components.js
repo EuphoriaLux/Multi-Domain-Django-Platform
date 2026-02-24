@@ -8600,4 +8600,18 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Coach dashboard: collapsible callback list (show first 3, toggle to show all)
+    Alpine.data('callbackList', function() {
+        return {
+            isExpanded: false,
+            get toggleLabel() {
+                var count = this.$el.closest('[data-count]').getAttribute('data-count');
+                return this.isExpanded ? 'Show less' : 'Show all (' + count + ')';
+            },
+            toggle() {
+                this.isExpanded = !this.isExpanded;
+            }
+        };
+    });
+
 });

@@ -23,7 +23,7 @@ from crush_lu.models import (
     CrushCoach, CrushProfile, ProfileSubmission, CoachSession,
     EventRegistration, EventConnection,
     SpecialUserExperience, JourneyConfiguration, JourneyProgress,
-    ReferralCode, ReferralAttribution,
+    ReferralCode, ReferralAttribution, UserDataConsent,
 )
 from .filters import (
     ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter,
@@ -40,6 +40,7 @@ class CrushCoachAdmin(TranslationAdmin):
     list_display = ('get_user_link', 'get_email', 'get_photo_preview', 'specializations', 'get_spoken_languages', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
+    autocomplete_fields = ['user']
     readonly_fields = ('created_at', 'get_photo_preview')
     actions = ['deactivate_coach_allow_dating', 'deactivate_coaches', 'activate_coaches']
     fieldsets = (
@@ -60,22 +61,16 @@ class CrushCoachAdmin(TranslationAdmin):
     )
 
     def get_user_link(self, obj):
-        """Display username with dual navigation links to Coach profile and User record"""
-        coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[obj.pk])
-        user_url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
+        """Display coach's full name (or username) with active status"""
         status = '🟢' if obj.is_active else '🔴'
-
-        return format_html(
-            '<strong>{}</strong> {}<br>'
-            '<a href="{}" style="color: #9B59B6; font-size: 11px;" title="View/Edit Coach Profile">🎓 Coach</a> '
-            '<span style="color: #ccc;">|</span> '
-            '<a href="{}" style="color: #666; font-size: 11px;" title="View Django User record">👤 User</a>',
-            obj.user.username,
-            status,
-            coach_url,
-            user_url
-        )
-    get_user_link.short_description = _('User / Links')
+        full_name = obj.user.get_full_name()
+        if full_name:
+            return format_html(
+                '<strong>{}</strong> <span style="color: #888; font-size: 11px;">({})</span> {}',
+                full_name, obj.user.username, status
+            )
+        return format_html('<strong>{}</strong> {}', obj.user.username, status)
+    get_user_link.short_description = _('User')
     get_user_link.admin_order_field = 'user__username'
 
     def get_email(self, obj):
@@ -145,7 +140,7 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'get_consent_status', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
+    list_display = ('get_user_link', 'get_photo_preview', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'get_consent_status', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
 
     def save_model(self, request, obj, form, change):
         """
@@ -207,6 +202,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     readonly_fields = (
         'get_quick_status_summary',
         'get_user_account_info',
+        'user',
         'created_at', 'updated_at', 'approved_at',
         'get_assigned_coach',
         'phone_verified_at', 'phone_verification_uid',
@@ -217,7 +213,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_journey_progress',
         'outlook_contact_id',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -230,7 +226,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'description': _('Django User account details with link to full user record'),
         }),
         ('Profile Basics', {
-            'fields': ('user', 'date_of_birth', 'gender', 'phone_number', 'location', 'preferred_language'),
+            'fields': ('date_of_birth', 'gender', 'phone_number', 'location', 'preferred_language'),
             'description': _('Core profile information'),
         }),
         ('Phone Verification', {
@@ -385,22 +381,16 @@ class CrushProfileAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_user_link(self, obj):
-        """Display username with dual navigation links to Profile and User"""
-        profile_url = reverse('crush_admin:crush_lu_crushprofile_change', args=[obj.pk])
-        user_url = reverse('crush_admin:auth_user_change', args=[obj.user.pk])
+        """Display user's full name (or username) with approval status"""
         status = '✅' if obj.is_approved else '⏳'
-
-        return format_html(
-            '<strong>{}</strong> {}<br>'
-            '<a href="{}" style="color: #9B59B6; font-size: 11px;" title="View/Edit CrushProfile">💕 Profile</a> '
-            '<span style="color: #ccc;">|</span> '
-            '<a href="{}" style="color: #666; font-size: 11px;" title="View Django User record">👤 User</a>',
-            obj.user.username,
-            status,
-            profile_url,
-            user_url
-        )
-    get_user_link.short_description = _('User / Links')
+        full_name = obj.user.get_full_name()
+        if full_name:
+            return format_html(
+                '<strong>{}</strong> <span style="color: #888; font-size: 11px;">({})</span> {}',
+                full_name, obj.user.username, status
+            )
+        return format_html('<strong>{}</strong> {}', obj.user.username, status)
+    get_user_link.short_description = _('User')
     get_user_link.admin_order_field = 'user__username'
 
     def get_email(self, obj):
@@ -408,6 +398,17 @@ class CrushProfileAdmin(admin.ModelAdmin):
         return obj.user.email
     get_email.short_description = _('Email')
     get_email.admin_order_field = 'user__email'
+
+    def get_photo_preview(self, obj):
+        """Display profile photo thumbnail (first available photo)"""
+        photo = obj.photo_1 or obj.photo_2 or obj.photo_3
+        if photo:
+            return format_html(
+                '<img src="{}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />',
+                photo.url
+            )
+        return format_html('<span style="color: #999;">No photo</span>')
+    get_photo_preview.short_description = _('Photo')
 
     def phone_verified_icon(self, obj):
         """Display phone verification status with icon"""
@@ -606,7 +607,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def get_user_account_info(self, obj):
         """Display comprehensive User account information as HTML block"""
         user = obj.user
-        user_url = reverse('crush_admin:auth_user_change', args=[user.pk])
+        user_url = reverse('admin:auth_user_change', args=[user.pk])
 
         date_joined = user.date_joined.strftime('%Y-%m-%d %H:%M') if user.date_joined else 'N/A'
         last_login = user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never'
@@ -878,6 +879,47 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def deactivate_profiles(self, request, queryset):
         updated = queryset.update(is_active=False)
         django_messages.success(request, _("Deactivated %(count)s profile(s)") % {"count": updated})
+
+    @admin.action(description=_('🚫 Ban selected users from Crush.lu'))
+    def ban_users(self, request, queryset):
+        """Ban selected users from Crush.lu via their profiles."""
+        count = 0
+        for profile in queryset.select_related('user'):
+            user = profile.user
+            consent, _ = UserDataConsent.objects.get_or_create(user=user)
+            if not consent.crushlu_banned:
+                consent.crushlu_banned = True
+                consent.crushlu_ban_reason = 'admin_action'
+                consent.crushlu_ban_date = timezone.now()
+                consent.crushlu_consent_given = False
+                consent.save()
+                user.is_active = False
+                user.save(update_fields=['is_active'])
+                count += 1
+        if count > 0:
+            django_messages.success(request, _("Banned %(count)s user(s) from Crush.lu.") % {"count": count})
+        else:
+            django_messages.warning(request, _("No users to ban (already banned)."))
+
+    @admin.action(description=_('✅ Unban selected users'))
+    def unban_users(self, request, queryset):
+        """Unban selected users via their profiles."""
+        count = 0
+        for profile in queryset.select_related('user'):
+            user = profile.user
+            if hasattr(user, 'data_consent') and user.data_consent.crushlu_banned:
+                consent = user.data_consent
+                consent.crushlu_banned = False
+                consent.crushlu_ban_reason = ''
+                consent.crushlu_ban_date = None
+                consent.save()
+                user.is_active = True
+                user.save(update_fields=['is_active'])
+                count += 1
+        if count > 0:
+            django_messages.success(request, _("Unbanned %(count)s user(s).") % {"count": count})
+        else:
+            django_messages.warning(request, _("No users to unban (none were banned)."))
 
     @admin.action(description=_('Reset phone verification (allows re-verification)'))
     def reset_phone_verification(self, request, queryset):
@@ -1363,9 +1405,66 @@ class CoachSessionAdmin(admin.ModelAdmin):
     list_display = ('coach', 'user', 'session_type', 'scheduled_at', 'completed_at', 'created_at')
     list_filter = ('session_type', 'scheduled_at', 'completed_at')
     search_fields = ('coach__user__username', 'user__username', 'notes')
+    autocomplete_fields = ['user']
     readonly_fields = ('created_at',)
 
     def get_queryset(self, request):
         """Optimize queries with select_related for coach and user FKs"""
         qs = super().get_queryset(request)
         return qs.select_related('coach__user', 'user')
+
+
+# ============================================================================
+# PROXY MODELS FOR SEGMENTED PROFILE VIEWS
+# ============================================================================
+# These proxy models create separate sidebar entries for common profile segments.
+# No migrations needed — they reuse the CrushProfile table.
+
+class ApprovedProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Approved Profile'
+        verbose_name_plural = 'Approved Profiles'
+
+
+class AwaitingReviewProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Awaiting Review Profile'
+        verbose_name_plural = 'Awaiting Review Profiles'
+
+
+class IncompleteProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Incomplete Profile'
+        verbose_name_plural = 'Incomplete Profiles'
+
+
+class ApprovedProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_approved=True)
+
+    def has_add_permission(self, request):
+        return False
+
+
+class AwaitingReviewProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            is_approved=False,
+            completion_status__in=['completed', 'submitted'],
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class IncompleteProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            completion_status__in=['not_started', 'step1', 'step2', 'step3'],
+        )
+
+    def has_add_permission(self, request):
+        return False

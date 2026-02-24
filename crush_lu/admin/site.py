@@ -164,9 +164,12 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
             'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
-            'profilesubmission': {'order': 2, 'icon': '📝', 'group': 'Users & Profiles'},
-            'crushcoach': {'order': 3, 'icon': '🎓', 'group': 'Users & Profiles'},
-            'coachsession': {'order': 4, 'icon': '💬', 'group': 'Users & Profiles'},
+            'approvedprofile': {'order': 2, 'icon': '✅', 'group': 'Users & Profiles'},
+            'awaitingreviewprofile': {'order': 3, 'icon': '📝', 'group': 'Users & Profiles'},
+            'incompleteprofile': {'order': 4, 'icon': '⏳', 'group': 'Users & Profiles'},
+            'profilesubmission': {'order': 5, 'icon': '📋', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 6, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 7, 'icon': '💬', 'group': 'Users & Profiles'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)

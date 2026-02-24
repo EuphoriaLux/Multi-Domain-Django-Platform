@@ -287,8 +287,13 @@ class CrushUserAdmin(BaseUserAdmin):
             return [fs for fs in fieldsets if fs[0] != 'Permissions']
         return fieldsets
 
+    def has_module_permission(self, request):
+        """Hide User from crush-admin sidebar/index.
 
-# NOTE: User is NOT registered with crush_admin_site to hide "Authentication and Authorization" section
-# Users can still be viewed/edited via the "👤 User" links in CrushProfile and CrushCoach admin pages
-# which link to the default Django admin site
-# crush_admin_site.register(User, CrushUserAdmin)  # Commented out intentionally
+        User is registered on crush_admin_site only so that
+        autocomplete_fields (Select2 lookups) work — Django requires
+        the target model on the same AdminSite.  Individual user
+        records are still reachable via direct links from profiles.
+        The full user list lives at /admin/auth/user/.
+        """
+        return False

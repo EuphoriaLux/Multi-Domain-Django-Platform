@@ -27,7 +27,7 @@
         <li style="margin: 8px 0;">{% trans "Time:" %} <strong>{{ event.date_time|date:"g:i A" }}</strong></li>
         <li style="margin: 8px 0;">{% trans "Location:" %} <strong>{{ event.location }}</strong><br>
             <span style="color: #666; padding-left: 0;">{{ event.address }}<br>
-            {{ event.canton|default:"Luxembourg" }}, Luxembourg</span>
+            {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}</span>
         </li>
         {% if event.registration_fee %}
         <li style="margin: 8px 0;">{% trans "Fee:" %} <strong>&euro;{{ event.registration_fee }}</strong></li>
