@@ -54,6 +54,10 @@ from .profiles import (
     AwaitingReviewProfileAdmin,
     IncompleteProfile,
     IncompleteProfileAdmin,
+    CompletedSubmission,
+    CompletedSubmissionAdmin,
+    InProcessSubmission,
+    InProcessSubmissionAdmin,
 )
 
 from .events import (
@@ -217,6 +221,8 @@ crush_admin_site.register(ApprovedProfile, ApprovedProfileAdmin)
 crush_admin_site.register(AwaitingReviewProfile, AwaitingReviewProfileAdmin)
 crush_admin_site.register(IncompleteProfile, IncompleteProfileAdmin)
 crush_admin_site.register(ProfileSubmission, ProfileSubmissionAdmin)
+crush_admin_site.register(CompletedSubmission, CompletedSubmissionAdmin)
+crush_admin_site.register(InProcessSubmission, InProcessSubmissionAdmin)
 crush_admin_site.register(CoachSession, CoachSessionAdmin)
 
 # Event System
@@ -329,6 +335,10 @@ __all__ = [
     'AwaitingReviewProfileAdmin',
     'IncompleteProfile',
     'IncompleteProfileAdmin',
+    'CompletedSubmission',
+    'CompletedSubmissionAdmin',
+    'InProcessSubmission',
+    'InProcessSubmissionAdmin',
 
     # Events
     'EventRegistrationInline',

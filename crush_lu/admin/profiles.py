@@ -1468,3 +1468,42 @@ class IncompleteProfileAdmin(CrushProfileAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+# ============================================================================
+# PROXY MODELS FOR PROFILE SUBMISSION SEGMENTATION
+# ============================================================================
+
+
+class CompletedSubmission(ProfileSubmission):
+    class Meta:
+        proxy = True
+        verbose_name = 'Completed Submission'
+        verbose_name_plural = 'Completed Submissions'
+
+
+class InProcessSubmission(ProfileSubmission):
+    class Meta:
+        proxy = True
+        verbose_name = 'In-Process Submission'
+        verbose_name_plural = 'In-Process Submissions'
+
+
+class CompletedSubmissionAdmin(ProfileSubmissionAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            status__in=['approved', 'rejected'],
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class InProcessSubmissionAdmin(ProfileSubmissionAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            status__in=['pending', 'revision', 'recontact_coach'],
+        )
+
+    def has_add_permission(self, request):
+        return False
