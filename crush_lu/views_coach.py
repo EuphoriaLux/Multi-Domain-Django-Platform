@@ -792,22 +792,62 @@ def coach_edit_challenge(request, challenge_id):
     return render(request, "crush_lu/coach_edit_challenge.html", context)
 
 
+def _attach_registration_stats(events):
+    """Attach gender_stats, avg_age, and per-gender avg ages to each event."""
+    for event in events:
+        regs = EventRegistration.objects.filter(
+            event=event, status__in=["confirmed", "attended"]
+        ).select_related("user__crushprofile")
+
+        gender_counts = {"M": 0, "F": 0, "other": 0}
+        ages = {"M": [], "F": [], "other": [], "all": []}
+        for r in regs:
+            profile = getattr(r.user, "crushprofile", None)
+            if not profile:
+                continue
+            if profile.gender == "M":
+                gender_counts["M"] += 1
+                key = "M"
+            elif profile.gender == "F":
+                gender_counts["F"] += 1
+                key = "F"
+            else:
+                gender_counts["other"] += 1
+                key = "other"
+            if profile.age is not None:
+                ages[key].append(profile.age)
+                ages["all"].append(profile.age)
+
+        def _avg(lst):
+            return round(sum(lst) / len(lst), 1) if lst else None
+
+        event.gender_stats = gender_counts
+        event.avg_age = _avg(ages["all"])
+        event.avg_age_m = _avg(ages["M"])
+        event.avg_age_f = _avg(ages["F"])
+        event.avg_age_other = _avg(ages["other"])
+    return events
+
+
 @coach_required
 def coach_event_list(request):
     """Coach dashboard for managing events and viewing attendees"""
     now = timezone.now()
 
-    upcoming_events = (
+    upcoming_events = list(
         MeetupEvent.objects.filter(date_time__gte=now, is_published=True)
         .with_registration_counts()
         .order_by("date_time")
     )
 
-    past_events = (
+    past_events = list(
         MeetupEvent.objects.filter(date_time__lt=now, is_published=True)
         .with_registration_counts()
         .order_by("-date_time")[:10]
     )
+
+    _attach_registration_stats(upcoming_events)
+    _attach_registration_stats(past_events)
 
     context = {
         "coach": request.coach,
