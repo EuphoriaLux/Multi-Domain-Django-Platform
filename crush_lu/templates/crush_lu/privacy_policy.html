@@ -10,143 +10,593 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Privacy Policy" %}</h1>
-                <p class="text-muted dark:text-gray-400 mb-4"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
+                <p class="text-muted dark:text-gray-400 mb-4"><small>{% trans "Last Updated: February 24, 2026" %} — {% trans "Version 2.0" %}</small></p>
 
-                <h3>{% trans "1. Introduction" %}</h3>
+                <!-- Table of Contents -->
+                <nav class="mb-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <h2 class="text-lg font-semibold dark:text-white mb-3">{% trans "Table of Contents" %}</h2>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <li><a href="#pp-controller" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Controller Identity" %}</a></li>
+                        <li><a href="#pp-scope" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Scope" %}</a></li>
+                        <li><a href="#pp-data-collect" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Data We Collect" %}</a></li>
+                        <li><a href="#pp-how-use" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "How We Use Your Data" %}</a></li>
+                        <li><a href="#pp-automated" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Automated Decision-Making" %}</a></li>
+                        <li><a href="#pp-sharing" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Data Sharing" %}</a></li>
+                        <li><a href="#pp-transfers" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "International Transfers" %}</a></li>
+                        <li><a href="#pp-retention" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Data Retention" %}</a></li>
+                        <li><a href="#pp-rights" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Your Rights" %}</a></li>
+                        <li><a href="#pp-cookies" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Cookies & Local Storage" %}</a></li>
+                        <li><a href="#pp-children" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Children's Privacy" %}</a></li>
+                        <li><a href="#pp-breach" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Data Breach Notification" %}</a></li>
+                        <li><a href="#pp-photo-security" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Photo Security" %}</a></li>
+                        <li><a href="#pp-changes" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Changes to This Policy" %}</a></li>
+                        <li><a href="#pp-contact" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Contact" %}</a></li>
+                    </ol>
+                </nav>
+
+                <!-- 1. Controller Identity -->
+                <h3 id="pp-controller">{% trans "1. Controller Identity" %}</h3>
                 <p>
-                    {% trans "Welcome to Crush.lu (\"we,\" \"our,\" or \"us\"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our dating platform." %}
+                    {% trans "The data controller for this platform is:" %}
+                </p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Entity:" %}</strong> {% trans "Crush.lu (en cours de constitution)" %}</li>
+                    <li><strong>{% trans "Address:" %}</strong> 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</li>
+                    <li><strong>{% trans "Data Protection Contact:" %}</strong> privacy@crush.lu</li>
+                    <li><strong>{% trans "Supervisory Authority:" %}</strong> {% trans "Commission nationale pour la protection des données (CNPD), 15 Boulevard du Jazz, L-4370 Belvaux, Luxembourg" %}</li>
+                </ul>
+                <p>
+                    {% trans "This Privacy Policy applies to Version 2.0 of our terms. Your consent records reference this version number for traceability." %}
                 </p>
 
-                <h3>{% trans "2. Information We Collect" %}</h3>
-
-                <h5>{% trans "2.1 Information You Provide" %}</h5>
+                <!-- 2. Scope -->
+                <h3 id="pp-scope">{% trans "2. Scope" %}</h3>
+                <p>
+                    {% trans "This policy covers all personal data processed through the Crush.lu website, Progressive Web App (PWA), and associated services." %}
+                </p>
+                <p>
+                    {% trans "Crush.lu uses a two-tier architecture:" %}
+                </p>
                 <ul>
-                    <li><strong>{% trans "Account Information:" %}</strong> {% trans "Name, email address, date of birth, phone number" %}</li>
-                    <li><strong>{% trans "Profile Information:" %}</strong> {% trans "Bio, interests, location, gender, photos (up to 3)" %}</li>
-                    <li><strong>{% trans "Event Registration:" %}</strong> {% trans "Dietary restrictions, special requests, attendance status" %}</li>
-                    <li><strong>{% trans "Communication:" %}</strong> {% trans "Messages exchanged through our coach-facilitated connection system" %}</li>
+                    <li><strong>{% trans "PowerUp Account:" %}</strong> {% trans "Your identity layer — email, name, and authentication credentials. This account may be shared with other platforms operated by us." %}</li>
+                    <li><strong>{% trans "Crush.lu Profile:" %}</strong> {% trans "Your dating profile — photos, bio, interests, event history, and connections. This data is specific to Crush.lu and subject to separate consent." %}</li>
+                </ul>
+                <p>
+                    {% trans "Each tier requires separate, explicit consent. You may delete your Crush.lu Profile while keeping your PowerUp Account, or delete everything." %}
+                </p>
+
+                <!-- 3. Data We Collect -->
+                <h3 id="pp-data-collect">{% trans "3. Data We Collect" %}</h3>
+
+                <h5>{% trans "3.1 Identity Data" %}</h5>
+                <p>{% trans "When you create an account, we collect:" %}</p>
+                <ul>
+                    <li>{% trans "Email address and username" %}</li>
+                    <li>{% trans "First and last name" %}</li>
+                    <li>{% trans "Date of birth (to verify you are 18+ and for age display)" %}</li>
+                    <li>{% trans "Password (stored as a salted hash — we never store your password in plain text)" %}</li>
                 </ul>
 
-                <h5>{% trans "2.2 Information from Social Login" %}</h5>
-                <p>
-                    {% trans "If you choose to sign up using Facebook or other social providers, we collect:" %}
-                </p>
+                <h5>{% trans "3.2 Social Login Data" %}</h5>
+                <p>{% trans "If you register or log in via Google, Facebook, Microsoft, or LinkedIn, we receive:" %}</p>
                 <ul>
                     <li>{% trans "Your public profile information (name, email, profile picture)" %}</li>
-                    <li>{% trans "Information you grant us permission to access" %}</li>
+                    <li>{% trans "Provider-specific user ID" %}</li>
+                    <li>{% trans "Any additional information you authorise the provider to share" %}</li>
                 </ul>
+                <p>{% trans "During the OAuth flow, we temporarily store an OAuthState record containing your IP address and user agent for security verification. This record auto-expires after 10 minutes." %}</p>
 
-                <h5>{% trans "2.3 Automatically Collected Information" %}</h5>
+                <h5>{% trans "3.3 Profile Data" %}</h5>
+                <p>{% trans "When you create your Crush.lu Profile, we collect:" %}</p>
                 <ul>
-                    <li><strong>{% trans "Usage Data:" %}</strong> {% trans "Pages visited, time spent, interactions with features" %}</li>
-                    <li><strong>{% trans "Device Information:" %}</strong> {% trans "Browser type, IP address, device identifiers" %}</li>
-                    <li><strong>{% trans "Cookies:" %}</strong> {% trans "Session cookies for authentication and preferences" %}</li>
+                    <li><strong>{% trans "Gender" %}</strong> — {% trans "male, female, non-binary, other, or prefer not to say" %}</li>
+                    <li><strong>{% trans "Phone number" %}</strong> — {% trans "verified via Firebase SMS one-time password (OTP)" %}</li>
+                    <li><strong>{% trans "Location" %}</strong> — {% trans "your city or region in Luxembourg" %}</li>
+                    <li><strong>{% trans "Bio" %}</strong> — {% trans "a short description of yourself (up to 500 characters)" %}</li>
+                    <li><strong>{% trans "Interests" %}</strong> — {% trans "your hobbies and interests" %}</li>
+                    <li><strong>{% trans "Looking for" %}</strong> — {% trans "friends, dating, both, or networking" %}</li>
+                    <li><strong>{% trans "Language preferences" %}</strong> — {% trans "preferred interface language and languages spoken at events" %}</li>
+                    <li><strong>{% trans "Photos" %}</strong> — {% trans "up to 3 profile photos, stored in a private Azure Blob Storage container with time-limited access tokens (see Section 13)" %}</li>
+                    <li><strong>{% trans "Privacy flags" %}</strong> — {% trans "your choices for: display full name or first name only, show exact age or age range, blur photos until mutual interest" %}</li>
+                    <li><strong>{% trans "Draft data" %}</strong> — {% trans "if you save a partially completed profile, we temporarily store your progress" %}</li>
                 </ul>
 
-                <h3>{% trans "3. How We Use Your Information" %}</h3>
-                <p>{% trans "We use your information to:" %}</p>
+                <h5>{% trans "3.4 Coach Review Data" %}</h5>
+                <p>{% trans "All profiles are reviewed by authorised Crush Coaches before approval. During review, the following data is created:" %}</p>
                 <ul>
-                    <li>{% trans "Create and manage your Crush.lu account" %}</li>
-                    <li>{% trans "Facilitate profile review by our Crush Coaches" %}</li>
-                    <li>{% trans "Organize and manage speed dating events and meetups" %}</li>
-                    <li>{% trans "Enable coach-facilitated connections between users" %}</li>
-                    <li>{% trans "Send important notifications about events, profile status, and connections" %}</li>
-                    <li>{% trans "Improve our platform and develop new features" %}</li>
-                    <li>{% trans "Ensure safety and prevent fraud or abuse" %}</li>
+                    <li>{% trans "Profile submission status (pending, approved, rejected, revision requested, recontact coach)" %}</li>
+                    <li>{% trans "Coach notes (internal, not visible to you)" %}</li>
+                    <li>{% trans "Feedback provided to you" %}</li>
+                    <li>{% trans "Screening call records: whether a call occurred, date, notes, and a structured checklist" %}</li>
+                    <li>{% trans "Call attempt logs: date, result (success, no answer, voicemail, wrong number, user busy, scheduled callback), and notes" %}</li>
+                    <li>{% trans "Coach session records: session type (onboarding, feedback, guidance, follow-up), notes, and scheduling information" %}</li>
                 </ul>
 
-                <h3>{% trans "4. Information Sharing and Disclosure" %}</h3>
+                <h5>{% trans "3.5 Event Data" %}</h5>
+                <p>{% trans "When you register for or attend events, we collect:" %}</p>
+                <ul>
+                    <li>{% trans "Registration details: event, status (pending, confirmed, waitlist, cancelled, attended, no-show)" %}</li>
+                    <li>{% trans "Accessibility needs and dietary restrictions (if applicable)" %}</li>
+                    <li>{% trans "Guest information: whether you are bringing a guest, guest name" %}</li>
+                    <li>{% trans "Special requests" %}</li>
+                    <li>{% trans "Payment status and date (for paid events)" %}</li>
+                    <li>{% trans "Check-in data: signed QR token and check-in timestamp" %}</li>
+                    <li>{% trans "Event invitations: guest email, name, invitation status, coach approval notes" %}</li>
+                    <li>{% trans "Activity voting and presentation ratings (ratings are anonymous to other users)" %}</li>
+                    <li>{% trans "Speed dating pair assignments and round data" %}</li>
+                </ul>
 
-                <h5>{% trans "4.1 With Crush Coaches" %}</h5>
+                <h5>{% trans "3.6 Connections & Messaging Data" %}</h5>
+                <p>{% trans "After attending an event, you may request connections with other attendees:" %}</p>
+                <ul>
+                    <li>{% trans "Connection requests: who you requested, your note (up to 300 characters), status" %}</li>
+                    <li>{% trans "Bilateral consent flags: both parties must consent before contact information is shared" %}</li>
+                    <li>{% trans "Coach mediation: assigned coach, coach notes, personalised introduction messages" %}</li>
+                    <li>{% trans "Messages: text (up to 500 characters), sender, timestamps, read receipts" %}</li>
+                    <li>{% trans "Coach moderation flags on messages" %}</li>
+                </ul>
+
+                <h5>{% trans "3.7 Crush Spark Data" %}</h5>
+                <p>{% trans "Crush Spark is our anonymous admirer feature. If you send or receive a Spark, we process:" %}</p>
+                <ul>
+                    <li>{% trans "Anonymous description of the person you liked (text only, reviewed by a coach)" %}</li>
+                    <li>{% trans "Media files: photos (up to 5 slideshow images), video message, audio file" %}</li>
+                    <li>{% trans "Personal message revealed only when the recipient completes Chapter 6 of the journey" %}</li>
+                    <li>{% trans "Identity reveal status and timestamp" %}</li>
+                    <li>{% trans "Coach assignment and notes" %}</li>
+                </ul>
+                <p>{% trans "The sender's identity remains anonymous until the recipient completes the full journey. Once delivered, a Spark cannot be withdrawn." %}</p>
+
+                <h5>{% trans "3.8 Journey & Advent Calendar Data" %}</h5>
+                <p>{% trans "Interactive journeys (Wonderland, Advent Calendars, custom experiences) involve:" %}</p>
+                <ul>
+                    <li>{% trans "Progress tracking: current chapter, points earned, time spent" %}</li>
+                    <li>{% trans "Challenge responses: your answers to riddles, quizzes, and open-text prompts" %}</li>
+                    <li>{% trans "Media submissions: photos, video, and audio uploaded as part of challenges" %}</li>
+                    <li>{% trans "Personalisation data: first meeting date, first meeting location (provided by the journey creator)" %}</li>
+                    <li>{% trans "Completion status and final response" %}</li>
+                    <li>{% trans "Advent Calendar progress: doors opened, QR code scans, visit timestamps" %}</li>
+                </ul>
+
+                <h5>{% trans "3.9 Wallet & Loyalty Data" %}</h5>
+                <p>{% trans "If you add your Crush.lu pass to Apple Wallet or Google Wallet:" %}</p>
+                <ul>
+                    <li>{% trans "Apple Wallet: pass serial number, authentication token, device library identifier, APNS push token" %}</li>
+                    <li>{% trans "Google Wallet: wallet object ID, event ticket object IDs" %}</li>
+                    <li>{% trans "Your choice of whether to display your photo on the wallet pass" %}</li>
+                </ul>
+                <p>{% trans "If you participate in our referral programme:" %}</p>
+                <ul>
+                    <li>{% trans "Referral codes generated for your profile" %}</li>
+                    <li>{% trans "Referral attributions: IP address, user agent, landing page path, session identifier, conversion status" %}</li>
+                    <li>{% trans "Referral points and membership tier (basic, bronze, silver, gold)" %}</li>
+                </ul>
+
+                <h5>{% trans "3.10 Notification Data" %}</h5>
+                <p>{% trans "To deliver notifications, we collect:" %}</p>
+                <ul>
+                    <li><strong>{% trans "Push notifications:" %}</strong> {% trans "subscription endpoint URL, encryption keys (p256dh, auth), device fingerprint, user agent, device name" %}</li>
+                    <li><strong>{% trans "Email preferences:" %}</strong> {% trans "per-category opt-in/opt-out flags (profile updates, event reminders, connections, messages, newsletter, marketing), unsubscribe token" %}</li>
+                    <li><strong>{% trans "Notification preferences:" %}</strong> {% trans "which types of push notifications you wish to receive (messages, events, connections, profile updates)" %}</li>
+                </ul>
+
+                <h5>{% trans "3.11 Device & Activity Data" %}</h5>
+                <ul>
+                    <li><strong>{% trans "Activity tracking:" %}</strong> {% trans "last seen timestamp, last PWA visit, total visit count, first seen timestamp" %}</li>
+                    <li><strong>{% trans "PWA installation:" %}</strong> {% trans "device fingerprint, operating system, form factor (phone, tablet, desktop), browser name, full user agent string, installation and last-used timestamps" %}</li>
+                    <li><strong>{% trans "Re-engagement:" %}</strong> {% trans "last reminder email sent, total reminders sent count" %}</li>
+                </ul>
+
+                <h5>{% trans "3.12 Consent Records" %}</h5>
+                <p>{% trans "We maintain detailed records of your consent as required by GDPR:" %}</p>
+                <ul>
+                    <li>{% trans "Two-tier consent: separate records for PowerUp Account and Crush.lu Profile, each with IP address, timestamp, and terms version accepted" %}</li>
+                    <li>{% trans "Marketing consent: separate opt-in with timestamp" %}</li>
+                    <li>{% trans "Ban records: if applicable, ban date and reason (user deletion, admin action, terms violation)" %}</li>
+                </ul>
+
+                <!-- 4. How We Use Your Data -->
+                <h3 id="pp-how-use">{% trans "4. How We Use Your Data" %}</h3>
+                <p>{% trans "The following table describes how we use your data and our legal basis under Article 6 GDPR:" %}</p>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Purpose" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Legal Basis (Art. 6)" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Data Categories" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="dark:text-gray-300">
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Account creation & management" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Contract performance (Art. 6(1)(b))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Identity, authentication" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Profile review by coaches" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legitimate interest (Art. 6(1)(f)) — user safety" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Profile, photos, coach notes" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Event organisation & registration" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Contract performance (Art. 6(1)(b))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Event registration, dietary, accessibility" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Coach-facilitated connections" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Contract (Art. 6(1)(b)) + Consent (Art. 6(1)(a))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Connection requests, messages, consent flags" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Crush Spark & Journeys" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent (Art. 6(1)(a))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Spark descriptions, media, journey responses" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Speed dating pairing algorithm" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Contract performance (Art. 6(1)(b))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Registration, gender, ratings" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Push notifications" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent (Art. 6(1)(a))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Push subscription, device data" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Wallet passes" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent (Art. 6(1)(a))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Wallet IDs, device tokens" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Transactional emails" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legitimate interest (Art. 6(1)(f))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Email, notification preferences" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Marketing communications" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent (Art. 6(1)(a))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Email, marketing consent" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Analytics & improvement" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legitimate interest (Art. 6(1)(f))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Activity data, device data (server-side only)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Fraud prevention & safety" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legitimate interest (Art. 6(1)(f))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "IP addresses, consent records, ban records" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legal compliance" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legal obligation (Art. 6(1)(c))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent records, identity data" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Referral programme" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Legitimate interest (Art. 6(1)(f))" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Referral codes, attribution data" %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 5. Automated Decision-Making -->
+                <h3 id="pp-automated">{% trans "5. Automated Decision-Making (Art. 22)" %}</h3>
                 <p>
-                    {% trans "Our verified Crush Coaches review all profiles to ensure authenticity and safety. They have access to your profile information during the review process." %}
+                    {% trans "Our speed dating pairing algorithm uses registration data (gender, age) to create round pairings and identify top matches based on mutual ratings. This processing does not produce legal effects or similarly significant effects — it only determines conversation pairings within an event you have already chosen to attend." %}
+                </p>
+                <p>
+                    {% trans "All profile approvals are made by human coaches, not automated systems. We do not use profiling for marketing or advertising purposes." %}
                 </p>
 
-                <h5>{% trans "4.2 With Other Users" %}</h5>
+                <!-- 6. Data Sharing -->
+                <h3 id="pp-sharing">{% trans "6. Data Sharing" %}</h3>
+
+                <h5>{% trans "6.1 With Crush Coaches" %}</h5>
+                <p>{% trans "Our authorised Crush Coaches can access:" %}</p>
+                <ul>
+                    <li>{% trans "Your profile information, photos, bio, and interests (for review and approval)" %}</li>
+                    <li>{% trans "Your event registrations and attendance history" %}</li>
+                    <li>{% trans "Connection requests involving you (for mediation)" %}</li>
+                    <li>{% trans "Messages exchanged through connections (for moderation)" %}</li>
+                </ul>
+                <p>{% trans "Coaches cannot see: your password, your raw IP addresses, your device fingerprints, your email preferences, or your push subscription technical data." %}</p>
+
+                <h5>{% trans "6.2 With Other Users" %}</h5>
+                <p>{% trans "What other users can see is controlled by your privacy settings:" %}</p>
+                <ul>
+                    <li>{% trans "Display name: your full name or first name only (controlled by your 'Show Full Name' setting)" %}</li>
+                    <li>{% trans "Age: your exact age or an age range (controlled by your 'Show Exact Age' setting)" %}</li>
+                    <li>{% trans "Photos: clear or blurred (controlled by your 'Blur Photos' setting, cleared on mutual interest)" %}</li>
+                    <li>{% trans "Contact information is only shared after bilateral consent and coach approval through our connection system" %}</li>
+                </ul>
+                <p>{% trans "Crush Spark descriptions are anonymous. The sender's identity is only revealed when the recipient completes the full journey." %}</p>
+
+                <h5>{% trans "6.3 Sub-Processors" %}</h5>
+                <p>{% trans "We share data with the following third-party service providers:" %}</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Provider" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Purpose" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Location" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="dark:text-gray-300">
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Microsoft Azure (West Europe)" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Hosting, database, file storage" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "EU (Netherlands)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Microsoft Graph API" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Email delivery" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "EU" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Azure Application Insights" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Server-side error monitoring (5% sampling, no PII)" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "EU (West Europe)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Firebase (Google)" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "SMS phone verification (OTP)" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "EU + US" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Google OAuth" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Social login" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Facebook/Meta OAuth" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Social login" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Microsoft OAuth" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Social login" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "LinkedIn OAuth" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Social login" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Apple PassKit (APNS)" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Apple Wallet pass delivery and updates" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Google Wallet API" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Google Wallet pass delivery" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "US (DPF)" %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h5>{% trans "6.4 Legal Requirements" %}</h5>
                 <p>
-                    {% trans "Your profile information is visible to other approved users according to your privacy settings:" %}
+                    {% trans "We may disclose your personal data if required by law, court order, or regulatory request, or to protect the rights, property, or safety of Crush.lu, our users, or others." %}
+                </p>
+
+                <!-- 7. International Transfers -->
+                <h3 id="pp-transfers">{% trans "7. International Transfers" %}</h3>
+                <p>
+                    {% trans "Your data is primarily processed and stored within the European Union, on Microsoft Azure servers in the West Europe region (Netherlands)." %}
+                </p>
+                <p>
+                    {% trans "Some data is transferred to the United States through the following mechanisms:" %}
                 </p>
                 <ul>
-                    <li>{% trans "You can choose to display your full name or first name only" %}</li>
-                    <li>{% trans "You can choose to display your exact age or age range" %}</li>
-                    <li>{% trans "You can choose to blur your photos until mutual interest" %}</li>
+                    <li><strong>{% trans "OAuth providers (Google, Facebook, Microsoft, LinkedIn):" %}</strong> {% trans "EU-US Data Privacy Framework (DPF) adequacy decision" %}</li>
+                    <li><strong>{% trans "Apple PassKit & Google Wallet:" %}</strong> {% trans "EU-US Data Privacy Framework (DPF) adequacy decision" %}</li>
+                    <li><strong>{% trans "Firebase:" %}</strong> {% trans "DPF adequacy decision + Standard Contractual Clauses (SCCs)" %}</li>
                 </ul>
+                <p>
+                    {% trans "No data is transferred to countries without an adequate level of data protection unless appropriate safeguards are in place." %}
+                </p>
 
-                <h5>{% trans "4.3 Service Providers" %}</h5>
-                <p>{% trans "We share information with trusted third-party service providers who assist us in:" %}</p>
+                <!-- 8. Data Retention -->
+                <h3 id="pp-retention">{% trans "8. Data Retention" %}</h3>
+                <p>{% trans "We retain your data for the following periods:" %}</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Data Type" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Retention Period" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="dark:text-gray-300">
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Active account data" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Duration of account" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Deleted profile data" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Immediate deletion (photos within 7 days, backups within 90 days)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Coach review notes" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "1 year after review completion" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Event records" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "2 years after the event" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Messages" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Deleted with account" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "OAuth state records" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "10 minutes (auto-expiry)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Push subscriptions" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Until unsubscribed or 90 days of inactivity" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Consent records" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "5 years after withdrawal" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Application Insights telemetry" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "90 days" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Referral attributions" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "2 years after creation" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Profile draft data" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Until draft expiration date (set at creation)" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Anonymised analytics" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Retained indefinitely" %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 9. Your Rights -->
+                <h3 id="pp-rights">{% trans "9. Your Rights (Articles 15–22 GDPR)" %}</h3>
+                <p>{% trans "Under GDPR and Luxembourg data protection law, you have the following rights:" %}</p>
                 <ul>
-                    <li>{% trans "Hosting and storage (Microsoft Azure)" %}</li>
-                    <li>{% trans "Email delivery (Microsoft Graph API)" %}</li>
-                    <li>{% trans "Payment processing (if applicable)" %}</li>
+                    <li><strong>{% trans "Right of Access (Art. 15):" %}</strong> {% trans "Request a copy of your personal data. You can export your data directly from your account settings." %}</li>
+                    <li><strong>{% trans "Right to Rectification (Art. 16):" %}</strong> {% trans "Correct inaccurate or incomplete information by editing your profile." %}</li>
+                    <li><strong>{% trans "Right to Erasure (Art. 17):" %}</strong> {% trans "Request deletion of your data. You can delete your Crush.lu Profile only (keeping your PowerUp Account) or delete everything. Use the Data Management page in your account settings." %}</li>
+                    <li><strong>{% trans "Right to Restriction (Art. 18):" %}</strong> {% trans "Request that we limit how we process your data." %}</li>
+                    <li><strong>{% trans "Right to Data Portability (Art. 20):" %}</strong> {% trans "Receive your data in a structured, machine-readable JSON format via the data export feature in your account settings." %}</li>
+                    <li><strong>{% trans "Right to Object (Art. 21):" %}</strong> {% trans "Object to processing based on legitimate interest." %}</li>
+                    <li><strong>{% trans "Right to Withdraw Consent (Art. 7(3)):" %}</strong> {% trans "Withdraw consent for any consent-based processing at any time, without affecting the lawfulness of processing before withdrawal." %}</li>
+                </ul>
+                <p>
+                    {% trans "To exercise any of these rights, contact us at privacy@crush.lu or use the in-app data management tools in your account settings." %}
+                </p>
+                <p>
+                    {% trans "If you believe your rights have been violated, you have the right to lodge a complaint with the CNPD:" %}
+                </p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Commission nationale pour la protection des données" %}</strong></li>
+                    <li>15 Boulevard du Jazz, L-4370 Belvaux, {% trans "Luxembourg" %}</li>
+                    <li>{% trans "Website:" %} https://cnpd.public.lu</li>
                 </ul>
 
-                <h5>{% trans "4.4 Legal Requirements" %}</h5>
+                <!-- 10. Cookies & Local Storage -->
+                <h3 id="pp-cookies">{% trans "10. Cookies & Local Storage" %}</h3>
+                <p>{% trans "We use the following cookies and browser storage:" %}</p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm border dark:border-gray-600 mb-4">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-700">
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Name" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Type" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Purpose" %}</th>
+                                <th class="border dark:border-gray-600 px-3 py-2 text-left dark:text-white">{% trans "Category" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="dark:text-gray-300">
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2"><code>sessionid</code></td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Cookie" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Authentication session" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Essential" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2"><code>csrftoken</code></td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Cookie" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Cross-site request forgery protection" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Essential" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2"><code>django_language</code></td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Cookie" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Language preference" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Preference" %}</td>
+                            </tr>
+                            <tr>
+                                <td class="border dark:border-gray-600 px-3 py-2"><code>theme</code></td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "localStorage" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Dark/light mode preference" %}</td>
+                                <td class="border dark:border-gray-600 px-3 py-2">{% trans "Preference" %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <p>
-                    {% trans "We may disclose your information if required by law, court order, or to protect the rights, property, or safety of Crush.lu, our users, or others." %}
+                    {% trans "We do not use any third-party tracking cookies. We do not use Google Analytics. Our server-side monitoring (Application Insights) operates at a 5% sampling rate and does not collect personally identifiable information from your browser." %}
+                </p>
+                <p>
+                    {% trans "You can control cookies through your browser settings. Disabling essential cookies will prevent you from logging in." %}
                 </p>
 
-                <h3>{% trans "5. Data Storage and Security" %}</h3>
+                <!-- 11. Children's Privacy -->
+                <h3 id="pp-children">{% trans "11. Children's Privacy" %}</h3>
                 <p>
-                    {% trans "Your data is stored securely using industry-standard practices:" %}
+                    {% trans "Crush.lu is strictly intended for users aged 18 and over. We verify your age through your date of birth at registration. We do not knowingly collect personal data from anyone under 18." %}
+                </p>
+                <p>
+                    {% trans "If we discover that a user is under 18, we will immediately delete their account and all associated data. If you become aware that a minor has created an account, please contact us immediately at privacy@crush.lu." %}
+                </p>
+
+                <!-- 12. Data Breach Notification -->
+                <h3 id="pp-breach">{% trans "12. Data Breach Notification" %}</h3>
+                <p>
+                    {% trans "In the event of a personal data breach, we will:" %}
                 </p>
                 <ul>
-                    <li><strong>{% trans "Profile Photos:" %}</strong> {% trans "Stored in private Azure Blob Storage with time-limited access tokens" %}</li>
-                    <li><strong>{% trans "Database:" %}</strong> {% trans "Encrypted PostgreSQL database hosted on Azure" %}</li>
-                    <li><strong>{% trans "Transmission:" %}</strong> {% trans "All data transmitted over HTTPS with SSL/TLS encryption" %}</li>
-                    <li><strong>{% trans "Access Control:" %}</strong> {% trans "Strict access controls limit who can view your information" %}</li>
+                    <li>{% trans "Notify the CNPD within 72 hours of becoming aware of the breach (Article 33 GDPR)" %}</li>
+                    <li>{% trans "Notify affected users without undue delay if the breach is likely to result in a high risk to your rights and freedoms (Article 34 GDPR)" %}</li>
+                    <li>{% trans "Document the breach, its effects, and remedial actions taken" %}</li>
                 </ul>
 
-                <h3>{% trans "6. Your Privacy Rights" %}</h3>
-                <p>{% trans "Under GDPR and Luxembourg data protection laws, you have the right to:" %}</p>
+                <!-- 13. Photo Security -->
+                <h3 id="pp-photo-security">{% trans "13. Photo Security" %}</h3>
+                <p>{% trans "Your profile photos receive enhanced protection:" %}</p>
                 <ul>
-                    <li><strong>{% trans "Access:" %}</strong> {% trans "Request a copy of your personal data" %}</li>
-                    <li><strong>{% trans "Rectification:" %}</strong> {% trans "Correct inaccurate or incomplete information" %}</li>
-                    <li><strong>{% trans "Erasure:" %}</strong> {% trans "Request deletion of your personal data (see Data Deletion page)" %}</li>
-                    <li><strong>{% trans "Restriction:" %}</strong> {% trans "Limit how we use your data" %}</li>
-                    <li><strong>{% trans "Portability:" %}</strong> {% trans "Receive your data in a machine-readable format" %}</li>
-                    <li><strong>{% trans "Objection:" %}</strong> {% trans "Object to certain processing of your data" %}</li>
-                    <li><strong>{% trans "Withdraw Consent:" %}</strong> {% trans "Withdraw consent for data processing at any time" %}</li>
+                    <li>{% trans "Photos are stored in a private Azure Blob Storage container — they are not publicly accessible" %}</li>
+                    <li>{% trans "Access is granted via time-limited Shared Access Signature (SAS) tokens that expire after 30 minutes" %}</li>
+                    <li>{% trans "Each photo is stored under a user-specific path with a randomised filename" %}</li>
+                    <li>{% trans "The blur feature allows you to obscure your photos until mutual interest is established" %}</li>
+                    <li>{% trans "Journey and Crush Spark media files receive the same private storage treatment" %}</li>
                 </ul>
 
-                <h3>{% trans "7. Data Retention" %}</h3>
+                <!-- 14. Changes -->
+                <h3 id="pp-changes">{% trans "14. Changes to This Policy" %}</h3>
+                <p>
+                    {% trans "We may update this Privacy Policy from time to time. For material changes, we will:" %}
+                </p>
                 <ul>
-                    <li><strong>{% trans "Active Accounts:" %}</strong> {% trans "We retain your information while your account is active" %}</li>
-                    <li><strong>{% trans "Deleted Accounts:" %}</strong> {% trans "Most data is deleted within 30 days of account deletion" %}</li>
-                    <li><strong>{% trans "Legal Obligations:" %}</strong> {% trans "Some data may be retained longer for legal compliance" %}</li>
-                    <li><strong>{% trans "Event Records:" %}</strong> {% trans "Event attendance records may be retained for safety and operational purposes" %}</li>
+                    <li>{% trans "Provide at least 30 days' notice before the changes take effect" %}</li>
+                    <li>{% trans "Require you to re-confirm your consent via our consent middleware before continuing to use the platform" %}</li>
+                    <li>{% trans "Update the version number and 'Last Updated' date at the top of this page" %}</li>
                 </ul>
+                <p>
+                    {% trans "Your continued use of Crush.lu after re-consenting constitutes acceptance of the updated policy." %}
+                </p>
 
-                <h3>{% trans "8. Cookies and Tracking" %}</h3>
-                <p>{% trans "We use cookies for:" %}</p>
-                <ul>
-                    <li><strong>{% trans "Essential Cookies:" %}</strong> {% trans "Required for authentication and core functionality" %}</li>
-                    <li><strong>{% trans "Preference Cookies:" %}</strong> {% trans "Remember your settings and choices" %}</li>
-                    <li><strong>{% trans "Analytics:" %}</strong> {% trans "Understand how users interact with our platform (anonymized)" %}</li>
+                <!-- 15. Contact -->
+                <h3 id="pp-contact">{% trans "15. Contact" %}</h3>
+                <p>{% trans "If you have questions about this Privacy Policy or wish to exercise your data protection rights:" %}</p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Data Protection Contact:" %}</strong> privacy@crush.lu</li>
+                    <li><strong>{% trans "General Support:" %}</strong> support@crush.lu</li>
+                    <li><strong>{% trans "Address:" %}</strong> Crush.lu, 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</li>
                 </ul>
-                <p>{% trans "You can control cookies through your browser settings." %}</p>
-
-                <h3>{% trans "9. Children's Privacy" %}</h3>
-                <p>
-                    {% trans "Crush.lu is intended for users 18 years and older. We do not knowingly collect information from anyone under 18. If you become aware that a child has provided us with personal information, please contact us immediately." %}
-                </p>
-
-                <h3>{% trans "10. Changes to This Privacy Policy" %}</h3>
-                <p>
-                    {% trans "We may update this Privacy Policy from time to time. We will notify you of any significant changes by posting the new Privacy Policy on this page and updating the \"Last Updated\" date." %}
-                </p>
-
-                <h3>{% trans "11. International Data Transfers" %}</h3>
-                <p>
-                    {% trans "Your data is processed and stored in the European Economic Area (EEA) on Microsoft Azure servers. If data is transferred outside the EEA, we ensure appropriate safeguards are in place." %}
-                </p>
-
-                <h3>{% trans "12. Contact Us" %}</h3>
-                <p>
-                    {% trans "If you have questions about this Privacy Policy or wish to exercise your rights, please contact us at:" %}
-                </p>
-                <ul class="list-unstyled">
-                    <li><strong>{% trans "Email:" %}</strong> privacy@crush.lu</li>
-                    <li><strong>{% trans "Address:" %}</strong> {% trans "Crush.lu, Luxembourg" %}</li>
+                <p class="mt-2">{% trans "Supervisory authority:" %}</p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Commission nationale pour la protection des données (CNPD)" %}</strong></li>
+                    <li>15 Boulevard du Jazz, L-4370 Belvaux, {% trans "Luxembourg" %}</li>
+                    <li>{% trans "Website:" %} https://cnpd.public.lu</li>
                 </ul>
 
                 <hr class="my-4 dark:border-gray-700">

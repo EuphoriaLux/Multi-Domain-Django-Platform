@@ -10,146 +10,325 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
                 <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Terms of Service" %}</h1>
-                <p class="text-muted dark:text-gray-400 mb-4"><small>{% trans "Last Updated: January 14, 2025" %}</small></p>
+                <p class="text-muted dark:text-gray-400 mb-4"><small>{% trans "Last Updated: February 24, 2026" %} — {% trans "Version 2.0" %}</small></p>
 
-                <h3>{% trans "1. Acceptance of Terms" %}</h3>
+                <!-- Table of Contents -->
+                <nav class="mb-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <h2 class="text-lg font-semibold dark:text-white mb-3">{% trans "Table of Contents" %}</h2>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <li><a href="#tos-acceptance" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Acceptance of Terms" %}</a></li>
+                        <li><a href="#tos-definitions" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Definitions" %}</a></li>
+                        <li><a href="#tos-eligibility" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Eligibility" %}</a></li>
+                        <li><a href="#tos-registration" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Account Registration" %}</a></li>
+                        <li><a href="#tos-conduct" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "User Conduct" %}</a></li>
+                        <li><a href="#tos-content" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Content Guidelines" %}</a></li>
+                        <li><a href="#tos-events" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Events" %}</a></li>
+                        <li><a href="#tos-connections" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Coach-Facilitated Connections" %}</a></li>
+                        <li><a href="#tos-spark" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Crush Spark (Anonymous Admirer)" %}</a></li>
+                        <li><a href="#tos-journeys" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Interactive Journeys" %}</a></li>
+                        <li><a href="#tos-wallet" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Wallet Passes" %}</a></li>
+                        <li><a href="#tos-referral" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Referral Programme" %}</a></li>
+                        <li><a href="#tos-payment" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Payment & Fees" %}</a></li>
+                        <li><a href="#tos-ip" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Intellectual Property" %}</a></li>
+                        <li><a href="#tos-privacy" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Privacy & Data Protection" %}</a></li>
+                        <li><a href="#tos-disclaimers" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Disclaimers & Liability" %}</a></li>
+                        <li><a href="#tos-termination" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Suspension & Termination" %}</a></li>
+                        <li><a href="#tos-disputes" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Dispute Resolution" %}</a></li>
+                        <li><a href="#tos-force-majeure" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Force Majeure" %}</a></li>
+                        <li><a href="#tos-general" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "General Provisions" %}</a></li>
+                        <li><a href="#tos-changes" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Changes to Terms" %}</a></li>
+                        <li><a href="#tos-contact" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Contact" %}</a></li>
+                    </ol>
+                </nav>
+
+                <!-- 1. Acceptance -->
+                <h3 id="tos-acceptance">{% trans "1. Acceptance of Terms" %}</h3>
                 <p>
-                    {% trans "By creating an account and using Crush.lu (\"the Platform,\" \"we,\" \"our,\" or \"us\"), you agree to be bound by these Terms of Service (\"Terms\"). If you do not agree to these Terms, you may not use the Platform." %}
+                    {% trans 'By creating an account, accessing, or using Crush.lu ("the Platform"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Platform.' %}
                 </p>
-
-                <h3>{% trans "2. Eligibility" %}</h3>
                 <p>
-                    {% trans "You must be at least 18 years old to use Crush.lu. By creating an account, you represent and warrant that:" %}
+                    {% trans "Crush.lu uses a two-tier consent system. You must separately consent to:" %}
                 </p>
                 <ul>
-                    <li>{% trans "You are at least 18 years of age" %}</li>
-                    <li>{% trans "You are legally able to enter into a binding contract" %}</li>
-                    <li>{% trans "You are not prohibited from using the Platform under Luxembourg or EU law" %}</li>
-                    <li>{% trans "You will comply with these Terms and all applicable laws" %}</li>
+                    <li>{% trans "The creation of your PowerUp Account (identity layer)" %}</li>
+                    <li>{% trans "The creation of your Crush.lu Profile (dating profile layer)" %}</li>
+                </ul>
+                <p>
+                    {% trans "Each consent is recorded with your IP address, timestamp, and the version of these Terms you accepted. This version is 2.0." %}
+                </p>
+
+                <!-- 2. Definitions -->
+                <h3 id="tos-definitions">{% trans "2. Definitions" %}</h3>
+                <ul>
+                    <li><strong>{% trans "Platform:" %}</strong> {% trans "The Crush.lu website, Progressive Web App (PWA), and all associated services." %}</li>
+                    <li><strong>{% trans "PowerUp Account:" %}</strong> {% trans "Your base identity account (email, name, authentication), which may be shared with other platforms we operate." %}</li>
+                    <li><strong>{% trans "Crush.lu Profile:" %}</strong> {% trans "Your dating profile including photos, bio, interests, and all Crush.lu-specific data." %}</li>
+                    <li><strong>{% trans "Coach:" %}</strong> {% trans "An authorised representative of Crush.lu who reviews profiles, facilitates connections, and moderates interactions." %}</li>
+                    <li><strong>{% trans "Event:" %}</strong> {% trans "Any in-person meetup, speed dating session, mixer, or activity organised through the Platform." %}</li>
+                    <li><strong>{% trans "Connection:" %}</strong> {% trans "A coach-facilitated link between two users who met at an Event, requiring bilateral consent." %}</li>
+                    <li><strong>{% trans "Crush Spark:" %}</strong> {% trans "An anonymous admirer feature where a user creates a personalised journey for someone they liked at an Event." %}</li>
+                    <li><strong>{% trans "Journey:" %}</strong> {% trans "An interactive multi-chapter experience (Wonderland, Advent Calendar, or custom) with challenges and rewards." %}</li>
+                    <li><strong>{% trans "Content:" %}</strong> {% trans "Any text, photos, videos, audio, or other material you submit to the Platform." %}</li>
                 </ul>
 
-                <h3>{% trans "3. Account Registration and Security" %}</h3>
+                <!-- 3. Eligibility -->
+                <h3 id="tos-eligibility">{% trans "3. Eligibility" %}</h3>
+                <p>{% trans "To use Crush.lu, you must:" %}</p>
+                <ul>
+                    <li>{% trans "Be at least 18 years of age" %}</li>
+                    <li>{% trans "Have the legal capacity to enter into a binding contract" %}</li>
+                    <li>{% trans "Not be prohibited from using the Platform under Luxembourg or EU law" %}</li>
+                    <li>{% trans "Not have been previously banned from the Platform" %}</li>
+                    <li>{% trans "Maintain only one account" %}</li>
+                </ul>
+                <p>
+                    {% trans "By creating an account, you represent and warrant that you meet all eligibility requirements. Users who have been banned may not re-register under a different identity." %}
+                </p>
 
-                <h5>{% trans "3.1 Account Creation" %}</h5>
+                <!-- 4. Account Registration -->
+                <h3 id="tos-registration">{% trans "4. Account Registration" %}</h3>
+
+                <h5>{% trans "4.1 Account Types" %}</h5>
+                <p>{% trans "Crush.lu uses a two-tier account system:" %}</p>
+                <ul>
+                    <li><strong>{% trans "PowerUp Account:" %}</strong> {% trans "Your identity layer with email, name, and login credentials. Required for all platform access." %}</li>
+                    <li><strong>{% trans "Crush.lu Profile:" %}</strong> {% trans "Your dating profile with photos, bio, interests, and privacy settings. Required for events and connections." %}</li>
+                </ul>
+
+                <h5>{% trans "4.2 Account Creation" %}</h5>
                 <ul>
                     <li>{% trans "You must provide accurate, current, and complete information during registration" %}</li>
-                    <li>{% trans "You may register via email/password or social login (Facebook)" %}</li>
+                    <li>{% trans "You may register via email/password or social login (Google, Facebook, Microsoft, LinkedIn)" %}</li>
                     <li>{% trans "Each person may only create one account" %}</li>
-                    <li>{% trans "You are responsible for maintaining the confidentiality of your password" %}</li>
+                    <li>{% trans "You are responsible for maintaining the confidentiality of your login credentials" %}</li>
+                    <li>{% trans "You must notify us immediately of any unauthorised access to your account" %}</li>
                 </ul>
 
-                <h5>{% trans "3.2 Profile Approval" %}</h5>
+                <h5>{% trans "4.3 Phone Verification" %}</h5>
                 <p>
-                    {% trans "All profiles are reviewed by our Crush Coaches before approval. We reserve the right to:" %}
+                    {% trans "To complete your Crush.lu Profile, you must verify your phone number via SMS one-time password (OTP). This verification is processed through Firebase and is required to prevent duplicate accounts and enhance trust." %}
                 </p>
+
+                <h5>{% trans "4.4 Profile Approval" %}</h5>
+                <p>{% trans "All Crush.lu Profiles are reviewed by our Coaches before approval. This process typically takes up to 48 hours. We reserve the right to:" %}</p>
                 <ul>
-                    <li>{% trans "Request revisions to your profile" %}</li>
+                    <li>{% trans "Request revisions to your profile content or photos" %}</li>
                     <li>{% trans "Reject profiles that violate our community standards" %}</li>
                     <li>{% trans "Require a screening call before profile activation" %}</li>
+                    <li>{% trans "Require you to recontact your assigned Coach for additional information" %}</li>
                 </ul>
 
-                <h3>{% trans "4. User Conduct and Community Standards" %}</h3>
-                <p>
-                    {% trans "You agree not to:" %}
-                </p>
+                <!-- 5. User Conduct -->
+                <h3 id="tos-conduct">{% trans "5. User Conduct" %}</h3>
+                <p>{% trans "You agree not to:" %}</p>
                 <ul>
-                    <li><strong>{% trans "Misrepresent:" %}</strong> {% trans "Use false information, impersonate others, or create fake profiles" %}</li>
-                    <li><strong>{% trans "Harass:" %}</strong> {% trans "Engage in harassment, bullying, or abusive behavior toward other users" %}</li>
-                    <li><strong>{% trans "Discriminate:" %}</strong> {% trans "Discriminate based on race, ethnicity, religion, gender, sexual orientation, or disability" %}</li>
-                    <li><strong>{% trans "Spam:" %}</strong> {% trans "Send unsolicited promotional content or spam" %}</li>
-                    <li><strong>{% trans "Solicit:" %}</strong> {% trans "Request money or financial information from other users" %}</li>
-                    <li><strong>{% trans "Violate Privacy:" %}</strong> {% trans "Share private information of other users without consent" %}</li>
-                    <li><strong>{% trans "Illegal Activity:" %}</strong> {% trans "Use the Platform for any illegal purpose" %}</li>
-                    <li><strong>{% trans "Scraping:" %}</strong> {% trans "Use automated tools to scrape or collect user data" %}</li>
+                    <li>{% trans "Misrepresent your identity, use false information, impersonate others, or create fake profiles" %}</li>
+                    <li>{% trans "Engage in harassment, bullying, stalking, or abusive behaviour toward other users" %}</li>
+                    <li>{% trans "Discriminate based on race, ethnicity, religion, gender, sexual orientation, or disability" %}</li>
+                    <li>{% trans "Send unsolicited promotional content or spam" %}</li>
+                    <li>{% trans "Request money, financial information, or commercial favours from other users" %}</li>
+                    <li>{% trans "Share private information of other users without their consent" %}</li>
+                    <li>{% trans "Use the Platform for any illegal purpose" %}</li>
+                    <li>{% trans "Use automated tools, bots, or scripts to scrape or collect user data" %}</li>
+                    <li>{% trans "Circumvent privacy features, including attempting to identify anonymous Crush Spark senders" %}</li>
+                    <li>{% trans "Maintain multiple accounts or create a new account after being banned" %}</li>
+                    <li>{% trans "Use the Platform for commercial purposes without our written permission" %}</li>
+                    <li>{% trans "Pressure other users for personal contact information outside of the Platform's connection system" %}</li>
+                    <li>{% trans "Record, photograph, or livestream events without explicit permission from all attendees" %}</li>
+                    <li>{% trans "Provide false accessibility or dietary information when registering for events" %}</li>
+                    <li>{% trans "Attempt to reverse-engineer, decompile, or interfere with Platform security" %}</li>
                 </ul>
 
-                <h3>{% trans "5. Content Guidelines" %}</h3>
+                <!-- 6. Content Guidelines -->
+                <h3 id="tos-content">{% trans "6. Content Guidelines" %}</h3>
 
-                <h5>{% trans "5.1 Profile Content" %}</h5>
+                <h5>{% trans "6.1 Profile Content" %}</h5>
                 <p>{% trans "Your profile photos and bio must:" %}</p>
                 <ul>
                     <li>{% trans "Be appropriate and non-explicit" %}</li>
-                    <li>{% trans "Accurately represent you" %}</li>
-                    <li>{% trans "Be recent (taken within the last year)" %}</li>
-                    <li>{% trans "Not include contact information (email, phone, social media handles)" %}</li>
+                    <li>{% trans "Accurately represent you (recent photos, taken within the last year)" %}</li>
+                    <li>{% trans "Feature you as the primary subject (no group photos as your main photo)" %}</li>
+                    <li>{% trans "Not include embedded contact information (email, phone, social media handles, URLs)" %}</li>
                     <li>{% trans "Not promote products, services, or other platforms" %}</li>
+                    <li>{% trans "Not contain nudity, sexually explicit material, violence, illegal drugs, or weapons" %}</li>
+                    <li>{% trans "Not depict or include minors (anyone under 18)" %}</li>
+                    <li>{% trans "Not infringe on intellectual property rights" %}</li>
                 </ul>
 
-                <h5>{% trans "5.2 Prohibited Content" %}</h5>
-                <p>{% trans "You may not post content that:" %}</p>
-                <ul>
-                    <li>{% trans "Contains nudity or sexually explicit material" %}</li>
-                    <li>{% trans "Depicts violence, illegal drugs, or weapons" %}</li>
-                    <li>{% trans "Promotes hate speech or violence" %}</li>
-                    <li>{% trans "Infringes on intellectual property rights" %}</li>
-                    <li>{% trans "Contains minors (anyone under 18)" %}</li>
-                </ul>
+                <h5>{% trans "6.2 Journey & Crush Spark Media" %}</h5>
+                <p>{% trans "Media uploaded for Journeys and Crush Sparks (photos, videos, audio) must follow the same content standards as profile content. All Crush Spark content is reviewed by a Coach before delivery." %}</p>
 
-                <h3>{% trans "6. Events and Meetups" %}</h3>
+                <h5>{% trans "6.3 Messaging" %}</h5>
+                <p>{% trans "Messages exchanged through connections are subject to coach moderation. Coaches may review messages to ensure community standards are maintained. Messages must not contain threats, harassment, or explicit content." %}</p>
 
-                <h5>{% trans "6.1 Event Registration" %}</h5>
-                <ul>
-                    <li>{% trans "Only approved profiles can register for events" %}</li>
-                    <li>{% trans "Registration is subject to availability and may be waitlisted" %}</li>
-                    <li>{% trans "You must attend events you register for or cancel in advance" %}</li>
-                    <li>{% trans "Repeated no-shows may result in account restrictions" %}</li>
-                </ul>
-
-                <h5>{% trans "6.2 Event Conduct" %}</h5>
-                <ul>
-                    <li>{% trans "Treat all attendees with respect and courtesy" %}</li>
-                    <li>{% trans "Follow event rules and coach instructions" %}</li>
-                    <li>{% trans "Do not pressure others for contact information" %}</li>
-                    <li>{% trans "Report any inappropriate behavior to Crush Coaches immediately" %}</li>
-                </ul>
-
-                <h3>{% trans "7. Coach-Facilitated Connections" %}</h3>
+                <h5>{% trans "6.4 Content Licence" %}</h5>
                 <p>
-                    {% trans "After attending an event, you may request connections with other attendees:" %}
+                    {% trans "You retain ownership of all Content you post on the Platform. By posting Content, you grant Crush.lu a worldwide, non-exclusive, royalty-free licence to use, display, and distribute your Content solely for the purpose of operating and providing the Platform's services." %}
                 </p>
+                <p>
+                    {% trans "This licence terminates when you delete your Content or your account, except where your Content has been shared with other users through legitimate Platform features (e.g., delivered Crush Sparks or messages in active connections)." %}
+                </p>
+
+                <!-- 7. Events -->
+                <h3 id="tos-events">{% trans "7. Events" %}</h3>
+
+                <h5>{% trans "7.1 Registration" %}</h5>
                 <ul>
-                    <li>{% trans "All connections are facilitated by Crush Coaches for safety" %}</li>
-                    <li>{% trans "Both parties must consent before contact information is shared" %}</li>
-                    <li>{% trans "Coaches may review connection requests and messages" %}</li>
-                    <li>{% trans "Respecting boundaries is mandatory - \"no\" means no" %}</li>
+                    <li>{% trans "Only users with approved Crush.lu Profiles can register for events" %}</li>
+                    <li>{% trans "Events may have capacity limits, gender-specific caps, age requirements, and language requirements" %}</li>
+                    <li>{% trans "Registration is subject to availability — you may be placed on a waitlist" %}</li>
+                    <li>{% trans "Some events are private or invitation-only and require an invitation code" %}</li>
                 </ul>
 
-                <h3>{% trans "8. Payment and Fees" %}</h3>
+                <h5>{% trans "7.2 Event Conduct" %}</h5>
                 <ul>
-                    <li>{% trans "Some events may require a registration fee" %}</li>
-                    <li>{% trans "Fees are clearly displayed before registration" %}</li>
+                    <li>{% trans "Treat all attendees and staff with respect and courtesy" %}</li>
+                    <li>{% trans "Follow event rules and Coach instructions at all times" %}</li>
+                    <li>{% trans "Do not pressure others for contact information — use the Platform's connection system" %}</li>
+                    <li>{% trans "Report any inappropriate behaviour to Coaches immediately" %}</li>
+                    <li>{% trans "Do not record, photograph, or livestream without permission from all attendees" %}</li>
+                </ul>
+
+                <h5>{% trans "7.3 Cancellation & Refund Policy" %}</h5>
+                <p>{% trans "For paid events, the following refund policy applies:" %}</p>
+                <ul>
+                    <li><strong>{% trans "More than 48 hours before the event:" %}</strong> {% trans "Full refund" %}</li>
+                    <li><strong>{% trans "Between 24 and 48 hours before the event:" %}</strong> {% trans "50% refund" %}</li>
+                    <li><strong>{% trans "Less than 24 hours before the event:" %}</strong> {% trans "No refund" %}</li>
+                </ul>
+                <p>{% trans "If Crush.lu cancels an event, all registered attendees will receive a full refund regardless of timing." %}</p>
+
+                <h5>{% trans "7.4 No-Show Policy" %}</h5>
+                <p>
+                    {% trans "You must attend events you register for or cancel in advance. Users who accumulate 3 or more no-shows may face restrictions on future event registrations." %}
+                </p>
+
+                <h5>{% trans "7.5 Guests" %}</h5>
+                <p>
+                    {% trans "Some events allow guests. If you bring a guest, you are responsible for ensuring they comply with these Terms and event rules. Guest information (name) is collected at registration." %}
+                </p>
+
+                <h5>{% trans "7.6 Private & Invitation-Only Events" %}</h5>
+                <p>
+                    {% trans "Private events require an invitation code. Invitation codes are personal and may not be shared unless explicitly permitted. Invitations may be subject to Coach approval." %}
+                </p>
+
+                <!-- 8. Coach-Facilitated Connections -->
+                <h3 id="tos-connections">{% trans "8. Coach-Facilitated Connections" %}</h3>
+
+                <h5>{% trans "8.1 Process" %}</h5>
+                <p>{% trans "After attending an event, you may request a connection with another attendee. The process is:" %}</p>
+                <ol class="list-decimal list-inside mb-4">
+                    <li>{% trans "You submit a connection request with an optional personal note" %}</li>
+                    <li>{% trans "A Coach reviews the request" %}</li>
+                    <li>{% trans "Both parties must provide bilateral consent before any contact information is shared" %}</li>
+                    <li>{% trans "Once both consent, the Coach may provide a personalised introduction" %}</li>
+                </ol>
+
+                <h5>{% trans "8.2 Coach Role" %}</h5>
+                <p>
+                    {% trans "Coaches are authorised representatives of Crush.lu. They facilitate connections, mediate interactions, and ensure community safety. Coach decisions regarding connection approvals are final." %}
+                </p>
+
+                <h5>{% trans "8.3 Messaging" %}</h5>
+                <p>
+                    {% trans "Messages between connected users are subject to moderation. Coaches may review messages to maintain community standards. Keep messages respectful and appropriate." %}
+                </p>
+
+                <h5>{% trans "8.4 Contact Sharing" %}</h5>
+                <p>
+                    {% trans "Personal contact information is shared only after both users have provided explicit consent and the Coach has approved the connection. Respecting boundaries is mandatory — 'no' means no." %}
+                </p>
+
+                <!-- 9. Crush Spark -->
+                <h3 id="tos-spark">{% trans "9. Crush Spark (Anonymous Admirer)" %}</h3>
+                <p>{% trans "Crush Spark allows you to create an anonymous personalised journey for someone you liked at an event. By using this feature, you agree to the following:" %}</p>
+                <ul>
+                    <li>{% trans "You may send a Crush Spark only to someone who attended the same event as you" %}</li>
+                    <li>{% trans "Your anonymous description of the recipient is reviewed by a Coach, who identifies and assigns the recipient" %}</li>
+                    <li>{% trans "You create a personalised journey with optional media (photos, video, audio)" %}</li>
+                    <li>{% trans "Your identity remains anonymous until the recipient completes Chapter 6 of the journey" %}</li>
+                    <li>{% trans "Once a Spark is delivered to the recipient, it cannot be withdrawn" %}</li>
+                    <li>{% trans "Crush Sparks expire after 14 days if the journey is not completed" %}</li>
+                    <li>{% trans "All Spark content must comply with our Content Guidelines (Section 6)" %}</li>
+                    <li>{% trans "The number of Sparks per event may be limited" %}</li>
+                </ul>
+
+                <!-- 10. Interactive Journeys -->
+                <h3 id="tos-journeys">{% trans "10. Interactive Journeys" %}</h3>
+                <ul>
+                    <li>{% trans "Challenge submissions (text, photos, video, audio) may be reviewed by Coaches" %}</li>
+                    <li>{% trans "Points earned and digital rewards within journeys have no monetary value and cannot be exchanged for cash or goods" %}</li>
+                    <li>{% trans "Advent Calendars follow a date-locked schedule; doors open according to the calendar's configured dates" %}</li>
+                    <li>{% trans "Journey progress and responses are stored as part of your account data and can be exported or deleted" %}</li>
+                    <li>{% trans "Completion certificates are generated automatically and are not official documents" %}</li>
+                </ul>
+
+                <!-- 11. Wallet Passes -->
+                <h3 id="tos-wallet">{% trans "11. Wallet Passes" %}</h3>
+                <p>{% trans "You may optionally add your Crush.lu membership or event tickets to Apple Wallet or Google Wallet:" %}</p>
+                <ul>
+                    <li>{% trans "Wallet passes are subject to Apple's and Google's respective terms of service" %}</li>
+                    <li>{% trans "You control whether your profile photo appears on your wallet pass" %}</li>
+                    <li>{% trans "Passes are updated automatically when your profile or event status changes" %}</li>
+                    <li>{% trans "You can remove your pass from your wallet at any time through your device settings" %}</li>
+                    <li>{% trans "Wallet passes store device identifiers and push tokens necessary for pass delivery and updates" %}</li>
+                </ul>
+
+                <!-- 12. Referral Programme -->
+                <h3 id="tos-referral">{% trans "12. Referral Programme" %}</h3>
+                <ul>
+                    <li>{% trans "Approved users receive a unique referral code that can be shared with friends" %}</li>
+                    <li>{% trans "Successful referrals (when a referred user creates an approved profile) earn referral points" %}</li>
+                    <li>{% trans "Points contribute to membership tiers: Basic, Bronze, Silver, Gold" %}</li>
+                    <li>{% trans "Referral points and tiers have no monetary value" %}</li>
+                    <li>{% trans "Fraudulent referrals (self-referral, fake accounts, incentivised signups) will result in point forfeiture and possible account suspension" %}</li>
+                    <li>{% trans "We reserve the right to modify, suspend, or terminate the referral programme at any time with notice to participants" %}</li>
+                </ul>
+
+                <!-- 13. Payment & Fees -->
+                <h3 id="tos-payment">{% trans "13. Payment & Fees" %}</h3>
+                <ul>
+                    <li>{% trans "Creating an account and profile on Crush.lu is free" %}</li>
+                    <li>{% trans "Some events may require a registration fee, which is clearly displayed before registration" %}</li>
                     <li>{% trans "Payment is processed securely through our payment provider" %}</li>
-                    <li>{% trans "Refunds are subject to our cancellation policy" %}</li>
+                    <li>{% trans "All prices are displayed in Euros (EUR) and include applicable taxes" %}</li>
+                    <li>{% trans "Refunds are subject to our cancellation policy (see Section 7.3)" %}</li>
+                    <li>{% trans "We reserve the right to change event pricing with reasonable notice; price changes do not affect existing confirmed registrations" %}</li>
                 </ul>
 
-                <h3>{% trans "9. Intellectual Property" %}</h3>
+                <!-- 14. Intellectual Property -->
+                <h3 id="tos-ip">{% trans "14. Intellectual Property" %}</h3>
 
-                <h5>{% trans "9.1 Your Content" %}</h5>
+                <h5>{% trans "14.1 Your Content" %}</h5>
                 <p>
-                    {% trans "You retain ownership of content you post (photos, bio, messages). By posting content, you grant Crush.lu:" %}
+                    {% trans "You retain ownership of all Content you post. The licence you grant us is described in Section 6.4 and is limited to operating the Platform." %}
                 </p>
+
+                <h5>{% trans "14.2 Our Content" %}</h5>
+                <p>
+                    {% trans "The names Crush.lu, Crush Coach, and Crush Spark, as well as the Platform's logo, design, and functionality, are proprietary to Crush.lu and protected by intellectual property laws. You may not copy, reproduce, or distribute our content without written permission." %}
+                </p>
+
+                <!-- 15. Privacy & Data Protection -->
+                <h3 id="tos-privacy">{% trans "15. Privacy & Data Protection" %}</h3>
+                <p>
+                    {% trans "Your use of Crush.lu is also governed by our" %} <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Privacy Policy" %}</a>,
+                    {% trans "which describes in detail how we collect, use, and protect your personal data." %}
+                </p>
+                <p>{% trans "Key data protection features include:" %}</p>
                 <ul>
-                    <li>{% trans "A worldwide, non-exclusive license to use, display, and distribute your content on the Platform" %}</li>
-                    <li>{% trans "Permission to use anonymized profile data for marketing and promotional purposes" %}</li>
+                    <li>{% trans "Two-tier deletion: delete your Crush.lu Profile only or your entire account" %}</li>
+                    <li>{% trans "Data export: download your personal data in JSON format from your account settings" %}</li>
+                    <li>{% trans "Privacy controls: choose what other users can see (name, age, photo blur)" %}</li>
+                    <li>{% trans "GDPR rights: access, rectification, erasure, restriction, portability, objection" %}</li>
                 </ul>
 
-                <h5>{% trans "9.2 Our Content" %}</h5>
-                <p>
-                    {% trans "The Crush.lu name, logo, design, and functionality are owned by us and protected by intellectual property laws. You may not copy, reproduce, or distribute our content without permission." %}
-                </p>
+                <!-- 16. Disclaimers & Liability -->
+                <h3 id="tos-disclaimers">{% trans "16. Disclaimers & Liability" %}</h3>
 
-                <h3>{% trans "10. Privacy and Data Protection" %}</h3>
-                <p>
-                    {% trans "Your use of Crush.lu is also governed by our" %} <a href="{% url 'crush_lu:privacy_policy' %}">{% trans "Privacy Policy" %}</a>,
-                    {% trans "which describes how we collect, use, and protect your personal information." %}
-                </p>
-
-                <h3>{% trans "11. Disclaimers and Limitations of Liability" %}</h3>
-
-                <h5>{% trans "11.1 No Guarantees" %}</h5>
-                <p>
-                    {% trans "Crush.lu is provided \"as is\" without warranties of any kind. We do not guarantee:" %}
-                </p>
+                <h5>{% trans "16.1 No Guarantees" %}</h5>
+                <p>{% trans 'Crush.lu is provided "as is" and "as available" without warranties of any kind, whether express or implied. We do not guarantee:' %}</p>
                 <ul>
                     <li>{% trans "That you will meet compatible partners or form relationships" %}</li>
                     <li>{% trans "The accuracy of information provided by other users" %}</li>
@@ -157,75 +336,130 @@
                     <li>{% trans "That the Platform is free from viruses or harmful components" %}</li>
                 </ul>
 
-                <h5>{% trans "11.2 User Safety" %}</h5>
-                <p>
-                    {% trans "While we review profiles and facilitate connections, we cannot guarantee the conduct of users:" %}
-                </p>
+                <h5>{% trans "16.2 Safety Disclaimer" %}</h5>
+                <p>{% trans "While we review profiles and facilitate connections through coaches, we cannot guarantee the conduct of users. You are responsible for your own safety:" %}</p>
                 <ul>
-                    <li>{% trans "Always meet in public places for first meetings" %}</li>
-                    <li>{% trans "Trust your instincts and prioritize your safety" %}</li>
-                    <li>{% trans "Report suspicious behavior to coaches immediately" %}</li>
-                    <li>{% trans "We are not responsible for offline interactions between users" %}</li>
+                    <li>{% trans "Always meet in public places for first meetings outside of organised events" %}</li>
+                    <li>{% trans "Trust your instincts and prioritise your safety" %}</li>
+                    <li>{% trans "Report suspicious behaviour to Coaches or support@crush.lu immediately" %}</li>
+                    <li>{% trans "We are not responsible for interactions between users that occur outside of organised events" %}</li>
                 </ul>
 
-                <h5>{% trans "11.3 Limitation of Liability" %}</h5>
+                <h5>{% trans "16.3 Limitation of Liability" %}</h5>
                 <p>
-                    {% trans "To the fullest extent permitted by law, Crush.lu and its officers, directors, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the Platform." %}
+                    {% trans "To the fullest extent permitted by law, Crush.lu's total liability to you for all claims arising from or relating to your use of the Platform shall not exceed the greater of: (a) the total fees you have paid to Crush.lu in the 12 months preceding the claim, or (b) EUR 100." %}
+                </p>
+                <p>
+                    {% trans "In no event shall Crush.lu be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill." %}
                 </p>
 
-                <h3>{% trans "12. Account Termination" %}</h3>
-
-                <h5>{% trans "12.1 Termination by You" %}</h5>
+                <h5>{% trans "16.4 Indemnification" %}</h5>
                 <p>
-                    {% trans "You may delete your account at any time through your account settings or by requesting data deletion." %}
+                    {% trans "You agree to indemnify and hold harmless Crush.lu, its officers, employees, coaches, and agents from any claims, damages, losses, or expenses (including reasonable legal fees) arising from: (a) your violation of these Terms, (b) your Content, (c) your interactions with other users, or (d) your violation of any applicable law." %}
                 </p>
 
-                <h5>{% trans "12.2 Termination by Us" %}</h5>
+                <h5>{% trans "16.5 EU Consumer Protection" %}</h5>
                 <p>
-                    {% trans "We reserve the right to suspend or terminate your account if you:" %}
+                    {% trans "Nothing in these Terms affects your statutory rights as a consumer under EU or Luxembourg consumer protection law. Where mandatory consumer protection provisions apply, they take precedence over any conflicting provision in these Terms." %}
                 </p>
+
+                <!-- 17. Suspension & Termination -->
+                <h3 id="tos-termination">{% trans "17. Suspension & Termination" %}</h3>
+
+                <h5>{% trans "17.1 Termination by You" %}</h5>
+                <p>{% trans "You may terminate your account at any time through your account settings. You have two options:" %}</p>
+                <ul>
+                    <li><strong>{% trans "Delete Crush.lu Profile:" %}</strong> {% trans "Removes your dating profile, photos, connections, and event history. Your PowerUp Account remains active for other platforms." %}</li>
+                    <li><strong>{% trans "Delete Full Account:" %}</strong> {% trans "Removes your PowerUp Account and all associated data across all platforms. Your account is anonymised." %}</li>
+                </ul>
+
+                <h5>{% trans "17.2 Termination by Us" %}</h5>
+                <p>{% trans "We may suspend or terminate your account if you:" %}</p>
                 <ul>
                     <li>{% trans "Violate these Terms of Service" %}</li>
                     <li>{% trans "Engage in fraudulent or illegal activity" %}</li>
                     <li>{% trans "Pose a safety risk to other users" %}</li>
-                    <li>{% trans "Repeatedly receive complaints from other users" %}</li>
+                    <li>{% trans "Repeatedly receive complaints from other users or coaches" %}</li>
+                    <li>{% trans "Circumvent a previous ban" %}</li>
                 </ul>
-
-                <h3>{% trans "13. Dispute Resolution" %}</h3>
-
-                <h5>{% trans "13.1 Governing Law" %}</h5>
                 <p>
-                    {% trans "These Terms are governed by the laws of Luxembourg and the European Union." %}
+                    {% trans "We will notify you of the suspension or termination and the reason. Banned users are permanently prohibited from creating new accounts." %}
+                </p>
+                <p>
+                    {% trans "You may appeal a suspension or ban within 30 days by contacting legal@crush.lu. Appeals will be reviewed and you will receive a response within 14 business days." %}
                 </p>
 
-                <h5>{% trans "13.2 Disputes" %}</h5>
-                <p>
-                    {% trans "If you have a complaint, please contact us at support@crush.lu. We will make reasonable efforts to resolve the issue amicably. Any unresolved disputes shall be subject to the exclusive jurisdiction of the courts of Luxembourg." %}
-                </p>
-
-                <h3>{% trans "14. Changes to Terms" %}</h3>
-                <p>
-                    {% trans "We may update these Terms from time to time. We will notify you of significant changes by:" %}
-                </p>
+                <h5>{% trans "17.3 Effects of Termination" %}</h5>
+                <p>{% trans "Upon termination:" %}</p>
                 <ul>
-                    <li>{% trans "Posting the updated Terms on this page with a new \"Last Updated\" date" %}</li>
-                    <li>{% trans "Sending an email notification to your registered email address" %}</li>
-                    <li>{% trans "Requiring your acceptance of new terms before continued use" %}</li>
+                    <li>{% trans "Your profile is no longer visible to other users" %}</li>
+                    <li>{% trans "Active connections and messages are deactivated" %}</li>
+                    <li>{% trans "Event registrations are cancelled" %}</li>
+                    <li>{% trans "Data deletion follows the retention periods described in our Privacy Policy" %}</li>
+                    <li>{% trans "Referral points and membership tier are forfeited" %}</li>
                 </ul>
 
-                <h3>{% trans "15. Severability" %}</h3>
+                <!-- 18. Dispute Resolution -->
+                <h3 id="tos-disputes">{% trans "18. Dispute Resolution" %}</h3>
+
+                <h5>{% trans "18.1 Governing Law" %}</h5>
                 <p>
-                    {% trans "If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall remain in full force and effect." %}
+                    {% trans "These Terms are governed by the laws of the Grand Duchy of Luxembourg, without regard to its conflict of laws provisions." %}
                 </p>
 
-                <h3>{% trans "16. Contact Information" %}</h3>
+                <h5>{% trans "18.2 Informal Resolution" %}</h5>
                 <p>
-                    {% trans "For questions about these Terms, please contact us:" %}
+                    {% trans "Before filing any legal claim, you agree to first attempt to resolve the dispute informally by contacting us at support@crush.lu. We will make reasonable efforts to resolve the issue within 30 days." %}
                 </p>
-                <ul class="list-unstyled">
-                    <li><strong>{% trans "Email:" %}</strong> legal@crush.lu</li>
+
+                <h5>{% trans "18.3 EU Online Dispute Resolution" %}</h5>
+                <p>
+                    {% trans "In accordance with Regulation (EU) No 524/2013, the European Commission provides an Online Dispute Resolution (ODR) platform for consumers. You can access it at:" %}
+                    <a href="https://ec.europa.eu/consumers/odr" class="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>
+                </p>
+
+                <h5>{% trans "18.4 Jurisdiction" %}</h5>
+                <p>
+                    {% trans "Any unresolved disputes shall be subject to the exclusive jurisdiction of the courts of Luxembourg City, except where mandatory consumer protection provisions require a different jurisdiction." %}
+                </p>
+
+                <!-- 19. Force Majeure -->
+                <h3 id="tos-force-majeure">{% trans "19. Force Majeure" %}</h3>
+                <p>
+                    {% trans "Crush.lu shall not be liable for any failure or delay in performing its obligations due to circumstances beyond its reasonable control, including but not limited to: natural disasters, pandemics, government orders, cyberattacks, infrastructure failures, or acts of war." %}
+                </p>
+                <p>
+                    {% trans "If an event is cancelled due to force majeure, all registered attendees will receive a full refund of any fees paid, regardless of the cancellation policy." %}
+                </p>
+
+                <!-- 20. General Provisions -->
+                <h3 id="tos-general">{% trans "20. General Provisions" %}</h3>
+                <ul>
+                    <li><strong>{% trans "Severability:" %}</strong> {% trans "If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall remain in full force and effect." %}</li>
+                    <li><strong>{% trans "Entire Agreement:" %}</strong> {% trans "These Terms, together with our Privacy Policy, constitute the entire agreement between you and Crush.lu regarding your use of the Platform." %}</li>
+                    <li><strong>{% trans "Waiver:" %}</strong> {% trans "Our failure to enforce any provision of these Terms does not constitute a waiver of that provision or our right to enforce it in the future." %}</li>
+                    <li><strong>{% trans "Assignment:" %}</strong> {% trans "You may not assign or transfer your rights or obligations under these Terms without our prior written consent. We may assign our rights and obligations to a successor entity in connection with a merger, acquisition, or sale of assets." %}</li>
+                    <li><strong>{% trans "Electronic Notices:" %}</strong> {% trans "You consent to receiving notices from us electronically, via email or through the Platform. Electronic notices satisfy any legal requirement for written communication." %}</li>
+                </ul>
+
+                <!-- 21. Changes -->
+                <h3 id="tos-changes">{% trans "21. Changes to Terms" %}</h3>
+                <p>{% trans "We may update these Terms from time to time. For material changes, we will:" %}</p>
+                <ul>
+                    <li>{% trans "Provide at least 30 days' notice before the changes take effect" %}</li>
+                    <li>{% trans "Require you to re-confirm your consent via our consent system before continuing to use the Platform" %}</li>
+                    <li>{% trans "Update the version number and 'Last Updated' date at the top of this page" %}</li>
+                </ul>
+                <p>{% trans "Your continued use of Crush.lu after re-consenting constitutes acceptance of the updated Terms." %}</p>
+
+                <!-- 22. Contact -->
+                <h3 id="tos-contact">{% trans "22. Contact" %}</h3>
+                <p>{% trans "For questions about these Terms:" %}</p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Legal:" %}</strong> legal@crush.lu</li>
                     <li><strong>{% trans "Support:" %}</strong> support@crush.lu</li>
-                    <li><strong>{% trans "Address:" %}</strong> {% trans "Crush.lu, Luxembourg" %}</li>
+                    <li><strong>{% trans "Privacy:" %}</strong> privacy@crush.lu</li>
+                    <li><strong>{% trans "Address:" %}</strong> Crush.lu, 10 rue des Bons Malades, L-6462 Echternach, {% trans "Luxembourg" %}</li>
                 </ul>
 
                 <hr class="my-4 dark:border-gray-700">
