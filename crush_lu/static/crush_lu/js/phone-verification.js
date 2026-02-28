@@ -36,6 +36,11 @@ class PhoneVerification {
         this.isInitialized = false;
         this.initializationError = null; // Track initialization errors
 
+        // Retry & failure tracking
+        this.maxRetries = 2;
+        this.retryDelayMs = 1500;
+        this.failureCount = 0;
+
         // UI state
         this.state = 'idle'; // idle, sending, code_sent, verifying, verified, error
 
@@ -215,6 +220,41 @@ class PhoneVerification {
     }
 
     /**
+     * Fully reset reCAPTCHA by destroying the verifier and recreating the DOM container.
+     * Firebase caches state in the DOM node, so a fresh element is needed for clean retries.
+     */
+    resetRecaptchaContainer() {
+        // Destroy existing verifier
+        if (this.recaptchaVerifier) {
+            try {
+                this.recaptchaVerifier.clear();
+            } catch (e) {
+                // Ignore
+            }
+            this.recaptchaVerifier = null;
+        }
+
+        // Remove and recreate the container DOM element
+        const oldContainer = document.getElementById(this.recaptchaContainerId);
+        if (oldContainer && oldContainer.parentNode) {
+            const parent = oldContainer.parentNode;
+            const newContainer = document.createElement('div');
+            newContainer.id = this.recaptchaContainerId;
+            parent.replaceChild(newContainer, oldContainer);
+        }
+
+        // Create fresh verifier on the new element
+        this.setupRecaptcha();
+    }
+
+    /**
+     * Get the current failure count (for external consumers like Alpine components)
+     */
+    getFailureCount() {
+        return this.failureCount;
+    }
+
+    /**
      * Get phone number from input, normalizing format
      */
     getPhoneNumber() {
@@ -242,55 +282,90 @@ class PhoneVerification {
     }
 
     /**
-     * Send verification code via SMS
+     * Send verification code via SMS with automatic retry.
+     * On failure, resets the reCAPTCHA container DOM and retries up to maxRetries times.
      */
     async sendVerificationCode(phoneNumber = null) {
         this.setState('sending');
 
         try {
-            const phone = phoneNumber || this.getPhoneNumber();
+            var phone = phoneNumber || this.getPhoneNumber();
 
             if (!phone || phone.length < 8) {
                 throw new Error(gettext('Please enter a valid phone number'));
             }
 
-            if (!this.recaptchaVerifier) {
-                this.setupRecaptcha();
+            var lastError = null;
+
+            for (var attempt = 0; attempt <= this.maxRetries; attempt++) {
+                try {
+                    if (attempt > 0) {
+                        console.warn('SMS send retry attempt ' + attempt + '/' + this.maxRetries);
+                        // Wait before retrying
+                        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
+                        // Full reCAPTCHA DOM reset for clean retry
+                        this.resetRecaptchaContainer();
+                    } else if (!this.recaptchaVerifier) {
+                        this.setupRecaptcha();
+                    }
+
+                    this.confirmationResult = await firebase.auth().signInWithPhoneNumber(
+                        phone,
+                        this.recaptchaVerifier
+                    );
+
+                    // Success - reset failure count
+                    this.failureCount = 0;
+                    this.setState('code_sent');
+                    this.onCodeSent(phone);
+
+                    return { success: true, phone: phone };
+
+                } catch (error) {
+                    lastError = error;
+                    console.error('SMS send attempt ' + (attempt + 1) + ' failed:', error.code || error.message);
+
+                    // Don't retry for user-input errors or rate limiting
+                    var noRetryErrors = [
+                        'auth/invalid-phone-number',
+                        'auth/too-many-requests',
+                        'auth/quota-exceeded',
+                        'auth/user-disabled',
+                        'auth/operation-not-allowed'
+                    ];
+                    if (error.code && noRetryErrors.indexOf(error.code) !== -1) {
+                        break;
+                    }
+                }
             }
 
-            this.confirmationResult = await firebase.auth().signInWithPhoneNumber(
-                phone,
-                this.recaptchaVerifier
-            );
-
-            this.setState('code_sent');
-            this.onCodeSent(phone);
-
-            return { success: true, phone };
-
-        } catch (error) {
-            // Log full error object for debugging Firebase issues
-            console.error('SMS send error:', error);
-            console.error('Error details:', {
-                code: error.code,
-                message: error.message,
-                name: error.name,
-                stack: error.stack,
-                customData: error.customData,
-                serverResponse: error.serverResponse,
-                fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+            // All attempts failed
+            this.failureCount++;
+            console.error('SMS send failed after ' + (this.maxRetries + 1) + ' attempts. Total failures: ' + this.failureCount);
+            console.error('Last error details:', {
+                code: lastError.code,
+                message: lastError.message,
+                name: lastError.name,
+                customData: lastError.customData,
+                serverResponse: lastError.serverResponse
             });
 
             this.setState('error');
-            this.onError(this.formatFirebaseError(error));
+            this.onError(this.formatFirebaseError(lastError));
 
-            // Reset reCAPTCHA for retry
+            // Reset reCAPTCHA for next manual retry
             try {
-                this.setupRecaptcha();
+                this.resetRecaptchaContainer();
             } catch (e) {
                 // Ignore
             }
 
+            return { success: false, error: lastError.message };
+
+        } catch (error) {
+            // Validation errors (phone too short, etc.) - no retry needed
+            this.setState('error');
+            this.onError(error.message || this.formatFirebaseError(error));
             return { success: false, error: error.message };
         }
     }
@@ -443,13 +518,13 @@ class PhoneVerification {
         const errorMap = {
             'auth/invalid-phone-number': gettext('Invalid phone number format. Please use international format (e.g., +352 XXX XXX)'),
             'auth/too-many-requests': gettext('Too many attempts. Please wait a few minutes and try again.'),
-            'auth/captcha-check-failed': gettext('Security verification failed. Please refresh the page and try again.'),
+            'auth/captcha-check-failed': gettext('Security check failed. Please refresh the page and try again.'),
             'auth/invalid-verification-code': gettext('Invalid code. Please check the code and try again.'),
             'auth/code-expired': gettext('Code expired. Please request a new code.'),
             'auth/quota-exceeded': gettext('SMS quota exceeded. Please try again later.'),
             'auth/user-disabled': gettext('This phone number has been disabled. Please contact support.'),
             'auth/operation-not-allowed': gettext('Phone authentication is not enabled. Please contact support.'),
-            'auth/error-code:-39': gettext('SMS service temporarily unavailable. Please wait a few minutes and try again.'),
+            'auth/error-code:-39': gettext('SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.'),
         };
 
         if (error.code && errorMap[error.code]) {
@@ -458,7 +533,7 @@ class PhoneVerification {
 
         // Check for error code -39 in the message (sometimes formatted differently)
         if (error.message && error.message.includes('error-code:-39')) {
-            return gettext('SMS service temporarily unavailable. Please wait a few minutes and try again.');
+            return gettext('SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.');
         }
 
         return error.message || gettext('An error occurred. Please try again.');

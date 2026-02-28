@@ -1769,8 +1769,7 @@ document.addEventListener('alpine:init', function() {
             location: '',
             locationName: '',
 
-            // Step 2 required fields tracking
-            lookingFor: '',
+            // Step 2 fields tracking
 
             // Date of birth formatted display (from dobPicker)
             dobFormatted: '',
@@ -1804,14 +1803,12 @@ document.addEventListener('alpine:init', function() {
             get hasFieldErrors() { return Object.keys(this.fieldErrors).length > 0; },
             get canContinueStep1() { return this.phoneVerified && this.gender !== '' && this.location !== '' && !this.isSaving; },
             get cannotContinueStep1() { return !this.phoneVerified || this.gender === '' || this.location === '' || this.isSaving; },
-            get canContinueStep2() { return this.lookingFor !== '' && !this.isSaving; },
-            get cannotContinueStep2() { return this.lookingFor === '' || this.isSaving; },
+            get canContinueStep2() { return !this.isSaving; },
+            get cannotContinueStep2() { return this.isSaving; },
             get hasGenderError() { return this.fieldErrors.gender !== undefined; },
             get hasLocationError() { return this.fieldErrors.location !== undefined; },
-            get hasLookingForError() { return this.fieldErrors.looking_for !== undefined; },
             get genderErrorMessage() { return this.fieldErrors.gender || ''; },
             get locationErrorMessage() { return this.fieldErrors.location || ''; },
-            get lookingForErrorMessage() { return this.fieldErrors.looking_for || ''; },
 
             // Step progress bar classes (avoid ternary expressions in templates)
             get step1CircleClass() {
@@ -1959,13 +1956,6 @@ document.addEventListener('alpine:init', function() {
                     }
                 });
 
-                window.addEventListener('looking-for-selected', function(e) {
-                    if (e.detail && e.detail.lookingFor) {
-                        self.lookingFor = e.detail.lookingFor;
-                        self.fieldErrors.looking_for = undefined;
-                    }
-                });
-
                 // Listen for date of birth selection from dobPicker component
                 window.addEventListener('dob-selected', function(e) {
                     if (e.detail && e.detail.formatted) {
@@ -2014,12 +2004,6 @@ document.addEventListener('alpine:init', function() {
                     }
                 }
 
-                // Read initial looking_for value
-                var lookingForEl = document.querySelector('[name="looking_for"]:checked');
-                if (lookingForEl) {
-                    self.lookingFor = lookingForEl.value;
-                }
-
                 // Set up change listeners for gender radio buttons
                 var genderRadios = document.querySelectorAll('[name="gender"]');
                 genderRadios.forEach(function(radio) {
@@ -2054,14 +2038,6 @@ document.addEventListener('alpine:init', function() {
                     });
                 }
 
-                // Set up change listeners for looking_for radio buttons
-                var lookingForRadios = document.querySelectorAll('[name="looking_for"]');
-                lookingForRadios.forEach(function(radio) {
-                    radio.addEventListener('change', function(e) {
-                        self.lookingFor = e.target.value;
-                        self.fieldErrors.looking_for = undefined;
-                    });
-                });
             },
 
             nextStep: function() {
@@ -2212,12 +2188,10 @@ document.addEventListener('alpine:init', function() {
             collectStep2Data: function() {
                 var bioEl = document.querySelector('[name="bio"]');
                 var interestsEl = document.querySelector('[name="interests"]');
-                var lookingForEl = document.querySelector('[name="looking_for"]:checked');
 
                 return {
                     bio: bioEl ? bioEl.value : '',
-                    interests: interestsEl ? interestsEl.value : '',
-                    looking_for: lookingForEl ? lookingForEl.value : ''
+                    interests: interestsEl ? interestsEl.value : ''
                 };
             },
 
@@ -3532,9 +3506,11 @@ document.addEventListener('alpine:init', function() {
             errorMessage: '',
             iti: null,
             phoneInputId: '',
+            failureCount: 0,
 
             // Computed getters for CSP compatibility
             get notVerified() { return !this.verified; },
+            get showSupportContact() { return this.failureCount >= 2; },
             get cannotVerify() { return !this.canVerify; },
             get verifiedValue() { return this.verified ? 'true' : 'false'; },
             get verifyButtonPulseClass() { return this.canVerify ? 'animate-pulse-subtle' : ''; },
@@ -3637,8 +3613,19 @@ document.addEventListener('alpine:init', function() {
                 // Initialize phone verification
                 if (window.phoneVerification) {
                     window.phoneVerification.sendVerificationCode(phoneNumber).then(function(result) {
-                        if (!result.success) {
+                        if (result.success) {
+                            self.failureCount = 0;
+                        } else {
+                            self.failureCount = window.phoneVerification.getFailureCount();
                             self.errorMessage = result.error;
+                            // Update modal's failure count and show error there too
+                            var modal = document.querySelector('[x-data="phoneVerificationModal"]');
+                            if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
+                                var modalData = modal._x_dataStack[0];
+                                modalData.failureCount = self.failureCount;
+                                modalData.error = result.error;
+                                modalData.step = 'code';
+                            }
                         }
                     });
                 }
@@ -3727,6 +3714,7 @@ document.addEventListener('alpine:init', function() {
             maskedPhone: '',
             resendCountdown: 60,
             resendTimer: null,
+            failureCount: 0,
 
             // Computed getters for CSP compatibility
             get isSendingStep() { return this.step === 'sending'; },
@@ -3736,6 +3724,7 @@ document.addEventListener('alpine:init', function() {
             get canResend() { return this.resendCountdown === 0; },
             get cannotResend() { return this.resendCountdown > 0; },
             get hasError() { return Boolean(this.error); },
+            get showSupportContact() { return this.failureCount >= 2; },
             // CSP-compatible: getter combines individual OTP fields
             get otpCode() { return this.otp0 + this.otp1 + this.otp2 + this.otp3 + this.otp4 + this.otp5; },
             get isCodeComplete() { return this.otpCode.length === 6; },
@@ -3910,10 +3899,18 @@ document.addEventListener('alpine:init', function() {
             resendCode: function() {
                 var self = this;
                 this.step = 'sending';
+                this.error = '';
                 if (window.phoneVerification) {
-                    window.phoneVerification.sendVerificationCode().then(function() {
-                        self.step = 'code';
-                        self.startResendTimer();
+                    window.phoneVerification.sendVerificationCode().then(function(result) {
+                        if (result.success) {
+                            self.failureCount = 0;
+                            self.step = 'code';
+                            self.startResendTimer();
+                        } else {
+                            self.failureCount = window.phoneVerification.getFailureCount();
+                            self.error = result.error || 'Failed to resend code';
+                            self.step = 'code';
+                        }
                     });
                 }
             },
@@ -3955,6 +3952,9 @@ document.addEventListener('alpine:init', function() {
             resendCountdown: 0,
             resendTimer: null,
 
+            // Failure tracking for support contact
+            failureCount: 0,
+
             // Computed getters for CSP compatibility
             get isPhoneStep() { return this.step === 'phone'; },
             get isOtpStep() { return this.step === 'otp'; },
@@ -3967,6 +3967,7 @@ document.addEventListener('alpine:init', function() {
                 return this.otp0 + this.otp1 + this.otp2 + this.otp3 + this.otp4 + this.otp5;
             },
             get isOtpComplete() { return this.otpCode.length === 6; },
+            get showSupportContact() { return this.failureCount >= 2; },
 
             init: function() {
                 var self = this;
@@ -4062,6 +4063,7 @@ document.addEventListener('alpine:init', function() {
                     window.phoneVerification.sendVerificationCode(phoneNumber).then(function(result) {
                         self.isLoading = false;
                         if (result.success) {
+                            self.failureCount = 0;
                             self.step = 'otp';
                             self.startResendTimer();
                             self.$nextTick(function() {
@@ -4069,6 +4071,7 @@ document.addEventListener('alpine:init', function() {
                                 if (firstInput) firstInput.focus();
                             });
                         } else {
+                            self.failureCount = window.phoneVerification.getFailureCount();
                             self.error = result.error || 'Failed to send code';
                         }
                     });
@@ -4112,8 +4115,10 @@ document.addEventListener('alpine:init', function() {
                     window.phoneVerification.sendVerificationCode(this.displayPhone).then(function(result) {
                         self.isLoading = false;
                         if (result.success) {
+                            self.failureCount = 0;
                             self.startResendTimer();
                         } else {
+                            self.failureCount = window.phoneVerification.getFailureCount();
                             self.error = result.error || 'Failed to resend code';
                         }
                     });
@@ -4227,12 +4232,14 @@ document.addEventListener('alpine:init', function() {
             canInstall: false,
             isInstalled: false,
             showInstructions: false,
+            showFallback: false,
             instructions: '',
 
             // Computed getters for CSP compatibility
             get canInstallVisible() { return this.canInstall; },
             get isInstalledVisible() { return this.isInstalled; },
             get showInstructionsVisible() { return this.showInstructions; },
+            get showFallbackVisible() { return this.showFallback; },
 
             init: function() {
                 var self = this;
@@ -4250,26 +4257,37 @@ document.addEventListener('alpine:init', function() {
                     return;
                 }
 
+                // iOS-specific instructions (no beforeinstallprompt on iOS)
+                var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    self.showInstructions = true;
+                    self.instructions = 'Tap Share, then "Add to Home Screen"';
+                    return;
+                }
+
                 // Listen for beforeinstallprompt event (Chrome, Edge, Samsung)
                 window.addEventListener('beforeinstallprompt', function(e) {
                     e.preventDefault();
                     self.deferredPrompt = e;
                     self.canInstall = true;
+                    self.showFallback = false;
                 });
 
                 // Listen for appinstalled event
                 window.addEventListener('appinstalled', function() {
                     self.isInstalled = true;
                     self.canInstall = false;
+                    self.showFallback = false;
                     self.deferredPrompt = null;
                 });
 
-                // iOS-specific instructions (no beforeinstallprompt on iOS)
-                var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    self.showInstructions = true;
-                    self.instructions = 'Tap Share, then "Add to Home Screen"';
-                }
+                // Show fallback after 2s if no beforeinstallprompt fires
+                // (covers desktop Firefox, non-Chromium browsers)
+                setTimeout(function() {
+                    if (!self.canInstall && !self.isInstalled && !self.showInstructions) {
+                        self.showFallback = true;
+                    }
+                }, 2000);
             },
 
             install: function() {
@@ -7346,22 +7364,18 @@ document.addEventListener('alpine:init', function() {
     // 7-step accordion with checklist items and notes
     Alpine.data('screeningCallGuideline', function() {
         return {
-            // Active accordion section (1-7, 0 = none)
+            // Active accordion section (1-5, 0 = none)
             activeSection: 1,
 
             // Checklist completion flags
             introductionComplete: false,
             languageConfirmed: false,
             residenceConfirmed: false,
-            expectationsDiscussed: false,
-            datingPreferenceAsked: false,
             crushMeaningAsked: false,
             questionsAnswered: false,
 
             // Notes for each section
             residenceNotes: '',
-            expectationsNotes: '',
-            datingPreferenceValue: '',
             crushMeaningNotes: '',
             questionsNotes: '',
             finalNotes: '',
@@ -7370,7 +7384,7 @@ document.addEventListener('alpine:init', function() {
             showFailedCallForm: false,
 
             // Required steps for validation
-            requiredSteps: ['introductionComplete', 'residenceConfirmed', 'datingPreferenceAsked'],
+            requiredSteps: ['introductionComplete', 'residenceConfirmed'],
 
             // CSP-safe computed getters
             get completedCount() {
@@ -7378,15 +7392,13 @@ document.addEventListener('alpine:init', function() {
                 if (this.introductionComplete) count++;
                 if (this.languageConfirmed) count++;
                 if (this.residenceConfirmed) count++;
-                if (this.expectationsDiscussed) count++;
-                if (this.datingPreferenceAsked) count++;
                 if (this.crushMeaningAsked) count++;
                 if (this.questionsAnswered) count++;
                 return count;
             },
 
             get progressPercent() {
-                return Math.round((this.completedCount / 7) * 100);
+                return Math.round((this.completedCount / 5) * 100);
             },
 
             get progressWidth() {
@@ -7398,7 +7410,7 @@ document.addEventListener('alpine:init', function() {
             },
 
             get isValid() {
-                return this.introductionComplete && this.residenceConfirmed && this.datingPreferenceAsked;
+                return this.introductionComplete && this.residenceConfirmed;
             },
 
             get isInvalid() {
@@ -7425,59 +7437,50 @@ document.addEventListener('alpine:init', function() {
             get section3Open() { return this.activeSection === 3; },
             get section4Open() { return this.activeSection === 4; },
             get section5Open() { return this.activeSection === 5; },
-            get section6Open() { return this.activeSection === 6; },
-            get section7Open() { return this.activeSection === 7; },
 
             // Section header classes (CSP-safe)
+            _sectionHeaderClass: function(num, isComplete) {
+                var isDark = document.documentElement.classList.contains('dark');
+                if (this.activeSection === num) {
+                    return isDark
+                        ? 'screening-header-active-dark'
+                        : 'bg-purple-100 border-purple-300';
+                }
+                if (isComplete) {
+                    return isDark
+                        ? 'screening-header-complete-dark'
+                        : 'bg-green-50 border-green-200';
+                }
+                return isDark
+                    ? 'screening-header-default-dark'
+                    : 'bg-gray-50 border-gray-200';
+            },
             get section1HeaderClass() {
-                return this.activeSection === 1
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.introductionComplete ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+                return this._sectionHeaderClass(1, this.introductionComplete);
             },
             get section2HeaderClass() {
-                return this.activeSection === 2
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.languageConfirmed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+                return this._sectionHeaderClass(2, this.languageConfirmed);
             },
             get section3HeaderClass() {
-                return this.activeSection === 3
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.residenceConfirmed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+                return this._sectionHeaderClass(3, this.residenceConfirmed);
             },
             get section4HeaderClass() {
-                return this.activeSection === 4
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.expectationsDiscussed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+                return this._sectionHeaderClass(4, this.crushMeaningAsked);
             },
             get section5HeaderClass() {
-                return this.activeSection === 5
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.datingPreferenceAsked ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
-            },
-            get section6HeaderClass() {
-                return this.activeSection === 6
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.crushMeaningAsked ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
-            },
-            get section7HeaderClass() {
-                return this.activeSection === 7
-                    ? 'bg-purple-100 border-purple-300'
-                    : (this.questionsAnswered ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200');
+                return this._sectionHeaderClass(5, this.questionsAnswered);
             },
 
             // Status icon visibility getters
             get section1Complete() { return this.introductionComplete; },
             get section2Complete() { return this.languageConfirmed; },
             get section3Complete() { return this.residenceConfirmed; },
-            get section4Complete() { return this.expectationsDiscussed; },
-            get section5Complete() { return this.datingPreferenceAsked; },
-            get section6Complete() { return this.crushMeaningAsked; },
-            get section7Complete() { return this.questionsAnswered; },
+            get section4Complete() { return this.crushMeaningAsked; },
+            get section5Complete() { return this.questionsAnswered; },
 
             // Required badge visibility
             get section1Required() { return true; },
             get section3Required() { return true; },
-            get section5Required() { return true; },
 
             // Methods
             init: function() {
@@ -7489,13 +7492,9 @@ document.addEventListener('alpine:init', function() {
                         if (initial.introduction_complete) this.introductionComplete = true;
                         if (initial.language_confirmed) this.languageConfirmed = true;
                         if (initial.residence_confirmed) this.residenceConfirmed = true;
-                        if (initial.expectations_discussed) this.expectationsDiscussed = true;
-                        if (initial.dating_preference_asked) this.datingPreferenceAsked = true;
                         if (initial.crush_meaning_asked) this.crushMeaningAsked = true;
                         if (initial.questions_answered) this.questionsAnswered = true;
                         if (initial.residence_notes) this.residenceNotes = initial.residence_notes;
-                        if (initial.expectations_notes) this.expectationsNotes = initial.expectations_notes;
-                        if (initial.dating_preference_value) this.datingPreferenceValue = initial.dating_preference_value;
                         if (initial.crush_meaning_notes) this.crushMeaningNotes = initial.crush_meaning_notes;
                         if (initial.questions_notes) this.questionsNotes = initial.questions_notes;
                     } catch (e) {
@@ -7513,11 +7512,9 @@ document.addEventListener('alpine:init', function() {
             openSection3: function() { this.toggleSection(3); },
             openSection4: function() { this.toggleSection(4); },
             openSection5: function() { this.toggleSection(5); },
-            openSection6: function() { this.toggleSection(6); },
-            openSection7: function() { this.toggleSection(7); },
 
             goToNextSection: function() {
-                if (this.activeSection < 7) {
+                if (this.activeSection < 5) {
                     this.activeSection = this.activeSection + 1;
                 }
             },
@@ -7530,12 +7527,6 @@ document.addEventListener('alpine:init', function() {
             },
             toggleResidence: function() {
                 this.residenceConfirmed = !this.residenceConfirmed;
-            },
-            toggleExpectations: function() {
-                this.expectationsDiscussed = !this.expectationsDiscussed;
-            },
-            toggleDatingPreference: function() {
-                this.datingPreferenceAsked = !this.datingPreferenceAsked;
             },
             toggleCrushMeaning: function() {
                 this.crushMeaningAsked = !this.crushMeaningAsked;
@@ -7551,9 +7542,6 @@ document.addEventListener('alpine:init', function() {
             updateResidenceNotes: function(event) {
                 this.residenceNotes = event.target.value;
             },
-            updateExpectationsNotes: function(event) {
-                this.expectationsNotes = event.target.value;
-            },
             updateCrushMeaningNotes: function(event) {
                 this.crushMeaningNotes = event.target.value;
             },
@@ -7564,33 +7552,6 @@ document.addEventListener('alpine:init', function() {
                 this.finalNotes = event.target.value;
             },
 
-            setDatingPreferenceOpposite: function() {
-                this.datingPreferenceValue = 'opposite_gender';
-            },
-            setDatingPreferenceSame: function() {
-                this.datingPreferenceValue = 'same_gender';
-            },
-            setDatingPreferenceBoth: function() {
-                this.datingPreferenceValue = 'both';
-            },
-
-            // Dating preference button classes (CSP-safe)
-            get oppositeGenderButtonClass() {
-                return this.datingPreferenceValue === 'opposite_gender'
-                    ? 'bg-purple-500 text-white border-purple-500'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
-            },
-            get sameGenderButtonClass() {
-                return this.datingPreferenceValue === 'same_gender'
-                    ? 'bg-purple-500 text-white border-purple-500'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
-            },
-            get bothGenderButtonClass() {
-                return this.datingPreferenceValue === 'both'
-                    ? 'bg-purple-500 text-white border-purple-500'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
-            },
-
             // Serialize checklist data to JSON for form submission (getter for CSP compliance)
             get checklistDataJson() {
                 return JSON.stringify({
@@ -7598,10 +7559,6 @@ document.addEventListener('alpine:init', function() {
                     language_confirmed: this.languageConfirmed,
                     residence_confirmed: this.residenceConfirmed,
                     residence_notes: this.residenceNotes,
-                    expectations_discussed: this.expectationsDiscussed,
-                    expectations_notes: this.expectationsNotes,
-                    dating_preference_asked: this.datingPreferenceAsked,
-                    dating_preference_value: this.datingPreferenceValue,
                     crush_meaning_asked: this.crushMeaningAsked,
                     crush_meaning_notes: this.crushMeaningNotes,
                     questions_answered: this.questionsAnswered,
@@ -8596,6 +8553,100 @@ document.addEventListener('alpine:init', function() {
         return {
             submit() {
                 this.$el.closest('form').submit();
+            }
+        };
+    });
+
+    // Age range dual-handle slider for "Your Ideal Crush" preferences
+    Alpine.data('ageRangeSlider', function() {
+        return {
+            minAge: 18,
+            maxAge: 99,
+            absoluteMin: 18,
+            absoluteMax: 99,
+            labelAnyAge: 'Any age',
+
+            init: function() {
+                // Read translated label from data attribute
+                var label = this.$el.getAttribute('data-label-any-age');
+                if (label) { this.labelAnyAge = label; }
+                // Read initial values from data attributes set by Django template
+                var initMin = this.$el.getAttribute('data-initial-min');
+                var initMax = this.$el.getAttribute('data-initial-max');
+                if (initMin) {
+                    this.minAge = parseInt(initMin, 10) || this.absoluteMin;
+                }
+                if (initMax) {
+                    this.maxAge = parseInt(initMax, 10) || this.absoluteMax;
+                }
+            },
+
+            get rangeLabel() {
+                if (this.minAge === this.absoluteMin && this.maxAge === this.absoluteMax) {
+                    return this.labelAnyAge;
+                }
+                return this.minAge + ' – ' + this.maxAge;
+            },
+
+            get isDefaultRange() {
+                return this.minAge === this.absoluteMin && this.maxAge === this.absoluteMax;
+            },
+
+            get notDefaultRange() {
+                return !this.isDefaultRange;
+            },
+
+            get trackStyle() {
+                var range = this.absoluteMax - this.absoluteMin;
+                var left = ((this.minAge - this.absoluteMin) / range) * 100;
+                var right = ((this.absoluteMax - this.maxAge) / range) * 100;
+                return '--range-left:' + left + '%;--range-right:' + right + '%';
+            },
+
+            get minBubbleStyle() {
+                var pct = ((this.minAge - this.absoluteMin) / (this.absoluteMax - this.absoluteMin)) * 100;
+                return 'left:' + pct + '%';
+            },
+
+            get maxBubbleStyle() {
+                var pct = ((this.maxAge - this.absoluteMin) / (this.absoluteMax - this.absoluteMin)) * 100;
+                return 'left:' + pct + '%';
+            },
+
+            updateMin: function(event) {
+                var val = parseInt(event.target.value, 10);
+                if (val >= this.maxAge) { val = this.maxAge - 1; event.target.value = val; }
+                if (val < this.absoluteMin) { val = this.absoluteMin; event.target.value = val; }
+                this.minAge = val;
+                this._syncHiddenInputs();
+            },
+
+            updateMax: function(event) {
+                var val = parseInt(event.target.value, 10);
+                if (val <= this.minAge) { val = this.minAge + 1; event.target.value = val; }
+                if (val > this.absoluteMax) { val = this.absoluteMax; event.target.value = val; }
+                this.maxAge = val;
+                this._syncHiddenInputs();
+            },
+
+            resetRange: function() {
+                this.minAge = this.absoluteMin;
+                this.maxAge = this.absoluteMax;
+                this._syncHiddenInputs();
+            },
+
+            _syncHiddenInputs: function() {
+                var root = this.$el;
+                var minInput = root.querySelector('#id_preferred_age_min');
+                var maxInput = root.querySelector('#id_preferred_age_max');
+                if (minInput) {
+                    minInput.value = this.minAge;
+                    minInput.setAttribute('value', this.minAge);
+                }
+                if (maxInput) {
+                    maxInput.value = this.maxAge;
+                    maxInput.setAttribute('value', this.maxAge);
+                }
             }
         };
     });

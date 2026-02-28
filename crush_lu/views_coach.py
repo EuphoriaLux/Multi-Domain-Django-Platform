@@ -235,6 +235,55 @@ def coach_log_failed_call(request, submission_id):
 
 
 @coach_required
+@require_http_methods(["POST"])
+def coach_log_sms_sent(request, submission_id):
+    """Log an SMS template sent attempt - HTMX endpoint"""
+    from .models import CallAttempt
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+
+    CallAttempt.objects.create(
+        submission=submission,
+        result="sms_sent",
+        coach=coach,
+        notes=_("SMS template sent via coach review page"),
+    )
+
+    messages.success(request, _("SMS attempt logged."))
+
+    if request.headers.get("HX-Request"):
+        # Build SMS template context for re-render
+        from urllib.parse import quote
+        from .models.site_config import CrushSiteConfig
+
+        sms_template_encoded = ""
+        profile = submission.profile
+        if profile.phone_number and profile.phone_verified:
+            config = CrushSiteConfig.get_config()
+            lang = getattr(profile, "preferred_language", "en") or "en"
+            template_field = f"sms_template_{lang}"
+            template = getattr(config, template_field, config.sms_template_en) or config.sms_template_en
+            coach_name = coach.user.first_name or "Your coach"
+            first_name = profile.user.first_name or ""
+            sms_body = template.format(first_name=first_name, coach_name=coach_name)
+            sms_template_encoded = quote(sms_body, safe="")
+
+        context = {
+            "submission": submission,
+            "profile": profile,
+            "sms_template_encoded": sms_template_encoded,
+        }
+        return render(request, "crush_lu/_screening_tab.html", context)
+
+    return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
+
+
+@coach_required
 def coach_review_profile(request, submission_id):
     """Review a profile submission"""
     coach = request.coach
@@ -352,11 +401,28 @@ def coach_review_profile(request, submission_id):
     # Get social login provider if exists
     social_account = submission.profile.user.socialaccount_set.first()
 
+    # Build SMS template for coach outreach
+    sms_template_encoded = ""
+    profile = submission.profile
+    if profile.phone_number and profile.phone_verified:
+        from urllib.parse import quote
+        from .models.site_config import CrushSiteConfig
+
+        config = CrushSiteConfig.get_config()
+        lang = getattr(profile, "preferred_language", "en") or "en"
+        template_field = f"sms_template_{lang}"
+        template = getattr(config, template_field, config.sms_template_en) or config.sms_template_en
+        coach_name = coach.user.first_name or "Your coach"
+        first_name = profile.user.first_name or ""
+        sms_body = template.format(first_name=first_name, coach_name=coach_name)
+        sms_template_encoded = quote(sms_body, safe="")
+
     context = {
         "submission": submission,
-        "profile": submission.profile,
+        "profile": profile,
         "form": form,
         "social_account": social_account,
+        "sms_template_encoded": sms_template_encoded,
     }
     return render(request, "crush_lu/coach_review_profile.html", context)
 

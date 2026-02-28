@@ -196,12 +196,11 @@ class CrushProfileForm(forms.ModelForm):
         help_text=_('Your region in or near Luxembourg')
     )
 
-    # Override looking_for to make it required
+    # looking_for is optional (no longer collected during profile creation)
     looking_for = forms.ChoiceField(
-        required=True,
+        required=False,
         choices=CrushProfile.LOOKING_FOR_CHOICES,
         widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
-        help_text=_('Required')
     )
 
     # Event languages (multi-select checkbox field for languages spoken at events)
@@ -473,6 +472,66 @@ class CrushProfileForm(forms.ModelForm):
             )
 
         return photo
+
+
+class IdealCrushPreferencesForm(forms.ModelForm):
+    """Standalone form for ideal crush preferences (age range, gender)"""
+
+    PREFERRED_GENDER_CHOICES = [
+        ('M', _('Man')),
+        ('F', _('Woman')),
+        ('NB', _('Non-binary')),
+        ('O', _('Other')),
+    ]
+
+    preferred_age_min = forms.IntegerField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_preferred_age_min'}),
+    )
+    preferred_age_max = forms.IntegerField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_preferred_age_max'}),
+    )
+    preferred_genders = forms.MultipleChoiceField(
+        choices=PREFERRED_GENDER_CHOICES,
+        required=False,
+        label=_('Preferred Genders'),
+        help_text=_('Select all that apply. Leave empty if you are open to everyone.'),
+    )
+
+    class Meta:
+        model = CrushProfile
+        fields = ['preferred_age_min', 'preferred_age_max', 'preferred_genders']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.preferred_genders:
+            self.initial['preferred_genders'] = self.instance.preferred_genders
+
+    def clean_preferred_age_min(self):
+        return self.cleaned_data.get('preferred_age_min') or 18
+
+    def clean_preferred_age_max(self):
+        return self.cleaned_data.get('preferred_age_max') or 99
+
+    def clean_preferred_genders(self):
+        genders = self.cleaned_data.get('preferred_genders', [])
+        valid_codes = [code for code, _ in self.PREFERRED_GENDER_CHOICES]
+        for g in genders:
+            if g not in valid_codes:
+                raise forms.ValidationError(
+                    _("Invalid gender selection: %(gender)s"),
+                    params={'gender': g}
+                )
+        return list(genders)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        age_min = cleaned_data.get('preferred_age_min')
+        age_max = cleaned_data.get('preferred_age_max')
+        if age_min is not None and age_max is not None and age_min >= age_max:
+            self.add_error('preferred_age_min', _("Minimum age must be less than maximum age."))
+        return cleaned_data
 
 
 class ProfileReviewForm(forms.ModelForm):

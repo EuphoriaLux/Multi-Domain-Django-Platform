@@ -40,6 +40,7 @@
                             {% endif %}
                             <span class="{% if submission.review_call_checklist.residence_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Residence" %}</span>
                         </div>
+                        {% if submission.review_call_checklist.expectations_discussed is not None %}
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.expectations_discussed %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
@@ -48,6 +49,8 @@
                             {% endif %}
                             <span class="{% if submission.review_call_checklist.expectations_discussed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Expectations" %}</span>
                         </div>
+                        {% endif %}
+                        {% if submission.review_call_checklist.dating_preference_asked is not None %}
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.dating_preference_asked %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
@@ -56,6 +59,7 @@
                             {% endif %}
                             <span class="{% if submission.review_call_checklist.dating_preference_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Dating Preference" %}</span>
                         </div>
+                        {% endif %}
                         <div class="flex items-center gap-2 text-sm">
                             {% if submission.review_call_checklist.crush_meaning_asked %}
                                 {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
@@ -125,6 +129,8 @@
                             <div class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-100 dark:border-gray-700">
                                 {% if attempt.result == 'failed' %}
                                     <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% elif attempt.result == 'sms_sent' %}
+                                    <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
                                 {% else %}
                                     <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% endif %}
@@ -132,6 +138,8 @@
                                     <p class="font-medium text-gray-900 dark:text-gray-100">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
                                     {% if attempt.result == 'failed' %}
                                         <p class="text-gray-700 dark:text-gray-200">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                                    {% elif attempt.result == 'sms_sent' %}
+                                        <p class="text-blue-700 dark:text-blue-300">{% trans "SMS template sent" %}</p>
                                     {% else %}
                                         <p class="text-green-700 dark:text-green-300">{% trans "Call completed successfully" %}</p>
                                     {% endif %}
@@ -178,13 +186,26 @@
                     <strong class="text-gray-900 dark:text-gray-100">{% trans "Name:" %}</strong>
                     <span class="text-gray-900 dark:text-gray-100">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
                 </p>
+                {% if profile.phone_number and profile.phone_verified and sms_template_encoded %}
+                    <div class="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">{% trans "Can't reach them? Send an SMS template:" %}</p>
+                        <a href="sms:{{ profile.phone_number }}?body={{ sms_template_encoded }}"
+                           hx-post="{% url 'crush_lu:coach_log_sms_sent' submission.id %}"
+                           hx-target="#screening-call-section-content"
+                           hx-swap="innerHTML"
+                           class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                            {% trans "Open SMS App" %}
+                        </a>
+                    </div>
+                {% endif %}
             </div>
 
             {# Progress bar #}
             <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <div class="flex justify-between items-center text-sm text-gray-600 dark:text-gray-300 mb-2">
                     <span class="font-semibold">{% trans "Progress" %}</span>
-                    <span class="font-bold text-purple-600 dark:text-purple-400"><span x-text="completedCount"></span>/7 {% trans "completed" %}</span>
+                    <span class="font-bold text-purple-600 dark:text-purple-400"><span x-text="completedCount"></span>/5 {% trans "completed" %}</span>
                 </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                     <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-300" x-bind:style="progressWidth"></div>

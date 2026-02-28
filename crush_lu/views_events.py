@@ -386,56 +386,99 @@ def event_detail(request, event_id):
     return render(request, "crush_lu/event_detail.html", context)
 
 
+def _ical_escape(text):
+    """Escape text per RFC 5545 section 3.3.11."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+    )
+
+
+def _ical_fold(line):
+    """Fold a content line to max 75 octets per RFC 5545 section 3.1."""
+    encoded = line.encode("utf-8")
+    if len(encoded) <= 75:
+        return line
+    parts = []
+    first = True
+    while encoded:
+        # First chunk: 75 octets max. Continuations: 74 (leading space = 1 octet)
+        limit = 75 if first else 74
+        if len(encoded) <= limit:
+            parts.append(encoded.decode("utf-8"))
+            break
+        cut = limit
+        # Don't split in the middle of a multi-byte character
+        while cut > 0 and (encoded[cut] & 0xC0) == 0x80:
+            cut -= 1
+        parts.append(encoded[:cut].decode("utf-8"))
+        encoded = encoded[cut:]
+        first = False
+    return "\r\n ".join(parts)
+
+
 def event_calendar_download(request, event_id):
-    """Generate .ics calendar file for event"""
+    """Generate .ics calendar file for event (RFC 5545 compliant)."""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
 
     from datetime import timezone as dt_timezone
+
     end_time = event.date_time + timedelta(minutes=event.duration_minutes)
 
     start_utc = event.date_time.astimezone(dt_timezone.utc)
     end_utc = end_time.astimezone(dt_timezone.utc)
 
-    dtstart = start_utc.strftime('%Y%m%dT%H%M%SZ')
-    dtend = end_utc.strftime('%Y%m%dT%H%M%SZ')
-    dtstamp = timezone.now().astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    dtstart = start_utc.strftime("%Y%m%dT%H%M%SZ")
+    dtend = end_utc.strftime("%Y%m%dT%H%M%SZ")
+    dtstamp = (
+        timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    )
 
-    if request.user.is_authenticated and hasattr(request.user, 'crushprofile'):
+    if request.user.is_authenticated and hasattr(request.user, "crushprofile"):
         location = f"{event.location}, {event.address}"
     else:
         location = event.canton or "Luxembourg"
 
     event_url = request.build_absolute_uri(
-        reverse('crush_lu:event_detail', kwargs={'event_id': event.id})
+        reverse("crush_lu:event_detail", kwargs={"event_id": event.id})
     )
 
-    description = event.description.replace('\n', '\\n').replace(',', '\\,').replace(';', '\\;')
-
     uid = f"event-{event.id}@crush.lu"
+    description = _ical_escape(
+        f"{event.description}\n\nRegister: {event_url}"
+    )
 
-    ics_content = f"""BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Crush.lu//Event Calendar//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-BEGIN:VEVENT
-UID:{uid}
-DTSTAMP:{dtstamp}
-DTSTART:{dtstart}
-DTEND:{dtend}
-SUMMARY:{event.title}
-DESCRIPTION:{description}\\n\\nRegister: {event_url}
-LOCATION:{location}
-URL:{event_url}
-STATUS:CONFIRMED
-SEQUENCE:0
-END:VEVENT
-END:VCALENDAR"""
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Crush.lu//Event Calendar//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART:{dtstart}",
+        f"DTEND:{dtend}",
+        _ical_fold(f"SUMMARY:{_ical_escape(event.title)}"),
+        _ical_fold(f"DESCRIPTION:{description}"),
+        _ical_fold(f"LOCATION:{_ical_escape(location)}"),
+        _ical_fold(f"URL:{event_url}"),
+        "STATUS:CONFIRMED",
+        "SEQUENCE:0",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
 
-    response = HttpResponse(ics_content, content_type='text/calendar; charset=utf-8')
+    ics_content = "\r\n".join(lines) + "\r\n"
+
+    response = HttpResponse(
+        ics_content, content_type="text/calendar; charset=utf-8"
+    )
     filename = f"crush-event-{event.id}.ics"
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    response['Cache-Control'] = 'no-cache'
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    response["Cache-Control"] = "no-cache"
 
     return response
 

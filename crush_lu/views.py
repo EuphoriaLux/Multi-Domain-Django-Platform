@@ -49,6 +49,7 @@ from .forms import (
     ProfileReviewForm,
     CoachSessionForm,
     EventRegistrationForm,
+    IdealCrushPreferencesForm,
 )
 from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
@@ -150,6 +151,7 @@ from .views_coach import (  # noqa: F401
     coach_dashboard,
     coach_mark_review_call_complete,
     coach_log_failed_call,
+    coach_log_sms_sent,
     coach_review_profile,
     coach_preview_email,
     coach_sessions,
@@ -253,9 +255,12 @@ def dashboard(request):
         referral_code = ReferralCode.get_or_create_for_profile(profile)
         referral_url = build_referral_url(referral_code.code, request=request)
 
+        coach = latest_submission.coach if latest_submission else None
+
         context = {
             "profile": profile,
             "submission": latest_submission,
+            "coach": coach,
             "registrations": registrations,
             "connection_count": connection_count,
             "is_pwa_user": is_pwa_user,
@@ -667,6 +672,54 @@ def edit_profile(request):
         "submission": latest_submission,
     }
     return render(request, "crush_lu/create_profile.html", context)
+
+
+@crush_login_required
+def crush_preferences(request):
+    """Standalone page for ideal crush preferences (age range, gender)"""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        messages.info(request, _("You need to create a profile first."))
+        return redirect("crush_lu:create_profile")
+
+    if not profile.is_approved:
+        messages.warning(request, _("Your profile must be approved before setting preferences."))
+        return redirect("crush_lu:dashboard")
+
+    if request.method == "POST":
+        form = IdealCrushPreferencesForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            logger.info(
+                "Crush preferences saved for user %s: age=%s-%s, genders=%s",
+                request.user.pk,
+                form.cleaned_data.get("preferred_age_min"),
+                form.cleaned_data.get("preferred_age_max"),
+                form.cleaned_data.get("preferred_genders"),
+            )
+            messages.success(request, _("Your preferences have been saved."))
+            return redirect("crush_lu:dashboard")
+        else:
+            logger.warning(
+                "Crush preferences form errors for user %s: %s",
+                request.user.pk,
+                form.errors,
+            )
+    else:
+        form = IdealCrushPreferencesForm(instance=profile)
+        logger.info(
+            "Loading crush preferences for user %s: age=%s-%s, genders=%s",
+            request.user.pk,
+            profile.preferred_age_min,
+            profile.preferred_age_max,
+            profile.preferred_genders,
+        )
+
+    return render(request, "crush_lu/crush_preferences.html", {
+        "form": form,
+        "profile": profile,
+    })
 
 
 @crush_login_required

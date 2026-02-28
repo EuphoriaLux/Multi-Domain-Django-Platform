@@ -327,6 +327,10 @@
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit Profile" %}
                                         </a>
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
+                                            {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Ideal Crush" %}
+                                        </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -589,6 +593,10 @@
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit Profile" %}
                                         </a>
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
+                                            {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Ideal Crush" %}
+                                        </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -743,6 +751,10 @@
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit Profile" %}
                                 </a>
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
+                                    {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Ideal Crush" %}
+                                </a>
                                 {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -809,6 +821,10 @@
                                 <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit Profile" %}
+                                </a>
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
+                                    {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Ideal Crush" %}
                                 </a>
 
                             {% elif profile_status == 'pending' %}

@@ -53,6 +53,29 @@ class CrushSiteConfig(models.Model):
         help_text=_("e.g. https://www.reddit.com/r/crushlu"),
     )
 
+    # SMS templates for coach outreach
+    sms_template_en = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}, this is {coach_name} from Crush.lu. I tried calling you regarding your profile verification. Could you call me back when you have a moment? Thanks!",
+        verbose_name=_("SMS template (English)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}"),
+    )
+    sms_template_de = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hallo {first_name}, hier ist {coach_name} von Crush.lu. Ich habe versucht, dich wegen deiner Profilverifizierung anzurufen. Könntest du mich zurückrufen? Danke!",
+        verbose_name=_("SMS template (German)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}"),
+    )
+    sms_template_fr = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Bonjour {first_name}, c'est {coach_name} de Crush.lu. J'ai essayé de vous appeler concernant la vérification de votre profil. Pourriez-vous me rappeler ? Merci !",
+        verbose_name=_("SMS template (French)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}"),
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

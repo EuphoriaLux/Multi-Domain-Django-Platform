@@ -6,7 +6,7 @@
 /* Tailwind v4 source paths for content scanning */
 @source "../../crush_lu/templates/**/*.html";
 @source "../../crush_lu/**/*.py";
-@source "../../static/crush_lu/js/**/*.js";
+@source "../../crush_lu/static/crush_lu/js/**/*.js";
 @source "../../power_up/templates/**/*.html";
 @source "../../power_up/**/*.py";
 @source "../../tableau/templates/**/*.html";
@@ -890,6 +890,19 @@ body.journey-bg {
 
   .table-hover tbody tr:hover {
     @apply bg-gray-50 dark:bg-gray-700;
+  }
+
+  /* Screening call accordion header states (dark mode) — applied via Alpine.js */
+  .screening-header-active-dark {
+    @apply bg-purple-900 border-purple-600;
+    background-color: rgba(88, 28, 135, 0.4);
+  }
+  .screening-header-complete-dark {
+    @apply bg-green-900 border-green-700;
+    background-color: rgba(20, 83, 45, 0.3);
+  }
+  .screening-header-default-dark {
+    @apply bg-gray-700 border-gray-600;
   }
 
   /* =========================================================================
@@ -8980,4 +8993,138 @@ html.dark .ghost-story-heart-svg {
 
 .animate-scale-in {
     animation: scaleIn 0.4s ease forwards;
+}
+
+/* ─── Age Range Dual-Handle Slider ─── */
+.age-range-slider-track {
+    position: relative;
+    height: 6px;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    margin-top: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+html.dark .age-range-slider-track {
+    background: #374151;
+}
+
+/* Filled region between handles */
+.age-range-slider-track::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--range-left, 0%);
+    right: var(--range-right, 0%);
+    background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+    border-radius: 9999px;
+}
+
+html.dark .age-range-slider-track::before {
+    background: linear-gradient(90deg, #7C3AED, #EC4899);
+}
+
+/* Overlapping range inputs */
+.age-range-input {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    transform: translateY(-50%);
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+    margin: 0;
+    height: 6px;
+}
+
+.age-range-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid #9B59B6;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.age-range-input::-webkit-slider-thumb:hover {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 4px rgba(155, 89, 182, 0.15);
+}
+
+html.dark .age-range-input::-webkit-slider-thumb {
+    background: #1e293b;
+    border-color: #7C3AED;
+}
+
+html.dark .age-range-input::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
+}
+
+.age-range-input::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid #9B59B6;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.age-range-input::-moz-range-thumb:hover {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 4px rgba(155, 89, 182, 0.15);
+}
+
+html.dark .age-range-input::-moz-range-thumb {
+    background: #1e293b;
+    border-color: #7C3AED;
+}
+
+.age-range-input::-moz-range-track {
+    background: transparent;
+    border: none;
+}
+
+/* Value bubble above thumb while dragging */
+.age-range-bubble {
+    position: absolute;
+    top: -32px;
+    transform: translateX(-50%);
+    background: #9B59B6;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.age-range-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #9B59B6;
+}
+
+html.dark .age-range-bubble {
+    background: #7C3AED;
+}
+
+html.dark .age-range-bubble::after {
+    border-top-color: #7C3AED;
 }

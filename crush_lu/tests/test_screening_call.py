@@ -77,10 +77,6 @@ class TestScreeningCallView(TestCase):
             'language_confirmed': True,
             'residence_confirmed': True,
             'residence_notes': 'Lives in Luxembourg City',
-            'expectations_discussed': True,
-            'expectations_notes': 'Looking for serious relationship',
-            'dating_preference_asked': True,
-            'dating_preference_value': 'opposite_gender',
             'crush_meaning_asked': False,
             'crush_meaning_notes': '',
             'questions_answered': True,
@@ -105,7 +101,6 @@ class TestScreeningCallView(TestCase):
         self.assertEqual(self.submission.review_call_notes, 'Great call, user is ready.')
         self.assertEqual(self.submission.review_call_checklist, checklist_data)
         self.assertTrue(self.submission.review_call_checklist['introduction_complete'])
-        self.assertEqual(self.submission.review_call_checklist['dating_preference_value'], 'opposite_gender')
         self.assertEqual(self.submission.review_call_checklist['residence_notes'], 'Lives in Luxembourg City')
 
     def test_mark_call_complete_with_empty_checklist(self):
@@ -147,8 +142,6 @@ class TestScreeningCallView(TestCase):
         checklist_data = {
             'introduction_complete': True,
             'residence_confirmed': True,
-            'dating_preference_asked': True,
-            'dating_preference_value': 'opposite_gender',
         }
 
         url = reverse('crush_lu:coach_mark_review_call_complete', args=[self.submission.id])

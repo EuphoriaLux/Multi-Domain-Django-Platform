@@ -236,6 +236,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ('Profile Content', {
             'fields': ('bio', 'interests', 'looking_for'),
         }),
+        ('Ideal Crush Preferences', {
+            'fields': ('preferred_age_min', 'preferred_age_max', 'preferred_genders'),
+            'description': _('Optional preferences the user set on their profile (soft preferences, not hard filters)'),
+        }),
         ('Photos', {
             'fields': ('photo_1', 'photo_2', 'photo_3'),
         }),

@@ -82,10 +82,12 @@
                     <span class="font-semibold">{% trans "Phone:" %}</span>
                     <span>{{ profile.phone_number|default:not_provided }}</span>
                 </div>
+                {% if profile.looking_for %}
                 <div class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                     <span class="font-semibold">{% trans "Looking for:" %}</span>
                     <span>{{ profile.get_looking_for_display }}</span>
                 </div>
+                {% endif %}
 
                 <hr class="my-3 border-gray-200 dark:border-gray-700">
 

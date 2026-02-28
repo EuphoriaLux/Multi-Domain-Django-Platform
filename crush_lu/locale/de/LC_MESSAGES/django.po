@@ -11502,13 +11502,13 @@ msgstr "Schließen"
 #: .\crush_lu\templates\crush_lu\create_profile.html:553
 msgid "Please verify your phone number to continue."
 msgstr ""
-"Bitte verifizieren Sie Ihre Telefonnummer, um fortzufahren.Bitteverifizieren"
+"Bitte verifizieren Sie Ihre Telefonnummer, um fortzufahren. Bitte verifizieren"
 " Sie Ihre Telefonnummer, um alle Funktionen nutzen zukönnen."
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:566
 msgid "Share what makes you unique (optional)"
 msgstr ""
-"Teilen Sie, was Sie einzigartig macht (optional)Teilen Sie mit, was Sie "
+"Teilen Sie, was Sie einzigartig macht (optional) Teilen Sie mit, was Sie "
 "einzigartig macht! (Optional, max. 500 Zeichen)"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:573

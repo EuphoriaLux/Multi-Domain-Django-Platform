@@ -398,6 +398,21 @@ class CrushProfile(models.Model):
         blank=True
     )
 
+    # Ideal Crush Preferences (optional)
+    preferred_age_min = models.PositiveSmallIntegerField(
+        default=18,
+        help_text=_("Minimum preferred age")
+    )
+    preferred_age_max = models.PositiveSmallIntegerField(
+        default=99,
+        help_text=_("Maximum preferred age")
+    )
+    preferred_genders = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Gender codes the user is interested in")
+    )
+
     # Photos (using private storage in production with SAS tokens)
     # Path structure: users/{user_id}/photos/{uuid}.{ext}
     # Using lazy storage ensures consistent migration state across environments
@@ -787,6 +802,7 @@ class CallAttempt(models.Model):
     RESULT_CHOICES = [
         ('success', _('Call Completed')),
         ('failed', _('Call Failed')),
+        ('sms_sent', _('SMS Sent')),
     ]
 
     FAILURE_REASON_CHOICES = [

@@ -216,47 +216,9 @@ def save_profile_step2(request):
                 'phone_verification_required': True
             }, status=403)
 
-        # Validate looking_for is provided
-        looking_for = data.get('looking_for', '').strip()
-        if not looking_for:
-            # Preserve data in draft
-            if not profile.draft_data:
-                profile.draft_data = {}
-            profile.draft_data['step2'] = {
-                'bio': data.get('bio', ''),
-                'interests': data.get('interests', ''),
-                'looking_for': looking_for,
-            }
-            profile.save(update_fields=['draft_data'])
-
-            return JsonResponse({
-                'success': False,
-                'error': 'Please select what you\'re looking for'
-            }, status=400)
-
-        # Validate looking_for is a valid choice
-        from .models import CrushProfile as ProfileModel
-        valid_choices = [choice[0] for choice in ProfileModel.LOOKING_FOR_CHOICES]
-        if looking_for not in valid_choices:
-            # Preserve data in draft
-            if not profile.draft_data:
-                profile.draft_data = {}
-            profile.draft_data['step2'] = {
-                'bio': data.get('bio', ''),
-                'interests': data.get('interests', ''),
-                'looking_for': looking_for,
-            }
-            profile.save(update_fields=['draft_data'])
-
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid selection for "looking for"'
-            }, status=400)
-
         # Update profile content
         profile.bio = data.get('bio', '').strip()
         profile.interests = data.get('interests', '').strip()
-        profile.looking_for = looking_for
         profile.completion_status = 'step2'
 
         # Clear step2 draft data on successful save, BUT preserve UI-only fields

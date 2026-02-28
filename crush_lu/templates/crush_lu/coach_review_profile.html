@@ -112,7 +112,9 @@
                                 {% if lang == 'en' %}🇬🇧{% elif lang == 'de' %}🇩🇪{% elif lang == 'fr' %}🇫🇷{% elif lang == 'lu' %}🇱🇺{% endif %}
                             {% endfor %}
                         </p>
+                        {% if profile.looking_for %}
                         <p class="text-gray-700 dark:text-gray-200">💕 {{ profile.get_looking_for_display }}</p>
+                        {% endif %}
                     </div>
 
                     {# Column 3: Privacy & Quick Access #}

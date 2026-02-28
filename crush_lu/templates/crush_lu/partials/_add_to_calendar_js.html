@@ -1,0 +1,55 @@
+{% load i18n %}
+<script>
+(function() {
+    var container = document.querySelector('[data-calendar-event-id="{{ event.id }}"]');
+    if (!container) return;
+
+    var title = '{{ event.title|escapejs }}';
+    var description = '{{ event.description|escapejs }}';
+    var location = '{% if user.is_authenticated %}{{ event.location|escapejs }}, {{ event.address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}';
+    var eventUrl = window.location.origin + '{% url "crush_lu:event_detail" event.id %}';
+
+    var startDate = new Date('{{ event.date_time|date:"c" }}');
+    var endDate = new Date(startDate.getTime() + ({{ event.duration_minutes }} * 60000));
+
+    function formatDate(date) {
+        var year = date.getUTCFullYear();
+        var month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        var day = String(date.getUTCDate()).padStart(2, '0');
+        var hours = String(date.getUTCHours()).padStart(2, '0');
+        var minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        var seconds = String(date.getUTCSeconds()).padStart(2, '0');
+        return year + month + day + 'T' + hours + minutes + seconds + 'Z';
+    }
+
+    var details = description + '\n\n' + eventUrl;
+
+    var links = container.querySelectorAll('[data-calendar-service]');
+    for (var i = 0; i < links.length; i++) {
+        var link = links[i];
+        var service = link.getAttribute('data-calendar-service');
+        if (service === 'google') {
+            link.href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+                + '&text=' + encodeURIComponent(title)
+                + '&dates=' + formatDate(startDate) + '/' + formatDate(endDate)
+                + '&details=' + encodeURIComponent(details)
+                + '&location=' + encodeURIComponent(location);
+        } else if (service === 'outlook') {
+            link.href = 'https://outlook.live.com/calendar/0/deeplink/compose'
+                + '?subject=' + encodeURIComponent(title)
+                + '&startdt=' + startDate.toISOString()
+                + '&enddt=' + endDate.toISOString()
+                + '&body=' + encodeURIComponent(details)
+                + '&location=' + encodeURIComponent(location)
+                + '&path=/calendar/action/compose&rru=addevent';
+        } else if (service === 'yahoo') {
+            link.href = 'https://calendar.yahoo.com/?v=60'
+                + '&title=' + encodeURIComponent(title)
+                + '&st=' + formatDate(startDate)
+                + '&et=' + formatDate(endDate)
+                + '&desc=' + encodeURIComponent(details)
+                + '&in_loc=' + encodeURIComponent(location);
+        }
+    }
+})();
+</script>

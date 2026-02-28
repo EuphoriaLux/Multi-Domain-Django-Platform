@@ -167,6 +167,7 @@ urlpatterns = [
     # Redirect /profile/ to /dashboard/ (LOGIN_REDIRECT_URL points to /profile/)
     path('profile/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
+    path('profile/preferences/', views.crush_preferences, name='crush_preferences'),
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),
@@ -254,6 +255,7 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/preview/', views.coach_preview_email, name='coach_preview_email'),
     path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
+    path('coach/review/<int:submission_id>/sms-sent/', views.coach_log_sms_sent, name='coach_log_sms_sent'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
 

@@ -163,7 +163,7 @@ def get_draft(request):
         merged = {}
         profile_fields = [
             'phone_number', 'date_of_birth', 'gender', 'location',
-            'bio', 'interests', 'looking_for', 'event_languages',
+            'bio', 'interests', 'event_languages',
             'show_full_name', 'show_exact_age', 'blur_photos'
         ]
 

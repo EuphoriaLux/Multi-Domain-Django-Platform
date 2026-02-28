@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models.journey import JourneyConfiguration
-from crush_lu.models.profiles import CrushProfile, ProfileSubmission, SpecialUserExperience
+from crush_lu.models.profiles import CrushProfile, ProfileSubmission, SpecialUserExperience, UserDataConsent
 
 
 class SpecialUserExperienceTests(TestCase):
@@ -131,3 +131,69 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(profile.gender, "F")
         self.assertEqual(profile.completion_status, "submitted")
         self.assertTrue(ProfileSubmission.objects.filter(profile=profile).exists())
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CrushPreferencesTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="pref@example.com",
+            email="pref@example.com",
+            password="testpass123",
+        )
+
+    def test_unapproved_user_redirected(self):
+        """Unapproved users cannot access the preferences page."""
+        CrushProfile.objects.create(
+            user=self.user,
+            location="canton-luxembourg",
+            is_approved=False,
+        )
+        self.client.login(username="pref@example.com", password="testpass123")
+        response = self.client.get(
+            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def _grant_consent(self):
+        consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
+        consent.crushlu_consent_given = True
+        consent.save()
+
+    def test_approved_user_can_view(self):
+        """Approved users can access the preferences page."""
+        CrushProfile.objects.create(
+            user=self.user,
+            location="canton-luxembourg",
+            is_approved=True,
+        )
+        self._grant_consent()
+        self.client.login(username="pref@example.com", password="testpass123")
+        response = self.client.get(
+            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_save_preferences(self):
+        """Approved users can save preferences."""
+        profile = CrushProfile.objects.create(
+            user=self.user,
+            location="canton-luxembourg",
+            is_approved=True,
+        )
+        self._grant_consent()
+        self.client.login(username="pref@example.com", password="testpass123")
+        response = self.client.post(
+            reverse("crush_lu:crush_preferences"),
+            {
+                "preferred_age_min": 25,
+                "preferred_age_max": 35,
+                "preferred_genders": ["F", "NB"],
+            },
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_age_min, 25)
+        self.assertEqual(profile.preferred_age_max, 35)
+        self.assertEqual(profile.preferred_genders, ["F", "NB"])

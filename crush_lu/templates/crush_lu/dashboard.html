@@ -101,6 +101,23 @@
         </div>
     </div>
 
+    {% if profile.is_approved %}
+    <!-- Ideal Crush Preferences Card -->
+    <a href="{% url 'crush_lu:crush_preferences' %}"
+       class="status-card block no-underline group hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
+        <div class="status-card-body flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">💕</span>
+                <div>
+                    <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Set your age and gender preferences" %}</p>
+                </div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
+    {% endif %}
+
     <!-- PWA Install Card -->
     <div class="status-card">
         <div class="status-card-body">
@@ -116,35 +133,43 @@
                 {% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}
             </a>
             {% else %}
-            <!-- User hasn't installed PWA - show install prompt -->
-            <div id="pwa-install-prompt">
+            <!-- User hasn't installed PWA - show install prompt via Alpine component -->
+            <div x-data="pwaInstallButton">
                 <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
                 <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
 
-                <div id="pwa-install-container">
-                    <button id="pwa-install-btn" class="hidden btn-crush-primary items-center gap-2 px-4 py-2">
-                        {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}
-                    </button>
+                <!-- Android/Chrome/Edge: native install button -->
+                <button x-show="canInstallVisible" @click="install" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}
+                </button>
 
-                    <div id="pwa-installed-msg" class="hidden">
-                        <div class="alert alert-success">
-                            {% include "shared/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
-                            <strong>{% trans "App installed!" %}</strong>
-                            <p class="mb-0 mt-2 text-sm">
-                                {% trans "Refresh this page to enable push notifications." %}
-                            </p>
-                        </div>
+                <!-- iOS: manual instructions -->
+                <div x-show="showInstructionsVisible">
+                    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4">
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
+                        <strong>{% trans "How to install" %}</strong>
+                        <p class="mb-0 mt-2 text-sm">
+                            {% trans "Tap the Share button, then select \"Add to Home Screen\"." %}
+                        </p>
                     </div>
+                </div>
 
-                    <div id="pwa-install-instructions" class="hidden">
-                        <div class="alert alert-info">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
-                            <strong>{% trans "How to install" %}</strong>
-                            <p class="mb-0 mt-2 text-sm" id="install-instructions-text">
-                                <!-- Instructions will be filled by JavaScript based on browser/device -->
-                            </p>
-                        </div>
+                <!-- Just installed (appinstalled event fired) -->
+                <div x-show="isInstalledVisible">
+                    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
+                        <strong>{% trans "App installed!" %}</strong>
+                        <p class="mb-0 mt-2 text-sm">
+                            {% trans "Refresh this page to enable push notifications." %}
+                        </p>
                     </div>
+                </div>
+
+                <!-- Fallback: no prompt available, not iOS, not installed (desktop Firefox, etc.) -->
+                <div x-show="showFallbackVisible">
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">
+                        {% trans "Open crush.lu in Chrome or Safari for the best install experience." %}
+                    </p>
                 </div>
             </div>
             {% endif %}
@@ -222,6 +247,61 @@
         </div>
     </div>
 </div>
+
+{% if coach %}
+<div class="grid grid-cols-1 gap-6 mb-6">
+    <!-- Your Crush Coach Card -->
+    <div class="status-card">
+        <div class="status-card-body">
+            <h5 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
+                {% trans "Your Crush Coach" %}
+            </h5>
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                <!-- Coach Photo -->
+                <div class="shrink-0">
+                    {% if coach.photo %}
+                        <div class="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-crush-purple to-crush-pink">
+                            <img src="{{ coach.photo.url }}" alt="{{ coach.user.first_name }}"
+                                 class="w-full h-full rounded-full object-cover border-2 border-white dark:border-slate-800"
+                                 loading="lazy">
+                        </div>
+                    {% else %}
+                        <div class="w-20 h-20 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                            {% include "shared/icons/user-circle.html" with class="w-12 h-12 text-crush-purple" %}
+                        </div>
+                    {% endif %}
+                </div>
+                <!-- Coach Info -->
+                <div class="flex-1 text-center sm:text-left">
+                    <h6 class="font-semibold text-gray-900 dark:text-white text-lg">{{ coach.user.first_name }}</h6>
+                    {% if coach.get_spoken_languages_display %}
+                        <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 mt-1 mb-2">
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Speaks:" %}</span>
+                            {% for lang in coach.get_spoken_languages_display %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                                    {{ lang.flag }} {{ lang.name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if coach.bio %}
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ coach.bio|truncatewords:30 }}</p>
+                    {% endif %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        {% trans "Your personal coach is here to help you get the most out of Crush.lu." %}
+                        {% trans "Event preparation, dating advice, and more - don't hesitate to reach out!" %}
+                    </p>
+                    <a href="mailto:{{ coach.user.email }}" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
+                        {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
+                        {% trans "Contact Coach" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="grid grid-cols-1 gap-6 mb-6">
     <!-- Quick Stats Card -->

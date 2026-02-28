@@ -1,0 +1,120 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Ideal Crush - Crush.lu" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'crush_lu:dashboard' %}"
+           class="inline-flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your Ideal Crush" %}</h2>
+    </div>
+
+    <form method="post" class="section-card">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4 mb-4">
+            {% for error in form.non_field_errors %}
+                <p class="text-red-600 dark:text-red-400 text-sm">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">{% trans "These are soft preferences to help us personalise your experience — not hard filters." %}</p>
+
+        <!-- Age Range Slider -->
+        <div class="mb-6"
+             x-data="ageRangeSlider"
+             data-label-any-age="{% trans 'Any age' %}"
+             data-initial-min="{{ profile.preferred_age_min|default:'18' }}"
+             data-initial-max="{{ profile.preferred_age_max|default:'99' }}">
+            <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {% trans "Preferred Age Range" %}
+                </label>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="rangeLabel"></span>
+                    <button type="button"
+                            x-show="notDefaultRange"
+                            @click="resetRange"
+                            class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline"
+                            x-cloak>
+                        {% trans "Reset" %}
+                    </button>
+                </div>
+            </div>
+            <div class="age-range-slider-track" x-bind:style="trackStyle">
+                <div class="age-range-bubble" x-bind:style="minBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak>
+                    <span x-text="minAge"></span>
+                </div>
+                <div class="age-range-bubble" x-bind:style="maxBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak>
+                    <span x-text="maxAge"></span>
+                </div>
+                <input type="range"
+                       class="age-range-input age-range-input-min"
+                       min="18" max="99" x-bind:value="minAge"
+                       @input="updateMin">
+                <input type="range"
+                       class="age-range-input age-range-input-max"
+                       min="18" max="99" x-bind:value="maxAge"
+                       @input="updateMax">
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <span>18</span>
+                <span>99</span>
+            </div>
+            <input type="hidden" name="preferred_age_min" x-bind:value="minAge">
+            <input type="hidden" name="preferred_age_max" x-bind:value="maxAge">
+        </div>
+
+        <!-- Gender Preference Tiles -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                {% trans "Interested In" %}
+            </label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {% for value, label in form.preferred_genders.field.choices %}
+                <label class="cursor-pointer block">
+                    <input type="checkbox"
+                           name="{{ form.preferred_genders.html_name }}"
+                           value="{{ value }}"
+                           class="peer hidden"
+                           {% if value in profile.preferred_genders %}checked{% endif %}>
+                    <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                                peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
+                        <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% endif %}</span>
+                        <span class="whitespace-nowrap">{{ label }}</span>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Select all that apply. Leave empty if you're open to everyone." %}</p>
+            {% if form.preferred_genders.errors %}
+                <div class="text-red-600 text-sm mt-1">{{ form.preferred_genders.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        {% if form.preferred_age_min.errors %}
+            <div class="text-red-600 text-sm mb-4">{{ form.preferred_age_min.errors.0 }}</div>
+        {% endif %}
+
+        <div class="flex gap-3">
+            <a href="{% url 'crush_lu:dashboard' %}"
+               class="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-center
+                      hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                {% trans "Cancel" %}
+            </a>
+            <button type="submit"
+                    class="flex-1 btn-crush-primary py-3 rounded-xl font-semibold">
+                {% trans "Save Preferences" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
