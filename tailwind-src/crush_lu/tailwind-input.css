@@ -5509,6 +5509,10 @@ html.dark .btn-crush-outline {
     padding: var(--space-6);
 }
 
+html.dark .section-card {
+    background: #1e293b;
+}
+
 .gift-landing .section-title {
     color: var(--crush-dark);
     font-weight: var(--font-semibold);
