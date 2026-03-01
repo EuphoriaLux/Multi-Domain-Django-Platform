@@ -103,6 +103,33 @@ def coach_dashboard(request):
         status__in=["accepted", "coach_reviewing"]
     ).count()
 
+    # Batch-query upcoming event registrations for users with pending/recontact submissions
+    submission_user_ids = [s.profile.user_id for s in pending_submissions] + [
+        s.profile.user_id for s in recontact_submissions
+    ]
+    upcoming_event_regs = {}
+    if submission_user_ids:
+        upcoming_regs = (
+            EventRegistration.objects.filter(
+                user_id__in=submission_user_ids,
+                event__date_time__gte=now,
+            )
+            .exclude(status="cancelled")
+            .select_related("event")
+            .order_by("event__date_time")
+        )
+        for reg in upcoming_regs:
+            upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
+
+    for submission in pending_submissions:
+        submission.upcoming_events = upcoming_event_regs.get(
+            submission.profile.user_id, []
+        )
+    for submission in recontact_submissions:
+        submission.upcoming_events = upcoming_event_regs.get(
+            submission.profile.user_id, []
+        )
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -949,6 +976,20 @@ def coach_event_detail(request, event_id):
         ]
     else:
         filtered_registrations = list(registrations)
+
+    # Batch-query latest ProfileSubmission per registered user
+    user_ids = [r.user_id for r in registrations]
+    latest_submissions = {}
+    if user_ids:
+        for sub in ProfileSubmission.objects.filter(
+            profile__user_id__in=user_ids
+        ).select_related("profile").order_by("-submitted_at"):
+            if sub.profile.user_id not in latest_submissions:
+                latest_submissions[sub.profile.user_id] = sub
+
+    # Attach latest submission to each registration for template use
+    for reg in filtered_registrations:
+        reg.latest_submission = latest_submissions.get(reg.user_id)
 
     # Count stats
     confirmed_count = sum(

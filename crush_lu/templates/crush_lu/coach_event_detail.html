@@ -192,6 +192,31 @@
                                     </p>
                                 {% endif %}
                             {% endwith %}
+
+                            <!-- Verification Status -->
+                            {% with profile=reg.user.crushprofile %}
+                                {% if profile and profile.is_approved %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                                        &#10003; {% trans "Verified" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'pending' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                        &#9679; {% trans "In Review" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'revision' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                        &#8634; {% trans "Revision" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'recontact_coach' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                        &#9742; {% trans "Recontact" %}
+                                    </span>
+                                {% elif profile and not profile.is_approved %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                        {% trans "Not Verified" %}
+                                    </span>
+                                {% endif %}
+                            {% endwith %}
                         </div>
 
                         <!-- Status Badge -->
