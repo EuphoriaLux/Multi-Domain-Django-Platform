@@ -333,6 +333,16 @@ class MeetupEvent(models.Model):
                 )
 
     @property
+    def is_registration_accepting(self):
+        """Whether registration is accepting signups (confirmed or waitlist)."""
+        now = timezone.now()
+        return (
+            self.is_published
+            and not self.is_cancelled
+            and now < self.registration_deadline
+        )
+
+    @property
     def is_registration_open(self):
         now = timezone.now()
         return (

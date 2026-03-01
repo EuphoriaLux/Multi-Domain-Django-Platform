@@ -890,7 +890,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         count = 0
         for profile in queryset.select_related('user'):
             user = profile.user
-            consent, _ = UserDataConsent.objects.get_or_create(user=user)
+            consent, _created = UserDataConsent.objects.get_or_create(user=user)
             if not consent.crushlu_banned:
                 consent.crushlu_banned = True
                 consent.crushlu_ban_reason = 'admin_action'

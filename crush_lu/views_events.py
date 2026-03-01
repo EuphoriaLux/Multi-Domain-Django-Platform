@@ -574,7 +574,7 @@ def event_register(request, event_id):
         messages.warning(request, _("You are already registered for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
-    if not event.is_registration_open:
+    if not event.is_registration_accepting:
         messages.error(request, _("Registration is not available for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -601,7 +601,7 @@ def event_register(request, event_id):
                 locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
 
                 # Re-check registration deadline under lock to prevent race condition
-                if not locked_event.is_registration_open:
+                if not locked_event.is_registration_accepting:
                     messages.error(request, _("Registration is not available for this event."))
                     return redirect("crush_lu:event_detail", event_id=event_id)
 

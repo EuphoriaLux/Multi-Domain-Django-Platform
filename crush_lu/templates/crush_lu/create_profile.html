@@ -23,6 +23,17 @@
      data-is-editing="{{ is_editing|lower|default:'false' }}"
      class="profile-creation-wrapper">
     <div class="container py-4 max-w-3xl mx-auto px-4">
+        {% if submission and submission.feedback_to_user %}
+        <div class="alert alert-warning mb-6 text-left border-l-4 border-amber-500">
+            <div class="flex-shrink-0">
+                {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+            </div>
+            <div class="flex-1">
+                <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
+            </div>
+        </div>
+        {% endif %}
         <!-- Progress Header -->
         <div class="text-center mb-8">
             <template x-if="isEditing">

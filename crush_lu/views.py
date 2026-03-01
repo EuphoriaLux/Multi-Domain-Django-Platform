@@ -452,6 +452,30 @@ def create_profile(request):
         profile = CrushProfile.objects.get(user=request.user)
 
         if profile.completion_status == "submitted":
+            latest_submission = (
+                ProfileSubmission.objects.filter(profile=profile)
+                .order_by("-submitted_at")
+                .first()
+            )
+
+            if latest_submission and latest_submission.status in [
+                "revision",
+                "rejected",
+                "recontact_coach",
+            ]:
+                from .social_photos import get_all_social_photos
+
+                form = CrushProfileForm(instance=profile)
+                context = {
+                    "form": form,
+                    "profile": profile,
+                    "current_step": "step1",
+                    "social_photos": get_all_social_photos(request.user),
+                    "submission": latest_submission,
+                    "is_revision": True,
+                }
+                return render(request, "crush_lu/create_profile.html", context)
+
             messages.info(
                 request, _("Your profile has been submitted. Check the status below.")
             )

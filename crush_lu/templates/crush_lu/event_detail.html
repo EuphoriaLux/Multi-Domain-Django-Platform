@@ -402,7 +402,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            {% elif event.is_registration_open %}
+                            {% elif event.is_registration_accepting %}
                                 <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
                                     {% if event.is_full %}
                                         {% trans "Join Waitlist" %}
@@ -424,7 +424,7 @@
                             {% endif %}
                         {% else %}
                             {# Open event: No profile required #}
-                            {% if event.is_registration_open %}
+                            {% if event.is_registration_accepting %}
                                 <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
                                     {% if event.is_full %}
                                         {% trans "Join Waitlist" %}

@@ -592,10 +592,24 @@ def send_event_waitlist_notification(registration, request):
     # Get base footer URLs
     base_urls = get_email_base_urls(registration.user, request)
 
+    # Calculate actual waitlist position (queue order by registration time)
+    from crush_lu.models import EventRegistration
+    waitlist_position = EventRegistration.objects.filter(
+        event=registration.event,
+        status='waitlist',
+        registered_at__lt=registration.registered_at,
+    ).count() + 1
+
+    # Use display_name for privacy (Luxembourg community)
+    profile = getattr(registration.user, 'crushprofile', None)
+    display_name = profile.display_name if profile else registration.user.first_name
+
     context = {
         'user': registration.user,
         'registration': registration,
         'event': registration.event,
+        'display_name': display_name,
+        'waitlist_position': waitlist_position,
         'events_url': events_url,
         'LANGUAGE_CODE': lang,
         'social_links': get_social_links(),

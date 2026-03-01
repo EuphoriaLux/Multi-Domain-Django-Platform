@@ -47,6 +47,36 @@
                         </div>
                     </div>
 
+                {% elif submission.status == 'revision' %}
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ✏️
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Almost There! A Few Tweaks Needed" %}</h2>
+                    <p class="text-base text-amber-600 dark:text-amber-300 mb-6 font-medium">
+                        {% trans "Your coach has reviewed your profile and suggested a few improvements." %}
+                    </p>
+
+                    {% if submission.feedback_to_user %}
+                    <div class="alert alert-warning text-left border-l-4 border-amber-500">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                            <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary gap-2">
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+                            <span>{% trans "Update Your Profile" %}</span>
+                        </a>
+                    </div>
+
                 {% elif submission.status == 'approved' %}
                     <div class="flex justify-center mb-4">
                         <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
@@ -246,7 +276,7 @@
                         <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
                             {% trans "While You Wait: Your Love Story Awaits" %}
                         </p>
-                    {% elif submission.status == 'rejected' %}
+                    {% elif submission.status == 'rejected' or submission.status == 'revision' %}
                         <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
                             {% trans "Your Perfect Match Is Worth The Effort" %}
                         </p>

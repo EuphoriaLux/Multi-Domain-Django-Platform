@@ -6,7 +6,7 @@
 {% block header_title %}{% trans "You're on the Waitlist" %}{% endblock %}
 
 {% block content %}
-<h2>{% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
+<h2>{% blocktrans with name=display_name %}Hey {{ name }}!{% endblocktrans %}</h2>
 
 <p>{% blocktrans with title=event.title %}Thanks for your interest in <strong>{{ title }}</strong>!{% endblocktrans %}</p>
 
@@ -19,7 +19,7 @@
         <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
         <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
-        <li><strong>{% trans "Your Waitlist Position:" %}</strong> {{ event.get_waitlist_count }}</li>
+        <li><strong>{% trans "Your Waitlist Position:" %}</strong> {{ waitlist_position }}</li>
     </ul>
 </div>
 
