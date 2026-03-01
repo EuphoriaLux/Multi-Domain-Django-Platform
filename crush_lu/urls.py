@@ -142,6 +142,7 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('create-profile/', views.create_profile, name='create_profile'),
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
+    path('profile/rejected/', views.profile_rejected, name='profile_rejected'),
 
     # LuxID Integration Mockups (for demonstration/negotiation purposes only)
     path('mockup/auth-luxid/', views.luxid_auth_mockup_view, name='luxid_auth_mockup'),

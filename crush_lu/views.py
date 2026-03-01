@@ -336,9 +336,22 @@ def create_profile(request):
                         .first()
                     )
 
+                    # Block resubmission if profile was rejected
+                    rejected_submission = (
+                        ProfileSubmission.objects.select_for_update()
+                        .filter(profile=profile, status="rejected")
+                        .first()
+                    )
+                    if rejected_submission:
+                        messages.error(
+                            request,
+                            _("Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."),
+                        )
+                        return redirect("crush_lu:profile_rejected")
+
                     revision_submission = (
                         ProfileSubmission.objects.select_for_update()
-                        .filter(profile=profile, status__in=["revision", "rejected", "recontact_coach"])
+                        .filter(profile=profile, status__in=["revision", "recontact_coach"])
                         .first()
                     )
 
@@ -458,9 +471,11 @@ def create_profile(request):
                 .first()
             )
 
+            if latest_submission and latest_submission.status == "rejected":
+                return redirect("crush_lu:profile_rejected")
+
             if latest_submission and latest_submission.status in [
                 "revision",
-                "rejected",
                 "recontact_coach",
             ]:
                 from .social_photos import get_all_social_photos
@@ -610,7 +625,9 @@ def edit_profile(request):
                     ),
                 )
                 return redirect("crush_lu:profile_submitted")
-            elif submission.status in ["rejected", "revision", "recontact_coach"]:
+            elif submission.status == "rejected":
+                return redirect("crush_lu:profile_rejected")
+            elif submission.status in ["revision", "recontact_coach"]:
                 messages.warning(
                     request,
                     _(
@@ -762,6 +779,23 @@ def profile_submitted(request):
         "submission": submission,
     }
     return render(request, "crush_lu/profile_submitted.html", context)
+
+
+@crush_login_required
+def profile_rejected(request):
+    """Page shown when a profile has been rejected and cannot be resubmitted."""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+        submission = ProfileSubmission.objects.filter(
+            profile=profile, status="rejected"
+        ).latest("submitted_at")
+    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+        return redirect("crush_lu:dashboard")
+
+    context = {
+        "submission": submission,
+    }
+    return render(request, "crush_lu/profile_rejected.html", context)
 
 
 def luxid_mockup_view(request):
