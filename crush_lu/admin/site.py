@@ -165,11 +165,15 @@ class CrushLuAdminSite(admin.AdminSite):
             'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
             'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
             'approvedprofile': {'order': 2, 'icon': '✅', 'group': 'Users & Profiles'},
-            'awaitingreviewprofile': {'order': 3, 'icon': '📝', 'group': 'Users & Profiles'},
-            'incompleteprofile': {'order': 4, 'icon': '⏳', 'group': 'Users & Profiles'},
-            'profilesubmission': {'order': 5, 'icon': '📋', 'group': 'Users & Profiles'},
-            'crushcoach': {'order': 6, 'icon': '🎓', 'group': 'Users & Profiles'},
-            'coachsession': {'order': 7, 'icon': '💬', 'group': 'Users & Profiles'},
+            'pendingreviewprofile': {'order': 3, 'icon': '⏳', 'group': 'Users & Profiles'},
+            'revisionneededprofile': {'order': 4, 'icon': '✏️', 'group': 'Users & Profiles'},
+            'recontactcoachprofile': {'order': 5, 'icon': '📞', 'group': 'Users & Profiles'},
+            'rejectedprofile': {'order': 6, 'icon': '❌', 'group': 'Users & Profiles'},
+            'incompleteprofile': {'order': 7, 'icon': '📝', 'group': 'Users & Profiles'},
+            'awaitingreviewprofile': {'order': 8, 'icon': '📋', 'group': 'Users & Profiles'},
+            'profilesubmission': {'order': 9, 'icon': '📄', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 10, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 11, 'icon': '💬', 'group': 'Users & Profiles'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)

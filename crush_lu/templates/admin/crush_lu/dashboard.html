@@ -342,6 +342,75 @@
                     {% endif %}
                 </span>
             </div>
+
+            {# Submission Pipeline Outcomes #}
+            <div class="chart-container" style="margin-top: 20px;">
+                <h3>{% trans "Submission Pipeline Outcomes" %}</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
+                    {% blocktrans with count=ever_submitted %}{{ count }} profiles ever submitted{% endblocktrans %}
+                </p>
+
+                {# Conversion rate arrows #}
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; font-size: 12px;">
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Registered" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.registered_to_step1 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 1" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step1_to_step2 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 2" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step2_to_step3 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 3" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step3_to_submitted }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Submitted" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.submitted_to_reviewed }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Reviewed" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.reviewed_to_approved }}%</span>
+                    <span style="padding: 4px 8px; background: var(--status-success); color: white; border-radius: 4px;">{% trans "Approved" %}</span>
+                </div>
+
+                {# Outcome bars #}
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {# Approved #}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x2705; {% trans "Approved" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_approved ever_submitted 100 %}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
+                        </div>
+                        <a href="/crush-admin/crush_lu/approvedprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-success);">{{ pipeline_approved }}</a>
+                    </div>
+                    {# Pending #}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x23F3; {% trans "Pending" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_pending ever_submitted 100 %}%; background: linear-gradient(90deg, #ffc107, #ffdb4d);"></div>
+                        </div>
+                        <a href="/crush-admin/crush_lu/pendingreviewprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-warning);">{{ pipeline_pending }}</a>
+                    </div>
+                    {# Revision #}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x270F;&#xFE0F; {% trans "Revision" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_revision ever_submitted 100 %}%; background: linear-gradient(90deg, #17a2b8, #5bc0de);"></div>
+                        </div>
+                        <a href="/crush-admin/crush_lu/revisionneededprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: #17a2b8;">{{ pipeline_revision }}</a>
+                    </div>
+                    {# Recontact #}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x1F4DE; {% trans "Recontact" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_recontact ever_submitted 100 %}%; background: linear-gradient(90deg, #6f42c1, #9b59b6);"></div>
+                        </div>
+                        <a href="/crush-admin/crush_lu/recontactcoachprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: #6f42c1;">{{ pipeline_recontact }}</a>
+                    </div>
+                    {# Rejected #}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x274C; {% trans "Rejected" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_rejected ever_submitted 100 %}%; background: linear-gradient(90deg, #dc3545, #e74c3c);"></div>
+                        </div>
+                        <a href="/crush-admin/crush_lu/rejectedprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-danger);">{{ pipeline_rejected }}</a>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {# Demographics #}
@@ -459,6 +528,137 @@
                     {% empty %}
                     <tr>
                         <td colspan="5" class="empty-state">{% trans "No coach performance data available" %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Screening Call Summary #}
+        <div class="chart-container" style="margin-top: 20px;">
+            <h3>{% trans "Screening Call Summary" %}</h3>
+            <div class="metric-grid" style="margin-bottom: 15px;">
+                <div class="metric-card green">
+                    <span class="metric-icon">&#x2705;</span>
+                    <div class="metric-label">{% trans "Successful" %}</div>
+                    <div class="metric-value">{{ call_summary.successful }}</div>
+                </div>
+                <div class="metric-card pink">
+                    <span class="metric-icon">&#x274C;</span>
+                    <div class="metric-label">{% trans "Failed" %}</div>
+                    <div class="metric-value">{{ call_summary.failed }}</div>
+                </div>
+                <div class="metric-card blue">
+                    <span class="metric-icon">&#x1F4F1;</span>
+                    <div class="metric-label">{% trans "SMS Fallback" %}</div>
+                    <div class="metric-value">{{ call_summary.sms_sent }}</div>
+                </div>
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F4DE;</span>
+                    <div class="metric-label">{% trans "Scheduled Callback" %}</div>
+                    <div class="metric-value">{{ call_summary.scheduled_callback }}</div>
+                </div>
+            </div>
+
+            {% if call_summary.failed > 0 %}
+            <div class="table-container" style="margin-top: 10px;">
+                <h4>{% trans "Failed Call Reasons" %}</h4>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Reason" %}</th>
+                            <th>{% trans "Count" %}</th>
+                            <th>{% trans "Distribution" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if call_summary.no_answer %}
+                        <tr>
+                            <td>{% trans "No answer" %}</td>
+                            <td>{{ call_summary.no_answer }}</td>
+                            <td>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.no_answer call_summary.failed 100 %}%; background: #ffc107;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if call_summary.voicemail %}
+                        <tr>
+                            <td>{% trans "Voicemail" %}</td>
+                            <td>{{ call_summary.voicemail }}</td>
+                            <td>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.voicemail call_summary.failed 100 %}%; background: #17a2b8;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if call_summary.wrong_number %}
+                        <tr>
+                            <td>{% trans "Wrong number" %}</td>
+                            <td>{{ call_summary.wrong_number }}</td>
+                            <td>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.wrong_number call_summary.failed 100 %}%; background: #dc3545;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if call_summary.user_busy %}
+                        <tr>
+                            <td>{% trans "User busy" %}</td>
+                            <td>{{ call_summary.user_busy }}</td>
+                            <td>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.user_busy call_summary.failed 100 %}%; background: #6f42c1;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        {# Coach Workload Detail #}
+        <div class="table-container" style="margin-top: 20px;">
+            <h3>{% trans "Coach Workload Detail" %}</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Coach" %}</th>
+                        <th>{% trans "Caseload" %}</th>
+                        <th>{% trans "Total" %}</th>
+                        <th>{% trans "Approved" %}</th>
+                        <th>{% trans "Revision" %}</th>
+                        <th>{% trans "Rejected" %}</th>
+                        <th>{% trans "Approval %" %}</th>
+                        <th>{% trans "Calls" %}</th>
+                        <th>{% trans "Call %" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for coach in coach_workload %}
+                    <tr>
+                        <td>{{ coach.name }}</td>
+                        <td>
+                            <div class="progress-bar-container progress-bar-sm" style="width: 80px;">
+                                <div class="progress-bar" style="width: {% widthratio coach.total max_workload 100 %}%; background: linear-gradient(90deg, var(--crush-purple), var(--crush-pink));"></div>
+                            </div>
+                        </td>
+                        <td>{{ coach.total }}</td>
+                        <td><span class="badge badge-success">{{ coach.approved }}</span></td>
+                        <td><span class="badge badge-info" style="background: #17a2b8;">{{ coach.revision }}</span></td>
+                        <td><span class="badge badge-danger">{{ coach.rejected }}</span></td>
+                        <td>{{ coach.approval_pct }}%</td>
+                        <td>{{ coach.calls }}</td>
+                        <td>{{ coach.call_success_pct }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="empty-state">{% trans "No coach workload data available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

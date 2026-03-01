@@ -22,7 +22,7 @@ from .models import (
     EmailPreference, PWADeviceInstallation, OAuthState, PasskitDeviceRegistration,
     # Additional models for expanded analytics
     ReferralCode, ReferralAttribution, EventInvitation, ConnectionMessage,
-    ProfileReminder, UserActivity
+    ProfileReminder, UserActivity, CallAttempt,
 )
 
 
@@ -46,6 +46,11 @@ def _get_date_range(request):
     else:
         # Default to 30 days
         return now - timedelta(days=30), '30d'
+
+
+def _safe_pct(numerator, denominator):
+    """Calculate percentage safely, returning 0 if denominator is 0."""
+    return round(numerator / denominator * 100, 1) if denominator > 0 else 0
 
 
 @login_required
@@ -219,6 +224,80 @@ def crush_admin_dashboard(request):
         avg_review_hours = max(0, avg_seconds / 3600)
     else:
         avg_review_hours = 0
+
+    # ============================================================================
+    # PIPELINE OUTCOMES (Submission status breakdown)
+    # ============================================================================
+
+    pipeline_stats = ProfileSubmission.objects.aggregate(
+        pipeline_pending=Count('id', filter=Q(status='pending')),
+        pipeline_approved=Count('id', filter=Q(status='approved')),
+        pipeline_revision=Count('id', filter=Q(status='revision')),
+        pipeline_recontact=Count('id', filter=Q(status='recontact_coach')),
+        pipeline_rejected=Count('id', filter=Q(status='rejected')),
+    )
+    pipeline_pending = pipeline_stats['pipeline_pending']
+    pipeline_approved = pipeline_stats['pipeline_approved']
+    pipeline_revision = pipeline_stats['pipeline_revision']
+    pipeline_recontact = pipeline_stats['pipeline_recontact']
+    pipeline_rejected = pipeline_stats['pipeline_rejected']
+
+    ever_submitted = ProfileSubmission.objects.values('profile_id').distinct().count()
+    total_reviewed = pipeline_approved + pipeline_revision + pipeline_recontact + pipeline_rejected
+
+    # Conversion rates through the funnel
+    conversion_rates = {
+        'registered_to_step1': _safe_pct(step1_completed, total_profiles),
+        'step1_to_step2': _safe_pct(step2_completed, step1_completed),
+        'step2_to_step3': _safe_pct(step3_completed, step2_completed),
+        'step3_to_submitted': _safe_pct(ever_submitted, step3_completed),
+        'submitted_to_reviewed': _safe_pct(total_reviewed, ever_submitted),
+        'reviewed_to_approved': _safe_pct(pipeline_approved, total_reviewed),
+    }
+
+    # ============================================================================
+    # COACH WORKLOAD & CALL STATISTICS
+    # ============================================================================
+
+    coach_workload_qs = CrushCoach.objects.filter(is_active=True).annotate(
+        wl_total=Count('profilesubmission'),
+        wl_approved=Count('profilesubmission', filter=Q(profilesubmission__status='approved')),
+        wl_revision=Count('profilesubmission', filter=Q(profilesubmission__status='revision')),
+        wl_rejected=Count('profilesubmission', filter=Q(profilesubmission__status='rejected')),
+        wl_pending=Count('profilesubmission', filter=Q(profilesubmission__status='pending')),
+        wl_calls=Count('callattempt'),
+        wl_calls_success=Count('callattempt', filter=Q(callattempt__result='success')),
+    ).order_by('-wl_total')
+
+    coach_workload = []
+    for coach in coach_workload_qs:
+        coach_workload.append({
+            'name': coach.user.get_full_name() or coach.user.username,
+            'total': coach.wl_total,
+            'approved': coach.wl_approved,
+            'revision': coach.wl_revision,
+            'rejected': coach.wl_rejected,
+            'pending': coach.wl_pending,
+            'approval_pct': _safe_pct(coach.wl_approved, coach.wl_total),
+            'calls': coach.wl_calls,
+            'call_success_pct': _safe_pct(coach.wl_calls_success, coach.wl_calls),
+        })
+
+    # Platform-wide call summary
+    call_summary = CallAttempt.objects.aggregate(
+        total=Count('id'),
+        successful=Count('id', filter=Q(result='success')),
+        failed=Count('id', filter=Q(result='failed')),
+        sms_sent=Count('id', filter=Q(result='sms_sent')),
+        no_answer=Count('id', filter=Q(failure_reason='no_answer')),
+        voicemail=Count('id', filter=Q(failure_reason='voicemail')),
+        wrong_number=Count('id', filter=Q(failure_reason='wrong_number')),
+        user_busy=Count('id', filter=Q(failure_reason='user_busy')),
+        scheduled_callback=Count('id', filter=Q(failure_reason='scheduled_callback')),
+    )
+
+    # Max workload for progress bar scaling
+    max_workload = max((c['total'] for c in coach_workload), default=1) or 1
 
     # ============================================================================
     # EVENT METRICS
@@ -626,12 +705,27 @@ def crush_admin_dashboard(request):
         'step3_completed': step3_completed,
         'submitted': submitted,
 
+        # Pipeline outcomes
+        'pipeline_pending': pipeline_pending,
+        'pipeline_approved': pipeline_approved,
+        'pipeline_revision': pipeline_revision,
+        'pipeline_recontact': pipeline_recontact,
+        'pipeline_rejected': pipeline_rejected,
+        'ever_submitted': ever_submitted,
+        'total_reviewed': total_reviewed,
+        'conversion_rates': conversion_rates,
+
         # Coach metrics
         'total_coaches': total_coaches,
         'active_coaches': active_coaches,
         'pending_reviews': pending_reviews,
         'coach_performance': coach_performance,
         'avg_review_hours': round(avg_review_hours, 1),
+
+        # Coach workload & call stats
+        'coach_workload': coach_workload,
+        'max_workload': max_workload,
+        'call_summary': call_summary,
 
         # Event metrics
         'total_events': total_events,

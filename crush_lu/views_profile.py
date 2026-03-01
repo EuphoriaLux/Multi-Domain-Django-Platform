@@ -368,7 +368,7 @@ def save_profile_step3(request):
         # Note: interest_category checkboxes are UI-only (not stored in model)
         # They're used for filtering/display purposes only
 
-        profile.completion_status = 'step3'
+        profile.completion_status = 'completed'
 
         # Clear step3 draft data on successful save
         if profile.draft_data and 'step3' in profile.draft_data:

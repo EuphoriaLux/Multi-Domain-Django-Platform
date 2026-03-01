@@ -1511,3 +1511,76 @@ class InProcessSubmissionAdmin(ProfileSubmissionAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+# ============================================================================
+# PROXY MODELS FOR PROFILE STATUS SIDEBAR ENTRIES
+# ============================================================================
+
+
+class PendingReviewProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Pending Review Profile'
+        verbose_name_plural = 'Pending Review Profiles'
+
+
+class RevisionNeededProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Revision Needed Profile'
+        verbose_name_plural = 'Revision Needed Profiles'
+
+
+class RecontactCoachProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Recontact Coach Profile'
+        verbose_name_plural = 'Recontact Coach Profiles'
+
+
+class RejectedProfile(CrushProfile):
+    class Meta:
+        proxy = True
+        verbose_name = 'Rejected Profile'
+        verbose_name_plural = 'Rejected Profiles'
+
+
+class PendingReviewProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            profilesubmission__status='pending'
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class RevisionNeededProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            profilesubmission__status='revision'
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class RecontactCoachProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            profilesubmission__status='recontact_coach'
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+
+class RejectedProfileAdmin(CrushProfileAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(
+            profilesubmission__status='rejected'
+        )
+
+    def has_add_permission(self, request):
+        return False

@@ -11731,7 +11731,7 @@ msgstr "Révision par le Coach"
 #: .\crush_lu\templates\crush_lu\create_profile.html:1108
 msgid "A coach will review your profile within 24-48 hours"
 msgstr ""
-"Un coach examinera ton profil dans les 24-48 heuresUn Crush Coach vérifie "
+"Un coach examinera ton profil dans les 24-48 heures Un Crush Coach vérifie "
 "votre profil et vous donne son avis dans les 24 à 48 heures."
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1115
