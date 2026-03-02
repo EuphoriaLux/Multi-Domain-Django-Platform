@@ -257,6 +257,10 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
+        has_crush_preferences = bool(profile.preferred_genders) or (
+            profile.preferred_age_min != 18 or profile.preferred_age_max != 99
+        )
+
         context = {
             "profile": profile,
             "submission": latest_submission,
@@ -265,6 +269,7 @@ def dashboard(request):
             "connection_count": connection_count,
             "is_pwa_user": is_pwa_user,
             "referral_url": referral_url,
+            "has_crush_preferences": has_crush_preferences,
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("Please complete your profile first."))
@@ -508,7 +513,7 @@ def create_profile(request):
                     "social_photos": get_all_social_photos(request.user),
                 },
             )
-        elif profile.completion_status in ["step1", "step2", "step3"]:
+        elif profile.completion_status in ["step1", "step2", "step3", "completed"]:
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
@@ -549,7 +554,7 @@ def _render_edit_profile_form(request):
 
     if not profile.is_approved:
         messages.warning(request, _("Your profile must be approved before editing."))
-        return redirect("crush_lu:edit_profile")
+        return redirect("crush_lu:create_profile")
 
     from .social_photos import get_all_social_photos
 
