@@ -65,7 +65,7 @@ azure-monitor-opentelemetry==1.8.6
 django-cookie-consent==1.0.0
 
 # Internationalization - Model Field Translations
-django-modeltranslation==0.19.19
+django-modeltranslation==0.20.2
 
 # Testing
 pytest==9.0.2
