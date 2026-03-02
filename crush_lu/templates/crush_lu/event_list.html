@@ -70,13 +70,13 @@
 
 <div x-data="eventTabs">
     {# Tab navigation #}
-    <div class="flex items-center gap-2 mb-6">
+    <div class="flex items-center gap-2 mb-6 flex-wrap">
         <h2 class="text-2xl font-bold dark:text-white mr-4">{% trans "Events" %}</h2>
         <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1">
-            <button @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200">
+            <button @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap">
                 {% trans "Upcoming" %}
             </button>
-            <button @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200">
+            <button @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap">
                 {% trans "Past Events" %}
             </button>
         </div>
