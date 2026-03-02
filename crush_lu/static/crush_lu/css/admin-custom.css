@@ -361,13 +361,29 @@
 }
 
 .date-filter-select {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 8px 2rem 8px 12px;
     border: 1px solid var(--card-border);
     border-radius: var(--radius-sm);
     background: var(--card-bg);
     color: var(--text-primary);
     font-size: 14px;
+    line-height: 1.4;
     cursor: pointer;
+    min-width: 180px;
+    height: auto;
+    overflow: visible;
+    -webkit-appearance: menulist;
+    appearance: menulist;
+}
+
+@media (prefers-color-scheme: dark) {
+    .date-filter-select {
+        color-scheme: dark;
+    }
+}
+
+[data-theme="dark"] .date-filter-select {
+    color-scheme: dark;
 }
 
 .date-filter-btn {

@@ -514,13 +514,15 @@ def send_profile_recontact_notification(profile, coach, request):
     )
 
 
-def send_event_registration_confirmation(registration, request):
+def send_event_registration_confirmation(registration, request=None):
     """
     Send confirmation email for event registration.
 
     Args:
         registration: EventRegistration object
-        request: Django request object for domain detection
+        request: Optional Django request object for domain detection.
+                 If None, uses build_absolute_url() for URL generation
+                 (e.g. when called from signal handlers).
 
     Returns:
         int: Number of emails sent
@@ -536,22 +538,57 @@ def send_event_registration_confirmation(registration, request):
     # Get user's preferred language
     lang = get_user_preferred_language(user=registration.user, request=request, default='en')
 
-    # Build language-prefixed URLs
-    event_url = get_user_language_url(
-        registration.user, 'crush_lu:event_detail', request,
-        kwargs={'event_id': registration.event.id}
-    )
-    cancel_url = get_user_language_url(
-        registration.user, 'crush_lu:event_cancel', request,
-        kwargs={'event_id': registration.event.id}
-    )
+    if request:
+        # Build language-prefixed URLs using request context
+        event_url = get_user_language_url(
+            registration.user, 'crush_lu:event_detail', request,
+            kwargs={'event_id': registration.event.id}
+        )
+        cancel_url = get_user_language_url(
+            registration.user, 'crush_lu:event_cancel', request,
+            kwargs={'event_id': registration.event.id}
+        )
 
-    context = get_email_context_with_unsubscribe(registration.user, request,
-        registration=registration,
-        event=registration.event,
-        event_url=event_url,
-        cancel_url=cancel_url,
-    )
+        context = get_email_context_with_unsubscribe(registration.user, request,
+            registration=registration,
+            event=registration.event,
+            event_url=event_url,
+            cancel_url=cancel_url,
+        )
+    else:
+        # No request context — build URLs without request (batch/signal usage)
+        from .utils.i18n import build_absolute_url
+        from .models import EmailPreference
+
+        event_url = build_absolute_url(
+            'crush_lu:event_detail', lang=lang,
+            kwargs={'event_id': registration.event.id}
+        )
+        cancel_url = build_absolute_url(
+            'crush_lu:event_cancel', lang=lang,
+            kwargs={'event_id': registration.event.id}
+        )
+
+        email_prefs = EmailPreference.get_or_create_for_user(registration.user)
+        unsubscribe_url = build_absolute_url(
+            'crush_lu:email_unsubscribe', lang=lang,
+            kwargs={'token': email_prefs.unsubscribe_token}
+        )
+
+        context = {
+            'user': registration.user,
+            'registration': registration,
+            'event': registration.event,
+            'event_url': event_url,
+            'cancel_url': cancel_url,
+            'unsubscribe_url': unsubscribe_url,
+            'home_url': build_absolute_url('crush_lu:home', lang=lang),
+            'about_url': build_absolute_url('crush_lu:about', lang=lang),
+            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
+            'settings_url': build_absolute_url('crush_lu:account_settings', lang=lang),
+            'social_links': get_social_links(),
+            'LANGUAGE_CODE': lang,
+        }
 
     # Render email in user's preferred language
     with translation.override(lang):

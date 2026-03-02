@@ -746,6 +746,9 @@ def event_cancel(request, event_id):
             registration = EventRegistration.objects.select_for_update().get(
                 pk=registration.pk
             )
+            if registration.status in ("cancelled", "no_show"):
+                messages.info(request, _("Your registration was already cancelled."))
+                return redirect("crush_lu:dashboard")
             registration.status = "cancelled"
             registration.save()
 

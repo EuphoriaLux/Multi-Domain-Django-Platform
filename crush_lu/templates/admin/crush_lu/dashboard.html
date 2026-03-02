@@ -919,6 +919,83 @@
                 <div class="metric-subtitle">{% trans "Opted out of all emails" %}</div>
             </div>
         </div>
+
+        {# Ideal Crush Preferences #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Ideal Crush Preferences" %}</h2>
+        <div class="metric-grid">
+            <div class="metric-card purple">
+                <span class="metric-icon">&#x2705;</span>
+                <div class="metric-label">{% trans "Preferences Set" %}</div>
+                <div class="metric-value">{{ preference_metrics.configured_count }}</div>
+                <div class="metric-subtitle">{% trans "approved users configured" %}</div>
+            </div>
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F4C8;</span>
+                <div class="metric-label">{% trans "Adoption Rate" %}</div>
+                <div class="metric-value">{{ preference_metrics.adoption_rate }}%</div>
+                <div class="metric-subtitle">{% trans "of approved users" %}</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F382;</span>
+                <div class="metric-label">{% trans "Avg Age Range" %}</div>
+                <div class="metric-value">{% if preference_metrics.avg_age_min %}{{ preference_metrics.avg_age_min }}–{{ preference_metrics.avg_age_max }}{% else %}—{% endif %}</div>
+                <div class="metric-subtitle">{% trans "among custom-range users" %}</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F451;</span>
+                <div class="metric-label">{% trans "Most Popular" %}</div>
+                <div class="metric-value" style="font-size: 1.4rem;">{{ preference_metrics.most_popular_gender_label }}</div>
+                <div class="metric-subtitle">{% trans "top gender preference" %}</div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            {# Gender preference distribution #}
+            <div class="chart-container">
+                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Gender Preference Distribution" %}</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for stat in preference_metrics.gender_pref_stats %}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 120px; font-size: 13px;">{{ stat.label }}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {{ stat.pct }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
+                        </div>
+                        <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ stat.count }} ({{ stat.pct }}%)</span>
+                    </div>
+                    {% empty %}
+                    <p style="color: var(--text-muted); font-size: 13px;">{% trans "No gender preferences set yet." %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Age range distribution #}
+            <div class="chart-container">
+                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Age Range Distribution" %}</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for bracket in preference_metrics.age_distribution %}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 120px; font-size: 13px;">{{ bracket.label }}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {{ bracket.pct }}%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div>
+                        </div>
+                        <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ bracket.count }} ({{ bracket.pct }}%)</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {# Adoption progress bar #}
+        <div class="chart-container" style="margin-top: 10px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 600;">{% trans "Feature Adoption" %}</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="min-width: 120px; font-size: 13px;">{% trans "Adoption" %}</span>
+                <div class="progress-bar-container" style="flex: 1;">
+                    <div class="progress-bar" style="width: {{ preference_metrics.adoption_rate }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
+                </div>
+                <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ preference_metrics.adoption_rate }}%</span>
+            </div>
+        </div>
     </div>
 
         <div class="tab-panel" :class="technicalTabClass" x-show="isTechnical">
@@ -1243,6 +1320,11 @@
                     <span class="metric-icon">&#x1F504;</span>
                     <div class="metric-label">{% trans "Revision" %}</div>
                     <div class="metric-value" x-text="verifyRevision"></div>
+                </div>
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F4DE;</span>
+                    <div class="metric-label">{% trans "Recontact" %}</div>
+                    <div class="metric-value" x-text="verifyRecontact"></div>
                 </div>
             </div>
             <div class="chart-container" style="margin-bottom: var(--spacing-xl);">

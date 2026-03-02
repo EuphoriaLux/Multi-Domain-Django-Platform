@@ -4,10 +4,8 @@
 {% block title %}{% trans "Create Your Profile - Crush.lu" %}{% endblock %}
 
 {% block extra_css %}
-<!-- intl-tel-input CSS with SRI for security -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css"
-      integrity="sha384-BmygXwA0e3FeMPv5eKPsAq5JZncm8qElyxhy0qDhzY2cvcZTtTF0O3lG9n+M6JeL"
-      crossorigin="anonymous">
+<!-- intl-tel-input CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
 <!-- Custom intl-tel-input styling for Crush.lu -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 <!-- Canton Map CSS -->
@@ -1185,22 +1183,22 @@
                     <div class="flex justify-center gap-2 mb-4">
                         <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0"
                                :value="otp0" @input="handleOtp0Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"
                                :value="otp1" @input="handleOtp1Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-2" x-ref="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2"
                                :value="otp2" @input="handleOtp2Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-3" x-ref="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3"
                                :value="otp3" @input="handleOtp3Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-4" x-ref="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4"
                                :value="otp4" @input="handleOtp4Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-5" x-ref="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5"
                                :value="otp5" @input="handleOtp5Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
-                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition">
+                               class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                     </div>
 
                     <!-- Error message -->

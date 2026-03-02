@@ -330,6 +330,7 @@
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
                                             {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Ideal Crush" %}
+                                            <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
@@ -596,6 +597,7 @@
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
                                             {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Ideal Crush" %}
+                                            <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
                                         {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
@@ -754,6 +756,7 @@
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
                                     {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Ideal Crush" %}
+                                    <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
                                 {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
@@ -825,6 +828,7 @@
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
                                     {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Ideal Crush" %}
+                                    <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
 
                             {% elif profile_status == 'pending' %}

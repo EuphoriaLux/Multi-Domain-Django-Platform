@@ -439,6 +439,59 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
 
 
 @receiver(post_save, sender=MeetupEvent)
+def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
+    """
+    Auto-promote waitlisted users when event capacity is increased.
+
+    Triggers when a MeetupEvent is saved (not created) and there are waitlisted
+    registrations while the event is not full. Promotes candidates one at a time
+    using the gender-aware _promote_from_waitlist() logic.
+    """
+    if created:
+        return
+
+    # Quick check: any waitlisted registrations?
+    if not EventRegistration.objects.filter(event=instance, status="waitlist").exists():
+        return
+
+    # Only proceed if event is not full
+    if instance.is_full:
+        return
+
+    from django.db import transaction
+    from .views_events import _promote_from_waitlist
+    from .email_helpers import send_event_registration_confirmation
+
+    with transaction.atomic():
+        locked_event = MeetupEvent.objects.select_for_update().get(pk=instance.pk)
+
+        promoted_registrations = []
+        while not locked_event.is_full:
+            promoted = _promote_from_waitlist(locked_event)
+            if not promoted:
+                break
+            promoted_registrations.append(promoted)
+            # Refresh to pick up updated counts
+            locked_event.refresh_from_db()
+
+    # Send confirmation emails outside the transaction
+    for reg in promoted_registrations:
+        try:
+            send_event_registration_confirmation(reg)
+        except Exception as e:
+            logger.error(
+                f"Failed to send waitlist promotion email to {reg.user.email} "
+                f"for event {instance.id}: {e}"
+            )
+
+    if promoted_registrations:
+        logger.info(
+            f"Event {instance.id}: Auto-promoted {len(promoted_registrations)} "
+            f"waitlisted user(s) after capacity change"
+        )
+
+
+@receiver(post_save, sender=MeetupEvent)
 def create_default_activity_options(sender, instance, created, **kwargs):
     """
     Automatically create the 6 standard activity options when a new event is created.

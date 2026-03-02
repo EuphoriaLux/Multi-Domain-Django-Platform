@@ -6604,6 +6604,7 @@ document.addEventListener('alpine:init', function() {
             get verifyApproved() { return this.verificationData ? this.verificationData.summary.total_approved : 0; },
             get verifyRejected() { return this.verificationData ? this.verificationData.summary.total_rejected : 0; },
             get verifyRevision() { return this.verificationData ? this.verificationData.summary.total_revision : 0; },
+            get verifyRecontact() { return this.verificationData ? this.verificationData.summary.total_recontact : 0; },
             get verifyRate() { return this.verificationData ? this.verificationData.summary.approval_rate : 0; },
 
             get dauAvg() { return this.dauData ? this.dauData.summary.avg_dau : 0; },
@@ -6683,12 +6684,14 @@ document.addEventListener('alpine:init', function() {
                     self.verificationData = results[2];
                     self.cumulativeData = results[3];
                     self.loading = false;
-                    // Use requestAnimationFrame to ensure DOM is ready
+                    // Use double requestAnimationFrame to ensure DOM is painted
                     requestAnimationFrame(function() {
-                        self.renderDauChart();
-                        self.renderSignupChart();
-                        self.renderVerificationChart();
-                        self.renderCumulativeChart();
+                        requestAnimationFrame(function() {
+                            self.renderDauChart();
+                            self.renderSignupChart();
+                            self.renderVerificationChart();
+                            self.renderCumulativeChart();
+                        });
                     });
                 }).catch(function(err) {
                     self.error = 'Failed to load chart data: ' + err.message;
@@ -6707,7 +6710,7 @@ document.addEventListener('alpine:init', function() {
 
             renderDauChart: function() {
                 var canvas = document.getElementById('dauChart');
-                if (!canvas || !this.dauData || !canvas.offsetParent) return;
+                if (!canvas || !this.dauData || canvas.offsetWidth === 0) return;
                 if (this.dauChart) this.dauChart.destroy();
                 var self = this;
                 var labels = this.dauData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6731,6 +6734,8 @@ document.addEventListener('alpine:init', function() {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
+                        resizeDelay: 100,
                         plugins: { legend: { position: 'top' } },
                         scales: {
                             y: { beginAtZero: true, ticks: { stepSize: 1 } }
@@ -6741,7 +6746,7 @@ document.addEventListener('alpine:init', function() {
 
             renderSignupChart: function() {
                 var canvas = document.getElementById('signupChart');
-                if (!canvas || !this.signupData || !canvas.offsetParent) return;
+                if (!canvas || !this.signupData || canvas.offsetWidth === 0) return;
                 if (this.signupChart) this.signupChart.destroy();
                 var self = this;
                 var labels = this.signupData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6769,6 +6774,8 @@ document.addEventListener('alpine:init', function() {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
+                        resizeDelay: 100,
                         plugins: { legend: { position: 'top' } },
                         scales: {
                             y: { beginAtZero: true, ticks: { stepSize: 1 } }
@@ -6779,7 +6786,7 @@ document.addEventListener('alpine:init', function() {
 
             renderVerificationChart: function() {
                 var canvas = document.getElementById('verificationChart');
-                if (!canvas || !this.verificationData || !canvas.offsetParent) return;
+                if (!canvas || !this.verificationData || canvas.offsetWidth === 0) return;
                 if (this.verificationChart) this.verificationChart.destroy();
                 var self = this;
                 var labels = this.verificationData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6808,12 +6815,21 @@ document.addEventListener('alpine:init', function() {
                                 backgroundColor: 'rgba(245, 158, 11, 0.7)',
                                 borderColor: 'rgb(245, 158, 11)',
                                 borderWidth: 1
+                            },
+                            {
+                                label: 'Recontact',
+                                data: this.verificationData.recontact,
+                                backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                                borderColor: 'rgb(139, 92, 246)',
+                                borderWidth: 1
                             }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
+                        resizeDelay: 100,
                         plugins: { legend: { position: 'top' } },
                         scales: {
                             x: { stacked: true },
@@ -6825,7 +6841,7 @@ document.addEventListener('alpine:init', function() {
 
             renderCumulativeChart: function() {
                 var canvas = document.getElementById('cumulativeChart');
-                if (!canvas || !this.cumulativeData || !canvas.offsetParent) return;
+                if (!canvas || !this.cumulativeData || canvas.offsetWidth === 0) return;
                 if (this.cumulativeChart) this.cumulativeChart.destroy();
                 var self = this;
                 var labels = this.cumulativeData.labels.map(function(l) { return self.formatLabel(l); });
@@ -6855,6 +6871,8 @@ document.addEventListener('alpine:init', function() {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
+                        resizeDelay: 100,
                         plugins: { legend: { position: 'top' } },
                         scales: {
                             y: { beginAtZero: true }

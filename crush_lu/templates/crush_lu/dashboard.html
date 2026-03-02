@@ -101,16 +101,41 @@
         </div>
     </div>
 
-    {% if profile.is_approved %}
-    <!-- Ideal Crush Preferences Card -->
+    {% if profile.is_approved and not has_crush_preferences %}
+    <!-- Ideal Crush Preferences - Nudge Card (no preferences set yet) -->
     <a href="{% url 'crush_lu:crush_preferences' %}"
-       class="status-card block no-underline group hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
+       class="block no-underline group relative overflow-hidden rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div class="relative z-10 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <span class="text-4xl">💕</span>
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <h5 class="font-bold text-white text-lg mb-0">{% trans "Your Ideal Crush" %}</h5>
+                        <span class="inline-block rounded-full bg-white px-2 py-0.5 text-xs font-bold text-crush-purple uppercase">{% trans "New" %}</span>
+                    </div>
+                    <p class="text-white/90 text-sm mb-0">{% trans "Tell us who you're looking for!" %}</p>
+                </div>
+            </div>
+            <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
+                {% trans "Set up now" %}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </span>
+        </div>
+        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10"></div>
+    </a>
+    {% elif profile.is_approved %}
+    <!-- Ideal Crush Preferences - Configured Card -->
+    <a href="{% url 'crush_lu:crush_preferences' %}"
+       class="status-card block no-underline group border-l-4 border-l-crush-purple hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
         <div class="status-card-body flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <span class="text-2xl">💕</span>
                 <div>
-                    <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Set your age and gender preferences" %}</p>
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
+                        <span class="inline-block rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-bold text-crush-purple dark:text-purple-300 uppercase">{% trans "New" %}</span>
+                    </div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Update your age and gender preferences" %}</p>
                 </div>
             </div>
             <svg class="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
