@@ -123,9 +123,13 @@ def event_list(request):
     """List of upcoming and past events"""
     now = timezone.now()
 
-    upcoming_events = MeetupEvent.objects.filter(
-        is_published=True, is_cancelled=False, date_time__gte=now
-    ).order_by("date_time")
+    upcoming_events = (
+        MeetupEvent.objects.filter(
+            is_published=True, is_cancelled=False, date_time__gte=now
+        )
+        .prefetch_related("coaches__user")
+        .order_by("date_time")
+    )
 
     past_events = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, date_time__lt=now
@@ -180,34 +184,58 @@ def event_list(request):
         else:
             availability = "https://schema.org/OutOfStock"
 
+        # Event image URL (fallback to social preview)
+        if event.image:
+            image_url = event.image.url
+        else:
+            image_url = "https://crush.lu/static/crush_lu/crush_social_preview.jpg"
+
+        # Performer list from assigned coaches
+        performers = [
+            {"@type": "Person", "name": coach.user.first_name}
+            for coach in event.coaches.all()
+        ]
+
+        # Description fallback for events with empty descriptions
+        if not description:
+            description = f"Dating event in Luxembourg organized by Crush.lu"
+
+        event_item = {
+            "@type": "Event",
+            "name": event.title or "",
+            "description": description,
+            "startDate": event.date_time.isoformat(),
+            "endDate": event.end_time.isoformat(),
+            "image": image_url,
+            "eventStatus": "https://schema.org/EventCancelled"
+            if event.is_cancelled
+            else "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "location": location_data,
+            "organizer": {
+                "@type": "Organization",
+                "name": "Crush.lu",
+                "url": "https://crush.lu",
+            },
+            "offers": {
+                "@type": "Offer",
+                "url": f"https://crush.lu{event_url}",
+                "price": format(event.registration_fee, ".2f"),
+                "priceCurrency": "EUR",
+                "availability": availability,
+                "validFrom": event.created_at.isoformat(),
+            },
+            "url": f"https://crush.lu{event_url}",
+        }
+
+        if performers:
+            event_item["performer"] = performers
+
         item_list_elements.append(
             {
                 "@type": "ListItem",
                 "position": position,
-                "item": {
-                    "@type": "Event",
-                    "name": event.title or "",
-                    "description": description,
-                    "startDate": event.date_time.isoformat(),
-                    "eventStatus": "https://schema.org/EventCancelled"
-                    if event.is_cancelled
-                    else "https://schema.org/EventScheduled",
-                    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-                    "location": location_data,
-                    "organizer": {
-                        "@type": "Organization",
-                        "name": "Crush.lu",
-                        "url": "https://crush.lu",
-                    },
-                    "offers": {
-                        "@type": "Offer",
-                        "url": f"https://crush.lu{event_url}",
-                        "price": format(event.registration_fee, ".2f"),
-                        "priceCurrency": "EUR",
-                        "availability": availability,
-                    },
-                    "url": f"https://crush.lu{event_url}",
-                },
+                "item": event_item,
             }
         )
 
