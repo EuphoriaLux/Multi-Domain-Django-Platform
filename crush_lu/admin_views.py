@@ -260,13 +260,13 @@ def crush_admin_dashboard(request):
     # ============================================================================
 
     coach_workload_qs = CrushCoach.objects.filter(is_active=True).annotate(
-        wl_total=Count('profilesubmission'),
-        wl_approved=Count('profilesubmission', filter=Q(profilesubmission__status='approved')),
-        wl_revision=Count('profilesubmission', filter=Q(profilesubmission__status='revision')),
-        wl_rejected=Count('profilesubmission', filter=Q(profilesubmission__status='rejected')),
-        wl_pending=Count('profilesubmission', filter=Q(profilesubmission__status='pending')),
-        wl_calls=Count('callattempt'),
-        wl_calls_success=Count('callattempt', filter=Q(callattempt__result='success')),
+        wl_total=Count('profilesubmission', distinct=True),
+        wl_approved=Count('profilesubmission', filter=Q(profilesubmission__status='approved'), distinct=True),
+        wl_revision=Count('profilesubmission', filter=Q(profilesubmission__status='revision'), distinct=True),
+        wl_rejected=Count('profilesubmission', filter=Q(profilesubmission__status='rejected'), distinct=True),
+        wl_pending=Count('profilesubmission', filter=Q(profilesubmission__status='pending'), distinct=True),
+        wl_calls=Count('callattempt', distinct=True),
+        wl_calls_success=Count('callattempt', filter=Q(callattempt__result='success'), distinct=True),
     ).order_by('-wl_total')
 
     coach_workload = []
