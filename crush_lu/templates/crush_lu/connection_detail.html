@@ -98,17 +98,6 @@
                         </div>
                     {% endif %}
 
-                    {# Looking for #}
-                    {% if other_profile.looking_for %}
-                        <div class="flex items-center gap-2 text-sm mb-3">
-                            {% include "shared/icons/heart.html" with class="w-4 h-4 text-pink-500 shrink-0" %}
-                            <span class="text-gray-500 dark:text-gray-400">{% trans "Looking for:" %}</span>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
-                                {{ other_profile.get_looking_for_display }}
-                            </span>
-                        </div>
-                    {% endif %}
-
                     {# Event languages #}
                     {% if other_profile.event_languages %}
                         <div class="flex items-start gap-2 text-sm mb-3">

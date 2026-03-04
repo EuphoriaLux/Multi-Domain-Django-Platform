@@ -118,6 +118,21 @@ def event_attendees(request, event_id):
             }
         )
 
+    # Cross-gender connection limit info
+    user_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
+    cross_gender_count = EventConnection.cross_gender_connection_count(request.user, event)
+    if event.max_cross_gender_connections > 0:
+        cross_gender_remaining = event.max_cross_gender_connections - cross_gender_count
+    else:
+        cross_gender_remaining = None  # unlimited
+
+    # Add is_cross_gender flag to each attendee
+    for attendee in attendee_data:
+        att_gender = getattr(attendee["profile"], "gender", "") or ""
+        attendee["is_cross_gender"] = (
+            user_gender != att_gender or not user_gender or not att_gender
+        )
+
     # Group attendees by gender
     gender_order = ["F", "M", "NB", "O", "P", ""]
     gender_labels = {
@@ -150,6 +165,7 @@ def event_attendees(request, event_id):
         "grouped_attendees": grouped_attendees,
         "spark_deadline_active": spark_deadline_active,
         "sparks_remaining": sparks_remaining,
+        "cross_gender_remaining": cross_gender_remaining,
         "event_coaches": event_coaches,
         "own_profile": own_profile,
     }
@@ -191,6 +207,19 @@ def request_connection(request, event_id, user_id):
 
     if request.method == "POST":
         note = request.POST.get("note", "").strip()
+
+        # Cross-gender connection limit check
+        req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
+        rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
+        is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
+        if is_cross_gender and event.max_cross_gender_connections > 0:
+            count = EventConnection.cross_gender_connection_count(request.user, event)
+            if count >= event.max_cross_gender_connections:
+                messages.error(
+                    request,
+                    _("You have reached the maximum number of cross-gender connection requests for this event."),
+                )
+                return redirect("crush_lu:event_attendees", event_id=event_id)
 
         # Create connection request
         connection = EventConnection.objects.create(
@@ -323,6 +352,19 @@ def request_connection_inline(request, event_id, user_id):
 
     if request.method == "POST":
         note = request.POST.get("note", "").strip()
+
+        # Cross-gender connection limit check
+        req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
+        rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
+        is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
+        if is_cross_gender and event.max_cross_gender_connections > 0:
+            count = EventConnection.cross_gender_connection_count(request.user, event)
+            if count >= event.max_cross_gender_connections:
+                return render(
+                    request,
+                    "crush_lu/_htmx_error.html",
+                    {"message": "You have reached the maximum number of cross-gender connection requests for this event."},
+                )
 
         # Create connection request
         connection = EventConnection.objects.create(

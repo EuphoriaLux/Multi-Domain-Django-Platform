@@ -179,6 +179,22 @@ class EventConnection(models.Model):
             event=self.event
         ).exists()
 
+    @classmethod
+    def cross_gender_connection_count(cls, user, event):
+        """Count cross-gender connection requests sent by user for this event."""
+        user_gender = getattr(getattr(user, 'crushprofile', None), 'gender', '')
+        connections = cls.objects.filter(
+            requester=user, event=event
+        ).select_related('recipient__crushprofile')
+        count = 0
+        for conn in connections:
+            rec_gender = getattr(
+                getattr(conn.recipient, 'crushprofile', None), 'gender', ''
+            )
+            if user_gender != rec_gender or not user_gender or not rec_gender:
+                count += 1
+        return count
+
     @property
     def is_same_gender(self):
         """Check if both parties have the same gender (and it's specified)."""

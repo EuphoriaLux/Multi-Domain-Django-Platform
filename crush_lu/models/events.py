@@ -217,6 +217,15 @@ class MeetupEvent(models.Model):
         help_text=_("Hours after event end until spark requests close (default: 7 days)"),
     )
 
+    # Cross-gender connection limit
+    max_cross_gender_connections = models.PositiveIntegerField(
+        default=1,
+        help_text=_(
+            "Maximum cross-gender connection requests per user per event "
+            "(0 = unlimited). Same-gender connections are always unlimited."
+        ),
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

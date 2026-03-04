@@ -38,17 +38,23 @@
             {% trans "Connected!" %}
         </span>
     {% else %}
-        <button hx-get="{% url 'crush_lu:request_connection_inline' event.id attendee.user.id %}"
-                hx-target="#connection-actions-{{ attendee.user.id }}"
-                hx-swap="outerHTML"
-                class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5">
-            <span class="htmx-indicator">
-                {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+        {% if attendee.is_cross_gender and cross_gender_remaining is not None and cross_gender_remaining <= 0 %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
+                {% trans "Connection limit reached" %}
             </span>
-            <span class="htmx-hide-on-request inline-flex items-center gap-1">
-                {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                {% trans "Request Connection" %}
-            </span>
-        </button>
+        {% else %}
+            <button hx-get="{% url 'crush_lu:request_connection_inline' event.id attendee.user.id %}"
+                    hx-target="#connection-actions-{{ attendee.user.id }}"
+                    hx-swap="outerHTML"
+                    class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5">
+                <span class="htmx-indicator">
+                    {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                </span>
+                <span class="htmx-hide-on-request inline-flex items-center gap-1">
+                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                    {% trans "Request Connection" %}
+                </span>
+            </button>
+        {% endif %}
     {% endif %}
 </div>
