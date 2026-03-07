@@ -121,13 +121,32 @@ def coach_dashboard(request):
         for reg in upcoming_regs:
             upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
 
+    past_event_counts = {}
+    if submission_user_ids:
+        past_counts = (
+            EventRegistration.objects.filter(
+                user_id__in=submission_user_ids,
+                event__date_time__lt=now,
+            )
+            .exclude(status="cancelled")
+            .values("user_id")
+            .annotate(count=Count("id"))
+        )
+        past_event_counts = {item["user_id"]: item["count"] for item in past_counts}
+
     for submission in pending_submissions:
         submission.upcoming_events = upcoming_event_regs.get(
             submission.profile.user_id, []
         )
+        submission.past_event_count = past_event_counts.get(
+            submission.profile.user_id, 0
+        )
     for submission in recontact_submissions:
         submission.upcoming_events = upcoming_event_regs.get(
             submission.profile.user_id, []
+        )
+        submission.past_event_count = past_event_counts.get(
+            submission.profile.user_id, 0
         )
 
     context = {

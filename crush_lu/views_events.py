@@ -138,6 +138,21 @@ def event_list(request):
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
 
+    # Build attendance lookup for past events (only 'attended' status)
+    attended_ids = set()
+    if request.user.is_authenticated:
+        attended_ids = set(
+            EventRegistration.objects.filter(
+                event__in=visible_past,
+                user=request.user,
+                status="attended",
+            ).values_list("event_id", flat=True)
+        )
+
+    past_events_with_attendance = [
+        (event, event.id in attended_ids) for event in visible_past
+    ]
+
     # Build ItemList JSON-LD in Python to avoid template rendering issues
     # (escapejs produces \x27 for apostrophes, which is invalid JSON)
     has_profile = False
@@ -256,7 +271,7 @@ def event_list(request):
 
     context = {
         "upcoming_event_list": visible_upcoming,
-        "past_event_list": visible_past,
+        "past_events_with_attendance": past_events_with_attendance,
         "event_list_jsonld": event_list_jsonld,
     }
     return render(request, "crush_lu/event_list.html", context)
@@ -401,8 +416,11 @@ def event_detail(request, event_id):
         ensure_ascii=False,
     )
 
+    is_past = event.date_time < timezone.now()
+
     context = {
         "event": event,
+        "is_past": is_past,
         "user_registration": registration,
         "user_profile": user_profile,
         "language_requirement_met": language_requirement_met,

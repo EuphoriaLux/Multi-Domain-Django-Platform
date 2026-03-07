@@ -40,6 +40,29 @@
     {% endif %}
 
     <div class="p-6 flex flex-col min-h-0 flex-1">
+        {% if is_past %}
+        {# Simplified past event card body #}
+        <div class="flex justify-between items-start mb-3">
+            <h5 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h5>
+            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-crush-purple to-crush-pink text-white rounded-full">{{ event.get_event_type_display }}</span>
+        </div>
+
+        <p class="text-gray-500 dark:text-gray-400 mb-3 text-sm">
+            📅 {{ event.date_time|date:"D, M j, Y" }}
+        </p>
+
+        <div class="mt-auto flex flex-col gap-2">
+            {% if user_attended %}
+            <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-primary w-full text-center block py-2">
+                {% trans "My Connections" %}
+            </a>
+            {% endif %}
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="w-full text-center block py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                {% trans "View Recap" %}
+            </a>
+        </div>
+        {% else %}
+        {# Full upcoming event card body #}
         {% if event.is_private_invitation %}
         <div class="vip-badge">
             {% include "shared/icons/star.html" with class="w-4 h-4 inline" %} {% trans "Private Invitation" %}
@@ -70,7 +93,6 @@
         <p class="mb-4 dark:text-gray-300">{{ event.description|truncatewords:25 }}</p>
 
         <div class="mt-auto">
-            {% if not is_past %}
             <div class="flex justify-between items-center mb-3">
                 <small class="text-gray-500 dark:text-gray-400">
                     {% if event.is_full %}
@@ -85,11 +107,11 @@
                     <strong class="text-green-600 dark:text-green-300">{% trans "Free" %}</strong>
                 {% endif %}
             </div>
-            {% endif %}
 
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary w-full text-center block py-2">
-                {% if is_past %}{% trans "View Recap" %}{% else %}{% trans "View Details" %}{% endif %}
+                {% trans "View Details" %}
             </a>
         </div>
+        {% endif %}
     </div>
 </div>

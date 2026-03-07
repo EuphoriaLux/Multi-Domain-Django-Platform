@@ -64,6 +64,14 @@
                 {% endfor %}
             {% endif %}
 
+            {# Past Event Count #}
+            {% if submission.past_event_count %}
+                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded gap-0.5">
+                    {% include "shared/icons/calendar.html" with class="w-3 h-3" %}
+                    {{ submission.past_event_count }} {% trans "past event" %}{{ submission.past_event_count|pluralize:"s" }}
+                </span>
+            {% endif %}
+
             {# Wait Time #}
             <p class="text-xs text-gray-400 dark:text-gray-500">
                 {% trans "Submitted" %} {{ submission.submitted_at|timesince }} {% trans "ago" %}

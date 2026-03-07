@@ -103,8 +103,8 @@
     {# Past events tab #}
     <div x-show="isPast" style="display: none;">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for event in past_event_list %}
-                {% include "crush_lu/includes/event_card.html" with event=event is_past=True %}
+            {% for event, user_attended in past_events_with_attendance %}
+                {% include "crush_lu/includes/event_card.html" with event=event is_past=True user_attended=user_attended %}
             {% empty %}
             <div class="col-span-full">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
