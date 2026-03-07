@@ -30,7 +30,6 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:event_list',
             'crush_lu:privacy_policy',
             'crush_lu:terms_of_service',
-            'crush_lu:data_deletion',
         ]
 
     def location(self, item):
@@ -45,7 +44,6 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:how_it_works': 0.8,
             'crush_lu:privacy_policy': 0.3,
             'crush_lu:terms_of_service': 0.3,
-            'crush_lu:data_deletion': 0.3,
         }
         return priorities.get(item, 0.5)
 

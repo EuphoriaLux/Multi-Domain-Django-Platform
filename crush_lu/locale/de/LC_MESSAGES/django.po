@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: crush_lu 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-07 13:56+0100\n"
+"POT-Creation-Date: 2026-03-07 22:54+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -585,8 +585,8 @@ msgstr "Laden Sie ein Profilfoto für diesen Coach hoch"
 #: .\crush_lu\admin\profiles.py:1158 .\crush_lu\admin\wallet.py:138
 #: .\crush_lu\templates\account\login_crush.html:28
 #: .\crush_lu\templates\crush_lu\account_settings.html:21
-#: .\crush_lu\templates\crush_lu\auth.html:95
-#: .\crush_lu\templates\crush_lu\auth.html:157
+#: .\crush_lu\templates\crush_lu\auth.html:97
+#: .\crush_lu\templates\crush_lu\auth.html:159
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:167
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:229
 #: .\crush_lu\templates\crush_lu\journey\gift_success.html:57
@@ -742,16 +742,16 @@ msgstr "Event-Anmeldungen"
 #: .\crush_lu\admin\profiles.py:592
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:104
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:761
-#: .\crush_lu\templates\crush_lu\base.html:311
-#: .\crush_lu\templates\crush_lu\base.html:449
-#: .\crush_lu\templates\crush_lu\base.html:502
-#: .\crush_lu\templates\crush_lu\base.html:526
-#: .\crush_lu\templates\crush_lu\base.html:544
-#: .\crush_lu\templates\crush_lu\base.html:743
-#: .\crush_lu\templates\crush_lu\base.html:816
-#: .\crush_lu\templates\crush_lu\base.html:886
-#: .\crush_lu\templates\crush_lu\base.html:913
-#: .\crush_lu\templates\crush_lu\base.html:948
+#: .\crush_lu\templates\crush_lu\base.html:324
+#: .\crush_lu\templates\crush_lu\base.html:462
+#: .\crush_lu\templates\crush_lu\base.html:515
+#: .\crush_lu\templates\crush_lu\base.html:539
+#: .\crush_lu\templates\crush_lu\base.html:557
+#: .\crush_lu\templates\crush_lu\base.html:756
+#: .\crush_lu\templates\crush_lu\base.html:829
+#: .\crush_lu\templates\crush_lu\base.html:899
+#: .\crush_lu\templates\crush_lu\base.html:926
+#: .\crush_lu\templates\crush_lu\base.html:961
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:14
 #: .\crush_lu\templates\crush_lu\coach_connections.html:4
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:80
@@ -1417,13 +1417,13 @@ msgstr "Kein spezifisches Feedback gegeben."
 msgid "Update on Your Invitation to {title}"
 msgstr "Update zu Ihrer Einladung zu {title}"
 
-#: .\crush_lu\forms.py:29 .\crush_lu\templates\crush_lu\auth.html:136
+#: .\crush_lu\forms.py:29 .\crush_lu\templates\crush_lu\auth.html:138
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:208
 #: .\crush_lu\templates\crush_lu\signup.html:81
 msgid "First Name"
 msgstr "Vorname"
 
-#: .\crush_lu\forms.py:37 .\crush_lu\templates\crush_lu\auth.html:146
+#: .\crush_lu\forms.py:37 .\crush_lu\templates\crush_lu\auth.html:148
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:218
 #: .\crush_lu\templates\crush_lu\signup.html:91
 msgid "Last Name"
@@ -1439,7 +1439,7 @@ msgstr "Ich stimme den Nutzungsbedingungen und Datenschutzrichtlinien zu"
 msgid "You must consent to use Crush.lu services"
 msgstr "Du musst mindestens 18 Jahre alt sein, um Crush.lu beizutreten"
 
-#: .\crush_lu\forms.py:51 .\crush_lu\templates\crush_lu\auth.html:205
+#: .\crush_lu\forms.py:51 .\crush_lu\templates\crush_lu\auth.html:207
 msgid "I consent to receive marketing communications (optional)"
 msgstr "Ich stimme dem Erhalt von Marketing-Mitteilungen zu (optional)"
 
@@ -1900,7 +1900,7 @@ msgstr "Neues Passwort eingeben"
 msgid "Your password must be at least 8 characters."
 msgstr "Ihr Passwort muss mindestens 8 Zeichen lang sein."
 
-#: .\crush_lu\forms.py:821 .\crush_lu\templates\crush_lu\auth.html:177
+#: .\crush_lu\forms.py:821 .\crush_lu\templates\crush_lu\auth.html:179
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:249
 #: .\crush_lu\templates\crush_lu\set_password.html:66
 #: .\crush_lu\templates\crush_lu\signup.html:123
@@ -2424,7 +2424,7 @@ msgstr "Anfrage gesendet"
 #: .\crush_lu\models\crush_spark.py:61 .\crush_lu\models\profiles.py:708
 #: .\crush_lu\templates\crush_lu\_spark_status_badge.html:5
 #: .\crush_lu\templates\crush_lu\account_settings.html:284
-#: .\crush_lu\templates\crush_lu\base.html:578
+#: .\crush_lu\templates\crush_lu\base.html:591
 #: .\crush_lu\templates\crush_lu\coach_spark_list.html:24
 #: .\crush_lu\views.py:825
 msgid "Pending Review"
@@ -2552,8 +2552,8 @@ msgid "Crush Spark"
 msgstr "Crush Coach"
 
 #: .\crush_lu\models\crush_spark.py:227
-#: .\crush_lu\templates\crush_lu\base.html:281
-#: .\crush_lu\templates\crush_lu\base.html:731
+#: .\crush_lu\templates\crush_lu\base.html:294
+#: .\crush_lu\templates\crush_lu\base.html:744
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:109
 #, fuzzy
 #| msgid "Crush Coach"
@@ -3916,7 +3916,7 @@ msgstr "Event-Sprachen:"
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:1311
 #: .\crush_lu\templates\admin\crush_lu\user_segments.html:463
 #: .\crush_lu\templates\crush_lu\account_settings.html:284
-#: .\crush_lu\templates\crush_lu\base.html:586
+#: .\crush_lu\templates\crush_lu\base.html:599
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:57
 #: .\crush_lu\templates\crush_lu\coach_connections.html:49
 #: .\crush_lu\templates\crush_lu\coach_connections.html:165
@@ -3936,7 +3936,7 @@ msgstr "Genehmigt"
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:516
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:636
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:1316
-#: .\crush_lu\templates\crush_lu\base.html:580
+#: .\crush_lu\templates\crush_lu\base.html:593
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:258
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:280
 #: .\crush_lu\templates\crush_lu\coach_member_overview.html:182
@@ -3946,7 +3946,7 @@ msgid "Rejected"
 msgstr "Abgelehnt"
 
 #: .\crush_lu\models\profiles.py:711
-#: .\crush_lu\templates\crush_lu\base.html:582
+#: .\crush_lu\templates\crush_lu\base.html:595
 msgid "Needs Revision"
 msgstr "Überarbeitung erforderlich"
 
@@ -4728,8 +4728,8 @@ msgstr "Melde dich bei deinem Crush.lu-Konto an"
 
 #: .\crush_lu\templates\account\login_crush.html:40
 #: .\crush_lu\templates\crush_lu\account_settings.html:256
-#: .\crush_lu\templates\crush_lu\auth.html:106
-#: .\crush_lu\templates\crush_lu\auth.html:167
+#: .\crush_lu\templates\crush_lu\auth.html:108
+#: .\crush_lu\templates\crush_lu\auth.html:169
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:178
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:239
 #: .\crush_lu\templates\crush_lu\signup.html:111
@@ -4738,8 +4738,8 @@ msgstr "Passwort"
 
 #: .\crush_lu\templates\account\login_crush.html:54
 #: .\crush_lu\templates\crush_lu\auth.html:6
-#: .\crush_lu\templates\crush_lu\auth.html:20
-#: .\crush_lu\templates\crush_lu\auth.html:118
+#: .\crush_lu\templates\crush_lu\auth.html:22
+#: .\crush_lu\templates\crush_lu\auth.html:120
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:6
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:41
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:190
@@ -4851,13 +4851,13 @@ msgstr "Überprüfung"
 
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:57
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:114
-#: .\crush_lu\templates\crush_lu\base.html:224
-#: .\crush_lu\templates\crush_lu\base.html:400
-#: .\crush_lu\templates\crush_lu\base.html:639
-#: .\crush_lu\templates\crush_lu\base.html:694
-#: .\crush_lu\templates\crush_lu\base.html:809
-#: .\crush_lu\templates\crush_lu\base.html:971
-#: .\crush_lu\templates\crush_lu\base.html:1131
+#: .\crush_lu\templates\crush_lu\base.html:237
+#: .\crush_lu\templates\crush_lu\base.html:413
+#: .\crush_lu\templates\crush_lu\base.html:652
+#: .\crush_lu\templates\crush_lu\base.html:707
+#: .\crush_lu\templates\crush_lu\base.html:822
+#: .\crush_lu\templates\crush_lu\base.html:984
+#: .\crush_lu\templates\crush_lu\base.html:1144
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:10
 #: .\crush_lu\templates\crush_lu\coach_member_overview.html:9
 #: .\crush_lu\templates\crush_lu\dashboard.html:340
@@ -4865,7 +4865,7 @@ msgstr "Überprüfung"
 #: .\crush_lu\templates\crush_lu\event_list.html:34
 #: .\crush_lu\templates\crush_lu\event_list.html:74
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:25
-#: .\crush_lu\views_events.py:405
+#: .\crush_lu\views_events.py:443
 msgid "Events"
 msgstr "Veranstaltungen"
 
@@ -4942,7 +4942,7 @@ msgstr "%(rate)s%% Genehmigungsrate"
 
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:98
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:674
-#: .\crush_lu\templates\crush_lu\base.html:415
+#: .\crush_lu\templates\crush_lu\base.html:428
 #: .\crush_lu\templates\crush_lu\coach_event_list.html:22
 #: .\crush_lu\templates\crush_lu\home.html:180
 msgid "Upcoming Events"
@@ -5304,8 +5304,8 @@ msgstr "Coach-Bedienfeld"
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:631
 #: .\crush_lu\templates\crush_lu\about.html:867
 #: .\crush_lu\templates\crush_lu\account_settings.html:681
-#: .\crush_lu\templates\crush_lu\base.html:240
-#: .\crush_lu\templates\crush_lu\base.html:705
+#: .\crush_lu\templates\crush_lu\base.html:253
+#: .\crush_lu\templates\crush_lu\base.html:718
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:4
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:251
 #: .\crush_lu\templates\crush_lu\coach_connections.html:4
@@ -6292,7 +6292,7 @@ msgid "Email Preview"
 msgstr "E-Mail-Einstellung"
 
 #: .\crush_lu\templates\admin\crush_lu\email_template_manager.html:631
-#: .\crush_lu\templates\crush_lu\data_deletion.html:178
+#: .\crush_lu\templates\crush_lu\data_deletion.html:180
 msgid "Subject:"
 msgstr "Betreff:"
 
@@ -7389,7 +7389,7 @@ msgstr "Name:"
 #: .\crush_lu\templates\crush_lu\_profile_tab.html:61
 #: .\crush_lu\templates\crush_lu\coach_review_profile.html:103
 #: .\crush_lu\templates\crush_lu\connection_detail.html:298
-#: .\crush_lu\templates\crush_lu\data_deletion.html:177
+#: .\crush_lu\templates\crush_lu\data_deletion.html:179
 #: .\crush_lu\templates\crush_lu\emails\profile_recontact.html:18
 #: .\crush_lu\templates\crush_lu\invitation_accept_form.html:72
 msgid "Email:"
@@ -7693,7 +7693,7 @@ msgstr "Sprachklärung"
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:313
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:370
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:420
-#: .\crush_lu\templates\crush_lu\data_deletion.html:178
+#: .\crush_lu\templates\crush_lu\data_deletion.html:180
 msgid "\\"
 msgstr "\\"
 
@@ -7906,13 +7906,13 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\crush_coach.html:24
 #: .\crush_lu\templates\crush_lu\event_list.html:28
 #: .\crush_lu\templates\crush_lu\how_it_works.html:24
-#: .\crush_lu\views_events.py:399
+#: .\crush_lu\views_events.py:437
 msgid "Home"
 msgstr "Startseite"
 
 #: .\crush_lu\templates\crush_lu\about.html:30
-#: .\crush_lu\templates\crush_lu\base.html:637
-#: .\crush_lu\templates\crush_lu\base.html:969
+#: .\crush_lu\templates\crush_lu\base.html:650
+#: .\crush_lu\templates\crush_lu\base.html:982
 #: .\crush_lu\templates\crush_lu\emails\base_email.html:102
 msgid "About"
 msgstr "Über"
@@ -8198,7 +8198,7 @@ msgstr ""
 "schließen diese Lücke."
 
 #: .\crush_lu\templates\crush_lu\about.html:992
-#: .\crush_lu\templates\crush_lu\base.html:1149
+#: .\crush_lu\templates\crush_lu\base.html:1162
 #: .\crush_lu\templates\crush_lu\home.html:110
 msgid "Privacy First"
 msgstr "Datenschutz an erster Stelle"
@@ -8300,10 +8300,10 @@ msgid "Account Settings - Crush.lu"
 msgstr "Kontoeinstellungen - Crush.lu"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:10
-#: .\crush_lu\templates\crush_lu\base.html:368
-#: .\crush_lu\templates\crush_lu\base.html:625
-#: .\crush_lu\templates\crush_lu\base.html:783
-#: .\crush_lu\templates\crush_lu\base.html:959
+#: .\crush_lu\templates\crush_lu\base.html:381
+#: .\crush_lu\templates\crush_lu\base.html:638
+#: .\crush_lu\templates\crush_lu\base.html:796
+#: .\crush_lu\templates\crush_lu\base.html:972
 msgid "Account Settings"
 msgstr "Kontoeinstellungen"
 
@@ -8467,14 +8467,14 @@ msgid "Incomplete"
 msgstr "Unvollständig"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:289
-#: .\crush_lu\templates\crush_lu\base.html:328
-#: .\crush_lu\templates\crush_lu\base.html:343
-#: .\crush_lu\templates\crush_lu\base.html:595
-#: .\crush_lu\templates\crush_lu\base.html:610
-#: .\crush_lu\templates\crush_lu\base.html:759
-#: .\crush_lu\templates\crush_lu\base.html:774
-#: .\crush_lu\templates\crush_lu\base.html:831
-#: .\crush_lu\templates\crush_lu\base.html:864
+#: .\crush_lu\templates\crush_lu\base.html:341
+#: .\crush_lu\templates\crush_lu\base.html:356
+#: .\crush_lu\templates\crush_lu\base.html:608
+#: .\crush_lu\templates\crush_lu\base.html:623
+#: .\crush_lu\templates\crush_lu\base.html:772
+#: .\crush_lu\templates\crush_lu\base.html:787
+#: .\crush_lu\templates\crush_lu\base.html:844
+#: .\crush_lu\templates\crush_lu\base.html:877
 #: .\crush_lu\templates\crush_lu\dashboard.html:82
 msgid "Edit Profile"
 msgstr "Profil bearbeiten"
@@ -8495,7 +8495,7 @@ msgid "You haven't created a dating profile yet."
 msgstr "Du hast noch kein Dating-Profil erstellt."
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:301
-#: .\crush_lu\templates\crush_lu\base.html:616
+#: .\crush_lu\templates\crush_lu\base.html:629
 #: .\crush_lu\templates\crush_lu\event_detail.html:401
 msgid "Create Profile"
 msgstr "Profil erstellen"
@@ -8792,10 +8792,10 @@ msgid "Privacy & Data"
 msgstr "Privatsphäre & Daten"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:872
-#: .\crush_lu\templates\crush_lu\auth.html:193
-#: .\crush_lu\templates\crush_lu\base.html:1141
+#: .\crush_lu\templates\crush_lu\auth.html:195
+#: .\crush_lu\templates\crush_lu\base.html:1154
 #: .\crush_lu\templates\crush_lu\consent_confirm.html:46
-#: .\crush_lu\templates\crush_lu\data_deletion.html:210
+#: .\crush_lu\templates\crush_lu\data_deletion.html:212
 #: .\crush_lu\templates\crush_lu\data_deletion_status.html:58
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:12
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:316
@@ -8900,7 +8900,7 @@ msgid "24 doors filled with surprises, just for you."
 msgstr "24 Türchen voller Überraschungen, nur für Sie."
 
 #: .\crush_lu\templates\crush_lu\advent\calendar_locked.html:40
-#: .\crush_lu\templates\crush_lu\data_deletion.html:214
+#: .\crush_lu\templates\crush_lu\data_deletion.html:216
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:609
 #: .\crush_lu\templates\crush_lu\profile_rejected.html:59
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:472
@@ -9132,67 +9132,67 @@ msgstr "QR-Code konnte nicht verarbeitet werden. Bitte versuchen Sie eserneut."
 msgid "Join"
 msgstr "Beitreten"
 
-#: .\crush_lu\templates\crush_lu\auth.html:26
+#: .\crush_lu\templates\crush_lu\auth.html:28
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:47
 msgid "Join Now"
 msgstr "Jetzt beitreten"
 
-#: .\crush_lu\templates\crush_lu\auth.html:46
+#: .\crush_lu\templates\crush_lu\auth.html:48
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:84
 msgid "Continue with Google"
 msgstr "Mit Google fortfahren"
 
-#: .\crush_lu\templates\crush_lu\auth.html:57
+#: .\crush_lu\templates\crush_lu\auth.html:59
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:95
 msgid "Continue with Facebook"
 msgstr "Mit Facebook fortfahren"
 
-#: .\crush_lu\templates\crush_lu\auth.html:71
+#: .\crush_lu\templates\crush_lu\auth.html:73
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:109
 msgid "Continue with Microsoft"
 msgstr "Mit Microsoft fortfahren"
 
-#: .\crush_lu\templates\crush_lu\auth.html:77
+#: .\crush_lu\templates\crush_lu\auth.html:79
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:150
 msgid "Or use email"
 msgstr "Oder per E-Mail"
 
-#: .\crush_lu\templates\crush_lu\auth.html:173
+#: .\crush_lu\templates\crush_lu\auth.html:175
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:245
 msgid "At least 8 characters"
 msgstr "Mindestens 8 Zeichen"
 
-#: .\crush_lu\templates\crush_lu\auth.html:190
+#: .\crush_lu\templates\crush_lu\auth.html:192
 #: .\crush_lu\templates\crush_lu\consent_confirm.html:43
 #, fuzzy
 #| msgid "I agree to Crush.lu's"
 msgid "I agree to the"
 msgstr "Ich stimme den"
 
-#: .\crush_lu\templates\crush_lu\auth.html:191
-#: .\crush_lu\templates\crush_lu\base.html:1142
+#: .\crush_lu\templates\crush_lu\auth.html:193
+#: .\crush_lu\templates\crush_lu\base.html:1155
 #: .\crush_lu\templates\crush_lu\consent_confirm.html:44
-#: .\crush_lu\templates\crush_lu\data_deletion.html:211
+#: .\crush_lu\templates\crush_lu\data_deletion.html:213
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:607
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:12
 #: .\crush_lu\templates\socialaccount\signup_crush.html:57
 msgid "Terms of Service"
 msgstr "Nutzungsbedingungen"
 
-#: .\crush_lu\templates\crush_lu\auth.html:192
+#: .\crush_lu\templates\crush_lu\auth.html:194
 #: .\crush_lu\templates\crush_lu\consent_confirm.html:45
-#: .\crush_lu\templates\crush_lu\data_deletion.html:210
+#: .\crush_lu\templates\crush_lu\data_deletion.html:212
 #: .\crush_lu\templates\socialaccount\signup_crush.html:58
 msgid "and"
 msgstr "und"
 
-#: .\crush_lu\templates\crush_lu\auth.html:210
+#: .\crush_lu\templates\crush_lu\auth.html:212
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:257
 #: .\crush_lu\templates\crush_lu\signup.html:131
 msgid "Create Account"
 msgstr "Konto erstellen"
 
-#: .\crush_lu\templates\crush_lu\auth.html:218
+#: .\crush_lu\templates\crush_lu\auth.html:220
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:265
 msgid ""
 "Your privacy is our priority. Crush.lu accounts are separate from other "
@@ -9201,31 +9201,31 @@ msgstr ""
 "Deine Privatsphäre ist unsere Priorität. Crush.lu-Konten sind getrennt von "
 "anderen Plattformen."
 
-#: .\crush_lu\templates\crush_lu\auth.html:248
+#: .\crush_lu\templates\crush_lu\auth.html:250
 #, fuzzy
 #| msgid "Loading..."
 msgid "Logging in..."
 msgstr "Laden..."
 
-#: .\crush_lu\templates\crush_lu\auth.html:249
+#: .\crush_lu\templates\crush_lu\auth.html:251
 #: .\crush_lu\templates\crush_lu\signup.html:149
 #, fuzzy
 #| msgid "Create Account"
 msgid "Creating Account..."
 msgstr "Konto erstellen"
 
-#: .\crush_lu\templates\crush_lu\auth.html:250
+#: .\crush_lu\templates\crush_lu\auth.html:252
 #, fuzzy
 #| msgid "Completion"
 msgid "Opening login..."
 msgstr "Abschluss"
 
-#: .\crush_lu\templates\crush_lu\auth.html:251
+#: .\crush_lu\templates\crush_lu\auth.html:253
 #: .\crush_lu\templates\crush_lu\signup.html:150
 msgid "Redirecting to"
 msgstr "Weiterleitung zu"
 
-#: .\crush_lu\templates\crush_lu\auth.html:252
+#: .\crush_lu\templates\crush_lu\auth.html:254
 msgid "Opening"
 msgstr "Öffne"
 
@@ -9283,71 +9283,71 @@ msgstr ""
 "Dies ist eine Demonstration der LuxID-Integration. Die LuxID-"
 "Authentifizierung ist in der Produktion noch nicht implementiert."
 
-#: .\crush_lu\templates\crush_lu\base.html:173
+#: .\crush_lu\templates\crush_lu\base.html:186
 #, fuzzy
 #| msgid "Unknown content"
 msgid "Skip to main content"
 msgstr "Unbekannter Inhalt"
 
-#: .\crush_lu\templates\crush_lu\base.html:176
+#: .\crush_lu\templates\crush_lu\base.html:189
 #, fuzzy
 #| msgid "Loading..."
 msgid "Loading"
 msgstr "Laden..."
 
-#: .\crush_lu\templates\crush_lu\base.html:181
+#: .\crush_lu\templates\crush_lu\base.html:194
 #: .\crush_lu\templates\crush_lu\dashboard.html:233
 #: .\crush_lu\templates\crush_lu\journey\rewards\photo_reveal.html:37
 #: .\crush_lu\templates\crush_lu\pwa_debug.html:274
 msgid "Loading..."
 msgstr "Laden..."
 
-#: .\crush_lu\templates\crush_lu\base.html:182
+#: .\crush_lu\templates\crush_lu\base.html:195
 msgid "Just a moment"
 msgstr "Einen Moment"
 
-#: .\crush_lu\templates\crush_lu\base.html:201
+#: .\crush_lu\templates\crush_lu\base.html:214
 #, fuzzy
 #| msgid "Photo navigation"
 msgid "Toggle navigation menu"
 msgstr "Foto-Navigation"
 
-#: .\crush_lu\templates\crush_lu\base.html:215
+#: .\crush_lu\templates\crush_lu\base.html:228
 #, fuzzy
 #| msgid "Chapter navigation"
 msgid "Main navigation"
 msgstr "Private Einladung"
 
-#: .\crush_lu\templates\crush_lu\base.html:229
-#: .\crush_lu\templates\crush_lu\base.html:389
-#: .\crush_lu\templates\crush_lu\base.html:477
-#: .\crush_lu\templates\crush_lu\base.html:495
-#: .\crush_lu\templates\crush_lu\base.html:519
-#: .\crush_lu\templates\crush_lu\base.html:534
-#: .\crush_lu\templates\crush_lu\base.html:699
-#: .\crush_lu\templates\crush_lu\base.html:801
-#: .\crush_lu\templates\crush_lu\base.html:854
-#: .\crush_lu\templates\crush_lu\base.html:877
-#: .\crush_lu\templates\crush_lu\base.html:904
-#: .\crush_lu\templates\crush_lu\base.html:936
+#: .\crush_lu\templates\crush_lu\base.html:242
+#: .\crush_lu\templates\crush_lu\base.html:402
+#: .\crush_lu\templates\crush_lu\base.html:490
+#: .\crush_lu\templates\crush_lu\base.html:508
+#: .\crush_lu\templates\crush_lu\base.html:532
+#: .\crush_lu\templates\crush_lu\base.html:547
+#: .\crush_lu\templates\crush_lu\base.html:712
+#: .\crush_lu\templates\crush_lu\base.html:814
+#: .\crush_lu\templates\crush_lu\base.html:867
+#: .\crush_lu\templates\crush_lu\base.html:890
+#: .\crush_lu\templates\crush_lu\base.html:917
+#: .\crush_lu\templates\crush_lu\base.html:949
 msgid "Special Journey"
 msgstr "Besondere Reise"
 
-#: .\crush_lu\templates\crush_lu\base.html:231
-#: .\crush_lu\templates\crush_lu\base.html:391
-#: .\crush_lu\templates\crush_lu\base.html:536
-#: .\crush_lu\templates\crush_lu\base.html:803
-#: .\crush_lu\templates\crush_lu\base.html:938
+#: .\crush_lu\templates\crush_lu\base.html:244
+#: .\crush_lu\templates\crush_lu\base.html:404
+#: .\crush_lu\templates\crush_lu\base.html:549
+#: .\crush_lu\templates\crush_lu\base.html:816
+#: .\crush_lu\templates\crush_lu\base.html:951
 msgid "New!"
 msgstr "Neu!"
 
-#: .\crush_lu\templates\crush_lu\base.html:257
-#: .\crush_lu\templates\crush_lu\base.html:708
+#: .\crush_lu\templates\crush_lu\base.html:270
+#: .\crush_lu\templates\crush_lu\base.html:721
 msgid "Review Queue"
 msgstr "Prüfungswarteschlange"
 
-#: .\crush_lu\templates\crush_lu\base.html:264
-#: .\crush_lu\templates\crush_lu\base.html:723
+#: .\crush_lu\templates\crush_lu\base.html:277
+#: .\crush_lu\templates\crush_lu\base.html:736
 #: .\crush_lu\templates\crush_lu\coach_verification_history.html:4
 #: .\crush_lu\templates\crush_lu\coach_verification_history.html:10
 #, fuzzy
@@ -9355,59 +9355,59 @@ msgstr "Prüfungswarteschlange"
 msgid "Verification History"
 msgstr "Verifizierungszeit"
 
-#: .\crush_lu\templates\crush_lu\base.html:268
-#: .\crush_lu\templates\crush_lu\base.html:727
+#: .\crush_lu\templates\crush_lu\base.html:281
+#: .\crush_lu\templates\crush_lu\base.html:740
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:125
 msgid "Journey Management"
 msgstr "Journey-Verwaltung"
 
-#: .\crush_lu\templates\crush_lu\base.html:273
-#: .\crush_lu\templates\crush_lu\base.html:715
+#: .\crush_lu\templates\crush_lu\base.html:286
+#: .\crush_lu\templates\crush_lu\base.html:728
 #: .\crush_lu\templates\crush_lu\coach_sessions.html:4
 #: .\crush_lu\templates\crush_lu\coach_sessions.html:13
 msgid "Coach Sessions"
 msgstr "Coach-Sitzungen"
 
-#: .\crush_lu\templates\crush_lu\base.html:277
-#: .\crush_lu\templates\crush_lu\base.html:719
+#: .\crush_lu\templates\crush_lu\base.html:290
+#: .\crush_lu\templates\crush_lu\base.html:732
 #: .\crush_lu\templates\crush_lu\coach_dashboard.html:101
 msgid "Manage Events"
 msgstr "Events verwalten"
 
-#: .\crush_lu\templates\crush_lu\base.html:290
+#: .\crush_lu\templates\crush_lu\base.html:303
 #, fuzzy
 #| msgid "Crush.lu"
 msgid "My Crush"
 msgstr "Crush.lu"
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\base.html:307
-#: .\crush_lu\templates\crush_lu\base.html:739
+#: .\crush_lu\templates\crush_lu\base.html:320
+#: .\crush_lu\templates\crush_lu\base.html:752
 msgid "My Dashboard"
 msgstr "Mein Dashboard"
 
-#: .\crush_lu\templates\crush_lu\base.html:318
-#: .\crush_lu\templates\crush_lu\base.html:456
-#: .\crush_lu\templates\crush_lu\base.html:750
-#: .\crush_lu\templates\crush_lu\base.html:823
+#: .\crush_lu\templates\crush_lu\base.html:331
+#: .\crush_lu\templates\crush_lu\base.html:469
+#: .\crush_lu\templates\crush_lu\base.html:763
+#: .\crush_lu\templates\crush_lu\base.html:836
 #, fuzzy
 #| msgid "A Spark!"
 msgid "My Sparks"
 msgstr "Ein Funke!"
 
-#: .\crush_lu\templates\crush_lu\base.html:332
-#: .\crush_lu\templates\crush_lu\base.html:599
-#: .\crush_lu\templates\crush_lu\base.html:763
-#: .\crush_lu\templates\crush_lu\base.html:835
+#: .\crush_lu\templates\crush_lu\base.html:345
+#: .\crush_lu\templates\crush_lu\base.html:612
+#: .\crush_lu\templates\crush_lu\base.html:776
+#: .\crush_lu\templates\crush_lu\base.html:848
 #, fuzzy
 #| msgid "Crush.lu"
 msgid "Ideal Crush"
 msgstr "Crush.lu"
 
-#: .\crush_lu\templates\crush_lu\base.html:333
-#: .\crush_lu\templates\crush_lu\base.html:600
-#: .\crush_lu\templates\crush_lu\base.html:764
-#: .\crush_lu\templates\crush_lu\base.html:836
+#: .\crush_lu\templates\crush_lu\base.html:346
+#: .\crush_lu\templates\crush_lu\base.html:613
+#: .\crush_lu\templates\crush_lu\base.html:777
+#: .\crush_lu\templates\crush_lu\base.html:849
 #: .\crush_lu\templates\crush_lu\dashboard.html:114
 #: .\crush_lu\templates\crush_lu\dashboard.html:136
 #, fuzzy
@@ -9415,31 +9415,31 @@ msgstr "Crush.lu"
 msgid "New"
 msgstr "Neu!"
 
-#: .\crush_lu\templates\crush_lu\base.html:338
-#: .\crush_lu\templates\crush_lu\base.html:605
-#: .\crush_lu\templates\crush_lu\base.html:769
+#: .\crush_lu\templates\crush_lu\base.html:351
+#: .\crush_lu\templates\crush_lu\base.html:618
+#: .\crush_lu\templates\crush_lu\base.html:782
 msgid "Finish Profile"
 msgstr "Profil vervollständigen"
 
-#: .\crush_lu\templates\crush_lu\base.html:373
-#: .\crush_lu\templates\crush_lu\base.html:630
-#: .\crush_lu\templates\crush_lu\base.html:787
-#: .\crush_lu\templates\crush_lu\base.html:964
+#: .\crush_lu\templates\crush_lu\base.html:386
+#: .\crush_lu\templates\crush_lu\base.html:643
+#: .\crush_lu\templates\crush_lu\base.html:800
+#: .\crush_lu\templates\crush_lu\base.html:977
 msgid "Logout"
 msgstr "Abmelden"
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\base.html:384
-#: .\crush_lu\templates\crush_lu\base.html:796
+#: .\crush_lu\templates\crush_lu\base.html:397
+#: .\crush_lu\templates\crush_lu\base.html:809
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:12
 #: .\crush_lu\templates\crush_lu\coach_event_list.html:15
 #: .\crush_lu\templates\crush_lu\coach_verification_history.html:15
-#: .\crush_lu\templates\crush_lu\data_deletion.html:68
+#: .\crush_lu\templates\crush_lu\data_deletion.html:70
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:142
 msgid "Dashboard"
 msgstr "Dashboard"
 
-#: .\crush_lu\templates\crush_lu\base.html:428
+#: .\crush_lu\templates\crush_lu\base.html:441
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:57
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:132
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:229
@@ -9448,31 +9448,31 @@ msgstr "Dashboard"
 msgid "Waitlist"
 msgstr "Warteliste"
 
-#: .\crush_lu\templates\crush_lu\base.html:437
+#: .\crush_lu\templates\crush_lu\base.html:450
 msgid "No upcoming events"
 msgstr "Keine kommenden Events"
 
-#: .\crush_lu\templates\crush_lu\base.html:442
+#: .\crush_lu\templates\crush_lu\base.html:455
 msgid "Browse All Events"
 msgstr "Alle Veranstaltungen ansehen"
 
-#: .\crush_lu\templates\crush_lu\base.html:466
-#: .\crush_lu\templates\crush_lu\base.html:843
+#: .\crush_lu\templates\crush_lu\base.html:479
+#: .\crush_lu\templates\crush_lu\base.html:856
 msgid "Under Review"
 msgstr "In Prüfung"
 
-#: .\crush_lu\templates\crush_lu\base.html:471
+#: .\crush_lu\templates\crush_lu\base.html:484
 msgid "is reviewing"
 msgstr "prüft"
 
-#: .\crush_lu\templates\crush_lu\base.html:482
-#: .\crush_lu\templates\crush_lu\base.html:500
-#: .\crush_lu\templates\crush_lu\base.html:524
-#: .\crush_lu\templates\crush_lu\base.html:542
-#: .\crush_lu\templates\crush_lu\base.html:859
-#: .\crush_lu\templates\crush_lu\base.html:882
-#: .\crush_lu\templates\crush_lu\base.html:909
-#: .\crush_lu\templates\crush_lu\base.html:944
+#: .\crush_lu\templates\crush_lu\base.html:495
+#: .\crush_lu\templates\crush_lu\base.html:513
+#: .\crush_lu\templates\crush_lu\base.html:537
+#: .\crush_lu\templates\crush_lu\base.html:555
+#: .\crush_lu\templates\crush_lu\base.html:872
+#: .\crush_lu\templates\crush_lu\base.html:895
+#: .\crush_lu\templates\crush_lu\base.html:922
+#: .\crush_lu\templates\crush_lu\base.html:957
 #: .\crush_lu\templates\crush_lu\dashboard.html:414
 #: .\crush_lu\templates\crush_lu\emails\profile_approved.html:27
 #: .\crush_lu\templates\crush_lu\how_it_works.html:68
@@ -9484,19 +9484,19 @@ msgstr "prüft"
 msgid "Browse Events"
 msgstr "Veranstaltungen durchsuchen"
 
-#: .\crush_lu\templates\crush_lu\base.html:489
-#: .\crush_lu\templates\crush_lu\base.html:871
+#: .\crush_lu\templates\crush_lu\base.html:502
+#: .\crush_lu\templates\crush_lu\base.html:884
 msgid "Fix Profile"
 msgstr "Profil korrigieren"
 
-#: .\crush_lu\templates\crush_lu\base.html:502
-#: .\crush_lu\templates\crush_lu\base.html:526
-#: .\crush_lu\templates\crush_lu\base.html:544
+#: .\crush_lu\templates\crush_lu\base.html:515
+#: .\crush_lu\templates\crush_lu\base.html:539
+#: .\crush_lu\templates\crush_lu\base.html:557
 msgid "Connect after events"
 msgstr "Nach Events vernetzen"
 
-#: .\crush_lu\templates\crush_lu\base.html:508
-#: .\crush_lu\templates\crush_lu\base.html:893
+#: .\crush_lu\templates\crush_lu\base.html:521
+#: .\crush_lu\templates\crush_lu\base.html:906
 #: .\crush_lu\templates\crush_lu\dashboard.html:88
 #: .\crush_lu\templates\crush_lu\dashboard.html:323
 #: .\crush_lu\templates\crush_lu\profile_submitted_luxid_mockup.html:327
@@ -9505,60 +9505,60 @@ msgstr "Nach Events vernetzen"
 msgid "Contact Coach"
 msgstr "Kontakte geteilt!"
 
-#: .\crush_lu\templates\crush_lu\base.html:513
-#: .\crush_lu\templates\crush_lu\base.html:898
+#: .\crush_lu\templates\crush_lu\base.html:526
+#: .\crush_lu\templates\crush_lu\base.html:911
 #, fuzzy
 #| msgid "%(name)s wants to connect"
 msgid "wants to connect"
 msgstr "%(name)s möchte sich verbinden"
 
-#: .\crush_lu\templates\crush_lu\base.html:553
+#: .\crush_lu\templates\crush_lu\base.html:566
 msgid "Profile pending review"
 msgstr "Profil wartet auf Prüfung"
 
-#: .\crush_lu\templates\crush_lu\base.html:555
+#: .\crush_lu\templates\crush_lu\base.html:568
 msgid "Profile rejected"
 msgstr "Profil abgelehnt"
 
-#: .\crush_lu\templates\crush_lu\base.html:557
+#: .\crush_lu\templates\crush_lu\base.html:570
 msgid "Profile needs revision"
 msgstr "Profil muss überarbeitet werden"
 
-#: .\crush_lu\templates\crush_lu\base.html:559
+#: .\crush_lu\templates\crush_lu\base.html:572
 #, fuzzy
 #| msgid "%(name)s wants to connect"
 msgid "Coach wants to connect"
 msgstr "%(name)s möchte sich verbinden"
 
-#: .\crush_lu\templates\crush_lu\base.html:561
+#: .\crush_lu\templates\crush_lu\base.html:574
 msgid "Profile approved"
 msgstr "Profil genehmigt"
 
-#: .\crush_lu\templates\crush_lu\base.html:576
+#: .\crush_lu\templates\crush_lu\base.html:589
 msgid "Profile Status:"
 msgstr "Profilstatus:"
 
-#: .\crush_lu\templates\crush_lu\base.html:584
+#: .\crush_lu\templates\crush_lu\base.html:597
 #, fuzzy
 #| msgid "%(name)s wants to connect"
 msgid "Coach Wants to Connect"
 msgstr "%(name)s möchte sich verbinden"
 
-#: .\crush_lu\templates\crush_lu\base.html:588
+#: .\crush_lu\templates\crush_lu\base.html:601
 msgid "Not Submitted"
 msgstr "Nicht eingereicht"
 
-#: .\crush_lu\templates\crush_lu\base.html:621
-#: .\crush_lu\templates\crush_lu\base.html:641
-#: .\crush_lu\templates\crush_lu\base.html:955
-#: .\crush_lu\templates\crush_lu\base.html:973
-#: .\crush_lu\templates\crush_lu\base.html:1133
+#: .\crush_lu\templates\crush_lu\base.html:634
+#: .\crush_lu\templates\crush_lu\base.html:654
+#: .\crush_lu\templates\crush_lu\base.html:968
+#: .\crush_lu\templates\crush_lu\base.html:986
+#: .\crush_lu\templates\crush_lu\base.html:1146
 msgid "Become a Coach"
 msgstr "Werde Coach"
 
-#: .\crush_lu\templates\crush_lu\base.html:638
-#: .\crush_lu\templates\crush_lu\base.html:970
-#: .\crush_lu\templates\crush_lu\base.html:1130
+#: .\crush_lu\templates\crush_lu\base.html:651
+#: .\crush_lu\templates\crush_lu\base.html:983
+#: .\crush_lu\templates\crush_lu\base.html:1143
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:105
 #: .\crush_lu\templates\crush_lu\event_attendees.html:23
 #: .\crush_lu\templates\crush_lu\home.html:93
@@ -9567,114 +9567,114 @@ msgstr "Werde Coach"
 msgid "How It Works"
 msgstr "So funktioniert's"
 
-#: .\crush_lu\templates\crush_lu\base.html:640
-#: .\crush_lu\templates\crush_lu\base.html:972
-#: .\crush_lu\templates\crush_lu\base.html:1132
+#: .\crush_lu\templates\crush_lu\base.html:653
+#: .\crush_lu\templates\crush_lu\base.html:985
+#: .\crush_lu\templates\crush_lu\base.html:1145
 msgid "Membership"
 msgstr "Mitgliedschaft"
 
-#: .\crush_lu\templates\crush_lu\base.html:643
-#: .\crush_lu\templates\crush_lu\base.html:976
+#: .\crush_lu\templates\crush_lu\base.html:656
+#: .\crush_lu\templates\crush_lu\base.html:989
 msgid "Login / Join"
 msgstr "Anmelden / Registrieren"
 
-#: .\crush_lu\templates\crush_lu\base.html:684
+#: .\crush_lu\templates\crush_lu\base.html:697
 #, fuzzy
 #| msgid "Photo navigation"
 msgid "Mobile navigation"
 msgstr "Foto-Navigation"
 
-#: .\crush_lu\templates\crush_lu\base.html:736
+#: .\crush_lu\templates\crush_lu\base.html:749
 msgid "My Profile"
 msgstr "Mein Profil"
 
-#: .\crush_lu\templates\crush_lu\base.html:848
+#: .\crush_lu\templates\crush_lu\base.html:861
 msgid "is reviewing your profile"
 msgstr "prüft dein Profil"
 
-#: .\crush_lu\templates\crush_lu\base.html:886
-#: .\crush_lu\templates\crush_lu\base.html:913
-#: .\crush_lu\templates\crush_lu\base.html:948
+#: .\crush_lu\templates\crush_lu\base.html:899
+#: .\crush_lu\templates\crush_lu\base.html:926
+#: .\crush_lu\templates\crush_lu\base.html:961
 msgid "after events"
 msgstr "nach Events"
 
-#: .\crush_lu\templates\crush_lu\base.html:920
+#: .\crush_lu\templates\crush_lu\base.html:933
 msgid "Profile Progress"
 msgstr "Profil-Fortschritt"
 
-#: .\crush_lu\templates\crush_lu\base.html:927
+#: .\crush_lu\templates\crush_lu\base.html:940
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:36
 msgid "Next:"
 msgstr "Nächster Schritt:"
 
-#: .\crush_lu\templates\crush_lu\base.html:931
+#: .\crush_lu\templates\crush_lu\base.html:944
 #: .\crush_lu\templates\crush_lu\partials\nav_progress_dropdown.html:44
 msgid "Continue Setup"
 msgstr "Einrichtung fortsetzen"
 
-#: .\crush_lu\templates\crush_lu\base.html:1023
+#: .\crush_lu\templates\crush_lu\base.html:1036
 #: .\crush_lu\templates\crush_lu\edit_profile.html:30
 msgid "Your profile is incomplete"
 msgstr "Dein Profil ist unvollständig"
 
-#: .\crush_lu\templates\crush_lu\base.html:1026
+#: .\crush_lu\templates\crush_lu\base.html:1039
 msgid "Complete your profile"
 msgstr "Vervollständige dein Profil"
 
-#: .\crush_lu\templates\crush_lu\base.html:1035
+#: .\crush_lu\templates\crush_lu\base.html:1048
 #, fuzzy
 #| msgid "Coach Needs to Speak With You"
 msgid "Your coach needs to speak with you"
 msgstr "Dein Coach muss mit dir sprechen"
 
-#: .\crush_lu\templates\crush_lu\base.html:1038
+#: .\crush_lu\templates\crush_lu\base.html:1051
 #, fuzzy
 #| msgid "Contacts Shared!"
 msgid "Contact your coach"
 msgstr "Kontakte geteilt!"
 
-#: .\crush_lu\templates\crush_lu\base.html:1047
+#: .\crush_lu\templates\crush_lu\base.html:1060
 msgid "Your profile is under review by our Crush Coach"
 msgstr "Dein Profil wird von unserem Crush Coach überprüft"
 
-#: .\crush_lu\templates\crush_lu\base.html:1050
+#: .\crush_lu\templates\crush_lu\base.html:1063
 msgid "Check status"
 msgstr "Status prüfen"
 
-#: .\crush_lu\templates\crush_lu\base.html:1102
+#: .\crush_lu\templates\crush_lu\base.html:1115
 #, fuzzy
 #| msgid "Listen to this special message"
 msgid "Dismiss this message"
 msgstr "Hören Sie sich diese besondere Botschaft an"
 
 # Footer translations (only new strings that don't exist elsewhere)
-#: .\crush_lu\templates\crush_lu\base.html:1122
+#: .\crush_lu\templates\crush_lu\base.html:1135
 msgid "Meet new people. Make real connections."
 msgstr "Neue Leute treffen. Echte Verbindungen knüpfen."
 
-#: .\crush_lu\templates\crush_lu\base.html:1127
+#: .\crush_lu\templates\crush_lu\base.html:1140
 msgid "Quick Links"
 msgstr "Schnelllinks"
 
-#: .\crush_lu\templates\crush_lu\base.html:1129
+#: .\crush_lu\templates\crush_lu\base.html:1142
 msgid "About Us"
 msgstr "Über uns"
 
-#: .\crush_lu\templates\crush_lu\base.html:1139
+#: .\crush_lu\templates\crush_lu\base.html:1152
 msgid "Legal"
 msgstr "Rechtliches"
 
-#: .\crush_lu\templates\crush_lu\base.html:1143
+#: .\crush_lu\templates\crush_lu\base.html:1156
 msgid "Data Deletion"
 msgstr "Datenlöschung"
 
-#: .\crush_lu\templates\crush_lu\base.html:1150
+#: .\crush_lu\templates\crush_lu\base.html:1163
 msgid "Your privacy matters. All profiles are reviewed by our Crush Coaches."
 msgstr ""
 "Ihre Privatsphäre ist uns wichtig. Alle Profile werden von unseren Crush-"
 "Coaches überprüft."
 
-#: .\crush_lu\templates\crush_lu\base.html:1187
+#: .\crush_lu\templates\crush_lu\base.html:1200
 #, fuzzy
 #| msgid "&copy; 2025 Crush.lu - Made with 💕 in Luxembourg"
 msgid "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg"
@@ -12493,7 +12493,9 @@ msgstr "Bereit, einen Unterschied zu machen?"
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:854
 msgid "We're all about real human connection and that starts with your voice!"
-msgstr "Bei uns dreht sich alles um echte menschliche Verbindung und die beginnt mit deiner Stimme!"
+msgstr ""
+"Bei uns dreht sich alles um echte menschliche Verbindung und die beginnt mit "
+"deiner Stimme!"
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:856
 msgid ""
@@ -12852,19 +12854,19 @@ msgstr "Wallet-Pass konnte nicht erstellt werden. Bitte versuche es erneut."
 msgid "Data Deletion - Crush.lu"
 msgstr "Datenlöschung - Crush.lu"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:11
+#: .\crush_lu\templates\crush_lu\data_deletion.html:13
 msgid "Data Deletion Request"
 msgstr "Antrag auf Datenlöschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:12
+#: .\crush_lu\templates\crush_lu\data_deletion.html:14
 msgid "Last Updated: January 14, 2025"
 msgstr "Letzte Aktualisierung: 14. Januar 2025"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:17
+#: .\crush_lu\templates\crush_lu\data_deletion.html:19
 msgid "Your Right to Erasure"
 msgstr "Dein Recht auf Löschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:18
+#: .\crush_lu\templates\crush_lu\data_deletion.html:20
 msgid ""
 "Under GDPR and Luxembourg data protection laws, you have the right to "
 "request deletion of your personal data."
@@ -12872,79 +12874,79 @@ msgstr ""
 "Gemäß DSGVO und luxemburgischen Datenschutzgesetzen hast du das Recht, die "
 "Löschung deiner personenbezogenen Daten zu beantragen."
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:22
+#: .\crush_lu\templates\crush_lu\data_deletion.html:24
 msgid "1. What Gets Deleted"
 msgstr "1. Was wird gelöscht"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:24
+#: .\crush_lu\templates\crush_lu\data_deletion.html:26
 msgid ""
 "When you request account deletion, the following data is permanently removed:"
 msgstr ""
 "Wenn du die Löschung deines Kontos beantragst, werden folgende Daten "
 "dauerhaft entfernt:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:27
+#: .\crush_lu\templates\crush_lu\data_deletion.html:29
 msgid "Account Information:"
 msgstr "Kontoinformationen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:27
+#: .\crush_lu\templates\crush_lu\data_deletion.html:29
 msgid "Email, name, date of birth, phone number"
 msgstr "E-Mail, Name, Geburtsdatum, Telefonnummer"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:28
+#: .\crush_lu\templates\crush_lu\data_deletion.html:30
 msgid "Profile Data:"
 msgstr "Profildaten:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:28
+#: .\crush_lu\templates\crush_lu\data_deletion.html:30
 msgid "Bio, interests, location, gender"
 msgstr "Bio, Interessen, Standort, Geschlecht"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:29
+#: .\crush_lu\templates\crush_lu\data_deletion.html:31
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:89
 msgid "Photos:"
 msgstr "Fotos:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:29
+#: .\crush_lu\templates\crush_lu\data_deletion.html:31
 msgid "All profile photos stored on Azure Blob Storage"
 msgstr "Alle Profilfotos, die im Azure Blob Storage gespeichert sind"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:30
+#: .\crush_lu\templates\crush_lu\data_deletion.html:32
 msgid "Event Registrations:"
 msgstr "Event-Anmeldungen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:30
+#: .\crush_lu\templates\crush_lu\data_deletion.html:32
 msgid "Your registration history and preferences"
 msgstr "Dein Anmeldungsverlauf und deine Präferenzen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:31
+#: .\crush_lu\templates\crush_lu\data_deletion.html:33
 msgid "Connection Messages:"
 msgstr "Verbindungsnachrichten:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:31
+#: .\crush_lu\templates\crush_lu\data_deletion.html:33
 msgid "All messages exchanged through the platform"
 msgstr "Alle über die Plattform ausgetauschten Nachrichten"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:32
+#: .\crush_lu\templates\crush_lu\data_deletion.html:34
 msgid "Voting Records:"
 msgstr "Abstimmungsaufzeichnungen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:32
+#: .\crush_lu\templates\crush_lu\data_deletion.html:34
 msgid "Event activity votes and preferences"
 msgstr "Event-Aktivitätsabstimmungen und Präferenzen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:33
+#: .\crush_lu\templates\crush_lu\data_deletion.html:35
 msgid "Session Data:"
 msgstr "Sitzungsnotizen..."
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:33
+#: .\crush_lu\templates\crush_lu\data_deletion.html:35
 msgid "Authentication tokens and session information"
 msgstr "Authentifizierungs-Tokens und Sitzungsinformationen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:36
+#: .\crush_lu\templates\crush_lu\data_deletion.html:38
 msgid "2. What May Be Retained"
 msgstr "2. Was möglicherweise aufbewahrt wird"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:38
+#: .\crush_lu\templates\crush_lu\data_deletion.html:40
 msgid ""
 "For legal, safety, and operational reasons, we may retain certain anonymized "
 "or aggregated data:"
@@ -12952,21 +12954,21 @@ msgstr ""
 "Aus rechtlichen, sicherheitstechnischen und betrieblichen Gründen können wir "
 "bestimmte anonymisierte oder aggregierte Daten aufbewahren:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:41
+#: .\crush_lu\templates\crush_lu\data_deletion.html:43
 msgid "Event Attendance Records:"
 msgstr "Event-Teilnehmer ansehen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:41
+#: .\crush_lu\templates\crush_lu\data_deletion.html:43
 msgid "Anonymized attendance logs for safety and capacity planning"
 msgstr ""
 "Anonymisierte Teilnahmeprotokolle für Sicherheits- und Kapazitätsplanung"
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\data_deletion.html:42
+#: .\crush_lu\templates\crush_lu\data_deletion.html:44
 msgid "Coach Notes:"
 msgstr "Coach-Foto"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:42
+#: .\crush_lu\templates\crush_lu\data_deletion.html:44
 msgid ""
 "Internal coach notes (without identifying information) for platform "
 "improvement"
@@ -12974,132 +12976,132 @@ msgstr ""
 "Interne Coach-Notizen (ohne identifizierende Informationen) zur "
 "Plattformverbesserung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:43
+#: .\crush_lu\templates\crush_lu\data_deletion.html:45
 msgid "Moderation Records:"
 msgstr "Verifizierung erforderlich"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:43
+#: .\crush_lu\templates\crush_lu\data_deletion.html:45
 msgid "Reports of policy violations for safety purposes"
 msgstr "Meldungen über Richtlinienverstöße zu Sicherheitszwecken"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:44
+#: .\crush_lu\templates\crush_lu\data_deletion.html:46
 msgid "Financial Records:"
 msgstr "Letzte Antwort"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:44
+#: .\crush_lu\templates\crush_lu\data_deletion.html:46
 msgid "Payment transaction records required by law (up to 7 years)"
 msgstr "Gesetzlich vorgeschriebene Zahlungsaufzeichnungen (bis zu 7 Jahre)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:45
+#: .\crush_lu\templates\crush_lu\data_deletion.html:47
 msgid "Backup Systems:"
 msgstr "Backup-Systeme:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:45
+#: .\crush_lu\templates\crush_lu\data_deletion.html:47
 msgid "Data in automated backups (deleted within 90 days)"
 msgstr "Daten in automatisierten Backups (innerhalb von 90 Tagen gelöscht)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:48
+#: .\crush_lu\templates\crush_lu\data_deletion.html:50
 msgid "3. Impact on Other Users"
 msgstr "3. Auswirkungen auf andere Benutzer"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:50
+#: .\crush_lu\templates\crush_lu\data_deletion.html:52
 msgid "After your account is deleted:"
 msgstr "Nach der Löschung deines Kontos:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:53
+#: .\crush_lu\templates\crush_lu\data_deletion.html:55
 msgid "Your profile will no longer be visible to other users"
 msgstr "3. Dein Profil wird von unserem Team geprüft"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:54
+#: .\crush_lu\templates\crush_lu\data_deletion.html:56
 msgid "Pending connections will be cancelled"
 msgstr "Ausstehende Verbindungen werden abgebrochen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:55
+#: .\crush_lu\templates\crush_lu\data_deletion.html:57
 msgid ""
 "Event registrations will be removed (coaches will be notified if needed)"
 msgstr ""
 "Event-Anmeldungen werden entfernt (Coaches werden bei Bedarf benachrichtigt)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:56
+#: .\crush_lu\templates\crush_lu\data_deletion.html:58
 msgid "Other users will see \\"
 msgstr "Andere Benutzer sehen \\"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:59
+#: .\crush_lu\templates\crush_lu\data_deletion.html:61
 msgid "4. How to Request Deletion"
 msgstr "4. So beantragst du die Löschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:61
+#: .\crush_lu\templates\crush_lu\data_deletion.html:63
 msgid "Option 1: Delete Through Your Account (Recommended)"
 msgstr "Option 1: Löschung über dein Konto (Empfohlen)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:65
+#: .\crush_lu\templates\crush_lu\data_deletion.html:67
 msgid "Warning:"
 msgstr "Was Sie mitbringen sollten:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:65
+#: .\crush_lu\templates\crush_lu\data_deletion.html:67
 msgid "Account deletion is permanent and cannot be undone."
 msgstr ""
 "Die Kontolöschung ist dauerhaft und kann nicht rückgängig gemacht werden."
 
 # Coach Dashboard translations
-#: .\crush_lu\templates\crush_lu\data_deletion.html:68
+#: .\crush_lu\templates\crush_lu\data_deletion.html:70
 msgid "Go to your"
 msgstr "Zum Dashboard"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:69
+#: .\crush_lu\templates\crush_lu\data_deletion.html:71
 msgid "Click on \\"
 msgstr "Klicke auf \\"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:70
+#: .\crush_lu\templates\crush_lu\data_deletion.html:72
 msgid "Scroll to \\"
 msgstr "Scrolle zu \\"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:71
-#: .\crush_lu\templates\crush_lu\data_deletion.html:99
+#: .\crush_lu\templates\crush_lu\data_deletion.html:73
+#: .\crush_lu\templates\crush_lu\data_deletion.html:101
 msgid "Click \\"
 msgstr "Klicke \\"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:75
+#: .\crush_lu\templates\crush_lu\data_deletion.html:77
 msgid "Login to Delete Account"
 msgstr "Konto löschen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:79
+#: .\crush_lu\templates\crush_lu\data_deletion.html:81
 msgid "Option 2: Email Request"
 msgstr "Option 2: E-Mail-Anfrage"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:81
+#: .\crush_lu\templates\crush_lu\data_deletion.html:83
 msgid "If you cannot access your account, send an email to"
 msgstr "Wenn du nicht auf dein Konto zugreifen kannst, sende eine E-Mail an"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:81
+#: .\crush_lu\templates\crush_lu\data_deletion.html:83
 msgid "with:"
 msgstr "mit:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:84
+#: .\crush_lu\templates\crush_lu\data_deletion.html:86
 msgid "Subject line: \\"
 msgstr "Zeitstrahl einreichen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:85
+#: .\crush_lu\templates\crush_lu\data_deletion.html:87
 msgid "Your full name"
 msgstr "Dein vollständiger Name"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:86
+#: .\crush_lu\templates\crush_lu\data_deletion.html:88
 msgid "Email address associated with your account"
 msgstr "Mit deinem Konto verknüpfte E-Mail-Adresse"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:87
+#: .\crush_lu\templates\crush_lu\data_deletion.html:89
 msgid "Date of birth (for verification)"
 msgstr "Geburtsdatum (zur Verifizierung)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:88
+#: .\crush_lu\templates\crush_lu\data_deletion.html:90
 msgid "Reason for deletion (optional)"
 msgstr "Grund für Löschung (optional)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:91
+#: .\crush_lu\templates\crush_lu\data_deletion.html:93
 msgid "Option 3: Facebook App Data Deletion"
 msgstr "Option 3: Facebook-App-Datenlöschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:93
+#: .\crush_lu\templates\crush_lu\data_deletion.html:95
 msgid ""
 "If you signed up using Facebook, you can also request deletion through "
 "Facebook:"
@@ -13107,85 +13109,85 @@ msgstr ""
 "Wenn du dich über Facebook angemeldet hast, kannst du die Löschung auch über "
 "Facebook beantragen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:96
+#: .\crush_lu\templates\crush_lu\data_deletion.html:98
 msgid "Go to your Facebook Settings"
 msgstr "Gehe zu deinen Facebook-Einstellungen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:97
+#: .\crush_lu\templates\crush_lu\data_deletion.html:99
 msgid "Navigate to \\"
 msgstr "Tastaturnavigation"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:98
+#: .\crush_lu\templates\crush_lu\data_deletion.html:100
 msgid "Find \\"
 msgstr "Finde \\"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:100
+#: .\crush_lu\templates\crush_lu\data_deletion.html:102
 msgid "We will be notified and delete your data within 30 days"
 msgstr ""
 "Wir werden benachrichtigt und löschen deine Daten innerhalb von 30 Tagen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:103
+#: .\crush_lu\templates\crush_lu\data_deletion.html:105
 msgid "Callback URL for Facebook:"
 msgstr "Callback-URL für Facebook:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:106
+#: .\crush_lu\templates\crush_lu\data_deletion.html:108
 msgid "5. Deletion Timeline"
 msgstr "5. Löschzeitplan"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:111
+#: .\crush_lu\templates\crush_lu\data_deletion.html:113
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:413
 msgid "Data Type"
 msgstr "Datentyp"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:112
+#: .\crush_lu\templates\crush_lu\data_deletion.html:114
 msgid "Deletion Timeline"
 msgstr "Löschzeitplan"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:117
+#: .\crush_lu\templates\crush_lu\data_deletion.html:119
 msgid "Active Database Records"
 msgstr "Aktive Datenbankeinträge"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:118
+#: .\crush_lu\templates\crush_lu\data_deletion.html:120
 msgid "Immediate (within 24 hours)"
 msgstr "Sofort (innerhalb von 24 Stunden)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:121
+#: .\crush_lu\templates\crush_lu\data_deletion.html:123
 msgid "Profile Photos (Azure Blob Storage)"
 msgstr "Profilfotos (Azure Blob Storage)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:122
+#: .\crush_lu\templates\crush_lu\data_deletion.html:124
 msgid "Within 7 days"
 msgstr "Innerhalb von 7 Tagen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:125
+#: .\crush_lu\templates\crush_lu\data_deletion.html:127
 msgid "Backup Systems"
 msgstr "Backup-Systeme"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:126
+#: .\crush_lu\templates\crush_lu\data_deletion.html:128
 msgid "Within 90 days"
 msgstr "Innerhalb von 90 Tagen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:129
+#: .\crush_lu\templates\crush_lu\data_deletion.html:131
 msgid "Anonymized Analytics"
 msgstr "Anonymisierte Analysen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:130
+#: .\crush_lu\templates\crush_lu\data_deletion.html:132
 msgid "Retained (no personal identifiers)"
 msgstr "Aufbewahrt (keine persönlichen Identifikatoren)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:133
+#: .\crush_lu\templates\crush_lu\data_deletion.html:135
 msgid "Legal Compliance Records"
 msgstr "Rechtliche Compliance-Aufzeichnungen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:134
+#: .\crush_lu\templates\crush_lu\data_deletion.html:136
 msgid "Up to 7 years (as required by law)"
 msgstr "Bis zu 7 Jahre (gesetzlich vorgeschrieben)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:140
+#: .\crush_lu\templates\crush_lu\data_deletion.html:142
 msgid "6. Verification Process"
 msgstr "6. Verifizierungsprozess"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:142
+#: .\crush_lu\templates\crush_lu\data_deletion.html:144
 msgid ""
 "To protect your privacy and prevent unauthorized deletion requests, we may "
 "ask you to verify your identity:"
@@ -13193,69 +13195,69 @@ msgstr ""
 "Um deine Privatsphäre zu schützen und unbefugte Löschanfragen zu verhindern, "
 "können wir dich bitten, deine Identität zu verifizieren:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:145
+#: .\crush_lu\templates\crush_lu\data_deletion.html:147
 msgid "Login to your account (if accessible)"
 msgstr "Melde dich bei deinem Konto an (falls zugänglich)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:146
+#: .\crush_lu\templates\crush_lu\data_deletion.html:148
 msgid "Provide answers to security questions"
 msgstr "Beantworte Sicherheitsfragen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:147
+#: .\crush_lu\templates\crush_lu\data_deletion.html:149
 msgid "Confirm via registered email address"
 msgstr "Bestätige über deine registrierte E-Mail-Adresse"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:148
+#: .\crush_lu\templates\crush_lu\data_deletion.html:150
 msgid "Provide photo ID (in cases of suspicious activity)"
 msgstr "Lege einen Lichtbildausweis vor (bei verdächtigen Aktivitäten)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:151
+#: .\crush_lu\templates\crush_lu\data_deletion.html:153
 msgid "7. Alternatives to Deletion"
 msgstr "7. Alternativen zur Löschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:153
+#: .\crush_lu\templates\crush_lu\data_deletion.html:155
 msgid "If you're not ready for permanent deletion, consider these options:"
 msgstr ""
 "Wenn du noch nicht bereit für eine dauerhafte Löschung bist, ziehe diese "
 "Optionen in Betracht:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:156
+#: .\crush_lu\templates\crush_lu\data_deletion.html:158
 msgid "Deactivate Account:"
 msgstr "Konto deaktivieren:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:156
+#: .\crush_lu\templates\crush_lu\data_deletion.html:158
 msgid "Temporarily hide your profile without deletion"
 msgstr "Verbirg dein Profil vorübergehend ohne Löschung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:157
+#: .\crush_lu\templates\crush_lu\data_deletion.html:159
 msgid "Adjust Privacy Settings:"
 msgstr "Datenschutzeinstellungen anpassen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:157
+#: .\crush_lu\templates\crush_lu\data_deletion.html:159
 msgid "Control who can see your information"
 msgstr "Kontrolliere, wer deine Informationen sehen kann"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:158
+#: .\crush_lu\templates\crush_lu\data_deletion.html:160
 msgid "Unsubscribe from Emails:"
 msgstr "E-Mails abbestellen:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:158
+#: .\crush_lu\templates\crush_lu\data_deletion.html:160
 msgid "Stop receiving notifications"
 msgstr "Erhalte keine Benachrichtigungen mehr"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:159
+#: .\crush_lu\templates\crush_lu\data_deletion.html:161
 msgid "Take a Break:"
 msgstr "Mach eine Pause:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:159
+#: .\crush_lu\templates\crush_lu\data_deletion.html:161
 msgid "Keep your account but stop using the platform"
 msgstr "Behalte dein Konto, aber nutze die Plattform nicht mehr"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:162
+#: .\crush_lu\templates\crush_lu\data_deletion.html:164
 msgid "8. Reactivation Policy"
 msgstr "8. Reaktivierungsrichtlinie"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:164
+#: .\crush_lu\templates\crush_lu\data_deletion.html:166
 msgid ""
 "Once your account is deleted, it cannot be recovered. If you wish to use "
 "Crush.lu again, you must:"
@@ -13263,102 +13265,102 @@ msgstr ""
 "Sobald dein Konto gelöscht ist, kann es nicht wiederhergestellt werden. Wenn "
 "du Crush.lu wieder nutzen möchtest, musst du:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:167
+#: .\crush_lu\templates\crush_lu\data_deletion.html:169
 msgid "Create a new account with a new email address"
 msgstr "Ein neues Konto mit einer neuen E-Mail-Adresse erstellen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:168
+#: .\crush_lu\templates\crush_lu\data_deletion.html:170
 msgid "Complete profile creation and coach review again"
 msgstr "Die Profilerstellung und Coach-Überprüfung erneut durchlaufen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:169
+#: .\crush_lu\templates\crush_lu\data_deletion.html:171
 msgid "Your previous event history and connections will not be restored"
 msgstr ""
 "Dein bisheriger Event-Verlauf und deine Verbindungen werden nicht "
 "wiederhergestellt"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:172
+#: .\crush_lu\templates\crush_lu\data_deletion.html:174
 msgid "9. Contact Information"
 msgstr "9. Kontaktinformationen"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:174
+#: .\crush_lu\templates\crush_lu\data_deletion.html:176
 msgid "For questions about data deletion or privacy concerns:"
 msgstr "Bei Fragen zur Datenlöschung oder Datenschutzbedenken:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:179
+#: .\crush_lu\templates\crush_lu\data_deletion.html:181
 msgid "Response Time:"
 msgstr "Antwortzeit:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:179
+#: .\crush_lu\templates\crush_lu\data_deletion.html:181
 msgid "Within 48 hours"
 msgstr "Innerhalb von 48 Stunden"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:182
+#: .\crush_lu\templates\crush_lu\data_deletion.html:184
 msgid "10. Your Rights"
 msgstr "10. Deine Rechte"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:184
+#: .\crush_lu\templates\crush_lu\data_deletion.html:186
 msgid "In addition to deletion, you have the right to:"
 msgstr "Zusätzlich zur Löschung hast du das Recht auf:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:187
+#: .\crush_lu\templates\crush_lu\data_deletion.html:189
 msgid "Access:"
 msgstr "Zugriff:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:187
+#: .\crush_lu\templates\crush_lu\data_deletion.html:189
 msgid "Request a copy of your data (send email to privacy@crush.lu)"
 msgstr ""
 "Fordere eine Kopie deiner Daten an (sende eine E-Mail an privacy@crush.lu)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:188
+#: .\crush_lu\templates\crush_lu\data_deletion.html:190
 msgid "Rectification:"
 msgstr "Berichtigung:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:188
+#: .\crush_lu\templates\crush_lu\data_deletion.html:190
 msgid "Correct inaccurate information (edit in account settings)"
 msgstr ""
 "Korrigiere ungenaue Informationen (bearbeite in den Kontoeinstellungen)"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:189
+#: .\crush_lu\templates\crush_lu\data_deletion.html:191
 msgid "Restriction:"
 msgstr "Einschränkung:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:189
+#: .\crush_lu\templates\crush_lu\data_deletion.html:191
 msgid "Limit how we process your data"
 msgstr "Beschränke, wie wir deine Daten verarbeiten"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:190
+#: .\crush_lu\templates\crush_lu\data_deletion.html:192
 msgid "Portability:"
 msgstr "Portabilität:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:190
+#: .\crush_lu\templates\crush_lu\data_deletion.html:192
 msgid "Receive your data in a machine-readable format"
 msgstr "Erhalte deine Daten in einem maschinenlesbaren Format"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:191
+#: .\crush_lu\templates\crush_lu\data_deletion.html:193
 msgid "Objection:"
 msgstr "Widerspruch:"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:191
+#: .\crush_lu\templates\crush_lu\data_deletion.html:193
 msgid "Object to certain types of data processing"
 msgstr "Widersprich bestimmten Arten der Datenverarbeitung"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:198
+#: .\crush_lu\templates\crush_lu\data_deletion.html:200
 msgid "Need Help?"
 msgstr "Brauchst du Hilfe?"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:199
+#: .\crush_lu\templates\crush_lu\data_deletion.html:201
 msgid ""
 "Our team is here to assist with any privacy concerns or technical issues."
 msgstr ""
 "Unser Team steht dir bei Datenschutzanliegen oder technischen Problemen zur "
 "Verfügung."
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:203
+#: .\crush_lu\templates\crush_lu\data_deletion.html:205
 msgid "Contact Privacy Team"
 msgstr "Datenschutzteam kontaktieren"
 
-#: .\crush_lu\templates\crush_lu\data_deletion.html:209
+#: .\crush_lu\templates\crush_lu\data_deletion.html:211
 msgid "For more information, see our"
 msgstr "Weitere Informationen findest du in unserer"
 
@@ -15758,51 +15760,47 @@ msgid "to register for this event."
 msgstr "um dich für dieses Event anzumelden."
 
 #: .\crush_lu\templates\crush_lu\event_list.html:5
-msgid "Dating Events Luxembourg - Speed Dating & Singles Meetups | Crush.lu"
-msgstr "Dating Events Luxemburg - Speed Dating & Singles Treffen | Crush.lu"
+msgid "Speed Dating Luxembourg - Singles Events & Meetups 2026 | Crush.lu"
+msgstr "Speed Dating Luxemburg - Singles Events & Treffen 2026 | Crush.lu"
 
 #: .\crush_lu\templates\crush_lu\event_list.html:7
 #: .\crush_lu\templates\crush_lu\event_list.html:10
-msgid "Dating Events in Luxembourg | Crush.lu"
-msgstr "Dating Events in Luxemburg | Crush.lu"
+msgid "Speed Dating & Singles Events in Luxembourg | Crush.lu"
+msgstr "Speed Dating & Singles Events in Luxemburg | Crush.lu"
 
 #: .\crush_lu\templates\crush_lu\event_list.html:8
 msgid ""
-"Browse upcoming speed dating events, social mixers, and singles meetups in "
-"Luxembourg. Join Crush.lu events to meet real people and make authentic "
-"connections."
+"Join speed dating nights, social mixers, and singles meetups in Luxembourg. "
+"Real events, real people, real connections. Book your spot at Crush.lu."
 msgstr ""
-"Entdecken Sie kommende Speed-Dating-Events, Social Mixer und Singles-Treffen "
-"in Luxemburg. Nehmen Sie an Crush.lu Events teil, um echte Menschen zu "
-"treffen und authentische Verbindungen zu knüpfen."
+"Speed-Dating-Abende, Social Mixer und Singles-Treffen in Luxemburg. Echte "
+"Events, echte Menschen, echte Verbindungen. Jetzt Platz sichern bei Crush.lu."
 
 #: .\crush_lu\templates\crush_lu\event_list.html:11
 msgid ""
-"Browse upcoming speed dating events, social mixers, and singles meetups in "
-"Luxembourg. Join Crush.lu events to meet real people."
+"Join speed dating nights, social mixers, and singles meetups in Luxembourg. "
+"Real events, real people, real connections."
 msgstr ""
-"Entdecken Sie kommende Speed-Dating-Events, Social Mixer und Singles-Treffen "
-"in Luxemburg. Nehmen Sie an Crush.lu Events teil, um echte Menschen zu "
-"treffen."
+"Speed-Dating-Abende, Social Mixer und Singles-Treffen in Luxemburg. Echte "
+"Events, echte Menschen, echte Verbindungen."
 
 #: .\crush_lu\templates\crush_lu\event_list.html:13
 msgid ""
-"Find upcoming dating events in Luxembourg. Crush.lu hosts speed dating "
-"nights, social mixers, activity meetups, and themed events for singles "
-"looking for authentic connections."
+"Speed dating events in Luxembourg for singles. Join Crush.lu for coach-"
+"curated speed dating nights, social mixers, and themed meetups. Book your "
+"next event now."
 msgstr ""
-"Finden Sie kommende Dating-Events in Luxemburg. Crush.lu veranstaltet Speed-"
-"Dating-Abende, Social Mixer, Aktivitäts-Treffen und Themen-Events für "
-"Singles, die authentische Verbindungen suchen."
+"Speed Dating Events in Luxemburg für Singles. Crush.lu organisiert Speed-"
+"Dating-Abende, Social Mixer und Themen-Events. Jetzt nächstes Event buchen."
 
 #: .\crush_lu\templates\crush_lu\event_list.html:14
 msgid ""
-"dating events luxembourg, speed dating luxembourg, singles meetups, social "
-"mixer luxembourg, crush.lu events, luxembourg dating events"
+"speed dating luxembourg, dating events luxembourg, singles events "
+"luxembourg, single party luxembourg, meetup luxembourg, soiree celibataire "
+"luxembourg"
 msgstr ""
-"crush.lu, dating luxemburg, speed dating luxemburg, singles events "
-"luxemburg, meetup luxemburg, dating events, luxemburg singles, coach dating, "
-"datenschutz dating"
+"speed dating luxemburg, dating events luxemburg, singles events luxemburg, "
+"single party luxemburg, singletreff luxemburg, partnersuche luxemburg"
 
 #: .\crush_lu\templates\crush_lu\event_list.html:61
 #, python-format
@@ -16361,57 +16359,51 @@ msgid "Download My Data"
 msgstr "QR-Code herunterladen"
 
 #: .\crush_lu\templates\crush_lu\home.html:5
-msgid ""
-"Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups"
-msgstr ""
-"Crush.lu - Neue Leute in Luxemburg kennenlernen | Dating-Events &Singles-"
-"Treffen"
+msgid "Crush.lu - Dating Luxembourg | Speed Dating Events & Singles Meetups"
+msgstr "Crush.lu - Dating Luxemburg | Speed Dating Events & Singles Treffen"
 
 #: .\crush_lu\templates\crush_lu\home.html:7
 #: .\crush_lu\templates\crush_lu\home.html:10
-msgid "Crush.lu - Meet New People in Luxembourg"
-msgstr "Crush.lu - Neue Leute in Luxemburg kennenlernen"
+msgid "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events"
+msgstr "Crush.lu - Dating in Luxemburg | Speed Dating & Singles Events"
 
 #: .\crush_lu\templates\crush_lu\home.html:8
 msgid ""
-"Privacy-first dating platform for Luxembourg. Join coach-curated events, "
-"meet real singles, and build authentic connections. No endless swiping - "
-"just meaningful meetups."
+"Luxembourg's dating platform for real connections. Join speed dating events, "
+"social mixers, and singles meetups. Coach-reviewed profiles, no endless "
+"swiping."
 msgstr ""
-"Datenschutz-orientierte Dating-Plattform für Luxemburg. Nehmen Sie an von "
-"Coaches kuratierten Events teil, treffen Sie echte Singles und bauen Sie "
-"authentische Verbindungen auf. Kein endloses Swipen - nur bedeutungsvolle "
-"Treffen."
+"Luxemburgs Dating-Plattform für echte Verbindungen. Speed Dating Events, "
+"Social Mixer und Singles-Treffen. Coach-geprüfte Profile, kein endloses "
+"Swipen."
 
 #: .\crush_lu\templates\crush_lu\home.html:11
 msgid ""
-"Privacy-first dating platform for Luxembourg. Join coach-curated events, "
-"meet real singles, and build authentic connections."
+"Luxembourg's dating platform for real connections. Join speed dating events, "
+"social mixers, and singles meetups."
 msgstr ""
-"Datenschutz-orientierte Dating-Plattform für Luxemburg. Nehmen Sie an von "
-"Coaches kuratierten Events teil, treffen Sie echte Singles und bauen Sie "
-"authentische Verbindungen auf."
+"Luxemburgs Dating-Plattform für echte Verbindungen. Speed Dating Events, "
+"Social Mixer und Singles-Treffen."
 
 #: .\crush_lu\templates\crush_lu\home.html:13
 msgid ""
-"Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at "
-"curated speed dating events, social mixers, and themed meetups. Coach-"
-"reviewed profiles ensure authentic connections."
+"Crush.lu is Luxembourg's dating platform. Meet singles at speed dating "
+"events, social mixers, and themed meetups. Coach-reviewed profiles ensure "
+"authentic connections. Join free."
 msgstr ""
-"Crush.lu ist Luxemburgs datenschutz-orientierte Dating-Plattform. Treffen "
-"Sie Singles bei kuratierten Speed-Dating-Events, gesellschaftlichen Mixern "
-"und Themen-Treffen. Von Coaches geprüfte Profile gewährleisten authentische "
-"Verbindungen."
+"Crush.lu ist Luxemburgs Dating-Plattform. Treffe Singles bei Speed Dating "
+"Events, Social Mixern und Themen-Treffen. Coach-geprüfte Profile für echte "
+"Verbindungen. Kostenlos anmelden."
 
 #: .\crush_lu\templates\crush_lu\home.html:14
 msgid ""
 "crush.lu, dating luxembourg, speed dating luxembourg, singles events "
-"luxembourg, meetup luxembourg, dating events, luxembourg singles, coach "
-"dating, privacy dating"
+"luxembourg, meetup luxembourg, dating events, luxembourg singles, rencontre "
+"luxembourg, singles in luxemburg"
 msgstr ""
-"crush.lu, dating luxemburg, speed dating luxemburg, singles events "
-"luxemburg, meetup luxemburg, dating events, luxemburg singles, coach dating, "
-"datenschutz dating"
+"crush.lu, dating luxemburg, speed dating luxemburg, singles events luxemburg, "
+"singletreff luxemburg, dating events, singles luxemburg, partnersuche "
+"luxemburg, singles in luxemburg"
 
 #: .\crush_lu\templates\crush_lu\home.html:26
 msgid ""
@@ -24680,27 +24672,27 @@ msgstr ""
 "Empfänger zugewiesen! Der Absender wird benachrichtigt, seine Reise zu "
 "erstellen."
 
-#: .\crush_lu\views_events.py:261
+#: .\crush_lu\views_events.py:276
 msgid "Upcoming Dating Events in Luxembourg"
 msgstr "Kommende Dating Events in Luxemburg"
 
-#: .\crush_lu\views_events.py:264
+#: .\crush_lu\views_events.py:279
 msgid "Speed dating, social mixers, and singles meetups organized by Crush.lu"
 msgstr ""
 "Speed-Dating, gesellschaftliche Mixer und Singles-Treffen, organisiert von "
 "Crush.lu"
 
-#: .\crush_lu\views_events.py:299
+#: .\crush_lu\views_events.py:314
 #, fuzzy
 #| msgid "Private Invitation Only"
 msgid "This event is by invitation only."
 msgstr "Nur auf private Einladung"
 
-#: .\crush_lu\views_events.py:550
+#: .\crush_lu\views_events.py:588
 msgid "You do not have an approved invitation for this event."
 msgstr "Sie haben keine genehmigte Einladung für dieses Event."
 
-#: .\crush_lu\views_events.py:561
+#: .\crush_lu\views_events.py:599
 msgid ""
 "Please complete your profile before registering for events. This is required "
 "for all users, even with invitations."
@@ -24708,11 +24700,11 @@ msgstr ""
 "Bitte vervollständige dein Profil, bevor du dich für Events anmeldest. Dies "
 "ist für alle Nutzer erforderlich, auch mit Einladungen."
 
-#: .\crush_lu\views_events.py:577
+#: .\crush_lu\views_events.py:615
 msgid "Your profile is missing. Please contact support for assistance."
 msgstr "Dein Profil fehlt. Bitte kontaktiere den Support für Hilfe."
 
-#: .\crush_lu\views_events.py:589
+#: .\crush_lu\views_events.py:627
 msgid ""
 "This event requires an approved profile. Your profile is currently under "
 "review."
@@ -24720,28 +24712,28 @@ msgstr ""
 "Dieses Event erfordert ein genehmigtes Profil. Ihr Profil wird derzeit "
 "überprüft."
 
-#: .\crush_lu\views_events.py:596
+#: .\crush_lu\views_events.py:634
 msgid "This event requires a Crush profile. Please create one to register."
 msgstr ""
 "Dieses Event erfordert ein Crush-Profil. Bitte erstellen Sie eines, um sich "
 "anzumelden."
 
-#: .\crush_lu\views_events.py:608
+#: .\crush_lu\views_events.py:646
 msgid ""
 "This event has age restrictions. Please create a profile to verify your age."
 msgstr ""
 "Dieses Event hat Altersbeschränkungen. Bitte erstellen Sie ein Profil, um "
 "Ihr Alter zu bestätigen."
 
-#: .\crush_lu\views_events.py:620
+#: .\crush_lu\views_events.py:658
 msgid "You are already registered for this event."
 msgstr "Sie sind bereits für diese Veranstaltung angemeldet."
 
-#: .\crush_lu\views_events.py:624 .\crush_lu\views_events.py:651
+#: .\crush_lu\views_events.py:662 .\crush_lu\views_events.py:689
 msgid "Registration is not available for this event."
 msgstr "Anmeldung für diese Veranstaltung nicht verfügbar."
 
-#: .\crush_lu\views_events.py:694
+#: .\crush_lu\views_events.py:732
 #, fuzzy
 #| msgid "Event is full. You have been added to the waitlist."
 msgid ""
@@ -24749,21 +24741,21 @@ msgid ""
 "waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views_events.py:701
+#: .\crush_lu\views_events.py:739
 msgid "Event is full. You have been added to the waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views_events.py:705
+#: .\crush_lu\views_events.py:743
 msgid "Successfully registered for the event!"
 msgstr "Erfolgreich für die Veranstaltung angemeldet!"
 
-#: .\crush_lu\views_events.py:768
+#: .\crush_lu\views_events.py:806
 #, fuzzy
 #| msgid "Your registration has been cancelled."
 msgid "Your registration was already cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
-#: .\crush_lu\views_events.py:773
+#: .\crush_lu\views_events.py:811
 msgid "Your registration has been cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
@@ -25039,6 +25031,43 @@ msgid ""
 msgstr ""
 "Apple Wallet-Unterstützung ist bald verfügbar! Bitte nutzen Sie in der "
 "Zwischenzeit Google Wallet."
+
+#~ msgid ""
+#~ "Browse upcoming speed dating events, social mixers, and singles meetups "
+#~ "in Luxembourg. Join Crush.lu events to meet real people."
+#~ msgstr ""
+#~ "Entdecken Sie kommende Speed-Dating-Events, Social Mixer und Singles-"
+#~ "Treffen in Luxemburg. Nehmen Sie an Crush.lu Events teil, um echte "
+#~ "Menschen zu treffen."
+
+#~ msgid ""
+#~ "dating events luxembourg, speed dating luxembourg, singles meetups, "
+#~ "social mixer luxembourg, crush.lu events, luxembourg dating events"
+#~ msgstr ""
+#~ "crush.lu, dating luxemburg, speed dating luxemburg, singles events "
+#~ "luxemburg, meetup luxemburg, dating events, luxemburg singles, coach "
+#~ "dating, datenschutz dating"
+
+#~ msgid "Crush.lu - Meet New People in Luxembourg"
+#~ msgstr "Crush.lu - Neue Leute in Luxemburg kennenlernen"
+
+#~ msgid ""
+#~ "Privacy-first dating platform for Luxembourg. Join coach-curated events, "
+#~ "meet real singles, and build authentic connections. No endless swiping - "
+#~ "just meaningful meetups."
+#~ msgstr ""
+#~ "Datenschutz-orientierte Dating-Plattform für Luxemburg. Nehmen Sie an von "
+#~ "Coaches kuratierten Events teil, treffen Sie echte Singles und bauen Sie "
+#~ "authentische Verbindungen auf. Kein endloses Swipen - nur bedeutungsvolle "
+#~ "Treffen."
+
+#~ msgid ""
+#~ "Privacy-first dating platform for Luxembourg. Join coach-curated events, "
+#~ "meet real singles, and build authentic connections."
+#~ msgstr ""
+#~ "Datenschutz-orientierte Dating-Plattform für Luxemburg. Nehmen Sie an von "
+#~ "Coaches kuratierten Events teil, treffen Sie echte Singles und bauen Sie "
+#~ "authentische Verbindungen auf."
 
 #, fuzzy
 #~| msgid ""

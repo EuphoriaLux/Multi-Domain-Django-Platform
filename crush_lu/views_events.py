@@ -215,8 +215,16 @@ def event_list(request):
         if not description:
             description = f"Dating event in Luxembourg organized by Crush.lu"
 
+        # Map event languages for inLanguage
+        lang_map = {"en": "en", "de": "de", "fr": "fr"}
+        event_languages = [
+            lang_map[lang]
+            for lang in (event.languages or [])
+            if lang in lang_map
+        ]
+
         event_item = {
-            "@type": "Event",
+            "@type": "SocialEvent",
             "name": event.title or "",
             "description": description,
             "startDate": event.date_time.isoformat(),
@@ -241,7 +249,14 @@ def event_list(request):
                 "validFrom": event.created_at.isoformat(),
             },
             "url": f"https://crush.lu{event_url}",
+            "audience": {
+                "@type": "PeopleAudience",
+                "suggestedMinAge": event.min_age,
+                "suggestedMaxAge": event.max_age,
+            },
         }
+        if event_languages:
+            event_item["inLanguage"] = event_languages if len(event_languages) > 1 else event_languages[0]
 
         if performers:
             event_item["performer"] = performers
@@ -347,9 +362,25 @@ def event_detail(request, event_id):
     ]
 
     event_url = reverse("crush_lu:event_detail", args=[event.id])
+
+    # Map event_type to schema.org Event sub-types for richer snippets
+    event_type_schema = {
+        "speed_dating": "SocialEvent",
+        "mixer": "SocialEvent",
+        "activity": "SocialEvent",
+        "themed": "SocialEvent",
+    }
+    schema_type = event_type_schema.get(event.event_type, "SocialEvent")
+
+    # Map event languages to ISO codes for inLanguage
+    lang_map = {"en": "en", "de": "de", "fr": "fr"}
+    event_languages = [
+        lang_map[lang] for lang in (event.languages or []) if lang in lang_map
+    ]
+
     event_jsonld_data = {
         "@context": "https://schema.org",
-        "@type": "Event",
+        "@type": schema_type,
         "name": event.title,
         "description": event.description,
         "startDate": event.date_time.isoformat(),
@@ -382,7 +413,14 @@ def event_detail(request, event_id):
         "image": event.image.url
         if event.image
         else "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
+        "audience": {
+            "@type": "PeopleAudience",
+            "suggestedMinAge": event.min_age,
+            "suggestedMaxAge": event.max_age,
+        },
     }
+    if event_languages:
+        event_jsonld_data["inLanguage"] = event_languages if len(event_languages) > 1 else event_languages[0]
     if performers:
         event_jsonld_data["performer"] = performers
     event_jsonld = json.dumps(event_jsonld_data, ensure_ascii=False)

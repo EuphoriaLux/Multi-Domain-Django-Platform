@@ -56,22 +56,35 @@
     <meta name="geo.region" content="LU">
     <meta name="geo.placename" content="Luxembourg">
 
-    <!-- Schema.org Organization Structured Data (JSON-LD) -->
+    <!-- Schema.org Structured Data (JSON-LD) -->
     {% block structured_data %}
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "Organization",
+        "@type": ["Organization", "LocalBusiness"],
         "name": "Crush.lu",
         "alternateName": "Crush Luxembourg",
         "url": "https://crush.lu",
         "logo": "https://crush.lu{% static 'crush_lu/icons/android-launchericon-512-512.png' %}",
-        "description": "Privacy-first dating platform for Luxembourg. Meet real people at organized events - no endless swiping, just authentic connections.",
+        "image": "https://crush.lu{% static 'crush_lu/crush_social_preview.jpg' %}",
+        "description": "Privacy-first dating platform for Luxembourg. Meet real people at organized speed dating events, social mixers, and singles meetups.",
         "foundingDate": "2025",
         "areaServed": {
             "@type": "Country",
             "name": "Luxembourg"
         },
+        "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "LU",
+            "addressLocality": "Luxembourg"
+        },
+        "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 49.6116,
+            "longitude": 6.1319
+        },
+        "priceRange": "€",
+        "knowsLanguage": ["en", "de", "fr"],
         "sameAs": [{% for link in social_links %}"{{ link.url }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
         "contactPoint": {
             "@type": "ContactPoint",
@@ -212,7 +225,7 @@
                 </button>
 
                 <!-- Desktop Navigation -->
-                <nav class="desktop-nav items-center space-x-1" role="navigation" aria-label="{% trans "Main navigation" %}">
+                <div class="desktop-nav items-center space-x-1" role="navigation" aria-label="{% trans "Main navigation" %}">
                     {% if user.is_authenticated %}
                         {# Check if user is a coach #}
                         {% if user.crushcoach and user.crushcoach.is_active %}
@@ -332,7 +345,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
+                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -599,7 +612,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
+                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -667,7 +680,7 @@
 
                     {# Language Switcher (always visible) #}
                     {% include "crush_lu/partials/language_switcher.html" %}
-                </nav>
+                </div>
             </div>
 
             <!-- Mobile Navigation Menu -->
@@ -763,7 +776,7 @@
                                     {% trans "Ideal Crush" %}
                                     <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
-                                {% elif profile_completion_status in 'not_started,step1,step2,step3,completed' %}
+                                {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Finish Profile" %}
@@ -1039,7 +1052,7 @@
             </a>
         </div>
     </div>
-    {% elif user.is_authenticated and profile_status in 'pending,under_review' and not profile_is_approved %}
+    {% elif user.is_authenticated and profile_status == 'pending' and not profile_is_approved or user.is_authenticated and profile_status == 'under_review' and not profile_is_approved %}
     <!-- Pending Review Banner -->
     <div class="bg-purple-600 text-white px-4 py-3 text-center" role="alert">
         <div class="flex items-center justify-center gap-2 flex-wrap">

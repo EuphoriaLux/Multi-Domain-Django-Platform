@@ -5,6 +5,8 @@
 
 {% block title %}{% if mode == 'signup' %}{% trans "Join" %}{% else %}{% trans "Login" %}{% endif %} - Crush.lu{% endblock %}
 
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
 {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-md">

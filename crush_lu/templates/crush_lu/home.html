@@ -2,16 +2,16 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Crush.lu - Meet New People in Luxembourg | Dating Events & Singles Meetups" %}{% endblock %}
+{% block title %}{% trans "Crush.lu - Dating Luxembourg | Speed Dating Events & Singles Meetups" %}{% endblock %}
 
-{% block og_title %}{% trans "Crush.lu - Meet New People in Luxembourg" %}{% endblock %}
-{% block og_description %}{% trans "Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections. No endless swiping - just meaningful meetups." %}{% endblock %}
+{% block og_title %}{% trans "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events" %}{% endblock %}
+{% block og_description %}{% trans "Luxembourg's dating platform for real connections. Join speed dating events, social mixers, and singles meetups. Coach-reviewed profiles, no endless swiping." %}{% endblock %}
 
-{% block twitter_title %}{% trans "Crush.lu - Meet New People in Luxembourg" %}{% endblock %}
-{% block twitter_description %}{% trans "Privacy-first dating platform for Luxembourg. Join coach-curated events, meet real singles, and build authentic connections." %}{% endblock %}
+{% block twitter_title %}{% trans "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events" %}{% endblock %}
+{% block twitter_description %}{% trans "Luxembourg's dating platform for real connections. Join speed dating events, social mixers, and singles meetups." %}{% endblock %}
 
-{% block meta_description %}{% trans "Crush.lu is Luxembourg's privacy-first dating platform. Meet singles at curated speed dating events, social mixers, and themed meetups. Coach-reviewed profiles ensure authentic connections." %}{% endblock %}
-{% block meta_keywords %}{% trans "crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, coach dating, privacy dating" %}{% endblock %}
+{% block meta_description %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Coach-reviewed profiles ensure authentic connections. Join free." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, rencontre luxembourg, singles in luxemburg" %}{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -237,31 +237,39 @@
 
 {% block extra_js %}
 <script nonce="{{ request.csp_nonce }}">
-    // Intersection Observer for scroll animations
-    const observerOptions = {
-        threshold: 0.05,
-        rootMargin: '50px 0px 50px 0px'
-    };
+    const animatedElements = document.querySelectorAll('.animate-on-scroll');
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-                observer.unobserve(entry.target);
-            }
+    if ('IntersectionObserver' in window) {
+        // Intersection Observer for scroll animations
+        const observerOptions = {
+            threshold: 0.05,
+            rootMargin: '50px 0px 50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        animatedElements.forEach(el => {
+            observer.observe(el);
         });
-    }, observerOptions);
 
-    // Observe all animated elements
-    document.querySelectorAll('.animate-on-scroll').forEach(el => {
-        observer.observe(el);
-    });
-
-    // Fallback: Make all elements visible after 1 second if observer doesn't trigger
-    setTimeout(() => {
-        document.querySelectorAll('.animate-on-scroll:not(.visible)').forEach(el => {
+        // Fallback: Make all elements visible after 1 second if observer doesn't trigger
+        setTimeout(() => {
+            document.querySelectorAll('.animate-on-scroll:not(.visible)').forEach(el => {
+                el.classList.add('visible');
+            });
+        }, 1000);
+    } else {
+        // Fallback for older browsers
+        animatedElements.forEach(el => {
             el.classList.add('visible');
         });
-    }, 1000);
+    }
 </script>
 {% endblock %}
