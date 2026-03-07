@@ -7,10 +7,14 @@ class PWAInstaller {
     constructor() {
         this.deferredPrompt = null;
         this.installButton = null;
+        this.handleDismissEvent = this.dismissBanner.bind(this);
         this.init();
     }
 
     init() {
+        // Listen once for dismiss event emitted by Alpine component
+        window.addEventListener('pwa-dismiss-install', this.handleDismissEvent);
+
         // Listen for the beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent the mini-infobar from appearing on mobile
@@ -45,13 +49,10 @@ class PWAInstaller {
 
         // Set up install button listener
         this.installButton = document.getElementById('pwa-install-button');
-        if (this.installButton && !this.installButton.hasAttribute('data-listeners-added')) {
+        if (this.installButton && !this.installButton.__pwaInstallBound) {
             this.installButton.addEventListener('click', () => this.handleInstall());
-            this.installButton.setAttribute('data-listeners-added', 'true');
+            this.installButton.__pwaInstallBound = true;
         }
-
-        // Listen for dismiss event from Alpine component
-        window.addEventListener('pwa-dismiss-install', () => this.dismissBanner());
     }
 
     async handleInstall() {
@@ -63,7 +64,7 @@ class PWAInstaller {
         this.deferredPrompt.prompt();
 
         // Wait for the user to respond to the prompt
-        const { outcome } = await this.deferredPrompt.userChoice;
+        await this.deferredPrompt.userChoice;
 
         // Clear the deferred prompt
         this.deferredPrompt = null;

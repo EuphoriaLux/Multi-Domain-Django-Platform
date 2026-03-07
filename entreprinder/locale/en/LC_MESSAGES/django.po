@@ -1,0 +1,853 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-07 22:54+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: .\entreprinder\templates\account\base_account.html:55
+msgid "All rights reserved."
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:4
+#: .\entreprinder\templates\account\email.html:22
+msgid "Manage E-mail Addresses"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:26
+msgid "The following e-mail addresses are associated with your account:"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:43
+msgid "Verified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:45
+msgid "Unverified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:48
+msgid "Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:57
+msgid "Make Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:58
+msgid "Re-send Verification"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:59
+msgid "Remove"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:76
+msgid "Add E-mail Address"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:83
+msgid "Add E-mail"
+msgstr ""
+
+#: .\entreprinder\templates\account\email.html:97
+msgid "Do you really want to remove the selected email address?"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_confirm.html:5
+#: .\entreprinder\templates\account\email_confirm.html:10
+msgid "Confirm E-mail Address"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_confirm.html:16
+#, python-format
+msgid ""
+"Please confirm that <a href=\"mailto:%(email)s\">%(email)s</a> is an e-mail "
+"address for user %(user_display)s."
+msgstr ""
+
+#: .\entreprinder\templates\account\email_confirm.html:20
+msgid "Confirm"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_confirm.html:27
+#, python-format
+msgid ""
+"This e-mail confirmation link expired or is invalid. Please <a href="
+"\"%(email_url)s\">issue a new e-mail confirmation request</a>."
+msgstr ""
+
+#: .\entreprinder\templates\account\login.html:6
+#: .\entreprinder\templates\account\login.html:34
+#: .\entreprinder\templates\account\login_powerup.html:6
+#: .\entreprinder\templates\account\login_powerup.html:34
+msgid "Sign In"
+msgstr ""
+
+#: .\entreprinder\templates\account\login.html:36
+#: .\entreprinder\templates\account\login_powerup.html:36
+#: .\entreprinder\templates\base.html:128
+msgid "Sign in with LinkedIn"
+msgstr ""
+
+#: .\entreprinder\templates\account\logout.html:4
+#: .\entreprinder\templates\account\logout.html:10
+#: .\entreprinder\templates\account\logout.html:19
+#: .\entreprinder\templates\account\logout_powerup.html:4
+#: .\entreprinder\templates\account\logout_powerup.html:13
+#: .\entreprinder\templates\account\logout_powerup.html:23
+msgid "Sign Out"
+msgstr ""
+
+#: .\entreprinder\templates\account\logout.html:12
+#: .\entreprinder\templates\account\logout_powerup.html:14
+msgid "Are you sure you want to sign out?"
+msgstr ""
+
+#: .\entreprinder\templates\account\logout.html:20
+#: .\entreprinder\templates\account\logout_powerup.html:24
+msgid "Cancel"
+msgstr ""
+
+#: .\entreprinder\templates\account\password_reset.html:3
+#: .\entreprinder\templates\account\password_reset.html:9
+msgid "Password Reset"
+msgstr ""
+
+#: .\entreprinder\templates\account\password_reset.html:14
+msgid ""
+"Forgotten your password? Enter your e-mail address below, and we'll send you "
+"an e-mail allowing you to reset it."
+msgstr ""
+
+#: .\entreprinder\templates\account\password_reset.html:19
+msgid "Reset My Password"
+msgstr ""
+
+#: .\entreprinder\templates\account\password_reset.html:22
+msgid "Please contact us if you have any trouble resetting your password."
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:3
+#: .\entreprinder\templates\account\signup.html:9
+#: .\entreprinder\templates\account\signup.html:45
+msgid "Sign Up"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:22
+msgid "E-mail"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:27
+msgid "Password"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:32
+msgid "Password (again)"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:37
+#: .\entreprinder\templates\entreprinder\profile.html:59
+msgid "Company"
+msgstr ""
+
+#: .\entreprinder\templates\account\signup.html:48
+msgid ""
+"By signing up, you agree to our <a href=\"#\">Terms of Service</a> and <a "
+"href=\"#\">Privacy Policy</a>."
+msgstr ""
+
+#: .\entreprinder\templates\admin\base_site.html:4
+#: .\entreprinder\templates\admin\base_site.html:29
+msgid "Entreprinder Administration"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:62
+msgid "Home"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:67
+msgid "Vibe Coding"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:72
+msgid "Contact"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:78
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:8
+msgid "Find Entrepreneurs"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:116
+msgid "Logout"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:136
+msgid "Login"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:167
+#, python-format
+msgid "Your email address (%(email)s) is not verified."
+msgstr ""
+
+#: .\entreprinder\templates\base.html:168
+msgid "Please verify your email address to access all features."
+msgstr ""
+
+#: .\entreprinder\templates\base.html:169
+msgid "Need a new verification email?"
+msgstr ""
+
+#: .\entreprinder\templates\base.html:169
+msgid "Resend verification"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:4
+#: .\entreprinder\templates\entreprinder\about.html:9
+msgid "About Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:10
+msgid ""
+"Entreprinder is the premier platform connecting entrepreneurs in Luxembourg."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:12
+msgid "Our Mission"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:13
+msgid ""
+"At Entreprinder, we believe in the power of connection and collaboration. "
+"Our mission is to foster a vibrant entrepreneurial ecosystem in Luxembourg "
+"by providing a platform where innovators, creators, and business leaders can "
+"come together, share ideas, and build successful ventures."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:15
+msgid "Our Story"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:16
+msgid ""
+"Founded in 2024, Entreprinder was born out of a need for a centralized hub "
+"where Luxembourg's diverse and dynamic entrepreneurial community could "
+"thrive. We recognized the unique challenges and opportunities that "
+"Luxembourg's business landscape presents, and created a tailored solution to "
+"address these needs."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:18
+msgid "What We Offer"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:20
+msgid "A user-friendly platform for networking and collaboration"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:21
+msgid "Access to local events and workshops"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:22
+#: .\entreprinder\templates\entreprinder\landing_page.html:58
+msgid "Resources tailored to Luxembourg's business environment"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:23
+msgid "Opportunities for mentorship and knowledge sharing"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:26
+msgid "Join us in shaping the future of entrepreneurship in Luxembourg!"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\about.html:27
+msgid "Join Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:4
+msgid "Contact Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:9
+msgid "Contact Us"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:10
+msgid "We'd love to hear from you! Get in touch with the Entreprinder team."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:14
+msgid "Name"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:18
+msgid "Email address"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:22
+msgid "Subject"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:26
+msgid "Message"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:29
+msgid "Send Message"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:33
+msgid "Other Ways to Reach Us"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:34
+msgid "Email:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:35
+msgid "Phone:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\contact.html:39
+msgid "Follow Us"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:7
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:89
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:97
+msgid "Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:97
+msgid "Entrepreneur Networking"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:102
+msgid "You're receiving this because you have an account on Entreprinder."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\emails\base_email.html:104
+msgid "If you have questions, contact us at contact@entreprinder.lu"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:4
+msgid "Find Entrepreneurs - Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:15
+#, python-format
+msgid "%(username)s's profile picture"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:17
+msgid "Default profile picture"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:21
+msgid "Industry:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:22
+msgid "Company:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:24
+msgid "Like"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:25
+msgid "Loading..."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
+msgid "No more entrepreneurs to show at the moment."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:60
+msgid "It's a match!"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\error.html:4
+msgid "Error"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\error.html:11
+msgid "An Error Occurred"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\error.html:15
+msgid ""
+"Please try again later. If the problem persists, contact support with the "
+"following error details:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\error.html:19
+msgid "Return to Home"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:4
+msgid "Entreprinder - Connect Entrepreneurs in Luxembourg"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:9
+msgid "Welcome to Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:10
+msgid ""
+"The premier platform for entrepreneurs in Luxembourg to connect, "
+"collaborate, and grow their businesses together."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:11
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:122
+msgid "Join Now"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:22
+msgid "Connect"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:23
+msgid "Network with like-minded entrepreneurs in Luxembourg"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:31
+msgid "Collaborate"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:32
+msgid "Find partners for your next big project"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:40
+msgid "Grow"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:41
+msgid "Access resources and support to scale your business"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:51
+msgid "Why Choose Entreprinder?"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:55
+msgid "Exclusive focus on Luxembourg's entrepreneurial ecosystem"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:56
+msgid "Easy-to-use platform for finding and connecting with potential partners"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:57
+msgid "Access to local events, workshops, and networking opportunities"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:67
+msgid "Ready to take your entrepreneurial journey to the next level?"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\landing_page.html:68
+msgid "Get Started"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:4
+msgid "Your Profile - Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:29
+msgid "Your Entrepreneur Profile"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:51
+msgid "Bio"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:63
+msgid "Industry"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:69
+msgid "Looking For"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:74
+msgid "Location"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\profile.html:79
+msgid "Save Profile"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:7
+msgid "Road Trip Discovery - 90 Minutes to Connection"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:213
+msgid "Road Trip Discovery"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:215
+msgid "90 minutes to reconnection"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:221
+msgid ""
+"Hey Maxi! 16 years after that party where we first met, we're finally on "
+"this journey together. This game is designed for our drive to Euskirchen "
+"Therme."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:226
+msgid "90 minutes"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:227
+msgid "25 questions"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:228
+msgid "5 phases"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:233
+msgid "Let's Begin This Journey"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:252
+msgid "Start Phase"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:262
+msgid "Choose Your Soundtrack"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:263
+msgid "Music selection subtitle"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:267
+msgid "Music description"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:277
+msgid "Maxi's picks:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:278
+msgid "His music choices..."
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:291
+msgid "Phase 1: Then & Now"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:292
+msgid "Question 1/5"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:302
+msgid "Question will appear here"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:314
+msgid "His response:"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:320
+msgid "Continue"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:331
+msgid "Phase Complete!"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:332
+msgid "Your connection score so far"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:340
+msgid "Continue to Next Phase"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:351
+msgid "Journey Complete"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:356
+msgid "Compatibility Score"
+msgstr ""
+
+#: .\entreprinder\templates\entreprinder\road_trip_game.html:368
+msgid "Play Again"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:4
+msgid "No More Profiles - Entreprinder"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:10
+msgid "No More Profiles Available"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:11
+msgid ""
+"You've viewed all available profiles for now. Check back later for new "
+"entrepreneurs!"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:13
+msgid "Return Home"
+msgstr ""
+
+#: .\entreprinder\templates\matching\no_more_profiles.html:14
+msgid "View Your Matches"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:5
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:13
+msgid "Complete Your Signup"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:15
+#, python-format
+msgid ""
+"\n"
+"                        You're signing up using your %(provider)s account.\n"
+"                        Please confirm your information below.\n"
+"                        "
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:23
+msgid "Errors:"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:38
+msgid "Email"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:46
+#, python-format
+msgid ""
+"\n"
+"                                This email is from your %(provider)s account "
+"and cannot be changed.\n"
+"                                "
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:60
+msgid "Complete Signup"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:66
+msgid "Already have an account?"
+msgstr ""
+
+#: .\entreprinder\templates\socialaccount\signup_powerup.html:67
+msgid "Login here"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:70
+msgid ""
+"Welcome to the Vibe Coding projects page. Explore our interactive coding "
+"experiments!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:75
+msgid ""
+"Join the collaborative pixel art canvas! Place pixels, create art, and "
+"compete with others in real-time."
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:76
+msgid "Play Now"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\index.html:81
+msgid "We're working on exciting new interactive experiences. Stay tuned!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:32
+msgid "Collaborate or compete - Every pixel counts!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:61
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:156
+msgid "Choose Color"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:82
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:177
+msgid "Custom:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:91
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:186
+msgid "Canvas Info"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:93
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:188
+msgid "Size:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:97
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:196
+msgid "Status:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:99
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:198
+msgid "Active"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:99
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:198
+msgid "Inactive"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:104
+msgid "Pixel Limits"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:107
+msgid "Member"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:109
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:115
+msgid "Cooldown:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:113
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:144
+msgid "Guest"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:119
+msgid "Want more pixels?"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:129
+msgid "Your Stats"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:132
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:143
+msgid "Player:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:137
+msgid "Total:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:146
+msgid "Login to track stats!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:149
+msgid "Color:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:153
+msgid "Next in:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:157
+msgid "Remaining:"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:227
+msgid "Recent Activity"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war.html:229
+msgid "Loading activity..."
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:5
+msgid "Pixel War - Optimized"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:63
+msgid "Pixel War - Optimized Version"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:94
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:45
+msgid "Color Palette"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:107
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:204
+msgid "Controls"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_optimized.html:117
+msgid "Stats"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:6
+msgid "Pixel War - PixiJS"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_pixi.html:30
+msgid "Pixel War - PixiJS Version"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:128
+msgid "TypeScript Edition - Enhanced Mobile Navigation!"
+msgstr ""
+
+#: .\entreprinder\templates\vibe_coding\pixel_war_ts.html:192
+msgid "Version:"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:23
+msgid "Vibe Coding Projects"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:51
+msgid "Lux Pixel War"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:82
+msgid "Lux Pixel War - Optimized"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:113
+msgid "Lux Pixel War - PixiJS"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:144
+msgid "Lux Pixel War - TypeScript"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:175
+msgid "Lux Pixel War - React"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:206
+msgid "Pixel Wars React Demo"
+msgstr ""
+
+#: .\entreprinder\vibe\views.py:421
+msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
+msgstr ""

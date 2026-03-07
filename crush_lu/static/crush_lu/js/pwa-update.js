@@ -57,20 +57,41 @@ class PWAUpdater {
         this.updateBanner.className = 'pwa-update-banner';
         this.updateBanner.setAttribute('role', 'alert');
         this.updateBanner.setAttribute('aria-live', 'polite');
-        this.updateBanner.innerHTML = `
-            <div class="pwa-update-content">
-                <span class="pwa-update-icon">&#x2728;</span>
-                <span class="pwa-update-text">A new version of Crush.lu is available!</span>
-            </div>
-            <div class="pwa-update-actions">
-                <button class="pwa-update-btn pwa-update-btn-primary" onclick="window.CrushUpdate.update()">
-                    Update Now
-                </button>
-                <button class="pwa-update-btn pwa-update-btn-secondary" onclick="window.CrushUpdate.dismiss()">
-                    Later
-                </button>
-            </div>
-        `;
+
+        const content = document.createElement('div');
+        content.className = 'pwa-update-content';
+
+        const icon = document.createElement('span');
+        icon.className = 'pwa-update-icon';
+        icon.innerHTML = '&#x2728;';
+
+        const text = document.createElement('span');
+        text.className = 'pwa-update-text';
+        text.textContent = 'A new version of Crush.lu is available!';
+
+        content.appendChild(icon);
+        content.appendChild(text);
+
+        const actions = document.createElement('div');
+        actions.className = 'pwa-update-actions';
+
+        const updateButton = document.createElement('button');
+        updateButton.type = 'button';
+        updateButton.className = 'pwa-update-btn pwa-update-btn-primary';
+        updateButton.textContent = 'Update Now';
+        updateButton.addEventListener('click', () => this.update());
+
+        const laterButton = document.createElement('button');
+        laterButton.type = 'button';
+        laterButton.className = 'pwa-update-btn pwa-update-btn-secondary';
+        laterButton.textContent = 'Later';
+        laterButton.addEventListener('click', () => this.dismiss());
+
+        actions.appendChild(updateButton);
+        actions.appendChild(laterButton);
+
+        this.updateBanner.appendChild(content);
+        this.updateBanner.appendChild(actions);
 
         // Add styles if not already present
         this.injectStyles();

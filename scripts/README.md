@@ -2,59 +2,36 @@
 
 Utility scripts for development, translation, deployment, and maintenance tasks.
 
-## 🚀 FinOps Hub Deployment Scripts
+## FinOps / Deployment
 
-### Quick Deploy
+- `deploy-finops-function.sh` - Azure Function deployment for daily cost sync
+- `sync_costs.sh` - Manual cost sync trigger
+- `upload_cost_exports_to_local.py` - Upload cost exports for local dev
+- `verify-timer-triggers.ps1` - Verify Azure Function timer triggers
 
-```bash
-# Deploy Azure Function for daily cost sync
-./scripts/deploy-finops-function.sh --generate-token
-```
+## Translation
 
-### Deployment Scripts
-
-- `deploy-finops-function.sh` - Azure Function deployment (Bash)
-
-**Documentation:**
-- See `AZURE_CLI_DEPLOYMENT.md` for complete deployment guide
-- See `.github/workflows/deploy-finops-sync-function.yml` for CI/CD automation
-
-## Translation Scripts
-
-- `translate_po.py` - Main translation tool (107KB)
+- `translate_po.py` - Main translation tool (reusable for new strings)
 - `translate_french_crush.py` - French translation automation
-- `translate_all_remaining_de.py` - Batch German translation
-- `final_translations_de.py` - Final German translation pass
-- `translate_remaining_de.py` - Remaining German translations
-- `verify_translations_de.py` - Verification script
-- `fix_fuzzy_de.py` - Fix fuzzy translation entries (uses polib)
-- `fix_fuzzy_german.py` - Alternative fuzzy fixer (line-by-line processing)
-- `show_untranslated.py` - Show untranslated strings
-- `split_locale.py` - Split locale files
+- `split_locale.py` - Split locale files by app
 
-## Storage Scripts
+## Local Development
 
-- `setup_azurite.py` - Azure Blob emulator setup
-- `migrate_blob_structure.py` - Storage migration utility
+- `setup_azurite.py` - Azure Blob Storage emulator setup (used by `setup_local_dev`)
 
-## Analysis Scripts
+## Security / Monitoring
 
-- `analyze_fuzzy.py` - Extract fuzzy entries from .po files
-- `batch_fix_fuzzy.py` - Batch fix fuzzy translation entries
-- `view_mobile_phone_field.py` - Phone field visualization for debugging
+- `check_codeql_alerts.sh` - Check CodeQL security alerts
+- `dismiss_codeql_alerts.sh` - Dismiss reviewed CodeQL alerts
 
-## Screenshot Scripts
+## SEO / Analytics
 
-- `capture_admin.py` - Admin panel screenshot utility
+- `gsc_report.py` - Google Search Console performance report
 
 ## Usage
 
 All scripts should be run from the project root:
 
 ```bash
-# Activate virtual environment first
-.venv/Scripts/Activate.ps1
-
-# Run script
-python scripts/script_name.py
+.venv/Scripts/python.exe scripts/script_name.py
 ```

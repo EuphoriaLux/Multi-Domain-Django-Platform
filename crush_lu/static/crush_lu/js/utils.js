@@ -8,8 +8,8 @@
  * @returns {string} CSRF token value
  */
 function getCsrfToken() {
-    // First try hidden input (works with CSRF_COOKIE_HTTPONLY=True)
-    const hiddenInput = document.getElementById('csrf-token');
+    // First try dedicated hidden inputs (works with CSRF_COOKIE_HTTPONLY=True)
+    const hiddenInput = document.getElementById('csrf-token-input') || document.getElementById('csrf-token');
     if (hiddenInput && hiddenInput.value) {
         return hiddenInput.value;
     }

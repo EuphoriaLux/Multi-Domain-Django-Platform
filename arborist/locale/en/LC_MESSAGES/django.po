@@ -1,0 +1,1594 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-07 22:54+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#: .\arborist\forms.py:13 .\arborist\templates\arborist\contact.html:81
+msgid "Name"
+msgstr ""
+
+#: .\arborist\forms.py:18
+msgid "Your name"
+msgstr ""
+
+#: .\arborist\forms.py:24 .\arborist\templates\arborist\contact.html:51
+#: .\arborist\templates\arborist\contact.html:96
+msgid "Email"
+msgstr ""
+
+#: .\arborist\forms.py:28
+msgid "your.email@example.com"
+msgstr ""
+
+#: .\arborist\forms.py:34 .\arborist\templates\arborist\contact.html:27
+#: .\arborist\templates\arborist\contact.html:88
+#: .\arborist\templates\arborist\partials\footer.html:43
+msgid "Phone"
+msgstr ""
+
+#: .\arborist\forms.py:40
+msgid "+352 ..."
+msgstr ""
+
+#: .\arborist\forms.py:46 .\arborist\templates\arborist\contact.html:107
+msgid "Please select"
+msgstr ""
+
+#: .\arborist\forms.py:47 .\arborist\templates\arborist\about.html:106
+#: .\arborist\templates\arborist\base.html:94
+#: .\arborist\templates\arborist\contact.html:108
+#: .\arborist\templates\arborist\gallery.html:37
+#: .\arborist\templates\arborist\home.html:69
+#: .\arborist\templates\arborist\partials\footer.html:57
+#: .\arborist\templates\arborist\partials\navigation.html:203
+#: .\arborist\templates\arborist\partials\navigation.html:244
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:10
+#: .\arborist\views.py:53
+msgid "Fruit Tree Care"
+msgstr ""
+
+#: .\arborist\forms.py:48 .\arborist\templates\arborist\base.html:102
+#: .\arborist\templates\arborist\contact.html:109
+#: .\arborist\templates\arborist\gallery.html:64
+#: .\arborist\templates\arborist\home.html:78
+#: .\arborist\templates\arborist\partials\footer.html:62
+#: .\arborist\templates\arborist\partials\navigation.html:204
+#: .\arborist\templates\arborist\partials\navigation.html:247
+#: .\arborist\templates\arborist\services\baumpflege.html:10
+#: .\arborist\views.py:68
+msgid "Tree Care"
+msgstr ""
+
+#: .\arborist\forms.py:49 .\arborist\templates\arborist\base.html:110
+#: .\arborist\templates\arborist\contact.html:110
+#: .\arborist\templates\arborist\home.html:23
+#: .\arborist\templates\arborist\home.html:87
+#: .\arborist\templates\arborist\partials\footer.html:67
+#: .\arborist\templates\arborist\partials\navigation.html:205
+#: .\arborist\templates\arborist\partials\navigation.html:250
+#: .\arborist\templates\arborist\services\baumkontrolle.html:10
+#: .\arborist\views.py:83
+msgid "Tree Inspection"
+msgstr ""
+
+#: .\arborist\forms.py:50 .\arborist\templates\arborist\contact.html:111
+#: .\arborist\templates\arborist\home.html:98
+#: .\arborist\templates\arborist\services\oekologie.html:10
+#: .\arborist\views.py:98
+msgid "Ecological Measures"
+msgstr ""
+
+#: .\arborist\forms.py:51 .\arborist\templates\arborist\contact.html:112
+msgid "General Consultation"
+msgstr ""
+
+#: .\arborist\forms.py:55 .\arborist\templates\arborist\contact.html:103
+msgid "Interested in"
+msgstr ""
+
+#: .\arborist\forms.py:66 .\arborist\templates\arborist\contact.html:117
+msgid "Your Message"
+msgstr ""
+
+#: .\arborist\forms.py:71 .\arborist\templates\arborist\contact.html:120
+msgid "Briefly describe your request..."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:10
+#: .\arborist\templates\arborist\partials\footer.html:91
+#: .\arborist\templates\arborist\partials\navigation.html:212
+#: .\arborist\templates\arborist\partials\navigation.html:262
+msgid "About Me"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:13
+msgid "Tom Aakrann - Your Arborist in Luxembourg"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:26
+msgid "Passion for Trees"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:30
+msgid ""
+"My name is Tom Aakrann and trees are my passion. As a certified arborist and "
+"tree inspector, I combine solid expertise with practical experience."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:33
+msgid ""
+"Every tree tells a story and deserves expert care. Whether a centuries-old "
+"oak or a young fruit tree - I treat every tree with the respect and care it "
+"deserves."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:40
+#: .\arborist\templates\arborist\home.html:10
+#: .\arborist\templates\arborist\partials\footer.html:142
+msgid "Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:43
+#: .\arborist\templates\arborist\home.html:47
+#: .\arborist\templates\arborist\partials\footer.html:119
+msgid "Luxembourg"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:56
+msgid "Qualifications"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:64
+#: .\arborist\templates\arborist\services\baumkontrolle.html:25
+msgid "FLL-Certified Tree Inspector"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:67
+msgid ""
+"Training according to the guidelines of the Research Society for Landscape "
+"Development and Landscape Construction (FLL) for visual tree inspection and "
+"traffic safety assessment."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:78
+msgid "SKT-B Rope Climbing Technique"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:81
+msgid ""
+"Certified for Rope Climbing Technique B - working with chainsaw in the tree "
+"crown. Safe and gentle tree care at any height."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:92
+msgid "Professional Tree Care"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:95
+msgid ""
+"Work according to the recognized ZTV tree care guidelines. Quality standard "
+"for professional tree care measures."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:109
+msgid ""
+"Specialization in fruit tree care. Training pruning, maintenance pruning and "
+"rejuvenation for maximum yield."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:124
+msgid "My Philosophy"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:129
+msgid "Quality"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:131
+msgid ""
+"Professional work according to recognized standards. No compromises in tree "
+"care."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:136
+msgid "Sustainability"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:138
+msgid ""
+"Tree preservation over tree removal. Ecological aspects are considered in "
+"every decision."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:143
+msgid "Trust"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:145
+msgid ""
+"Honest advice and transparent pricing. Personal service from start to finish."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:158
+msgid "Languages"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:161
+msgid "I am happy to advise you in your language:"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:166
+msgid "German"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:170
+msgid "French"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:174
+msgid "Luxembourgish"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:185
+msgid "Let's care for your trees together"
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:188
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:113
+msgid "Contact me for a free consultation."
+msgstr ""
+
+#: .\arborist\templates\arborist\about.html:191
+#: .\arborist\templates\arborist\faq.html:162
+#: .\arborist\templates\arborist\gallery.html:130
+#: .\arborist\templates\arborist\home.html:190
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:116
+#: .\arborist\templates\arborist\services\oekologie.html:127
+#: .\arborist\templates\arborist\services\technik.html:176
+msgid "Get in Touch"
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:58
+msgid ""
+"Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B "
+"rope climbing technician. Fruit tree care, tree maintenance, tree inspection."
+msgstr ""
+
+#: .\arborist\templates\arborist\base.html:88
+msgid "Tree Care Services"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:10
+#: .\arborist\templates\arborist\partials\footer.html:106
+#: .\arborist\templates\arborist\partials\footer.html:115
+#: .\arborist\templates\arborist\partials\navigation.html:221
+#: .\arborist\templates\arborist\partials\navigation.html:275
+msgid "Contact"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:13
+msgid "Get in touch for a free consultation."
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:28
+msgid "Call me directly"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:37
+msgid "WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:38
+msgid "Message me on WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:44
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:8
+msgid "Open WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:52
+msgid "Send me an email"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:62
+msgid "Send Inquiry"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:125
+msgid "Send Message"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:129
+msgid "* Required fields. I will get back to you as soon as possible."
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:142
+msgid "Service Area & Availability"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:146
+msgid "Service Areas"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:148
+msgid "Luxembourg City and surroundings"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:149
+msgid "Echternach and Mullerthal Region"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:150
+msgid "Central (Mersch, Steinfort)"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:151
+msgid "North (Ettelbruck, Diekirch)"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:155
+msgid "Availability"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:157
+msgid "Monday - Friday: 8:00 - 18:00"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:158
+msgid "Saturday: By appointment"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:159
+msgid "Languages: DE, FR, LU"
+msgstr ""
+
+#: .\arborist\templates\arborist\contact.html:162
+msgid "Free on-site consultation throughout Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:32
+msgid "Frequently Asked Questions"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:35
+msgid "Answers to the most important questions about tree care."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:59 .\arborist\views.py:284
+msgid "How much does a tree inspection cost?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:62 .\arborist\views.py:286
+msgid ""
+"The cost of a tree inspection depends on the number of trees and the effort "
+"required. Contact me for an individual quote."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:67 .\arborist\views.py:291
+msgid "When is the best time for fruit tree pruning?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:70
+msgid ""
+"The best time for fruit tree pruning varies by fruit type. Pome fruit "
+"(apple, pear) is usually pruned in winter, stone fruit (cherry, plum) after "
+"harvest in summer."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:75 .\arborist\views.py:299
+msgid "Do you also work with rope climbing technique?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:78 .\arborist\views.py:301
+msgid ""
+"Yes, I am SKT-B certified and work with professional rope climbing "
+"technique. This enables tree-friendly care even without heavy machinery."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:83 .\arborist\views.py:307
+msgid "In which regions do you operate?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:86 .\arborist\views.py:309
+msgid ""
+"I operate throughout Luxembourg, with a focus on the center and south of the "
+"country."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:91 .\arborist\views.py:314
+msgid "Do you also offer emergency services?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:94
+msgid ""
+"Yes, for storm damage or other emergencies I am also available on short "
+"notice. Contact me by phone for urgent requests."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:108
+msgid "More Frequently Asked Questions"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:114
+msgid "Do I need a permit for tree removal?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:117
+msgid ""
+"In many municipalities in Luxembourg, tree removal requires a permit. I am "
+"happy to advise you on local regulations and help with the application "
+"process."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:123
+msgid "What is the difference between tree care and tree inspection?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:126
+msgid ""
+"Tree inspection is the systematic examination of a tree for damage and "
+"traffic safety. Tree care includes active measures such as pruning, deadwood "
+"removal, and crown correction."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:132
+msgid "How often should a tree be inspected?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:135
+msgid ""
+"For trees in high-traffic locations, the FLL recommends annual inspection. "
+"For less frequented locations, a longer interval may be sufficient."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:141
+msgid "Do you dispose of the cuttings?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:144
+msgid ""
+"Yes, upon request I dispose of the cuttings properly. Alternatively, they "
+"can remain on-site, e.g., as wood chips for your garden beds."
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:156
+msgid "More Questions?"
+msgstr ""
+
+#: .\arborist\templates\arborist\faq.html:159
+msgid "Contact me - I am happy to answer all your questions about tree care."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:10
+#: .\arborist\templates\arborist\partials\footer.html:96
+#: .\arborist\templates\arborist\partials\navigation.html:215
+#: .\arborist\templates\arborist\partials\navigation.html:265
+msgid "Gallery"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:13
+msgid "Insights into my work as an arborist in Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:24
+msgid ""
+"Here you will find examples of my tree care projects. The images show "
+"various work from fruit tree care to crown maintenance of large trees."
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:43
+#: .\arborist\templates\arborist\gallery.html:49
+#: .\arborist\templates\arborist\gallery.html:55
+#: .\arborist\templates\arborist\gallery.html:70
+#: .\arborist\templates\arborist\gallery.html:76
+#: .\arborist\templates\arborist\gallery.html:82
+#: .\arborist\templates\arborist\gallery.html:97
+#: .\arborist\templates\arborist\gallery.html:103
+#: .\arborist\templates\arborist\gallery.html:109
+msgid "Photo coming soon"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:91
+#: .\arborist\templates\arborist\home.html:43
+msgid "Rope Climbing Technique"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:124
+msgid "More photos coming soon!"
+msgstr ""
+
+#: .\arborist\templates\arborist\gallery.html:127
+msgid ""
+"The gallery is regularly updated with new project photos. Interested in my "
+"work? Contact me for an on-site consultation."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:13
+#: .\arborist\templates\arborist\partials\footer.html:145
+msgid "Professional Tree Care in Luxembourg"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:16
+msgid "FLL-Certified Tree Inspector | SKT-B Rope Climbing Technique"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:20
+#: .\arborist\templates\arborist\home.html:183
+msgid "Free Consultation"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:37
+msgid "FLL Certified"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:38
+msgid "Tree Inspector"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:42
+msgid "SKT-B"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:48
+#: .\arborist\templates\arborist\partials\footer.html:132
+msgid "DE | FR | LU"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:59
+msgid "My Services"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:62
+msgid ""
+"From professional fruit tree care to certified tree inspection - expert tree "
+"care from a single source."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:71
+msgid ""
+"Training pruning, maintenance pruning, rejuvenation - for healthy and "
+"productive fruit trees."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:80
+msgid ""
+"Crown maintenance, deadwood removal, reduction cuts - professionally "
+"according to ZTV tree care standards."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:89
+msgid "FLL-certified inspection, tree inventory, traffic safety assessment."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:100
+msgid ""
+"Habitat trees, deadwood management, nesting aids - tree care for "
+"biodiversity."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:107
+msgid "Techniques & Methods"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:109
+msgid "SKT-B rope climbing technique, aerial work platform, modern equipment."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:121
+msgid "Why Choose an Arborist?"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:127
+msgid "Certified Qualification"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:128
+msgid "FLL tree inspector and SKT-B rope climber with solid training."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:134
+msgid "Local Expertise"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:135
+msgid "Knowledge of Luxembourg tree species, regulations, and conditions."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:141
+msgid "Personal Service"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:142
+msgid "One point of contact from consultation to completion."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:148
+msgid "Fully Insured"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:149
+msgid "Liability insurance for your safety and property."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:162
+msgid "Service Area"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:165
+msgid "I operate throughout Luxembourg, with focus on:"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:168
+msgid "Luxembourg City"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:169
+msgid "Echternach"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:170
+msgid "Mullerthal Region"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:171
+msgid "Moselle Region"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:172
+msgid "Ettelbruck"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:173
+msgid "and surrounding areas"
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:186
+msgid ""
+"Have questions about your trees? I'm happy to advise you on-site - no "
+"obligation and free of charge."
+msgstr ""
+
+#: .\arborist\templates\arborist\home.html:193
+msgid "Call"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:30
+#: .\arborist\templates\arborist\partials\navigation.html:188
+msgid "Arborist"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:33
+msgid ""
+"Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree "
+"inspector, SKT-B rope climber."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:52
+#: .\arborist\templates\arborist\partials\navigation.html:197
+#: .\arborist\templates\arborist\partials\navigation.html:242
+msgid "Services"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:72
+#: .\arborist\templates\arborist\partials\navigation.html:206
+#: .\arborist\templates\arborist\partials\navigation.html:253
+msgid "Ecology"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:77
+#: .\arborist\templates\arborist\partials\navigation.html:207
+#: .\arborist\templates\arborist\partials\navigation.html:256
+#: .\arborist\views.py:113
+msgid "Techniques"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:86
+msgid "Information"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:101
+#: .\arborist\templates\arborist\partials\navigation.html:218
+#: .\arborist\templates\arborist\partials\navigation.html:268
+msgid "FAQ"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\footer.html:142
+msgid "All rights reserved."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\language_switcher.html:29
+msgid "Go"
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:3
+msgid "Hello, I am interested in your tree care services."
+msgstr ""
+
+#: .\arborist\templates\arborist\partials\whatsapp_button.html:7
+msgid "Contact via WhatsApp"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:10
+msgid "Our Services"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:13
+msgid ""
+"Comprehensive tree care solutions for residential and commercial properties."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:27
+msgid "Tree Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:29
+msgid ""
+"Professional pruning services to maintain tree health, improve appearance, "
+"and ensure safety. Our certified arborists use proper techniques to promote "
+"healthy growth."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:34
+msgid "Crown thinning and shaping"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:38
+msgid "Dead wood removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:42
+msgid "Clearance pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:50
+msgid "Tree Removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:52
+msgid ""
+"Safe and efficient removal of hazardous, dead, or unwanted trees. We handle "
+"complex removals in tight spaces with minimal impact to surrounding areas."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:57
+msgid "Hazardous tree removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:61
+msgid "Stump grinding"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:65
+msgid "Emergency services"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:73
+msgid "Health Assessment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:75
+msgid ""
+"Comprehensive tree health evaluations to identify diseases, pests, and "
+"structural issues. We provide detailed reports and treatment recommendations."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:80
+msgid "Disease diagnosis"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:84
+msgid "Pest identification"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:88
+msgid "Risk assessment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:96
+msgid "Consultation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:98
+msgid ""
+"Expert advice on tree selection, planting, and long-term care. We help you "
+"make informed decisions about your landscape."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:103
+msgid "Species selection"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:107
+msgid "Planting guidance"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:111
+msgid "Maintenance planning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:124
+msgid "Need Our Services?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:127
+msgid "Contact us for a free quote on any of our services."
+msgstr ""
+
+#: .\arborist\templates\arborist\services.html:130
+msgid "Request a Quote"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:13
+msgid "FLL-certified tree inspection for traffic safety in Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:26
+msgid "Research Society for Landscape Development and Construction"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:37
+msgid "Why Tree Inspection is Important"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:41
+msgid ""
+"As a tree owner, you bear the duty to ensure traffic safety. Regular tree "
+"inspections protect you from liability claims and ensure the safety of "
+"people and property."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:46
+msgid "Visual Tree Inspection"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:48
+msgid ""
+"Systematic assessment of the tree from the ground. Recording vitality, "
+"structural integrity, and traffic safety according to FLL guidelines."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:53
+msgid "Detailed Examination"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:55
+msgid ""
+"For anomalies: Detailed examination using climbing techniques, sound "
+"testing, or other methods for precise diagnosis."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:60
+msgid "Tree Inventory"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:62
+msgid ""
+"Systematic recording and documentation of your tree stock. Digital "
+"management with inspection intervals and action planning."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:67
+msgid "Reports & Documentation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:69
+msgid ""
+"Written documentation of all findings with recommendations. Legally "
+"compliant records for your files."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:77
+msgid "Tree Inspection Process"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:83
+msgid "Appointment Scheduling"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:84
+msgid "We discuss the scope and objectives of the inspection."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:90
+msgid "On-Site Assessment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:91
+msgid "Systematic examination of each tree according to FLL methodology."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:97
+msgid "Documentation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:98
+msgid "Creation of a detailed inspection report with photos."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:104
+msgid "Recommendations"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:105
+msgid "Specific measures with priorities and timeframes."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:114
+msgid "Who Needs Tree Inspection?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:120
+msgid "Municipalities & Local Authorities"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:121
+msgid "Street trees, parks, schoolyards"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:127
+msgid "Businesses"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:128
+msgid "Company grounds, parking lots"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:134
+msgid "Property Managers"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:135
+msgid "Residential complexes, courtyards"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:141
+msgid "Private Individuals"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:142
+msgid "Garden trees near public paths"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:155
+msgid "Commission a Tree Inspection"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:158
+msgid ""
+"Fulfill your duty to ensure traffic safety with professional documentation."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumkontrolle.html:161
+msgid "Request Quote"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:13
+msgid "Professional care for healthy and safe trees in Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:24
+msgid "Professional Tree Care According to ZTV Standards"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:28
+msgid ""
+"Trees are living organisms that deserve expert care. As a certified "
+"arborist, I work according to recognized ZTV tree care guidelines and ensure "
+"the health and safety of your trees."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:33
+msgid "Crown Care"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:35
+msgid ""
+"Removal of deadwood, crossing branches, and water sprouts. The natural crown "
+"shape is preserved."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:40
+msgid "Crown Reduction"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:42
+msgid ""
+"Professional reduction of crown size for trees that have grown too large. "
+"Maintaining the natural growth form."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:47
+msgid "Clearance Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:49
+msgid ""
+"Clearing around traffic routes, buildings, and utility lines. For safe "
+"clearance heights and clear visibility."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:54
+msgid "Deadwood Removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:56
+msgid ""
+"Dead branches are professionally removed to minimize hazards and relieve "
+"stress on the tree."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:64
+msgid "Gentle Working Methods"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:67
+msgid ""
+"I primarily work with rope climbing technique (SKT-B). This method is "
+"particularly gentle on trees and their surroundings:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:72
+msgid "No heavy machinery on your property"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:76
+msgid "Access even in hard-to-reach areas"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:80
+msgid "Minimal soil compaction"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:84
+msgid "Precise work directly at the branch"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:92
+msgid "Experience with All Tree Species"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:95
+msgid "Whether native or exotic trees - every species has its characteristics:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:100
+msgid "Oak"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:104
+msgid "Beech"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:108
+msgid "Lime"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:112
+msgid "Maple"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:116
+msgid "Chestnut"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:120
+msgid "Conifers"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:132
+msgid "Do Your Trees Need Care?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:135
+msgid "I am happy to advise you on-site - free and without obligation."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\baumpflege.html:138
+msgid "Request Consultation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:13
+msgid "Professional care for healthy and productive fruit trees in Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:24
+msgid "My Services for Your Fruit Trees"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:29
+msgid "Formative Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:31
+msgid ""
+"Formative pruning shapes young fruit trees into a stable crown structure. It "
+"lays the foundation for a healthy, productive tree."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:36
+msgid "Maintenance Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:38
+msgid ""
+"Regular maintenance pruning keeps your fruit tree in balance. Fruiting wood "
+"is renewed, and the crown stays light and vital."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:43
+msgid "Rejuvenation Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:45
+msgid ""
+"Old, neglected fruit trees can be given new life through proper rejuvenation "
+"pruning and bear fruit abundantly again."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:50
+msgid "Summer Pruning"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:52
+msgid ""
+"Summer pruning slows excessive growth and improves fruit quality. Especially "
+"important for stone fruit."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:60
+msgid "Benefits of Professional Fruit Tree Care"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:65
+msgid "Higher yields through optimal crown structure"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:69
+msgid "Better fruit quality through more light and air"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:73
+msgid "Fewer diseases through good ventilation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:77
+msgid "Longer lifespan for your fruit trees"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:81
+msgid "Safe harvesting without overhanging branches"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:89
+msgid "The Right Time"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:93
+msgid "Pome Fruit (Apple, Pear)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:94
+msgid "Winter pruning from November to March when the tree is dormant."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:97
+msgid "Stone Fruit (Cherry, Plum)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:98
+msgid "Summer pruning after harvest for best wound healing."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\obstbaumpflege.html:110
+msgid "Interested in Professional Fruit Tree Care?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:13
+msgid "Nature-friendly tree care for more biodiversity in Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:24
+msgid "Tree Care in Harmony with Nature"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:28
+msgid ""
+"Trees are important habitats for many animal species. In my work, I ensure "
+"ecological structures are preserved and promoted - for a vibrant nature in "
+"Luxembourg."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:34
+msgid "Habitat Trees"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:36
+msgid ""
+"Identification and protection of trees with special features such as "
+"cavities, crevices, or deadwood as habitat for birds, bats, and insects."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:42
+msgid "Deadwood Management"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:44
+msgid ""
+"Targeted retention of standing and fallen deadwood where it is safe. "
+"Deadwood is habitat for hundreds of species."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:50
+msgid "Nesting Aids"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:52
+msgid ""
+"Installation of bird nesting boxes, bat boxes, and insect hotels. "
+"Professional mounting and advice on maintenance."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:58
+msgid "Species Protection During Tree Work"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:60
+msgid ""
+"Pre-inspection for protected species before tree care measures. Compliance "
+"with breeding seasons and protection regulations."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:68
+msgid "Why Ecological Tree Care?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:71
+msgid "Trees are more than just wood - they are complex ecosystems:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:76
+msgid "A mature oak can host over 1,000 animal species"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:80
+msgid "Woodpecker holes are used by over 60 secondary nesting species"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:84
+#, python-format
+msgid "Deadwood is the foundation of life for 25%% of all forest species"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:88
+msgid "Trees cool their surroundings and filter the air"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:96
+msgid "Services for More Nature"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:100
+msgid "Traditional Orchard Care"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:101
+msgid "Preservation of old fruit varieties and their unique habitats."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:104
+msgid "Pollard Tree Care"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:105
+msgid "Traditional pruning form with high ecological value."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:108
+msgid "Ecological Consultation"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:109
+msgid "Tips for nature-friendly garden design with native trees."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:121
+msgid "Interested in Nature-Friendly Tree Care?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\oekologie.html:124
+msgid "Let us preserve habitats together."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:10
+msgid "Equipment & Techniques"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:13
+msgid "Modern equipment and proven techniques for safe tree care."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:25
+msgid "SKT-B Certified"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:26
+msgid "Rope Climbing Technique B - Work with Chainsaw"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:37
+msgid "Rope Climbing Technique (SKT)"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:41
+msgid ""
+"Rope climbing technique is the most modern and gentle method of tree care. "
+"As an SKT-B certified climber, I work safely and efficiently in any tree "
+"crown."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:46
+msgid "Advantages of Rope Climbing Technique"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:50
+msgid "Access even in difficult terrain"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:54
+msgid "No damage to lawns or pathways"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:58
+msgid "Precise work on every branch"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:62
+msgid "Environmentally friendly and quiet"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:68
+msgid "Applications"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:72
+msgid "Crown care in gardens"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:76
+msgid "Deadwood removal"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:80
+msgid "Sectional tree felling"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:84
+msgid "Detailed tree inspection"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:93
+msgid "Professional Equipment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:98
+msgid "Climbing Equipment"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:99
+msgid "Tested ropes, harnesses, and carabiners to EN standards"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:103
+msgid "Cutting Tools"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:104
+msgid "Professional saws and pruners for clean cuts"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:108
+msgid "Safety"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:109
+msgid "Helmet, chainsaw protection, fall arrest"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:117
+msgid "Other Working Methods"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:121
+msgid "Aerial Work Platform"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:122
+msgid "With good access and large tree populations. Fast work at height."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:125
+msgid "Ground-Based Techniques"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:126
+msgid "Working from the ground with telescopic tools for smaller trees."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:129
+msgid "Rigging Technique"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:130
+msgid "Controlled lowering of branches in sensitive areas."
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:138
+msgid "Safety is Priority"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:141
+msgid "Every job is carefully planned:"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:146
+msgid "Risk assessment before starting work"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:150
+msgid "Cordoning off the work area"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:154
+msgid "Regular equipment inspection"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:158
+msgid "Fully insured"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:170
+msgid "Questions About Techniques or Procedures?"
+msgstr ""
+
+#: .\arborist\templates\arborist\services\technik.html:173
+msgid "I am happy to explain how I work on your trees."
+msgstr ""
+
+#: .\arborist\views.py:29
+msgid "Arborist Tom Aakrann - Professional Tree Care Luxembourg"
+msgstr ""
+
+#: .\arborist\views.py:31
+msgid ""
+"Certified tree inspector and arborist in Luxembourg. Fruit tree care, tree "
+"care, tree inspection according to FLL standards. SKT-B rope climbing "
+"technique."
+msgstr ""
+
+#: .\arborist\views.py:48
+msgid "Fruit Tree Care Luxembourg - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:50
+msgid ""
+"Professional fruit tree care in Luxembourg. Fruit tree pruning, rejuvenation "
+"pruning, training pruning. For healthy and productive fruit trees."
+msgstr ""
+
+#: .\arborist\views.py:63
+msgid "Tree Care Luxembourg - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:65
+msgid ""
+"Professional tree care in Luxembourg. Crown maintenance, deadwood removal, "
+"crown reduction. SKT-B rope climbing technique certified."
+msgstr ""
+
+#: .\arborist\views.py:78
+msgid "Tree Inspection Luxembourg - FLL Certified - Arborist"
+msgstr ""
+
+#: .\arborist\views.py:80
+msgid ""
+"FLL-certified tree inspection in Luxembourg. Visual tree inspection, tree "
+"inventory, traffic safety assessment. Reports and documentation."
+msgstr ""
+
+#: .\arborist\views.py:93
+msgid "Ecological Measures - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:95
+msgid ""
+"Ecological tree care in Luxembourg. Habitat trees, deadwood management, "
+"nesting aids, species protection. Nature-friendly tree care for biodiversity."
+msgstr ""
+
+#: .\arborist\views.py:108
+msgid "Techniques & Methods - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:110
+msgid ""
+"Modern tree care techniques in Luxembourg. SKT-B rope climbing technique, "
+"aerial work platform, professional equipment for safe tree care."
+msgstr ""
+
+#: .\arborist\views.py:128
+msgid "About Me - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:130
+msgid ""
+"Tom Aakrann - FLL-certified tree inspector and arborist in Luxembourg. "
+"Experience, qualifications, and passion for trees."
+msgstr ""
+
+#: .\arborist\views.py:232
+msgid "Thank you for your message! I will get back to you as soon as possible."
+msgstr ""
+
+#: .\arborist\views.py:242
+msgid ""
+"Sorry, there was an error sending your message. Please try calling or "
+"WhatsApp instead."
+msgstr ""
+
+#: .\arborist\views.py:250
+msgid "Contact - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:252
+msgid ""
+"Contact Arborist Tom Aakrann for tree care in Luxembourg. Free consultation, "
+"quick response. Phone, WhatsApp, email."
+msgstr ""
+
+#: .\arborist\views.py:269
+msgid "Gallery - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:271
+msgid ""
+"Photos of tree care projects in Luxembourg. Before and after images of fruit "
+"tree care, crown maintenance, and tree removal."
+msgstr ""
+
+#: .\arborist\views.py:293
+msgid ""
+"The best time for fruit tree pruning varies depending on the type of fruit. "
+"Pome fruit (apple, pear) is usually pruned in winter, stone fruit (cherry, "
+"plum) after harvest in summer."
+msgstr ""
+
+#: .\arborist\views.py:316
+msgid ""
+"Yes, for storm damage or other emergencies I am also available on short "
+"notice. Contact me by phone for urgent inquiries."
+msgstr ""
+
+#: .\arborist\views.py:323
+msgid "FAQ - Frequently Asked Questions - Arborist Tom Aakrann"
+msgstr ""
+
+#: .\arborist\views.py:325
+msgid ""
+"Frequently asked questions about tree care in Luxembourg. Answers about "
+"costs, timing, methods, and services."
+msgstr ""
