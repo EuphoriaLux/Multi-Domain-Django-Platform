@@ -51,3 +51,8 @@ def terms_of_service(request):
 def data_deletion_request(request):
     """Data deletion instructions page"""
     return render(request, "crush_lu/data_deletion.html")
+
+
+def crush_coach(request):
+    """Crush Coach recruitment landing page"""
+    return render(request, "crush_lu/crush_coach.html")

@@ -186,6 +186,12 @@ def site_config_context(request):
                 "whatsapp_enabled": config.whatsapp_enabled and bool(config.whatsapp_number),
                 "whatsapp_default_message": config.whatsapp_default_message,
                 "social_links": social_links,
+                "banner_enabled": config.banner_enabled,
+                "banner_message": config.banner_message,
+                "banner_link_text": config.banner_link_text,
+                "banner_link_url": config.banner_link_url,
+                "banner_style": config.banner_style,
+                "banner_target_statuses": config.banner_target_statuses or [],
             }
         except Exception:
             _site_config_cache["config"] = {
@@ -193,6 +199,12 @@ def site_config_context(request):
                 "whatsapp_enabled": False,
                 "whatsapp_default_message": "",
                 "social_links": [],
+                "banner_enabled": False,
+                "banner_message": "",
+                "banner_link_text": "",
+                "banner_link_url": "",
+                "banner_style": "info",
+                "banner_target_statuses": [],
             }
         _site_config_cache["expires"] = now + 300  # 5 minutes
 

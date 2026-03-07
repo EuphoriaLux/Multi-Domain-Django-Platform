@@ -100,6 +100,7 @@ from .views_static import (  # noqa: F401
     privacy_policy,
     terms_of_service,
     data_deletion_request,
+    crush_coach,
 )
 
 # Account & auth

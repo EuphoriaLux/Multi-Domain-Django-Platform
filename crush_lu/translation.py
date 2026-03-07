@@ -8,6 +8,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 from modeltranslation.translator import translator, TranslationOptions
 
 from .models.profiles import CrushCoach, SpecialUserExperience
+from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
 from .models.journey import (
     JourneyConfiguration,
@@ -67,7 +68,14 @@ class JourneyRewardTranslationOptions(TranslationOptions):
     fields = ('title', 'message')
 
 
+class CrushSiteConfigTranslationOptions(TranslationOptions):
+    """Translatable fields for site config banner."""
+
+    fields = ('banner_message', 'banner_link_text')
+
+
 # Register models with translation options
+translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
 translator.register(CrushCoach, CrushCoachTranslationOptions)
 translator.register(SpecialUserExperience, SpecialUserExperienceTranslationOptions)
 translator.register(MeetupEvent, MeetupEventTranslationOptions)

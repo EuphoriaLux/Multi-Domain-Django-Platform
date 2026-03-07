@@ -616,6 +616,10 @@
                                             {% trans "Create Profile" %}
                                         </a>
                                     {% endif %}
+                                    <a class="dropdown-item" href="{% url 'crush_lu:crush_coach' %}">
+                                        {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Become a Coach" %}
+                                    </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:account_settings' %}">
                                         {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Account Settings" %}
@@ -634,6 +638,7 @@
                         <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
                         <a class="nav-link" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
                         <a class="nav-link" href="{% url 'crush_lu:membership' %}">{% trans "Membership" %}</a>
+                        <a class="nav-link" href="{% url 'crush_lu:crush_coach' %}">{% trans "Become a Coach" %}</a>
                         <a class="inline-flex items-center bg-white text-gray-800 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
                             {% trans "Login / Join" %}
                         </a>
@@ -945,6 +950,10 @@
                             {% endif %}
 
                             {# Common items for all authenticated dating users #}
+                            <a class="nav-link block" href="{% url 'crush_lu:crush_coach' %}">
+                                {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Become a Coach" %}
+                            </a>
                             <a class="nav-link block" href="{% url 'crush_lu:account_settings' %}">
                                 {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Account Settings" %}
@@ -961,6 +970,7 @@
                         <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
                         <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
                         <a class="nav-link block" href="{% url 'crush_lu:membership' %}">{% trans "Membership" %}</a>
+                        <a class="nav-link block" href="{% url 'crush_lu:crush_coach' %}">{% trans "Become a Coach" %}</a>
                         <div class="border-t border-white/20 my-2"></div>
                         <a class="block bg-white text-gray-800 px-4 py-2 rounded-full font-semibold text-center hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
                             {% trans "Login / Join" %}
@@ -1043,6 +1053,23 @@
     </div>
     {% endif %}
 
+    <!-- Admin-configurable status banner -->
+    {% if user.is_authenticated and banner_enabled and banner_message %}
+        {% if not banner_target_statuses or profile_status in banner_target_statuses %}
+        <div class="{% if banner_style == 'warning' %}bg-amber-500 dark:bg-amber-600{% elif banner_style == 'success' %}bg-green-600 dark:bg-green-700{% elif banner_style == 'purple' %}bg-purple-600 dark:bg-purple-700{% else %}bg-blue-600 dark:bg-blue-700{% endif %} text-white px-4 py-3 text-center" role="alert">
+            <div class="flex items-center justify-center gap-2 flex-wrap">
+                <span class="font-medium">{{ banner_message }}</span>
+                {% if banner_link_text and banner_link_url %}
+                <a href="{{ banner_link_url }}"
+                   class="underline font-semibold hover:no-underline">
+                    {{ banner_link_text }} →
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+
     <!-- Messages (Alpine.js dismissible) -->
     {% if messages %}
         <div class="container mt-4" role="status" aria-live="polite">
@@ -1103,6 +1130,7 @@
                         <li><a href="{% url 'crush_lu:how_it_works' %}" class="text-white/75 hover:text-white transition-colors">{% trans "How It Works" %}</a></li>
                         <li><a href="{% url 'crush_lu:event_list' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Events" %}</a></li>
                         <li><a href="{% url 'crush_lu:membership' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Membership" %}</a></li>
+                        <li><a href="{% url 'crush_lu:crush_coach' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Become a Coach" %}</a></li>
                     </ul>
                 </div>
 

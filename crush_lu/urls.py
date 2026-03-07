@@ -110,6 +110,7 @@ urlpatterns = [
     path('test-ghost-story/', views.test_ghost_story, name='test_ghost_story'),
     path('test-upstair/', views.test_upstair, name='test_upstair'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
+    path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('membership/', views.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)

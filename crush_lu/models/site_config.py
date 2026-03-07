@@ -76,6 +76,50 @@ class CrushSiteConfig(models.Model):
         help_text=_("Placeholders: {first_name}, {coach_name}"),
     )
 
+    # Status banner
+    banner_enabled = models.BooleanField(
+        default=False,
+        verbose_name=_("Banner enabled"),
+    )
+    banner_message = models.TextField(
+        blank=True,
+        verbose_name=_("Banner message"),
+        help_text=_("The message to display in the banner."),
+    )
+    banner_link_text = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Banner link text"),
+        help_text=_("Optional CTA button text (leave blank for no link)."),
+    )
+    banner_link_url = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name=_("Banner link URL"),
+        help_text=_("Internal path (e.g. /events/) or full URL."),
+    )
+    BANNER_STYLE_CHOICES = [
+        ('info', _('Info (blue)')),
+        ('warning', _('Warning (amber)')),
+        ('success', _('Success (green)')),
+        ('purple', _('Purple')),
+    ]
+    banner_style = models.CharField(
+        max_length=10,
+        choices=BANNER_STYLE_CHOICES,
+        default='info',
+        verbose_name=_("Banner style"),
+    )
+    banner_target_statuses = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("Target profile statuses"),
+        help_text=_(
+            "Show banner only to users with these submission statuses. "
+            "Empty = show to ALL authenticated users."
+        ),
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

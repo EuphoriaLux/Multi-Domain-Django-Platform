@@ -1,9 +1,29 @@
+from django import forms
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
+from modeltranslation.admin import TranslationAdmin
+
+from crush_lu.models.profiles import ProfileSubmission
 
 
-class CrushSiteConfigAdmin(admin.ModelAdmin):
+class CrushSiteConfigForm(forms.ModelForm):
+    """Custom form to render banner_target_statuses as checkboxes."""
+
+    banner_target_statuses = forms.MultipleChoiceField(
+        choices=ProfileSubmission.STATUS_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text=_(
+            "Show banner only to users with these submission statuses. "
+            "Leave all unchecked to show to ALL authenticated users."
+        ),
+    )
+
+
+class CrushSiteConfigAdmin(TranslationAdmin):
     """Admin for singleton site configuration. No add/delete - always edit pk=1."""
+
+    form = CrushSiteConfigForm
 
     fieldsets = (
         (
@@ -33,6 +53,23 @@ class CrushSiteConfigAdmin(admin.ModelAdmin):
                 "description": _(
                     "Add social media profile URLs. "
                     "Leave blank to hide the icon in the footer."
+                ),
+            },
+        ),
+        (
+            _("Status Banner"),
+            {
+                "fields": (
+                    "banner_enabled",
+                    "banner_message",
+                    "banner_link_text",
+                    "banner_link_url",
+                    "banner_style",
+                    "banner_target_statuses",
+                ),
+                "description": _(
+                    "Show a persistent banner to users based on their profile status. "
+                    "Banner message and link text support EN/DE/FR translations."
                 ),
             },
         ),
