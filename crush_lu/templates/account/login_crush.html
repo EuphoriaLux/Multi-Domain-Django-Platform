@@ -241,8 +241,10 @@
 
         // Setup handler for each social button
         socialButtons.forEach(function(button) {
-            var oauthUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
-            if (typeof oauthUrl !== 'string' || !/^\/accounts\/[a-z0-9_]+\/login\//.test(oauthUrl)) return;
+            var rawUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
+            var oauthMatch = typeof rawUrl === 'string' && rawUrl.match(/^(\/accounts\/[a-z0-9_]+\/login\/[^\s'"]*)$/);
+            if (!oauthMatch) return;
+            var oauthUrl = oauthMatch[1];
             var providerName = button.getAttribute('data-provider') || 'OAuth';
             var fullOAuthUrl = window.location.origin + oauthUrl;
 

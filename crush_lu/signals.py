@@ -480,8 +480,8 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
             send_event_registration_confirmation(reg)
         except Exception as e:
             logger.error(
-                f"Failed to send waitlist promotion email to {reg.user.email} "
-                f"for event {instance.id}: {e}"
+                "Failed to send waitlist promotion email for user %s, event %s: %s",
+                reg.user.pk, instance.id, type(e).__name__
             )
 
     if promoted_registrations:
