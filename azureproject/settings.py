@@ -133,7 +133,6 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.microsoft",
     # Third-party apps
-    "django_components",  # React-like component system for Django templates
     "crispy_forms",
     "crispy_tailwind",
     "rest_framework",
@@ -142,7 +141,6 @@ INSTALLED_APPS = [
     "django_htmx",  # HTMX server-side integration
     "azureproject",  # For custom analytics templatetags
     "cookie_consent",  # GDPR cookie consent banner
-    "heroicons",  # Tailwind Heroicons template tags
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -211,9 +209,7 @@ TEMPLATES = [
                 "azureproject.context_processors.admin_navigation",  # Global admin panel navigation
                 "azureproject.context_processors.staging_environment",  # Staging banner detection
             ],
-            "builtins": [
-                "heroicons.templatetags.heroicons",  # Heroicons available in all templates
-            ],
+            "builtins": [],
         },
     },
 ]

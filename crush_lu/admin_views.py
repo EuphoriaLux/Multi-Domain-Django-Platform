@@ -7,6 +7,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.db.models import Count, Q, Avg, Sum, F
+from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from django.http import JsonResponse
 from django.utils import timezone
@@ -77,7 +78,7 @@ def crush_admin_dashboard(request):
                 from django.http import HttpResponseForbidden
                 return HttpResponseForbidden("You must be an active Crush coach to access this panel.")
             is_coach = True
-        except:
+        except (CrushCoach.DoesNotExist, AttributeError):
             from django.http import HttpResponseForbidden
             return HttpResponseForbidden("You must be a Crush coach to access this panel.")
 
@@ -136,6 +137,20 @@ def crush_admin_dashboard(request):
     ).values('location').annotate(
         count=Count('id')
     ).order_by('-count')[:5]
+
+    # Authentication method breakdown
+    from allauth.socialaccount.models import SocialAccount
+
+    User = get_user_model()
+    total_users = User.objects.count()
+    social_users = SocialAccount.objects.values('user').distinct().count()
+    email_only_users = total_users - social_users
+
+    auth_provider_stats = list(
+        SocialAccount.objects.values('provider')
+        .annotate(count=Count('user', distinct=True))
+        .order_by('-count')
+    )
 
     # Profile completion funnel - users CURRENTLY at each step (not cumulative)
     # This shows where users are stuck in the funnel
@@ -767,6 +782,11 @@ def crush_admin_dashboard(request):
         'location_stats': location_stats,
         'location_recent': location_recent,
         'max_location_count': max_location_count,
+        # Authentication method breakdown
+        'total_users': total_users,
+        'email_only_users': email_only_users,
+        'social_users': social_users,
+        'auth_provider_stats': auth_provider_stats,
         # New funnel metrics - users currently at each step
         'funnel_not_started': funnel_not_started,
         'funnel_step1': funnel_step1,
@@ -1569,6 +1589,7 @@ def _build_template_context(request, template_meta, user_id):
     from .email_helpers import get_email_context_with_unsubscribe, get_user_language_url
 
     context = {}
+    base_url = request.build_absolute_uri('/').rstrip('/')
     required = template_meta.get('required_context', [])
 
     # Handle templates that require a user
@@ -1714,13 +1735,13 @@ def _build_template_context(request, template_meta, user_id):
                 context['event'] = invitation.event
                 context['guest_first_name'] = invitation.guest_first_name
                 # Build invitation URL for preview
-                context['invitation_url'] = f'https://crush.lu/en/invitation/{invitation.invitation_code}/'
+                context['invitation_url'] = f'{base_url}/en/invitation/{invitation.invitation_code}/'
             except EventInvitation.DoesNotExist:
                 pass
         elif context.get('event'):
             # Create mock invitation for preview
             context['guest_first_name'] = context.get('user', type('obj', (object,), {'first_name': 'Guest'})).first_name
-            context['invitation_url'] = 'https://crush.lu/en/invitation/MOCK123/'
+            context['invitation_url'] = f'{base_url}/en/invitation/MOCK123/'
 
     # Handle gift context
     if 'gift' in required:
@@ -1734,7 +1755,7 @@ def _build_template_context(request, template_meta, user_id):
                 context['sender_name'] = gift.sender.first_name
                 context['sender_message'] = gift.sender_message
                 context['gift_code'] = gift.gift_code
-                context['claim_url'] = f'https://crush.lu/en/journey/gift/{gift.gift_code}/'
+                context['claim_url'] = f'{base_url}/en/journey/gift/{gift.gift_code}/'
             except JourneyGift.DoesNotExist:
                 pass
         else:
@@ -1744,7 +1765,7 @@ def _build_template_context(request, template_meta, user_id):
             context['sender_name'] = 'Someone Special'
             context['sender_message'] = 'I created this magical journey just for you!'
             context['gift_code'] = 'MOCK123'
-            context['claim_url'] = 'https://crush.lu/en/journey/gift/MOCK123/'
+            context['claim_url'] = f'{base_url}/en/journey/gift/MOCK123/'
 
     # Add common URLs
     user = context.get('user')
@@ -1762,14 +1783,14 @@ def _build_template_context(request, template_meta, user_id):
             context['unsubscribe_url'] = get_unsubscribe_url(user, request)
         except Exception:
             # Fallback URLs for preview
-            context['profile_url'] = 'https://crush.lu/en/create-profile/'
-            context['events_url'] = 'https://crush.lu/en/events/'
-            context['how_it_works_url'] = 'https://crush.lu/en/how-it-works/'
-            context['connections_url'] = 'https://crush.lu/en/connections/'
-            context['home_url'] = 'https://crush.lu/en/'
-            context['about_url'] = 'https://crush.lu/en/about/'
-            context['settings_url'] = 'https://crush.lu/en/account/settings/'
-            context['unsubscribe_url'] = 'https://crush.lu/en/email/unsubscribe/TOKEN/'
+            context['profile_url'] = f'{base_url}/en/create-profile/'
+            context['events_url'] = f'{base_url}/en/events/'
+            context['how_it_works_url'] = f'{base_url}/en/how-it-works/'
+            context['connections_url'] = f'{base_url}/en/connections/'
+            context['home_url'] = f'{base_url}/en/'
+            context['about_url'] = f'{base_url}/en/about/'
+            context['settings_url'] = f'{base_url}/en/account/settings/'
+            context['unsubscribe_url'] = f'{base_url}/en/email/unsubscribe/TOKEN/'
 
     # Add event-specific URLs
     event = context.get('event')
@@ -1782,8 +1803,8 @@ def _build_template_context(request, template_meta, user_id):
                 user, 'crush_lu:event_cancel', request, kwargs={'event_id': event.id}
             )
         except Exception:
-            context['event_url'] = f'https://crush.lu/en/events/{event.id}/'
-            context['cancel_url'] = f'https://crush.lu/en/events/{event.id}/cancel/'
+            context['event_url'] = f'{base_url}/en/events/{event.id}/'
+            context['cancel_url'] = f'{base_url}/en/events/{event.id}/cancel/'
 
     # Add connection-specific URLs
     connection = context.get('connection')
@@ -1793,7 +1814,7 @@ def _build_template_context(request, template_meta, user_id):
                 user, 'crush_lu:connection_detail', request, kwargs={'connection_id': connection.id}
             )
         except Exception:
-            context['connection_url'] = f'https://crush.lu/en/connections/{connection.id}/'
+            context['connection_url'] = f'{base_url}/en/connections/{connection.id}/'
 
     # Add optional context fields with mock data for preview
     optional = template_meta.get('optional_context', [])
