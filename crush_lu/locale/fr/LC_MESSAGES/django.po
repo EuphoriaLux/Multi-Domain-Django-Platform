@@ -12310,17 +12310,12 @@ msgstr ""
 "et facilitez les connexions après les événements."
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:718
-#, fuzzy
-#| msgid ""
-#| "Help Luxembourg singles find meaningful connections. Guide them from "
-#| "first profile to first date — and make a real difference in people's "
-#| "lives."
 msgid ""
 "Help Luxembourg singles find meaningful connections. Guide them from first "
 "profile to first date and make a real difference in people's lives."
 msgstr ""
 "Aidez les célibataires au Luxembourg à trouver des connexions authentiques. "
-"Accompagnez-les du premier profil au premier rendez-vous — et faites une "
+"Accompagnez-les du premier profil au premier rendez-vous et faites une "
 "vraie différence dans la vie des gens."
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:720
@@ -12382,11 +12377,6 @@ msgid "Flexible & Remote"
 msgstr "Flexible & à distance"
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:759
-#, fuzzy
-#| msgid ""
-#| "Work from anywhere, on your own schedule. Most tasks take just a few "
-#| "minutes — review a profile over coffee, answer a question between "
-#| "meetings."
 msgid ""
 "Work from anywhere, on your own schedule. Most tasks take just a few minutes "
 "review a profile over coffee, answer a question between meetings."

@@ -327,9 +327,14 @@ def crush_admin_dashboard(request):
     )['total'] or 0
 
     # Event type distribution
-    event_type_stats = MeetupEvent.objects.values('event_type').annotate(
+    event_type_choices = dict(MeetupEvent.EVENT_TYPE_CHOICES)
+    event_type_stats_raw = MeetupEvent.objects.values('event_type').annotate(
         count=Count('id')
     ).order_by('-count')
+    event_type_stats = [
+        {'event_type': event_type_choices.get(s['event_type'], s['event_type']), 'count': s['count']}
+        for s in event_type_stats_raw
+    ]
 
     # Top 5 most popular events (by registrations)
     popular_events = MeetupEvent.objects.annotate(
@@ -750,7 +755,6 @@ def crush_admin_dashboard(request):
     context = {
         # Date filter info
         'date_range': date_range,
-        'date_start': date_start,
 
         # User metrics
         'total_profiles': total_profiles,
@@ -870,23 +874,6 @@ def crush_admin_dashboard(request):
 
         # Pending actions (workflow quick links)
         'pending_actions': pending_actions,
-
-        # Quick action URLs for dashboard links
-        'quick_links': {
-            'urgent_reviews': '/crush-admin/crush_lu/profilesubmission/?workflow=urgent',
-            'awaiting_call': '/crush-admin/crush_lu/profilesubmission/?workflow=awaiting_call',
-            'ready_approve': '/crush-admin/crush_lu/profilesubmission/?workflow=ready_approve',
-            'unassigned': '/crush-admin/crush_lu/profilesubmission/?coach_assignment=no_coach',
-            'all_pending': '/crush-admin/crush_lu/profilesubmission/?status__exact=pending',
-            'all_profiles': '/crush-admin/crush_lu/crushprofile/',
-            'all_events': '/crush-admin/crush_lu/meetupevent/',
-            'upcoming_events': '/crush-admin/crush_lu/meetupevent/?is_published__exact=1&is_cancelled__exact=0',
-            'all_connections': '/crush-admin/crush_lu/eventconnection/',
-            'mutual_connections': '/crush-admin/crush_lu/eventconnection/?connection_type=mutual',
-            'all_journeys': '/crush-admin/crush_lu/journeyconfiguration/',
-            'phone_unverified': '/crush-admin/crush_lu/crushprofile/?phone_status=unverified',
-            'inactive_users': '/crush-admin/crush_lu/crushprofile/?last_login=inactive',
-        },
 
         # Page metadata
         'title': 'Crush.lu Analytics Dashboard',

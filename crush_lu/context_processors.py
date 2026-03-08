@@ -159,7 +159,13 @@ def firebase_config(request):
 
 
 def site_config_context(request):
-    """Expose CrushSiteConfig values (cached for 5 minutes)."""
+    """Expose CrushSiteConfig values (cached for 5 minutes).
+
+    The config model instance is cached so that translated fields
+    (banner_message, banner_link_text) resolve per-request language
+    via django-modeltranslation, while non-translated fields are
+    cached as plain values.
+    """
     now = time.time()
     if _site_config_cache["config"] is None or now > _site_config_cache["expires"]:
         from .models import CrushSiteConfig
@@ -181,18 +187,19 @@ def site_config_context(request):
                 if url
             ]
 
+            # Cache non-translated values as plain data
             _site_config_cache["config"] = {
                 "whatsapp_number": config.whatsapp_number,
-                "whatsapp_enabled": config.whatsapp_enabled and bool(config.whatsapp_number),
+                "whatsapp_enabled": config.whatsapp_enabled
+                and bool(config.whatsapp_number),
                 "whatsapp_default_message": config.whatsapp_default_message,
                 "social_links": social_links,
                 "banner_enabled": config.banner_enabled,
-                "banner_message": config.banner_message,
-                "banner_link_text": config.banner_link_text,
-                "banner_link_url": config.banner_link_url,
                 "banner_style": config.banner_style,
                 "banner_target_statuses": config.banner_target_statuses or [],
             }
+            # Cache the model instance for translated field resolution
+            _site_config_cache["config_obj"] = config
         except Exception:
             _site_config_cache["config"] = {
                 "whatsapp_number": "",
@@ -206,6 +213,14 @@ def site_config_context(request):
                 "banner_style": "info",
                 "banner_target_statuses": [],
             }
+            _site_config_cache["config_obj"] = None
         _site_config_cache["expires"] = now + 300  # 5 minutes
 
-    return _site_config_cache["config"]
+    # Build result from cached data, resolving translated fields per-request
+    result = dict(_site_config_cache["config"])
+    config_obj = _site_config_cache.get("config_obj")
+    if config_obj is not None:
+        result["banner_message"] = config_obj.banner_message
+        result["banner_link_text"] = config_obj.banner_link_text
+        result["banner_link_url"] = config_obj.banner_link_url
+    return result

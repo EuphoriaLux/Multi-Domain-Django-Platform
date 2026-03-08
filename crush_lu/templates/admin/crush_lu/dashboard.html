@@ -163,7 +163,7 @@
         </div>
 
         {# Recent Activity (Combined) #}
-        <div class="two-col">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
             <div class="table-container">
                 <h3>{% trans "Recent Profile Submissions" %}</h3>
                 <table class="stats-table">
@@ -210,6 +210,32 @@
                         {% empty %}
                         <tr>
                             <td colspan="3" class="empty-state">{% trans "No recent registrations" %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <h3>{% trans "Recent Connections" %}</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Users" %}</th>
+                            <th>{% trans "Event" %}</th>
+                            <th>{% trans "When" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for connection in recent_connections %}
+                        <tr>
+                            <td>{{ connection.requester.get_full_name|default:connection.requester.username }} &amp; {{ connection.recipient.get_full_name|default:connection.recipient.username }}</td>
+                            <td>{{ connection.event.title|truncatechars:20 }}</td>
+                            <td>{% blocktrans with time=connection.requested_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">{% trans "No recent connections" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -481,6 +507,31 @@
             </div>
         </div>
 
+        {# Trending Locations (30 days) #}
+        {% if location_recent %}
+        <div class="table-container" style="margin-top: 20px;">
+            <h3>&#x1F4C8; {% trans "Trending Locations (Last 30 Days)" %}</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{% trans "Location" %}</th>
+                        <th>{% trans "New Users" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in location_recent %}
+                    <tr>
+                        <td style="font-weight: bold; color: var(--crush-purple);">{{ forloop.counter }}</td>
+                        <td>{{ stat.location|default:_("Not specified") }}</td>
+                        <td><span class="badge badge-info" style="background: #17a2b8;">{{ stat.count }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
         {# Coach Performance #}
         <h2 class="section-header"><span class="section-header-icon">&#x1F3AF;</span> {% trans "Coach Performance" %}</h2>
         <div class="metric-grid">
@@ -693,6 +744,12 @@
                 <div class="metric-value">{{ attendance_rate }}%</div>
                 <div class="metric-subtitle">{% trans "Show-up rate" %}</div>
             </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F4C1;</span>
+                <div class="metric-label">{% trans "Past Events" %}</div>
+                <div class="metric-value">{{ past_events }}</div>
+                <div class="metric-subtitle">{% trans "Completed events" %}</div>
+            </div>
         </div>
 
         {# Popular Events #}
@@ -723,6 +780,38 @@
                 </tbody>
             </table>
         </div>
+
+        {# Event Type Distribution #}
+        {% if event_type_stats %}
+        <div class="table-container">
+            <h3>{% trans "Event Type Distribution" %}</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Event Type" %}</th>
+                        <th>{% trans "Count" %}</th>
+                        <th>{% trans "Distribution" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in event_type_stats %}
+                    <tr>
+                        <td>{{ stat.event_type }}</td>
+                        <td>{{ stat.count }}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
+                                    <div style="width: {% widthratio stat.count total_events 100 %}%; height: 100%; background: var(--crush-gradient);"></div>
+                                </div>
+                                <span style="font-size: 11px; color: var(--text-muted); min-width: 35px;">{% widthratio stat.count total_events 100 %}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
         {# Event Invitations #}
         {% if invitation_metrics.total_invitations > 0 %}
@@ -919,6 +1008,50 @@
                 <div class="metric-subtitle">{% trans "Opted out of all emails" %}</div>
             </div>
         </div>
+
+        {# Email Category Opt-in Breakdown #}
+        {% if email_category_stats %}
+        <div class="chart-container">
+            <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Email Category Opt-ins" %}</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Profile Updates" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.profile_updates email_active_users 100 %}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
+                    </div>
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.profile_updates }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Event Reminders" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.event_reminders email_active_users 100 %}%; background: linear-gradient(90deg, #3498db, #2980b9);"></div>
+                    </div>
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.event_reminders }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "New Connections" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.new_connections email_active_users 100 %}%; background: linear-gradient(90deg, #e91e63, #f06292);"></div>
+                    </div>
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.new_connections }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "New Messages" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.new_messages email_active_users 100 %}%; background: linear-gradient(90deg, #ff9800, #ffb74d);"></div>
+                    </div>
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.new_messages }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Marketing" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.marketing email_active_users 100 %}%; background: linear-gradient(90deg, #4caf50, #81c784);"></div>
+                    </div>
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.marketing }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {# Ideal Crush Preferences #}
         <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Ideal Crush Preferences" %}</h2>

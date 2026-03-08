@@ -71,7 +71,7 @@ class JourneyRewardTranslationOptions(TranslationOptions):
 class CrushSiteConfigTranslationOptions(TranslationOptions):
     """Translatable fields for site config banner."""
 
-    fields = ('banner_message', 'banner_link_text')
+    fields = ('banner_message', 'banner_link_text', 'banner_link_url')
 
 
 # Register models with translation options
