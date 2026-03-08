@@ -413,6 +413,20 @@ class CrushProfile(models.Model):
         help_text=_("Gender codes the user is interested in")
     )
 
+    FIRST_STEP_CHOICES = [
+        ('i_initiate', _('I prefer to make the first step')),
+        ('they_initiate', _('I prefer the other person to make the first step')),
+        ('no_preference', _('No preference')),
+    ]
+
+    first_step_preference = models.CharField(
+        max_length=20,
+        choices=FIRST_STEP_CHOICES,
+        blank=True,
+        default='',
+        help_text=_("Who should make the first step?")
+    )
+
     # Photos (using private storage in production with SAS tokens)
     # Path structure: users/{user_id}/photos/{uuid}.{ext}
     # Using lazy storage ensures consistent migration state across environments

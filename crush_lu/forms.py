@@ -498,10 +498,15 @@ class IdealCrushPreferencesForm(forms.ModelForm):
         label=_('Preferred Genders'),
         help_text=_('Select all that apply. Leave empty if you are open to everyone.'),
     )
+    first_step_preference = forms.ChoiceField(
+        choices=[('', _('Not specified'))] + CrushProfile.FIRST_STEP_CHOICES,
+        required=False,
+        label=_('Who makes the first step?'),
+    )
 
     class Meta:
         model = CrushProfile
-        fields = ['preferred_age_min', 'preferred_age_max', 'preferred_genders']
+        fields = ['preferred_age_min', 'preferred_age_max', 'preferred_genders', 'first_step_preference']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

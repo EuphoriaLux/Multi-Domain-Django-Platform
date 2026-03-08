@@ -100,6 +100,36 @@
             {% endif %}
         </div>
 
+        <!-- First Step Preference -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                {% trans "Who makes the first step?" %}
+            </label>
+            <div class="flex flex-col gap-2">
+                {% for value, label in form.first_step_preference.field.choices %}
+                {% if value %}
+                <label class="cursor-pointer block">
+                    <input type="radio"
+                           name="{{ form.first_step_preference.html_name }}"
+                           value="{{ value }}"
+                           class="peer hidden"
+                           {% if value == profile.first_step_preference %}checked{% endif %}>
+                    <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                                peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
+                        <span class="text-lg flex-shrink-0">{% if value == 'i_initiate' %}🙋{% elif value == 'they_initiate' %}💌{% elif value == 'no_preference' %}🤷{% endif %}</span>
+                        <span>{{ label }}</span>
+                    </div>
+                </label>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "This is a soft preference, not a hard filter." %}</p>
+            {% if form.first_step_preference.errors %}
+                <div class="text-red-600 text-sm mt-1">{{ form.first_step_preference.errors.0 }}</div>
+            {% endif %}
+        </div>
+
         {% if form.preferred_age_min.errors %}
             <div class="text-red-600 text-sm mb-4">{{ form.preferred_age_min.errors.0 }}</div>
         {% endif %}

@@ -189,6 +189,7 @@ class CrushPreferencesTests(TestCase):
                 "preferred_age_min": 25,
                 "preferred_age_max": 35,
                 "preferred_genders": ["F", "NB"],
+                "first_step_preference": "i_initiate",
             },
             HTTP_HOST="crush.lu",
         )
@@ -197,3 +198,25 @@ class CrushPreferencesTests(TestCase):
         self.assertEqual(profile.preferred_age_min, 25)
         self.assertEqual(profile.preferred_age_max, 35)
         self.assertEqual(profile.preferred_genders, ["F", "NB"])
+        self.assertEqual(profile.first_step_preference, "i_initiate")
+
+    def test_first_step_preference_is_optional(self):
+        """Submitting without first_step_preference keeps it blank."""
+        profile = CrushProfile.objects.create(
+            user=self.user,
+            location="canton-luxembourg",
+            is_approved=True,
+        )
+        self._grant_consent()
+        self.client.login(username="pref@example.com", password="testpass123")
+        response = self.client.post(
+            reverse("crush_lu:crush_preferences"),
+            {
+                "preferred_age_min": 18,
+                "preferred_age_max": 99,
+            },
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+        profile.refresh_from_db()
+        self.assertEqual(profile.first_step_preference, "")

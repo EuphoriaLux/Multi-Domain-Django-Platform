@@ -260,7 +260,7 @@ def dashboard(request):
 
         has_crush_preferences = bool(profile.preferred_genders) or (
             profile.preferred_age_min != 18 or profile.preferred_age_max != 99
-        )
+        ) or bool(profile.first_step_preference)
 
         context = {
             "profile": profile,
