@@ -1,0 +1,8 @@
+{# Domain-aware email management template router #}
+{# Routes to appropriate template based on the request domain #}
+{% if 'entreprinder' in request.get_host %}
+{% include "account/email_entreprinder.html" %}
+{% else %}
+{# Default to Crush template - handles crush.lu, localhost, 127.0.0.1, and any unknown hosts #}
+{% include "account/email_crush.html" %}
+{% endif %}

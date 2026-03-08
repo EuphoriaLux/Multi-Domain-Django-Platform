@@ -1,0 +1,139 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Manage Email Addresses - Crush.lu" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-8 px-4">
+    <div class="w-full max-w-lg">
+        <!-- Current Emails -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+            <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
+                <h5 class="font-semibold flex items-center gap-2 dark:text-white">
+                    {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
+                    {% trans "Manage Email Addresses" %}
+                </h5>
+            </div>
+            <div class="p-6">
+                {% if emailaddresses %}
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{% trans "The following email addresses are associated with your account:" %}</p>
+
+                <form action="{% url 'account_email' %}" method="post">
+                    {% csrf_token %}
+
+                    <div class="space-y-3 mb-4">
+                        {% for emailaddress in emailaddresses %}
+                        <label for="email_radio_{{ forloop.counter }}" class="flex items-center justify-between p-3 border {% if emailaddress.primary %}border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20{% else %}border-gray-200 dark:border-gray-600{% endif %} rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            <div class="flex items-center gap-3">
+                                <input id="email_radio_{{ forloop.counter }}" type="radio" name="email" value="{{ emailaddress.email }}" {% if emailaddress.primary %}checked{% endif %} class="text-purple-600 focus:ring-purple-500">
+                                <span class="text-sm {% if emailaddress.primary %}font-semibold{% endif %} text-gray-900 dark:text-white">{{ emailaddress.email }}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                {% if emailaddress.verified %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">{% trans "Verified" %}</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Unverified" %}</span>
+                                {% endif %}
+                                {% if emailaddress.primary %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">{% trans "Primary" %}</span>
+                                {% endif %}
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <button type="submit" name="action_primary" class="btn-crush-primary px-4 py-2 text-sm">{% trans "Make Primary" %}</button>
+                        <button type="submit" name="action_send" class="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">{% trans "Re-send Verification" %}</button>
+                        <button type="submit" name="action_remove" class="px-4 py-2 text-sm font-medium border border-red-300 dark:border-red-600 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">{% trans "Remove" %}</button>
+                    </div>
+                </form>
+
+                {% else %}
+                <p class="text-gray-500 dark:text-gray-400">{% trans "You currently do not have any email addresses associated with your account." %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Add Email -->
+        {% if can_add_email %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mt-6">
+            <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
+                <h5 class="font-semibold flex items-center gap-2 dark:text-white">
+                    {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}
+                    {% trans "Add Email Address" %}
+                </h5>
+            </div>
+            <div class="p-6">
+                <form method="post" action="{% url 'account_email' %}">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            {% trans "Email Address" %}
+                        </label>
+                        <input type="email"
+                               id="{{ form.email.id_for_label }}"
+                               name="{{ form.email.html_name }}"
+                               value="{{ form.email.value|default:'' }}"
+                               class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                               placeholder="your@email.com">
+                        {% if form.email.errors %}
+                        <div class="text-red-500 dark:text-red-400 text-sm mt-1">
+                            {% for error in form.email.errors %}{{ error }} {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <button name="action_add" type="submit" class="btn-crush-primary w-full py-3 inline-flex items-center justify-center gap-2">
+                        {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}
+                        {% trans "Add Email" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+        <!-- Back Link -->
+        <div class="text-center">
+            <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                {% trans "Back to Settings" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript">
+(function() {
+  var message = "{% trans 'Do you really want to remove the selected email address?' %}";
+  var actions = document.getElementsByName('action_remove');
+  if (actions.length) {
+    var form = actions[0].closest('form');
+    if (form) {
+        form.addEventListener("submit", function(e) {
+            var submitter = e.submitter || (document.activeElement && document.activeElement.type === 'submit' ? document.activeElement : null);
+            if (submitter && submitter.name === 'action_remove') {
+                if (!confirm(message)) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
+  }
+})();
+</script>
+{% endblock extra_js %}

@@ -439,6 +439,47 @@
             </div>
         </div>
 
+        {# Authentication Methods #}
+        <div class="chart-container">
+            <h3>&#x1F511; {% trans "Authentication Methods" %}</h3>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
+                {% blocktrans with count=total_users %}How {{ count }} users signed up{% endblocktrans %}
+            </p>
+
+            <div class="metric-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px;">
+                <div class="metric-card blue">
+                    <span class="metric-icon">&#x2709;</span>
+                    <div class="metric-label">{% trans "Email Only" %}</div>
+                    <div class="metric-value">{{ email_only_users }}</div>
+                    <div class="metric-subtitle">{% if total_users > 0 %}{% widthratio email_only_users total_users 100 %}%{% else %}0%{% endif %}</div>
+                </div>
+                <div class="metric-card purple">
+                    <span class="metric-icon">&#x1F310;</span>
+                    <div class="metric-label">{% trans "Social Auth" %}</div>
+                    <div class="metric-value">{{ social_users }}</div>
+                    <div class="metric-subtitle">{% if total_users > 0 %}{% widthratio social_users total_users 100 %}%{% else %}0%{% endif %}</div>
+                </div>
+            </div>
+
+            {% if auth_provider_stats %}
+            <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-secondary);">{% trans "Provider Breakdown" %}</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for stat in auth_provider_stats %}
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 100px; font-size: 13px; text-transform: capitalize;">
+                        {% if stat.provider == "google" %}&#x1F534;{% elif stat.provider == "facebook" %}&#x1F535;{% elif stat.provider == "microsoft" %}&#x1F7E2;{% elif stat.provider == "linkedin_oauth2" %}&#x1F7E1;{% else %}&#x26AA;{% endif %}
+                        {{ stat.provider }}
+                    </span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% if total_users > 0 %}{% widthratio stat.count total_users 100 %}{% else %}0{% endif %}%; background: linear-gradient(90deg, {% if stat.provider == 'google' %}#ea4335, #fbbc05{% elif stat.provider == 'facebook' %}#1877f2, #42b72a{% elif stat.provider == 'microsoft' %}#00a4ef, #7fba00{% elif stat.provider == 'linkedin_oauth2' %}#0077b5, #00a0dc{% else %}#6c757d, #adb5bd{% endif %});"></div>
+                    </div>
+                    <span style="min-width: 60px; text-align: right; font-weight: 600;">{{ stat.count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
         {# Demographics #}
         <div class="two-col">
             <div class="table-container">
