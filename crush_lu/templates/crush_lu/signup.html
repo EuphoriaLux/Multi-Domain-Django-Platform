@@ -254,6 +254,7 @@ var _i18n = {
         // Setup handler for each social button
         socialButtons.forEach(function(button) {
             var oauthUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
+            if (typeof oauthUrl !== 'string' || !/^\/accounts\/[a-z0-9_]+\/login\//.test(oauthUrl)) return;
             var providerName = button.getAttribute('data-provider') || 'OAuth';
             var fullOAuthUrl = window.location.origin + oauthUrl;
 

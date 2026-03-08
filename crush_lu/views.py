@@ -738,13 +738,7 @@ def crush_preferences(request):
         form = IdealCrushPreferencesForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
-            logger.info(
-                "Crush preferences saved for user %s: age=%s-%s, genders=%s",
-                request.user.pk,
-                form.cleaned_data.get("preferred_age_min"),
-                form.cleaned_data.get("preferred_age_max"),
-                form.cleaned_data.get("preferred_genders"),
-            )
+            logger.info("Crush preferences saved for user %s", request.user.pk)
             messages.success(request, _("Your preferences have been saved."))
             return redirect("crush_lu:dashboard")
         else:
@@ -755,13 +749,7 @@ def crush_preferences(request):
             )
     else:
         form = IdealCrushPreferencesForm(instance=profile)
-        logger.info(
-            "Loading crush preferences for user %s: age=%s-%s, genders=%s",
-            request.user.pk,
-            profile.preferred_age_min,
-            profile.preferred_age_max,
-            profile.preferred_genders,
-        )
+        logger.info("Loading crush preferences for user %s", request.user.pk)
 
     return render(request, "crush_lu/crush_preferences.html", {
         "form": form,

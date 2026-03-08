@@ -139,12 +139,11 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         Handle authentication errors with detailed logging.
         This helps debug OAuth issues like Microsoft login failures.
         """
-        logger.error(f"[OAUTH-ADAPTER] Authentication error: provider={provider_id}, "
-                    f"error={error}, exception={exception}")
-
-        if exception:
-            import traceback
-            logger.error(f"[OAUTH-ADAPTER] Exception traceback:\n{traceback.format_exc()}")
+        logger.error(
+            "[OAUTH-ADAPTER] Authentication error: provider=%s, type=%s",
+            provider_id,
+            type(exception).__name__ if exception else "none",
+        )
 
         # Let the default handler show the error page
         return super().on_authentication_error(request, provider_id, error, exception, extra_context)

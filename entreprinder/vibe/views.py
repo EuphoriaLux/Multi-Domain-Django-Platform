@@ -383,10 +383,10 @@ def place_pixel(request):
         })
 
     except (ValueError, KeyError) as e:
-        logger.error(f"Validation error placing pixel: {e}", exc_info=True)
+        logger.error("Validation error placing pixel: %s", type(e).__name__)
         return JsonResponse({'error': 'Invalid request'}, status=400)
     except Exception as e:
-        logger.error(f"Error placing pixel: {e}", exc_info=True)
+        logger.error("Error placing pixel: %s", type(e).__name__)
         return JsonResponse({'error': 'An error occurred while placing the pixel'}, status=500)
 
 

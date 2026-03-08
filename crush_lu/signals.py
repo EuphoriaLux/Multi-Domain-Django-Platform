@@ -545,7 +545,7 @@ def create_default_activity_options(sender, instance, created, **kwargs):
             for option_data in default_options:
                 EventActivityOption.objects.create(event=instance, **option_data)
         except Exception as e:
-            logger.error(f"Failed to create default activity options for event {instance.id}: {e}")
+            logger.error("Failed to create default activity options for event %s: %s", instance.id, type(e).__name__)
 
 
 def get_high_res_facebook_photo_url(facebook_id, access_token=None):

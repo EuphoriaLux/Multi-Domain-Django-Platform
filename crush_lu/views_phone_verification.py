@@ -127,7 +127,7 @@ def mark_phone_verified(request):
         })
 
     except Exception as e:
-        logger.error(f"Phone verification failed for user {request.user.id}: {e}", exc_info=True)
+        logger.error("Phone verification failed for user %s: %s", request.user.id, type(e).__name__)
         return JsonResponse({
             "success": False,
             "error": "Phone verification failed. Please try again."

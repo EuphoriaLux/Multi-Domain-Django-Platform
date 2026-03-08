@@ -192,7 +192,7 @@ def save_profile_step1(request):
         })
 
     except Exception as e:
-        logger.error(f"Error saving profile step 1: {e}", exc_info=True)
+        logger.error("Error saving profile step 1: %s", type(e).__name__)
         return JsonResponse({
             'success': False,
             'error': 'An error occurred while saving your profile. Please try again.'
@@ -248,7 +248,7 @@ def save_profile_step2(request):
             'error': 'Please complete Step 1 first'
         }, status=400)
     except Exception as e:
-        logger.error(f"Error saving profile step 2: {e}", exc_info=True)
+        logger.error("Error saving profile step 2: %s", type(e).__name__)
         return JsonResponse({
             'success': False,
             'error': 'An error occurred while saving your profile. Please try again.'
@@ -387,7 +387,7 @@ def save_profile_step3(request):
             'error': 'Please complete Step 1 first'
         }, status=400)
     except Exception as e:
-        logger.error(f"Error saving profile step 3: {e}", exc_info=True)
+        logger.error("Error saving profile step 3: %s", type(e).__name__)
         return JsonResponse({
             'success': False,
             'error': 'An error occurred while saving your profile. Please try again.'

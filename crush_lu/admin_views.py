@@ -1880,13 +1880,40 @@ def _html_to_plain_text(html_content):
     and cleans up whitespace.
     """
     import re
+    from html.parser import HTMLParser
     from django.utils.html import strip_tags
 
-    text = html_content
+    # Use a proper HTML parser to remove style/script tags with content
+    class _TagStripper(HTMLParser):
+        SKIP_TAGS = {'style', 'script'}
 
-    # Remove style and script tags with their content
-    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        def __init__(self):
+            super().__init__()
+            self._result = []
+            self._skip_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag.lower() in self.SKIP_TAGS:
+                self._skip_depth += 1
+            elif not self._skip_depth:
+                self._result.append(self.get_starttag_text())
+
+        def handle_endtag(self, tag):
+            if tag.lower() in self.SKIP_TAGS:
+                self._skip_depth = max(0, self._skip_depth - 1)
+            elif not self._skip_depth:
+                self._result.append(f'</{tag}>')
+
+        def handle_data(self, data):
+            if not self._skip_depth:
+                self._result.append(data)
+
+        def get_output(self):
+            return ''.join(self._result)
+
+    stripper = _TagStripper()
+    stripper.feed(html_content)
+    text = stripper.get_output()
 
     # Remove HTML comments
     text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)

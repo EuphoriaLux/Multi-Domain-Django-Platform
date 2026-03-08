@@ -212,7 +212,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('manual-code-form').addEventListener('submit', function(e) {
         e.preventDefault();
         var code = document.getElementById('manual-code').value.trim();
-        if (code) {
+        var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (code && uuidRegex.test(code)) {
             window.location.href = '{% url "crush_lu:advent_scan_qr" "00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000', code);
         }
     });
