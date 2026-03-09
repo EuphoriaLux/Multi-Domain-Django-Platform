@@ -141,9 +141,6 @@ ROOT_URLCONF = "azureproject.urls_entreprinder"
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-
 # STATICFILES_DIRS removed - all static files now in app-level directories
 # (e.g., crush_lu/static/crush_lu/, core/static/core/ for shared vendor files)
 # Django's AppDirectoriesFinder handles these automatically
@@ -330,7 +327,6 @@ LOGIN_REDIRECT_URL = "/profile/"
 ACCOUNT_SIGNUP_REDIRECT_URL = "/profile/"
 
 # Security settings for production
-SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 

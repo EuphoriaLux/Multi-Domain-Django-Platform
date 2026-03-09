@@ -167,7 +167,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
     serverFarmId: appServicePlan.id
     siteConfig: {
       alwaysOn: true
-      linuxFxVersion: 'PYTHON|3.11'
+      linuxFxVersion: 'PYTHON|3.12'
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
@@ -300,7 +300,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
     serverFarmId: appServicePlan.id
     siteConfig: {
       alwaysOn: true
-      linuxFxVersion: 'PYTHON|3.11'
+      linuxFxVersion: 'PYTHON|3.12'
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'

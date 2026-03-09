@@ -566,13 +566,6 @@ STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 
-# =============================================================================
-# STATIC FILES STORAGE (Development)
-# =============================================================================
-# Use simple StaticFilesStorage in development for instant cache refresh.
-# Production (production.py) overrides this with CompressedManifestStaticFilesStorage.
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
-
 # WhiteNoise development settings - enable auto-refresh for instant CSS/JS updates
 if DEBUG:
     WHITENOISE_AUTOREFRESH = True  # Re-check files on every request
