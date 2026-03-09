@@ -351,7 +351,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 // Multilingual feedback templates
 const userLanguage = '{{ profile.preferred_language }}';
 

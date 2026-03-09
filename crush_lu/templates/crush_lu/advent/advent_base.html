@@ -234,7 +234,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
     // Generate snowflakes
     (function() {
         const snowflakesContainer = document.getElementById('snowflakes');

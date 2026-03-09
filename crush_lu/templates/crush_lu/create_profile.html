@@ -1274,7 +1274,7 @@
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
 <!-- Firebase Configuration -->
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";
     window.FIREBASE_AUTH_DOMAIN = "{{ firebase_auth_domain }}";
     window.FIREBASE_PROJECT_ID = "{{ firebase_project_id }}";
@@ -1283,7 +1283,7 @@
 <!-- Phone verification module -->
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 // Initialize global phone verification instance
 // Alpine.js components are now defined in alpine-components.js
 document.addEventListener('DOMContentLoaded', function() {

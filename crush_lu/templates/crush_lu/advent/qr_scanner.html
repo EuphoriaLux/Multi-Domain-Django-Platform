@@ -125,7 +125,7 @@
 <!-- QR Code Scanner Library -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById('scanner-status');
     var videoEl = document.getElementById('qr-video');

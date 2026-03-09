@@ -315,7 +315,7 @@
 
 {% if is_pwa_user and user.is_authenticated %}
 <!-- Google Wallet and Referral JavaScript -->
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Google Wallet handler
     var googleWalletBtn = document.getElementById('save-google-wallet-btn');

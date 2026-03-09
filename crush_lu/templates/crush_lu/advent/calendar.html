@@ -244,7 +244,7 @@
     }
 </style>
 
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
     // Door click effects
     document.querySelectorAll('.advent-door.available .door-link').forEach(door => {
         door.addEventListener('click', function(e) {

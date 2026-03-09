@@ -144,7 +144,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 var _i18n = {
     creatingAccount: '{% trans "Creating Account..." %}',
     redirectingTo: '{% trans "Redirecting to" %}'
@@ -181,7 +181,7 @@ var _i18n = {
 })();
 </script>
 
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 /**
  * OAuth Handler for Crush.lu Signup - Unified for Google and Facebook
  *

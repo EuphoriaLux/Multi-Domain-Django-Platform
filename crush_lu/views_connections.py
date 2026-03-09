@@ -470,7 +470,7 @@ def connection_actions(request, event_id, user_id):
 
     return render(
         request,
-        "crush_lu/_attendee_connection_actions.html",
+        "crush_lu/event_attendees.html#connection_actions",
         {
             "attendee": attendee,
             "event": event,

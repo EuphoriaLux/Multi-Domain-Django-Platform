@@ -869,7 +869,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
     // Intersection Observer for scroll animations
     var observerOptions = {
         threshold: 0.05,
