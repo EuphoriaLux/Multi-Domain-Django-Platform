@@ -109,7 +109,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const confirmInput = document.getElementById('confirm_text');
     const deleteBtn = document.getElementById('deleteBtn');

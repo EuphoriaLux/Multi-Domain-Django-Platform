@@ -191,7 +191,7 @@
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
 {% if redirect_to_presentations %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 // Auto-redirect to presentations after 5 seconds
 setTimeout(function() {
     window.location.href = '{% url "crush_lu:event_presentations" event.id %}';

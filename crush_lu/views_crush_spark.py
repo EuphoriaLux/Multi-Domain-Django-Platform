@@ -337,7 +337,7 @@ def spark_actions(request, event_id, user_id):
         "spark_deadline_active": spark_deadline_active,
         "sparks_remaining": event.max_sparks_per_event - existing_count,
     }
-    return render(request, "crush_lu/_attendee_spark_actions.html", context)
+    return render(request, "crush_lu/event_attendees.html#spark_actions", context)
 
 
 # =============================================================================

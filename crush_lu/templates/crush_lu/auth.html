@@ -245,7 +245,7 @@
 
 {% block extra_js %}
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 var _i18n = {
     loggingIn: '{% trans "Logging in..." %}',
     creatingAccount: '{% trans "Creating Account..." %}',

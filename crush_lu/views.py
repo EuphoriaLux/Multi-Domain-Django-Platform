@@ -567,7 +567,7 @@ def _render_edit_profile_form(request):
             if request.htmx:
                 return render(
                     request,
-                    "crush_lu/partials/edit_profile_success.html",
+                    "crush_lu/edit_profile.html#edit_success",
                     {
                         "profile": updated_profile,
                     },

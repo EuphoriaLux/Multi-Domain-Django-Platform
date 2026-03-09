@@ -146,7 +146,7 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
     // Smooth scroll to current chapter on page load
     document.addEventListener('DOMContentLoaded', function() {
         const currentChapter = document.querySelector('.chapter-current');

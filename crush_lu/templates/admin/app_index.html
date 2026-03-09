@@ -353,7 +353,7 @@
 
 </div>
 
-<script nonce="{{ request.csp_nonce }}">
+<script nonce="{{ csp_nonce }}">
 function toggleSection(header) {
     const content = header.nextElementSibling.nextElementSibling;
     const isCollapsed = content.classList.contains('collapsed');
