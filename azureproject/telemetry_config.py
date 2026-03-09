@@ -214,7 +214,7 @@ def configure_azure_monitor_telemetry():
     connection_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
     if not connection_string:
-        logger.info(
+        logger.warning(
             "APPLICATIONINSIGHTS_CONNECTION_STRING not set. "
             "Telemetry will not be sent to Azure Monitor."
         )

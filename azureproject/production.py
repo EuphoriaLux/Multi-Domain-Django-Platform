@@ -525,14 +525,7 @@ if "WEBSITE_HOSTNAME" in os.environ:
 # The SDK automatically instruments: Django, requests, urllib, psycopg2
 from azureproject.telemetry_config import configure_azure_monitor_telemetry
 
-telemetry_ok = configure_azure_monitor_telemetry()
-if not telemetry_ok:
-    import sys
-    print(
-        "WARNING: Azure Monitor telemetry not configured. "
-        "Check APPLICATIONINSIGHTS_CONNECTION_STRING is set.",
-        file=sys.stderr,
-    )
+configure_azure_monitor_telemetry()
 
 # =============================================================================
 # CONTENT SECURITY POLICY (CSP) SETTINGS - Production
