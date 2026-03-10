@@ -15,10 +15,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
+      - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Azure Login
         uses: azure/login@v2
@@ -59,7 +59,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Function App:** finops-daily-sync" >> $GITHUB_STEP_SUMMARY
           echo "**Region:** West Europe" >> $GITHUB_STEP_SUMMARY
-          echo "**Runtime:** Python 3.11" >> $GITHUB_STEP_SUMMARY
+          echo "**Runtime:** Python 3.12" >> $GITHUB_STEP_SUMMARY
           echo "**Schedule:** Daily at 3:00 AM UTC" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Monitor Execution" >> $GITHUB_STEP_SUMMARY

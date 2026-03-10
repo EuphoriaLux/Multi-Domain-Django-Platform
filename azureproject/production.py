@@ -535,9 +535,16 @@ if not telemetry_ok:
     )
 
 # =============================================================================
-# CONTENT SECURITY POLICY (CSP) SETTINGS - Production
+# CONTENT SECURITY POLICY (CSP) - Production Notes
 # =============================================================================
-# Start with Report-Only mode, switch to enforcement after testing.
-# Monitor CSP reports at /csp-report/ endpoint and in logs (csp_reports logger).
-CSP_REPORT_ONLY = True  # Set to False after testing to enforce CSP
-CSP_REPORT_URI = "/csp-report/"
+# CSP is configured via SECURE_CSP_REPORT_ONLY in settings.py (Django 6.0 native).
+# Currently in report-only mode. Monitor /csp-report/ endpoint and csp_reports logger,
+# then switch to CONTENT_SECURITY_POLICY (enforcing) when ready.
+
+# =============================================================================
+# DJANGO 6.0 BACKGROUND TASKS
+# =============================================================================
+# Inherits ImmediateBackend from settings.py (tasks run synchronously).
+# This is intentional — no separate db_worker process is running on Azure.
+# Switch to DatabaseBackend when async execution is needed (requires adding
+# `python manage.py db_worker &` to startup.sh or a separate Azure WebJob).
