@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.admin import GenericTabularInline
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.urls import reverse
 
 from .models import (
