@@ -8,6 +8,7 @@ particularly the Android PWA cross-browser problem.
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from crush_lu.models import OAuthState
 
@@ -112,7 +113,7 @@ class OAuthStateAdmin(admin.ModelAdmin):
         now = timezone.now()
 
         if obj.used:
-            return format_html('<span style="color: #999;">—</span>')
+            return mark_safe('<span style="color: #999;">—</span>')
 
         if now > obj.expires_at:
             delta = now - obj.expires_at

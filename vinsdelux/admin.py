@@ -207,7 +207,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: green;">✅ Given on {}{}</span>',
                 date_str, ip_str
             )
-        return format_html('<span style="color: red;">❌ Not given</span>')
+        return mark_safe('<span style="color: red;">❌ Not given</span>')
     powerup_consent_status.short_description = 'PowerUp Consent (Identity Layer)'
 
     def crushlu_consent_status(self, obj):
@@ -219,7 +219,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: green;">✅ Given on {}{}</span>',
                 date_str, ip_str
             )
-        return format_html('<span style="color: red;">❌ Not given</span>')
+        return mark_safe('<span style="color: red;">❌ Not given</span>')
     crushlu_consent_status.short_description = 'Crush.lu Consent (Profile Layer)'
 
     def crushlu_ban_status(self, obj):
@@ -236,7 +236,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: red; font-weight: bold;">🚫 BANNED since {} ({})</span>',
                 date_str, reason
             )
-        return format_html('<span style="color: green;">✅ Not banned</span>')
+        return mark_safe('<span style="color: green;">✅ Not banned</span>')
     crushlu_ban_status.short_description = 'Crush.lu Ban Status'
 
     def has_add_permission(self, request, obj=None):
@@ -291,7 +291,7 @@ class UserAdmin(BaseUserAdmin):
         elif count == 1:
             return format_html('{} profile', count)
         else:
-            return format_html('<span style="color: red;">No profiles</span>')
+            return mark_safe('<span style="color: red;">No profiles</span>')
     profile_count.short_description = '📊 Total Profiles'
 
     def has_entreprinder_profile(self, obj):
@@ -323,7 +323,7 @@ class UserAdmin(BaseUserAdmin):
                 url, status
             )
         except:
-            return format_html('<span style="color: #999;">-</span>')
+            return mark_safe('<span style="color: #999;">-</span>')
     get_crush_profile_link.short_description = '💕 Profile'
 
     def has_vinsdelux_profile(self, obj):
@@ -436,7 +436,7 @@ class UserAdmin(BaseUserAdmin):
     def get_consent_status(self, obj):
         """Display GDPR consent status icons"""
         if not hasattr(obj, 'data_consent'):
-            return format_html('<span style="color: red;">❌ No consent</span>')
+            return mark_safe('<span style="color: red;">❌ No consent</span>')
 
         consent = obj.data_consent
         powerup_icon = '✅' if consent.powerup_consent_given else '❌'
@@ -675,11 +675,11 @@ class VdlPlotReservationAdmin(admin.ModelAdmin):
     def is_expired_status(self, obj):
         """Display if reservation is expired"""
         if obj.is_expired:
-            return format_html('<span style="color: red;">Expired</span>')
+            return mark_safe('<span style="color: red;">Expired</span>')
         elif obj.is_confirmed:
-            return format_html('<span style="color: green;">Confirmed</span>')
+            return mark_safe('<span style="color: green;">Confirmed</span>')
         else:
-            return format_html('<span style="color: orange;">Pending</span>')
+            return mark_safe('<span style="color: orange;">Pending</span>')
     is_expired_status.short_description = 'Status'
 
 

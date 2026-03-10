@@ -12,6 +12,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from crush_lu.models import CrushProfile, CrushCoach, UserDataConsent
 
@@ -43,7 +44,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: green;">✅ Given on {}{}</span>',
                 date_str, ip_str
             )
-        return format_html('<span style="color: red;">❌ Not given</span>')
+        return mark_safe('<span style="color: red;">❌ Not given</span>')
     powerup_consent_status.short_description = 'PowerUp Consent (Identity Layer)'
 
     def crushlu_consent_status(self, obj):
@@ -55,7 +56,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: green;">✅ Given on {}{}</span>',
                 date_str, ip_str
             )
-        return format_html('<span style="color: red;">❌ Not given</span>')
+        return mark_safe('<span style="color: red;">❌ Not given</span>')
     crushlu_consent_status.short_description = 'Crush.lu Consent (Profile Layer)'
 
     def crushlu_ban_status(self, obj):
@@ -72,7 +73,7 @@ class UserDataConsentInline(admin.StackedInline):
                 '<span style="color: red; font-weight: bold;">🚫 BANNED since {} ({})</span>',
                 date_str, reason
             )
-        return format_html('<span style="color: green;">✅ Not banned</span>')
+        return mark_safe('<span style="color: green;">✅ Not banned</span>')
     crushlu_ban_status.short_description = 'Crush.lu Ban Status'
 
     def has_add_permission(self, request, obj=None):
@@ -230,7 +231,7 @@ class CrushUserAdmin(BaseUserAdmin):
     def get_consent_status(self, obj):
         """Display consent status icons"""
         if not hasattr(obj, 'data_consent'):
-            return format_html('<span style="color: red;">❌ No consent record</span>')
+            return mark_safe('<span style="color: red;">❌ No consent record</span>')
 
         consent = obj.data_consent
         powerup_icon = '✅' if consent.powerup_consent_given else '❌'
@@ -258,7 +259,7 @@ class CrushUserAdmin(BaseUserAdmin):
                 url, status
             )
         except CrushProfile.DoesNotExist:
-            return format_html('<span style="color: #999;">No profile</span>')
+            return mark_safe('<span style="color: #999;">No profile</span>')
     get_crush_profile_link.short_description = '💕 Profile'
 
     def is_coach_status(self, obj):

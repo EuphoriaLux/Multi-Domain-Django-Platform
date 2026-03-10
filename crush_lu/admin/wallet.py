@@ -13,6 +13,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import CrushProfile
@@ -164,7 +165,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 '<span style="color: #28a745;" title="Serial: {}">🍎 Active</span>',
                 obj.apple_pass_serial[:20] + '...' if len(obj.apple_pass_serial) > 20 else obj.apple_pass_serial
             )
-        return format_html('<span style="color: #999;">—</span>')
+        return mark_safe('<span style="color: #999;">—</span>')
     get_apple_pass_status.short_description = _('Apple')
 
     def get_google_pass_status(self, obj):
@@ -174,7 +175,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 '<span style="color: #28a745;" title="Object ID: {}">🤖 Active</span>',
                 obj.google_wallet_object_id[:30] + '...' if len(obj.google_wallet_object_id) > 30 else obj.google_wallet_object_id
             )
-        return format_html('<span style="color: #999;">—</span>')
+        return mark_safe('<span style="color: #999;">—</span>')
     get_google_pass_status.short_description = _('Google')
 
     def get_next_event_display(self, obj):
@@ -187,7 +188,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                 next_event.get('date', ''),
                 next_event.get('title', '')[:25] + '...' if len(next_event.get('title', '')) > 25 else next_event.get('title', '')
             )
-        return format_html('<span style="color: #999;">No events</span>')
+        return mark_safe('<span style="color: #999;">No events</span>')
     get_next_event_display.short_description = _('Next Event')
 
     def get_actions_buttons(self, obj):
@@ -207,9 +208,9 @@ class WalletPassAdmin(admin.ModelAdmin):
             )
 
         if not buttons:
-            return format_html('<span style="color: #999; font-size: 11px;">No pass</span>')
+            return mark_safe('<span style="color: #999; font-size: 11px;">No pass</span>')
 
-        return format_html(' | '.join(buttons))
+        return mark_safe(' | '.join(buttons))
     get_actions_buttons.short_description = _('Actions')
 
     def get_wallet_summary(self, obj):

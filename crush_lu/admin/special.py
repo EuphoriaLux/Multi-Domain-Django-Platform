@@ -7,6 +7,7 @@ Handles VIP/personalized journey experiences configuration.
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
@@ -344,7 +345,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 obj.linked_user.id,
                 obj.linked_user.email or obj.linked_user.username
             )
-        return format_html('<span style="color: #999;">Name match</span>')
+        return mark_safe('<span style="color: #999;">Name match</span>')
     get_linked_user_display.short_description = 'Linked User'
     get_linked_user_display.admin_order_field = 'linked_user'
 
@@ -359,14 +360,14 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 '🎁 Gift from {}</span>',
                 gift.sender.first_name
             )
-        return format_html('<span style="background: #666; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">📋 Manual</span>')
+        return mark_safe('<span style="background: #666; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">📋 Manual</span>')
     get_source_display.short_description = 'Source'
 
     def get_journeys_status(self, obj):
         """Display which journey types exist for this user"""
         journeys = JourneyConfiguration.objects.filter(special_experience=obj)
         if not journeys.exists():
-            return format_html('<span style="color: #999;">—</span>')
+            return mark_safe('<span style="color: #999;">—</span>')
 
         badges = []
         for journey in journeys:
@@ -377,7 +378,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             else:
                 badges.append(f'<span style="background: #666; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 4px;">📖 {journey.journey_type}</span>')
 
-        return format_html(''.join(badges))
+        return mark_safe(''.join(badges))
     get_journeys_status.short_description = 'Journeys'
 
     def get_journey_status(self, obj):

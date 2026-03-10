@@ -10,6 +10,7 @@ Includes:
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from crush_lu.models import UserActivity, EmailPreference, ProfileReminder
 
@@ -49,22 +50,22 @@ class UserActivityAdmin(admin.ModelAdmin):
     def get_status(self, obj):
         """Display online/offline status with icon"""
         if obj.is_online:
-            return format_html('<span style="color: green;">🟢 Online</span>')
+            return mark_safe('<span style="color: green;">🟢 Online</span>')
         elif obj.is_active_user:
             return format_html('<span style="color: orange;">🟡 Active ({})</span>', obj.minutes_since_last_seen)
         else:
-            return format_html('<span style="color: gray;">⚫ Inactive</span>')
+            return mark_safe('<span style="color: gray;">⚫ Inactive</span>')
     get_status.short_description = 'Status'
     get_status.admin_order_field = 'last_seen'
 
     def get_pwa_status(self, obj):
         """Display PWA usage status"""
         if obj.uses_pwa:
-            return format_html('<span style="color: purple;">📱 PWA User</span>')
+            return mark_safe('<span style="color: purple;">📱 PWA User</span>')
         elif obj.is_pwa_user:
-            return format_html('<span style="color: gray;">📱 PWA (Inactive)</span>')
+            return mark_safe('<span style="color: gray;">📱 PWA (Inactive)</span>')
         else:
-            return format_html('<span style="color: gray;">🌐 Browser Only</span>')
+            return mark_safe('<span style="color: gray;">🌐 Browser Only</span>')
     get_pwa_status.short_description = 'PWA Status'
     get_pwa_status.admin_order_field = 'is_pwa_user'
 
@@ -140,7 +141,7 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
     def get_email_status_icons(self, obj):
         """Display enabled email categories with icons"""
         if obj.unsubscribed_all:
-            return format_html('<span style="color: red;">❌ All Unsubscribed</span>')
+            return mark_safe('<span style="color: red;">❌ All Unsubscribed</span>')
 
         icons = []
         if obj.email_profile_updates:
@@ -158,7 +159,7 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
 
         if icons:
             return format_html('<span title="Profile, Events, Connections, Messages, Marketing">{}</span>', ' '.join(icons))
-        return format_html('<span style="color: orange;">⚠️ All Off</span>')
+        return mark_safe('<span style="color: orange;">⚠️ All Off</span>')
     get_email_status_icons.short_description = 'Active Categories'
 
     def get_unsubscribe_link(self, obj):
@@ -263,15 +264,15 @@ class ProfileReminderAdmin(admin.ModelAdmin):
             profile = obj.user.crushprofile
             status = profile.completion_status
             if profile.is_approved:
-                return format_html('<span style="color: green;">✅ Approved</span>')
+                return mark_safe('<span style="color: green;">✅ Approved</span>')
             elif status == 'submitted':
-                return format_html('<span style="color: blue;">📝 Submitted</span>')
+                return mark_safe('<span style="color: blue;">📝 Submitted</span>')
             elif status == 'not_started':
-                return format_html('<span style="color: red;">❌ Not Started</span>')
+                return mark_safe('<span style="color: red;">❌ Not Started</span>')
             else:
                 return format_html('<span style="color: orange;">🔄 {}</span>', status.title())
         except Exception:
-            return format_html('<span style="color: gray;">— No Profile</span>')
+            return mark_safe('<span style="color: gray;">— No Profile</span>')
     get_profile_status.short_description = 'Current Status'
 
     def get_queryset(self, request):

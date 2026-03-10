@@ -14,6 +14,7 @@ from django.db import transaction
 from django.db.models import Prefetch, Count, Q, F
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
@@ -92,7 +93,7 @@ class CrushCoachAdmin(TranslationAdmin):
                 '<img src="{}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />',
                 obj.photo.url
             )
-        return format_html('<span style="color: #999;">No photo</span>')
+        return mark_safe('<span style="color: #999;">No photo</span>')
     get_photo_preview.short_description = _('Photo')
 
     def get_spoken_languages(self, obj):
@@ -411,15 +412,15 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 '<img src="{}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />',
                 photo.url
             )
-        return format_html('<span style="color: #999;">No photo</span>')
+        return mark_safe('<span style="color: #999;">No photo</span>')
     get_photo_preview.short_description = _('Photo')
 
     def phone_verified_icon(self, obj):
         """Display phone verification status with icon"""
         if obj.phone_verified:
-            return format_html('<span style="color: green;" title="Phone verified">✅</span>')
+            return mark_safe('<span style="color: green;" title="Phone verified">✅</span>')
         else:
-            return format_html('<span style="color: red;" title="Phone not verified">❌</span>')
+            return mark_safe('<span style="color: red;" title="Phone not verified">❌</span>')
     phone_verified_icon.short_description = _('Phone')
     phone_verified_icon.admin_order_field = 'phone_verified'
 
@@ -441,7 +442,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def get_consent_status(self, obj):
         """Display consent status icons for Crush.lu"""
         if not hasattr(obj.user, 'data_consent'):
-            return format_html('<span style="color: red;">❌ No consent</span>')
+            return mark_safe('<span style="color: red;">❌ No consent</span>')
 
         consent = obj.user.data_consent
         crushlu_icon = '✅' if consent.crushlu_consent_given else '❌'
@@ -459,11 +460,11 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def outlook_synced(self, obj):
         """Display Outlook contact sync status with icon"""
         if obj.outlook_contact_id:
-            return format_html('<span style="color: green;" title="Synced to Outlook">📇</span>')
+            return mark_safe('<span style="color: green;" title="Synced to Outlook">📇</span>')
         elif obj.phone_number:
-            return format_html('<span style="color: orange;" title="Not synced (has phone)">⏳</span>')
+            return mark_safe('<span style="color: orange;" title="Not synced (has phone)">⏳</span>')
         else:
-            return format_html('<span style="color: gray;" title="No phone number">—</span>')
+            return mark_safe('<span style="color: gray;" title="No phone number">—</span>')
     outlook_synced.short_description = _('Outlook')
     outlook_synced.admin_order_field = 'outlook_contact_id'
 
@@ -476,7 +477,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             submission = ProfileSubmission.objects.filter(profile=obj).select_related('coach__user').first()
 
         if submission is None:
-            return format_html('<em style="color: #999;">Not submitted yet</em>')
+            return mark_safe('<em style="color: #999;">Not submitted yet</em>')
 
         if submission.coach:
             coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[submission.coach.pk])
@@ -496,14 +497,14 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 submission.get_status_display()
             )
         else:
-            return format_html('<em style="color: #dc3545;">No coach assigned</em>')
+            return mark_safe('<em style="color: #dc3545;">No coach assigned</em>')
     get_assigned_coach.short_description = _('Assigned Coach')
 
     def get_event_registrations(self, obj):
         """Display event registrations for this user as HTML table"""
         registrations = EventRegistration.objects.filter(user=obj.user).select_related('event').order_by('-registered_at')[:10]
         if not registrations:
-            return format_html('<em style="color: #999;">No event registrations yet</em>')
+            return mark_safe('<em style="color: #999;">No event registrations yet</em>')
 
         html = '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">'
         html += '<tr style="background: #f5f5f5;"><th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Event</th>'
@@ -537,7 +538,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         if total > 10:
             html += f'<p style="color: #666; font-size: 12px; margin-top: 8px;">Showing 10 of {total} registrations</p>'
 
-        return format_html(html)
+        return mark_safe(html)
     get_event_registrations.short_description = _('Event Registrations')
 
     def get_connections_summary(self, obj):
@@ -546,7 +547,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         received = EventConnection.objects.filter(recipient=obj.user).select_related('requester', 'event').order_by('-requested_at')[:5]
 
         if not sent.exists() and not received.exists():
-            return format_html('<em style="color: #999;">No connections yet</em>')
+            return mark_safe('<em style="color: #999;">No connections yet</em>')
 
         html = ''
 
@@ -588,7 +589,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 html += '</tr>'
             html += '</table>'
 
-        return format_html(html)
+        return mark_safe(html)
     get_connections_summary.short_description = _('Connections')
 
     def get_referral_code(self, obj):
@@ -711,7 +712,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             </table>
         </div>
         '''
-        return format_html(html)
+        return mark_safe(html)
     get_user_account_info.short_description = _('User Account Details')
 
     def get_journey_progress(self, obj):
@@ -725,7 +726,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ).first()
 
         if not special_exp:
-            return format_html('<em style="color: #999;">No special experience configured for this user</em>')
+            return mark_safe('<em style="color: #999;">No special experience configured for this user</em>')
 
         journeys = JourneyConfiguration.objects.filter(
             special_experience=special_exp
@@ -791,7 +792,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             html += '</div>'
 
         html += '</div>'
-        return format_html(html)
+        return mark_safe(html)
     get_journey_progress.short_description = _('Journey Progress')
 
     def get_quick_status_summary(self, obj):
@@ -833,7 +834,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             </div>
         </div>
         '''
-        return format_html(html)
+        return mark_safe(html)
     get_quick_status_summary.short_description = _('Status Summary')
 
     @admin.action(description=_('Promote selected profiles to Crush Coach role'))
@@ -1141,6 +1142,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             qs = qs.filter(coach__user=request.user)
         return qs
 
+    @admin.display(description=_('Profile'), ordering='profile__user__first_name')
     def get_profile_link(self, obj):
         """Clickable link to the profile"""
         url = reverse('crush_admin:crush_lu_crushprofile_change', args=[obj.profile.pk])
@@ -1149,15 +1151,13 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
             url, name
         )
-    get_profile_link.short_description = _('Profile')
-    get_profile_link.admin_order_field = 'profile__user__first_name'
 
+    @admin.display(description=_('Email'), ordering='profile__user__email')
     def get_user_email(self, obj):
         """Display user's email"""
         return obj.profile.user.email
-    get_user_email.short_description = _('Email')
-    get_user_email.admin_order_field = 'profile__user__email'
 
+    @admin.display(description=_('Workflow'))
     def get_workflow_status(self, obj):
         """Display visual workflow badge"""
         now = timezone.now()
@@ -1205,7 +1205,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     def get_pending_time(self, obj):
         """Display how long submission has been pending with color coding"""
         if obj.status != 'pending':
-            return format_html('<span style="color: #999;">-</span>')
+            return mark_safe('<span style="color: #999;">-</span>')
 
         now = timezone.now()
         delta = now - obj.submitted_at
@@ -1260,7 +1260,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
 
         html += '</div>'
 
-        return format_html(html)
+        return mark_safe(html)
     get_profile_details.short_description = _('Profile Details')
 
     @admin.action(description=_('Approve selected profiles (requires completed call)'))

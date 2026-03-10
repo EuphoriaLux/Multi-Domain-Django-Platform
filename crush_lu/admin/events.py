@@ -12,6 +12,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin
 
@@ -838,7 +839,7 @@ class EventInvitationAdmin(admin.ModelAdmin):
             status_html += "<p><strong>Account:</strong> ❌ Not yet created</p>"
 
         status_html += "</div>"
-        return format_html(status_html)
+        return mark_safe(status_html)
 
     get_status_display.short_description = _("Complete Status")
 

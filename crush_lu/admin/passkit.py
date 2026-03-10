@@ -7,6 +7,7 @@ for push notification updates.
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 
 from crush_lu.models import PasskitDeviceRegistration
@@ -90,14 +91,14 @@ class PasskitDeviceRegistrationAdmin(admin.ModelAdmin):
     def get_days_since_update(self, obj):
         """Display days since last update"""
         if not obj.updated_at:
-            return format_html('<span style="color: #999;">—</span>')
+            return mark_safe('<span style="color: #999;">—</span>')
 
         days = (timezone.now() - obj.updated_at).days
 
         if days == 0:
-            return format_html('<span style="color: #28a745;">Today</span>')
+            return mark_safe('<span style="color: #28a745;">Today</span>')
         elif days == 1:
-            return format_html('<span style="color: #28a745;">Yesterday</span>')
+            return mark_safe('<span style="color: #28a745;">Yesterday</span>')
         elif days < 7:
             return format_html('<span style="color: #17a2b8;">{}d ago</span>', days)
         elif days < 30:
