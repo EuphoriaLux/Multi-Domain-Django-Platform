@@ -133,7 +133,7 @@ class MeetupEventAdmin(TranslationAdmin):
         "is_cancelled",
         "is_private_invitation",
         "enable_activity_voting",
-        "require_approved_profile",
+        "profile_requirement",
         EventCapacityFilter,
         "date_time",
     )
@@ -201,7 +201,7 @@ class MeetupEventAdmin(TranslationAdmin):
                     ("max_participants_m", "max_participants_f", "max_participants_nb"),
                     "min_age",
                     "max_age",
-                    "require_approved_profile",
+                    "profile_requirement",
                     "languages",
                     "has_food_component",
                     "allow_plus_ones",
@@ -550,11 +550,12 @@ class MeetupEventAdmin(TranslationAdmin):
                 help_text=kwargs["help_text"],
                 coerce=str,
             )
-        elif db_field.name == "require_approved_profile":
+        elif db_field.name == "profile_requirement":
             kwargs["help_text"] = _(
-                "Require approved Crush profile for registration?\n"
-                "• Checked (recommended): Only users with approved profiles can register\n"
-                "• Unchecked: Any authenticated user can register (no profile needed)"
+                "Profile requirement level for registration:\n"
+                "• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+                "• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
+                "• No profile required: Any authenticated user can register"
             )
         elif db_field.name == "image":
             kwargs["help_text"] = _(

@@ -118,10 +118,17 @@ class MeetupEvent(models.Model):
     )
     min_age = models.PositiveIntegerField(default=18)
     max_age = models.PositiveIntegerField(default=99)
-    require_approved_profile = models.BooleanField(
-        default=True,
+    PROFILE_REQUIREMENT_CHOICES = [
+        ("approved", _("Approved profile required")),
+        ("profile_exists", _("Profile must exist")),
+        ("none", _("No profile required")),
+    ]
+    profile_requirement = models.CharField(
+        max_length=20,
+        choices=PROFILE_REQUIREMENT_CHOICES,
+        default="approved",
         help_text=_(
-            "Require attendees to have approved profiles (recommended for dating events)"
+            "Controls what level of profile is needed to register for this event"
         ),
     )
 

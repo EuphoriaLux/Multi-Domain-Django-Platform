@@ -53,7 +53,7 @@ On t'attend pour une Saint-Valentin différente, authentique et sans prise de t�
                 'min_age': 18,
                 'max_age': 99,
                 'registration_fee': 0.00,
-                'require_approved_profile': False,  # Allow non-approved users to attend
+                'profile_requirement': 'none',  # Allow non-approved users to attend
             },
             {
                 'title': '🎉 Friday After-Work Mixer – Happy Hour & Networking',
