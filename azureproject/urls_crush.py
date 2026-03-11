@@ -19,7 +19,8 @@ from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
-from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft
+from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft, views_event_polls
+from crush_lu.admin.poll_analytics import poll_analytics_dashboard, poll_analytics_detail
 from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api, daily_active_users_api
 from crush_lu.admin_views import (
     email_template_manager,
@@ -111,6 +112,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/events/<int:event_id>/voting/status/', api_views.voting_status_api, name='voting_status_api'),
     path('api/events/<int:event_id>/voting/submit/', api_views.submit_vote_api, name='submit_vote_api'),
     path('api/events/<int:event_id>/voting/results/', api_views.voting_results_api, name='voting_results_api'),
+
+    # Event Poll API (language-neutral for JS calls)
+    path('api/polls/<int:poll_id>/vote/', views_event_polls.poll_vote, name='api_poll_vote'),
+    path('api/polls/<int:poll_id>/results/', views_event_polls.poll_results_api, name='api_poll_results'),
 
     # Crush Spark API (language-neutral for JS polling)
     path('api/sparks/<int:spark_id>/status/', views_crush_spark.api_spark_status, name='api_spark_status'),
@@ -224,6 +229,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('crush-admin/email-templates/load-connections/', email_template_load_connections, name='email_template_load_connections'),
     path('crush-admin/email-templates/load-invitations/', email_template_load_invitations, name='email_template_load_invitations'),
     path('crush-admin/email-templates/load-gifts/', email_template_load_gifts, name='email_template_load_gifts'),
+
+    # Poll Analytics
+    path('crush-admin/poll-analytics/', poll_analytics_dashboard, name='poll_analytics_dashboard'),
+    path('crush-admin/poll-analytics/<int:poll_id>/', poll_analytics_detail, name='poll_analytics_detail'),
 
     path('crush-admin/', crush_admin_site.urls),
 

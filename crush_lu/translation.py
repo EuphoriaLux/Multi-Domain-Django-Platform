@@ -10,6 +10,7 @@ from modeltranslation.translator import translator, TranslationOptions
 from .models.profiles import CrushCoach, SpecialUserExperience
 from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
+from .models.event_polls import EventPoll, EventPollOption
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -74,6 +75,18 @@ class CrushSiteConfigTranslationOptions(TranslationOptions):
     fields = ('banner_message', 'banner_link_text', 'banner_link_url')
 
 
+class EventPollTranslationOptions(TranslationOptions):
+    """Translatable fields for event polls."""
+
+    fields = ('title', 'description')
+
+
+class EventPollOptionTranslationOptions(TranslationOptions):
+    """Translatable fields for event poll options."""
+
+    fields = ('name', 'description')
+
+
 # Register models with translation options
 translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
 translator.register(CrushCoach, CrushCoachTranslationOptions)
@@ -83,3 +96,5 @@ translator.register(JourneyConfiguration, JourneyConfigurationTranslationOptions
 translator.register(JourneyChapter, JourneyChapterTranslationOptions)
 translator.register(JourneyChallenge, JourneyChallengeTranslationOptions)
 translator.register(JourneyReward, JourneyRewardTranslationOptions)
+translator.register(EventPoll, EventPollTranslationOptions)
+translator.register(EventPollOption, EventPollOptionTranslationOptions)

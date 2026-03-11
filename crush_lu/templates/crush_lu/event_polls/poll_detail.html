@@ -1,0 +1,118 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ poll.title }} | Crush.lu{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6">
+        <a href="{% url 'crush_lu:poll_list' %}" class="inline-flex items-center text-crush-purple dark:text-violet-400 hover:underline mb-6 text-sm">
+            &larr; {% trans "Back to Polls" %}
+        </a>
+
+        {% if poll.image %}
+        <img src="{{ poll.image.url }}" alt="{{ poll.title }}" class="w-full h-40 sm:h-64 object-cover rounded-2xl mb-6">
+        {% endif %}
+
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">{{ poll.title }}</h1>
+        {% if poll.description %}
+        <p class="text-gray-600 dark:text-gray-400 mb-6 text-sm sm:text-base">{{ poll.description }}</p>
+        {% endif %}
+
+        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mb-8">
+            <span>{{ total_votes }} {% trans "votes" %}</span>
+            {% if poll.is_active %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                {% trans "Active" %}
+            </span>
+            {% elif poll.is_closed %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                {% trans "Closed" %}
+            </span>
+            {% endif %}
+            {% if poll.allow_multiple_choices %}
+            <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Multiple choices allowed" %}</span>
+            {% endif %}
+        </div>
+
+        {% if can_vote %}
+        <div x-data="eventPollVoting"
+             data-poll-id="{{ poll.id }}"
+             data-multi-choice="{{ poll.allow_multiple_choices|yesno:'true,false' }}"
+             data-has-voted="{{ has_voted|yesno:'true,false' }}">
+
+            {% csrf_token %}
+
+            <!-- Grid: 1 col on mobile, 2 cols on desktop -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                {% for option in options %}
+                <div class="poll-option poll-option-card"
+                     data-option-id="{{ option.id }}"
+                     x-bind:class="optionClass"
+                     @click="handleOptionClick">
+
+                    {% if option.static_image %}
+                    <div class="poll-option-image-wrapper">
+                        <img src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}" alt="{{ option.name }}" class="poll-option-image">
+                        <div class="poll-option-check"
+                             data-option-id="{{ option.id }}"
+                             x-bind:class="checkOverlayClass">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                 data-option-id="{{ option.id }}"
+                                 x-show="isOptionSelected">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    {% elif option.image %}
+                    <div class="poll-option-image-wrapper">
+                        <img src="{{ option.image.url }}" alt="{{ option.name }}" class="poll-option-image">
+                        <div class="poll-option-check"
+                             data-option-id="{{ option.id }}"
+                             x-bind:class="checkOverlayClass">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                 data-option-id="{{ option.id }}"
+                                 x-show="isOptionSelected">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="poll-option-body">
+                        <div class="flex items-center gap-2">
+                            {% if option.icon %}
+                            <span class="text-xl">{{ option.icon }}</span>
+                            {% endif %}
+                            <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
+                        </div>
+                        {% if option.description %}
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{{ option.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button @click="submitVote"
+                    x-bind:disabled="isDisabled"
+                    x-bind:class="submitClass"
+                    class="w-full py-3.5 px-6 rounded-xl text-white font-semibold transition-colors text-base">
+                <span x-text="submitButtonText"></span>
+            </button>
+        </div>
+
+        {% if poll.show_results_before_close %}
+        <div class="mt-10">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Current Results" %}</h2>
+            {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
+        </div>
+        {% endif %}
+
+        {% elif show_results %}
+        {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

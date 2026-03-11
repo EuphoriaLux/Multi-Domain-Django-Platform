@@ -10,3 +10,4 @@ from .passkit import *
 from .site_config import *
 from .crush_spark import *
 from .newsletter import *
+from .event_polls import *

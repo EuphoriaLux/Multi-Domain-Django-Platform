@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: vinsdelux 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-06 00:46+0100\n"
+"POT-Creation-Date: 2026-03-11 10:16+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -1799,6 +1799,7 @@ msgid "In Stock"
 msgstr "Auf Lager"
 
 #: .\vinsdelux\templates\vinsdelux\products\coffret_detail.html:79
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
 msgid "available"
 msgstr "verfügbar"
 
@@ -1939,6 +1940,10 @@ msgstr ""
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:42
 msgid "coffret"
 msgstr "Coffret"
+
+#: .\vinsdelux\templates\vinsdelux\products\producer_list.html:48
+msgid "View Products"
+msgstr "Produkte ansehen"
 
 #: .\vinsdelux\templates\vinsdelux\products\producer_list.html:52
 #: .\vinsdelux\templates\vinsdelux\sections\wine_plots.html:76
@@ -2329,6 +2334,3 @@ msgstr "Umfassende Tests für das futuristische Reiseerlebnis"
 
 #~ msgid "An error occurred while processing your selection"
 #~ msgstr "Bei der Verarbeitung Ihrer Auswahl ist ein Fehler aufgetreten"
-
-#~ msgid "View Products"
-#~ msgstr "Produkte ansehen"

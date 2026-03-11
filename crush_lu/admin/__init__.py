@@ -165,6 +165,12 @@ from .passkit import PasskitDeviceRegistrationAdmin
 
 from .site_config import CrushSiteConfigAdmin
 
+from .event_polls import (
+    EventPollOptionInline,
+    EventPollAdmin,
+    EventPollVoteAdmin,
+)
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -212,6 +218,9 @@ from crush_lu.models import (
     CrushSiteConfig,
     Newsletter,
     NewsletterRecipient,
+    EventPoll,
+    EventPollOption,
+    EventPollVote,
 )
 
 
@@ -305,6 +314,10 @@ crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAd
 # Newsletter System
 crush_admin_site.register(Newsletter, NewsletterAdmin)
 crush_admin_site.register(NewsletterRecipient, NewsletterRecipientAdmin)
+
+# Event Polls
+crush_admin_site.register(EventPoll, EventPollAdmin)
+crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
 
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
@@ -450,4 +463,9 @@ __all__ = [
 
     # Site Configuration
     'CrushSiteConfigAdmin',
+
+    # Event Polls
+    'EventPollOptionInline',
+    'EventPollAdmin',
+    'EventPollVoteAdmin',
 ]

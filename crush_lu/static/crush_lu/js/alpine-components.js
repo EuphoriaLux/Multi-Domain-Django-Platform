@@ -8683,4 +8683,133 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Event Poll Voting component
+    // CSP-safe: all logic in methods/getters, no inline expressions.
+    // Each option element has data-option-id; methods read it from $el.
+    Alpine.data('eventPollVoting', function() {
+        return {
+            selectedOptions: [],
+            isMultiChoice: false,
+            isSubmitting: false,
+            hasVoted: false,
+            pollId: 0,
+
+            init() {
+                var el = this.$el;
+                this.isMultiChoice = el.getAttribute('data-multi-choice') === 'true';
+                this.hasVoted = el.getAttribute('data-has-voted') === 'true';
+                this.pollId = parseInt(el.getAttribute('data-poll-id') || '0', 10);
+            },
+
+            get canSubmit() {
+                return this.selectedOptions.length > 0 && !this.isSubmitting && !this.hasVoted;
+            },
+
+            get submitButtonText() {
+                if (this.isSubmitting) return 'Submitting...';
+                if (this.hasVoted) return 'Vote Submitted';
+                return 'Submit Vote';
+            },
+
+            get isDisabled() {
+                return this.isSubmitting || this.hasVoted;
+            },
+
+            // CSP-safe: reads data-option-id from the element that has x-bind:class
+            get optionClass() {
+                var el = this.$el;
+                var id = parseInt(el.getAttribute('data-option-id') || '0', 10);
+                return this.selectedOptions.indexOf(id) !== -1 ? 'poll-option-selected' : '';
+            },
+
+            // CSP-safe: reads data-option-id for the image overlay check circle
+            get checkOverlayClass() {
+                var el = this.$el;
+                var id = parseInt(el.getAttribute('data-option-id') || '0', 10);
+                if (this.selectedOptions.indexOf(id) !== -1) {
+                    return 'poll-option-check-active';
+                }
+                return '';
+            },
+
+            // CSP-safe: reads data-option-id from the checkbox circle element
+            get checkboxClass() {
+                var el = this.$el;
+                var id = parseInt(el.getAttribute('data-option-id') || '0', 10);
+                if (this.selectedOptions.indexOf(id) !== -1) {
+                    return 'border-crush-purple bg-crush-purple dark:border-violet-500 dark:bg-violet-500';
+                }
+                return 'border-gray-300 dark:border-gray-600';
+            },
+
+            // CSP-safe: reads data-option-id from the svg element
+            get isOptionSelected() {
+                var el = this.$el;
+                var id = parseInt(el.getAttribute('data-option-id') || '0', 10);
+                return this.selectedOptions.indexOf(id) !== -1;
+            },
+
+            // CSP-safe: getter for submit button class
+            get submitClass() {
+                if (this.canSubmit) {
+                    return 'bg-crush-purple hover:bg-purple-700 dark:bg-violet-600 dark:hover:bg-violet-700';
+                }
+                return 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed';
+            },
+
+            // CSP-safe: reads data-option-id from closest [data-option-id] ancestor
+            handleOptionClick: function() {
+                if (this.hasVoted || this.isSubmitting) return;
+
+                var el = this.$el;
+                var id = parseInt(el.getAttribute('data-option-id') || '0', 10);
+                if (!id) return;
+
+                var idx = this.selectedOptions.indexOf(id);
+                if (idx !== -1) {
+                    this.selectedOptions.splice(idx, 1);
+                } else {
+                    if (!this.isMultiChoice) {
+                        this.selectedOptions = [id];
+                    } else {
+                        this.selectedOptions.push(id);
+                    }
+                }
+            },
+
+            submitVote: function() {
+                if (!this.canSubmit) return;
+
+                var self = this;
+                self.isSubmitting = true;
+
+                var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                var token = csrfToken ? csrfToken.value : '';
+
+                fetch('/api/polls/' + self.pollId + '/vote/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': token,
+                    },
+                    body: JSON.stringify({ option_ids: self.selectedOptions }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    self.isSubmitting = false;
+                    if (data.success) {
+                        self.hasVoted = true;
+                        window.location.reload();
+                    } else {
+                        alert(data.error || 'Failed to submit vote');
+                    }
+                })
+                .catch(function() {
+                    self.isSubmitting = false;
+                    alert('Network error. Please try again.');
+                });
+            }
+        };
+    });
+
 });

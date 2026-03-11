@@ -9132,3 +9132,102 @@ html.dark .age-range-bubble {
 html.dark .age-range-bubble::after {
     border-top-color: #7C3AED;
 }
+
+/* ============================================================================
+   EVENT POLLS
+   ============================================================================ */
+
+.poll-card {
+    @apply rounded-2xl bg-white shadow-md overflow-hidden transition-shadow duration-200;
+    border: 1px solid rgba(155, 89, 182, 0.1);
+}
+.poll-card:hover {
+    @apply shadow-lg;
+}
+html.dark .poll-card {
+    @apply bg-slate-800;
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.poll-option {
+    @apply rounded-xl p-4 cursor-pointer transition-all duration-200;
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(155, 89, 182, 0.15);
+}
+.poll-option:hover {
+    border-color: rgba(155, 89, 182, 0.4);
+}
+html.dark .poll-option {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(139, 92, 246, 0.2);
+}
+html.dark .poll-option:hover {
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+/* Card variant with image */
+.poll-option-card {
+    @apply p-0 overflow-hidden;
+}
+.poll-option-card:hover {
+    @apply shadow-md;
+    transform: translateY(-2px);
+}
+
+.poll-option-image-wrapper {
+    @apply relative overflow-hidden;
+}
+.poll-option-image {
+    @apply w-full object-cover;
+    height: 140px;
+}
+@media (min-width: 640px) {
+    .poll-option-image {
+        height: 180px;
+    }
+}
+
+.poll-option-check {
+    @apply absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+.poll-option-check-active {
+    background: #9B59B6;
+    border-color: white;
+    box-shadow: 0 2px 8px rgba(155, 89, 182, 0.4);
+}
+html.dark .poll-option-check-active {
+    background: #8B5CF6;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.poll-option-body {
+    @apply p-4;
+}
+
+.poll-option-selected {
+    border-color: #9B59B6;
+    background: rgba(155, 89, 182, 0.1);
+}
+.poll-option-card.poll-option-selected {
+    border-color: #9B59B6;
+    background: white;
+    box-shadow: 0 0 0 1px #9B59B6, 0 4px 12px rgba(155, 89, 182, 0.2);
+}
+html.dark .poll-option-selected {
+    border-color: #8B5CF6;
+    background: rgba(139, 92, 246, 0.15);
+}
+html.dark .poll-option-card.poll-option-selected {
+    background: rgba(30, 41, 59, 0.8);
+    box-shadow: 0 0 0 1px #8B5CF6, 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+.poll-results-bar {
+    @apply rounded-full h-3 transition-all duration-500 ease-out;
+    background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+}
+html.dark .poll-results-bar {
+    background: linear-gradient(90deg, #7C3AED, #EC4899);
+}

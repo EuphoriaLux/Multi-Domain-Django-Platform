@@ -1,0 +1,159 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ poll.title }} - {% trans "Poll Analytics" %}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .poll-detail { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .poll-detail h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .poll-detail .back-link { display: inline-block; color: #9B59B6; text-decoration: none; margin-bottom: 1rem; font-size: 0.9rem; }
+    .poll-detail .back-link:hover { text-decoration: underline; }
+    .poll-meta { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+    .poll-meta .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-left: 8px; }
+    .poll-meta .status-active { background: #d1fae5; color: #065f46; }
+    .poll-meta .status-closed { background: #f3f4f6; color: #4b5563; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 2rem; }
+    .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; text-align: center; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; color: #9B59B6; }
+    .stat-card .label { font-size: 0.8rem; color: #666; margin-top: 2px; }
+
+    .results-section { margin-bottom: 2rem; }
+    .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #333; }
+
+    .result-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; }
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .result-name { font-weight: 600; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+    .result-count { font-size: 0.9rem; color: #666; }
+    .result-count strong { color: #9B59B6; font-size: 1.1rem; }
+
+    .bar-track { background: #f3f4f6; border-radius: 8px; height: 28px; overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, #9B59B6, #FF6B9D); transition: width 0.6s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; min-width: fit-content; }
+    .bar-fill span { color: #fff; font-size: 0.8rem; font-weight: 700; }
+
+    .winner-badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; margin-left: 8px; }
+
+    .recent-votes { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+    .recent-votes-header { padding: 14px 20px; background: #f8f9fa; font-weight: 600; font-size: 0.9rem; border-bottom: 1px solid #e5e7eb; }
+    .vote-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid #f5f5f5; font-size: 0.85rem; }
+    .vote-row:last-child { border-bottom: none; }
+    .vote-user { color: #333; }
+    .vote-option { color: #9B59B6; font-weight: 500; }
+    .vote-time { color: #999; font-size: 0.8rem; }
+
+    .timeline { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }
+    .timeline-bar { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+    .timeline-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .timeline-fill { width: 100%; background: linear-gradient(180deg, #9B59B6, #c084fc); border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s; }
+    .timeline-label { font-size: 0.65rem; color: #999; margin-top: 6px; writing-mode: vertical-rl; text-orientation: mixed; max-height: 50px; overflow: hidden; }
+    .timeline-count { font-size: 0.7rem; color: #666; margin-bottom: 4px; font-weight: 600; }
+
+    @media (max-width: 768px) {
+        .stats-row { grid-template-columns: repeat(2, 1fr); }
+        .result-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+        .vote-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+        .timeline-label { font-size: 0.55rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="poll-detail">
+    <a href="{% url 'poll_analytics_dashboard' %}" class="back-link">&larr; {% trans "All Polls" %}</a>
+
+    <h1>{{ poll.title }}</h1>
+    <div class="poll-meta">
+        {{ poll.start_date|date:"M d" }} &mdash; {{ poll.end_date|date:"M d, Y" }}
+        {% if poll.is_active %}
+        <span class="status-badge status-active">{% trans "Active" %}</span>
+        {% elif poll.is_closed %}
+        <span class="status-badge status-closed">{% trans "Closed" %}</span>
+        {% endif %}
+        {% if poll.allow_multiple_choices %} &middot; {% trans "Multiple choice" %}{% endif %}
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="value">{{ total_votes }}</div>
+            <div class="label">{% trans "Total Votes" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">{{ unique_voters }}</div>
+            <div class="label">{% trans "Unique Voters" %}</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">{{ results|length }}</div>
+            <div class="label">{% trans "Options" %}</div>
+        </div>
+    </div>
+
+    <!-- Results Breakdown -->
+    <div class="results-section">
+        <h2 class="section-title">{% trans "Results" %}</h2>
+        {% for r in results %}
+        <div class="result-card">
+            <div class="result-header">
+                <div class="result-name">
+                    {% if r.option.icon %}{{ r.option.icon }}{% endif %}
+                    {{ r.option.name }}
+                    {% if forloop.first and total_votes > 0 %}
+                    <span class="winner-badge">{% trans "Leading" %}</span>
+                    {% endif %}
+                </div>
+                <div class="result-count">
+                    <strong>{{ r.vote_count }}</strong> {% trans "votes" %} ({{ r.percentage }}%)
+                </div>
+            </div>
+            <div class="bar-track">
+                <div class="bar-fill" style="width: {% if r.percentage > 0 %}{{ r.percentage }}%{% else %}0%{% endif %}">
+                    {% if r.percentage >= 10 %}<span>{{ r.percentage }}%</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if votes_by_day %}
+    <!-- Votes Over Time -->
+    <div class="results-section">
+        <h2 class="section-title">{% trans "Votes Over Time" %}</h2>
+        <div class="timeline">
+            {% with max_count=0 %}
+            {% for day in votes_by_day %}
+                {% if day.count > max_count %}
+                {% endif %}
+            {% endfor %}
+            {% endwith %}
+            <div class="timeline-bar">
+                {% for day in votes_by_day %}
+                <div class="timeline-col">
+                    <div class="timeline-count">{{ day.count }}</div>
+                    <div class="timeline-fill" style="height: {{ day.count }}0px; max-height: 100px;"></div>
+                    <div class="timeline-label">{{ day.day|date:"M d" }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Votes -->
+    {% if recent_votes %}
+    <div class="results-section">
+        <h2 class="section-title">{% trans "Recent Votes" %}</h2>
+        <div class="recent-votes">
+            <div class="recent-votes-header">{% trans "Last 20 votes" %}</div>
+            {% for vote in recent_votes %}
+            <div class="vote-row">
+                <span class="vote-user">{{ vote.user.email }}</span>
+                <span class="vote-option">{{ vote.option.name }}</span>
+                <span class="vote-time">{{ vote.voted_at|timesince }} {% trans "ago" %}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

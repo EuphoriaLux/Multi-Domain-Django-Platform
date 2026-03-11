@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-17 21:48+0100\n"
+"POT-Creation-Date: 2026-03-11 10:16+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -19,53 +19,6 @@ msgstr ""
 #: .\entreprinder\templates\account\base_account.html:55
 msgid "All rights reserved."
 msgstr ""
-
-#: .\entreprinder\templates\account\email.html:4
-#: .\entreprinder\templates\account\email.html:22
-msgid "Manage E-mail Addresses"
-msgstr "Gérer les adresses e-mail"
-
-#: .\entreprinder\templates\account\email.html:26
-msgid "The following e-mail addresses are associated with your account:"
-msgstr "Les adresses e-mail suivantes sont associées à votre compte :"
-
-#: .\entreprinder\templates\account\email.html:43
-#, fuzzy
-#| msgid "Unverified"
-msgid "Verified"
-msgstr "Non vérifié"
-
-#: .\entreprinder\templates\account\email.html:45
-msgid "Unverified"
-msgstr "Non vérifié"
-
-#: .\entreprinder\templates\account\email.html:48
-msgid "Primary"
-msgstr "Principal"
-
-#: .\entreprinder\templates\account\email.html:57
-msgid "Make Primary"
-msgstr "Définir comme principal"
-
-#: .\entreprinder\templates\account\email.html:58
-msgid "Re-send Verification"
-msgstr "Renvoyer la vérification"
-
-#: .\entreprinder\templates\account\email.html:59
-msgid "Remove"
-msgstr "Supprimer"
-
-#: .\entreprinder\templates\account\email.html:76
-msgid "Add E-mail Address"
-msgstr "Ajouter une adresse e-mail"
-
-#: .\entreprinder\templates\account\email.html:83
-msgid "Add E-mail"
-msgstr "Ajouter un e-mail"
-
-#: .\entreprinder\templates\account\email.html:97
-msgid "Do you really want to remove the selected email address?"
-msgstr "Voulez-vous vraiment supprimer l'adresse e-mail sélectionnée ?"
 
 #: .\entreprinder\templates\account\email_confirm.html:5
 #: .\entreprinder\templates\account\email_confirm.html:10
@@ -100,6 +53,53 @@ msgstr ""
 "Ce lien de confirmation par e-mail a expiré ou n'est pas valide.Veuillez <a "
 "href=\"%(email_url)s\">faire une nouvelle demande deconfirmation par e-mail</"
 "a>."
+
+#: .\entreprinder\templates\account\email_entreprinder.html:4
+#: .\entreprinder\templates\account\email_entreprinder.html:22
+msgid "Manage E-mail Addresses"
+msgstr "Gérer les adresses e-mail"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:26
+msgid "The following e-mail addresses are associated with your account:"
+msgstr "Les adresses e-mail suivantes sont associées à votre compte :"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:43
+#, fuzzy
+#| msgid "Unverified"
+msgid "Verified"
+msgstr "Non vérifié"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:45
+msgid "Unverified"
+msgstr "Non vérifié"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:48
+msgid "Primary"
+msgstr "Principal"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:57
+msgid "Make Primary"
+msgstr "Définir comme principal"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:58
+msgid "Re-send Verification"
+msgstr "Renvoyer la vérification"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:59
+msgid "Remove"
+msgstr "Supprimer"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:76
+msgid "Add E-mail Address"
+msgstr "Ajouter une adresse e-mail"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:83
+msgid "Add E-mail"
+msgstr "Ajouter un e-mail"
+
+#: .\entreprinder\templates\account\email_entreprinder.html:97
+msgid "Do you really want to remove the selected email address?"
+msgstr "Voulez-vous vraiment supprimer l'adresse e-mail sélectionnée ?"
 
 #: .\entreprinder\templates\account\login.html:6
 #: .\entreprinder\templates\account\login.html:34

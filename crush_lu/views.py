@@ -191,6 +191,12 @@ from .views_invitations import (  # noqa: F401
     coach_manage_invitations,
 )
 
+# Event Polls
+from .views_event_polls import (  # noqa: F401
+    poll_list,
+    poll_detail,
+)
+
 # PWA & special experiences
 from .views_pwa import (  # noqa: F401
     special_welcome,
