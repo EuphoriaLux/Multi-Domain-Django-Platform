@@ -406,7 +406,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 journey_url
             )
         except JourneyConfiguration.DoesNotExist:
-            return format_html(
+            return mark_safe(
                 '<div style="padding: 10px; background: #fff3e0; border-radius: 5px;">'
                 '<strong>⚠️ No Journey Created Yet</strong><br>'
                 '<p>Use the "Generate Wonderland Journey" action to create one.</p>'

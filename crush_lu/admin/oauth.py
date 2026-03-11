@@ -88,21 +88,21 @@ class OAuthStateAdmin(admin.ModelAdmin):
 
         if obj.used:
             if obj.auth_completed:
-                return format_html(
+                return mark_safe(
                     '<span style="background: #28a745; color: white; padding: 3px 8px; '
                     'border-radius: 12px; font-size: 11px;">✅ Completed</span>'
                 )
-            return format_html(
+            return mark_safe(
                 '<span style="background: #6c757d; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">⚫ Used</span>'
             )
         elif now > obj.expires_at:
-            return format_html(
+            return mark_safe(
                 '<span style="background: #dc3545; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">⏰ Expired</span>'
             )
         else:
-            return format_html(
+            return mark_safe(
                 '<span style="background: #17a2b8; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">🔄 Active</span>'
             )

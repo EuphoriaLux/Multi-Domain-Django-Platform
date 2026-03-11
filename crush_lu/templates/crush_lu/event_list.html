@@ -68,6 +68,10 @@
 </div>
 {% endif %}
 
+{% if active_polls %}
+    {% include "crush_lu/includes/_event_poll_banner.html" %}
+{% endif %}
+
 <div x-data="eventTabs">
     {# Tab navigation #}
     <div class="flex items-center gap-2 mb-6 flex-wrap">

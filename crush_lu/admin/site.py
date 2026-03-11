@@ -172,8 +172,10 @@ class CrushLuAdminSite(admin.AdminSite):
             'incompleteprofile': {'order': 7, 'icon': '📝', 'group': 'Users & Profiles'},
             'awaitingreviewprofile': {'order': 8, 'icon': '📋', 'group': 'Users & Profiles'},
             'profilesubmission': {'order': 9, 'icon': '📄', 'group': 'Users & Profiles'},
-            'crushcoach': {'order': 10, 'icon': '🎓', 'group': 'Users & Profiles'},
-            'coachsession': {'order': 11, 'icon': '💬', 'group': 'Users & Profiles'},
+            'completedsubmission': {'order': 10, 'icon': '✔️', 'group': 'Users & Profiles'},
+            'inprocesssubmission': {'order': 11, 'icon': '🔄', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)
@@ -184,6 +186,8 @@ class CrushLuAdminSite(admin.AdminSite):
             'speeddatingpair': {'order': 4, 'icon': '💑', 'group': 'Events & Meetups'},
             'presentationqueue': {'order': 5, 'icon': '📋', 'group': 'Events & Meetups'},
             'presentationrating': {'order': 6, 'icon': '⭐', 'group': 'Events & Meetups'},
+            'eventpoll': {'order': 7, 'icon': '🗳️', 'group': 'Events & Meetups'},
+            'eventpollvote': {'order': 8, 'icon': '📊', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 3: Activity Voting (Event activity polls)

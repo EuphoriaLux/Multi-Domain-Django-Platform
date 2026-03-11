@@ -18,6 +18,7 @@ from .models import (
     EventRegistration,
     EventInvitation,
 )
+from .models.event_polls import EventPoll
 from .forms import EventRegistrationForm
 from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
@@ -284,10 +285,16 @@ def event_list(request):
         ensure_ascii=False,
     )
 
+    # Active polls for the feedback banner
+    active_polls = [
+        p for p in EventPoll.objects.filter(is_published=True) if p.is_active
+    ]
+
     context = {
         "upcoming_event_list": visible_upcoming,
         "past_events_with_attendance": past_events_with_attendance,
         "event_list_jsonld": event_list_jsonld,
+        "active_polls": active_polls,
     }
     return render(request, "crush_lu/event_list.html", context)
 
@@ -617,7 +624,7 @@ def event_register(request, event_id):
                 )
                 return redirect("crush_lu:event_detail", event_id=event_id)
     else:
-        if event.require_approved_profile:
+        if event.profile_requirement == "approved":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
                 if not profile.is_approved:
@@ -628,6 +635,15 @@ def event_register(request, event_id):
                         ),
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)
+            except CrushProfile.DoesNotExist:
+                messages.error(
+                    request,
+                    _("This event requires a Crush profile. Please create one to register.")
+                )
+                return redirect("crush_lu:create_profile")
+        elif event.profile_requirement == "profile_exists":
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
             except CrushProfile.DoesNotExist:
                 messages.error(
                     request,

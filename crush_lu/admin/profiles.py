@@ -1164,38 +1164,38 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         cutoff_24h = now - timedelta(hours=24)
 
         if obj.status == 'approved':
-            return format_html(
+            return mark_safe(
                 '<span style="background: #28a745; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">✅ Approved</span>'
             )
         elif obj.status == 'rejected':
-            return format_html(
+            return mark_safe(
                 '<span style="background: #dc3545; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">❌ Rejected</span>'
             )
         elif obj.status == 'revision':
-            return format_html(
+            return mark_safe(
                 '<span style="background: #17a2b8; color: white; padding: 3px 8px; '
                 'border-radius: 12px; font-size: 11px;">🔄 Revision</span>'
             )
         elif obj.status == 'pending':
             if not obj.coach:
-                return format_html(
+                return mark_safe(
                     '<span style="background: #dc3545; color: white; padding: 3px 8px; '
                     'border-radius: 12px; font-size: 11px;">🚨 Needs Coach</span>'
                 )
             elif obj.review_call_completed:
-                return format_html(
+                return mark_safe(
                     '<span style="background: #28a745; color: white; padding: 3px 8px; '
                     'border-radius: 12px; font-size: 11px;">✅ Ready to Approve</span>'
                 )
             elif obj.submitted_at < cutoff_24h:
-                return format_html(
+                return mark_safe(
                     '<span style="background: #ffc107; color: #333; padding: 3px 8px; '
                     'border-radius: 12px; font-size: 11px;">⚠️ Awaiting Call</span>'
                 )
             else:
-                return format_html(
+                return mark_safe(
                     '<span style="background: #17a2b8; color: white; padding: 3px 8px; '
                     'border-radius: 12px; font-size: 11px;">🆕 New</span>'
                 )

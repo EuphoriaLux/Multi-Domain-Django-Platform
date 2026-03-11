@@ -5,6 +5,7 @@ FinOps Hub Admin Configuration for Power-Up Admin Site
 
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from power_up.admin import power_up_admin_site
 from .models import (
     CostExport,
@@ -140,10 +141,10 @@ class CostAnomalyAdmin(admin.ModelAdmin):
     def acknowledgment_status(self, obj):
         """Display acknowledgment status with badge"""
         if obj.is_acknowledged:
-            return format_html(
+            return mark_safe(
                 '<span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">✓ ACKNOWLEDGED</span>'
             )
-        return format_html(
+        return mark_safe(
             '<span style="background-color: #ffc107; color: #000; padding: 3px 8px; border-radius: 3px; font-size: 11px;">⚠ PENDING</span>'
         )
     acknowledgment_status.short_description = 'Status'
@@ -256,10 +257,10 @@ class ReservationCostAdmin(admin.ModelAdmin):
     def is_estimate_badge(self, obj):
         """Display estimate status with badge"""
         if obj.is_estimate:
-            return format_html(
+            return mark_safe(
                 '<span style="background-color: #ffc107; color: #000; padding: 3px 8px; border-radius: 3px; font-size: 11px;">ESTIMATE</span>'
             )
-        return format_html(
+        return mark_safe(
             '<span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">CONFIRMED</span>'
         )
     is_estimate_badge.short_description = 'Status'

@@ -40,7 +40,12 @@
         <div x-data="eventPollVoting"
              data-poll-id="{{ poll.id }}"
              data-multi-choice="{{ poll.allow_multiple_choices|yesno:'true,false' }}"
-             data-has-voted="{{ has_voted|yesno:'true,false' }}">
+             data-has-voted="{{ has_voted|yesno:'true,false' }}"
+             data-text-submit="{% trans "Submit Vote" %}"
+             data-text-submitting="{% trans "Submitting..." %}"
+             data-text-submitted="{% trans "Vote Submitted" %}"
+             data-text-error="{% trans "Failed to submit vote" %}"
+             data-text-network-error="{% trans "Network error. Please try again." %}">
 
             {% csrf_token %}
 

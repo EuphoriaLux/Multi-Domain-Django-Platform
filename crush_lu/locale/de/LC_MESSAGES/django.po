@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: crush_lu 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-11 10:16+0100\n"
+"POT-Creation-Date: 2026-03-11 21:16+0100\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -208,6 +208,8 @@ msgid "Settings"
 msgstr "Einstellungen"
 
 #: .\crush_lu\admin\event_polls.py:37
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:72
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:100
 #, fuzzy
 #| msgid "votes"
 msgid "Votes"
@@ -319,18 +321,25 @@ msgstr ""
 "anmelden)."
 
 #: .\crush_lu\admin\events.py:555
+#, fuzzy
 msgid ""
-"Require approved Crush profile for registration?\n"
-"• Checked (recommended): Only users with approved profiles can register\n"
-"• Unchecked: Any authenticated user can register (no profile needed)"
+"Profile requirement level for registration:\n"
+"• Approved profile required (recommended): Only users with coach-approved "
+"profiles can register\n"
+"• Profile must exist: Any user with a Crush profile can register (pending or "
+"incomplete OK)\n"
+"• No profile required: Any authenticated user can register"
 msgstr ""
-"Genehmigtes Crush-Profil für die Anmeldung erforderlich?\n"
-"• Aktiviert (empfohlen): Nur Benutzer mit genehmigten Profilen können sich "
-"anmelden\n"
-"• Deaktiviert: Jeder authentifizierte Benutzer kann sich anmelden (kein "
-"Profil nötig)"
+"Profilanforderung für die Anmeldung:\n"
+"• Genehmigtes Profil erforderlich (empfohlen): Nur Benutzer mit vom Coach "
+"genehmigten Profilen können sich anmelden\n"
+"• Profil muss vorhanden sein: Jeder Benutzer mit einem Crush-Profil kann "
+"sich anmelden (ausstehend oder unvollständig OK)\n"
+"• Kein Profil erforderlich: Jeder authentifizierte Benutzer kann sich "
+"anmelden• Deaktiviert: Jeder authentifizierte Benutzer kann sich anmelden "
+"(kein Profil nötig)"
 
-#: .\crush_lu\admin\events.py:561
+#: .\crush_lu\admin\events.py:562
 msgid ""
 "📸 Event banner image (optional)\n"
 "• Recommended size: 1200×630 pixels (1.9:1 aspect ratio)\n"
@@ -349,7 +358,7 @@ msgstr ""
 "• Das Bild wird zugeschnitten: zentriert auf Mobilgeräten, volle Breite auf "
 "dem Desktop"
 
-#: .\crush_lu\admin\events.py:601 .\crush_lu\admin\journey.py:414
+#: .\crush_lu\admin\events.py:602 .\crush_lu\admin\journey.py:414
 #: .\crush_lu\admin\journey.py:468 .\crush_lu\admin\journey.py:550
 #: .\crush_lu\admin\profiles.py:74 .\crush_lu\admin\profiles.py:398
 #: .\crush_lu\admin\wallet.py:134
@@ -361,45 +370,45 @@ msgstr ""
 msgid "User"
 msgstr "Benutzer"
 
-#: .\crush_lu\admin\events.py:604
+#: .\crush_lu\admin\events.py:605
 msgid "📋 Export selected registrations to CSV"
 msgstr "📋 Ausgewählte Anmeldungen als CSV exportieren"
 
-#: .\crush_lu\admin\events.py:669
+#: .\crush_lu\admin\events.py:670
 msgid "✅ Confirm selected registrations"
 msgstr "✅ Ausgewählte Anmeldungen bestätigen"
 
-#: .\crush_lu\admin\events.py:673
+#: .\crush_lu\admin\events.py:674
 #, fuzzy, python-format
 #| msgid "✅ Confirm selected registrations"
 msgid "Confirmed %(count)s registration(s)."
 msgstr "✅ Ausgewählte Anmeldungen bestätigen"
 
-#: .\crush_lu\admin\events.py:675
+#: .\crush_lu\admin\events.py:676
 msgid "⏳ Move to waitlist"
 msgstr "⏳ Zur Warteliste verschieben"
 
-#: .\crush_lu\admin\events.py:784
+#: .\crush_lu\admin\events.py:785
 msgid "Guest Name"
 msgstr "Gastname"
 
-#: .\crush_lu\admin\events.py:792
+#: .\crush_lu\admin\events.py:793
 msgid "✨ VIP"
 msgstr "✨ VIP"
 
-#: .\crush_lu\admin\events.py:807
+#: .\crush_lu\admin\events.py:808
 msgid "Invitation Link"
 msgstr "Einladungslink"
 
-#: .\crush_lu\admin\events.py:844
+#: .\crush_lu\admin\events.py:845
 msgid "Complete Status"
 msgstr "Status vollständig"
 
-#: .\crush_lu\admin\events.py:846
+#: .\crush_lu\admin\events.py:847
 msgid "✅ Approve selected guests"
 msgstr "✅ Ausgewählte Gäste genehmigen"
 
-#: .\crush_lu\admin\events.py:872
+#: .\crush_lu\admin\events.py:873
 #, python-brace-format
 msgid ""
 "Approved {updated} guest(s) to attend the event. Sent {emails_sent} email "
@@ -408,41 +417,41 @@ msgstr ""
 "{updated} Gast/Gäste für die Veranstaltung genehmigt. {emails_sent} E-Mail-"
 "Benachrichtigung(en) gesendet."
 
-#: .\crush_lu\admin\events.py:880
+#: .\crush_lu\admin\events.py:881
 msgid ""
 "No pending invitations to approve. Only accepted invitations can be approved."
 msgstr ""
 "Keine ausstehenden Einladungen zu genehmigen. Nur akzeptierte Einladungen "
 "können genehmigt werden."
 
-#: .\crush_lu\admin\events.py:884
+#: .\crush_lu\admin\events.py:885
 msgid "❌ Reject selected guests"
 msgstr "❌ Ausgewählte Gäste ablehnen"
 
-#: .\crush_lu\admin\events.py:900
+#: .\crush_lu\admin\events.py:901
 #, python-brace-format
 msgid "Rejected {count} guest(s). They will be notified."
 msgstr "{count} Gast/Gäste abgelehnt. Sie werden benachrichtigt."
 
-#: .\crush_lu\admin\events.py:908
+#: .\crush_lu\admin\events.py:909
 msgid ""
 "No pending invitations to reject. Only accepted invitations can be rejected."
 msgstr ""
 "Keine ausstehenden Einladungen zum Ablehnen. Nur akzeptierte Einladungen "
 "können abgelehnt werden."
 
-#: .\crush_lu\admin\events.py:912
+#: .\crush_lu\admin\events.py:913
 msgid "📧 Resend invitation emails"
 msgstr "📧 Einladungs-E-Mails erneut senden"
 
-#: .\crush_lu\admin\events.py:922
+#: .\crush_lu\admin\events.py:923
 #, python-brace-format
 msgid "Would resend {count} invitation(s). Email sending not yet implemented."
 msgstr ""
 "Würde {count} Einladung(en) erneut senden. E-Mail-Versand noch "
 "nichtimplementiert."
 
-#: .\crush_lu\admin\events.py:929
+#: .\crush_lu\admin\events.py:930
 msgid ""
 "No pending invitations to resend. Only unaccepted invitations can be resent."
 msgstr ""
@@ -2615,25 +2624,35 @@ msgstr "Veranstaltungen"
 msgid "Event Polls"
 msgstr "Veranstaltungsphase"
 
-#: .\crush_lu\models\event_polls.py:67
+#: .\crush_lu\models\event_polls.py:60
+msgid "Uploaded image (stored in Azure). Use static_image for bundled images."
+msgstr ""
+
+#: .\crush_lu\models\event_polls.py:65
+msgid ""
+"Filename in crush_lu/images/event-polls/ (e.g. speeddating.png). Deployed "
+"with collectstatic."
+msgstr ""
+
+#: .\crush_lu\models\event_polls.py:73
 #, fuzzy
 #| msgid "Optional"
 msgid "Poll Option"
 msgstr "Fakultativ"
 
-#: .\crush_lu\models\event_polls.py:68
+#: .\crush_lu\models\event_polls.py:74
 #, fuzzy
 #| msgid "More Options..."
 msgid "Poll Options"
 msgstr "Mystery-Option"
 
-#: .\crush_lu\models\event_polls.py:90
+#: .\crush_lu\models\event_polls.py:96
 #, fuzzy
 #| msgid "Total Votes"
 msgid "Poll Vote"
 msgstr "Gesamtstimmen"
 
-#: .\crush_lu\models\event_polls.py:91
+#: .\crush_lu\models\event_polls.py:97
 #, fuzzy
 #| msgid "Total Votes"
 msgid "Poll Votes"
@@ -2685,37 +2704,48 @@ msgid ""
 "to use total-only cap."
 msgstr ""
 
-#: .\crush_lu\models\events.py:124
-msgid ""
-"Require attendees to have approved profiles (recommended for dating events)"
-msgstr ""
-"Genehmigte Profile für Teilnehmer erforderlich (empfohlen für Dating-Events)"
+#: .\crush_lu\models\events.py:122
+msgid "Approved profile required"
+msgstr "Genehmigtes Profil erforderlich"
 
-#: .\crush_lu\models\events.py:132
+#: .\crush_lu\models\events.py:123
+msgid "Profile must exist"
+msgstr "Profil muss vorhanden sein"
+
+#: .\crush_lu\models\events.py:124
+msgid "No profile required"
+msgstr "Kein Profil erforderlich"
+
+#: .\crush_lu\models\events.py:131
+msgid "Controls what level of profile is needed to register for this event"
+msgstr ""
+"Legt fest, welche Profilanforderung für die Anmeldung zu diesem Event gilt"
+
+#: .\crush_lu\models\events.py:139
 msgid "Does this event include food/drinks? (Shows dietary restrictions field)"
 msgstr ""
 "Beinhaltet dieses Event Essen/Getränke? (Zeigt Feld für "
 "Ernährungseinschränkungen)"
 
-#: .\crush_lu\models\events.py:136
+#: .\crush_lu\models\events.py:143
 msgid "Can attendees bring a guest?"
 msgstr "Können Teilnehmer einen Gast mitbringen?"
 
-#: .\crush_lu\models\events.py:142
+#: .\crush_lu\models\events.py:149
 msgid "Event fee in EUR"
 msgstr "Veranstaltungsgebühr in EUR"
 
-#: .\crush_lu\models\events.py:154
+#: .\crush_lu\models\events.py:161
 msgid "Google Wallet EventTicketClass ID for this event"
 msgstr "Google Wallet EventTicketClass-ID für dieses Event"
 
-#: .\crush_lu\models\events.py:159
+#: .\crush_lu\models\events.py:166
 msgid "Enable 3-phase interactive system (voting, presentations, speed dating)"
 msgstr ""
 "3-Phasen interaktives System aktivieren (Abstimmung, Präsentationen, Speed "
 "Dating)"
 
-#: .\crush_lu\models\events.py:168
+#: .\crush_lu\models\events.py:175
 msgid ""
 "Languages this event will be conducted in (e.g. ['en', 'fr']). Empty list "
 "means no language restriction."
@@ -2723,85 +2753,85 @@ msgstr ""
 "Sprachen, in denen dieses Event durchgeführt wird (z.B. ['en', 'fr']). Leere "
 "Liste bedeutet keine Sprachbeschränkung."
 
-#: .\crush_lu\models\events.py:176
+#: .\crush_lu\models\events.py:183
 msgid "Private invitation-only event (visible only to invited guests)"
 msgstr "Privates Event nur auf Einladung (nur für eingeladene Gäste sichtbar)"
 
-#: .\crush_lu\models\events.py:183
+#: .\crush_lu\models\events.py:190
 msgid "Unique code for this private event"
 msgstr "Eindeutiger Code für dieses private Event"
 
-#: .\crush_lu\models\events.py:186
+#: .\crush_lu\models\events.py:193
 msgid "When invitations for this event expire"
 msgstr "Wann Einladungen für dieses Event ablaufen"
 
-#: .\crush_lu\models\events.py:189
+#: .\crush_lu\models\events.py:196
 msgid "Maximum invited guests for private event"
 msgstr "Maximale eingeladene Gäste für privates Event"
 
-#: .\crush_lu\models\events.py:198
+#: .\crush_lu\models\events.py:205
 msgid ""
 "Existing users invited to this private event (no external invitation needed)"
 msgstr ""
 "Bestehende Benutzer, die zu diesem privaten Event eingeladen wurden (keine "
 "externe Einladung erforderlich)"
 
-#: .\crush_lu\models\events.py:207
+#: .\crush_lu\models\events.py:214
 #, fuzzy
 #| msgid "A coach will facilitate your intro"
 msgid "Coaches assigned to facilitate this event."
 msgstr "Ein Coach wird deine Vorstellung begleiten"
 
-#: .\crush_lu\models\events.py:213
+#: .\crush_lu\models\events.py:220
 msgid "Maximum number of Crush Sparks a user can send per event"
 msgstr ""
 "Maximale Anzahl von Crush Sparks, die ein Benutzer pro Event senden kann"
 
-#: .\crush_lu\models\events.py:217
+#: .\crush_lu\models\events.py:224
 msgid "Hours after event end until spark requests close (default: 7 days)"
 msgstr ""
 "Stunden nach Event-Ende bis Spark-Anfragen schließen (Standard: 7 Tage)"
 
-#: .\crush_lu\models\events.py:224
+#: .\crush_lu\models\events.py:231
 msgid ""
 "Maximum cross-gender connection requests per user per event (0 = unlimited). "
 "Same-gender connections are always unlimited."
 msgstr ""
 
-#: .\crush_lu\models\events.py:299
+#: .\crush_lu\models\events.py:306
 #, fuzzy
 #| msgid "to register for this event."
 msgid "Canton is required for published events."
 msgstr "um dich für dieses Event anzumelden."
 
-#: .\crush_lu\models\events.py:312
+#: .\crush_lu\models\events.py:319
 msgid ""
 "Set all three gender caps together, or leave all blank for a total-only cap."
 msgstr ""
 
-#: .\crush_lu\models\events.py:320
+#: .\crush_lu\models\events.py:327
 #, python-format
 msgid "Minimum age (%(min)d) cannot exceed maximum age (%(max)d)."
 msgstr ""
 
-#: .\crush_lu\models\events.py:325
+#: .\crush_lu\models\events.py:332
 #, fuzzy
 #| msgid "Your password must be at least 8 characters."
 msgid "Minimum age must be at least 18."
 msgstr "Ihr Passwort muss mindestens 8 Zeichen lang sein."
 
-#: .\crush_lu\models\events.py:329
+#: .\crush_lu\models\events.py:336
 msgid "Maximum age cannot exceed 120."
 msgstr ""
 
-#: .\crush_lu\models\events.py:338
+#: .\crush_lu\models\events.py:345
 #, python-format
 msgid ""
 "Sum of gender caps (%(gender_total)d) must not exceed total max participants "
 "(%(max)d)."
 msgstr ""
 
-#: .\crush_lu\models\events.py:417 .\crush_lu\models\newsletter.py:63
+#: .\crush_lu\models\events.py:424 .\crush_lu\models\newsletter.py:63
 #: .\crush_lu\models\profiles.py:279 .\crush_lu\models\profiles.py:470
 #: .\crush_lu\models\profiles.py:480
 #: .\crush_lu\templates\crush_lu\about.html:905
@@ -2809,31 +2839,31 @@ msgstr ""
 msgid "English"
 msgstr "Englisch"
 
-#: .\crush_lu\models\events.py:418 .\crush_lu\models\profiles.py:280
+#: .\crush_lu\models\events.py:425 .\crush_lu\models\profiles.py:280
 #: .\crush_lu\models\profiles.py:471 .\crush_lu\models\profiles.py:481
 #: .\crush_lu\templates\crush_lu\create_profile.html:916
 msgid "Deutsch"
 msgstr "Deutsch"
 
-#: .\crush_lu\models\events.py:419
+#: .\crush_lu\models\events.py:426
 #, fuzzy
 #| msgid "Français"
 msgid "Fran\\u00e7ais"
 msgstr "Französisch"
 
-#: .\crush_lu\models\events.py:420
+#: .\crush_lu\models\events.py:427
 #, fuzzy
 #| msgid "Lëtzebuergesch"
 msgid "L\\u00ebtzebuergesch"
 msgstr "Lëtzebuergesch"
 
-#: .\crush_lu\models\events.py:450
+#: .\crush_lu\models\events.py:457
 #, fuzzy
 #| msgid "Please complete your profile first."
 msgid "Please complete your profile before registering for this event."
 msgstr "Bitte vervollständigen Sie zuerst Ihr Profil."
 
-#: .\crush_lu\models\events.py:456
+#: .\crush_lu\models\events.py:463
 msgid ""
 "This event requires specific language skills. Please update your profile to "
 "include your event languages."
@@ -2841,7 +2871,7 @@ msgstr ""
 "Dieses Event erfordert bestimmte Sprachkenntnisse. Bitte aktualisieren Sie "
 "Ihr Profil und fügen Sie Ihre Event-Sprachen hinzu."
 
-#: .\crush_lu\models\events.py:466
+#: .\crush_lu\models\events.py:473
 #, python-format
 msgid ""
 "This event requires one of these languages: %(languages)s. Please update "
@@ -2850,53 +2880,53 @@ msgstr ""
 "Dieses Event erfordert eine dieser Sprachen: %(languages)s. Bitte "
 "aktualisieren Sie Ihre Profilsprachen, wenn Sie eine davon sprechen."
 
-#: .\crush_lu\models\events.py:493
+#: .\crush_lu\models\events.py:500
 msgid "Any accessibility accommodations needed"
 msgstr "Benötigte Barrierefreiheitsanpassungen"
 
-#: .\crush_lu\models\events.py:498
+#: .\crush_lu\models\events.py:505
 msgid "Only for events with food component"
 msgstr "Nur für Events mit Verpflegung"
 
-#: .\crush_lu\models\events.py:501
+#: .\crush_lu\models\events.py:508
 msgid "Attending with a guest"
 msgstr "Teilnahme mit einem Gast"
 
-#: .\crush_lu\models\events.py:504
+#: .\crush_lu\models\events.py:511
 msgid "Guest's name (if bringing someone)"
 msgstr "Name des Gastes (falls jemand mitgebracht wird)"
 
-#: .\crush_lu\models\events.py:517
+#: .\crush_lu\models\events.py:524
 #, fuzzy
 #| msgid "Unique token for QR code"
 msgid "Signed token for QR check-in"
 msgstr "Eindeutiger Token für QR-Code"
 
-#: .\crush_lu\models\events.py:522
+#: .\crush_lu\models\events.py:529
 #, fuzzy
 #| msgid "When the state was created"
 msgid "When the attendee was checked in via QR scan"
 msgstr "Wann der Status erstellt wurde"
 
-#: .\crush_lu\models\events.py:530
+#: .\crush_lu\models\events.py:537
 #, fuzzy
 #| msgid "Google Wallet object ID"
 msgid "Google Wallet EventTicketObject ID"
 msgstr "Google Wallet Objekt-ID"
 
-#: .\crush_lu\models\events.py:581
+#: .\crush_lu\models\events.py:588
 msgid "Guest's email address"
 msgstr "E-Mail-Adresse des Gastes"
 
-#: .\crush_lu\models\events.py:583
+#: .\crush_lu\models\events.py:590
 msgid "Guest's first name"
 msgstr "Vorname des Gastes"
 
-#: .\crush_lu\models\events.py:585
+#: .\crush_lu\models\events.py:592
 msgid "Guest's last name"
 msgstr "Nachname des Gastes"
 
-#: .\crush_lu\models\events.py:595
+#: .\crush_lu\models\events.py:602
 msgid ""
 "Link this invitation to a Special User for VIP treatment (auto-fills from "
 "name/email match)"
@@ -2904,100 +2934,100 @@ msgstr ""
 "Diese Einladung mit einem VIP-Benutzer verknüpfen (wird automatisch aus Name/"
 "E-Mail ausgefüllt)"
 
-#: .\crush_lu\models\events.py:604
+#: .\crush_lu\models\events.py:611
 msgid "Unique invitation code (UUID)"
 msgstr "Eindeutiger Einladungscode (UUID)"
 
-#: .\crush_lu\models\events.py:611
+#: .\crush_lu\models\events.py:618
 msgid "Coach/admin who sent the invitation"
 msgstr "Coach/Admin, der die Einladung gesendet hat"
 
-#: .\crush_lu\models\events.py:619
+#: .\crush_lu\models\events.py:626
 msgid "Invitation status"
 msgstr "Einladungsstatus"
 
-#: .\crush_lu\models\events.py:625
+#: .\crush_lu\models\events.py:632
 msgid "Approval status (coach must approve before attendance)"
 msgstr "Genehmigungsstatus (Coach muss vor Teilnahme genehmigen)"
 
-#: .\crush_lu\models\events.py:635
+#: .\crush_lu\models\events.py:642
 msgid "User account created when invitation was accepted"
 msgstr "Benutzerkonto bei Annahme der Einladung erstellt"
 
-#: .\crush_lu\models\events.py:645
+#: .\crush_lu\models\events.py:652
 msgid "Internal notes about approval/rejection"
 msgstr "Interne Notizen zur Genehmigung/Ablehnung"
 
-#: .\crush_lu\models\events.py:648
+#: .\crush_lu\models\events.py:655
 msgid "Coach notes about the guest"
 msgstr "Coach-Notizen über den Gast"
 
-#: .\crush_lu\models\events.py:653
+#: .\crush_lu\models\events.py:660
 msgid "Event Invitation"
 msgstr "Event-Einladung"
 
-#: .\crush_lu\models\events.py:654
+#: .\crush_lu\models\events.py:661
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:859
 msgid "Event Invitations"
 msgstr "Event-Einladungen"
 
-#: .\crush_lu\models\events.py:698
+#: .\crush_lu\models\events.py:705
 msgid "Unique identifier (e.g., 'music', 'spicy_questions')"
 msgstr "Eindeutiger Bezeichner (z.B. 'musik', 'spicy_questions')"
 
-#: .\crush_lu\models\events.py:703
+#: .\crush_lu\models\events.py:710
 msgid "Inactive options won't appear in voting"
 msgstr "Inaktive Optionen erscheinen nicht in der Abstimmung"
 
-#: .\crush_lu\models\events.py:706
+#: .\crush_lu\models\events.py:713
 msgid "Display order in voting UI"
 msgstr "Anzeigereihenfolge in der Abstimmungs-UI"
 
-#: .\crush_lu\models\events.py:715
+#: .\crush_lu\models\events.py:722
 msgid "Global Activity Option"
 msgstr "Globale Aktivitätsoption"
 
-#: .\crush_lu\models\events.py:716
+#: .\crush_lu\models\events.py:723
 msgid "Global Activity Options"
 msgstr "Globale Aktivitätsoptionen"
 
-#: .\crush_lu\models\events.py:749
+#: .\crush_lu\models\events.py:756
 msgid "Sub-option for the activity"
 msgstr "Unteroption für die Aktivität"
 
-#: .\crush_lu\models\events.py:752
+#: .\crush_lu\models\events.py:759
 msgid "e.g., 'Speed Dating - Random Order'"
 msgstr "z.B. 'Speed Dating - Zufällige Reihenfolge'"
 
-#: .\crush_lu\models\events.py:755
+#: .\crush_lu\models\events.py:762
 msgid "Explanation of what this activity entails"
 msgstr "Erklärung, was diese Aktivität beinhaltet"
 
-#: .\crush_lu\models\events.py:805
+#: .\crush_lu\models\events.py:812
 msgid "Order in queue (1, 2, 3...)"
 msgstr "Reihenfolge in der Warteschlange (1, 2, 3...)"
 
-#: .\crush_lu\models\events.py:839
+#: .\crush_lu\models\events.py:846
 msgid "Event start time + 15 minutes"
 msgstr "Event-Startzeit + 15 Minuten"
 
-#: .\crush_lu\models\events.py:842
+#: .\crush_lu\models\events.py:849
 msgid "Voting start time + 30 minutes"
 msgstr "Abstimmungs-Startzeit + 30 Minuten"
 
-#: .\crush_lu\models\events.py:990
+#: .\crush_lu\models\events.py:997
 msgid "Rating from 1-5 stars"
 msgstr "Bewertung von 1-5 Sternen"
 
-#: .\crush_lu\models\events.py:1048
+#: .\crush_lu\models\events.py:1055
 msgid "Which speed dating round (1, 2, 3...)"
 msgstr "Welche Speed-Dating-Runde (1, 2, 3...)"
 
-#: .\crush_lu\models\events.py:1051
+#: .\crush_lu\models\events.py:1058
 msgid "Combined rating score from Phase 2"
 msgstr "Kombinierte Bewertung aus Phase 2"
 
-#: .\crush_lu\models\events.py:1055
+#: .\crush_lu\models\events.py:1062
 msgid "True if this is user's #1 rated match (gets extended time)"
 msgstr ""
 "Wahr, wenn dies der am besten bewertete Match ist (erhält verlängerte Zeit)"
@@ -3442,6 +3472,7 @@ msgid "Specific user segment"
 msgstr "Spezial: Mystery Event"
 
 #: .\crush_lu\models\newsletter.py:21
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:138
 msgid "Draft"
 msgstr "Entwurf"
 
@@ -5067,9 +5098,9 @@ msgstr "Überprüfung"
 #: .\crush_lu\templates\crush_lu\dashboard.html:340
 #: .\crush_lu\templates\crush_lu\emails\base_email.html:103
 #: .\crush_lu\templates\crush_lu\event_list.html:34
-#: .\crush_lu\templates\crush_lu\event_list.html:74
+#: .\crush_lu\templates\crush_lu\event_list.html:78
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:25
-#: .\crush_lu\views_events.py:443
+#: .\crush_lu\views_events.py:450
 msgid "Events"
 msgstr "Veranstaltungen"
 
@@ -5701,7 +5732,7 @@ msgstr "Erscheinungsrate"
 
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:790
 #: .\crush_lu\templates\crush_lu\coach_event_list.html:88
-#: .\crush_lu\templates\crush_lu\event_list.html:80
+#: .\crush_lu\templates\crush_lu\event_list.html:84
 msgid "Past Events"
 msgstr "Vergangene Events"
 
@@ -6977,40 +7008,208 @@ msgstr "Coach-Bedienfeld"
 msgid "Django administration"
 msgstr "Django-Verwaltung"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:262
+#: .\crush_lu\templates\admin\crush_lu\index.html:270
 msgid "Add"
 msgstr "Hinzufügen"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:269
+#: .\crush_lu\templates\admin\crush_lu\index.html:277
 #: .\crush_lu\templates\crush_lu\coach_connections.html:174
 #: .\crush_lu\templates\crush_lu\coach_event_list.html:125
 #: .\crush_lu\templates\crush_lu\coach_verification_history.html:98
 msgid "View"
 msgstr "Ansehen"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:271
+#: .\crush_lu\templates\admin\crush_lu\index.html:279
 msgid "Change"
 msgstr "Ändern"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:283
+#: .\crush_lu\templates\admin\crush_lu\index.html:291
 msgid "You don\\"
 msgstr "Sie haben keine Berechtigung, etwas anzuzeigen oder zu bearbeiten."
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:292
+#: .\crush_lu\templates\admin\crush_lu\index.html:300
 msgid "Recent actions"
 msgstr "Letzte Aktionen"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:293
+#: .\crush_lu\templates\admin\crush_lu\index.html:301
 msgid "My actions"
 msgstr "Meine Aktionen"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:296
+#: .\crush_lu\templates\admin\crush_lu\index.html:304
 msgid "None available"
 msgstr "Keine verfügbar"
 
-#: .\crush_lu\templates\admin\crush_lu\index.html:310
+#: .\crush_lu\templates\admin\crush_lu\index.html:318
 msgid "Unknown content"
 msgstr "Unbekannter Inhalt"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:4
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:43
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:4
+#, fuzzy
+#| msgid "Analytics:"
+msgid "Poll Analytics"
+msgstr "Anonymisierte Analysen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:44
+msgid "Results and insights from event preference polls"
+msgstr ""
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:49
+#, fuzzy
+#| msgid "Total Points"
+msgid "Total Polls"
+msgstr "Gesamtpunkte"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:53
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:70
+#: .\crush_lu\templates\crush_lu\coach_edit_profile.html:205
+#: .\crush_lu\templates\crush_lu\coach_review_profile.html:94
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:27
+#: .\crush_lu\templates\crush_lu\gdpr_data_management.html:24
+#: .\crush_lu\templates\crush_lu\gdpr_data_management.html:43
+msgid "Active"
+msgstr "Aktiv"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:57
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:80
+#: .\crush_lu\templates\crush_lu\event_voting_results.html:77
+msgid "Total Votes"
+msgstr "Gesamtstimmen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:61
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:84
+#, fuzzy
+#| msgid "24 Unique Doors"
+msgid "Unique Voters"
+msgstr "24 Einzigartige Türchen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:66
+#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:14
+#, fuzzy
+#| msgid "Active Connections"
+msgid "Active Polls"
+msgstr "Aktive Verbindungen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:70
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:98
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:126
+#, fuzzy
+#| msgid "Total Votes"
+msgid "Poll"
+msgstr "Gesamtstimmen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:71
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:99
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:127
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:88
+#, fuzzy
+#| msgid "Optional"
+msgid "Options"
+msgstr "Fakultativ"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:73
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:101
+#, fuzzy
+#| msgid "votes"
+msgid "Voters"
+msgstr "Stimmen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:74
+msgid "Ends"
+msgstr ""
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:86
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:114
+#: .\crush_lu\templates\crush_lu\event_voting_lobby.html:31
+msgid "View Results"
+msgstr "Ergebnisse ansehen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:94
+#, fuzzy
+#| msgid "Close"
+msgid "Closed Polls"
+msgstr "Schließen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:102
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:72
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:31
+#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:57
+#, fuzzy
+#| msgid "Close"
+msgid "Closed"
+msgstr "Schließen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:122
+msgid "Drafts (Unpublished)"
+msgstr ""
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics.html:128
+#, fuzzy
+#| msgid "Scheduled callback"
+msgid "Scheduled"
+msgstr "Rückruf vereinbart"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:64
+#, fuzzy
+#| msgid "Profile"
+msgid "All Polls"
+msgstr "Profil"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:74
+#, fuzzy
+#| msgid "Multiple Choice"
+msgid "Multiple choice"
+msgstr "Multiple Choice"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:94
+#, fuzzy
+#| msgid "View Results"
+msgid "Results"
+msgstr "Ergebnisse ansehen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:102
+#, fuzzy
+#| msgid "Loading..."
+msgid "Leading"
+msgstr "Laden..."
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:106
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:24
+#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:27
+#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:55
+#: .\crush_lu\templates\crush_lu\event_voting_results.html:115
+#: .\crush_lu\templates\crush_lu\event_voting_results.html:154
+msgid "votes"
+msgstr "Stimmen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:121
+#, fuzzy
+#| msgid "Date & Time"
+msgid "Votes Over Time"
+msgstr "Datum und Uhrzeit"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:145
+#, fuzzy
+#| msgid "Recent actions"
+msgid "Recent Votes"
+msgstr "Letzte Aktionen"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:147
+#, fuzzy
+#| msgid "Last 30 Days"
+msgid "Last 20 votes"
+msgstr "Letzte 30 Tage"
+
+#: .\crush_lu\templates\admin\crush_lu\poll_analytics_detail.html:152
+#: .\crush_lu\templates\crush_lu\_pending_submission_card.html:77
+#: .\crush_lu\templates\crush_lu\coach_connection_review.html:88
+#: .\crush_lu\templates\crush_lu\coach_connections.html:141
+#: .\crush_lu\templates\crush_lu\coach_review_profile.html:64
+#: .\crush_lu\templates\crush_lu\coach_review_profile.html:94
+#: .\crush_lu\templates\crush_lu\coach_spark_list.html:66
+msgid "ago"
+msgstr "vor"
 
 # Coach Dashboard translations
 #: .\crush_lu\templates\admin\crush_lu\profile_reminders_panel.html:477
@@ -7575,7 +7774,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_event_registration_form.html:78
 #: .\crush_lu\templates\crush_lu\event_detail.html:420
-#: .\crush_lu\templates\crush_lu\event_detail.html:442
+#: .\crush_lu\templates\crush_lu\event_detail.html:469
+#: .\crush_lu\templates\crush_lu\event_detail.html:491
 #: .\crush_lu\templates\crush_lu\event_register.html:164
 msgid "Join Waitlist"
 msgstr "Auf Warteliste setzen"
@@ -7680,15 +7880,6 @@ msgstr "Kein Standort"
 #| msgid "Past Event"
 msgid "past event"
 msgstr "Vergangenes Event"
-
-#: .\crush_lu\templates\crush_lu\_pending_submission_card.html:77
-#: .\crush_lu\templates\crush_lu\coach_connection_review.html:88
-#: .\crush_lu\templates\crush_lu\coach_connections.html:141
-#: .\crush_lu\templates\crush_lu\coach_review_profile.html:64
-#: .\crush_lu\templates\crush_lu\coach_review_profile.html:94
-#: .\crush_lu\templates\crush_lu\coach_spark_list.html:66
-msgid "ago"
-msgstr "vor"
 
 #: .\crush_lu\templates\crush_lu\_pending_submission_card.html:84
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:16
@@ -8242,7 +8433,7 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\crush_coach.html:24
 #: .\crush_lu\templates\crush_lu\event_list.html:28
 #: .\crush_lu\templates\crush_lu\how_it_works.html:24
-#: .\crush_lu\views_events.py:437
+#: .\crush_lu\views_events.py:444
 msgid "Home"
 msgstr "Startseite"
 
@@ -8835,6 +9026,7 @@ msgstr "Du hast noch kein Dating-Profil erstellt."
 #: .\crush_lu\templates\crush_lu\account_settings.html:304
 #: .\crush_lu\templates\crush_lu\base.html:629
 #: .\crush_lu\templates\crush_lu\event_detail.html:401
+#: .\crush_lu\templates\crush_lu\event_detail.html:449
 msgid "Create Profile"
 msgstr "Profil erstellen"
 
@@ -10722,14 +10914,6 @@ msgid "Max Active Reviews"
 msgstr "Max. aktive Prüfungen"
 
 #: .\crush_lu\templates\crush_lu\coach_edit_profile.html:205
-#: .\crush_lu\templates\crush_lu\coach_review_profile.html:94
-#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:27
-#: .\crush_lu\templates\crush_lu\gdpr_data_management.html:24
-#: .\crush_lu\templates\crush_lu\gdpr_data_management.html:43
-msgid "Active"
-msgstr "Aktiv"
-
-#: .\crush_lu\templates\crush_lu\coach_edit_profile.html:205
 msgid "Inactive"
 msgstr "Inaktiv"
 
@@ -12450,6 +12634,7 @@ msgid "Submit Profile"
 msgstr "Profil einreichen"
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1118
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:45
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:108
 #: .\crush_lu\templates\crush_lu\journey\challenges\would_you_rather.html:85
 msgid "Submitting..."
@@ -13948,7 +14133,7 @@ msgid "Want more control?"
 msgstr "Möchtest du mehr Kontrolle?"
 
 #: .\crush_lu\templates\crush_lu\email_unsubscribe.html:61
-#: .\crush_lu\templates\crush_lu\event_detail.html:469
+#: .\crush_lu\templates\crush_lu\event_detail.html:518
 #: .\crush_lu\templates\crush_lu\signup.html:138
 msgid "Log in"
 msgstr "Anmelden"
@@ -16029,12 +16214,14 @@ msgid "Update Profile Languages"
 msgstr "Profil aktualisieren"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:398
+#: .\crush_lu\templates\crush_lu\event_detail.html:446
 #, fuzzy
 #| msgid "Profile Review"
 msgid "Profile Required"
 msgstr "Profil-Überprüfung"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:399
+#: .\crush_lu\templates\crush_lu\event_detail.html:447
 msgid "This event requires a Crush profile."
 msgstr "Dieses Event erfordert ein Crush-Profil."
 
@@ -16047,24 +16234,34 @@ msgid ""
 msgstr "⏳ Ihr Profil wird derzeit von %(coach)s überprüft"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:422
-#: .\crush_lu\templates\crush_lu\event_detail.html:444
+#: .\crush_lu\templates\crush_lu\event_detail.html:471
+#: .\crush_lu\templates\crush_lu\event_detail.html:493
 msgid "Register for This Event"
 msgstr "Für dieses Event anmelden"
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:432
-#: .\crush_lu\templates\crush_lu\event_detail.html:454
+#: .\crush_lu\templates\crush_lu\event_detail.html:481
+#: .\crush_lu\templates\crush_lu\event_detail.html:503
 msgid "Registration is closed for this event."
 msgstr "Die Anmeldung für dieses Event ist geschlossen."
 
-#: .\crush_lu\templates\crush_lu\event_detail.html:469
+#: .\crush_lu\templates\crush_lu\event_detail.html:462
+msgid ""
+"Your profile is still being reviewed, but you can already register for this "
+"event."
+msgstr ""
+"Dein Profil wird noch überprüft, aber du kannst dich bereits für dieses "
+"Event anmelden."
+
+#: .\crush_lu\templates\crush_lu\event_detail.html:518
 msgid "or"
 msgstr "oder"
 
-#: .\crush_lu\templates\crush_lu\event_detail.html:470
+#: .\crush_lu\templates\crush_lu\event_detail.html:519
 msgid "sign up"
 msgstr "anmelden"
 
-#: .\crush_lu\templates\crush_lu\event_detail.html:470
+#: .\crush_lu\templates\crush_lu\event_detail.html:519
 msgid "to register for this event."
 msgstr "um dich für dieses Event anzumelden."
 
@@ -16140,91 +16337,81 @@ msgid_plural "Go to Admin to publish them"
 msgstr[0] "Gehe zum Admin, um es zu veröffentlichen"
 msgstr[1] "Gehe zum Admin, um sie zu veröffentlichen"
 
-#: .\crush_lu\templates\crush_lu\event_list.html:77
+#: .\crush_lu\templates\crush_lu\event_list.html:81
 msgid "Upcoming"
 msgstr "Bevorstehend"
 
-#: .\crush_lu\templates\crush_lu\event_list.html:94
+#: .\crush_lu\templates\crush_lu\event_list.html:98
 msgid "No events scheduled yet"
 msgstr "Noch keine Events geplant"
 
-#: .\crush_lu\templates\crush_lu\event_list.html:95
+#: .\crush_lu\templates\crush_lu\event_list.html:99
 msgid "Check back soon for upcoming meetups and speed dating events!"
 msgstr "Schau bald wieder vorbei für kommende Treffen und Speed-Dating-Events!"
 
-#: .\crush_lu\templates\crush_lu\event_list.html:112
+#: .\crush_lu\templates\crush_lu\event_list.html:116
 msgid "No past events yet"
 msgstr "Noch keine vergangenen Events"
 
-#: .\crush_lu\templates\crush_lu\event_list.html:113
+#: .\crush_lu\templates\crush_lu\event_list.html:117
 msgid "Past events will appear here after they've taken place."
 msgstr ""
 "Vergangene Events werden hier angezeigt, nachdem sie stattgefunden haben."
 
-#: .\crush_lu\templates\crush_lu\event_polls\_poll_results_partial.html:32
+#: .\crush_lu\templates\crush_lu\event_polls\_poll_results_partial.html:56
 #, fuzzy
 #| msgid "Your consent has been recorded."
 msgid "Your vote has been recorded. Thank you!"
 msgstr "Ihre Zustimmung wurde aufgezeichnet."
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:11
-#, fuzzy
-#| msgid "Back to Home"
 msgid "Back to Polls"
-msgstr "Zurück zur Startseite"
-
-#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:24
-#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:27
-#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:55
-#: .\crush_lu\templates\crush_lu\event_voting_results.html:115
-#: .\crush_lu\templates\crush_lu\event_voting_results.html:154
-msgid "votes"
-msgstr "Stimmen"
-
-#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:31
-#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:57
-#, fuzzy
-#| msgid "Close"
-msgid "Closed"
-msgstr "Schließen"
+msgstr "Zurück zu den Umfragen"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:35
-#, fuzzy
-#| msgid "Multiple Choice"
 msgid "Multiple choices allowed"
-msgstr "Multiple Choice"
+msgstr "Mehrfachauswahl möglich"
+
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:44
+msgid "Submit Vote"
+msgstr "Abstimmen"
+
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:46
+msgid "Vote Submitted"
+msgstr "Stimme abgegeben"
+
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:47
+msgid "Failed to submit vote"
+msgstr "Abstimmung fehlgeschlagen"
+
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:48
+msgid "Network error. Please try again."
+msgstr "Netzwerkfehler. Bitte versuche es erneut."
+
+#: .\crush_lu\templates\crush_lu\event_polls\poll_detail.html:113
+msgid "Current Results"
+msgstr "Aktuelle Ergebnisse"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:11
 msgid "Help us plan the next events by sharing your preferences!"
-msgstr ""
-
-#: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:14
-#, fuzzy
-#| msgid "Active Connections"
-msgid "Active Polls"
-msgstr "Aktive Verbindungen"
+msgstr "Hilf uns, die nächsten Events zu planen, indem du deine Vorlieben teilst!"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:30
-#, fuzzy
-#| msgid "Total Votes"
 msgid "Voted"
-msgstr "Gesamtstimmen"
+msgstr "Abgestimmt"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:34
-#, fuzzy
-#| msgid "Just now"
+#: .\crush_lu\templates\crush_lu\includes\_event_poll_banner.html:22
 msgid "Vote now"
-msgstr "Gerade eben"
+msgstr "Jetzt abstimmen"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:45
-#, fuzzy
-#| msgid "Recent actions"
 msgid "Recently Closed"
-msgstr "Letzte Aktionen"
+msgstr "Kürzlich beendet"
 
 #: .\crush_lu\templates\crush_lu\event_polls\poll_list.html:68
 msgid "No polls available right now. Check back soon!"
-msgstr ""
+msgstr "Derzeit keine Umfragen verfügbar. Schau bald wieder vorbei!"
 
 #: .\crush_lu\templates\crush_lu\event_presentations.html:5
 msgid "Presentations"
@@ -16404,10 +16591,6 @@ msgstr "Präsentationsstil: <strong>%(style)s</strong>"
 msgid "Speed Dating Twist: <strong>%(choice)s</strong>"
 msgstr "Speed-Dating-Twist: <strong>%(twist)s</strong>"
 
-#: .\crush_lu\templates\crush_lu\event_voting_lobby.html:31
-msgid "View Results"
-msgstr "Ergebnisse ansehen"
-
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:37
 msgid "Voting is Now Open!"
 msgstr "Die Abstimmung ist jetzt eröffnet!"
@@ -16559,10 +16742,6 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:64
 msgid "Time Remaining:"
 msgstr "Verbleibende Zeit:"
-
-#: .\crush_lu\templates\crush_lu\event_voting_results.html:77
-msgid "Total Votes"
-msgstr "Gesamtstimmen"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:81
 msgid "Activity Options"
@@ -17169,6 +17348,18 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\how_it_works.html:691
 msgid "Get Started Now"
 msgstr "Jetzt loslegen"
+
+#: .\crush_lu\templates\crush_lu\includes\_event_poll_banner.html:12
+msgid "Help shape our next events!"
+msgstr "Gestalte unsere nächsten Events mit!"
+
+#: .\crush_lu\templates\crush_lu\includes\_event_poll_banner.html:15
+msgid "Vote on what kind of event you'd like to see next."
+msgstr "Stimme ab, welche Art von Event du als Nächstes erleben möchtest."
+
+#: .\crush_lu\templates\crush_lu\includes\_event_poll_banner.html:30
+msgid "View polls"
+msgstr "Umfragen ansehen"
 
 #: .\crush_lu\templates\crush_lu\includes\event_card.html:13
 #: .\crush_lu\templates\crush_lu\includes\event_card.html:24
@@ -25023,27 +25214,27 @@ msgstr "Sie müssen zuerst ein Profil erstellen."
 msgid "Your profile must be approved to view polls."
 msgstr "Ihr Profil muss genehmigt werden, bevor Sie es bearbeiten können."
 
-#: .\crush_lu\views_events.py:276
+#: .\crush_lu\views_events.py:277
 msgid "Upcoming Dating Events in Luxembourg"
 msgstr "Kommende Dating Events in Luxemburg"
 
-#: .\crush_lu\views_events.py:279
+#: .\crush_lu\views_events.py:280
 msgid "Speed dating, social mixers, and singles meetups organized by Crush.lu"
 msgstr ""
 "Speed-Dating, gesellschaftliche Mixer und Singles-Treffen, organisiert von "
 "Crush.lu"
 
-#: .\crush_lu\views_events.py:314
+#: .\crush_lu\views_events.py:321
 #, fuzzy
 #| msgid "Private Invitation Only"
 msgid "This event is by invitation only."
 msgstr "Nur auf private Einladung"
 
-#: .\crush_lu\views_events.py:588
+#: .\crush_lu\views_events.py:595
 msgid "You do not have an approved invitation for this event."
 msgstr "Sie haben keine genehmigte Einladung für dieses Event."
 
-#: .\crush_lu\views_events.py:599
+#: .\crush_lu\views_events.py:606
 msgid ""
 "Please complete your profile before registering for events. This is required "
 "for all users, even with invitations."
@@ -25051,11 +25242,11 @@ msgstr ""
 "Bitte vervollständige dein Profil, bevor du dich für Events anmeldest. Dies "
 "ist für alle Nutzer erforderlich, auch mit Einladungen."
 
-#: .\crush_lu\views_events.py:615
+#: .\crush_lu\views_events.py:622
 msgid "Your profile is missing. Please contact support for assistance."
 msgstr "Dein Profil fehlt. Bitte kontaktiere den Support für Hilfe."
 
-#: .\crush_lu\views_events.py:627
+#: .\crush_lu\views_events.py:634
 msgid ""
 "This event requires an approved profile. Your profile is currently under "
 "review."
@@ -25063,28 +25254,28 @@ msgstr ""
 "Dieses Event erfordert ein genehmigtes Profil. Ihr Profil wird derzeit "
 "überprüft."
 
-#: .\crush_lu\views_events.py:634
+#: .\crush_lu\views_events.py:641 .\crush_lu\views_events.py:650
 msgid "This event requires a Crush profile. Please create one to register."
 msgstr ""
 "Dieses Event erfordert ein Crush-Profil. Bitte erstellen Sie eines, um sich "
 "anzumelden."
 
-#: .\crush_lu\views_events.py:646
+#: .\crush_lu\views_events.py:662
 msgid ""
 "This event has age restrictions. Please create a profile to verify your age."
 msgstr ""
 "Dieses Event hat Altersbeschränkungen. Bitte erstellen Sie ein Profil, um "
 "Ihr Alter zu bestätigen."
 
-#: .\crush_lu\views_events.py:658
+#: .\crush_lu\views_events.py:674
 msgid "You are already registered for this event."
 msgstr "Sie sind bereits für diese Veranstaltung angemeldet."
 
-#: .\crush_lu\views_events.py:662 .\crush_lu\views_events.py:689
+#: .\crush_lu\views_events.py:678 .\crush_lu\views_events.py:705
 msgid "Registration is not available for this event."
 msgstr "Anmeldung für diese Veranstaltung nicht verfügbar."
 
-#: .\crush_lu\views_events.py:732
+#: .\crush_lu\views_events.py:748
 #, fuzzy
 #| msgid "Event is full. You have been added to the waitlist."
 msgid ""
@@ -25092,21 +25283,21 @@ msgid ""
 "waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views_events.py:739
+#: .\crush_lu\views_events.py:755
 msgid "Event is full. You have been added to the waitlist."
 msgstr "Veranstaltung ist voll. Sie wurden auf die Warteliste gesetzt."
 
-#: .\crush_lu\views_events.py:743
+#: .\crush_lu\views_events.py:759
 msgid "Successfully registered for the event!"
 msgstr "Erfolgreich für die Veranstaltung angemeldet!"
 
-#: .\crush_lu\views_events.py:806
+#: .\crush_lu\views_events.py:822
 #, fuzzy
 #| msgid "Your registration has been cancelled."
 msgid "Your registration was already cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
-#: .\crush_lu\views_events.py:811
+#: .\crush_lu\views_events.py:827
 msgid "Your registration has been cancelled."
 msgstr "Ihre Anmeldung wurde storniert."
 
@@ -25382,6 +25573,13 @@ msgid ""
 msgstr ""
 "Apple Wallet-Unterstützung ist bald verfügbar! Bitte nutzen Sie in der "
 "Zwischenzeit Google Wallet."
+
+#~ msgid ""
+#~ "Require attendees to have approved profiles (recommended for dating "
+#~ "events)"
+#~ msgstr ""
+#~ "Genehmigte Profile für Teilnehmer erforderlich (empfohlen für Dating-"
+#~ "Events)"
 
 #~ msgid ""
 #~ "Browse upcoming speed dating events, social mixers, and singles meetups "

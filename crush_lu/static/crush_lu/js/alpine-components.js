@@ -8694,11 +8694,22 @@ document.addEventListener('alpine:init', function() {
             hasVoted: false,
             pollId: 0,
 
+            _textSubmit: 'Submit Vote',
+            _textSubmitting: 'Submitting...',
+            _textSubmitted: 'Vote Submitted',
+            _textError: 'Failed to submit vote',
+            _textNetworkError: 'Network error. Please try again.',
+
             init() {
                 var el = this.$el;
                 this.isMultiChoice = el.getAttribute('data-multi-choice') === 'true';
                 this.hasVoted = el.getAttribute('data-has-voted') === 'true';
                 this.pollId = parseInt(el.getAttribute('data-poll-id') || '0', 10);
+                this._textSubmit = el.getAttribute('data-text-submit') || this._textSubmit;
+                this._textSubmitting = el.getAttribute('data-text-submitting') || this._textSubmitting;
+                this._textSubmitted = el.getAttribute('data-text-submitted') || this._textSubmitted;
+                this._textError = el.getAttribute('data-text-error') || this._textError;
+                this._textNetworkError = el.getAttribute('data-text-network-error') || this._textNetworkError;
             },
 
             get canSubmit() {
@@ -8706,9 +8717,9 @@ document.addEventListener('alpine:init', function() {
             },
 
             get submitButtonText() {
-                if (this.isSubmitting) return 'Submitting...';
-                if (this.hasVoted) return 'Vote Submitted';
-                return 'Submit Vote';
+                if (this.isSubmitting) return this._textSubmitting;
+                if (this.hasVoted) return this._textSubmitted;
+                return this._textSubmit;
             },
 
             get isDisabled() {
@@ -8801,12 +8812,12 @@ document.addEventListener('alpine:init', function() {
                         self.hasVoted = true;
                         window.location.reload();
                     } else {
-                        alert(data.error || 'Failed to submit vote');
+                        alert(data.error || self._textError);
                     }
                 })
                 .catch(function() {
                     self.isSubmitting = false;
-                    alert('Network error. Please try again.');
+                    alert(self._textNetworkError);
                 });
             }
         };

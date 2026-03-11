@@ -4,6 +4,7 @@ Admin-only visibility of user PWA installations across devices.
 """
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from crush_lu.models import PWADeviceInstallation
 
@@ -70,7 +71,7 @@ class PWADeviceInstallationAdmin(admin.ModelAdmin):
         """Display color-coded activity status based on last use."""
         days = obj.days_since_last_use
         if days == 0:
-            return format_html(
+            return mark_safe(
                 '<span style="color: green; font-weight: bold;">Today</span>'
             )
         elif days < 7:
