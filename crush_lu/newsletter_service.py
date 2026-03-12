@@ -44,7 +44,7 @@ def get_newsletter_recipients(newsletter):
 
     # Base queryset depends on audience
     if newsletter.audience == 'all_users':
-        users = User.objects.filter(is_active=True)
+        users = User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif newsletter.audience == 'all_profiles':
         users = User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif newsletter.audience == 'approved_profiles':
@@ -66,6 +66,14 @@ def get_newsletter_recipients(newsletter):
         Q(email_newsletter=False) | Q(unsubscribed_all=True)
     ).values_list('user_id', flat=True)
     users = users.exclude(id__in=opted_out_user_ids)
+
+    # Exclude users who deleted their profile or are banned
+    from .models.profiles import UserDataConsent
+
+    banned_user_ids = UserDataConsent.objects.filter(
+        crushlu_banned=True
+    ).values_list('user_id', flat=True)
+    users = users.exclude(id__in=banned_user_ids)
 
     # Filter by language preference
     if newsletter.language and newsletter.language != 'all':

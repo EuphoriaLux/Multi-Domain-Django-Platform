@@ -19,7 +19,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
@@ -285,6 +285,24 @@ def dashboard(request):
     return render(request, "crush_lu/dashboard.html", context)
 
 
+def _get_coaches_for_selection():
+    """Return active coaches with pending review counts for coach selection step."""
+    coaches = CrushCoach.objects.filter(is_active=True).annotate(
+        pending_count=Count(
+            'profilesubmission',
+            filter=Q(profilesubmission__status='pending'),
+        )
+    ).select_related('user')
+    return [
+        {
+            'coach': coach,
+            'pending_count': coach.pending_count,
+            'available': coach.pending_count < coach.max_active_reviews,
+        }
+        for coach in coaches
+    ]
+
+
 @crush_login_required
 @ratelimit(key="user", rate="10/15m", method="POST", block=True)
 def create_profile(request):
@@ -408,12 +426,65 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
+                    "coaches": _get_coaches_for_selection(),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
-            # Only assign coach and send emails for NEW submissions
+            # Assign selected coach (mandatory user selection)
+            selected_coach_id = request.POST.get('selected_coach')
+            if selected_coach_id:
+                try:
+                    selected_coach = CrushCoach.objects.get(
+                        id=selected_coach_id, is_active=True
+                    )
+                    # Allow re-selecting the same coach even if at capacity
+                    # (the existing submission already counts in their pending count)
+                    is_same_coach = submission.coach_id == selected_coach.id
+                    if not is_same_coach and not selected_coach.can_accept_reviews():
+                        messages.warning(
+                            request,
+                            _("The coach you selected is no longer available. Please choose another coach."),
+                        )
+                        from .social_photos import get_all_social_photos
+                        context = {
+                            "form": form,
+                            "profile": profile,
+                            "current_step": "step3",
+                            "social_photos": get_all_social_photos(request.user),
+                            "coaches": _get_coaches_for_selection(),
+                        }
+                        return render(request, "crush_lu/create_profile.html", context)
+                    submission.coach = selected_coach
+                    submission.save()
+                except CrushCoach.DoesNotExist:
+                    messages.error(
+                        request,
+                        _("The coach you selected is no longer available. Please choose another coach."),
+                    )
+                    from .social_photos import get_all_social_photos
+                    context = {
+                        "form": form,
+                        "profile": profile,
+                        "current_step": "step3",
+                        "social_photos": get_all_social_photos(request.user),
+                        "coaches": _get_coaches_for_selection(),
+                    }
+                    return render(request, "crush_lu/create_profile.html", context)
+            else:
+                # No coach selected — edge case / tampering
+                messages.error(request, _("Please select a coach before submitting."))
+                from .social_photos import get_all_social_photos
+                context = {
+                    "form": form,
+                    "profile": profile,
+                    "current_step": "step3",
+                    "social_photos": get_all_social_photos(request.user),
+                    "coaches": _get_coaches_for_selection(),
+                }
+                return render(request, "crush_lu/create_profile.html", context)
+
+            # Only send emails for NEW submissions
             if created:
-                submission.assign_coach()
                 logger.info(f"NEW profile submission created for {request.user.email}")
 
                 if submission.coach:
@@ -469,6 +540,7 @@ def create_profile(request):
                 "form": form,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
+                "coaches": _get_coaches_for_selection(),
             }
             return render(request, "crush_lu/create_profile.html", context)
 
@@ -500,6 +572,8 @@ def create_profile(request):
                     "social_photos": get_all_social_photos(request.user),
                     "submission": latest_submission,
                     "is_revision": True,
+                    "coaches": _get_coaches_for_selection(),
+                    "selected_coach_id": latest_submission.coach_id if latest_submission.coach else None,
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -518,9 +592,10 @@ def create_profile(request):
                     "form": form,
                     "profile": profile,
                     "social_photos": get_all_social_photos(request.user),
+                    "coaches": _get_coaches_for_selection(),
                 },
             )
-        elif profile.completion_status in ["step1", "step2", "step3", "completed"]:
+        elif profile.completion_status in ["step1", "step2", "step3", "step4"]:
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
@@ -532,6 +607,7 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": profile.completion_status,
                     "social_photos": get_all_social_photos(request.user),
+                    "coaches": _get_coaches_for_selection(),
                 },
             )
         else:
@@ -547,6 +623,7 @@ def create_profile(request):
                 "form": form,
                 "profile": None,
                 "social_photos": get_all_social_photos(request.user),
+                "coaches": _get_coaches_for_selection(),
             },
         )
 
@@ -656,7 +733,7 @@ def edit_profile(request):
         "step1",
         "step2",
         "step3",
-        "completed",
+        "step4",
     ]:
         messages.info(request, _("Please complete your profile to continue."))
         return redirect("crush_lu:create_profile")

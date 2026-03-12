@@ -53,11 +53,11 @@ def save_draft(request):
         logger.debug(f"[DRAFT SAVE] Step data: {step_data}")
 
         # Validate step number
-        if not step or not isinstance(step, int) or step < 1 or step > 3:
+        if not step or not isinstance(step, int) or step < 1 or step > 5:
             logger.warning(f"[DRAFT SAVE] Invalid step number: {step}")
             return JsonResponse({
                 'success': False,
-                'error': 'Invalid step number. Must be 1, 2, or 3.'
+                'error': 'Invalid step number. Must be 1-5.'
             }, status=400)
 
         # Get or create profile

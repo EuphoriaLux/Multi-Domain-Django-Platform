@@ -21,6 +21,12 @@
 {% elif completion_status == 'step2' %}
 <p>{% trans "You're literally one step away! Just add a photo or two and your profile goes to our review team." %}</p>
 
+{% elif completion_status == 'step3' %}
+<p>{% trans "You've done the hard part! Just pick a coach and submit - two quick steps and you're in." %}</p>
+
+{% elif completion_status == 'step4' %}
+<p>{% trans "All you need to do is hit submit! Your profile is ready for review." %}</p>
+
 {% endif %}
 
 <div class="info-box">

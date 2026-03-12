@@ -22,8 +22,9 @@ PROFILE_STEP_INFO = {
     'not_started': (0, _('Get started')),
     'step1': (1, _('Tell us about you')),
     'step2': (2, _('Add photos')),
-    'step3': (3, _('Review & submit')),
-    'submitted': (4, _('Under review')),
+    'step3': (3, _('Choose your coach')),
+    'step4': (4, _('Review & submit')),
+    'submitted': (5, _('Under review')),
 }
 
 

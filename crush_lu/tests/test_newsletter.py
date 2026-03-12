@@ -74,11 +74,14 @@ class NewsletterAudienceTests(TestCase):
         )
 
     def test_all_users_audience(self):
+        """all_users should only include users with a CrushProfile."""
         newsletter = Newsletter.objects.create(
             subject='Test', body_html='<p>Hi</p>', audience='all_users',
         )
         recipients = get_newsletter_recipients(newsletter)
-        self.assertEqual(recipients.count(), 3)
+        # user_no_profile is excluded (no CrushProfile)
+        self.assertEqual(recipients.count(), 2)
+        self.assertNotIn(self.user_no_profile, recipients)
 
     def test_all_profiles_audience(self):
         newsletter = Newsletter.objects.create(
@@ -107,7 +110,8 @@ class NewsletterAudienceTests(TestCase):
         )
         recipients = get_newsletter_recipients(newsletter)
         self.assertNotIn(self.user_approved, recipients)
-        self.assertEqual(recipients.count(), 2)
+        # user_no_profile excluded (no CrushProfile), user_approved opted out
+        self.assertEqual(recipients.count(), 1)
 
     def test_unsubscribed_all_excluded(self):
         """Users with unsubscribed_all=True should be excluded."""
@@ -128,7 +132,8 @@ class NewsletterAudienceTests(TestCase):
             subject='Test', body_html='<p>Hi</p>', audience='all_users',
         )
         recipients = get_newsletter_recipients(newsletter)
-        self.assertEqual(recipients.count(), 3)
+        # user_no_profile excluded (no CrushProfile), 2 users with profiles included
+        self.assertEqual(recipients.count(), 2)
 
 
 class NewsletterSendTests(TestCase):
@@ -141,11 +146,19 @@ class NewsletterSendTests(TestCase):
             password='testpass123',
             first_name='Alice',
         )
+        CrushProfile.objects.create(
+            user=self.user1, date_of_birth='1995-01-01',
+            gender='F', location='Luxembourg',
+        )
         self.user2 = User.objects.create_user(
             username='user2@example.com',
             email='user2@example.com',
             password='testpass123',
             first_name='Bob',
+        )
+        CrushProfile.objects.create(
+            user=self.user2, date_of_birth='1995-01-01',
+            gender='M', location='Luxembourg',
         )
         self.newsletter = Newsletter.objects.create(
             subject='Test Newsletter',
@@ -258,6 +271,10 @@ class NewsletterEmailRenderTests(TestCase):
             password='testpass123',
             first_name='Render',
         )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth='1995-01-01',
+            gender='F', location='Luxembourg',
+        )
 
     @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
     @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
@@ -327,6 +344,10 @@ class NewsletterManagementCommandTests(TestCase):
             password='testpass123',
             first_name='Cmd',
         )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth='1995-01-01',
+            gender='M', location='Luxembourg',
+        )
 
     @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
     @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
@@ -356,12 +377,20 @@ class NewsletterManagementCommandTests(TestCase):
     @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
     @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
     def test_limit_flag(self, mock_send):
-        # Create 3 users
-        User.objects.create_user(
+        # Create 3 users (all with CrushProfiles)
+        user2 = User.objects.create_user(
             username='cmd2@example.com', email='cmd2@example.com', password='pass',
         )
-        User.objects.create_user(
+        CrushProfile.objects.create(
+            user=user2, date_of_birth='1995-01-01',
+            gender='F', location='Luxembourg',
+        )
+        user3 = User.objects.create_user(
             username='cmd3@example.com', email='cmd3@example.com', password='pass',
+        )
+        CrushProfile.objects.create(
+            user=user3, date_of_birth='1995-01-01',
+            gender='M', location='Luxembourg',
         )
         newsletter = Newsletter.objects.create(
             subject='Limit', body_html='<p>Hi</p>', audience='all_users',
@@ -519,22 +548,26 @@ class NewsletterLanguageFilterTests(TestCase):
         )
 
     def test_language_all_includes_everyone(self):
+        """all_users with language=all includes all users with CrushProfiles."""
         newsletter = Newsletter.objects.create(
             subject='Test', body_html='<p>Hi</p>',
             audience='all_users', language='all',
         )
         recipients = get_newsletter_recipients(newsletter)
-        self.assertEqual(recipients.count(), 4)
+        # user_no_profile excluded (no CrushProfile)
+        self.assertEqual(recipients.count(), 3)
+        self.assertNotIn(self.user_no_profile, recipients)
 
-    def test_language_en_includes_english_and_no_profile(self):
+    def test_language_en_includes_english_users(self):
+        """all_users with language=en includes only English-speaking profile users."""
         newsletter = Newsletter.objects.create(
             subject='Test', body_html='<p>Hi</p>',
             audience='all_users', language='en',
         )
         recipients = get_newsletter_recipients(newsletter)
-        self.assertEqual(recipients.count(), 2)
+        self.assertEqual(recipients.count(), 1)
         self.assertIn(self.user_en, recipients)
-        self.assertIn(self.user_no_profile, recipients)
+        self.assertNotIn(self.user_no_profile, recipients)
 
     def test_language_de_only_german(self):
         newsletter = Newsletter.objects.create(

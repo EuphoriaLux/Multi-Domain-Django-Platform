@@ -110,7 +110,7 @@ def invitation_accept(request, code):
                     user=user,
                     date_of_birth=date_of_birth,  # SECURITY: Use actual DOB from form
                     is_approved=False,  # SECURITY: Requires coach approval
-                    completion_status="completed",
+                    completion_status="step3",
                     preferred_language=preferred_lang,
                 )
 

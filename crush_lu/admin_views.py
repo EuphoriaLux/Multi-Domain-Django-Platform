@@ -161,14 +161,14 @@ def crush_admin_dashboard(request):
         funnel_step1=Count('id', filter=Q(completion_status='step1')),
         funnel_step2=Count('id', filter=Q(completion_status='step2')),
         funnel_step3=Count('id', filter=Q(completion_status='step3')),
-        funnel_completed=Count('id', filter=Q(completion_status='completed')),
+        funnel_step4=Count('id', filter=Q(completion_status='step4')),
         funnel_submitted=Count('id', filter=Q(completion_status='submitted')),
     )
     funnel_not_started = funnel_stats['funnel_not_started']
     funnel_step1 = funnel_stats['funnel_step1']
     funnel_step2 = funnel_stats['funnel_step2']
     funnel_step3 = funnel_stats['funnel_step3']
-    funnel_completed = funnel_stats['funnel_completed']
+    funnel_step4 = funnel_stats['funnel_step4']
     funnel_submitted = funnel_stats['funnel_submitted']
 
     # Calculate percentages for each step (of total profiles)
@@ -177,18 +177,18 @@ def crush_admin_dashboard(request):
         funnel_step1_pct = round(funnel_step1 / total_profiles * 100, 1)
         funnel_step2_pct = round(funnel_step2 / total_profiles * 100, 1)
         funnel_step3_pct = round(funnel_step3 / total_profiles * 100, 1)
-        funnel_completed_pct = round(funnel_completed / total_profiles * 100, 1)
+        funnel_step4_pct = round(funnel_step4 / total_profiles * 100, 1)
         funnel_submitted_pct = round(funnel_submitted / total_profiles * 100, 1)
     else:
         funnel_not_started_pct = funnel_step1_pct = funnel_step2_pct = 0
-        funnel_step3_pct = funnel_completed_pct = funnel_submitted_pct = 0
+        funnel_step3_pct = funnel_step4_pct = funnel_submitted_pct = 0
 
     # Legacy cumulative counts (for backward compatibility)
     # OPTIMIZATION: Use single aggregate query instead of 3 separate COUNT queries
     legacy_stats = CrushProfile.objects.aggregate(
         step1_completed=Count('id', filter=~Q(completion_status='not_started')),
-        step2_completed=Count('id', filter=Q(completion_status__in=['step2', 'step3', 'completed', 'submitted'])),
-        step3_completed=Count('id', filter=Q(completion_status__in=['step3', 'completed', 'submitted'])),
+        step2_completed=Count('id', filter=Q(completion_status__in=['step2', 'step3', 'step4', 'submitted'])),
+        step3_completed=Count('id', filter=Q(completion_status__in=['step3', 'step4', 'submitted'])),
     )
     step1_completed = legacy_stats['step1_completed']
     step2_completed = legacy_stats['step2_completed']
@@ -615,7 +615,7 @@ def crush_admin_dashboard(request):
     users_with_reminders = ProfileReminder.objects.values('user_id').distinct()
     completed_after_reminder = CrushProfile.objects.filter(
         user_id__in=users_with_reminders,
-        completion_status__in=['completed', 'submitted']
+        completion_status__in=['step4', 'submitted']
     ).count()
 
     if reminder_metrics['total_reminders'] > 0:
@@ -792,13 +792,13 @@ def crush_admin_dashboard(request):
         'funnel_step1': funnel_step1,
         'funnel_step2': funnel_step2,
         'funnel_step3': funnel_step3,
-        'funnel_completed': funnel_completed,
+        'funnel_step4': funnel_step4,
         'funnel_submitted': funnel_submitted,
         'funnel_not_started_pct': funnel_not_started_pct,
         'funnel_step1_pct': funnel_step1_pct,
         'funnel_step2_pct': funnel_step2_pct,
         'funnel_step3_pct': funnel_step3_pct,
-        'funnel_completed_pct': funnel_completed_pct,
+        'funnel_step4_pct': funnel_step4_pct,
         'funnel_submitted_pct': funnel_submitted_pct,
         # Legacy cumulative counts (for backward compatibility)
         'step1_completed': step1_completed,

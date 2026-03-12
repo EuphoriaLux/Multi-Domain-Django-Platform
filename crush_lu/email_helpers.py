@@ -1056,7 +1056,7 @@ def get_users_needing_reminder(reminder_type):
     max_created = now - timezone.timedelta(hours=min_hours)
 
     # Incomplete statuses that need reminders
-    incomplete_statuses = ['not_started', 'step1', 'step2', 'step3']
+    incomplete_statuses = ['not_started', 'step1', 'step2', 'step3', 'step4']
 
     # Get users with incomplete profiles in the time window
     users = User.objects.filter(
@@ -1208,7 +1208,7 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         return False
 
     # Don't send reminders for completed/submitted profiles
-    if profile.completion_status in ['completed', 'submitted']:
+    if profile.completion_status in ['submitted']:
         logger.info(f"User {user.email} already has completion_status={profile.completion_status}, skipping")
         return False
 

@@ -12,13 +12,15 @@
             </h3>
             <p class="text-sm opacity-90 mt-1">
                 {% if profile.completion_status == 'not_started' %}
-                    {% trans "Step 1 of 4 - Let's get started with the basics!" %}
+                    {% trans "Step 1 of 5 - Let's get started with the basics!" %}
                 {% elif profile.completion_status == 'step1' %}
-                    {% trans "Step 2 of 4 - Tell us about yourself" %}
+                    {% trans "Step 2 of 5 - Tell us about yourself" %}
                 {% elif profile.completion_status == 'step2' %}
-                    {% trans "Step 3 of 4 - Add your photos" %}
+                    {% trans "Step 3 of 5 - Add your photos" %}
                 {% elif profile.completion_status == 'step3' %}
-                    {% trans "Step 4 of 4 - Review and submit" %}
+                    {% trans "Step 4 of 5 - Choose your coach" %}
+                {% elif profile.completion_status == 'step4' %}
+                    {% trans "Step 5 of 5 - Review and submit" %}
                 {% endif %}
             </p>
         </div>
@@ -30,7 +32,7 @@
     {# Progress bar #}
     <div class="mt-4 bg-white/30 rounded-full h-2.5">
         <div class="bg-white rounded-full h-2.5 transition-all duration-500 ease-out"
-             style="width: {% if profile.completion_status == 'not_started' %}0{% elif profile.completion_status == 'step1' %}25{% elif profile.completion_status == 'step2' %}50{% elif profile.completion_status == 'step3' %}75{% else %}100{% endif %}%">
+             style="width: {% if profile.completion_status == 'not_started' %}0{% elif profile.completion_status == 'step1' %}20{% elif profile.completion_status == 'step2' %}40{% elif profile.completion_status == 'step3' %}60{% elif profile.completion_status == 'step4' %}80{% else %}100{% endif %}%">
         </div>
     </div>
     <p class="text-xs mt-2 opacity-75 text-center">
@@ -41,6 +43,8 @@
         {% elif profile.completion_status == 'step2' %}
             {% trans "Looking good! Photos help you stand out" %}
         {% elif profile.completion_status == 'step3' %}
+            {% trans "Pick a coach to guide you through the process" %}
+        {% elif profile.completion_status == 'step4' %}
             {% trans "Almost done! One final review and you're set" %}
         {% endif %}
     </p>

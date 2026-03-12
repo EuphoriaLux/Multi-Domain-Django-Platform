@@ -234,8 +234,8 @@ class NewsletterAdmin(admin.ModelAdmin):
             return format_html(
                 '<div style="padding:20px; background:#f8f9fa; border:1px dashed #ccc; '
                 'border-radius:8px; text-align:center; color:#666;">'
-                'Save the newsletter first to see the email preview.'
-                '</div>'
+                '{}</div>',
+                'Save the newsletter first to see the email preview.',
             )
 
         preview_url = reverse(
@@ -514,7 +514,8 @@ class NewsletterAdmin(admin.ModelAdmin):
         if obj.event_id:
             return format_html(
                 '<span style="background:#9B59B6; color:white; padding:2px 8px; '
-                'border-radius:10px; font-size:11px;">Event</span>'
+                'border-radius:10px; font-size:11px;">{}</span>',
+                'Event',
             )
         return ''
     get_event_badge.short_description = 'Type'

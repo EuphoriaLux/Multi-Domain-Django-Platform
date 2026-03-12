@@ -147,7 +147,7 @@
         ✅ Approved
         <span class="count">{{ filter_counts.approved }}</span>
     </a>
-    <a href="?is_approved__exact=0&completion_status__in=completed,submitted" class="awaiting-review {% if request.GET.is_approved__exact == '0' and request.GET.completion_status__in == 'completed,submitted' %}active{% endif %}">
+    <a href="?is_approved__exact=0&completion_status__in=step4,submitted" class="awaiting-review {% if request.GET.is_approved__exact == '0' and request.GET.completion_status__in == 'step4,submitted' %}active{% endif %}">
         📝 Awaiting Review
         <span class="count">{{ filter_counts.awaiting_review }}</span>
     </a>
@@ -183,7 +183,7 @@
     </a>
 
     <!-- Completion Workflow -->
-    <a href="?completion_status__in=not_started,step1,step2,step3" class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3' and not request.GET.phone_verified__exact %}active{% endif %}">
+    <a href="?completion_status__in=not_started,step1,step2,step3,step4" class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3,step4' and not request.GET.phone_verified__exact %}active{% endif %}">
         ⏳ Incomplete Profile
         <span class="count">{{ filter_counts.incomplete }}</span>
     </a>

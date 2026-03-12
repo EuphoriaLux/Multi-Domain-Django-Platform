@@ -345,7 +345,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
+                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -612,7 +612,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
+                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -776,7 +776,7 @@
                                     {% trans "Ideal Crush" %}
                                     <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
-                                {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'completed' %}
+                                {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Finish Profile" %}
@@ -1028,7 +1028,7 @@
     {% endif %}
 
     <!-- Global Profile Status Banners -->
-    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' and profile_completion_status != 'completed' and not profile_is_approved %}
+    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' and not profile_is_approved %}
     <!-- Profile Incomplete Banner -->
     <div class="bg-amber-500 text-white px-4 py-3 text-center" role="alert">
         <div class="flex items-center justify-center gap-2 flex-wrap">

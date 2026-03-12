@@ -368,7 +368,7 @@ def save_profile_step3(request):
         # Note: interest_category checkboxes are UI-only (not stored in model)
         # They're used for filtering/display purposes only
 
-        profile.completion_status = 'completed'
+        profile.completion_status = 'step3'
 
         # Clear step3 draft data on successful save
         if profile.draft_data and 'step3' in profile.draft_data:
@@ -391,6 +391,66 @@ def save_profile_step3(request):
         return JsonResponse({
             'success': False,
             'error': 'An error occurred while saving your profile. Please try again.'
+        }, status=500)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def save_profile_step4(request):
+    """Save Step 4 (Coach Selection) via AJAX"""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+
+        data = json.loads(request.body)
+        coach_id = data.get('selected_coach')
+
+        if not coach_id:
+            return JsonResponse({
+                'success': False,
+                'error': _('Please select a coach.'),
+            }, status=400)
+
+        try:
+            coach = CrushCoach.objects.get(id=coach_id, is_active=True)
+        except CrushCoach.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': _('The selected coach is no longer available.'),
+            }, status=400)
+
+        if not coach.can_accept_reviews():
+            # Allow if this profile already has this coach assigned
+            existing_submission = ProfileSubmission.objects.filter(
+                profile=profile, coach=coach
+            ).first()
+            if not existing_submission:
+                return JsonResponse({
+                    'success': False,
+                    'error': _('The coach you selected is no longer available. Please choose another coach.'),
+                }, status=400)
+
+        profile.completion_status = 'step4'
+
+        # Keep step4 draft data (selected_coach, selected_coach_name)
+        # so it survives page refresh — these aren't stored as profile fields
+
+        profile.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Coach selection saved!'
+        })
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Please complete Step 1 first'
+        }, status=400)
+    except Exception as e:
+        logger.error("Error saving profile step 4: %s", type(e).__name__)
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while saving. Please try again.'
         }, status=500)
 
 

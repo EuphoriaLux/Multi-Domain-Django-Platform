@@ -298,7 +298,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         approved = CrushProfile.objects.filter(is_approved=True).count()
 
         # Incomplete: Not started OR partially filled (step1, step2, step3)
-        incomplete_statuses = ['not_started', 'step1', 'step2', 'step3']
+        incomplete_statuses = ['not_started', 'step1', 'step2', 'step3', 'step4']
         incomplete_qs = CrushProfile.objects.filter(
             completion_status__in=incomplete_statuses
         )
@@ -313,7 +313,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         # Awaiting Review: Profile completed/submitted but not yet approved
         awaiting_review = CrushProfile.objects.filter(
             is_approved=False,
-            completion_status__in=['completed', 'submitted']
+            completion_status__in=['step4', 'submitted']
         ).count()
 
         # NEW: Email verification count (Priority 1)
@@ -1457,7 +1457,7 @@ class AwaitingReviewProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(
             is_approved=False,
-            completion_status__in=['completed', 'submitted'],
+            completion_status__in=['step4', 'submitted'],
         )
 
     def has_add_permission(self, request):
@@ -1467,7 +1467,7 @@ class AwaitingReviewProfileAdmin(CrushProfileAdmin):
 class IncompleteProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).filter(
-            completion_status__in=['not_started', 'step1', 'step2', 'step3'],
+            completion_status__in=['not_started', 'step1', 'step2', 'step3', 'step4'],
         )
 
     def has_add_permission(self, request):

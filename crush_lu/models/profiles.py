@@ -330,7 +330,7 @@ class CrushProfile(models.Model):
         ('step1', _('Step 1: Basic Info Saved')),
         ('step2', _('Step 2: About You Saved')),
         ('step3', _('Step 3: Photos Saved')),
-        ('completed', _('Profile Completed')),
+        ('step4', _('Step 4: Coach Selected')),
         ('submitted', _('Submitted for Review')),
     ]
 

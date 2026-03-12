@@ -44,6 +44,22 @@
     </ul>
 </div>
 
+{% elif completion_status == 'step3' %}
+<p>{% trans "You've added great photos! Now just pick a coach and you're almost there." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Why a coach?" %}</strong>
+    <p style="margin: 0;">{% trans "Our coaches personally review every profile to make sure everyone has a great experience at events." %}</p>
+</div>
+
+{% elif completion_status == 'step4' %}
+<p>{% trans "You're literally one click away! Just review and submit your profile." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "What happens next?" %}</strong>
+    <p style="margin: 0;">{% trans "After you submit, your coach will review your profile and you'll be ready to join events!" %}</p>
+</div>
+
 {% endif %}
 
 <p style="text-align: center;">

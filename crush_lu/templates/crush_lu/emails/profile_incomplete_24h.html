@@ -43,6 +43,22 @@
     <p style="margin: 0;">{% trans "Profiles with 2-3 photos get 3x more connections at our events!" %}</p>
 </div>
 
+{% elif completion_status == 'step3' %}
+<p>{% trans "Great progress! Your photos look awesome. Now pick a coach who'll guide you through the experience." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Next up:" %}</strong>
+    <p style="margin: 0;">{% trans "Choose a coach who'll personally review your profile and help you get the most out of Crush.lu events." %}</p>
+</div>
+
+{% elif completion_status == 'step4' %}
+<p>{% trans "You're one click away! Just review and submit your profile for coach approval." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Almost done:" %}</strong>
+    <p style="margin: 0;">{% trans "Review your profile and hit submit. Your coach will review it personally!" %}</p>
+</div>
+
 {% endif %}
 
 <p style="text-align: center;">

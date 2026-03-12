@@ -277,18 +277,18 @@ def get_segment_definitions():
 
     # Reminder eligible segments
     eligible_24h_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2"],
+        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
         created_at__lte=now - timedelta(hours=24),
         created_at__gte=now - timedelta(hours=48),
     ).exclude(user__profile_reminders__reminder_type="24h")
     eligible_72h_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2"],
+        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
         created_at__lte=now - timedelta(hours=72),
         created_at__gte=now - timedelta(hours=96),
         user__profile_reminders__reminder_type="24h",
     ).exclude(user__profile_reminders__reminder_type="72h")
     eligible_7d_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2"],
+        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
         created_at__lte=now - timedelta(hours=168),
         created_at__gte=now - timedelta(hours=192),
         user__profile_reminders__reminder_type="72h",
