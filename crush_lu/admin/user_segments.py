@@ -5,6 +5,7 @@ Provides admin dashboard for viewing and managing user segments:
 - Incomplete profiles by step
 - Inactive users (7d, 14d, 30d)
 - Pending reviews (urgent, normal)
+- Unverified profiles (never submitted, pending, revision, rejected, recontact)
 - Approved but never registered for event
 - No push subscription
 - Unsubscribed from emails
@@ -229,10 +230,10 @@ def get_segment_definitions():
     Return all segment definitions with their queries and metadata.
     Each segment has: name, description, query, count, action_url
 
-    Categories (16 total):
-    1-6: Operational (profile, reviews, activity, engagement, email, reminders)
-    7-11: Demographics (gender, age, gender x age, looking-for, language)
-    12-16: Behavioral (events, connections, membership, lifecycle, device)
+    Categories (17 total):
+    1-7: Operational (profile, reviews, activity, engagement, email, reminders, unverified)
+    8-12: Demographics (gender, age, gender x age, looking-for, language)
+    13-17: Behavioral (events, connections, membership, lifecycle, device)
     """
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
@@ -403,6 +404,27 @@ def get_segment_definitions():
             .filter(attended_count__gte=5)
             .values("pk")
         )
+    ).distinct()
+
+    # Unverified profile segments (has profile, not approved by coach)
+    unverified_never_submitted = active.filter(is_approved=False).exclude(
+        user__in=ProfileSubmission.objects.values("profile__user")
+    )
+    unverified_pending_review = active.filter(
+        is_approved=False,
+        profilesubmission__status="pending",
+    ).distinct()
+    unverified_revision = active.filter(
+        is_approved=False,
+        profilesubmission__status="revision",
+    ).distinct()
+    unverified_rejected = active.filter(
+        is_approved=False,
+        profilesubmission__status="rejected",
+    ).distinct()
+    unverified_recontact = active.filter(
+        is_approved=False,
+        profilesubmission__status="recontact_coach",
     ).distinct()
 
     # Device & platform segments
@@ -812,6 +834,54 @@ def get_segment_definitions():
                 },
             ],
         },
+        # ── Unverified profile segments ─────────────────────────────────
+        "unverified_profiles": {
+            "title": "Unverified Profiles",
+            "icon": "🔓",
+            "group": "operational",
+            "segments": [
+                {
+                    "name": "Never Submitted",
+                    "key": "unverified_never_submitted",
+                    "description": "Has a profile but never submitted for coach review",
+                    "queryset": unverified_never_submitted,
+                    "count": unverified_never_submitted.count(),
+                    "color": "red",
+                },
+                {
+                    "name": "Pending Coach Review",
+                    "key": "unverified_pending_review",
+                    "description": "Submitted profile, waiting for a crush coach to review",
+                    "queryset": unverified_pending_review,
+                    "count": unverified_pending_review.count(),
+                    "color": "orange",
+                },
+                {
+                    "name": "Revision Requested",
+                    "key": "unverified_revision",
+                    "description": "Coach requested changes, awaiting user resubmission",
+                    "queryset": unverified_revision,
+                    "count": unverified_revision.count(),
+                    "color": "yellow",
+                },
+                {
+                    "name": "Rejected",
+                    "key": "unverified_rejected",
+                    "description": "Profile was rejected by a crush coach",
+                    "queryset": unverified_rejected,
+                    "count": unverified_rejected.count(),
+                    "color": "gray",
+                },
+                {
+                    "name": "Recontact Coach",
+                    "key": "unverified_recontact",
+                    "description": "User needs to recontact their crush coach",
+                    "queryset": unverified_recontact,
+                    "count": unverified_recontact.count(),
+                    "color": "purple",
+                },
+            ],
+        },
         # ── Behavioral segments ───────────────────────────────────────
         "event_engagement": {
             "title": "Event Engagement",
@@ -1037,6 +1107,9 @@ def user_segments_dashboard(request):
     total_reminder_eligible = sum(
         seg["count"] for seg in segments["reminder_eligible"]["segments"]
     )
+    total_unverified = sum(
+        seg["count"] for seg in segments["unverified_profiles"]["segments"]
+    )
 
     context = {
         "segments": segments,
@@ -1047,6 +1120,7 @@ def user_segments_dashboard(request):
         "total_pending": total_pending,
         "total_inactive": total_inactive,
         "total_reminder_eligible": total_reminder_eligible,
+        "total_unverified": total_unverified,
         "title": "User Segments",
         "site_header": "💕 Crush.lu Administration",
     }
