@@ -554,6 +554,7 @@ class MeetupEventAdmin(TranslationAdmin):
             kwargs["help_text"] = _(
                 "Profile requirement level for registration:\n"
                 "• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+                "• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
                 "• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
                 "• No profile required: Any authenticated user can register"
             )
