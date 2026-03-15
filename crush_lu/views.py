@@ -336,7 +336,9 @@ def create_profile(request):
             # Enforce phone verification before allowing submission
             # The AJAX step-by-step flow checks this in save_profile_step2(),
             # but the form POST path must also enforce it to prevent bypass.
-            if existing_profile and not existing_profile.phone_verified:
+            # Check existing_profile first (has DB state), fall back to new profile object.
+            phone_check_profile = existing_profile or profile
+            if not phone_check_profile.phone_verified:
                 messages.error(
                     request,
                     _("Please verify your phone number before submitting your profile."),
@@ -344,7 +346,7 @@ def create_profile(request):
                 from .social_photos import get_all_social_photos
                 context = {
                     "form": form,
-                    "profile": existing_profile,
+                    "profile": phone_check_profile,
                     "current_step": "step1",
                     "social_photos": get_all_social_photos(request.user),
                     "coaches": _get_coaches_for_selection(),

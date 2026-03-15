@@ -499,6 +499,32 @@ def complete_profile_submission(request):
             messages.error(request, _('The selected coach is no longer available. Please choose another coach.'))
             return redirect('crush_lu:create_profile')
 
+        # Guard checks BEFORE any mutations to avoid partial commits
+        # (redirects inside transaction.atomic() do NOT roll back)
+
+        # Block resubmission if profile was rejected
+        rejected_submission = ProfileSubmission.objects.filter(
+            profile=profile, status="rejected"
+        ).first()
+        if rejected_submission:
+            messages.error(
+                request,
+                _('Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu.'),
+            )
+            return redirect('crush_lu:profile_rejected')
+
+        # Check coach capacity before entering transaction
+        existing_submission = ProfileSubmission.objects.filter(
+            profile=profile, status="pending"
+        ).first()
+        is_same_coach = existing_submission and existing_submission.coach_id == selected_coach.id
+        if not is_same_coach and not selected_coach.can_accept_reviews():
+            messages.warning(
+                request,
+                _('The coach you selected is no longer available. Please choose another coach.'),
+            )
+            return redirect('crush_lu:create_profile')
+
         try:
             with transaction.atomic():
                 # Mark as completed
@@ -510,19 +536,6 @@ def complete_profile_submission(request):
                 profile.draft_expires_at = None
 
                 profile.save()
-
-                # Block resubmission if profile was rejected
-                rejected_submission = (
-                    ProfileSubmission.objects.select_for_update()
-                    .filter(profile=profile, status="rejected")
-                    .first()
-                )
-                if rejected_submission:
-                    messages.error(
-                        request,
-                        _('Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu.'),
-                    )
-                    return redirect('crush_lu:profile_rejected')
 
                 # Check for existing pending submission (prevent duplicates)
                 existing_submission = (
@@ -556,15 +569,6 @@ def complete_profile_submission(request):
                         profile=profile, status="pending"
                     )
                     created = True
-
-                # Assign the user's selected coach (with capacity check)
-                is_same_coach = submission.coach_id == selected_coach.id
-                if not is_same_coach and not selected_coach.can_accept_reviews():
-                    messages.warning(
-                        request,
-                        _('The coach you selected is no longer available. Please choose another coach.'),
-                    )
-                    return redirect('crush_lu:create_profile')
 
                 submission.coach = selected_coach
                 submission.save()
