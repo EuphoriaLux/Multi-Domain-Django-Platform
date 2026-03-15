@@ -747,6 +747,10 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
     # Set flag to indicate this is a crush.lu Facebook login
     _thread_local.is_crush_facebook_login = True
 
+    # Store request for post_save handler (needed for welcome email)
+    if not sociallogin.is_existing:
+        _thread_local.oauth_signup_request = request
+
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
         from crush_lu.models.profiles import UserDataConsent
@@ -876,6 +880,19 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Facebook photo cache for new user: {e}")
+
+        # Send welcome email for new OAuth signups
+        if profile_created:
+            oauth_request = getattr(_thread_local, "oauth_signup_request", None)
+            if oauth_request:
+                try:
+                    from .email_helpers import send_welcome_email
+                    result = send_welcome_email(instance.user, oauth_request)
+                    logger.info(f"Welcome email sent to Facebook OAuth user {instance.user.email}: {result}")
+                except Exception as e:
+                    logger.error(f"Failed to send welcome email to Facebook OAuth user {instance.user.email}: {e}", exc_info=True)
+                finally:
+                    _thread_local.oauth_signup_request = None
 
     except Exception as e:
         logger.error(
@@ -1125,6 +1142,10 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
     # Set flag to indicate this is a crush.lu Google login
     _thread_local.is_crush_google_login = True
 
+    # Store request for post_save handler (needed for welcome email)
+    if not sociallogin.is_existing:
+        _thread_local.oauth_signup_request = request
+
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
         from crush_lu.models.profiles import UserDataConsent
@@ -1241,6 +1262,19 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
         except Exception as e:
             logger.warning(f"Failed to persist Google photo cache for new user: {e}")
 
+        # Send welcome email for new OAuth signups
+        if profile_created:
+            oauth_request = getattr(_thread_local, "oauth_signup_request", None)
+            if oauth_request:
+                try:
+                    from .email_helpers import send_welcome_email
+                    result = send_welcome_email(instance.user, oauth_request)
+                    logger.info(f"Welcome email sent to Google OAuth user {instance.user.email}: {result}")
+                except Exception as e:
+                    logger.error(f"Failed to send welcome email to Google OAuth user {instance.user.email}: {e}", exc_info=True)
+                finally:
+                    _thread_local.oauth_signup_request = None
+
     except Exception as e:
         logger.error(
             f"Error in Google SocialAccount post_save handler: {str(e)}", exc_info=True
@@ -1296,6 +1330,10 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Set flag to indicate this is a crush.lu Microsoft login
     _thread_local.is_crush_microsoft_login = True
+
+    # Store request for post_save handler (needed for welcome email)
+    if not sociallogin.is_existing:
+        _thread_local.oauth_signup_request = request
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
@@ -1395,6 +1433,19 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Microsoft photo cache for new user: {e}")
+
+        # Send welcome email for new OAuth signups
+        if profile_created:
+            oauth_request = getattr(_thread_local, "oauth_signup_request", None)
+            if oauth_request:
+                try:
+                    from .email_helpers import send_welcome_email
+                    result = send_welcome_email(instance.user, oauth_request)
+                    logger.info(f"Welcome email sent to Microsoft OAuth user {instance.user.email}: {result}")
+                except Exception as e:
+                    logger.error(f"Failed to send welcome email to Microsoft OAuth user {instance.user.email}: {e}", exc_info=True)
+                finally:
+                    _thread_local.oauth_signup_request = None
 
     except Exception as e:
         logger.error(
