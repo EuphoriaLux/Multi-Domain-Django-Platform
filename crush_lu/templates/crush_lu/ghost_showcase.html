@@ -1,0 +1,225 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost Story SVG Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e1b3a 0%, #2d1f4e 40%, #3b1f5c 70%, #2a1a3e 100%);
+      min-height: 100vh;
+      color: #f1f5f9;
+    }
+    h1 {
+      text-align: center;
+      padding: 2.5rem 1rem 0.5rem;
+      font-size: 2rem;
+      background: linear-gradient(90deg, #C084FC, #FF5CA9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      margin-bottom: 2.5rem;
+      font-size: 1rem;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 1.25rem;
+      color: #C084FC;
+      margin: 2rem 0 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem 3rem;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(192, 132, 252, 0.15);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(192, 132, 252, 0.4);
+    }
+    .card svg {
+      width: 10rem;
+      height: 10rem;
+    }
+    .card-wide svg {
+      width: 14rem;
+      height: 10rem;
+    }
+    .card h3 {
+      font-size: 1.1rem;
+      color: #e2e8f0;
+    }
+    .card p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .card code {
+      font-size: 0.7rem;
+      background: rgba(0,0,0,0.3);
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      color: #C084FC;
+    }
+    hr { border: none; border-top: 1px solid rgba(192, 132, 252, 0.15); max-width: 1200px; margin: 1rem auto; }
+  </style>
+</head>
+<body>
+
+  <h1>Ghost Story SVG Showcase</h1>
+  <p class="subtitle">All ghost characters for the Crush.lu story arc</p>
+
+  <p class="section-title">Original Event Story</p>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Lonely</h3>
+      {% include "crush_lu/includes/ghost-story-lonely.html" with class="w-40 h-40" %}
+      <p>Sad droopy eyes, frown, muted blue-grey body. The starting point.</p>
+      <code>ghost-story-lonely.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Surprised</h3>
+      {% include "crush_lu/includes/ghost-story-surprised.html" with class="w-40 h-40" %}
+      <p>Wide circle eyes, "O" mouth, pink blush. Discovers a spark.</p>
+      <code>ghost-story-surprised.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Nervous</h3>
+      {% include "crush_lu/includes/ghost-story-nervous.html" with class="w-40 h-40" %}
+      <p>Rapid blink, zigzag mouth, sweat drops. Pre-event anxiety.</p>
+      <code>ghost-story-nervous.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Running</h3>
+      {% include "crush_lu/includes/ghost-story-running.html" with class="w-40 h-40" %}
+      <p>Determined eyes, speed lines, tilted forward. Racing to the event.</p>
+      <code>ghost-story-running.html</code>
+    </div>
+
+    <div class="card">
+      <h3>In Love</h3>
+      {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-40 h-40" %}
+      <p>Heart-shaped eyes, big grin, rosy cheeks. Found the one.</p>
+      <code>ghost-story-inlove.html</code>
+    </div>
+
+    <div class="card card-wide">
+      <h3>Cuddling</h3>
+      {% include "crush_lu/includes/ghost-story-cuddling.html" with class="w-56 h-40" %}
+      <p>Two ghosts leaning together, closed smile-eyes, floating hearts.</p>
+      <code>ghost-story-cuddling.html</code>
+    </div>
+
+  </div>
+
+  <hr>
+  <p class="section-title">Connection Journey</p>
+  <div class="grid">
+
+    <div class="card">
+      <h3>1. Approved</h3>
+      {% include "crush_lu/includes/ghost-story-approved.html" with class="w-40 h-40" %}
+      <p>Proud and confident — verified checkmark badge, subtle glow. Profile approved by coach.</p>
+      <code>ghost-story-approved.html</code>
+    </div>
+
+    <div class="card">
+      <h3>2. Party</h3>
+      {% include "crush_lu/includes/ghost-story-party.html" with class="w-40 h-40" %}
+      <p>Festive and social — party hat, confetti, drink glass. Attending a Crush.lu event.</p>
+      <code>ghost-story-party.html</code>
+    </div>
+
+    <div class="card">
+      <h3>3. Unlock</h3>
+      {% include "crush_lu/includes/ghost-story-unlock.html" with class="w-40 h-40" %}
+      <p>Triumphant — golden padlock opening, achievement glow. Connect access unlocked.</p>
+      <code>ghost-story-unlock.html</code>
+    </div>
+
+    <div class="card">
+      <h3>4. Discover</h3>
+      {% include "crush_lu/includes/ghost-story-discover.html" with class="w-40 h-40" %}
+      <p>Curious and warm — browsing profile cards, eyes scanning, heart emerging. Finding connections.</p>
+      <code>ghost-story-discover.html</code>
+    </div>
+
+  </div>
+
+  <hr>
+  <p class="section-title">New Chat Story</p>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Phone Notification</h3>
+      {% include "crush_lu/includes/ghost-story-phone.html" with class="w-40 h-40" %}
+      <p>Curious excitement — just received a notification. Pulsing pink dot on phone.</p>
+      <code>ghost-story-phone.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Typing</h3>
+      {% include "crush_lu/includes/ghost-story-typing.html" with class="w-40 h-40" %}
+      <p>Concentrated, slight forward lean, animated typing dots on phone.</p>
+      <code>ghost-story-typing.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Blushing Reader</h3>
+      {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-40 h-40" %}
+      <p>Reading a sweet message — extra rosy cheeks, hearts floating from phone.</p>
+      <code>ghost-story-blushing-reader.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Laughing</h3>
+      {% include "crush_lu/includes/ghost-story-laughing.html" with class="w-40 h-40" %}
+      <p>Genuine laughter — squeezed eyes, wide mouth, tears of joy, bouncy.</p>
+      <code>ghost-story-laughing.html</code>
+    </div>
+
+    <div class="card card-wide">
+      <h3>Chatting Pair</h3>
+      {% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-56 h-40" %}
+      <p>Two ghosts with chat bubbles — one sends a heart, the other is typing.</p>
+      <code>ghost-story-chatting-pair.html</code>
+    </div>
+
+    <div class="card">
+      <h3>Video Call</h3>
+      {% include "crush_lu/includes/ghost-story-videocall.html" with class="w-40 h-40" %}
+      <p>Excited ghost on video call — laptop with ghost face, wifi arcs, planning to meet.</p>
+      <code>ghost-story-videocall.html</code>
+    </div>
+
+  </div>
+
+</body>
+</html>

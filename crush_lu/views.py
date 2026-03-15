@@ -42,6 +42,7 @@ from .models import (
     UserActivity,
     CoachPushSubscription,
 )
+from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
     CrushSignupForm,
     CrushProfileForm,
@@ -101,6 +102,7 @@ from .views_static import (  # noqa: F401
     terms_of_service,
     data_deletion_request,
     crush_coach,
+    crush_connect_teaser,
 )
 
 # Account & auth
@@ -268,6 +270,17 @@ def dashboard(request):
             profile.preferred_age_min != 18 or profile.preferred_age_max != 99
         ) or bool(profile.first_step_preference)
 
+        # Crush Connect waitlist status
+        on_crush_connect_waitlist = False
+        crush_connect_position = None
+        crush_connect_total = CrushConnectWaitlist.objects.count()
+        try:
+            cc_entry = CrushConnectWaitlist.objects.get(user=request.user)
+            on_crush_connect_waitlist = True
+            crush_connect_position = cc_entry.waitlist_position
+        except CrushConnectWaitlist.DoesNotExist:
+            pass
+
         context = {
             "profile": profile,
             "submission": latest_submission,
@@ -277,6 +290,9 @@ def dashboard(request):
             "is_pwa_user": is_pwa_user,
             "referral_url": referral_url,
             "has_crush_preferences": has_crush_preferences,
+            "on_crush_connect_waitlist": on_crush_connect_waitlist,
+            "crush_connect_position": crush_connect_position,
+            "crush_connect_total": crush_connect_total,
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("Please complete your profile first."))

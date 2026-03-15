@@ -13,6 +13,7 @@ from django.conf.urls.i18n import i18n_patterns
 from django.contrib.sitemaps.views import sitemap
 from django.shortcuts import redirect
 from django.utils.translation import get_language
+from django.views.generic import TemplateView
 from django.views.i18n import JavaScriptCatalog
 
 from .urls_shared import base_patterns, api_patterns
@@ -33,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -53,6 +54,9 @@ def redirect_profile_to_dashboard(request):
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
 urlpatterns = base_patterns + api_patterns + [
+    # Dev: Ghost SVG showcase (no auth needed)
+    path('ghost-showcase/', TemplateView.as_view(template_name='crush_lu/ghost_showcase.html'), name='ghost_showcase'),
+
     # SEO: robots.txt and sitemap.xml (must be at root, no language prefix)
     path('robots.txt', robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
@@ -119,6 +123,10 @@ urlpatterns = base_patterns + api_patterns + [
 
     # Crush Spark API (language-neutral for JS polling)
     path('api/sparks/<int:spark_id>/status/', views_crush_spark.api_spark_status, name='api_spark_status'),
+
+    # Crush Connect Waitlist API (language-neutral for JS calls)
+    path('api/crush-connect/join/', api_crush_connect.join_waitlist, name='crush_connect_join'),
+    path('api/crush-connect/status/', api_crush_connect.waitlist_status, name='crush_connect_status'),
 
     # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),

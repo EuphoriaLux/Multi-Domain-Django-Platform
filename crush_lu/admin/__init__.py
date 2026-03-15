@@ -171,6 +171,8 @@ from .event_polls import (
     EventPollVoteAdmin,
 )
 
+from .crush_connect import CrushConnectWaitlistAdmin
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -221,6 +223,7 @@ from crush_lu.models import (
     EventPoll,
     EventPollOption,
     EventPollVote,
+    CrushConnectWaitlist,
 )
 
 
@@ -321,6 +324,9 @@ crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
 
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
+
+# Crush Connect Waitlist
+crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
@@ -468,4 +474,7 @@ __all__ = [
     'EventPollOptionInline',
     'EventPollAdmin',
     'EventPollVoteAdmin',
+
+    # Crush Connect
+    'CrushConnectWaitlistAdmin',
 ]

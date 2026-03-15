@@ -11,3 +11,4 @@ from .site_config import *
 from .crush_spark import *
 from .newsletter import *
 from .event_polls import *
+from .crush_connect import *

@@ -101,13 +101,14 @@
         </div>
     </div>
 
+    <div class="flex flex-col gap-6">
     {% if profile.is_approved and not has_crush_preferences %}
     <!-- Ideal Crush Preferences - Nudge Card (no preferences set yet) -->
     <a href="{% url 'crush_lu:crush_preferences' %}"
        class="block no-underline group relative overflow-hidden rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
         <div class="relative z-10 flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <span class="text-4xl">💕</span>
+                <span class="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}</span>
                 <div>
                     <div class="flex items-center gap-2 mb-1">
                         <h5 class="font-bold text-white text-lg mb-0">{% trans "Your Ideal Crush" %}</h5>
@@ -129,7 +130,7 @@
        class="status-card block no-underline group border-l-4 border-l-crush-purple hover:border-purple-300 dark:hover:border-purple-600 transition-colors">
         <div class="status-card-body flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <span class="text-2xl">💕</span>
+                <span class="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}</span>
                 <div>
                     <div class="flex items-center gap-2 mb-0.5">
                         <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
@@ -142,6 +143,51 @@
         </div>
     </a>
     {% endif %}
+
+    <!-- Crush Connect Teaser Card -->
+    {% if not on_crush_connect_waitlist %}
+    <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+       class="block no-underline group relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 p-4 sm:p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
+        <div class="relative z-10 flex items-center justify-between">
+            <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+                <span class="flex-shrink-0 hidden sm:flex items-center justify-center w-16 h-14">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
+                <span class="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:hidden">{% include "crush_lu/includes/ghost-story-phone.html" with class="w-full h-full" %}</span>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <h5 class="font-bold text-white text-lg mb-0">Crush Connect</h5>
+                        <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase">{% trans "Coming Soon" %}</span>
+                    </div>
+                    <p class="text-white/90 text-sm mb-0 hidden sm:block">{% trans "Online discovery for event-verified members" %}</p>
+                </div>
+            </div>
+            <span class="hidden sm:inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors flex-shrink-0">
+                {% trans "Learn More" %}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </span>
+            <svg class="w-5 h-5 text-white/70 sm:hidden flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10"></div>
+    </a>
+    {% else %}
+    <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+       class="status-card block no-underline group border-l-4 border-l-teal-500 hover:border-teal-300 dark:hover:border-teal-600 transition-colors">
+        <div class="status-card-body flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="flex-shrink-0 hidden sm:flex items-center justify-center w-14 h-12">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
+                <span class="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:hidden">{% include "crush_lu/includes/ghost-story-phone.html" with class="w-full h-full" %}</span>
+                <div>
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h5 class="font-semibold text-gray-900 dark:text-white mb-0">Crush Connect</h5>
+                        <span class="inline-block rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-xs font-bold text-teal-600 dark:text-teal-300 uppercase">{% trans "Waitlist" %}</span>
+                    </div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% blocktrans with pos=crush_connect_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}</p>
+                </div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400 group-hover:text-teal-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
+    {% endif %}
+    </div>
 
     <!-- PWA Install Card -->
     <div class="status-card">

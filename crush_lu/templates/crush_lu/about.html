@@ -103,6 +103,22 @@
     "inLanguage": "en"
 }
 </script>
+
+<!-- NewsArticle Schema - RTL Today -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": "New Luxembourg platform offers vetting and real-life events as online dating alternative",
+    "datePublished": "2026-03-14",
+    "publisher": {
+        "@type": "Organization",
+        "name": "RTL Today"
+    },
+    "url": "https://today.rtl.lu/news/luxembourg/new-luxembourg-platform-offers-vetting-and-real-life-events-as-online-dating-alternative-1426643999",
+    "inLanguage": "en"
+}
+</script>
 {% endblock %}
 
 {% block body_class %}page-about{% endblock %}
@@ -885,7 +901,7 @@
         <p class="text-center text-gray-600 dark:text-gray-300 mb-6" style="font-size: clamp(0.95rem, 2vw, 1.05rem);">
             {% trans "What the press is saying about Crush.lu" %}
         </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <!-- Virgule.lu Article -->
             <div class="press-card">
                 <div class="press-publication">Virgule.lu</div>
@@ -908,6 +924,19 @@
                     "{% trans "The idea of the two friends is to bet everything on authenticity and events, rather than on algorithms and mindless swiping." %}"
                 </p>
                 <a href="https://www.luxtimes.lu/yourluxembourg/loveandrelationships/crush.lu-the-made-in-luxembourg-app-aiming-to-change-the-way-people-flirt/126806444.html" target="_blank" rel="noopener noreferrer" class="press-link">
+                    {% trans "Read the article" %}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                </a>
+            </div>
+            <!-- RTL Today Article -->
+            <div class="press-card">
+                <div class="press-publication">RTL Today</div>
+                <div class="press-date">{% trans "March 14, 2026" %} &middot; {% trans "English" %}</div>
+                <h3>{% trans "New Luxembourg platform offers vetting and real-life events as online dating alternative" %}</h3>
+                <p class="press-quote">
+                    "{% trans "Rather than relying on algorithms and endless swiping, Crush.lu offers a human-centered approach with coach-verified profiles and real-world events." %}"
+                </p>
+                <a href="https://today.rtl.lu/news/luxembourg/new-luxembourg-platform-offers-vetting-and-real-life-events-as-online-dating-alternative-1426643999" target="_blank" rel="noopener noreferrer" class="press-link">
                     {% trans "Read the article" %}
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                 </a>

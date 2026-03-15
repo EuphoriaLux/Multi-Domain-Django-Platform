@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from .models import MeetupEvent
+from .models.crush_connect import CrushConnectWaitlist
+from .models.events import EventRegistration
 
 
 def home(request):
@@ -56,3 +58,34 @@ def data_deletion_request(request):
 def crush_coach(request):
     """Crush Coach recruitment landing page"""
     return render(request, "crush_lu/crush_coach.html")
+
+
+def crush_connect_teaser(request):
+    """Crush Connect teaser page with waitlist."""
+    context = {
+        "on_waitlist": False,
+        "waitlist_position": None,
+        "total_waitlist": CrushConnectWaitlist.objects.count(),
+        "is_eligible": False,
+        "profile_approved": False,
+        "has_attended_event": False,
+    }
+
+    if request.user.is_authenticated:
+        try:
+            entry = CrushConnectWaitlist.objects.get(user=request.user)
+            context["on_waitlist"] = True
+            context["waitlist_position"] = entry.waitlist_position
+            context["is_eligible"] = entry.is_eligible
+        except CrushConnectWaitlist.DoesNotExist:
+            pass
+
+        context["profile_approved"] = (
+            hasattr(request.user, "crushprofile")
+            and request.user.crushprofile.is_approved
+        )
+        context["has_attended_event"] = EventRegistration.objects.filter(
+            user=request.user, status="attended"
+        ).exists()
+
+    return render(request, "crush_lu/crush_connect.html", context)

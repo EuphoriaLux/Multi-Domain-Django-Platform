@@ -9023,4 +9023,78 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // Crush Connect waitlist join button
+    Alpine.data('crushConnectWaitlist', function() {
+        return {
+            onWaitlist: false,
+            position: 0,
+            total: 0,
+            loading: false,
+            error: '',
+
+            init: function() {
+                var el = this.$el.closest('[data-on-waitlist]');
+                if (el) {
+                    this.onWaitlist = el.getAttribute('data-on-waitlist') === 'true';
+                    this.position = parseInt(el.getAttribute('data-position') || '0', 10);
+                    this.total = parseInt(el.getAttribute('data-total') || '0', 10);
+                }
+            },
+
+            get isJoined() { return this.onWaitlist; },
+            get isLoading() { return this.loading; },
+            get hasError() { return this.error !== ''; },
+            get errorMessage() { return this.error; },
+
+            get buttonClass() {
+                if (this.onWaitlist) return 'bg-white/20 cursor-default';
+                return 'bg-white text-teal-700 hover:bg-gray-100 shadow-lg';
+            },
+
+            get buttonText() {
+                if (this.loading) return '...';
+                if (this.onWaitlist) return '\u2713 On Waitlist';
+                return 'Join Waitlist';
+            },
+
+            get positionText() {
+                if (!this.onWaitlist) return '';
+                return '#' + this.position + ' of ' + this.total;
+            },
+
+            joinWaitlist: function() {
+                if (this.onWaitlist || this.loading) return;
+                var self = this;
+                self.loading = true;
+                self.error = '';
+
+                var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (!csrfToken) {
+                    csrfToken = document.querySelector('meta[name="csrf-token"]');
+                }
+                var token = csrfToken ? (csrfToken.value || csrfToken.getAttribute('content')) : '';
+
+                fetch('/api/crush-connect/join/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': token,
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    self.loading = false;
+                    self.onWaitlist = true;
+                    self.position = data.position;
+                    self.total = data.total;
+                })
+                .catch(function() {
+                    self.loading = false;
+                    self.error = 'Something went wrong. Please try again.';
+                });
+            }
+        };
+    });
+
 });
