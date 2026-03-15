@@ -120,6 +120,7 @@ class MeetupEvent(models.Model):
     max_age = models.PositiveIntegerField(default=99)
     PROFILE_REQUIREMENT_CHOICES = [
         ("approved", _("Approved profile required")),
+        ("unverified", _("Unverified profile only")),
         ("profile_exists", _("Profile must exist")),
         ("none", _("No profile required")),
     ]
