@@ -3995,7 +3995,8 @@ footer {
 .gift-landing .cta-section + footer,
 main:has(.cta-section:last-child) + footer,
 main:has(.hiw-cta-section:last-child) + footer,
-main:has([class*="cta-section"]:last-child) + footer {
+main:has([class*="cta-section"]:last-child) + footer,
+main:has(.crush-connect-page:last-child) + footer {
     margin-top: 0;
 }
 
@@ -9243,6 +9244,7 @@ html.dark .poll-results-bar {
     overflow: hidden;
     width: 100vw;
     margin-left: calc(-50vw + 50%);
+    margin-top: -2rem;
     border-radius: 0 0 50px 50px;
 }
 .crush-connect-hero::before {
