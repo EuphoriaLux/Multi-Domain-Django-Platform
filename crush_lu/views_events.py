@@ -641,6 +641,23 @@ def event_register(request, event_id):
                     _("This event requires a Crush profile. Please create one to register.")
                 )
                 return redirect("crush_lu:create_profile")
+        elif event.profile_requirement == "unverified":
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
+                if profile.is_approved:
+                    messages.error(
+                        request,
+                        _(
+                            "This event is exclusively for members whose profile has not yet been verified by a coach."
+                        ),
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+            except CrushProfile.DoesNotExist:
+                messages.error(
+                    request,
+                    _("This event requires a Crush profile. Please create one to register.")
+                )
+                return redirect("crush_lu:create_profile")
         elif event.profile_requirement == "profile_exists":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
