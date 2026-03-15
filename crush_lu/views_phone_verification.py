@@ -101,6 +101,23 @@ def mark_phone_verified(request):
                 preferred_language=preferred_lang,
             )
 
+        # If phone is already verified, return the existing verified phone
+        # The model's save() override protects verified phone data from being
+        # overwritten, so attempting to save a different number would silently
+        # keep the old one - leading to a misleading response.
+        if profile.phone_verified:
+            logger.info(
+                f"Phone already verified for user ID: {request.user.id}, "
+                f"returning existing verified status"
+            )
+            return JsonResponse({
+                "success": True,
+                "message": _("Your phone number is already verified."),
+                "phone_verified": True,
+                "phone_number": profile.phone_number,
+                "csrfToken": get_token(request),
+            })
+
         # Update profile with verified phone
         profile.phone_number = phone_number
         profile.phone_verified = True
@@ -120,7 +137,7 @@ def mark_phone_verified(request):
 
         return JsonResponse({
             "success": True,
-            "message": "Phone number verified successfully",
+            "message": _("Phone number verified successfully"),
             "phone_verified": True,
             "phone_number": phone_number,
             "csrfToken": get_token(request),

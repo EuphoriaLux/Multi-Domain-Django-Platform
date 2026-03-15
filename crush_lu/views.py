@@ -320,6 +320,7 @@ def create_profile(request):
     # If it's a POST request, process the form submission first
     if request.method == "POST":
         # Get existing profile if it exists (from Steps 1-2 AJAX saves)
+        existing_profile = None
         try:
             existing_profile = CrushProfile.objects.get(user=request.user)
             form = CrushProfileForm(
@@ -331,6 +332,24 @@ def create_profile(request):
         if form.is_valid():
             profile = form.save(commit=False)
             profile.user = request.user
+
+            # Enforce phone verification before allowing submission
+            # The AJAX step-by-step flow checks this in save_profile_step2(),
+            # but the form POST path must also enforce it to prevent bypass.
+            if existing_profile and not existing_profile.phone_verified:
+                messages.error(
+                    request,
+                    _("Please verify your phone number before submitting your profile."),
+                )
+                from .social_photos import get_all_social_photos
+                context = {
+                    "form": form,
+                    "profile": existing_profile,
+                    "current_step": "step1",
+                    "social_photos": get_all_social_photos(request.user),
+                    "coaches": _get_coaches_for_selection(),
+                }
+                return render(request, "crush_lu/create_profile.html", context)
 
             # Check if this is first submission or resubmission
             is_first_submission = profile.completion_status != "submitted"

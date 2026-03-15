@@ -457,14 +457,17 @@ def save_profile_step4(request):
 @crush_login_required
 @require_http_methods(["POST"])
 def complete_profile_submission(request):
-    """Final submission - Mark as completed and submit for review"""
+    """Final submission - Mark as completed and submit for review.
+
+    This is the AJAX API endpoint (POST /api/profile/complete/).
+    Mirrors the safety checks in create_profile() POST handler in views.py.
+    """
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
         # Validate profile is complete before allowing submission
         missing_fields = profile.get_missing_fields()
         if missing_fields:
-            missing_labels = [f['label'] for f in missing_fields]
             logger.warning(
                 f"Incomplete profile submission attempt by {request.user.email}: "
                 f"missing {', '.join(f['field'] for f in missing_fields)}"
@@ -472,27 +475,109 @@ def complete_profile_submission(request):
             messages.error(request, _('Please complete all required fields before submitting.'))
             return redirect('crush_lu:create_profile')
 
-        # Mark as completed
-        profile.completion_status = 'submitted'
+        # Read coach selection from request body or draft data
+        selected_coach_id = None
+        try:
+            data = json.loads(request.body)
+            selected_coach_id = data.get('selected_coach')
+        except (json.JSONDecodeError, ValueError):
+            pass
 
-        # Clear ALL draft data on successful submission
-        profile.draft_data = {}
-        profile.last_draft_saved = None
-        profile.draft_expires_at = None
+        # Fallback: read coach from Step 4 draft data
+        if not selected_coach_id and profile.draft_data:
+            step4_draft = profile.draft_data.get('step4', {})
+            selected_coach_id = step4_draft.get('selected_coach')
 
-        profile.save()
+        if not selected_coach_id:
+            messages.error(request, _('Please select a coach before submitting.'))
+            return redirect('crush_lu:create_profile')
 
-        # Create profile submission for coach review
-        submission, created = ProfileSubmission.objects.get_or_create(
-            profile=profile,
-            defaults={'status': 'pending'}
-        )
+        # Validate selected coach
+        try:
+            selected_coach = CrushCoach.objects.get(id=selected_coach_id, is_active=True)
+        except CrushCoach.DoesNotExist:
+            messages.error(request, _('The selected coach is no longer available. Please choose another coach.'))
+            return redirect('crush_lu:create_profile')
 
+        try:
+            with transaction.atomic():
+                # Mark as completed
+                profile.completion_status = 'submitted'
+
+                # Clear ALL draft data on successful submission
+                profile.draft_data = {}
+                profile.last_draft_saved = None
+                profile.draft_expires_at = None
+
+                profile.save()
+
+                # Block resubmission if profile was rejected
+                rejected_submission = (
+                    ProfileSubmission.objects.select_for_update()
+                    .filter(profile=profile, status="rejected")
+                    .first()
+                )
+                if rejected_submission:
+                    messages.error(
+                        request,
+                        _('Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu.'),
+                    )
+                    return redirect('crush_lu:profile_rejected')
+
+                # Check for existing pending submission (prevent duplicates)
+                existing_submission = (
+                    ProfileSubmission.objects.select_for_update()
+                    .filter(profile=profile, status="pending")
+                    .first()
+                )
+
+                # Check for revision/recontact submissions
+                revision_submission = (
+                    ProfileSubmission.objects.select_for_update()
+                    .filter(profile=profile, status__in=["revision", "recontact_coach"])
+                    .first()
+                )
+
+                is_revision = False
+                if existing_submission:
+                    submission = existing_submission
+                    created = False
+                    logger.warning(f"Existing pending submission found for {request.user.email}")
+                elif revision_submission:
+                    submission = revision_submission
+                    submission.status = "pending"
+                    submission.submitted_at = timezone.now()
+                    submission.save()
+                    created = False
+                    is_revision = True
+                    logger.info(f"Revision submission updated to pending for {request.user.email}")
+                else:
+                    submission = ProfileSubmission.objects.create(
+                        profile=profile, status="pending"
+                    )
+                    created = True
+
+                # Assign the user's selected coach (with capacity check)
+                is_same_coach = submission.coach_id == selected_coach.id
+                if not is_same_coach and not selected_coach.can_accept_reviews():
+                    messages.warning(
+                        request,
+                        _('The coach you selected is no longer available. Please choose another coach.'),
+                    )
+                    return redirect('crush_lu:create_profile')
+
+                submission.coach = selected_coach
+                submission.save()
+
+        except Exception as e:
+            logger.error(f"Transaction failed for {request.user.email}: {e}", exc_info=True)
+            messages.error(request, _('An error occurred while submitting your profile. Please try again.'))
+            return redirect('crush_lu:create_profile')
+
+        # Send notifications outside the transaction
         if created:
-            submission.assign_coach()
             logger.info(f"NEW profile submission created for {request.user.email}")
 
-            # Send push notification to assigned coach
             if submission.coach:
                 try:
                     notify_coach_new_submission(submission.coach, submission)
@@ -500,12 +585,20 @@ def complete_profile_submission(request):
                 except Exception as e:
                     logger.warning(f"Failed to send coach push notification: {e}")
 
-            # Send confirmation and coach notification emails
             send_profile_submission_notifications(
                 submission,
                 request,
                 add_message_func=lambda msg: messages.warning(request, msg)
             )
+        elif is_revision:
+            if submission.coach:
+                try:
+                    notify_coach_user_revision(submission.coach, submission)
+                    logger.info(f"Coach revision notification sent for submission {submission.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to send coach revision notification: {e}")
+        else:
+            logger.warning(f"Duplicate submission attempt prevented for {request.user.email}")
 
         messages.success(request, _('Profile submitted for review! A coach will contact you soon.'))
         return redirect('crush_lu:profile_submitted')
