@@ -35,7 +35,7 @@
 </div>
 
 <!-- Stats Row -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
         <p class="text-2xl font-bold dark:text-white">{{ total_eligible }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Total Eligible" %}</p>
@@ -55,6 +55,10 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
         <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ already_sent_count }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Already Sent" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ already_registered_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Registered" %}</p>
     </div>
 </div>
 
@@ -105,7 +109,17 @@
                             <!-- Language badge -->
                             <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded uppercase">{{ p.language }}</span>
                         </div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ p.profile.phone_number }}</p>
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ p.profile.phone_number }}</p>
+                            {% if p.status == 'pending' %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">&#9679; {% trans "Pending" %}</span>
+                            {% elif p.status == 'recontact_coach' %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">&#9742; {% trans "Recontact" %}</span>
+                            {% endif %}
+                            {% if p.already_registered %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded">&#10003; {% trans "Registered" %}</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 

@@ -9135,7 +9135,8 @@ document.addEventListener('alpine:init', function() {
 
             applyFilter() {
                 var filter = this.activeFilter;
-                var rows = this.$el.querySelectorAll('[data-gender]');
+                var root = this.$root;
+                var rows = root.querySelectorAll('[data-gender]');
                 for (var i = 0; i < rows.length; i++) {
                     var gender = rows[i].getAttribute('data-gender');
                     if (filter === 'all') {

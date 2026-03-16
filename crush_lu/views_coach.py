@@ -1101,9 +1101,9 @@ def coach_event_sms_invite(request, event_id):
         reverse("crush_lu:event_detail", args=[event.id])
     )
 
-    # All pending submissions with verified phones
+    # All pending/recontact submissions with verified phones
     pending_submissions = (
-        ProfileSubmission.objects.filter(status="pending")
+        ProfileSubmission.objects.filter(status__in=["pending", "recontact_coach"])
         .select_related("profile__user")
         .order_by("submitted_at")
     )
@@ -1115,9 +1115,17 @@ def coach_event_sms_invite(request, event_id):
         ).values_list("submission_id", flat=True)
     )
 
+    # Users already registered for this event
+    registered_user_ids = set(
+        EventRegistration.objects.filter(event=event)
+        .exclude(status="cancelled")
+        .values_list("user_id", flat=True)
+    )
+
     profiles = []
     gender_counts = {"F": 0, "M": 0, "other": 0}
     already_sent_count = 0
+    already_registered_count = 0
 
     for sub in pending_submissions:
         profile = sub.profile
@@ -1151,6 +1159,10 @@ def coach_event_sms_invite(request, event_id):
         if sent:
             already_sent_count += 1
 
+        registered = profile.user_id in registered_user_ids
+        if registered:
+            already_registered_count += 1
+
         # Count genders
         gender = profile.gender
         if gender == "F":
@@ -1167,8 +1179,10 @@ def coach_event_sms_invite(request, event_id):
                 "display_name": profile.display_name,
                 "gender": gender,
                 "language": lang,
+                "status": sub.status,
                 "sms_uri": sms_uri,
                 "already_sent": sent,
+                "already_registered": registered,
             }
         )
 
@@ -1178,6 +1192,7 @@ def coach_event_sms_invite(request, event_id):
         "total_eligible": len(profiles),
         "gender_counts": gender_counts,
         "already_sent_count": already_sent_count,
+        "already_registered_count": already_registered_count,
         "coach": coach,
     }
     return render(request, "crush_lu/coach_event_sms_invite.html", context)
