@@ -76,6 +76,29 @@ class CrushSiteConfig(models.Model):
         help_text=_("Placeholders: {first_name}, {coach_name}"),
     )
 
+    # SMS templates for event invites (coach outreach to unverified profiles)
+    sms_event_invite_template_en = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}! {coach_name} from Crush.lu here. We have an event for you: {event_title} on {event_date}. Sign up & get verified on the spot! {event_url}",
+        verbose_name=_("Event invite SMS template (English)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+    sms_event_invite_template_de = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}! Hier ist {coach_name} von Crush.lu. Wir haben ein Event fuer dich: {event_title} am {event_date}. Melde dich an und werde vor Ort verifiziert! {event_url}",
+        verbose_name=_("Event invite SMS template (German)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+    sms_event_invite_template_fr = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Salut {first_name} ! C'est {coach_name} de Crush.lu. On a un evenement pour toi : {event_title} le {event_date}. Inscris-toi et fais-toi verifier sur place ! {event_url}",
+        verbose_name=_("Event invite SMS template (French)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+
     # Status banner
     banner_enabled = models.BooleanField(
         default=False,
