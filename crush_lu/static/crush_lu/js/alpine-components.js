@@ -9097,4 +9097,57 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // SMS Invite Filter - gender filter for coach event SMS invite page
+    Alpine.data('smsInviteFilter', function() {
+        return {
+            activeFilter: 'all',
+
+            get isAll() { return this.activeFilter === 'all'; },
+            get isWomen() { return this.activeFilter === 'F'; },
+            get isMen() { return this.activeFilter === 'M'; },
+            get isOther() { return this.activeFilter === 'other'; },
+
+            get allButtonClass() {
+                return this.isAll
+                    ? 'bg-crush-purple text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700';
+            },
+            get womenButtonClass() {
+                return this.isWomen
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700';
+            },
+            get menButtonClass() {
+                return this.isMen
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700';
+            },
+            get otherButtonClass() {
+                return this.isOther
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700';
+            },
+
+            filterAll() { this.activeFilter = 'all'; this.applyFilter(); },
+            filterWomen() { this.activeFilter = 'F'; this.applyFilter(); },
+            filterMen() { this.activeFilter = 'M'; this.applyFilter(); },
+            filterOther() { this.activeFilter = 'other'; this.applyFilter(); },
+
+            applyFilter() {
+                var filter = this.activeFilter;
+                var rows = this.$el.querySelectorAll('[data-gender]');
+                for (var i = 0; i < rows.length; i++) {
+                    var gender = rows[i].getAttribute('data-gender');
+                    if (filter === 'all') {
+                        rows[i].style.display = '';
+                    } else if (filter === 'other') {
+                        rows[i].style.display = (gender !== 'F' && gender !== 'M') ? '' : 'none';
+                    } else {
+                        rows[i].style.display = (gender === filter) ? '' : 'none';
+                    }
+                }
+            }
+        };
+    });
+
 });

@@ -1,0 +1,149 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "SMS Invite" %} - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% trans "SMS Invite" %}</span>
+    </div>
+
+    <!-- Event info banner -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "SMS Invite" %}</h2>
+            <div class="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center gap-1">
+                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                    {{ event.date_time|date:"D, M j, Y \a\t g:i A" }}
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-full">
+                    {% trans "Unverified Profiles" %}
+                </span>
+            </div>
+        </div>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors self-start">
+            &larr; {% trans "Back to Event" %}
+        </a>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold dark:text-white">{{ total_eligible }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Total Eligible" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-pink-600 dark:text-pink-400">{{ gender_counts.F }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Women" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ gender_counts.M }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Men" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ gender_counts.other }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Other" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ already_sent_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Already Sent" %}</p>
+    </div>
+</div>
+
+{% if profiles %}
+<!-- Gender Filter Bar -->
+<div x-data="smsInviteFilter" class="mb-6">
+    <div class="flex flex-wrap gap-2 mb-4">
+        <button @click="filterAll" x-bind:class="allButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+            {% trans "All" %}
+            <span class="ml-1.5 text-xs">({{ total_eligible }})</span>
+        </button>
+        <button @click="filterWomen" x-bind:class="womenButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+            &#9792; {% trans "Women" %}
+            <span class="ml-1.5 text-xs">({{ gender_counts.F }})</span>
+        </button>
+        <button @click="filterMen" x-bind:class="menButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+            &#9794; {% trans "Men" %}
+            <span class="ml-1.5 text-xs">({{ gender_counts.M }})</span>
+        </button>
+        <button @click="filterOther" x-bind:class="otherButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+            &#9898; {% trans "Other" %}
+            <span class="ml-1.5 text-xs">({{ gender_counts.other }})</span>
+        </button>
+    </div>
+
+    <!-- Profile List -->
+    <div class="space-y-3">
+        {% for p in profiles %}
+        <div data-gender="{{ p.gender }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <!-- Profile Info -->
+                <div class="flex items-center gap-3 min-w-0">
+                    <!-- Avatar placeholder -->
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
+                        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ p.profile.user.first_name|first|upper }}</span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-semibold text-sm text-gray-900 dark:text-white truncate">{{ p.display_name }}</h4>
+                            <!-- Gender badge -->
+                            {% if p.gender == 'F' %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded">&#9792; F</span>
+                            {% elif p.gender == 'M' %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">&#9794; M</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">&#9898;</span>
+                            {% endif %}
+                            <!-- Language badge -->
+                            <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded uppercase">{{ p.language }}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ p.profile.phone_number }}</p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div id="sms-actions-{{ p.submission.id }}" class="flex items-center gap-2 flex-shrink-0">
+                    {% if p.already_sent %}
+                        <span class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "Sent" %}
+                        </span>
+                    {% else %}
+                        <a href="{{ p.sms_uri }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                            {% trans "Open SMS" %}
+                        </a>
+                        <button hx-post="{% url 'crush_lu:coach_log_event_sms_sent' event.id p.submission.id %}"
+                                hx-target="#sms-actions-{{ p.submission.id }}"
+                                hx-swap="innerHTML"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors border border-gray-300 dark:border-gray-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            {% trans "Log Sent" %}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<!-- Empty state -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+    <div class="text-gray-400 dark:text-gray-500 mb-2">
+        {% include "shared/icons/users.html" with class="w-10 h-10 mx-auto" %}
+    </div>
+    <p class="text-gray-500 dark:text-gray-400">
+        {% trans "No pending profiles with verified phone numbers." %}
+    </p>
+</div>
+{% endif %}
+{% endblock %}

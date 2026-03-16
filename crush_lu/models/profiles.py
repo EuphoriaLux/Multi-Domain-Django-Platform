@@ -817,6 +817,7 @@ class CallAttempt(models.Model):
         ('success', _('Call Completed')),
         ('failed', _('Call Failed')),
         ('sms_sent', _('SMS Sent')),
+        ('event_invite_sms', _('Event Invite SMS')),
     ]
 
     FAILURE_REASON_CHOICES = [
@@ -859,6 +860,13 @@ class CallAttempt(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         help_text=_("Coach who made the call attempt")
+    )
+    event = models.ForeignKey(
+        'crush_lu.MeetupEvent',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text=_("Related event (for event invite SMS)")
     )
 
     class Meta:

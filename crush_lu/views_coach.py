@@ -1082,6 +1082,145 @@ def coach_event_checkin(request, event_id):
 
 
 @coach_required
+def coach_event_sms_invite(request, event_id):
+    """Page listing pending profiles with verified phones for SMS event invites."""
+    from urllib.parse import quote
+    from django.utils.formats import date_format
+    from .models import CallAttempt
+    from .models.site_config import CrushSiteConfig
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    coach = request.coach
+    config = CrushSiteConfig.get_config()
+    coach_name = coach.user.first_name or "Coach"
+
+    # Build absolute event URL for the SMS
+    from django.urls import reverse
+
+    event_url = request.build_absolute_uri(
+        reverse("crush_lu:event_detail", args=[event.id])
+    )
+
+    # All pending submissions with verified phones
+    pending_submissions = (
+        ProfileSubmission.objects.filter(status="pending")
+        .select_related("profile__user")
+        .order_by("submitted_at")
+    )
+
+    # Get IDs of submissions already sent an invite for this event
+    already_sent_ids = set(
+        CallAttempt.objects.filter(
+            event=event, result="event_invite_sms"
+        ).values_list("submission_id", flat=True)
+    )
+
+    profiles = []
+    gender_counts = {"F": 0, "M": 0, "other": 0}
+    already_sent_count = 0
+
+    for sub in pending_submissions:
+        profile = sub.profile
+        if not profile.phone_number or not profile.phone_verified:
+            continue
+
+        # Language-specific template
+        lang = getattr(profile, "preferred_language", "en") or "en"
+        template_field = f"sms_event_invite_template_{lang}"
+        template = (
+            getattr(config, template_field, config.sms_event_invite_template_en)
+            or config.sms_event_invite_template_en
+        )
+
+        # Format event date per profile language
+        event_date_str = date_format(
+            event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
+        )
+
+        first_name = profile.user.first_name or ""
+        sms_body = template.format(
+            first_name=first_name,
+            coach_name=coach_name,
+            event_title=event.title,
+            event_date=event_date_str,
+            event_url=event_url,
+        )
+        sms_uri = f"sms:{profile.phone_number}?body={quote(sms_body, safe='')}"
+
+        sent = sub.id in already_sent_ids
+        if sent:
+            already_sent_count += 1
+
+        # Count genders
+        gender = profile.gender
+        if gender == "F":
+            gender_counts["F"] += 1
+        elif gender == "M":
+            gender_counts["M"] += 1
+        else:
+            gender_counts["other"] += 1
+
+        profiles.append(
+            {
+                "submission": sub,
+                "profile": profile,
+                "display_name": profile.display_name,
+                "gender": gender,
+                "language": lang,
+                "sms_uri": sms_uri,
+                "already_sent": sent,
+            }
+        )
+
+    context = {
+        "event": event,
+        "profiles": profiles,
+        "total_eligible": len(profiles),
+        "gender_counts": gender_counts,
+        "already_sent_count": already_sent_count,
+        "coach": coach,
+    }
+    return render(request, "crush_lu/coach_event_sms_invite.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_log_event_sms_sent(request, event_id, submission_id):
+    """Log that an event invite SMS was sent - HTMX endpoint."""
+    from .models import CallAttempt
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+    )
+
+    # Prevent duplicate logging
+    already_exists = CallAttempt.objects.filter(
+        submission=submission, event=event, result="event_invite_sms"
+    ).exists()
+
+    if not already_exists:
+        CallAttempt.objects.create(
+            submission=submission,
+            result="event_invite_sms",
+            coach=coach,
+            event=event,
+            notes=_(
+                "Event invite SMS sent for: %(event)s"
+            )
+            % {"event": event.title},
+        )
+
+    return render(
+        request,
+        "crush_lu/_sms_invite_row_sent.html",
+        {"submission": submission, "event": event},
+    )
+
+
+@coach_required
 def coach_member_overview(request, user_id):
     """Coach view of a member's profile, event history, and connections"""
     from django.contrib.auth.models import User
