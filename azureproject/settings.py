@@ -817,6 +817,7 @@ SECURE_CSP_REPORT_ONLY = {
         "https://apis.google.com",
         "https://www.googletagmanager.com",
         "https://www.google.com",  # reCAPTCHA
+        "https://www.gstatic.com/recaptcha/",  # reCAPTCHA Enterprise
         # Facebook SDK
         "https://connect.facebook.net",
         # Microsoft
@@ -884,6 +885,7 @@ SECURE_CSP_REPORT_ONLY = {
         "https://identitytoolkit.googleapis.com",
         "https://securetoken.googleapis.com",
         "https://www.googleapis.com",
+        "https://recaptchaenterprise.googleapis.com",  # reCAPTCHA Enterprise
         # Google Translate
         "https://translate.googleapis.com",
         # Geo-IP lookup for phone country detection

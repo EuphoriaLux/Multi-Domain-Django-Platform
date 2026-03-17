@@ -349,6 +349,14 @@ class PhoneVerification {
                 customData: lastError.customData,
                 serverResponse: lastError.serverResponse
             });
+            if (lastError.serverResponse) {
+                try {
+                    var parsed = JSON.parse(lastError.serverResponse);
+                    console.error('Server response details:', parsed);
+                } catch (e) {
+                    console.error('Server response (raw):', lastError.serverResponse);
+                }
+            }
 
             this.setState('error');
             this.onError(this.formatFirebaseError(lastError));
