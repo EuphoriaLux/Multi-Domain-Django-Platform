@@ -115,6 +115,8 @@
                                 <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">&#9679; {% trans "Pending" %}</span>
                             {% elif p.status == 'recontact_coach' %}
                                 <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">&#9742; {% trans "Recontact" %}</span>
+                            {% elif p.status == 'no_submission' %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">&#9900; {% trans "Unsubmitted" %}</span>
                             {% endif %}
                             {% if p.already_registered %}
                                 <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded">&#10003; {% trans "Registered" %}</span>
@@ -124,7 +126,7 @@
                 </div>
 
                 <!-- Actions -->
-                <div id="sms-actions-{{ p.submission.id }}" class="flex items-center gap-2 flex-shrink-0">
+                <div id="sms-actions-{{ p.row_id }}" class="flex items-center gap-2 flex-shrink-0">
                     {% if p.already_sent %}
                         <span class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded-lg">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -135,8 +137,8 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                             {% trans "Open SMS" %}
                         </a>
-                        <button hx-post="{% url 'crush_lu:coach_log_event_sms_sent' event.id p.submission.id %}"
-                                hx-target="#sms-actions-{{ p.submission.id }}"
+                        <button {% if p.submission %}hx-post="{% url 'crush_lu:coach_log_event_sms_sent' event.id p.submission.id %}"{% else %}hx-post="{% url 'crush_lu:coach_log_event_sms_sent_by_profile' event.id p.profile.id %}"{% endif %}
+                                hx-target="#sms-actions-{{ p.row_id }}"
                                 hx-swap="innerHTML"
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors border border-gray-300 dark:border-gray-600">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -156,7 +158,7 @@
         {% include "shared/icons/users.html" with class="w-10 h-10 mx-auto" %}
     </div>
     <p class="text-gray-500 dark:text-gray-400">
-        {% trans "No pending profiles with verified phone numbers." %}
+        {% trans "No eligible profiles with verified phone numbers." %}
     </p>
 </div>
 {% endif %}

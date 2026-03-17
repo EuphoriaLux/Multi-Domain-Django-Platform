@@ -1108,6 +1108,19 @@ def coach_event_sms_invite(request, event_id):
         .order_by("submitted_at")
     )
 
+    # Profiles with verified phones but NO submission at all
+    no_submission_profiles = (
+        CrushProfile.objects.filter(
+            phone_number__isnull=False,
+            phone_verified=True,
+        )
+        .exclude(phone_number="")
+        .exclude(
+            id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
+        )
+        .select_related("user")
+    )
+
     # Get IDs of submissions already sent an invite for this event
     already_sent_ids = set(
         CallAttempt.objects.filter(
@@ -1127,24 +1140,17 @@ def coach_event_sms_invite(request, event_id):
     already_sent_count = 0
     already_registered_count = 0
 
-    for sub in pending_submissions:
-        profile = sub.profile
-        if not profile.phone_number or not profile.phone_verified:
-            continue
-
-        # Language-specific template
+    def _build_sms_uri(profile):
+        """Build SMS URI for a profile."""
         lang = getattr(profile, "preferred_language", "en") or "en"
         template_field = f"sms_event_invite_template_{lang}"
         template = (
             getattr(config, template_field, config.sms_event_invite_template_en)
             or config.sms_event_invite_template_en
         )
-
-        # Format event date per profile language
         event_date_str = date_format(
             event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
         )
-
         first_name = profile.user.first_name or ""
         sms_body = template.format(
             first_name=first_name,
@@ -1153,7 +1159,22 @@ def coach_event_sms_invite(request, event_id):
             event_date=event_date_str,
             event_url=event_url,
         )
-        sms_uri = f"sms:{profile.phone_number}?body={quote(sms_body, safe='')}"
+        return lang, f"sms:{profile.phone_number}?body={quote(sms_body, safe='')}"
+
+    def _count_gender(gender):
+        if gender == "F":
+            gender_counts["F"] += 1
+        elif gender == "M":
+            gender_counts["M"] += 1
+        else:
+            gender_counts["other"] += 1
+
+    for sub in pending_submissions:
+        profile = sub.profile
+        if not profile.phone_number or not profile.phone_verified:
+            continue
+
+        lang, sms_uri = _build_sms_uri(profile)
 
         sent = sub.id in already_sent_ids
         if sent:
@@ -1163,25 +1184,45 @@ def coach_event_sms_invite(request, event_id):
         if registered:
             already_registered_count += 1
 
-        # Count genders
         gender = profile.gender
-        if gender == "F":
-            gender_counts["F"] += 1
-        elif gender == "M":
-            gender_counts["M"] += 1
-        else:
-            gender_counts["other"] += 1
+        _count_gender(gender)
 
         profiles.append(
             {
                 "submission": sub,
                 "profile": profile,
+                "row_id": f"sub-{sub.id}",
                 "display_name": profile.display_name,
                 "gender": gender,
                 "language": lang,
                 "status": sub.status,
                 "sms_uri": sms_uri,
                 "already_sent": sent,
+                "already_registered": registered,
+            }
+        )
+
+    for profile in no_submission_profiles:
+        lang, sms_uri = _build_sms_uri(profile)
+
+        registered = profile.user_id in registered_user_ids
+        if registered:
+            already_registered_count += 1
+
+        gender = profile.gender
+        _count_gender(gender)
+
+        profiles.append(
+            {
+                "submission": None,
+                "profile": profile,
+                "row_id": f"prof-{profile.id}",
+                "display_name": profile.display_name,
+                "gender": gender,
+                "language": lang,
+                "status": "no_submission",
+                "sms_uri": sms_uri,
+                "already_sent": False,
                 "already_registered": registered,
             }
         )
@@ -1209,6 +1250,47 @@ def coach_log_event_sms_sent(request, event_id, submission_id):
     submission = get_object_or_404(
         ProfileSubmission.objects.select_related("profile__user"),
         id=submission_id,
+    )
+
+    # Prevent duplicate logging
+    already_exists = CallAttempt.objects.filter(
+        submission=submission, event=event, result="event_invite_sms"
+    ).exists()
+
+    if not already_exists:
+        CallAttempt.objects.create(
+            submission=submission,
+            result="event_invite_sms",
+            coach=coach,
+            event=event,
+            notes=_(
+                "Event invite SMS sent for: %(event)s"
+            )
+            % {"event": event.title},
+        )
+
+    return render(
+        request,
+        "crush_lu/_sms_invite_row_sent.html",
+        {"submission": submission, "event": event},
+    )
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
+    """Log SMS sent for a profile that has no submission yet — auto-creates one."""
+    from .models import CallAttempt
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    coach = request.coach
+    profile = get_object_or_404(CrushProfile, id=profile_id)
+
+    # get_or_create handles the race condition where a submission may have
+    # been created between page load and this click
+    submission, _created = ProfileSubmission.objects.get_or_create(
+        profile=profile,
+        defaults={"status": "pending", "coach": coach},
     )
 
     # Prevent duplicate logging
