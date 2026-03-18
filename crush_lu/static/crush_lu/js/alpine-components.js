@@ -2191,16 +2191,41 @@ document.addEventListener('alpine:init', function() {
                 }
                 // Prepare form data (phone number formatting)
                 this.setSubmitting();
-                // Now manually submit the form
-                var form = document.getElementById('profileForm');
-                if (form) {
-                    form.submit();
-                }
+                // Refresh CSRF token before final submit to prevent stale-token errors
+                // (form may have been open for 15+ minutes, server may have rotated secrets)
+                fetch('/api/csrf-token/', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.csrfToken) {
+                        var inputs = document.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+                        for (var i = 0; i < inputs.length; i++) {
+                            inputs[i].value = data.csrfToken;
+                        }
+                    }
+                    var form = document.getElementById('profileForm');
+                    if (form) form.submit();
+                })
+                .catch(function() {
+                    // If refresh fails, try submitting with existing token
+                    var form = document.getElementById('profileForm');
+                    if (form) form.submit();
+                });
             },
 
             nextStepAndReview: function() {
                 this.nextStep();
                 this.updateReview();
+            },
+
+            // Update ALL csrfmiddlewaretoken inputs in the DOM with a fresh token
+            updateAllCsrfTokens: function(token) {
+                var inputs = document.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+                for (var i = 0; i < inputs.length; i++) {
+                    inputs[i].value = token;
+                }
             },
 
             // CSRF token helper for AJAX requests
@@ -2299,6 +2324,9 @@ document.addEventListener('alpine:init', function() {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
                         self.fieldErrors = {};
+                        if (result.data.csrfToken) {
+                            self.updateAllCsrfTokens(result.data.csrfToken);
+                        }
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save. Please try again.';
@@ -2342,6 +2370,9 @@ document.addEventListener('alpine:init', function() {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
                         self.fieldErrors = {};
+                        if (result.data.csrfToken) {
+                            self.updateAllCsrfTokens(result.data.csrfToken);
+                        }
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save. Please try again.';
@@ -2393,6 +2424,9 @@ document.addEventListener('alpine:init', function() {
                 .then(function(result) {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
+                        if (result.data.csrfToken) {
+                            self.updateAllCsrfTokens(result.data.csrfToken);
+                        }
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save. Please try again.';
@@ -2544,6 +2578,9 @@ document.addEventListener('alpine:init', function() {
                 .then(function(result) {
                     self.isSaving = false;
                     if (result.ok && result.data.success) {
+                        if (result.data.csrfToken) {
+                            self.updateAllCsrfTokens(result.data.csrfToken);
+                        }
                         return { success: true };
                     } else {
                         self.saveError = result.data.error || 'Failed to save coach selection';

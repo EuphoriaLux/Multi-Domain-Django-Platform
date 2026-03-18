@@ -154,6 +154,9 @@ urlpatterns = base_patterns + api_patterns + [
         name='passkit_log',
     ),
 
+    # CSRF Token Refresh (called from alpine-components.js before final form submit)
+    path('api/csrf-token/', views_profile.get_csrf_token, name='csrf_token_refresh'),
+
     # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
     path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),

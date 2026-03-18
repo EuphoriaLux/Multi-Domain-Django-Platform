@@ -308,6 +308,7 @@ def delete_full_account(user):
     - Password set to unusable
     - is_active = False
     """
+    from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount, SocialToken
 
     logger.info(f"Starting full account deletion for user {user.id}")
@@ -323,6 +324,9 @@ def delete_full_account(user):
     user.set_unusable_password()
     user.is_active = False
     user.save()
+
+    # Delete email addresses (allauth)
+    EmailAddress.objects.filter(user=user).delete()
 
     # Delete social accounts and tokens (allauth)
     SocialToken.objects.filter(account__user=user).delete()

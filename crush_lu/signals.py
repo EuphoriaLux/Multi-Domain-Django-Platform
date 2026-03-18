@@ -1866,9 +1866,10 @@ def delete_outlook_contact_on_profile_delete(sender, instance, **kwargs):
             )
     except Exception as e:
         # Don't fail the deletion if Outlook sync fails
-        # The profile will be deleted regardless, just log the error
+        # The profile will be deleted regardless, but log critically for manual cleanup
         logger.error(
-            f"Error deleting Outlook contact {instance.outlook_contact_id} for profile {instance.pk}: {e}"
+            f"CRITICAL: Failed to delete Outlook contact {instance.outlook_contact_id} "
+            f"for profile {instance.pk}. MANUAL CLEANUP REQUIRED. Error: {e}"
         )
 
 

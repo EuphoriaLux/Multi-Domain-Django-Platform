@@ -13,6 +13,8 @@ import json
 import logging
 import traceback
 
+from django.middleware.csrf import get_token
+
 from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
 from .coach_notifications import notify_coach_new_submission, notify_coach_user_revision
@@ -188,7 +190,8 @@ def save_profile_step1(request):
         return JsonResponse({
             'success': True,
             'message': 'Basic info saved! Continue to complete your profile.',
-            'profile_id': profile.id
+            'profile_id': profile.id,
+            'csrfToken': get_token(request),
         })
 
     except Exception as e:
@@ -239,7 +242,8 @@ def save_profile_step2(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'About section saved!'
+            'message': 'About section saved!',
+            'csrfToken': get_token(request),
         })
 
     except CrushProfile.DoesNotExist:
@@ -378,7 +382,8 @@ def save_profile_step3(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'Photos and privacy settings saved!'
+            'message': 'Photos and privacy settings saved!',
+            'csrfToken': get_token(request),
         })
 
     except CrushProfile.DoesNotExist:
@@ -438,7 +443,8 @@ def save_profile_step4(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'Coach selection saved!'
+            'message': 'Coach selection saved!',
+            'csrfToken': get_token(request),
         })
 
     except CrushProfile.DoesNotExist:
@@ -908,3 +914,10 @@ def delete_profile_photo(request, slot):
             'is_main': slot == 1,
             'error': 'Delete failed. Please try again.',
         })
+
+
+@crush_login_required
+@require_http_methods(["GET"])
+def get_csrf_token(request):
+    """Return a fresh CSRF token for long-lived forms."""
+    return JsonResponse({"csrfToken": get_token(request)})

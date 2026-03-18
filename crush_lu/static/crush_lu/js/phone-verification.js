@@ -457,9 +457,9 @@ class PhoneVerification {
         // since Django may rotate the CSRF cookie on POST requests.
         if (data.csrfToken) {
             this.csrfToken = data.csrfToken;
-            var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-            if (input) {
-                input.value = data.csrfToken;
+            var inputs = document.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+            for (var i = 0; i < inputs.length; i++) {
+                inputs[i].value = data.csrfToken;
             }
         }
 

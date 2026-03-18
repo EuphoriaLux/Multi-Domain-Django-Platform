@@ -51,11 +51,17 @@ class Command(BaseCommand):
             action='store_true',
             help='Only delete orphaned contacts (profile not in database)'
         )
+        parser.add_argument(
+            '--deleted-only',
+            action='store_true',
+            help='Only delete contacts belonging to deleted users (@deleted.crush.lu)'
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         test_only = options['test_only']
         orphaned_only = options['orphaned_only']
+        deleted_only = options['deleted_only']
 
         if not is_sync_enabled():
             raise CommandError(
@@ -102,6 +108,7 @@ class Command(BaseCommand):
             'orphaned': 0,
             'unapproved': 0,
             'missing_phone': 0,
+            'deleted_users': 0,
             'valid': 0,
             'to_delete': [],
         }
@@ -119,7 +126,11 @@ class Command(BaseCommand):
             # Determine contact status
             reason = None
 
-            if not profile_id:
+            # Check if contact belongs to a deleted user
+            if email and '@deleted.crush.lu' in email:
+                reason = "deleted_user"
+                stats['deleted_users'] += 1
+            elif not profile_id:
                 # No profile ID - can't verify
                 reason = "no_profile_id"
                 stats['orphaned'] += 1
@@ -155,7 +166,9 @@ class Command(BaseCommand):
                     should_delete = True
                 elif orphaned_only and reason in ["orphaned", "no_profile_id"]:
                     should_delete = True
-                elif not test_only and not orphaned_only:
+                elif deleted_only and reason == "deleted_user":
+                    should_delete = True
+                elif not test_only and not orphaned_only and not deleted_only:
                     # Delete all invalid contacts
                     should_delete = True
 
@@ -171,6 +184,7 @@ class Command(BaseCommand):
         # Show breakdown
         self.stdout.write(self.style.WARNING("\nBREAKDOWN:"))
         self.stdout.write(f"  Test user contacts (example.com, etc.):  {stats['test_users']:3d} ({stats['test_users']/stats['total']*100:5.1f}%)")
+        self.stdout.write(f"  Deleted users (@deleted.crush.lu):       {stats['deleted_users']:3d} ({stats['deleted_users']/stats['total']*100:5.1f}%)")
         self.stdout.write(f"  Orphaned (profile not in DB):            {stats['orphaned']:3d} ({stats['orphaned']/stats['total']*100:5.1f}%)")
         self.stdout.write(f"  Unapproved profiles:                     {stats['unapproved']:3d} ({stats['unapproved']/stats['total']*100:5.1f}%)")
         self.stdout.write(f"  Missing phone number:                    {stats['missing_phone']:3d} ({stats['missing_phone']/stats['total']*100:5.1f}%)")
@@ -195,6 +209,7 @@ class Command(BaseCommand):
             for item in stats['to_delete'][:10]:
                 reason_label = {
                     'test_user': 'TEST USER',
+                    'deleted_user': 'DELETED USER',
                     'orphaned': 'ORPHANED',
                     'no_profile_id': 'NO PROFILE ID',
                     'unapproved': 'UNAPPROVED',
