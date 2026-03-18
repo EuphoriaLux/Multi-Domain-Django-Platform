@@ -186,6 +186,15 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             user.last_name = extra_data.get('last_name', '') or data.get('last_name', '') or ''
             if extra_data.get('email'):
                 user.email = extra_data['email']
+        # Handle Apple provider
+        # Apple only sends name on the FIRST authorization — subsequent logins omit it
+        elif sociallogin.account.provider == 'apple':
+            extra_data = sociallogin.account.extra_data
+            name_data = extra_data.get('name', {}) or {}
+            user.first_name = name_data.get('firstName', '') or data.get('first_name', '') or ''
+            user.last_name = name_data.get('lastName', '') or data.get('last_name', '') or ''
+            if extra_data.get('email'):
+                user.email = extra_data['email']
         else:
             # Other providers (LinkedIn, etc.)
             user.first_name = data.get('first_name', '') or ''

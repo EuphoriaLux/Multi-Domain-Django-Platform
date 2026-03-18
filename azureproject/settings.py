@@ -130,6 +130,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.facebook",
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.microsoft",
+    "allauth.socialaccount.providers.apple",
     # Third-party apps
     "crispy_forms",
     "crispy_tailwind",
@@ -421,12 +422,22 @@ SOCIALACCOUNT_PROVIDERS = {
         # Trust Microsoft emails as verified (required for auto-linking)
         "VERIFIED_EMAIL": True,
     },
+    "apple": {
+        "APP": {
+            "client_id": os.environ.get("APPLE_CLIENT_ID", ""),
+            "secret": os.environ.get("APPLE_TEAM_ID", ""),  # Team ID
+            "key": os.environ.get("APPLE_KEY_ID", ""),  # Key ID
+            "certificate_key": os.environ.get("APPLE_PRIVATE_KEY", ""),  # .p8 contents
+        },
+        "SCOPE": ["email", "name"],
+        "VERIFIED_EMAIL": True,
+    },
 }
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
 # the social account will be automatically linked if the provider is in this list.
-SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft"]
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
@@ -899,6 +910,8 @@ SECURE_CSP_REPORT_ONLY = {
         # Facebook profile pictures
         "https://platform-lookaside.fbsbx.com",
         "https://*.fbcdn.net",
+        # Apple Sign In
+        "https://appleid.apple.com",
         # WebSocket for HTMX
         "wss:",
     ],
@@ -908,6 +921,7 @@ SECURE_CSP_REPORT_ONLY = {
         "https://accounts.google.com",
         "https://www.facebook.com",
         "https://login.microsoftonline.com",
+        "https://appleid.apple.com",
         "https://www.google.com",
         "https://*.firebaseapp.com",
     ],
