@@ -423,12 +423,6 @@ SOCIALACCOUNT_PROVIDERS = {
         "VERIFIED_EMAIL": True,
     },
     "apple": {
-        "APP": {
-            "client_id": os.environ.get("APPLE_CLIENT_ID", ""),
-            "secret": os.environ.get("APPLE_TEAM_ID", ""),  # Team ID
-            "key": os.environ.get("APPLE_KEY_ID", ""),  # Key ID
-            "certificate_key": os.environ.get("APPLE_PRIVATE_KEY", ""),  # .p8 contents
-        },
         "SCOPE": ["email", "name"],
         "VERIFIED_EMAIL": True,
     },

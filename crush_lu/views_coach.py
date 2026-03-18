@@ -1122,10 +1122,17 @@ def coach_event_sms_invite(request, event_id):
     )
 
     # Get IDs of submissions already sent an invite for this event
-    already_sent_ids = set(
+    already_sent_submission_ids = set(
         CallAttempt.objects.filter(
-            event=event, result="event_invite_sms"
+            event=event, result="event_invite_sms", submission__isnull=False
         ).values_list("submission_id", flat=True)
+    )
+
+    # Get IDs of profiles (without submission) already sent an invite
+    already_sent_profile_ids = set(
+        CallAttempt.objects.filter(
+            event=event, result="event_invite_sms", profile__isnull=False
+        ).values_list("profile_id", flat=True)
     )
 
     # Users already registered for this event
@@ -1135,7 +1142,8 @@ def coach_event_sms_invite(request, event_id):
         .values_list("user_id", flat=True)
     )
 
-    profiles = []
+    submitted_profiles = []
+    unsubmitted_profiles = []
     gender_counts = {"F": 0, "M": 0, "other": 0}
     already_sent_count = 0
     already_registered_count = 0
@@ -1176,7 +1184,7 @@ def coach_event_sms_invite(request, event_id):
 
         lang, sms_uri = _build_sms_uri(profile)
 
-        sent = sub.id in already_sent_ids
+        sent = sub.id in already_sent_submission_ids
         if sent:
             already_sent_count += 1
 
@@ -1187,7 +1195,7 @@ def coach_event_sms_invite(request, event_id):
         gender = profile.gender
         _count_gender(gender)
 
-        profiles.append(
+        submitted_profiles.append(
             {
                 "submission": sub,
                 "profile": profile,
@@ -1205,6 +1213,10 @@ def coach_event_sms_invite(request, event_id):
     for profile in no_submission_profiles:
         lang, sms_uri = _build_sms_uri(profile)
 
+        sent = profile.id in already_sent_profile_ids
+        if sent:
+            already_sent_count += 1
+
         registered = profile.user_id in registered_user_ids
         if registered:
             already_registered_count += 1
@@ -1212,7 +1224,7 @@ def coach_event_sms_invite(request, event_id):
         gender = profile.gender
         _count_gender(gender)
 
-        profiles.append(
+        unsubmitted_profiles.append(
             {
                 "submission": None,
                 "profile": profile,
@@ -1222,15 +1234,18 @@ def coach_event_sms_invite(request, event_id):
                 "language": lang,
                 "status": "no_submission",
                 "sms_uri": sms_uri,
-                "already_sent": False,
+                "already_sent": sent,
                 "already_registered": registered,
             }
         )
 
     context = {
         "event": event,
-        "profiles": profiles,
-        "total_eligible": len(profiles),
+        "submitted_profiles": submitted_profiles,
+        "unsubmitted_profiles": unsubmitted_profiles,
+        "total_eligible": len(submitted_profiles) + len(unsubmitted_profiles),
+        "submitted_count": len(submitted_profiles),
+        "unsubmitted_count": len(unsubmitted_profiles),
         "gender_counts": gender_counts,
         "already_sent_count": already_sent_count,
         "already_registered_count": already_registered_count,
@@ -1279,28 +1294,21 @@ def coach_log_event_sms_sent(request, event_id, submission_id):
 @coach_required
 @require_http_methods(["POST"])
 def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
-    """Log SMS sent for a profile that has no submission yet — auto-creates one."""
+    """Log SMS sent for a profile that has no submission yet."""
     from .models import CallAttempt
 
     event = get_object_or_404(MeetupEvent, id=event_id)
     coach = request.coach
     profile = get_object_or_404(CrushProfile, id=profile_id)
 
-    # get_or_create handles the race condition where a submission may have
-    # been created between page load and this click
-    submission, _created = ProfileSubmission.objects.get_or_create(
-        profile=profile,
-        defaults={"status": "pending", "coach": coach},
-    )
-
     # Prevent duplicate logging
     already_exists = CallAttempt.objects.filter(
-        submission=submission, event=event, result="event_invite_sms"
+        profile=profile, event=event, result="event_invite_sms"
     ).exists()
 
     if not already_exists:
         CallAttempt.objects.create(
-            submission=submission,
+            profile=profile,
             result="event_invite_sms",
             coach=coach,
             event=event,
@@ -1313,7 +1321,7 @@ def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
     return render(
         request,
         "crush_lu/_sms_invite_row_sent.html",
-        {"submission": submission, "event": event},
+        {"event": event},
     )
 
 

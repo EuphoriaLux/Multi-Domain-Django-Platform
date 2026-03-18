@@ -1,0 +1,60 @@
+{% load i18n %}
+<div data-gender="{{ p.gender }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <!-- Profile Info -->
+        <div class="flex items-center gap-3 min-w-0">
+            <!-- Avatar placeholder -->
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
+                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ p.profile.user.first_name|first|upper }}</span>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                    <h4 class="font-semibold text-sm text-gray-900 dark:text-white truncate">{{ p.display_name }}</h4>
+                    <!-- Gender badge -->
+                    {% if p.gender == 'F' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded">&#9792; F</span>
+                    {% elif p.gender == 'M' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">&#9794; M</span>
+                    {% else %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">&#9898;</span>
+                    {% endif %}
+                    <!-- Language badge -->
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded uppercase">{{ p.language }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ p.profile.phone_number }}</p>
+                    {% if p.status == 'pending' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">&#9679; {% trans "Pending" %}</span>
+                    {% elif p.status == 'recontact_coach' %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">&#9742; {% trans "Recontact" %}</span>
+                    {% endif %}
+                    {% if p.already_registered %}
+                        <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded">&#10003; {% trans "Registered" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div id="sms-actions-{{ p.row_id }}" class="flex items-center gap-2 flex-shrink-0">
+            {% if p.already_sent %}
+                <span class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    {% trans "Sent" %}
+                </span>
+            {% else %}
+                <a href="{{ p.sms_uri }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    {% trans "Open SMS" %}
+                </a>
+                <button {% if p.submission %}hx-post="{% url 'crush_lu:coach_log_event_sms_sent' event.id p.submission.id %}"{% else %}hx-post="{% url 'crush_lu:coach_log_event_sms_sent_by_profile' event.id p.profile.id %}"{% endif %}
+                        hx-target="#sms-actions-{{ p.row_id }}"
+                        hx-swap="innerHTML"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors border border-gray-300 dark:border-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    {% trans "Log Sent" %}
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>

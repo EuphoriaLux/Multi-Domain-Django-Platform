@@ -217,7 +217,7 @@ class Command(BaseCommand):
                 }.get(item['reason'], 'UNKNOWN')
 
                 self.stdout.write(
-                    f"  [{reason_label:15s}] {item['name']:40s} (ID: {item['profile_id'] or 'N/A':5s}, Email: {item['email'] or 'N/A'})"
+                    f"  [{reason_label:15s}] {item['name']:40s} (ID: {str(item['profile_id'] or 'N/A'):5s}, Email: {item['email'] or 'N/A'})"
                 )
 
             if delete_count > 10:

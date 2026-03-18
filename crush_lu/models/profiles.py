@@ -832,7 +832,17 @@ class CallAttempt(models.Model):
         'ProfileSubmission',
         on_delete=models.CASCADE,
         related_name='call_attempts',
+        null=True,
+        blank=True,
         help_text=_("The profile submission this call attempt is for")
+    )
+    profile = models.ForeignKey(
+        'CrushProfile',
+        on_delete=models.CASCADE,
+        related_name='call_attempts',
+        null=True,
+        blank=True,
+        help_text=_("Direct profile link (for profiles without a submission)")
     )
     attempt_date = models.DateTimeField(
         auto_now_add=True,
