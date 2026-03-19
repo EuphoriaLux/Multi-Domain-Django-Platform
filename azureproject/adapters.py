@@ -312,23 +312,38 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         Django Allauth calls this method to send verification emails, password resets, etc.
         We intercept it to use our domain-specific email utilities (Graph API for Crush.lu).
         """
+        from allauth.core import context as allauth_context
         from azureproject.email_utils import send_domain_email
         from django.template.loader import render_to_string
 
-        # Get the request from context (Allauth provides it)
-        request = context.get('request')
+        # Get request from allauth's internal context (always available),
+        # then fall back to the template context dict.
+        # Allauth callers (send_confirmation_mail, send_password_reset_mail, etc.)
+        # do NOT always include 'request' in the context dict, but allauth's
+        # request context manager always has it.
+        request = None
+        try:
+            request = allauth_context.request
+        except (AttributeError, RuntimeError):
+            pass
+        if request is None:
+            request = context.get('request')
+
+        # Ensure request is in the template context for URL generation
+        ctx = {"request": request, "email": email}
+        ctx.update(context)
 
         # Render email subject and body from Allauth templates
-        subject = render_to_string(f'{template_prefix}_subject.txt', context)
+        subject = render_to_string(f'{template_prefix}_subject.txt', ctx)
         subject = ' '.join(subject.splitlines()).strip()  # Remove newlines
 
         # Try HTML first, fallback to plain text
         try:
-            html_message = render_to_string(f'{template_prefix}_message.html', context)
+            html_message = render_to_string(f'{template_prefix}_message.html', ctx)
         except:
             html_message = None
 
-        message = render_to_string(f'{template_prefix}_message.txt', context)
+        message = render_to_string(f'{template_prefix}_message.txt', ctx)
 
         # Use domain-specific email sending (handles Graph API for Crush.lu)
         send_domain_email(

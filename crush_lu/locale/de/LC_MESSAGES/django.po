@@ -8952,6 +8952,9 @@ msgstr "Facebook verbinden"
 msgid "Connect Microsoft"
 msgstr "Microsoft verbinden"
 
+msgid "Connect Apple"
+msgstr "Apple verbinden"
+
 #: .\crush_lu\templates\crush_lu\account_settings.html:137
 msgid "You don't have any social accounts connected yet."
 msgstr "Du hast noch keine Social-Media-Konten verbunden."

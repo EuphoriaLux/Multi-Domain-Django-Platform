@@ -450,7 +450,7 @@ def account_settings(request):
 
     # Crush.lu only supports these social providers
     # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
-    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft"]
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
 
     # Get connected social providers for this user (filtered to Crush.lu providers)
     connected_providers = set(
@@ -486,9 +486,11 @@ def account_settings(request):
             "google_connected": "google" in connected_providers,
             "facebook_connected": "facebook" in connected_providers,
             "microsoft_connected": "microsoft" in connected_providers,
+            "apple_connected": "apple" in connected_providers,
             "google_available": "google" in available_providers,
             "facebook_available": "facebook" in available_providers,
             "microsoft_available": "microsoft" in available_providers,
+            "apple_available": "apple" in available_providers,
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Push notification preferences (PWA users only)
