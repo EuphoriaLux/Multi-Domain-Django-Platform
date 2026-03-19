@@ -80,6 +80,27 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     Routes to appropriate signup flow based on domain.
     """
 
+    def list_providers(self, request):
+        """Override to add debug logging for provider discovery."""
+        providers = super().list_providers(request)
+        provider_ids = [p.id for p in providers]
+        if 'apple' not in provider_ids:
+            logger.warning(
+                f"[OAUTH-ADAPTER] Apple provider NOT in list_providers! "
+                f"Returned providers: {provider_ids}, "
+                f"host: {request.get_host()}"
+            )
+            # Log the apps that were found
+            from allauth.socialaccount.models import SocialApp
+            all_apps = list(SocialApp.objects.filter(provider='apple').values('id', 'provider', 'name'))
+            site_apps = list(SocialApp.objects.on_site(request).filter(provider='apple').values('id', 'provider', 'name'))
+            logger.warning(
+                f"[OAUTH-ADAPTER] Apple SocialApp: all={all_apps}, on_site={site_apps}"
+            )
+        else:
+            logger.debug(f"[OAUTH-ADAPTER] list_providers OK: {provider_ids}")
+        return providers
+
     def pre_social_login(self, request, sociallogin):
         """
         Called after OAuth callback but before login/signup is complete.

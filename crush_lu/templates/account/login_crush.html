@@ -113,7 +113,8 @@
                     Continue with Microsoft
                 </a>
                     {% endif %}
-                    {% if provider.id == "apple" %}
+                {% endfor %}
+                {# Apple rendered separately — bypasses provider list filtering #}
                 <a href="{% provider_login_url 'apple' %}" class="social-login-btn apple-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-black rounded-lg font-medium text-white hover:bg-gray-900 transition-colors"
                    data-oauth-url="{% provider_login_url 'apple' %}" data-provider="Apple">
                     <span class="w-5 h-5">
@@ -124,8 +125,6 @@
                     </span>
                     Continue with Apple
                 </a>
-                    {% endif %}
-                {% endfor %}
             </div>
             {% endif %}
 
