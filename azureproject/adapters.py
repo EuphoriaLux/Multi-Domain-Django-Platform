@@ -81,24 +81,64 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
 
     def list_providers(self, request):
-        """Override to add debug logging for provider discovery."""
+        """
+        Override to fix Apple provider not appearing in the provider list.
+
+        allauth's default list_providers() builds an apps_map keyed by
+        app.provider, then looks up each provider_class by provider_class.id.
+        If the Apple SocialApp isn't returned by list_apps() (e.g. due to
+        site filtering, caching, or provider_id mismatch), Apple silently
+        disappears from the login page. This override detects that case and
+        manually adds Apple by doing a direct DB lookup.
+        """
         providers = super().list_providers(request)
         provider_ids = [p.id for p in providers]
         if 'apple' not in provider_ids:
             logger.warning(
-                f"[OAUTH-ADAPTER] Apple provider NOT in list_providers! "
-                f"Returned providers: {provider_ids}, "
-                f"host: {request.get_host()}"
+                f"[OAUTH-ADAPTER] Apple missing from list_providers. "
+                f"Returned: {provider_ids}, host: {request.get_host()}"
             )
-            # Log the apps that were found
+            # Log diagnostic info to find root cause
             from allauth.socialaccount.models import SocialApp
-            all_apps = list(SocialApp.objects.filter(provider='apple').values('id', 'provider', 'name'))
-            site_apps = list(SocialApp.objects.on_site(request).filter(provider='apple').values('id', 'provider', 'name'))
+            from django.contrib.sites.shortcuts import get_current_site
+            current_site = get_current_site(request)
             logger.warning(
-                f"[OAUTH-ADAPTER] Apple SocialApp: all={all_apps}, on_site={site_apps}"
+                f"[OAUTH-ADAPTER] current_site: id={current_site.id}, "
+                f"domain={current_site.domain}"
             )
-        else:
-            logger.debug(f"[OAUTH-ADAPTER] list_providers OK: {provider_ids}")
+            all_apps = list(
+                SocialApp.objects.filter(provider='apple')
+                .values('id', 'provider', 'name')
+            )
+            # Show which sites the Apple app is linked to
+            apple_app = SocialApp.objects.filter(provider='apple').first()
+            apple_sites = list(
+                apple_app.sites.values_list('id', 'domain')
+            ) if apple_app else []
+            site_apps = list(
+                SocialApp.objects.on_site(request)
+                .filter(provider='apple')
+                .values('id', 'provider', 'name')
+            )
+            logger.warning(
+                f"[OAUTH-ADAPTER] Apple SocialApp: all={all_apps}, "
+                f"apple_sites={apple_sites}, on_site={site_apps}"
+            )
+            # Try to recover: add Apple to current site if it exists but isn't linked
+            if apple_app and not site_apps:
+                logger.warning(
+                    f"[OAUTH-ADAPTER] Apple app exists (id={apple_app.id}) but not "
+                    f"linked to site {current_site.id} ({current_site.domain}). "
+                    f"Auto-linking."
+                )
+                apple_app.sites.add(current_site)
+            # Try to recover Apple provider via direct lookup
+            try:
+                apple_provider = self.get_provider(request, 'apple')
+                providers.append(apple_provider)
+                logger.info("[OAUTH-ADAPTER] Apple provider recovered via get_provider()")
+            except Exception as e:
+                logger.error(f"[OAUTH-ADAPTER] Failed to recover Apple provider: {e}")
         return providers
 
     def pre_social_login(self, request, sociallogin):
