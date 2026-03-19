@@ -9701,6 +9701,9 @@ msgstr "Mit Facebook fortfahren"
 msgid "Continue with Microsoft"
 msgstr "Mit Microsoft fortfahren"
 
+msgid "Continue with Apple"
+msgstr "Mit Apple fortfahren"
+
 #: .\crush_lu\templates\crush_lu\auth.html:79
 #: .\crush_lu\templates\crush_lu\auth_luxid_mockup.html:150
 msgid "Or use email"
