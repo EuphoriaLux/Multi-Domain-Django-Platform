@@ -1041,16 +1041,31 @@
                             <div class="flex-1 min-w-0">
                                 <h4 class="font-semibold dark:text-white">{{ item.coach.user.get_full_name }}</h4>
                                 {% if item.coach.bio %}
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{{ item.coach.bio }}</p>
+                                <div class="coach-bio-container mt-1" data-coach-bio="{{ item.coach.id }}">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" data-coach-bio-text="{{ item.coach.id }}">{{ item.coach.bio }}</p>
+                                </div>
+                                <button type="button" data-toggle-bio="{{ item.coach.id }}" @click="toggleCoachBio"
+                                        class="text-xs text-purple-500 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 mt-0.5 hidden"
+                                        data-read-more="{% trans "Read more" %}" data-read-less="{% trans "Read less" %}">
+                                    {% trans "Read more" %}
+                                </button>
                                 {% endif %}
                                 <!-- Languages -->
                                 {% if item.coach.get_spoken_languages_display %}
-                                <div class="flex flex-wrap gap-1 mt-2">
+                                <div class="flex flex-wrap items-center gap-1 mt-2">
                                     {% for lang in item.coach.get_spoken_languages_display %}
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
                                         {{ lang.flag }} {{ lang.name }}
                                     </span>
                                     {% endfor %}
+                                    {% if item.language_match %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-medium">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                        </svg>
+                                        {% trans "Speaks your language" %}
+                                    </span>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% if item.coach.specializations %}

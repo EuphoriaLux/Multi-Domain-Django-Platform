@@ -302,7 +302,7 @@ def dashboard(request):
     return render(request, "crush_lu/dashboard.html", context)
 
 
-def _get_coaches_for_selection():
+def _get_coaches_for_selection(user_language=None):
     """Return active coaches with pending review counts for coach selection step."""
     coaches = CrushCoach.objects.filter(is_active=True).annotate(
         pending_count=Count(
@@ -315,6 +315,7 @@ def _get_coaches_for_selection():
             'coach': coach,
             'pending_count': coach.pending_count,
             'available': coach.pending_count < coach.max_active_reviews,
+            'language_match': user_language in (coach.spoken_languages or []) if user_language else False,
         }
         for coach in coaches
     ]
@@ -366,7 +367,7 @@ def create_profile(request):
                     "profile": phone_check_profile,
                     "current_step": "step1",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -419,7 +420,7 @@ def create_profile(request):
 
                     revision_submission = (
                         ProfileSubmission.objects.select_for_update()
-                        .filter(profile=profile, status__in=["revision", "recontact_coach"])
+                        .filter(profile=profile, status="revision")
                         .first()
                     )
 
@@ -464,7 +465,7 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -489,7 +490,7 @@ def create_profile(request):
                             "profile": profile,
                             "current_step": "step3",
                             "social_photos": get_all_social_photos(request.user),
-                            "coaches": _get_coaches_for_selection(),
+                            "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                         }
                         return render(request, "crush_lu/create_profile.html", context)
                     submission.coach = selected_coach
@@ -505,7 +506,7 @@ def create_profile(request):
                         "profile": profile,
                         "current_step": "step3",
                         "social_photos": get_all_social_photos(request.user),
-                        "coaches": _get_coaches_for_selection(),
+                        "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                     }
                     return render(request, "crush_lu/create_profile.html", context)
             else:
@@ -517,7 +518,7 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -578,7 +579,7 @@ def create_profile(request):
                 "form": form,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(),
+                "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
             }
             return render(request, "crush_lu/create_profile.html", context)
 
@@ -596,10 +597,10 @@ def create_profile(request):
             if latest_submission and latest_submission.status == "rejected":
                 return redirect("crush_lu:profile_rejected")
 
-            if latest_submission and latest_submission.status in [
-                "revision",
-                "recontact_coach",
-            ]:
+            if latest_submission and latest_submission.status == "recontact_coach":
+                return redirect("crush_lu:profile_submitted")
+
+            if latest_submission and latest_submission.status == "revision":
                 from .social_photos import get_all_social_photos
 
                 form = CrushProfileForm(instance=profile)
@@ -610,7 +611,7 @@ def create_profile(request):
                     "social_photos": get_all_social_photos(request.user),
                     "submission": latest_submission,
                     "is_revision": True,
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                     "selected_coach_id": latest_submission.coach_id if latest_submission.coach else None,
                 }
                 return render(request, "crush_lu/create_profile.html", context)
@@ -630,7 +631,7 @@ def create_profile(request):
                     "form": form,
                     "profile": profile,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                 },
             )
         elif profile.completion_status in ["step1", "step2", "step3", "step4"]:
@@ -645,7 +646,7 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": profile.completion_status,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(),
+                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
                 },
             )
         else:
@@ -661,7 +662,7 @@ def create_profile(request):
                 "form": form,
                 "profile": None,
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(),
+                "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
             },
         )
 
@@ -754,7 +755,7 @@ def edit_profile(request):
                 return redirect("crush_lu:profile_submitted")
             elif submission.status == "rejected":
                 return redirect("crush_lu:profile_rejected")
-            elif submission.status in ["revision", "recontact_coach"]:
+            elif submission.status == "revision":
                 messages.warning(
                     request,
                     _(
@@ -762,6 +763,14 @@ def edit_profile(request):
                     ),
                 )
                 return redirect("crush_lu:create_profile")
+            elif submission.status == "recontact_coach":
+                messages.info(
+                    request,
+                    _(
+                        "Your coach is trying to reach you. Please contact them to schedule your screening call."
+                    ),
+                )
+                return redirect("crush_lu:profile_submitted")
         except ProfileSubmission.DoesNotExist:
             pass
 

@@ -2030,6 +2030,11 @@ document.addEventListener('alpine:init', function() {
                         self._highlightCoachCard(selectedCoach);
                     }, 100);
                 }
+
+                // Init coach bio "Read more" buttons when starting on step 4
+                if (this.currentStep === 4) {
+                    setTimeout(function() { self.initCoachBioButtons(); }, 150);
+                }
             },
 
             // Initialize field tracking from DOM values
@@ -2477,8 +2482,41 @@ document.addEventListener('alpine:init', function() {
                         self.saveError = '';
                         self.currentStep = 4;
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(function() { self.initCoachBioButtons(); }, 100);
                     }
                 });
+            },
+
+            // Coach bio expand/collapse (Step 4)
+            toggleCoachBio: function(e) {
+                e.stopPropagation();
+                var btn = e.currentTarget;
+                var coachId = btn.getAttribute('data-toggle-bio');
+                var textEl = document.querySelector('[data-coach-bio-text="' + coachId + '"]');
+                if (!textEl) return;
+                var isExpanded = textEl.classList.contains('line-clamp-none');
+                if (isExpanded) {
+                    textEl.classList.remove('line-clamp-none');
+                    textEl.classList.add('line-clamp-2');
+                    btn.textContent = btn.getAttribute('data-read-more');
+                } else {
+                    textEl.classList.remove('line-clamp-2');
+                    textEl.classList.add('line-clamp-none');
+                    btn.textContent = btn.getAttribute('data-read-less');
+                }
+            },
+
+            initCoachBioButtons: function() {
+                // Show "Read more" buttons only for bios that are actually truncated
+                var bioTexts = document.querySelectorAll('[data-coach-bio-text]');
+                for (var i = 0; i < bioTexts.length; i++) {
+                    var el = bioTexts[i];
+                    if (el.scrollHeight > el.clientHeight) {
+                        var coachId = el.getAttribute('data-coach-bio-text');
+                        var btn = document.querySelector('[data-toggle-bio="' + coachId + '"]');
+                        if (btn) btn.classList.remove('hidden');
+                    }
+                }
             },
 
             // Coach selection methods (Step 4)
