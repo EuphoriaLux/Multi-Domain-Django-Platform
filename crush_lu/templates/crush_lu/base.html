@@ -354,6 +354,11 @@
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
                                         </a>
+                                        {% elif profile_status == 'recontact_coach' %}
+                                        <a class="dropdown-item text-orange-500" href="{% url 'crush_lu:profile_submitted' %}">
+                                            {% include "shared/icons/phone.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Contact Coach" %}
+                                        </a>
                                         {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
@@ -621,6 +626,11 @@
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
                                         </a>
+                                        {% elif profile_status == 'recontact_coach' %}
+                                        <a class="dropdown-item text-orange-500" href="{% url 'crush_lu:profile_submitted' %}">
+                                            {% include "shared/icons/phone.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Contact Coach" %}
+                                        </a>
                                         {% else %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:edit_profile' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
@@ -789,6 +799,11 @@
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Finish Profile" %}
+                                </a>
+                                {% elif profile_status == 'recontact_coach' %}
+                                <a class="nav-link block text-orange-500" href="{% url 'crush_lu:profile_submitted' %}">
+                                    {% include "shared/icons/phone.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Contact Coach" %}
                                 </a>
                                 {% else %}
                                 <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
