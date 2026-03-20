@@ -42,72 +42,205 @@ from .coach_notifications import (
 # Coach views
 @coach_required
 def coach_dashboard(request):
-    """Coach dashboard for reviewing profiles"""
-    coach = request.coach
+    """Coach dashboard - analytics and statistics hub"""
+    from datetime import date
 
-    # Get pending submissions assigned to this coach, ordered by oldest first
+    coach = request.coach
+    now = timezone.now()
+
+    # --- Row 1: Summary stat cards ---
+    approved_profiles = CrushProfile.objects.filter(is_approved=True)
+    total_approved = approved_profiles.count()
+
+    pending_reviews = ProfileSubmission.objects.filter(
+        coach=coach, status="pending"
+    ).count()
+
+    coach_stats = ProfileSubmission.objects.filter(coach=coach).aggregate(
+        total_approved=Count("id", filter=Q(status="approved")),
+        total_rejected=Count("id", filter=Q(status="rejected")),
+        total_revision=Count("id", filter=Q(status="revision")),
+        total_recontact=Count("id", filter=Q(status="recontact_coach")),
+    )
+    your_total_reviews = (
+        coach_stats["total_approved"]
+        + coach_stats["total_rejected"]
+        + coach_stats["total_revision"]
+        + coach_stats["total_recontact"]
+    )
+
+    pending_connections_count = EventConnection.objects.filter(
+        status__in=["accepted", "coach_reviewing"]
+    ).count()
+
+    # --- Row 2: Demographics ---
+    # Gender breakdown
+    gender_data = approved_profiles.values("gender").annotate(count=Count("id"))
+    gender_counts = {"F": 0, "M": 0, "other": 0}
+    for item in gender_data:
+        if item["gender"] == "F":
+            gender_counts["F"] = item["count"]
+        elif item["gender"] == "M":
+            gender_counts["M"] = item["count"]
+        else:
+            gender_counts["other"] += item["count"]
+    gender_total = sum(gender_counts.values()) or 1
+
+    gender_bars = []
+    for key, label, color in [
+        ("F", _("Women"), "bg-pink-500"),
+        ("M", _("Men"), "bg-blue-500"),
+        ("other", _("Other"), "bg-purple-500"),
+    ]:
+        count = gender_counts[key]
+        pct = round(count * 100 / gender_total) if gender_total else 0
+        gender_bars.append(
+            {"label": label, "count": count, "pct": pct, "color": color}
+        )
+
+    # Age distribution
+    today = date.today()
+    dob_list = list(
+        approved_profiles.exclude(date_of_birth__isnull=True).values_list(
+            "date_of_birth", flat=True
+        )
+    )
+    age_buckets = [
+        {"label": "18-24", "min": 18, "max": 24, "count": 0},
+        {"label": "25-30", "min": 25, "max": 30, "count": 0},
+        {"label": "31-35", "min": 31, "max": 35, "count": 0},
+        {"label": "36-40", "min": 36, "max": 40, "count": 0},
+        {"label": "41-50", "min": 41, "max": 50, "count": 0},
+        {"label": "50+", "min": 51, "max": 999, "count": 0},
+    ]
+    for dob in dob_list:
+        age = (
+            today.year
+            - dob.year
+            - ((today.month, today.day) < (dob.month, dob.day))
+        )
+        for bucket in age_buckets:
+            if bucket["min"] <= age <= bucket["max"]:
+                bucket["count"] += 1
+                break
+    max_age_count = max((b["count"] for b in age_buckets), default=1) or 1
+    for bucket in age_buckets:
+        bucket["pct"] = round(bucket["count"] * 100 / max_age_count)
+
+    # --- Row 3: Membership tier distribution ---
+    tier_data = approved_profiles.values("membership_tier").annotate(
+        count=Count("id")
+    )
+    tier_map = {item["membership_tier"]: item["count"] for item in tier_data}
+    tier_cards = [
+        {
+            "label": _("Basic"),
+            "key": "basic",
+            "count": tier_map.get("basic", 0),
+            "color": "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200",
+        },
+        {
+            "label": _("Bronze"),
+            "key": "bronze",
+            "count": tier_map.get("bronze", 0),
+            "color": "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
+        },
+        {
+            "label": _("Silver"),
+            "key": "silver",
+            "count": tier_map.get("silver", 0),
+            "color": "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200",
+        },
+        {
+            "label": _("Gold"),
+            "key": "gold",
+            "count": tier_map.get("gold", 0),
+            "color": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
+        },
+    ]
+
+    # --- Row 4: Quick actions ---
+    from .models import CrushSpark
+
+    pending_sparks_count = CrushSpark.objects.filter(status="pending_review").count()
+
+    context = {
+        "coach": coach,
+        "total_approved": total_approved,
+        "pending_reviews": pending_reviews,
+        "your_total_reviews": your_total_reviews,
+        "pending_connections_count": pending_connections_count,
+        "gender_bars": gender_bars,
+        "age_buckets": age_buckets,
+        "tier_cards": tier_cards,
+        "coach_stats": coach_stats,
+        "pending_sparks_count": pending_sparks_count,
+    }
+    return render(request, "crush_lu/coach_dashboard.html", context)
+
+
+@coach_required
+def coach_profiles(request):
+    """Profile verification queue - pending submissions, recontact, and incomplete profiles"""
+    coach = request.coach
+    now = timezone.now()
+
+    # --- Section 1: Pending submissions ---
     pending_submissions = (
         ProfileSubmission.objects.filter(coach=coach, status="pending")
         .select_related("profile__user")
+        .annotate(
+            call_attempt_count=Count(
+                "call_attempts",
+                filter=Q(call_attempts__result__in=["success", "failed"]),
+            ),
+            sms_attempt_count=Count(
+                "call_attempts",
+                filter=Q(call_attempts__result__in=["sms_sent", "event_invite_sms"]),
+            ),
+        )
         .order_by("submitted_at")
     )
 
-    # Get recontact submissions (coach requested callback from user)
-    recontact_submissions = (
-        ProfileSubmission.objects.filter(coach=coach, status="recontact_coach")
-        .select_related("profile__user")
-        .annotate(call_attempt_count=Count("call_attempts"))
-        .order_by("submitted_at")
-    )
-
-    # Calculate wait time and urgency for each submission
-    now = timezone.now()
     for submission in pending_submissions:
-        hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
-        submission.is_urgent = hours_waiting > 48  # Red: > 48 hours
-        submission.is_warning = 24 < hours_waiting <= 48  # Yellow: 24-48 hours
-
-    # Add urgency indicators for recontact submissions too
-    for submission in recontact_submissions:
         hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
         submission.is_urgent = hours_waiting > 48
         submission.is_warning = 24 < hours_waiting <= 48
 
-    # Split by gender: Women (F), Men (M), Other (NB, O, P)
     pending_women = [s for s in pending_submissions if s.profile.gender == "F"]
     pending_men = [s for s in pending_submissions if s.profile.gender == "M"]
     pending_other = [
         s for s in pending_submissions if s.profile.gender in ["NB", "O", "P", ""]
     ]
 
-    # Get recently reviewed
-    recent_reviews = (
-        ProfileSubmission.objects.filter(
-            coach=coach,
-            status__in=["approved", "rejected", "revision", "recontact_coach"],
-        )
+    # --- Section 2: Recontact submissions ---
+    recontact_submissions = (
+        ProfileSubmission.objects.filter(coach=coach, status="recontact_coach")
         .select_related("profile__user")
-        .order_by("-reviewed_at")[:10]
+        .annotate(
+            call_attempt_count=Count(
+                "call_attempts",
+                filter=Q(call_attempts__result__in=["success", "failed"]),
+            ),
+            sms_attempt_count=Count(
+                "call_attempts",
+                filter=Q(call_attempts__result__in=["sms_sent", "event_invite_sms"]),
+            ),
+        )
+        .order_by("submitted_at")
     )
 
-    # Note: Coach push notifications are now managed in Account Settings
-    # (see account_settings view for coach push subscription handling)
+    for submission in recontact_submissions:
+        hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+        submission.is_urgent = hours_waiting > 48
+        submission.is_warning = 24 < hours_waiting <= 48
 
-    # Pending Crush Sparks awaiting review
-    from .models import CrushSpark
-
-    pending_sparks_count = CrushSpark.objects.filter(status="pending_review").count()
-
-    # Connections needing coach review (accepted or coach_reviewing)
-    pending_connections_count = EventConnection.objects.filter(
-        status__in=["accepted", "coach_reviewing"]
-    ).count()
-
-    # Batch-query upcoming event registrations for users with pending/recontact submissions
+    # --- Batch-query event data for pending + recontact ---
     submission_user_ids = [s.profile.user_id for s in pending_submissions] + [
         s.profile.user_id for s in recontact_submissions
     ]
     upcoming_event_regs = {}
+    past_event_counts = {}
     if submission_user_ids:
         upcoming_regs = (
             EventRegistration.objects.filter(
@@ -121,8 +254,6 @@ def coach_dashboard(request):
         for reg in upcoming_regs:
             upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
 
-    past_event_counts = {}
-    if submission_user_ids:
         past_counts = (
             EventRegistration.objects.filter(
                 user_id__in=submission_user_ids,
@@ -149,6 +280,69 @@ def coach_dashboard(request):
             submission.profile.user_id, 0
         )
 
+    # --- Section 3: Incomplete profiles ---
+    # Revision profiles: submission with this coach, status=revision, profile not resubmitted
+    revision_profiles = (
+        CrushProfile.objects.filter(
+            profilesubmission__coach=coach,
+            profilesubmission__status="revision",
+        )
+        .exclude(completion_status="submitted")
+        .exclude(is_approved=True)
+        .select_related("user")
+        .distinct()
+        .order_by("-updated_at")
+    )
+
+    # All incomplete: profiles with verified phone stuck in steps, no approved status
+    all_incomplete = (
+        CrushProfile.objects.filter(
+            completion_status__in=["step1", "step2", "step3", "step4"],
+            phone_number__isnull=False,
+            phone_verified=True,
+        )
+        .exclude(phone_number="")
+        .exclude(is_approved=True)
+        .select_related("user")
+        .order_by("-updated_at")[:50]
+    )
+
+    # --- Batch-query event data for revision + incomplete profiles ---
+    incomplete_user_ids = [p.user_id for p in revision_profiles] + [
+        p.user_id for p in all_incomplete
+    ]
+    incomplete_upcoming_regs = {}
+    incomplete_past_counts = {}
+    if incomplete_user_ids:
+        for reg in (
+            EventRegistration.objects.filter(
+                user_id__in=incomplete_user_ids,
+                event__date_time__gte=now,
+            )
+            .exclude(status="cancelled")
+            .select_related("event")
+            .order_by("event__date_time")
+        ):
+            incomplete_upcoming_regs.setdefault(reg.user_id, []).append(reg)
+
+        for item in (
+            EventRegistration.objects.filter(
+                user_id__in=incomplete_user_ids,
+                event__date_time__lt=now,
+            )
+            .exclude(status="cancelled")
+            .values("user_id")
+            .annotate(count=Count("id"))
+        ):
+            incomplete_past_counts[item["user_id"]] = item["count"]
+
+    for profile in revision_profiles:
+        profile.upcoming_events = incomplete_upcoming_regs.get(profile.user_id, [])
+        profile.past_event_count = incomplete_past_counts.get(profile.user_id, 0)
+    for profile in all_incomplete:
+        profile.upcoming_events = incomplete_upcoming_regs.get(profile.user_id, [])
+        profile.past_event_count = incomplete_past_counts.get(profile.user_id, 0)
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -156,11 +350,10 @@ def coach_dashboard(request):
         "pending_men": pending_men,
         "pending_other": pending_other,
         "recontact_submissions": recontact_submissions,
-        "recent_reviews": recent_reviews,
-        "pending_sparks_count": pending_sparks_count,
-        "pending_connections_count": pending_connections_count,
+        "revision_profiles": revision_profiles,
+        "all_incomplete": all_incomplete,
     }
-    return render(request, "crush_lu/coach_dashboard.html", context)
+    return render(request, "crush_lu/coach_profiles.html", context)
 
 
 @coach_required
@@ -1338,15 +1531,18 @@ def coach_member_overview(request, user_id):
     except CrushProfile.DoesNotExist:
         profile = None
 
-    # Latest profile submission
-    latest_submission = (
+    # All profile submissions (for full history) + latest
+    all_submissions = (
         ProfileSubmission.objects.filter(profile=profile)
         .select_related("coach")
         .order_by("-submitted_at")
-        .first()
         if profile
-        else None
+        else ProfileSubmission.objects.none()
     )
+    latest_submission = all_submissions.first() if profile else None
+
+    # Social login provider (same pattern as coach_review_profile)
+    social_account = member.socialaccount_set.first() if profile else None
 
     # Event history
     event_registrations = (
@@ -1370,6 +1566,8 @@ def coach_member_overview(request, user_id):
         "member": member,
         "profile": profile,
         "latest_submission": latest_submission,
+        "all_submissions": all_submissions,
+        "social_account": social_account,
         "event_registrations": event_registrations,
         "connections": connections,
         "all_coaches": all_coaches,

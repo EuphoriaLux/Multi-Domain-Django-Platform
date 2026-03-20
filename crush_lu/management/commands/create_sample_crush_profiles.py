@@ -21,6 +21,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, ProfileSubmission
+from crush_lu.models.profiles import CallAttempt
 
 
 # Luxembourg locations with realistic distribution
@@ -276,7 +277,7 @@ class Command(BaseCommand):
                     self.stderr.write(f'  Warning: Could not save photo: {e}')
 
             # Create approved ProfileSubmission record
-            ProfileSubmission.objects.create(
+            submission = ProfileSubmission.objects.create(
                 profile=profile,
                 status='approved',
                 coach_notes='Auto-created test profile',
@@ -285,6 +286,20 @@ class Command(BaseCommand):
                 review_call_notes='Test profile - screening call simulated',
                 reviewed_at=timezone.now()
             )
+
+            # Add random call/SMS attempts for ~40% of profiles
+            if random.random() < 0.4:
+                attempt_types = random.choices(
+                    ['failed', 'sms_sent', 'success'],
+                    weights=[3, 4, 2],
+                    k=random.randint(1, 3),
+                )
+                for attempt_result in attempt_types:
+                    CallAttempt.objects.create(
+                        submission=submission,
+                        result=attempt_result,
+                        notes=f'Sample {attempt_result} attempt',
+                    )
 
             result['created'] = True
 

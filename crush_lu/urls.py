@@ -251,8 +251,9 @@ urlpatterns = [
     path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),
     path('coach/sparks/<int:spark_id>/assign/', views_crush_spark.coach_spark_assign, name='coach_spark_assign'),
 
-    # Coach dashboard
+    # Coach dashboard & profile verification
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
+    path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
     path('coach/review/<int:submission_id>/preview/', views.coach_preview_email, name='coach_preview_email'),

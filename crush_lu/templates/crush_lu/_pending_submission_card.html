@@ -38,7 +38,7 @@
                 {{ submission.profile.location|default:_("No location") }}
             </p>
 
-            {# Preferred Language Flag + Call Attempts #}
+            {# Preferred Language Flag + Call/SMS Attempts #}
             <p class="text-sm mb-1 flex items-center gap-2">
                 {% if submission.profile.preferred_language == 'de' %}
                     🇩🇪
@@ -48,8 +48,13 @@
                     🇬🇧
                 {% endif %}
                 {% if submission.call_attempt_count %}
-                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full">
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full" title="{% trans 'Call attempts' %}">
                         📞 {{ submission.call_attempt_count }}
+                    </span>
+                {% endif %}
+                {% if submission.sms_attempt_count %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full" title="{% trans 'SMS sent' %}">
+                        💬 {{ submission.sms_attempt_count }}
                     </span>
                 {% endif %}
             </p>

@@ -266,8 +266,12 @@
                                      x-cloak
                                      class="dropdown-menu">
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
+                                        {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" only %}
+                                        {% trans "Dashboard" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_profiles' %}">
                                         {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Review Queue" %}
+                                        {% trans "Profile Queue" %}
                                         {% if pending_screening_count > 0 %}
                                             <span class="badge badge-warning ml-2">{{ pending_screening_count }}</span>
                                         {% endif %}
@@ -718,8 +722,12 @@
                             <div class="border-t border-white/20 my-2"></div>
                             <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "Coach" %}</span>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_dashboard' %}">
+                                {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" only %}
+                                {% trans "Dashboard" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_profiles' %}">
                                 {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Review Queue" %}
+                                {% trans "Profile Queue" %}
                                 {% if pending_screening_count > 0 %}
                                     <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
                                 {% endif %}

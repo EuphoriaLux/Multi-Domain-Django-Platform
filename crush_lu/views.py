@@ -170,6 +170,7 @@ from .views_coach import (  # noqa: F401
     coach_verification_history,
     coach_connections,
     coach_connection_review,
+    coach_profiles,
 )
 
 # Voting & presentations

@@ -1,0 +1,184 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "Profile Verification" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold dark:text-white">{% trans "Profile Verification" %}</h2>
+    <p class="text-lg text-gray-500 dark:text-gray-400">{% blocktrans with name=coach.user.get_full_name %}Welcome, Coach {{ name }}!{% endblocktrans %}</p>
+</div>
+
+{# Section counts overview #}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+        <div class="p-4">
+            <h3 class="text-2xl font-bold text-crush-purple">{{ pending_submissions|length }}</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Pending Reviews" %}</p>
+        </div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+        <div class="p-4">
+            <h3 class="text-2xl font-bold text-orange-500">{{ recontact_submissions|length }}</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Awaiting Callback" %}</p>
+        </div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+        <div class="p-4">
+            <h3 class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ revision_profiles|length }}</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Revision Profiles" %}</p>
+        </div>
+    </div>
+</div>
+
+{# ======== Section 1: Pending Submissions (gender split) ======== #}
+<div class="mb-6">
+    <h5 class="font-semibold mb-4 dark:text-white">{% trans "Pending Profile Reviews" %}</h5>
+
+    {% if pending_submissions %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {# Women Column #}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Women" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 rounded-full">{{ pending_women|length }}</span>
+                </div>
+                <div class="p-4">
+                    {% if pending_women %}
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                            {% for submission in pending_women %}
+                                {% include "crush_lu/_pending_submission_card.html" %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-400 text-sm text-center py-4">{% trans "No pending reviews" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Men Column #}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Men" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{{ pending_men|length }}</span>
+                </div>
+                <div class="p-4">
+                    {% if pending_men %}
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                            {% for submission in pending_men %}
+                                {% include "crush_lu/_pending_submission_card.html" %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-400 text-sm text-center py-4">{% trans "No pending reviews" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Other Column #}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 md:col-span-2 xl:col-span-1">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Other" %}</h6>
+                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">{{ pending_other|length }}</span>
+                </div>
+                <div class="p-4">
+                    {% if pending_other %}
+                        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                            {% for submission in pending_other %}
+                                {% include "crush_lu/_pending_submission_card.html" %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-400 text-sm text-center py-4">{% trans "No pending reviews" %}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+            <p class="text-gray-500 dark:text-gray-400">{% trans "No pending reviews at the moment. Great work!" %}</p>
+        </div>
+    {% endif %}
+</div>
+
+{# ======== Section 2: Recontact Coach (Awaiting User Callback) ======== #}
+{% if recontact_submissions %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 border-l-4 border-orange-500"
+     x-data="callbackList" data-count="{{ recontact_submissions|length }}">
+    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <h5 class="font-semibold mb-0 flex items-center gap-2 dark:text-white">
+            {% include "shared/icons/phone.html" with class="w-5 h-5 text-orange-500" %}
+            {% trans "Awaiting User Callback" %}
+        </h5>
+        <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full">{{ recontact_submissions|length }}</span>
+    </div>
+    <div class="p-6">
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for submission in recontact_submissions %}
+                <div {% if forloop.counter > 3 %}x-show="isExpanded" x-cloak{% endif %}>
+                    {% include "crush_lu/_pending_submission_card.html" %}
+                </div>
+            {% endfor %}
+        </div>
+        {% if recontact_submissions|length > 3 %}
+        <div class="mt-4 text-center">
+            <button @click="toggle" class="text-sm text-crush-purple hover:text-crush-pink transition-colors font-medium">
+                <span x-text="toggleLabel"></span>
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ======== Section 3: Incomplete Profiles ======== #}
+<div class="mb-6">
+    <h5 class="font-semibold mb-4 dark:text-white">{% trans "Incomplete Profiles" %}</h5>
+
+    {# Revision profiles #}
+    {% if revision_profiles %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4 border-l-4 border-amber-500">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h6 class="font-semibold mb-0 flex items-center gap-2 dark:text-white">
+                {% trans "Revision Profiles" %}
+                <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{{ revision_profiles|length }}</span>
+            </h6>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Profiles where revision was requested but the user hasn't resubmitted yet." %}</p>
+        </div>
+        <div class="p-6">
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for profile in revision_profiles %}
+                    {% include "crush_lu/_incomplete_profile_card.html" %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# All incomplete profiles #}
+    {% if all_incomplete %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h6 class="font-semibold mb-0 flex items-center gap-2 dark:text-white">
+                {% trans "All Incomplete" %}
+                <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full">{{ all_incomplete|length }}</span>
+            </h6>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Profiles stuck in creation steps (most recent 50)." %}</p>
+        </div>
+        <div class="p-6">
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for profile in all_incomplete %}
+                    {% include "crush_lu/_incomplete_profile_card.html" %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+        {% if not revision_profiles %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+            <p class="text-gray-500 dark:text-gray-400">{% trans "No incomplete profiles found." %}</p>
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
