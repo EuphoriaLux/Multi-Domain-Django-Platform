@@ -325,34 +325,37 @@ var _i18n = {
         var loginBtn = document.getElementById('login-submit-btn');
         var signupBtn = document.getElementById('signup-submit-btn');
 
-        // Double-submit prevention for login
-        if (loginForm && loginBtn) {
-            var isLoginSubmitting = false;
-            loginForm.addEventListener('submit', function(e) {
-                if (isLoginSubmitting) {
-                    e.preventDefault();
-                    return false;
-                }
-                isLoginSubmitting = true;
-                loginBtn.disabled = true;
-                loginBtn.textContent = _i18n.loggingIn;
-                loginBtn.classList.add('opacity-75');
+        // CSRF refresh + double-submit prevention helper
+        function submitWithCsrfRefresh(form, btn, loadingText) {
+            var isSubmitting = false;
+            form.addEventListener('submit', function(e) {
+                if (isSubmitting) { e.preventDefault(); return false; }
+                e.preventDefault();
+                isSubmitting = true;
+                btn.disabled = true;
+                btn.textContent = loadingText;
+                btn.classList.add('opacity-75');
+
+                fetch('/api/csrf-token/', { method: 'GET', credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.csrfToken) {
+                        form.querySelector('[name=csrfmiddlewaretoken]').value = data.csrfToken;
+                    }
+                    form.submit();
+                })
+                .catch(function() {
+                    form.submit(); // Submit anyway if refresh fails
+                });
             });
         }
 
-        // Double-submit prevention for signup
+        if (loginForm && loginBtn) {
+            submitWithCsrfRefresh(loginForm, loginBtn, _i18n.loggingIn);
+        }
+
         if (signupForm && signupBtn) {
-            var isSignupSubmitting = false;
-            signupForm.addEventListener('submit', function(e) {
-                if (isSignupSubmitting) {
-                    e.preventDefault();
-                    return false;
-                }
-                isSignupSubmitting = true;
-                signupBtn.disabled = true;
-                signupBtn.textContent = _i18n.creatingAccount;
-                signupBtn.classList.add('opacity-75');
-            });
+            submitWithCsrfRefresh(signupForm, signupBtn, _i18n.creatingAccount);
         }
 
         // Social login button handling

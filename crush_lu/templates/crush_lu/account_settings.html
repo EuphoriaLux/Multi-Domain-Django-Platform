@@ -121,23 +121,23 @@
                 <div class="flex flex-wrap gap-2">
                     {% if google_available and not google_connected %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-google mr-2"></i>{% trans "Connect Google" %}
+                        <i class="fab fa-google mr-2"></i>Google
                     </a>
                     {% endif %}
                     {% if facebook_available and not facebook_connected %}
                     <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-blue-300 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-facebook mr-2"></i>{% trans "Connect Facebook" %}
+                        <i class="fab fa-facebook mr-2"></i>Facebook
                     </a>
                     {% endif %}
                     {% if microsoft_available and not microsoft_connected %}
                     <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-sky-300 text-sky-600 hover:bg-sky-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-microsoft mr-2"></i>{% trans "Connect Microsoft" %}
+                        <i class="fab fa-microsoft mr-2"></i>Microsoft
                     </a>
                     {% endif %}
                     {% if apple_available and not apple_connected %}
                     <a href="{% provider_login_url 'apple' process='connect' %}" class="border border-gray-400 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
                         <svg class="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-                        {% trans "Connect Apple" %}
+                        Apple
                     </a>
                     {% endif %}
                 </div>
@@ -151,23 +151,23 @@
                 <div class="flex flex-wrap gap-2">
                     {% if google_available %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-google mr-2"></i>{% trans "Connect Google" %}
+                        <i class="fab fa-google mr-2"></i>Google
                     </a>
                     {% endif %}
                     {% if facebook_available %}
                     <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-blue-300 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-facebook mr-2"></i>{% trans "Connect Facebook" %}
+                        <i class="fab fa-facebook mr-2"></i>Facebook
                     </a>
                     {% endif %}
                     {% if microsoft_available %}
                     <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-sky-300 text-sky-600 hover:bg-sky-50 px-4 py-2 rounded-lg transition-colors flex items-center">
-                        <i class="fab fa-microsoft mr-2"></i>{% trans "Connect Microsoft" %}
+                        <i class="fab fa-microsoft mr-2"></i>Microsoft
                     </a>
                     {% endif %}
                     {% if apple_available %}
                     <a href="{% provider_login_url 'apple' process='connect' %}" class="border border-gray-400 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
                         <svg class="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-                        {% trans "Connect Apple" %}
+                        Apple
                     </a>
                     {% endif %}
                 </div>

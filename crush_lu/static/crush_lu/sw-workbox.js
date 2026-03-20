@@ -45,8 +45,10 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/login/callback') ||// Explicit callback match
     url.pathname.startsWith('/api/auth/') ||   // Auth status API
     url.pathname.startsWith('/wallet/') ||     // Wallet pass endpoints
-    url.pathname === '/login/' ||              // Login page
-    url.pathname === '/logout/'                // Logout page
+    url.pathname.includes('/login') ||         // Login page (incl. /fr/login/, /de/login/)
+    url.pathname.includes('/logout') ||        // Logout page (incl. language prefixes)
+    url.pathname.includes('/signup') ||        // Signup page (incl. language prefixes)
+    url.pathname.includes('/api/csrf-token')   // CSRF token refresh endpoint
   ) {
     // Direct network fetch - prevents any Workbox handler from intercepting
     event.respondWith(fetch(event.request));
@@ -277,7 +279,8 @@ if (workbox) {
       '/oauth-complete',   // PWA OAuth return handler - must never be cached
       '/oauth/popup-callback',  // Popup OAuth callback - must never be cached
       '/oauth/popup-error',     // Popup OAuth error - must never be cached
-      '/api/auth/status'        // Auth status API - must never be cached
+      '/api/auth/status',       // Auth status API - must never be cached
+      '/api/csrf-token'         // CSRF token refresh - must never be cached
     ];
 
     // Check with and without language prefix (en, fr, de)

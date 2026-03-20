@@ -916,8 +916,11 @@ def delete_profile_photo(request, slot):
         })
 
 
-@crush_login_required
 @require_http_methods(["GET"])
 def get_csrf_token(request):
-    """Return a fresh CSRF token for long-lived forms."""
+    """Return a fresh CSRF token for long-lived forms.
+
+    No login required — anonymous users need fresh tokens on login/signup pages.
+    get_token() is safe for anonymous users (same as {% csrf_token %} in templates).
+    """
     return JsonResponse({"csrfToken": get_token(request)})

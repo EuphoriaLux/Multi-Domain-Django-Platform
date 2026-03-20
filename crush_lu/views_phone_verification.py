@@ -12,6 +12,7 @@ Security:
 """
 import json
 import logging
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
@@ -118,17 +119,45 @@ def mark_phone_verified(request):
                 "csrfToken": get_token(request),
             })
 
+        # Check if this phone number is already verified by another profile
+        existing = CrushProfile.objects.filter(
+            phone_number=phone_number,
+            phone_verified=True,
+        ).exclude(pk=profile.pk).exists()
+        if existing:
+            logger.warning(
+                "Phone already in use by another profile (user ID: %s)",
+                request.user.id,
+            )
+            return JsonResponse({
+                "success": False,
+                "error": _("This phone number is already associated with another account."),
+                "error_code": "phone_already_in_use",
+            }, status=409)
+
         # Update profile with verified phone
         profile.phone_number = phone_number
         profile.phone_verified = True
         profile.phone_verified_at = timezone.now()
         profile.phone_verification_uid = firebase_uid
-        profile.save(update_fields=[
-            "phone_number",
-            "phone_verified",
-            "phone_verified_at",
-            "phone_verification_uid"
-        ])
+        try:
+            profile.save(update_fields=[
+                "phone_number",
+                "phone_verified",
+                "phone_verified_at",
+                "phone_verification_uid"
+            ])
+        except IntegrityError:
+            # Race condition: another request verified this phone between check and save
+            logger.warning(
+                "IntegrityError: phone already in use (race condition, user ID: %s)",
+                request.user.id,
+            )
+            return JsonResponse({
+                "success": False,
+                "error": _("This phone number is already associated with another account."),
+                "error_code": "phone_already_in_use",
+            }, status=409)
 
         # Log without phone number (avoid clear-text PII - even redacted)
         logger.info(

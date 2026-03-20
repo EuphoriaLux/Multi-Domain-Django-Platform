@@ -6,6 +6,11 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 
+from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialAccount
+from crush_lu.models import EventRegistration, EventConnection, UserActivity
+from crush_lu.admin.users import ban_users, unban_users, HasCrushProfileFilter, BannedUserFilter
+
 from .models import (
     VdlUserProfile, VdlAddress, VdlCategory, VdlProducer,
     VdlCoffret, VdlAdoptionPlan, VdlProductImage,
@@ -244,17 +249,123 @@ class UserDataConsentInline(admin.StackedInline):
         return False
 
 
+class EmailAddressInline(admin.TabularInline):
+    model = EmailAddress
+    extra = 0
+    can_delete = False
+    max_num = 20
+    readonly_fields = ('email', 'verified', 'primary')
+    verbose_name_plural = 'Email Addresses'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class SocialAccountInline(admin.TabularInline):
+    model = SocialAccount
+    extra = 0
+    can_delete = False
+    max_num = 20
+    fields = ('provider', 'uid', 'get_social_email', 'date_joined')
+    readonly_fields = ('provider', 'uid', 'get_social_email', 'date_joined')
+    verbose_name_plural = 'Social Accounts'
+
+    def get_social_email(self, obj):
+        if not obj.extra_data:
+            return '-'
+        for key in ('email', 'mail', 'userPrincipalName'):
+            email = obj.extra_data.get(key)
+            if email:
+                return email
+        return '-'
+    get_social_email.short_description = 'Social Email'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class EventRegistrationInline(admin.TabularInline):
+    model = EventRegistration
+    extra = 0
+    can_delete = False
+    max_num = 20
+    fields = ('event', 'status', 'payment_confirmed', 'checked_in_at', 'registered_at')
+    readonly_fields = ('event', 'status', 'payment_confirmed', 'checked_in_at', 'registered_at')
+    verbose_name_plural = 'Event Registrations'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class EventConnectionSentInline(admin.TabularInline):
+    model = EventConnection
+    fk_name = 'requester'
+    extra = 0
+    can_delete = False
+    max_num = 20
+    fields = ('recipient', 'event', 'status', 'requested_at')
+    readonly_fields = ('recipient', 'event', 'status', 'requested_at')
+    verbose_name_plural = 'Connections Sent'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class UserActivityInline(admin.StackedInline):
+    model = UserActivity
+    extra = 0
+    can_delete = False
+    fields = ('last_seen', 'last_pwa_visit', 'is_pwa_user', 'total_visits', 'first_seen')
+    readonly_fields = ('last_seen', 'last_pwa_visit', 'is_pwa_user', 'total_visits', 'first_seen')
+    verbose_name_plural = 'User Activity'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class SocialProviderFilter(admin.SimpleListFilter):
+    title = 'Social Provider'
+    parameter_name = 'social_provider'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('google', 'Google'),
+            ('facebook', 'Facebook'),
+            ('microsoft', 'Microsoft'),
+            ('apple', 'Apple'),
+            ('none', 'No Social Account'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.db.models import Exists, OuterRef
+        if self.value() == 'none':
+            return queryset.filter(
+                ~Exists(SocialAccount.objects.filter(user_id=OuterRef('id')))
+            )
+        elif self.value():
+            return queryset.filter(
+                Exists(SocialAccount.objects.filter(user_id=OuterRef('id'), provider=self.value()))
+            )
+        return queryset
+
+
 class UserAdmin(BaseUserAdmin):
-    inlines = (UserDataConsentInline, EntrepreneurProfileInline, CrushProfileInline, CrushCoachInline, VdlUserProfileInline, DelegationProfileInline)
+    inlines = (
+        EmailAddressInline, SocialAccountInline,
+        UserDataConsentInline, CrushProfileInline, CrushCoachInline,
+        UserActivityInline, EventRegistrationInline, EventConnectionSentInline,
+        EntrepreneurProfileInline, VdlUserProfileInline, DelegationProfileInline,
+    )
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff',
+                    'get_social_providers', 'date_joined',
                     'get_consent_status',
                     'has_entreprinder_profile', 'get_crush_profile_link', 'has_vinsdelux_profile', 'is_crush_coach',
                     'has_delegation_profile',
                     'profile_count')
-    list_filter = BaseUserAdmin.list_filter + ('is_staff', 'is_active', 'date_joined')
+    list_filter = BaseUserAdmin.list_filter + ('is_staff', 'is_active', 'date_joined', SocialProviderFilter, HasCrushProfileFilter, BannedUserFilter)
+    actions = [ban_users, unban_users]
 
-    # Add search by profile status
-    search_fields = ('username', 'email', 'first_name', 'last_name')
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'crushprofile__phone_number', 'emailaddress__email')
 
     def profile_count(self, obj):
         """Count total number of profiles across all apps"""
@@ -294,6 +405,18 @@ class UserAdmin(BaseUserAdmin):
         else:
             return mark_safe('<span style="color: red;">No profiles</span>')
     profile_count.short_description = '📊 Total Profiles'
+
+    def get_social_providers(self, obj):
+        """Show linked social account providers"""
+        providers = [sa.provider.title() for sa in obj.socialaccount_set.all()]
+        if providers:
+            return ', '.join(providers)
+        return mark_safe('<span style="color: #999;">-</span>')
+    get_social_providers.short_description = '🔗 Social'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.prefetch_related('socialaccount_set', 'emailaddress_set')
 
     def has_entreprinder_profile(self, obj):
         """Check if user has Entreprinder/PowerUP profile"""
@@ -430,7 +553,59 @@ class UserAdmin(BaseUserAdmin):
             summary += '<tr><td style="padding: 8px; border: 1px solid #ddd;"><strong>👥 Crush Delegation</strong></td>'
             summary += '<td style="padding: 8px; border: 1px solid #ddd;">❌ No profile</td></tr>'
 
-        summary += '</table></div>'
+        summary += '</table>'
+
+        # Email addresses
+        email_addresses = obj.emailaddress_set.all()
+        if email_addresses:
+            summary += '<h4 style="margin-top: 15px;">📧 Email Addresses</h4>'
+            summary += '<table style="width: 100%; border-collapse: collapse;">'
+            summary += '<tr style="background: #e0e0e0;"><th style="padding: 6px; border: 1px solid #ddd;">Email</th><th style="padding: 6px; border: 1px solid #ddd;">Verified</th><th style="padding: 6px; border: 1px solid #ddd;">Primary</th></tr>'
+            for ea in email_addresses:
+                verified_icon = '✅' if ea.verified else '❌'
+                primary_icon = '⭐' if ea.primary else ''
+                summary += f'<tr><td style="padding: 6px; border: 1px solid #ddd;">{ea.email}</td><td style="padding: 6px; border: 1px solid #ddd;">{verified_icon}</td><td style="padding: 6px; border: 1px solid #ddd;">{primary_icon}</td></tr>'
+            summary += '</table>'
+
+        # Social accounts
+        social_accounts = obj.socialaccount_set.all()
+        if social_accounts:
+            summary += '<h4 style="margin-top: 15px;">🔗 Social Accounts</h4>'
+            summary += '<table style="width: 100%; border-collapse: collapse;">'
+            summary += '<tr style="background: #e0e0e0;"><th style="padding: 6px; border: 1px solid #ddd;">Provider</th><th style="padding: 6px; border: 1px solid #ddd;">UID</th><th style="padding: 6px; border: 1px solid #ddd;">Social Email</th><th style="padding: 6px; border: 1px solid #ddd;">Date Joined</th></tr>'
+            for sa in social_accounts:
+                social_email = '-'
+                if sa.extra_data:
+                    for key in ('email', 'mail', 'userPrincipalName'):
+                        if sa.extra_data.get(key):
+                            social_email = sa.extra_data[key]
+                            break
+                date_str = sa.date_joined.strftime('%Y-%m-%d %H:%M') if sa.date_joined else '-'
+                summary += f'<tr><td style="padding: 6px; border: 1px solid #ddd;">{sa.provider.title()}</td><td style="padding: 6px; border: 1px solid #ddd; font-size: 0.85em;">{sa.uid}</td><td style="padding: 6px; border: 1px solid #ddd;">{social_email}</td><td style="padding: 6px; border: 1px solid #ddd;">{date_str}</td></tr>'
+            summary += '</table>'
+
+        # User activity
+        try:
+            activity = obj.activity
+            summary += '<h4 style="margin-top: 15px;">📊 Activity Stats</h4>'
+            summary += '<table style="width: 100%; border-collapse: collapse;">'
+            last_seen = activity.last_seen.strftime('%Y-%m-%d %H:%M') if activity.last_seen else '-'
+            first_seen = activity.first_seen.strftime('%Y-%m-%d %H:%M') if activity.first_seen else '-'
+            pwa_icon = '✅' if activity.is_pwa_user else '❌'
+            summary += f'<tr><td style="padding: 6px; border: 1px solid #ddd;"><strong>Last Seen:</strong> {last_seen}</td><td style="padding: 6px; border: 1px solid #ddd;"><strong>First Seen:</strong> {first_seen}</td></tr>'
+            summary += f'<tr><td style="padding: 6px; border: 1px solid #ddd;"><strong>Total Visits:</strong> {activity.total_visits}</td><td style="padding: 6px; border: 1px solid #ddd;"><strong>PWA User:</strong> {pwa_icon}</td></tr>'
+            summary += '</table>'
+        except Exception:
+            pass
+
+        # Event registrations count
+        event_count = EventRegistration.objects.filter(user=obj).count()
+        connection_count = EventConnection.objects.filter(requester=obj).count()
+        if event_count or connection_count:
+            summary += '<h4 style="margin-top: 15px;">🎉 Events & Connections</h4>'
+            summary += f'<p style="margin: 5px 0;"><strong>Event Registrations:</strong> {event_count} | <strong>Connections Sent:</strong> {connection_count}</p>'
+
+        summary += '</div>'
         return mark_safe(summary)
     get_profile_summary.short_description = 'Cross-Platform Profile Status'
 

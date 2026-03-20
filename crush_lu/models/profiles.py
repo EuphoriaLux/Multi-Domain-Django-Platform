@@ -543,6 +543,15 @@ class CrushProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['phone_number'],
+                condition=~models.Q(phone_number=''),
+                name='unique_non_empty_phone_number',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username}'s Crush Profile"
 

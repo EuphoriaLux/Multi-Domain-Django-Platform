@@ -3952,8 +3952,10 @@ document.addEventListener('alpine:init', function() {
             resendCountdown: 60,
             resendTimer: null,
             failureCount: 0,
+            phoneAlreadyInUse: false,
 
             // Computed getters for CSP compatibility
+            get showPhoneInUseError() { return this.phoneAlreadyInUse; },
             get isSendingStep() { return this.step === 'sending'; },
             get isCodeStep() { return this.step === 'code'; },
             get isVerifyingStep() { return this.step === 'verifying'; },
@@ -4024,6 +4026,7 @@ document.addEventListener('alpine:init', function() {
                 this.isOpen = true;
                 this.step = 'sending';
                 this.error = '';
+                this.phoneAlreadyInUse = false;
                 // CSP-compatible: reset individual OTP fields
                 this.otp0 = '';
                 this.otp1 = '';
@@ -4118,6 +4121,10 @@ document.addEventListener('alpine:init', function() {
                             // Update phone verification state
                             window.dispatchEvent(new CustomEvent('phone-verified', { detail: result.phoneNumber }));
                             setTimeout(function() { self.close(); }, 2000);
+                        } else if (result.error_code === 'phone_already_in_use') {
+                            self.phoneAlreadyInUse = true;
+                            self.step = 'code';
+                            self.error = result.error;
                         } else {
                             self.step = 'code';
                             self.error = result.error;
@@ -4191,6 +4198,11 @@ document.addEventListener('alpine:init', function() {
 
             // Failure tracking for support contact
             failureCount: 0,
+            phoneAlreadyInUse: false,
+
+            // WhatsApp support
+            whatsappNumber: '',
+            whatsappMessage: '',
 
             // Computed getters for CSP compatibility
             get isPhoneStep() { return this.step === 'phone'; },
@@ -4205,6 +4217,15 @@ document.addEventListener('alpine:init', function() {
             },
             get isOtpComplete() { return this.otpCode.length === 6; },
             get showSupportContact() { return this.failureCount >= 2; },
+            get showPhoneInUseError() { return this.phoneAlreadyInUse; },
+            get hasWhatsappSupport() { return this.whatsappNumber !== ''; },
+            get whatsappSupportUrl() {
+                var url = 'https://wa.me/' + this.whatsappNumber;
+                if (this.whatsappMessage) {
+                    url += '?text=' + encodeURIComponent(this.whatsappMessage);
+                }
+                return url;
+            },
 
             init: function() {
                 var self = this;
@@ -4213,6 +4234,8 @@ document.addEventListener('alpine:init', function() {
                 this.phoneInputId = this.$el.getAttribute('data-phone-input-id') || 'phone_number';
                 this.nextUrl = this.$el.getAttribute('data-next-url') || '';
                 var currentPhone = this.$el.getAttribute('data-current-phone') || '';
+                this.whatsappNumber = this.$el.getAttribute('data-whatsapp-number') || '';
+                this.whatsappMessage = this.$el.getAttribute('data-whatsapp-message') || '';
 
                 // Initialize intl-tel-input after DOM is ready
                 this.$nextTick(function() {
@@ -4332,6 +4355,9 @@ document.addEventListener('alpine:init', function() {
                         if (result.success) {
                             self.verifiedPhone = result.phone_number;
                             self.step = 'success';
+                        } else if (result.error_code === 'phone_already_in_use') {
+                            self.phoneAlreadyInUse = true;
+                            self.error = result.error || 'This phone number is already in use';
                         } else {
                             self.error = result.error || 'Invalid code';
                             self.clearOtp();
@@ -4366,6 +4392,7 @@ document.addEventListener('alpine:init', function() {
                 this.step = 'phone';
                 this.clearOtp();
                 this.error = '';
+                this.phoneAlreadyInUse = false;
                 if (this.resendTimer) {
                     clearInterval(this.resendTimer);
                     this.resendTimer = null;

@@ -417,7 +417,9 @@ class PhoneVerification {
                     phone_number: response.phone_number
                 };
             } else {
-                throw new Error(response.error || 'Verification failed');
+                var err = new Error(response.error || 'Verification failed');
+                err.errorCode = response.error_code || null;
+                throw err;
             }
 
         } catch (error) {
@@ -432,7 +434,7 @@ class PhoneVerification {
             }
 
             this.onError(this.formatFirebaseError(error));
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, error_code: error.errorCode || null };
         }
     }
 
