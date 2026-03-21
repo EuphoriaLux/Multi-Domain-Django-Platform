@@ -247,13 +247,11 @@
         </div>
     </div>
 
-    <!-- Membership Card - PWA Gated -->
+    <!-- Membership Card -->
     <div class="status-card">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
 
-            {% if is_pwa_user %}
-            {# User has installed PWA - show full membership card #}
             <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your Crush.lu membership card to your mobile wallet and share your referral link." %}</p>
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 {# Apple Wallet - Coming Soon #}
@@ -285,36 +283,6 @@
                 </button>
                 <p id="share-referral-status" class="text-sm text-green-600 dark:text-green-300 mt-2 hidden" role="status" aria-live="polite"></p>
             </div>
-
-            {% else %}
-            {# User has NOT installed PWA - show locked card with blur and CTA #}
-            <div class="relative min-h-[140px]">
-                {# Blurred preview #}
-                <div class="filter blur-sm pointer-events-none select-none opacity-60" aria-hidden="true">
-                    <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your membership card to your wallet..." %}</p>
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <span class="btn-crush-primary inline-flex items-center gap-2 text-sm">{% trans "Add to Apple Wallet" %}</span>
-                        <span class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg text-sm">{% trans "Add to Google Wallet" %}</span>
-                    </div>
-                    <div class="mt-3">
-                        <span class="inline-flex items-center gap-2 px-4 py-2 text-sm border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg">{% trans "Share Referral Link" %}</span>
-                    </div>
-                </div>
-
-                {# Lock overlay #}
-                <div class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg">
-                    <div class="text-center p-4">
-                        {% include "shared/icons/lock-closed.html" with class="w-10 h-10 text-crush-purple mx-auto mb-3" %}
-                        <h6 class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "Install App to Unlock" %}</h6>
-                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Get your membership card and exclusive features" %}</p>
-                        <a href="{% url 'crush_lu:membership' %}" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
-                            {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
-                            {% trans "Learn More" %}
-                        </a>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
@@ -584,7 +552,7 @@
                         setLoading(false);
                     }
                 } catch (error) {
-                    alert('{% trans "Failed to generate wallet pass. Please try again." %}');
+                    alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}');
                     setLoading(false);
                 }
             });

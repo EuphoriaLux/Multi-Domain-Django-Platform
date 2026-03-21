@@ -24,50 +24,6 @@
         </p>
     </div>
 
-    {% if not is_pwa_user %}
-    <!-- PWA Install Banner for non-PWA users -->
-    <div class="cta-gradient mb-10">
-        <!-- Decorative background pattern -->
-        <div class="cta-gradient-decorations">
-            <div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
-            <div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
-        </div>
-
-        <div class="relative p-8 md:p-10 text-white text-center">
-            <div class="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg transform hover:scale-105 transition-transform">
-                {% include "shared/icons/device-mobile.html" with class="w-10 h-10 text-white" %}
-            </div>
-            <h2 class="text-3xl md:text-4xl font-bold mb-3">{% trans "Install the App to Unlock" %}</h2>
-            <p class="text-white/95 text-lg mb-8 max-w-md mx-auto leading-relaxed">
-                {% trans "Get your membership card in Apple Wallet or Google Wallet, plus push notifications for events and connections." %}
-            </p>
-
-            <!-- PWA Install Button using Alpine.js component -->
-            <div x-data="pwaInstallButton" class="inline-block">
-                <template x-if="canInstallVisible">
-                    <button @click="install" class="bg-white text-crush-purple font-bold px-8 py-4 rounded-xl hover:bg-gray-50 hover:shadow-xl transition-all duration-300 transform hover:scale-105 inline-flex items-center gap-3 text-lg shadow-lg">
-                        {% include "shared/icons/arrow-down-tray.html" with class="w-6 h-6" %}
-                        {% trans "Install Crush.lu App" %}
-                    </button>
-                </template>
-
-                <template x-if="isInstalledVisible">
-                    <div class="bg-white/20 backdrop-blur-sm text-white font-semibold px-8 py-4 rounded-xl inline-flex items-center gap-3 text-lg border-2 border-white/30">
-                        {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
-                        {% trans "App Installed!" %}
-                    </div>
-                </template>
-
-                <template x-if="showInstructionsVisible">
-                    <div class="bg-white/10 backdrop-blur-sm text-white px-6 py-4 rounded-xl text-sm border border-white/20">
-                        <strong>{% trans "iOS:" %}</strong> {% trans "Tap Share" %} {% include "shared/icons/arrow-up-on-square.html" with class="w-4 h-4 inline" %} {% trans "then 'Add to Home Screen'" %}
-                    </div>
-                </template>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Membership Card Preview -->
     <div class="card-accent mb-10">
         <div class="card-body md:p-8">
@@ -78,8 +34,8 @@
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your Membership Card" %}</h2>
             </div>
 
-            {% if is_pwa_user and user.is_authenticated %}
-            {# Full membership card for PWA users #}
+            {% if user.is_authenticated %}
+            {# Full membership card #}
             <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6 mb-4">
                 <div class="flex items-center gap-4 mb-4">
                     <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
@@ -124,38 +80,6 @@
                 <p id="share-referral-status" class="text-sm text-green-600 dark:text-green-300 mt-2 hidden"></p>
             </div>
             {% endif %}
-
-            {% elif user.is_authenticated %}
-            {# Logged in but not PWA user - show locked preview with blur #}
-            <div class="relative overflow-hidden rounded-xl">
-                {# Blurred membership card preview #}
-                <div class="blur-[6px] pointer-events-none select-none" aria-hidden="true">
-                    <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6">
-                        <div class="flex items-center gap-4 mb-6">
-                            <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
-                                {{ user.first_name|slice:":1" }}
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 dark:text-white">{{ profile.display_name }}</p>
-                                <p class="text-gray-600 dark:text-gray-300 text-sm">{% trans "Member since" %} {{ user.date_joined|date:"M Y" }}</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-3">
-                            <span class="bg-crush-purple text-white px-4 py-2 rounded-lg text-sm font-medium">{% trans "Add to Apple Wallet" %}</span>
-                            <span class="bg-gray-800 dark:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">{% trans "Add to Google Wallet" %}</span>
-                        </div>
-                    </div>
-                </div>
-                {# Lock overlay - simple message pointing to banner above #}
-                <div class="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-800/60 backdrop-blur-[2px]">
-                    <div class="text-center px-4">
-                        <div class="w-14 h-14 bg-gradient-to-br from-crush-purple to-crush-pink rounded-full shadow-lg flex items-center justify-center mx-auto mb-3">
-                            {% include "shared/icons/lock-closed.html" with class="w-7 h-7 text-white" %}
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "Install the app above to unlock" %}</p>
-                    </div>
-                </div>
-            </div>
 
             {% else %}
             {# Not logged in - show login CTA #}
@@ -313,7 +237,7 @@
     {% endif %}
 </div>
 
-{% if is_pwa_user and user.is_authenticated %}
+{% if user.is_authenticated %}
 <!-- Google Wallet and Referral JavaScript -->
 <script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
@@ -339,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (googleWalletImg) googleWalletImg.style.opacity = '1';
                 }
             } catch (error) {
-                alert('{% trans "Failed to generate wallet pass. Please try again." %}');
+                alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}');
                 googleWalletBtn.disabled = false;
                 if (googleWalletImg) googleWalletImg.style.opacity = '1';
             }
@@ -359,11 +283,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     await navigator.share({
                         title: 'Crush.lu',
-                        text: '{% trans "Join me on Crush.lu" %}',
+                        text: '{% filter escapejs %}{% trans "Join me on Crush.lu" %}{% endfilter %}',
                         url: referralUrl,
                     });
                     if (statusElement) {
-                        statusElement.textContent = '{% trans "Referral link shared!" %}';
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Referral link shared!" %}{% endfilter %}';
                         statusElement.classList.remove('hidden');
                     }
                     return;
@@ -377,12 +301,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     await navigator.clipboard.writeText(referralUrl);
                     if (statusElement) {
-                        statusElement.textContent = '{% trans "Referral link copied to clipboard." %}';
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Referral link copied to clipboard." %}{% endfilter %}';
                         statusElement.classList.remove('hidden');
                     }
                 } catch (e) {
                     if (statusElement) {
-                        statusElement.textContent = '{% trans "Unable to copy referral link." %}';
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Unable to copy referral link." %}{% endfilter %}';
                         statusElement.classList.remove('hidden');
                     }
                 }
