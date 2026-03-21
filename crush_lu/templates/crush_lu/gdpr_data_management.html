@@ -69,7 +69,7 @@
                         <strong class="text-red-600 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
                     </p>
 
-                    <form method="post" onsubmit="return confirm('{% trans "Are you sure? This cannot be undone and you cannot rejoin Crush.lu." %}');">
+                    <form method="post" onsubmit="return confirm('{% filter escapejs %}{% trans "Are you sure? This cannot be undone and you cannot rejoin Crush.lu." %}{% endfilter %}');">
                         {% csrf_token %}
                         <input type="hidden" name="deletion_type" value="crushlu_only">
                         <div class="mb-4">
@@ -99,7 +99,7 @@
                         {% trans "Permanently deletes your account from ALL platforms (Crush.lu, VinsDelux, Entreprinder, etc.). This cannot be undone." %}
                     </p>
 
-                    <form method="post" onsubmit="return confirm('{% trans "This will delete ALL your data across ALL platforms. Are you absolutely sure?" %}');">
+                    <form method="post" onsubmit="return confirm('{% filter escapejs %}{% trans "This will delete ALL your data across ALL platforms. Are you absolutely sure?" %}{% endfilter %}');">
                         {% csrf_token %}
                         <input type="hidden" name="deletion_type" value="full_account">
                         <div class="mb-4">

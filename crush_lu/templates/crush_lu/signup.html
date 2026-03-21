@@ -157,8 +157,8 @@
 {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
 var _i18n = {
-    creatingAccount: '{% trans "Creating Account..." %}',
-    redirectingTo: '{% trans "Redirecting to" %}'
+    creatingAccount: '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
+    redirectingTo: '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}'
 };
 /**
  * Double-submit prevention for signup form

@@ -257,11 +257,11 @@
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
 var _i18n = {
-    loggingIn: '{% trans "Logging in..." %}',
-    creatingAccount: '{% trans "Creating Account..." %}',
-    openingLogin: '{% trans "Opening login..." %}',
-    redirectingTo: '{% trans "Redirecting to" %}',
-    opening: '{% trans "Opening" %}'
+    loggingIn: '{% filter escapejs %}{% trans "Logging in..." %}{% endfilter %}',
+    creatingAccount: '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
+    openingLogin: '{% filter escapejs %}{% trans "Opening login..." %}{% endfilter %}',
+    redirectingTo: '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}',
+    opening: '{% filter escapejs %}{% trans "Opening" %}{% endfilter %}'
 };
 /**
  * Unified Auth Page Handler

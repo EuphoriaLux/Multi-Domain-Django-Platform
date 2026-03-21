@@ -17694,13 +17694,11 @@ msgstr "Gemeinschaftsstandards"
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:654
 msgid "All profiles reviewed by coaches"
-msgstr ""
-"Alle Profile werden von Coaches überprüft Ihre Privatsphäre ist uns wichtig. "
-"Alle Profile werden von unseren Crush-Coaches überprüft."
+msgstr "Alle Profile werden von Coaches überprüft"
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:655
 msgid "Zero tolerance for inappropriate behavior"
-msgstr "Zero tolerance for inappropriate behavior"
+msgstr "Nulltoleranz bei unangemessenem Verhalten"
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:656
 msgid "Respectful, inclusive environment"

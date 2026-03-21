@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Final confirmation before submit
     form.addEventListener('submit', function(e) {
-        if (!confirm('{% trans "Are you absolutely sure you want to delete your account? This cannot be undone." %}')) {
+        if (!confirm('{% filter escapejs %}{% trans "Are you absolutely sure you want to delete your account? This cannot be undone." %}{% endfilter %}')) {
             e.preventDefault();
         }
     });

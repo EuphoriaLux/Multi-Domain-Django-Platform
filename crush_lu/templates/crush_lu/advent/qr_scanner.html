@@ -130,10 +130,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById('scanner-status');
     var videoEl = document.getElementById('qr-video');
 
-    var msgQrDetected = '{% trans "QR Code detected! Redirecting..." %}';
-    var msgCameraDenied = '{% trans "Camera access denied. Please use manual input below." %}';
-    var msgNoCamera = '{% trans "No camera found. Please use manual input below." %}';
-    var msgCameraError = '{% trans "Could not access camera. Please use manual input." %}';
+    var msgQrDetected = '{% filter escapejs %}{% trans "QR Code detected! Redirecting..." %}{% endfilter %}';
+    var msgCameraDenied = '{% filter escapejs %}{% trans "Camera access denied. Please use manual input below." %}{% endfilter %}';
+    var msgNoCamera = '{% filter escapejs %}{% trans "No camera found. Please use manual input below." %}{% endfilter %}';
+    var msgCameraError = '{% filter escapejs %}{% trans "Could not access camera. Please use manual input." %}{% endfilter %}';
 
     // Initialize scanner
     var html5QrCode = new Html5Qrcode("qr-video");

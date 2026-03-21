@@ -129,10 +129,10 @@
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 var _i18n = {
-    checkedIn: '{% trans "Checked In" %}',
-    checkIn: '{% trans "Check In" %}',
-    checkinFailed: '{% trans "Check-in failed" %}',
-    networkError: '{% trans "Network error" %}'
+    checkedIn: '{% filter escapejs %}{% trans "Checked In" %}{% endfilter %}',
+    checkIn: '{% filter escapejs %}{% trans "Check In" %}{% endfilter %}',
+    checkinFailed: '{% filter escapejs %}{% trans "Check-in failed" %}{% endfilter %}',
+    networkError: '{% filter escapejs %}{% trans "Network error" %}{% endfilter %}'
 };
 document.addEventListener('DOMContentLoaded', function() {
     // Manual check-in buttons

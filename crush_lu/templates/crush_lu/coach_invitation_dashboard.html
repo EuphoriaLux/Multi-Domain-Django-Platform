@@ -300,8 +300,8 @@
 {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
 var _i18n = {
-    copied: '{% trans "Copied!" %}',
-    failedToCopy: '{% trans "Failed to copy link. Please copy manually." %}'
+    copied: '{% filter escapejs %}{% trans "Copied!" %}{% endfilter %}',
+    failedToCopy: '{% filter escapejs %}{% trans "Failed to copy link. Please copy manually." %}{% endfilter %}'
 };
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.copy-invitation-btn').forEach(function(btn) {

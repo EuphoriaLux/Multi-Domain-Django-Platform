@@ -64,12 +64,12 @@
                     <div class="flex gap-3">
                         <button type="submit" name="action" value="approve"
                                 class="btn-crush-primary flex-1"
-                                onclick="return confirm('{% trans "Approve this spark? The sender will be notified to create their journey." %}')">
+                                onclick="return confirm('{% filter escapejs %}{% trans "Approve this spark? The sender will be notified to create their journey." %}{% endfilter %}')">
                             {% trans "Approve" %}
                         </button>
                         <button type="submit" name="action" value="reject"
                                 class="btn btn-danger flex-1"
-                                onclick="return confirm('{% trans "Reject this spark? This cannot be undone." %}')">
+                                onclick="return confirm('{% filter escapejs %}{% trans "Reject this spark? This cannot be undone." %}{% endfilter %}')">
                             {% trans "Reject" %}
                         </button>
                     </div>
@@ -126,7 +126,7 @@
                             {% csrf_token %}
                             <input type="hidden" name="recipient_user_id" value="{{ registration.user.id }}">
                             <button type="submit" class="btn-crush-primary text-sm px-3 py-1.5"
-                                    onclick="return confirm('{% trans "Assign this person as the recipient?" %}')">
+                                    onclick="return confirm('{% filter escapejs %}{% trans "Assign this person as the recipient?" %}{% endfilter %}')">
                                 {% trans "Assign" %}
                             </button>
                         </form>

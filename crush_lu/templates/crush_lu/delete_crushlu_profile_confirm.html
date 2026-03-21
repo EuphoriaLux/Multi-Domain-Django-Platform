@@ -53,7 +53,7 @@
                     <button
                         type="submit"
                         class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
-                        onclick="return confirm('{% trans "Are you absolutely sure? This cannot be undone and you cannot rejoin Crush.lu." %}')"
+                        onclick="return confirm('{% filter escapejs %}{% trans "Are you absolutely sure? This cannot be undone and you cannot rejoin Crush.lu." %}{% endfilter %}')"
                     >
                         {% trans "Delete My Crush.lu Profile" %}
                     </button>

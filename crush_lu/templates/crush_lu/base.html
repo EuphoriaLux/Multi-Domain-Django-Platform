@@ -660,13 +660,9 @@
                             </div>
                         {% endif %}
                     {% else %}
-                        {# GUEST NAVIGATION #}
-                        <a class="nav-link" href="{% url 'crush_lu:about' %}">{% trans "About" %}</a>
-                        <a class="nav-link" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
+                        {# GUEST NAVIGATION — minimal; secondary links live in footer #}
                         <a class="nav-link" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
-                        <a class="nav-link relative" href="{% url 'crush_lu:crush_connect_teaser' %}">{% trans "Connect" %}<span class="absolute -top-1.5 -right-3 text-[9px] font-bold text-teal-300">{% trans "Soon" %}</span></a>
-                        <a class="nav-link" href="{% url 'crush_lu:membership' %}">{% trans "Membership" %}</a>
-                        <a class="nav-link" href="{% url 'crush_lu:crush_coach' %}">{% trans "Become a Coach" %}</a>
+                        <a class="nav-link relative" href="{% url 'crush_lu:crush_connect_teaser' %}">Crush Connect<span class="absolute -top-1.5 -right-3 text-[9px] font-bold text-teal-300">{% trans "Soon" %}</span></a>
                         <a class="inline-flex items-center bg-white text-gray-800 px-4 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
                             {% trans "Login / Join" %}
                         </a>
@@ -688,8 +684,7 @@
                             <svg x-bind:class="moonIconClass" class="w-5 h-5 transition-opacity duration-300" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                 <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
                             </svg>
-                            <!-- Desktop: Show status text -->
-                            <span class="hidden md:inline text-sm font-medium" x-text="statusText"></span>
+                            <!-- Status text hidden on desktop for cleaner navbar; mobile keeps it -->
                         </button>
                     </div>
 
@@ -1002,13 +997,11 @@
                             </a>
                         {% endif %}
                     {% else %}
-                        {# GUEST MOBILE NAVIGATION #}
-                        <a class="nav-link block" href="{% url 'crush_lu:about' %}">{% trans "About" %}</a>
-                        <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
+                        {# GUEST MOBILE NAVIGATION — secondary links in footer #}
                         <a class="nav-link block" href="{% url 'crush_lu:event_list' %}">{% trans "Events" %}</a>
-                        <a class="nav-link block" href="{% url 'crush_lu:crush_connect_teaser' %}">{% trans "Connect" %} <span class="text-[9px] font-bold text-teal-300 uppercase">{% trans "Soon" %}</span></a>
+                        <a class="nav-link block" href="{% url 'crush_lu:crush_connect_teaser' %}">Crush Connect <span class="text-[9px] font-bold text-teal-300 uppercase">{% trans "Soon" %}</span></a>
+                        <a class="nav-link block" href="{% url 'crush_lu:how_it_works' %}">{% trans "How It Works" %}</a>
                         <a class="nav-link block" href="{% url 'crush_lu:membership' %}">{% trans "Membership" %}</a>
-                        <a class="nav-link block" href="{% url 'crush_lu:crush_coach' %}">{% trans "Become a Coach" %}</a>
                         <div class="border-t border-white/20 my-2"></div>
                         <a class="block bg-white text-gray-800 px-4 py-2 rounded-full font-semibold text-center hover:bg-gray-100 transition-colors shadow-sm" href="{% url 'crush_lu:login' %}">
                             {% trans "Login / Join" %}
@@ -1167,7 +1160,7 @@
                         <li><a href="{% url 'crush_lu:about' %}" class="text-white/75 hover:text-white transition-colors">{% trans "About Us" %}</a></li>
                         <li><a href="{% url 'crush_lu:how_it_works' %}" class="text-white/75 hover:text-white transition-colors">{% trans "How It Works" %}</a></li>
                         <li><a href="{% url 'crush_lu:event_list' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Events" %}</a></li>
-                        <li><a href="{% url 'crush_lu:crush_connect_teaser' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Crush Connect" %} <span class="text-teal-300 text-xs">{% trans "Soon" %}</span></a></li>
+                        <li><a href="{% url 'crush_lu:crush_connect_teaser' %}" class="text-white/75 hover:text-white transition-colors">Crush Connect <span class="text-teal-300 text-xs">{% trans "Soon" %}</span></a></li>
                         <li><a href="{% url 'crush_lu:membership' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Membership" %}</a></li>
                         <li><a href="{% url 'crush_lu:crush_coach' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Become a Coach" %}</a></li>
                     </ul>
