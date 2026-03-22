@@ -461,7 +461,7 @@ def event_detail(request, event_id):
         ensure_ascii=False,
     )
 
-    is_past = event.date_time < timezone.now()
+    is_past = event.end_time < timezone.now()
 
     context = {
         "event": event,

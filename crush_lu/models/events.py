@@ -783,12 +783,12 @@ class EventActivityVote(models.Model):
         MeetupEvent, on_delete=models.CASCADE, related_name="activity_votes"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    selected_option = models.ForeignKey(EventActivityOption, on_delete=models.CASCADE)
+    selected_option = models.ForeignKey(GlobalActivityOption, on_delete=models.CASCADE)
     voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Each user can vote once per event (view enforces update-or-create logic)
-        unique_together = ("event", "user")
+        # Each user can vote once per category per event (one presentation_style + one speed_dating_twist)
+        unique_together = ("event", "user", "selected_option")
         ordering = ["-voted_at"]
 
     def __str__(self):
@@ -961,14 +961,14 @@ class EventVotingSession(models.Model):
                 pass
 
     def initialize_presentation_queue(self):
-        """Initialize presentation queue with all confirmed/attended users in random order"""
+        """Initialize presentation queue with all checked-in (attended) users in random order"""
         from django.contrib.auth.models import User
         import random
 
-        # Get all confirmed/attended users for this event
+        # Only include users who have checked in (attended), not just confirmed
         attendees = User.objects.filter(
             eventregistration__event=self.event,
-            eventregistration__status__in=["confirmed", "attended"],
+            eventregistration__status="attended",
         ).distinct()
 
         # Create a shuffled list of attendees

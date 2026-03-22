@@ -38,10 +38,13 @@ def event_voting_lobby(request, event_id):
         EventRegistration, event=event, user=request.user
     )
 
-    # Only confirmed or attended registrations can vote
+    # Only confirmed or attended registrations can access the lobby
     if user_registration.status not in ["confirmed", "attended"]:
         messages.error(request, _("Only confirmed attendees can access event voting."))
         return redirect("crush_lu:event_detail", event_id=event_id)
+
+    # Check if user needs to check in before voting
+    needs_checkin = user_registration.status == "confirmed"
 
     # Get or create voting session
     voting_session, created = EventVotingSession.objects.get_or_create(event=event)
@@ -58,24 +61,32 @@ def event_voting_lobby(request, event_id):
     ).order_by("sort_order")
 
     # Check if user has already voted on each category
-    presentation_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user,
-        selected_option__activity_type="presentation_style",
-    ).first()
+    presentation_vote = None
+    twist_vote = None
+    has_voted_both = False
 
-    twist_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user,
-        selected_option__activity_type="speed_dating_twist",
-    ).first()
+    if not needs_checkin:
+        presentation_vote = EventActivityVote.objects.filter(
+            event=event,
+            user=request.user,
+            selected_option__activity_type="presentation_style",
+        ).first()
 
-    has_voted_both = bool(presentation_vote and twist_vote)
+        twist_vote = EventActivityVote.objects.filter(
+            event=event,
+            user=request.user,
+            selected_option__activity_type="speed_dating_twist",
+        ).first()
+
+        has_voted_both = bool(presentation_vote and twist_vote)
 
     # Get total confirmed attendees count
     total_attendees = EventRegistration.objects.filter(
         event=event, status__in=["confirmed", "attended"]
     ).count()
+
+    # Determine voting phase
+    voting_ended = not voting_session.is_voting_open and voting_session.time_until_start <= 0
 
     context = {
         "event": event,
@@ -86,6 +97,8 @@ def event_voting_lobby(request, event_id):
         "twist_vote": twist_vote,
         "has_voted_both": has_voted_both,
         "total_attendees": total_attendees,
+        "needs_checkin": needs_checkin,
+        "voting_ended": voting_ended,
     }
     return render(request, "crush_lu/event_voting_lobby.html", context)
 
@@ -108,6 +121,14 @@ def event_activity_vote(request, event_id):
     if user_registration.status not in ["confirmed", "attended"]:
         messages.error(request, _("Only confirmed attendees can vote."))
         return redirect("crush_lu:event_detail", event_id=event_id)
+
+    # Must be checked in (attended) to vote
+    if user_registration.status == "confirmed":
+        messages.warning(
+            request,
+            _("You need to check in at the event before you can vote. Please find your coach to get checked in!"),
+        )
+        return redirect("crush_lu:event_voting_lobby", event_id=event_id)
 
     # Get voting session
     voting_session = get_object_or_404(EventVotingSession, event=event)
@@ -233,43 +254,59 @@ def event_voting_results(request, event_id):
     """Display voting results and transition to presentations when ready"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user is registered for this event
-    user_registration = get_object_or_404(
-        EventRegistration, event=event, user=request.user
-    )
+    # Allow event coaches and superusers
+    is_coach = event.coaches.filter(user=request.user).exists()
+    is_coach_view = is_coach or request.user.is_superuser
+    if not is_coach_view:
+        # Verify user is registered for this event
+        user_registration = get_object_or_404(
+            EventRegistration, event=event, user=request.user
+        )
 
-    if user_registration.status not in ["confirmed", "attended"]:
-        messages.error(request, _("Only confirmed attendees can view results."))
-        return redirect("crush_lu:event_detail", event_id=event_id)
+        if user_registration.status not in ["confirmed", "attended"]:
+            messages.error(request, _("Only confirmed attendees can view results."))
+            return redirect("crush_lu:event_detail", event_id=event_id)
+
+        if user_registration.status == "confirmed":
+            messages.warning(
+                request,
+                _("You need to check in at the event before you can view results. Please find your coach to get checked in!"),
+            )
+            return redirect("crush_lu:event_detail", event_id=event_id)
 
     # Get voting session
     voting_session = get_object_or_404(EventVotingSession, event=event)
 
-    # Check if user has voted on BOTH categories
-    presentation_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user,
-        selected_option__activity_type="presentation_style",
-    ).first()
+    # Check if user has voted on BOTH categories (not relevant for coaches)
+    presentation_vote = None
+    twist_vote = None
+    user_has_voted_both = False
 
-    twist_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user,
-        selected_option__activity_type="speed_dating_twist",
-    ).first()
+    if not is_coach_view:
+        presentation_vote = EventActivityVote.objects.filter(
+            event=event,
+            user=request.user,
+            selected_option__activity_type="presentation_style",
+        ).first()
 
-    user_has_voted_both = presentation_vote and twist_vote
+        twist_vote = EventActivityVote.objects.filter(
+            event=event,
+            user=request.user,
+            selected_option__activity_type="speed_dating_twist",
+        ).first()
 
-    # If voting ended and user hasn't voted, redirect back to voting with message
-    if not voting_session.is_voting_open and not user_has_voted_both:
-        messages.warning(
-            request,
-            _(
-                "Voting has ended. You did not vote, but you can still participate in presentations!"
-            ),
-        )
-        # Allow them to continue to presentations anyway
-        return redirect("crush_lu:event_presentations", event_id=event_id)
+        user_has_voted_both = presentation_vote and twist_vote
+
+        # If voting ended and user hasn't voted, redirect back to voting with message
+        if not voting_session.is_voting_open and not user_has_voted_both:
+            messages.warning(
+                request,
+                _(
+                    "Voting has ended. You did not vote, but you can still participate in presentations!"
+                ),
+            )
+            # Allow them to continue to presentations anyway
+            return redirect("crush_lu:event_presentations", event_id=event_id)
 
     # Get vote counts for each GlobalActivityOption
     from .models import GlobalActivityOption
@@ -293,6 +330,13 @@ def event_voting_results(request, event_id):
     # Calculate total votes
     total_votes = voting_session.total_votes
 
+    # Calculate percentages for each option
+    for option in activity_options_with_votes:
+        if total_votes > 0:
+            option.vote_percentage = round(option.vote_count / total_votes * 100)
+        else:
+            option.vote_percentage = 0
+
     # If voting has ended, calculate winners and initialize presentation queue
     if not voting_session.is_voting_open:
         # Calculate winners if not already done
@@ -312,11 +356,8 @@ def event_voting_results(request, event_id):
         # Check if presentations have started
         has_presentations = PresentationQueue.objects.filter(event=event).exists()
 
-        if has_presentations:
-            # Automatically redirect to presentations after 5 seconds
-            messages.success(
-                request, _("Voting complete! Redirecting to presentations...")
-            )
+        if has_presentations and not is_coach_view:
+            # Show results with a link to presentations (no auto-redirect)
             context = {
                 "event": event,
                 "voting_session": voting_session,
@@ -333,9 +374,46 @@ def event_voting_results(request, event_id):
                 "twist_vote": twist_vote,
                 "user_has_voted_both": user_has_voted_both,
                 "total_votes": total_votes,
-                "redirect_to_presentations": True,
+                "redirect_to_presentations": False,
+                "presentations_ready": True,
+                "is_coach_view": is_coach_view,
             }
             return render(request, "crush_lu/event_voting_results.html", context)
+
+    # Coach-specific data: attendance and voting status
+    coach_data = {}
+    if is_coach_view:
+        # Get all registrations for this event
+        registrations = (
+            EventRegistration.objects.filter(event=event)
+            .select_related("user__crushprofile")
+            .order_by("user__first_name", "user__last_name")
+        )
+
+        attended = registrations.filter(status="attended")
+        confirmed_not_checked_in = registrations.filter(status="confirmed")
+
+        # Get user IDs who have voted (at least one vote)
+        voted_user_ids = set(
+            EventActivityVote.objects.filter(event=event)
+            .values_list("user_id", flat=True)
+        )
+
+        # Build list of attended users who haven't voted yet
+        not_voted = []
+        for reg in attended:
+            if reg.user_id not in voted_user_ids:
+                not_voted.append(reg)
+
+        coach_data = {
+            "attended_list": attended,
+            "attended_count": attended.count(),
+            "confirmed_not_checked_in": confirmed_not_checked_in,
+            "confirmed_not_checked_in_count": confirmed_not_checked_in.count(),
+            "not_voted_list": not_voted,
+            "not_voted_count": len(not_voted),
+            "voted_count": len(voted_user_ids),
+        }
 
     context = {
         "event": event,
@@ -354,6 +432,8 @@ def event_voting_results(request, event_id):
         "user_has_voted_both": user_has_voted_both,
         "total_votes": total_votes,
         "redirect_to_presentations": False,
+        "is_coach_view": is_coach_view,
+        **coach_data,
     }
     return render(request, "crush_lu/event_voting_results.html", context)
 
@@ -376,6 +456,13 @@ def event_presentations(request, event_id):
 
     if user_registration.status not in ["confirmed", "attended"]:
         messages.error(request, _("Only confirmed attendees can view presentations."))
+        return redirect("crush_lu:event_detail", event_id=event_id)
+
+    if user_registration.status == "confirmed":
+        messages.warning(
+            request,
+            _("You need to check in at the event before you can view presentations. Please find your coach to get checked in!"),
+        )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
     # Get the current presenter (status='presenting')
@@ -448,6 +535,12 @@ def submit_presentation_rating(request, event_id, presenter_id):
     if user_registration.status not in ["confirmed", "attended"]:
         return JsonResponse(
             {"success": False, "error": "Only confirmed attendees can rate."},
+            status=403,
+        )
+
+    if user_registration.status == "confirmed":
+        return JsonResponse(
+            {"success": False, "error": "You must check in at the event before you can rate."},
             status=403,
         )
 
@@ -525,6 +618,7 @@ def coach_presentation_control(request, event_id):
         "total_presentations": total_presentations,
         "completed_presentations": completed_presentations,
         "winning_style": winning_style,
+        "voting_session": voting_session,
     }
     return render(request, "crush_lu/coach_presentation_control.html", context)
 
@@ -587,6 +681,13 @@ def my_presentation_scores(request, event_id):
 
     if user_registration.status not in ["confirmed", "attended"]:
         messages.error(request, _("Only confirmed attendees can view scores."))
+        return redirect("crush_lu:event_detail", event_id=event_id)
+
+    if user_registration.status == "confirmed":
+        messages.warning(
+            request,
+            _("You need to check in at the event before you can view scores. Please find your coach to get checked in!"),
+        )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
     # Check if all presentations are completed
@@ -676,15 +777,18 @@ def get_current_presenter_api(request, event_id):
     """API endpoint to get current presenter status (for polling)"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user is registered for this event
-    try:
-        user_registration = EventRegistration.objects.get(
-            event=event, user=request.user
-        )
-        if user_registration.status not in ["confirmed", "attended"]:
-            return JsonResponse({"error": "Not authorized"}, status=403)
-    except EventRegistration.DoesNotExist:
-        return JsonResponse({"error": "Not registered for this event"}, status=403)
+    # Allow event coaches and superusers
+    is_coach = event.coaches.filter(user=request.user).exists()
+    if not request.user.is_superuser and not is_coach:
+        # Verify user is registered for this event
+        try:
+            user_registration = EventRegistration.objects.get(
+                event=event, user=request.user
+            )
+            if user_registration.status not in ["confirmed", "attended"]:
+                return JsonResponse({"error": "Not authorized"}, status=403)
+        except EventRegistration.DoesNotExist:
+            return JsonResponse({"error": "Not registered for this event"}, status=403)
 
     # Get current presenter
     current_presentation = (

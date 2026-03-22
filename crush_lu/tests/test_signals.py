@@ -22,13 +22,14 @@ from crush_lu.models import (
 User = get_user_model()
 
 
-class TestCreateDefaultActivityOptions(TestCase):
-    """Test the create_default_activity_options signal handler."""
+class TestSetupEventVoting(TestCase):
+    """Test the setup_event_voting signal handler."""
 
-    def _create_event(self, title='Test Event'):
+    def _create_event(self, title='Test Event', enable_voting=True):
         return MeetupEvent.objects.create(
             title=title, description='A test',
-            event_type='mixer',
+            event_type='speed_dating',
+            enable_activity_voting=enable_voting,
             date_time=timezone.now() + timedelta(days=7),
             location='Luxembourg', address='123 Test St',
             max_participants=20,
@@ -36,27 +37,43 @@ class TestCreateDefaultActivityOptions(TestCase):
             is_published=True
         )
 
-    def test_new_event_gets_6_default_options(self):
-        """A newly created event should automatically get 6 activity options."""
+    def test_voting_event_gets_global_options(self):
+        """A voting-enabled event should auto-populate GlobalActivityOption if missing."""
         event = self._create_event()
-        options = EventActivityOption.objects.filter(event=event)
-        self.assertEqual(options.count(), 6)
+        from crush_lu.models import GlobalActivityOption
+        self.assertEqual(GlobalActivityOption.objects.filter(is_active=True).count(), 6)
 
-    def test_default_options_have_correct_types(self):
-        """The 6 default options should include 3 presentation_style and 3 speed_dating_twist."""
-        event = self._create_event('Type Test')
-        options = EventActivityOption.objects.filter(event=event)
-        self.assertEqual(options.filter(activity_type='presentation_style').count(), 3)
-        self.assertEqual(options.filter(activity_type='speed_dating_twist').count(), 3)
+    def test_voting_event_gets_voting_session(self):
+        """A voting-enabled event should auto-create an EventVotingSession."""
+        event = self._create_event()
+        from crush_lu.models import EventVotingSession
+        self.assertTrue(EventVotingSession.objects.filter(event=event).exists())
+        session = EventVotingSession.objects.get(event=event)
+        self.assertTrue(session.is_active)
 
-    def test_saving_existing_event_does_not_create_duplicates(self):
-        """Saving an existing event should NOT create duplicate activity options."""
+    def test_voting_session_has_correct_times(self):
+        """The auto-created voting session should start 15 min after event, last 30 min."""
+        event = self._create_event()
+        from crush_lu.models import EventVotingSession
+        session = EventVotingSession.objects.get(event=event)
+        self.assertEqual(session.voting_start_time, event.date_time + timedelta(minutes=15))
+        self.assertEqual(session.voting_end_time, event.date_time + timedelta(minutes=45))
+
+    def test_non_voting_event_no_session(self):
+        """An event without activity voting should NOT get a voting session."""
+        event = self._create_event('No Voting', enable_voting=False)
+        from crush_lu.models import EventVotingSession
+        self.assertFalse(EventVotingSession.objects.filter(event=event).exists())
+
+    def test_saving_existing_event_does_not_create_duplicate_session(self):
+        """Saving an existing event should NOT create duplicate voting sessions."""
         event = self._create_event('Dupe Test')
-        self.assertEqual(EventActivityOption.objects.filter(event=event).count(), 6)
+        from crush_lu.models import EventVotingSession
+        self.assertEqual(EventVotingSession.objects.filter(event=event).count(), 1)
 
         event.title = 'Updated Title'
         event.save()
-        self.assertEqual(EventActivityOption.objects.filter(event=event).count(), 6)
+        self.assertEqual(EventVotingSession.objects.filter(event=event).count(), 1)
 
 
 class TestCoachStaffStatusSignal(TestCase):

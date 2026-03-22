@@ -216,7 +216,7 @@ urlpatterns = [
     path('events/<int:event_id>/presentations/', views.event_presentations, name='event_presentations'),
     path('events/<int:event_id>/presentations/rate/<int:presenter_id>/', views.submit_presentation_rating, name='submit_presentation_rating'),
     path('events/<int:event_id>/presentations/my-scores/', views.my_presentation_scores, name='my_presentation_scores'),
-    path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
+    # Note: Presentations API moved to urls_crush.py (language-neutral) for JS polling calls
 
     # Coach Presentation Controls
     path('coach/events/<int:event_id>/presentations/control/', views.coach_presentation_control, name='coach_presentation_control'),

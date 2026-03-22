@@ -30,10 +30,10 @@ class EventActivityOptionInline(admin.TabularInline):
 
 
 class GlobalActivityOptionAdmin(admin.ModelAdmin):
-    list_display = ('display_name', 'get_activity_phase', 'activity_variant', 'is_active', 'sort_order', 'created_at')
+    list_display = ('display_name', 'get_activity_phase', 'activity_variant', 'get_total_votes', 'is_active', 'sort_order', 'created_at')
     list_filter = ('activity_type', 'is_active')
     search_fields = ('display_name', 'description', 'activity_variant')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'get_total_votes')
     fieldsets = (
         ('Activity Details', {
             'fields': ('activity_type', 'activity_variant', 'display_name', 'description'),
@@ -41,6 +41,9 @@ class GlobalActivityOptionAdmin(admin.ModelAdmin):
         }),
         ('Settings', {
             'fields': ('is_active', 'sort_order')
+        }),
+        ('Statistics', {
+            'fields': ('get_total_votes',)
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at')
@@ -56,19 +59,25 @@ class GlobalActivityOptionAdmin(admin.ModelAdmin):
         return phase_map.get(obj.activity_type, obj.activity_type)
     get_activity_phase.short_description = _('Event Phase')
 
+    def get_total_votes(self, obj):
+        """Count total votes across all events"""
+        return EventActivityVote.objects.filter(selected_option=obj).count()
+    get_total_votes.short_description = _('Total Votes (all events)')
+
 
 class EventActivityOptionAdmin(admin.ModelAdmin):
-    list_display = ('event', 'display_name', 'get_activity_phase', 'activity_variant', 'vote_count', 'is_winner', 'created_at')
+    list_display = ('event', 'display_name', 'get_activity_phase', 'activity_variant', 'get_actual_votes', 'is_winner', 'created_at')
     list_filter = ('activity_type', 'is_winner', 'event__date_time')
     search_fields = ('event__title', 'display_name', 'description')
-    readonly_fields = ('created_at', 'vote_count', 'get_activity_phase')
+    readonly_fields = ('created_at', 'vote_count', 'get_activity_phase', 'get_actual_votes')
     fieldsets = (
         ('Activity Details', {
             'fields': ('event', 'get_activity_phase', 'activity_type', 'activity_variant', 'display_name', 'description'),
             'description': 'Activity Type determines which phase this option belongs to: Presentation Style (Phase 2) or Speed Dating Twist (Phase 3)'
         }),
         ('Voting Results', {
-            'fields': ('vote_count', 'is_winner')
+            'fields': ('get_actual_votes', 'vote_count', 'is_winner'),
+            'description': 'Actual votes are counted from EventActivityVote records. vote_count is a legacy field (may be stale).'
         }),
         ('Metadata', {
             'fields': ('created_at',)
@@ -83,6 +92,31 @@ class EventActivityOptionAdmin(admin.ModelAdmin):
         }
         return phase_map.get(obj.activity_type, obj.activity_type)
     get_activity_phase.short_description = _('Event Phase')
+
+    def get_actual_votes(self, obj):
+        """Count actual votes from EventActivityVote for the matching GlobalActivityOption"""
+        # Find the matching GlobalActivityOption by activity_variant
+        try:
+            global_option = GlobalActivityOption.objects.get(
+                activity_variant=obj.activity_variant,
+                activity_type=obj.activity_type,
+            )
+            return EventActivityVote.objects.filter(
+                event=obj.event,
+                selected_option=global_option,
+            ).count()
+        except GlobalActivityOption.DoesNotExist:
+            return 0
+        except GlobalActivityOption.MultipleObjectsReturned:
+            global_option = GlobalActivityOption.objects.filter(
+                activity_variant=obj.activity_variant,
+                activity_type=obj.activity_type,
+            ).first()
+            return EventActivityVote.objects.filter(
+                event=obj.event,
+                selected_option=global_option,
+            ).count()
+    get_actual_votes.short_description = _('Actual Votes')
 
 
 class EventActivityVoteAdmin(admin.ModelAdmin):

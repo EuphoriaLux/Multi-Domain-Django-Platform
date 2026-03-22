@@ -117,6 +117,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/events/<int:event_id>/voting/submit/', api_views.submit_vote_api, name='submit_vote_api'),
     path('api/events/<int:event_id>/voting/results/', api_views.voting_results_api, name='voting_results_api'),
 
+    # Event Presentations API (called from coach_presentation_control.html and event_presentations.html)
+    path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
+
     # Event Poll API (language-neutral for JS calls)
     path('api/polls/<int:poll_id>/vote/', views_event_polls.poll_vote, name='api_poll_vote'),
     path('api/polls/<int:poll_id>/results/', views_event_polls.poll_results_api, name='api_poll_results'),

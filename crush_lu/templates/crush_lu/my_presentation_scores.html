@@ -22,7 +22,7 @@
                     <p class="lead text-muted">{{ event.title }}</p>
                 </div>
 
-                <div class="privacy-notice">
+                <div class="bg-gray-100 dark:bg-gray-700/50 border-l-4 border-crush-purple text-gray-700 dark:text-gray-300 p-4 my-6 rounded-r-lg">
                     <strong>{% trans "🔒 Privacy Notice:" %}</strong> {% trans "These scores are completely private and only visible to you. No one else can see how you were rated or by whom. Ratings were submitted anonymously." %}
                 </div>
 
@@ -95,8 +95,11 @@
                 {% endif %}
 
                 <div class="text-center mt-6">
-                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
-                        {% trans "Continue to Speed Dating" %}
+                    <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
+                        {% trans "View Event Attendees" %}
+                    </a>
+                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-6 py-3 text-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors ml-3">
+                        {% trans "Back to Event" %}
                     </a>
                 </div>
             </div>

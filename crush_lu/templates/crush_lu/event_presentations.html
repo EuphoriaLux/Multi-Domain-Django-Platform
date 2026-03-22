@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Poll server every 3 seconds to check for presenter changes
     const pollInterval = setInterval(async () => {
         try {
-            const response = await fetch('{% url "crush_lu:get_current_presenter_api" event.id %}');
+            const response = await fetch('{% url "get_current_presenter_api" event.id %}');
             const data = await response.json();
 
             if (data.has_presenter) {

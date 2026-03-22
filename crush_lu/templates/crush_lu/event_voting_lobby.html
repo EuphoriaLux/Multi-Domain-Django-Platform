@@ -22,7 +22,59 @@
                     <span id="voting-status-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Waiting to Start" %}</span>
                 </div>
 
-                {% if has_voted_both %}
+                {% if needs_checkin %}
+                <!-- Check-in required banner -->
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 rounded-lg p-4 mb-4">
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl flex-shrink-0">📱</div>
+                        <div>
+                            <h5 class="font-semibold mb-1">{% trans "Check-In Required" %}</h5>
+                            {% if voting_ended %}
+                            <p class="mb-0 text-sm">{% trans "Voting has ended. You were not checked in so you could not participate in the vote." %}</p>
+                            {% elif voting_session.is_voting_open %}
+                            <p class="mb-2 text-sm">{% trans "You need to check in at the event before you can cast your vote. Please find your coach to get checked in!" %}</p>
+                            <p class="mb-0 text-sm font-medium">{% trans "Voting is open — check in now so you don't miss it!" %}</p>
+                            {% else %}
+                            <p class="mb-2 text-sm">{% trans "You need to check in at the event before you can cast your vote. Please find your coach to get checked in!" %}</p>
+                            <p class="mb-0 text-sm">{% trans "Voting hasn't started yet, so you still have time to check in." %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="voting-status-card mb-4">
+                    {% if voting_ended %}
+                    <h2 class="dark:text-white">{% trans "Voting Has Ended" %}</h2>
+                    <p class="mb-0 dark:text-gray-300">{% trans "The voting period is over. Please check in with your coach to join the next phase." %}</p>
+                    {% elif voting_session.is_voting_open %}
+                    <h2 class="dark:text-white">{% trans "Voting is Now Open!" %}</h2>
+                    <div class="countdown-timer" id="time-remaining">
+                        {{ voting_session.time_remaining|floatformat:0 }}s
+                    </div>
+                    <p class="mb-3 dark:text-gray-300">{% trans "Time remaining to vote" %}</p>
+                    <span class="inline-flex items-center px-6 py-3 bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-semibold rounded-lg text-lg cursor-not-allowed">
+                        {% trans "Check In to Vote" %}
+                    </span>
+                    {% else %}
+                    <h2 class="dark:text-white">{% trans "Voting Starts In:" %}</h2>
+                    <div class="countdown-timer" id="time-until-start">
+                        {{ voting_session.time_until_start|floatformat:0 }}s
+                    </div>
+                    <p class="mb-0 dark:text-gray-300">{% trans "Get ready to choose your favorite activities!" %}</p>
+                    {% endif %}
+                </div>
+
+                {% elif voting_ended %}
+                <!-- Voting ended for checked-in user who didn't vote -->
+                <div class="voting-status-card mb-4">
+                    <h2 class="dark:text-white">{% trans "Voting Has Ended" %}</h2>
+                    <p class="mb-3 dark:text-gray-300">{% trans "The votes are in! Check out the results." %}</p>
+                    <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center px-6 py-3 bg-white dark:bg-gray-700 text-gray-800 dark:text-white font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-lg">
+                        {% trans "View Results" %}
+                    </a>
+                </div>
+
+                {% elif has_voted_both %}
                 <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-4">
                     <h5 class="font-semibold">{% trans "You've Voted on Both Categories!" %}</h5>
                     <p class="mb-1">🎤 {% blocktrans with choice=presentation_vote.selected_option.display_name %}Presentation Style: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
