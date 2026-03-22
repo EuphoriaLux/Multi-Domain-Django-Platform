@@ -228,7 +228,7 @@ class VotingAPITests(SiteTestMixin, TestCase):
         """Set up test data for voting tests."""
         from crush_lu.models import (
             MeetupEvent, EventRegistration, EventVotingSession,
-            EventActivityOption, GlobalActivityOption, CrushProfile
+            GlobalActivityOption, CrushProfile
         )
 
         self.client = Client()
@@ -261,11 +261,11 @@ class VotingAPITests(SiteTestMixin, TestCase):
             is_published=True
         )
 
-        # Register user
+        # Register user (attended = checked in, required to vote)
         EventRegistration.objects.create(
             event=self.event,
             user=self.user,
-            status='confirmed'
+            status='attended'
         )
 
         # Create voting session
@@ -276,8 +276,8 @@ class VotingAPITests(SiteTestMixin, TestCase):
             voting_end_time=timezone.now() + timedelta(minutes=25)
         )
 
-        # Create GlobalActivityOption instances (master templates)
-        self.global_option1, _ = GlobalActivityOption.objects.get_or_create(
+        # Create GlobalActivityOption instances (used for voting)
+        self.option1, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='spicy_questions',
             defaults={
                 'activity_type': 'speed_dating_twist',
@@ -286,26 +286,13 @@ class VotingAPITests(SiteTestMixin, TestCase):
             }
         )
 
-        self.global_option2, _ = GlobalActivityOption.objects.get_or_create(
+        self.option2, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='music',
             defaults={
                 'activity_type': 'presentation_style',
                 'display_name': 'With Favorite Music',
                 'description': 'Introduce yourself while your favorite song plays',
             }
-        )
-
-        # Get EventActivityOption instances (auto-created by signal on event creation)
-        self.event_option1 = EventActivityOption.objects.get(
-            event=self.event,
-            activity_type='speed_dating_twist',
-            activity_variant='spicy_questions',
-        )
-
-        self.event_option2 = EventActivityOption.objects.get(
-            event=self.event,
-            activity_type='presentation_style',
-            activity_variant='music',
         )
 
     def test_voting_status_api(self):
@@ -330,7 +317,7 @@ class VotingAPITests(SiteTestMixin, TestCase):
 
         response = self.client.post(
             reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.event_option1.id) + '}',
+            data='{"option_id": ' + str(self.option1.id) + '}',
             content_type='application/json',
         )
 
@@ -346,14 +333,14 @@ class VotingAPITests(SiteTestMixin, TestCase):
         # Submit initial vote
         self.client.post(
             reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.event_option1.id) + '}',
+            data='{"option_id": ' + str(self.option1.id) + '}',
             content_type='application/json',
         )
 
         # Change vote
         response = self.client.post(
             reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.event_option2.id) + '}',
+            data='{"option_id": ' + str(self.option2.id) + '}',
             content_type='application/json',
         )
 
@@ -363,13 +350,17 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.assertEqual(data['data']['action'], 'updated')
 
     def test_voting_results_api(self):
-        """Test getting voting results.
+        """Test getting voting results."""
+        self.client.login(username='voter@example.com', password='testpass123')
 
-        NOTE: Skipped because api_views.py:260 references voting_session.winning_option
-        which doesn't exist on EventVotingSession model. Needs API fix.
-        """
-        import unittest
-        raise unittest.SkipTest("API references non-existent winning_option attribute - needs API fix")
+        response = self.client.get(
+            reverse('voting_results_api', args=[self.event.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('total_votes', data['data'])
 
     def test_voting_requires_registration(self):
         """Test voting requires event registration."""

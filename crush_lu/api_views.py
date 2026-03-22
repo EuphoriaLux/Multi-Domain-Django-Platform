@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from .models import (
     MeetupEvent, EventRegistration, EventVotingSession,
-    EventActivityOption, EventActivityVote
+    GlobalActivityOption, EventActivityVote
 )
 from .decorators import ratelimit
 
@@ -151,10 +151,10 @@ def submit_vote_api(request, event_id):
             'error': 'option_id is required'
         }, status=400)
 
-    # Get the selected option
+    # Get the selected option (GlobalActivityOption - shared across all events)
     try:
-        selected_option = EventActivityOption.objects.get(id=option_id, event=event)
-    except EventActivityOption.DoesNotExist:
+        selected_option = GlobalActivityOption.objects.get(id=option_id, is_active=True)
+    except GlobalActivityOption.DoesNotExist:
         return JsonResponse({
             'success': False,
             'error': 'Invalid activity option'
@@ -168,15 +168,8 @@ def submit_vote_api(request, event_id):
 
     if existing_vote:
         # Update existing vote
-        old_option = existing_vote.selected_option
-        old_option.vote_count -= 1
-        old_option.save()
-
         existing_vote.selected_option = selected_option
         existing_vote.save()
-
-        selected_option.vote_count += 1
-        selected_option.save()
 
         action = 'updated'
     else:
@@ -187,13 +180,15 @@ def submit_vote_api(request, event_id):
             selected_option=selected_option
         )
 
-        selected_option.vote_count += 1
-        selected_option.save()
-
         voting_session.total_votes += 1
         voting_session.save()
 
         action = 'created'
+
+    # Get current vote count from actual votes
+    vote_count = EventActivityVote.objects.filter(
+        event=event, selected_option=selected_option
+    ).count()
 
     return JsonResponse({
         'success': True,
@@ -202,7 +197,7 @@ def submit_vote_api(request, event_id):
             'action': action,
             'selected_option_id': selected_option.id,
             'selected_option_name': selected_option.display_name,
-            'vote_count': selected_option.vote_count,
+            'vote_count': vote_count,
         }
     })
 
@@ -246,8 +241,6 @@ def voting_results_api(request, event_id):
         }, status=404)
 
     # Get all global activity options with vote counts for this event
-    from .models import GlobalActivityOption, EventActivityVote
-
     results = []
     for option in GlobalActivityOption.objects.filter(is_active=True).order_by('activity_type', 'sort_order'):
         vote_count = EventActivityVote.objects.filter(

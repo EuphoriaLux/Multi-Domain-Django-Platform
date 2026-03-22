@@ -283,8 +283,8 @@ class EventVotingTests(TestCase):
             voting_end_time=timezone.now() + timedelta(minutes=25)  # Open for 25 more mins
         )
 
-        # Create GlobalActivityOption instances (master templates)
-        self.global_option1, _ = GlobalActivityOption.objects.get_or_create(
+        # Create GlobalActivityOption instances (used for voting)
+        self.option1, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='spicy_questions',
             defaults={
                 'activity_type': 'speed_dating_twist',
@@ -293,26 +293,13 @@ class EventVotingTests(TestCase):
             }
         )
 
-        self.global_option2, _ = GlobalActivityOption.objects.get_or_create(
+        self.option2, _ = GlobalActivityOption.objects.get_or_create(
             activity_variant='music',
             defaults={
                 'activity_type': 'presentation_style',
                 'display_name': 'With Favorite Music',
                 'description': 'Introduce yourself while your favorite song plays',
             }
-        )
-
-        # Get EventActivityOption instances (auto-created by signal on event creation)
-        self.event_option1 = EventActivityOption.objects.get(
-            event=self.event,
-            activity_type='speed_dating_twist',
-            activity_variant='spicy_questions',
-        )
-
-        self.event_option2 = EventActivityOption.objects.get(
-            event=self.event,
-            activity_type='presentation_style',
-            activity_variant='music',
         )
 
     def test_vote_submission(self):
@@ -322,11 +309,11 @@ class EventVotingTests(TestCase):
         vote = EventActivityVote.objects.create(
             event=self.event,
             user=self.user,
-            selected_option=self.event_option1
+            selected_option=self.option1
         )
 
         self.assertIsNotNone(vote)
-        self.assertEqual(vote.selected_option, self.event_option1)
+        self.assertEqual(vote.selected_option, self.option1)
 
     def test_vote_count_tracking(self):
         """Test that votes are counted correctly via EventVotingSession."""
@@ -336,13 +323,13 @@ class EventVotingTests(TestCase):
         EventActivityVote.objects.create(
             event=self.event,
             user=self.user,
-            selected_option=self.event_option1
+            selected_option=self.option1
         )
 
         # Count votes for this event and option
         vote_count = EventActivityVote.objects.filter(
             event=self.event,
-            selected_option=self.event_option1
+            selected_option=self.option1
         ).count()
 
         self.assertEqual(vote_count, 1)
@@ -391,7 +378,7 @@ class EventVotingTests(TestCase):
             EventActivityVote.objects.create(
                 event=self.event,
                 user=user,
-                selected_option=self.event_option1
+                selected_option=self.option1
             )
 
         # Update total votes on session
@@ -401,7 +388,7 @@ class EventVotingTests(TestCase):
         # Count votes for this option
         vote_count = EventActivityVote.objects.filter(
             event=self.event,
-            selected_option=self.event_option1
+            selected_option=self.option1
         ).count()
 
         # Calculate percentage
