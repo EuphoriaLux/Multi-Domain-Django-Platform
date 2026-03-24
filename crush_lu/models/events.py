@@ -961,9 +961,16 @@ class EventVotingSession(models.Model):
                 pass
 
     def initialize_presentation_queue(self):
-        """Initialize presentation queue with all checked-in (attended) users in random order"""
+        """Initialize presentation queue with all checked-in (attended) users in random order.
+
+        Idempotent: skips initialization if queue entries already exist for this event.
+        """
         from django.contrib.auth.models import User
         import random
+
+        # Skip if queue already initialized (prevents inconsistent re-shuffles)
+        if PresentationQueue.objects.filter(event=self.event).exists():
+            return
 
         # Only include users who have checked in (attended), not just confirmed
         attendees = User.objects.filter(
@@ -977,8 +984,8 @@ class EventVotingSession(models.Model):
 
         # Create presentation queue entries
         for order, user in enumerate(attendee_list, start=1):
-            PresentationQueue.objects.get_or_create(
-                event=self.event, user=user, defaults={"presentation_order": order}
+            PresentationQueue.objects.create(
+                event=self.event, user=user, presentation_order=order
             )
 
 

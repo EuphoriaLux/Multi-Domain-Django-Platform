@@ -646,19 +646,7 @@ class CrushProfile(models.Model):
                 'step': 1
             })
 
-        # Step 2: About You (Required)
-        if not self.bio:
-            missing.append({
-                'field': 'bio',
-                'label': _('Bio'),
-                'step': 2
-            })
-        if not self.interests:
-            missing.append({
-                'field': 'interests',
-                'label': _('Interests'),
-                'step': 2
-            })
+        # Step 2: About You (bio and interests are optional)
 
         # Step 3: Photos (At least one required)
         if not self.photo_1:

@@ -164,44 +164,48 @@ def event_activity_vote(request, event_id):
                     is_active=True,
                 )
 
-                # Handle presentation style vote
-                presentation_vote = EventActivityVote.objects.filter(
+                # Check if user has already voted (for vote count tracking)
+                had_presentation_vote = EventActivityVote.objects.filter(
                     event=event,
                     user=request.user,
                     selected_option__activity_type="presentation_style",
-                ).first()
+                ).exists()
+                had_twist_vote = EventActivityVote.objects.filter(
+                    event=event,
+                    user=request.user,
+                    selected_option__activity_type="speed_dating_twist",
+                ).exists()
 
-                if presentation_vote:
-                    # Update existing vote
-                    presentation_vote.selected_option = presentation_option
-                    presentation_vote.save()
+                # Handle presentation style vote (atomic update_or_create)
+                if had_presentation_vote:
+                    EventActivityVote.objects.filter(
+                        event=event,
+                        user=request.user,
+                        selected_option__activity_type="presentation_style",
+                    ).update(selected_option=presentation_option)
                 else:
-                    # Create new vote
                     EventActivityVote.objects.create(
                         event=event,
                         user=request.user,
                         selected_option=presentation_option,
                     )
 
-                # Handle speed dating twist vote
-                twist_vote = EventActivityVote.objects.filter(
-                    event=event,
-                    user=request.user,
-                    selected_option__activity_type="speed_dating_twist",
-                ).first()
-
-                if twist_vote:
-                    # Update existing vote
-                    twist_vote.selected_option = twist_option
-                    twist_vote.save()
+                # Handle speed dating twist vote (atomic update_or_create)
+                if had_twist_vote:
+                    EventActivityVote.objects.filter(
+                        event=event,
+                        user=request.user,
+                        selected_option__activity_type="speed_dating_twist",
+                    ).update(selected_option=twist_option)
                 else:
-                    # Create new vote
                     EventActivityVote.objects.create(
-                        event=event, user=request.user, selected_option=twist_option
+                        event=event,
+                        user=request.user,
+                        selected_option=twist_option,
                     )
 
                 # Update total votes only if this is first complete vote
-                if not (presentation_vote and twist_vote):
+                if not (had_presentation_vote and had_twist_vote):
                     voting_session.total_votes += 1
                     voting_session.save()
 

@@ -2102,7 +2102,7 @@ def coach_connection_review(request, connection_id):
         elif action == "send_message":
             # Coach sends a facilitation message
             message_text = request.POST.get("message", "").strip()
-            if message_text and len(message_text) <= 2000:
+            if message_text and len(message_text) <= 500:
                 from .models import ConnectionMessage
 
                 ConnectionMessage.objects.create(
@@ -2114,7 +2114,7 @@ def coach_connection_review(request, connection_id):
                 messages.success(request, _("Coach message sent."))
             else:
                 messages.error(
-                    request, _("Please enter a valid message (max 2000 characters).")
+                    request, _("Please enter a valid message (max 500 characters).")
                 )
 
         return redirect("crush_lu:coach_connection_review", connection_id=connection_id)

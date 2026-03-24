@@ -9,6 +9,7 @@ from collections import OrderedDict
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
+from django.db import transaction
 from django.db.models import Q
 from django.views.decorators.http import require_http_methods
 import logging
@@ -179,6 +180,11 @@ def request_connection(request, event_id, user_id):
     event = get_object_or_404(MeetupEvent, id=event_id)
     recipient = get_object_or_404(CrushProfile, user_id=user_id).user
 
+    # Prevent self-connections
+    if recipient == request.user:
+        messages.error(request, _("You cannot connect with yourself."))
+        return redirect("crush_lu:event_attendees", event_id=event_id)
+
     # Verify requester attended the event
     requester_reg = get_object_or_404(EventRegistration, event=event, user=request.user)
 
@@ -208,6 +214,11 @@ def request_connection(request, event_id, user_id):
     if request.method == "POST":
         note = request.POST.get("note", "").strip()
 
+        # Validate note length
+        if len(note) > 300:
+            messages.error(request, _("Note is too long (max 300 characters)."))
+            return redirect("crush_lu:event_attendees", event_id=event_id)
+
         # Cross-gender connection limit check
         req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
         rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
@@ -221,45 +232,47 @@ def request_connection(request, event_id, user_id):
                 )
                 return redirect("crush_lu:event_attendees", event_id=event_id)
 
-        # Create connection request
-        connection = EventConnection.objects.create(
-            requester=request.user,
-            recipient=recipient,
-            event=event,
-            requester_note=note,
-        )
+        # Create connection request within atomic transaction for mutual detection
+        with transaction.atomic():
+            connection = EventConnection.objects.create(
+                requester=request.user,
+                recipient=recipient,
+                event=event,
+                requester_note=note,
+            )
 
-        # Check if this is mutual (recipient already requested requester)
-        reverse_connection = EventConnection.objects.filter(
-            requester=recipient, recipient=request.user, event=event
-        ).first()
+            # Check if this is mutual (recipient already requested requester)
+            reverse_connection = EventConnection.objects.filter(
+                requester=recipient, recipient=request.user, event=event
+            ).first()
 
+            if reverse_connection:
+                # Mutual interest!
+                if connection.is_same_gender:
+                    # Same-gender: skip coach review, auto-share
+                    connection.status = "shared"
+                    connection.requester_consents_to_share = True
+                    connection.recipient_consents_to_share = True
+                    connection.shared_at = timezone.now()
+                    connection.save()
+                    reverse_connection.status = "shared"
+                    reverse_connection.requester_consents_to_share = True
+                    reverse_connection.recipient_consents_to_share = True
+                    reverse_connection.shared_at = timezone.now()
+                    reverse_connection.save()
+                else:
+                    # Cross-gender: assign coach to facilitate
+                    connection.status = "accepted"
+                    connection.save()
+                    reverse_connection.status = "accepted"
+                    reverse_connection.save()
+
+                    connection.assign_coach()
+                    reverse_connection.assigned_coach = connection.assigned_coach
+                    reverse_connection.save()
+
+        # Notifications outside transaction to avoid blocking
         if reverse_connection:
-            # Mutual interest!
-            if connection.is_same_gender:
-                # Same-gender: skip coach review, auto-share
-                connection.status = "shared"
-                connection.requester_consents_to_share = True
-                connection.recipient_consents_to_share = True
-                connection.shared_at = timezone.now()
-                connection.save()
-                reverse_connection.status = "shared"
-                reverse_connection.requester_consents_to_share = True
-                reverse_connection.recipient_consents_to_share = True
-                reverse_connection.shared_at = timezone.now()
-                reverse_connection.save()
-            else:
-                # Cross-gender: assign coach to facilitate
-                connection.status = "accepted"
-                connection.save()
-                reverse_connection.status = "accepted"
-                reverse_connection.save()
-
-                connection.assign_coach()
-                reverse_connection.assigned_coach = connection.assigned_coach
-                reverse_connection.save()
-
-            # Notify both users about mutual connection
             try:
                 notify_connection_accepted(
                     recipient=recipient,
@@ -317,6 +330,14 @@ def request_connection_inline(request, event_id, user_id):
     event = get_object_or_404(MeetupEvent, id=event_id)
     recipient = get_object_or_404(CrushProfile, user_id=user_id).user
 
+    # Prevent self-connections
+    if recipient == request.user:
+        return render(
+            request,
+            "crush_lu/_htmx_error.html",
+            {"message": "You cannot connect with yourself."},
+        )
+
     # Verify requester attended the event
     requester_reg = get_object_or_404(EventRegistration, event=event, user=request.user)
 
@@ -353,6 +374,14 @@ def request_connection_inline(request, event_id, user_id):
     if request.method == "POST":
         note = request.POST.get("note", "").strip()
 
+        # Validate note length
+        if len(note) > 300:
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {"message": "Note is too long (max 300 characters)."},
+            )
+
         # Cross-gender connection limit check
         req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
         rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
@@ -366,45 +395,76 @@ def request_connection_inline(request, event_id, user_id):
                     {"message": "You have reached the maximum number of cross-gender connection requests for this event."},
                 )
 
-        # Create connection request
-        connection = EventConnection.objects.create(
-            requester=request.user,
-            recipient=recipient,
-            event=event,
-            requester_note=note,
-        )
+        # Create connection request within atomic transaction for mutual detection
+        with transaction.atomic():
+            connection = EventConnection.objects.create(
+                requester=request.user,
+                recipient=recipient,
+                event=event,
+                requester_note=note,
+            )
 
-        # Check if this is mutual (recipient already requested requester)
-        reverse_connection = EventConnection.objects.filter(
-            requester=recipient, recipient=request.user, event=event
-        ).first()
+            # Check if this is mutual (recipient already requested requester)
+            reverse_connection = EventConnection.objects.filter(
+                requester=recipient, recipient=request.user, event=event
+            ).first()
 
-        is_mutual = False
-        if reverse_connection:
-            # Mutual interest!
-            if connection.is_same_gender:
-                # Same-gender: skip coach review, auto-share
-                connection.status = "shared"
-                connection.requester_consents_to_share = True
-                connection.recipient_consents_to_share = True
-                connection.shared_at = timezone.now()
-                connection.save()
-                reverse_connection.status = "shared"
-                reverse_connection.requester_consents_to_share = True
-                reverse_connection.recipient_consents_to_share = True
-                reverse_connection.shared_at = timezone.now()
-                reverse_connection.save()
-            else:
-                # Cross-gender: assign coach to facilitate
-                connection.status = "accepted"
-                connection.save()
-                reverse_connection.status = "accepted"
-                reverse_connection.save()
+            is_mutual = False
+            if reverse_connection:
+                # Mutual interest!
+                if connection.is_same_gender:
+                    # Same-gender: skip coach review, auto-share
+                    connection.status = "shared"
+                    connection.requester_consents_to_share = True
+                    connection.recipient_consents_to_share = True
+                    connection.shared_at = timezone.now()
+                    connection.save()
+                    reverse_connection.status = "shared"
+                    reverse_connection.requester_consents_to_share = True
+                    reverse_connection.recipient_consents_to_share = True
+                    reverse_connection.shared_at = timezone.now()
+                    reverse_connection.save()
+                else:
+                    # Cross-gender: assign coach to facilitate
+                    connection.status = "accepted"
+                    connection.save()
+                    reverse_connection.status = "accepted"
+                    reverse_connection.save()
 
-                connection.assign_coach()
-                reverse_connection.assigned_coach = connection.assigned_coach
-                reverse_connection.save()
-            is_mutual = True
+                    connection.assign_coach()
+                    reverse_connection.assigned_coach = connection.assigned_coach
+                    reverse_connection.save()
+                is_mutual = True
+
+        # Notifications outside transaction to avoid blocking
+        if is_mutual:
+            try:
+                notify_connection_accepted(
+                    recipient=recipient,
+                    connection=connection,
+                    accepter=request.user,
+                    request=request,
+                )
+                notify_connection_accepted(
+                    recipient=request.user,
+                    connection=reverse_connection,
+                    accepter=recipient,
+                    request=request,
+                )
+            except Exception as e:
+                logger.error(f"Failed to send mutual connection notifications: {e}")
+
+        if not is_mutual:
+            # Notify recipient about the connection request
+            try:
+                notify_new_connection(
+                    recipient=recipient,
+                    connection=connection,
+                    requester=request.user,
+                    request=request,
+                )
+            except Exception as e:
+                logger.error(f"Failed to send connection request notification: {e}")
 
         return render(
             request,
@@ -698,7 +758,7 @@ def connection_detail(request, connection_id):
         # Handle message sending
         elif "message" in request.POST:
             message_text = request.POST.get("message", "").strip()
-            if message_text and len(message_text) <= 2000:
+            if message_text and len(message_text) <= 500:
                 # Only allow messaging for accepted/shared connections
                 if connection.status in [
                     "accepted",
@@ -742,7 +802,7 @@ def connection_detail(request, connection_id):
                     )
             else:
                 messages.error(
-                    request, _("Please enter a valid message (max 2000 characters).")
+                    request, _("Please enter a valid message (max 500 characters).")
                 )
 
             return redirect("crush_lu:connection_detail", connection_id=connection_id)

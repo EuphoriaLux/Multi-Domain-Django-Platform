@@ -44,7 +44,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
 
     Returns the promoted EventRegistration, or None.
     """
-    waitlisted = EventRegistration.objects.filter(
+    waitlisted = EventRegistration.objects.select_for_update().filter(
         event=event, status="waitlist"
     ).select_related("user__crushprofile").order_by("registered_at")
 
