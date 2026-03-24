@@ -1979,3 +1979,114 @@ def _html_to_plain_text(html_content):
     text = text.strip()
 
     return text
+
+
+@staff_member_required
+def merge_accounts_confirm(request):
+    """
+    Confirmation page for merging two Crush.lu accounts.
+
+    GET: Display both profiles side-by-side for the admin to choose the keeper.
+    POST: Execute the merge using the account_merge service.
+    Restricted to superusers only.
+    """
+    from django.contrib import messages as django_messages
+    from django.shortcuts import redirect
+    from allauth.socialaccount.models import SocialAccount
+
+    if not request.user.is_superuser:
+        django_messages.error(request, "Only superusers can merge accounts.")
+        return redirect('/crush-admin/crush_lu/crushprofile/')
+
+    profile_ids = request.session.get('merge_profile_ids', [])
+    if len(profile_ids) != 2:
+        django_messages.error(request, "No profiles selected for merge. Please select 2 profiles from the list.")
+        return redirect('/crush-admin/crush_lu/crushprofile/')
+
+    profiles = list(
+        CrushProfile.objects.filter(pk__in=profile_ids)
+        .select_related('user')
+    )
+    if len(profiles) != 2:
+        django_messages.error(request, "One or both selected profiles no longer exist.")
+        return redirect('/crush-admin/crush_lu/crushprofile/')
+
+    # Gather summary data for each profile
+    profile_data = []
+    for profile in profiles:
+        user = profile.user
+        social_accounts = list(
+            SocialAccount.objects.filter(user=user).values_list('provider', flat=True)
+        )
+        event_count = EventRegistration.objects.filter(user=user).count()
+        connection_count = (
+            EventConnection.objects.filter(requester=user).count()
+            + EventConnection.objects.filter(recipient=user).count()
+        )
+        profile_data.append({
+            'profile': profile,
+            'user': user,
+            'email': user.email,
+            'social_providers': ', '.join(social_accounts) if social_accounts else 'None',
+            'is_approved': profile.is_approved,
+            'is_active': profile.is_active,
+            'event_count': event_count,
+            'connection_count': connection_count,
+            'created_at': user.date_joined,
+            'last_login': user.last_login,
+            'is_relay_email': user.email.endswith('@privaterelay.appleid.com'),
+        })
+
+    if request.method == 'POST':
+        keeper_id = request.POST.get('keeper_id')
+        if not keeper_id:
+            django_messages.error(request, "Please select which account to keep.")
+            return redirect('/crush-admin/merge-accounts/')
+
+        try:
+            keeper_id = int(keeper_id)
+        except (ValueError, TypeError):
+            django_messages.error(request, "Invalid keeper selection.")
+            return redirect('/crush-admin/merge-accounts/')
+
+        # Determine keeper and duplicate
+        keeper_profile = next((p for p in profiles if p.pk == keeper_id), None)
+        duplicate_profile = next((p for p in profiles if p.pk != keeper_id), None)
+
+        if not keeper_profile or not duplicate_profile:
+            django_messages.error(request, "Invalid profile selection.")
+            return redirect('/crush-admin/merge-accounts/')
+
+        # Execute merge
+        from crush_lu.services.account_merge import merge_accounts
+
+        try:
+            merge_log = merge_accounts(
+                keeper_user=keeper_profile.user,
+                duplicate_user=duplicate_profile.user,
+                admin_user=request.user,
+            )
+            # Clear session
+            request.session.pop('merge_profile_ids', None)
+
+            django_messages.success(
+                request,
+                f"Successfully merged account {duplicate_profile.user.email} "
+                f"into {keeper_profile.user.email}. "
+                f"{len(merge_log)} action(s) performed."
+            )
+            # Show detailed log
+            for entry in merge_log:
+                django_messages.info(request, f"  - {entry}")
+
+            return redirect('/crush-admin/crush_lu/crushprofile/')
+
+        except Exception as e:
+            logger.error(f"[ACCOUNT-MERGE] Error: {e}", exc_info=True)
+            django_messages.error(request, f"Merge failed: {e}")
+            return redirect('/crush-admin/merge-accounts/')
+
+    return render(request, 'admin/crush_lu/crushprofile/merge_confirmation.html', {
+        'profile_data': profile_data,
+        'title': 'Merge Accounts',
+    })

@@ -493,6 +493,9 @@ def account_settings(request):
             "apple_available": "apple" in available_providers,
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
+            # Apple "Hide My Email" relay detection
+            "is_apple_relay_user": bool(request.user.email and request.user.email.endswith('@privaterelay.appleid.com')),
+            "show_apple_link_banner": request.GET.get('apple_link') == '1',
             # Push notification preferences (PWA users only)
             "is_pwa_user": is_pwa_user,
             "push_subscriptions": push_subscriptions,
@@ -711,6 +714,36 @@ def disconnect_social_account(request, social_account_id):
 
     messages.success(request, _("%(provider_name)s account has been disconnected.") % {"provider_name": provider_name})
     return redirect("crush_lu:account_settings")
+
+
+@crush_login_required
+def apple_relay_link_prompt(request):
+    """
+    One-time prompt for Apple "Hide My Email" users to link an existing account.
+
+    Shown after a new signup with an Apple relay email. Offers two options:
+    1. Link existing account (log out and log in with other method)
+    2. Continue as new user
+    """
+    # Clear the session flag so it doesn't show again
+    request.session.pop('apple_relay_needs_linking', None)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'link_existing':
+            # Log out and redirect to login with ?next pointing to account settings
+            logout(request)
+            login_url = reverse('crush_lu:login')
+            settings_url = reverse('crush_lu:account_settings')
+            return redirect(f'{login_url}?next={settings_url}%3Fapple_link%3D1')
+        else:
+            # Continue as new user
+            has_profile = hasattr(request.user, 'crushprofile')
+            if has_profile:
+                return redirect('crush_lu:dashboard')
+            return redirect('crush_lu:create_profile')
+
+    return render(request, 'crush_lu/apple_link_prompt.html')
 
 
 @crush_login_required

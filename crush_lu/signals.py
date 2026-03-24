@@ -797,6 +797,31 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
         logger.error(f"Error in pre_social_login handler: {str(e)}", exc_info=True)
 
 
+@receiver(pre_social_login)
+def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
+    """
+    Detect Apple "Hide My Email" relay addresses on new signups.
+
+    When a user signs in with Apple and chooses "Hide My Email", Apple provides
+    a relay address like xxx@privaterelay.appleid.com. If this is a new signup
+    (not an existing user), set a session flag so the oauth_landing view can
+    redirect to the account linking prompt.
+    """
+    if sociallogin.account.provider != "apple":
+        return
+
+    if not _is_crush_domain(request):
+        return
+
+    email = sociallogin.account.extra_data.get('email', '')
+    if email.endswith('@privaterelay.appleid.com') and not sociallogin.is_existing:
+        request.session['apple_relay_needs_linking'] = True
+        logger.info(
+            f"[APPLE-RELAY] New signup with Hide My Email detected, "
+            f"setting linking prompt flag"
+        )
+
+
 @receiver(post_save, sender=SocialAccount)
 def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
     """

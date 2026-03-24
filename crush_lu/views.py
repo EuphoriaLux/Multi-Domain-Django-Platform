@@ -127,6 +127,7 @@ from .views_account import (  # noqa: F401
     referral_redirect,
     signup,
     export_user_data,
+    apple_relay_link_prompt,
 )
 
 # Events

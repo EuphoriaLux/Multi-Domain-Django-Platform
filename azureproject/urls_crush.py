@@ -245,6 +245,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('crush-admin/email-templates/load-invitations/', email_template_load_invitations, name='email_template_load_invitations'),
     path('crush-admin/email-templates/load-gifts/', email_template_load_gifts, name='email_template_load_gifts'),
 
+    # Account Merge Tool
+    path('crush-admin/merge-accounts/', admin_views.merge_accounts_confirm, name='merge_accounts_confirm'),
+
     # Poll Analytics
     path('crush-admin/poll-analytics/', poll_analytics_dashboard, name='poll_analytics_dashboard'),
     path('crush-admin/poll-analytics/<int:poll_id>/', poll_analytics_detail, name='poll_analytics_detail'),

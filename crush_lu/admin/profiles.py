@@ -26,6 +26,11 @@ from crush_lu.models import (
     SpecialUserExperience, JourneyConfiguration, JourneyProgress,
     ReferralCode, ReferralAttribution, UserDataConsent,
 )
+from crush_lu.notification_service import (
+    notify_profile_approved,
+    notify_profile_rejected,
+    notify_profile_revision,
+)
 from .filters import (
     ReviewTimeFilter, SubmissionWorkflowFilter, CoachAssignmentFilter,
     PhoneVerificationFilter, AgeRangeFilter, LastLoginFilter,
@@ -214,7 +219,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_journey_progress',
         'outlook_contact_id',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -875,10 +880,30 @@ class CrushProfileAdmin(admin.ModelAdmin):
         for error in errors:
             django_messages.error(request, error)
 
-    @admin.action(description=_('Approve selected profiles'))
+    @admin.action(description=_('Approve selected profiles (requires completed screening call)'))
     def approve_profiles(self, request, queryset):
-        updated = queryset.update(is_approved=True, approved_at=timezone.now())
-        django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": updated})
+        now = timezone.now()
+        approved_count = 0
+        skipped_count = 0
+        for profile in queryset:
+            # Check if there's a submission with completed screening call
+            submission = ProfileSubmission.objects.filter(
+                profile=profile, review_call_completed=True
+            ).order_by('-submitted_at').first()
+            if not submission:
+                skipped_count += 1
+                continue
+            profile.is_approved = True
+            profile.approved_at = now
+            profile.save(update_fields=["is_approved", "approved_at"])
+            approved_count += 1
+        if approved_count > 0:
+            django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": approved_count})
+        if skipped_count > 0:
+            django_messages.warning(
+                request,
+                _("Skipped %(count)s profile(s) - no completed screening call found") % {"count": skipped_count},
+            )
 
     @admin.action(description=_('Deactivate selected profiles'))
     def deactivate_profiles(self, request, queryset):
@@ -1058,6 +1083,27 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
         # Could redirect to a custom bulk email form:
         # return HttpResponseRedirect(f'/crush-admin/bulk-email/?profiles={",".join(map(str, queryset.values_list("pk", flat=True)))}')
+
+    @admin.action(description=_('Merge two accounts (select exactly 2, superuser only)'))
+    def merge_accounts(self, request, queryset):
+        """Redirect to merge confirmation page with two selected profiles."""
+        if not request.user.is_superuser:
+            django_messages.error(request, _("Only superusers can merge accounts."))
+            return
+
+        if queryset.count() != 2:
+            django_messages.error(
+                request,
+                _("Please select exactly 2 profiles to merge.")
+            )
+            return
+
+        profiles = list(queryset.select_related('user'))
+        # Store profile IDs in session for the confirmation page
+        request.session['merge_profile_ids'] = [p.pk for p in profiles]
+
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect('/crush-admin/merge-accounts/')
 
     def get_queryset(self, request):
         """
@@ -1270,7 +1316,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         approved_count = 0
         skipped_count = 0
 
-        for submission in queryset.select_related('profile'):
+        for submission in queryset.select_related('profile', 'profile__user'):
             if not submission.review_call_completed:
                 skipped_count += 1
                 continue
@@ -1285,6 +1331,15 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 submission.profile.save()
                 approved_count += 1
 
+            try:
+                notify_profile_approved(
+                    user=submission.profile.user,
+                    profile=submission.profile,
+                    request=request,
+                )
+            except Exception:
+                pass
+
         if approved_count > 0:
             django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": approved_count})
         if skipped_count > 0:
@@ -1297,15 +1352,43 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
     def bulk_reject_profiles(self, request, queryset):
         """Bulk reject profiles"""
         now = timezone.now()
-        updated = queryset.update(status='rejected', reviewed_at=now)
-        django_messages.success(request, _("Rejected %(count)s profile(s)") % {"count": updated})
+        count = 0
+        for submission in queryset.select_related('profile', 'profile__user'):
+            submission.status = 'rejected'
+            submission.reviewed_at = now
+            submission.save()
+            count += 1
+            try:
+                notify_profile_rejected(
+                    user=submission.profile.user,
+                    profile=submission.profile,
+                    feedback="",
+                    request=request,
+                )
+            except Exception:
+                pass
+        django_messages.success(request, _("Rejected %(count)s profile(s)") % {"count": count})
 
     @admin.action(description=_('Request revision for selected profiles'))
     def bulk_request_revision(self, request, queryset):
         """Request revision for profiles"""
         now = timezone.now()
-        updated = queryset.update(status='revision', reviewed_at=now)
-        django_messages.success(request, _("Requested revision for %(count)s profile(s)") % {"count": updated})
+        count = 0
+        for submission in queryset.select_related('profile', 'profile__user'):
+            submission.status = 'revision'
+            submission.reviewed_at = now
+            submission.save()
+            count += 1
+            try:
+                notify_profile_revision(
+                    user=submission.profile.user,
+                    profile=submission.profile,
+                    feedback="",
+                    request=request,
+                )
+            except Exception:
+                pass
+        django_messages.success(request, _("Requested revision for %(count)s profile(s)") % {"count": count})
 
     @admin.action(description=_('Auto-assign available coach'))
     def bulk_assign_coach(self, request, queryset):

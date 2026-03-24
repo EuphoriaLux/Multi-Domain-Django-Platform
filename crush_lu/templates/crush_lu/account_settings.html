@@ -64,6 +64,20 @@
                 </h5>
             </div>
             <div class="p-6">
+                {% if show_apple_link_banner %}
+                <div class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg">
+                    <p class="text-purple-800 dark:text-purple-200 text-sm font-medium">
+                        {% trans "Connect your Apple account below to use Apple Sign In next time." %}
+                    </p>
+                </div>
+                {% endif %}
+                {% if is_apple_relay_user %}
+                <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg">
+                    <p class="text-amber-800 dark:text-amber-200 text-sm">
+                        {% trans "Your account uses Apple's private email relay. We recommend connecting another login method as backup." %}
+                    </p>
+                </div>
+                {% endif %}
                 <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-6">
                     {% trans "Connect additional social accounts for easier login. You can use any connected account to log in." %}
                 </p>

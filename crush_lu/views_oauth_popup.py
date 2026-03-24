@@ -261,7 +261,11 @@ def oauth_landing(request):
         except CrushProfile.DoesNotExist:
             has_profile = False
         user_name = request.user.first_name or request.user.username
-        if has_profile:
+
+        # Check for Apple "Hide My Email" linking prompt
+        if request.session.pop('apple_relay_needs_linking', False):
+            redirect_url = get_i18n_redirect_url(request, 'crush_lu:apple_link_prompt')
+        elif has_profile:
             redirect_url = get_i18n_redirect_url(request, 'crush_lu:dashboard', request.user)
         else:
             redirect_url = get_i18n_redirect_url(request, 'crush_lu:create_profile')
