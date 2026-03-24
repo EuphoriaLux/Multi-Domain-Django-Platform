@@ -10,10 +10,10 @@
 
     {# Header with back button and user info #}
     <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <a href="{% url 'crush_lu:coach_dashboard' %}"
+        <a href="{% url 'crush_lu:coach_profiles' %}"
            class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
             {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-            {% trans "Back to Dashboard" %}
+            {% trans "Back to Profile Reviews" %}
         </a>
 
         <div class="flex items-center gap-3">

@@ -20,6 +20,7 @@ APPLICATIONINSIGHTS_CONNECTION_STRING based on domain.
 """
 
 from django import template
+from django.middleware.csp import get_nonce
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -73,7 +74,7 @@ def analytics_head(context):
     request = context.get('request')
 
     # Get CSP nonce from request (if available)
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     # Check existing consent from cookies
@@ -116,7 +117,7 @@ def analytics_head(context):
     'wait_for_update': 500
   }});
 </script>
-<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"{nonce_attr}></script>
 <script{nonce_attr}>
   gtag('js', new Date());
   gtag('config', '{ga4_id}', {{
@@ -146,7 +147,7 @@ def analytics_body(context):
     has_marketing_consent = get_cookie_consent(request, 'marketing') if request else True
 
     # Get CSP nonce from request (if available)
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     if not has_marketing_consent:
@@ -206,7 +207,7 @@ def ga4_event(context, event_name, **params):
         return ''
 
     request = context.get('request')
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     # Build params object
@@ -234,7 +235,7 @@ def fb_event(context, event_name, **params):
         return ''
 
     request = context.get('request')
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     # Build params object
@@ -281,7 +282,7 @@ def appinsights_head(context):
         return ''
 
     request = context.get('request')
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     # Get user ID for authenticated user tracking (anonymous if not logged in)
@@ -334,7 +335,7 @@ def appinsights_event(context, event_name, **params):
         return ''
 
     request = context.get('request')
-    nonce = getattr(request, 'csp_nonce', '') if request else ''
+    nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
     # Build properties object

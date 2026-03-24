@@ -901,7 +901,8 @@ SECURE_CSP_REPORT_ONLY = {
         "https://js.monitor.azure.com",
         "https://dc.services.visualstudio.com",
         "https://*.in.applicationinsights.azure.com",
-        # Facebook profile pictures
+        # Facebook Pixel + profile pictures
+        "https://connect.facebook.net",
         "https://platform-lookaside.fbsbx.com",
         "https://*.fbcdn.net",
         # Apple Sign In
