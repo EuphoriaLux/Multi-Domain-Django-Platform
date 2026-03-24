@@ -1879,7 +1879,7 @@ def coach_connections(request):
     status_filter = request.GET.get("status", "needs_review")
 
     # Validate status filter
-    valid_statuses = {"needs_review", "approved", "shared", "all"}
+    valid_statuses = {"pending", "needs_review", "approved", "shared", "all"}
     if status_filter not in valid_statuses:
         status_filter = "needs_review"
 
@@ -1892,7 +1892,10 @@ def coach_connections(request):
     ).order_by("-requested_at")
 
     # Status filter
-    if status_filter == "needs_review":
+    if status_filter == "pending":
+        # One-way requests not yet reciprocated
+        connections_qs = connections_qs.filter(status="pending")
+    elif status_filter == "needs_review":
         # Accepted (mutual) connections that need coach to review and approve
         connections_qs = connections_qs.filter(
             status__in=["accepted", "coach_reviewing"]
@@ -1902,7 +1905,7 @@ def coach_connections(request):
     elif status_filter == "shared":
         connections_qs = connections_qs.filter(status="shared")
     elif status_filter == "all":
-        connections_qs = connections_qs.exclude(status__in=["pending", "declined"])
+        connections_qs = connections_qs.exclude(status="declined")
 
     # Event filter
     event = None
@@ -1928,8 +1931,14 @@ def coach_connections(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    # Stats for the header (single query instead of 3)
+    # Stats for the header (single query instead of 4)
     stats = EventConnection.objects.aggregate(
+        pending_count=Count(
+            Case(
+                When(status="pending", then=Value(1)),
+                output_field=IntegerField(),
+            )
+        ),
         needs_review_count=Count(
             Case(
                 When(status__in=["accepted", "coach_reviewing"], then=Value(1)),
@@ -1949,6 +1958,7 @@ def coach_connections(request):
             )
         ),
     )
+    pending_count = stats["pending_count"]
     needs_review_count = stats["needs_review_count"]
     approved_count = stats["approved_count"]
     shared_count = stats["shared_count"]
@@ -1965,6 +1975,7 @@ def coach_connections(request):
         "event_filter": event,
         "event_id": event_id or "",
         "mine_filter": my_connections_filter,
+        "pending_count": pending_count,
         "needs_review_count": needs_review_count,
         "approved_count": approved_count,
         "shared_count": shared_count,

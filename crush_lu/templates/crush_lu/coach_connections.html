@@ -19,7 +19,11 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ pending_count }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Pending" %}</p>
+        </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
             <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ needs_review_count }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Needs Review" %}</p>
@@ -39,6 +43,11 @@
         <div class="flex flex-wrap gap-3 items-center">
             <!-- Status Filter Tabs -->
             <div class="flex flex-wrap gap-2">
+                <a href="?status=pending{% if event_id %}&event={{ event_id }}{% endif %}{% if mine_filter %}&mine=1{% endif %}"
+                   class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'pending' %}bg-purple-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
+                    {% trans "Pending" %}
+                    {% if pending_count %}<span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'pending' %}bg-white/20{% else %}bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300{% endif %}">{{ pending_count }}</span>{% endif %}
+                </a>
                 <a href="?status=needs_review{% if event_id %}&event={{ event_id }}{% endif %}{% if mine_filter %}&mine=1{% endif %}"
                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'needs_review' %}bg-amber-600 text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">
                     {% trans "Needs Review" %}
@@ -157,7 +166,9 @@
 
                             <!-- Status & Action -->
                             <div class="flex items-center gap-3 sm:flex-col sm:items-end">
-                                {% if conn.status == 'accepted' %}
+                                {% if conn.status == 'pending' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">{% trans "Pending" %}</span>
+                                {% elif conn.status == 'accepted' %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{% trans "Needs Review" %}</span>
                                 {% elif conn.status == 'coach_reviewing' %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Reviewing" %}</span>
@@ -208,7 +219,9 @@
                 {% include "shared/icons/heart.html" with class="w-10 h-10 mx-auto" %}
             </div>
             <p class="text-gray-500 dark:text-gray-400">
-                {% if status_filter == 'needs_review' %}
+                {% if status_filter == 'pending' %}
+                    {% trans "No pending connection requests right now." %}
+                {% elif status_filter == 'needs_review' %}
                     {% trans "No connections need review right now." %}
                 {% else %}
                     {% trans "No connections found matching the selected filters." %}
