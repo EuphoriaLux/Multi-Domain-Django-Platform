@@ -387,14 +387,7 @@ def account_settings(request):
     # PWA status is tracked on UserActivity model for analytics
     push_subscriptions = []
     push_subscriptions_json = "[]"
-    is_pwa_user = False
     try:
-        from .models import UserActivity
-
-        activity = UserActivity.objects.filter(user=request.user).first()
-        if activity:
-            is_pwa_user = activity.is_pwa_user
-
         # Always fetch push subscriptions - card visibility is controlled by JS
         subs = PushSubscription.objects.filter(user=request.user, enabled=True)
         for sub in subs:
@@ -462,6 +455,19 @@ def account_settings(request):
         provider__in=CRUSH_SOCIAL_PROVIDERS
     )
 
+    # Annotate each social account with a resolved display email
+    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'
+    for account in crush_social_accounts:
+        if account.provider == "microsoft":
+            account.display_email = (
+                account.extra_data.get("mail")
+                or account.extra_data.get("userPrincipalName")
+                or account.extra_data.get("email")
+                or ""
+            )
+        else:
+            account.display_email = account.extra_data.get("email", "")
+
     # Get social photos for import functionality
     social_photos = get_all_social_photos(request.user)
 
@@ -496,8 +502,7 @@ def account_settings(request):
             # Apple "Hide My Email" relay detection
             "is_apple_relay_user": bool(request.user.email and request.user.email.endswith('@privaterelay.appleid.com')),
             "show_apple_link_banner": request.GET.get('apple_link') == '1',
-            # Push notification preferences (PWA users only)
-            "is_pwa_user": is_pwa_user,
+            # Push notification preferences
             "push_subscriptions": push_subscriptions,
             "push_subscriptions_json": push_subscriptions_json,
             # Coach push notification preferences (coaches only)
