@@ -53,30 +53,6 @@ def user_language_context(user):
         yield lang
 
 
-def activate_user_language(user):
-    """
-    DEPRECATED: Use user_language_context() context manager instead.
-
-    This function mutates thread-local state without cleanup, which can cause
-    language leakage between requests in production (Gunicorn workers).
-
-    Kept for backwards compatibility but should be replaced with:
-        with user_language_context(user):
-            # your code here
-
-    Args:
-        user: Django User object
-
-    Returns:
-        Language code that was activated
-    """
-    lang = get_user_language(user)
-    # Note: This still uses override internally but returns immediately,
-    # so the context is not properly managed. Use user_language_context instead.
-    logger.warning("activate_user_language() is deprecated, use user_language_context() instead")
-    return lang
-
-
 def get_user_language_url(user, url_name, **kwargs):
     """
     Get a language-prefixed URL based on user's preferred language.

@@ -39,9 +39,16 @@ class PWAInstaller {
     }
 
     showInstallButton() {
-        // Check if user has dismissed the banner before
-        if (localStorage.getItem('crush-pwa-install-dismissed')) {
-            return;
+        // Check if user has dismissed the banner (re-show after 30 days)
+        var dismissed = localStorage.getItem('crush-pwa-install-dismissed');
+        if (dismissed) {
+            var dismissedAt = parseInt(dismissed, 10);
+            var thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+            if (!isNaN(dismissedAt) && (Date.now() - dismissedAt) < thirtyDaysMs) {
+                return;
+            }
+            // Expired or legacy 'true' value — remove and continue showing
+            localStorage.removeItem('crush-pwa-install-dismissed');
         }
 
         // Dispatch event to show banner (Alpine.js handles visibility)
@@ -78,7 +85,7 @@ class PWAInstaller {
 
     dismissBanner() {
         // Remember user dismissed the banner
-        localStorage.setItem('crush-pwa-install-dismissed', 'true');
+        localStorage.setItem('crush-pwa-install-dismissed', Date.now().toString());
         this.hideInstallButton();
     }
 

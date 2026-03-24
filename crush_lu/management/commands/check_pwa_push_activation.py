@@ -9,7 +9,8 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
-from django.db.models import Exists, OuterRef, Count, Q
+from django.db.models import Exists, OuterRef, Q
+from django.utils import timezone
 from crush_lu.models import UserActivity, PushSubscription, PWADeviceInstallation
 
 
@@ -35,6 +36,19 @@ class Command(BaseCommand):
             help='Number of days to consider user inactive (default: 30)',
         )
 
+    def _get_user_ids_for_platform(self, platform):
+        """Get user IDs that have a PWADeviceInstallation matching the platform."""
+        return PWADeviceInstallation.objects.filter(
+            device_category__icontains=platform
+        ).values_list('user_id', flat=True)
+
+    def _get_device_categories(self, user):
+        """Get comma-separated device categories for a user from PWADeviceInstallation."""
+        categories = PWADeviceInstallation.objects.filter(
+            user=user
+        ).values_list('device_category', flat=True)
+        return ', '.join(categories) if categories else 'unknown'
+
     def handle(self, *args, **options):
         show_users = options['show_users']
         platform = options['platform']
@@ -42,10 +56,11 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('=== PWA Push Notification Activation Report ===\n'))
 
-        # Filter by platform if specified
+        # Filter by platform if specified (device_category lives on PWADeviceInstallation)
         pwa_filter = Q(is_pwa_user=True)
         if platform:
-            pwa_filter &= Q(device_category=platform)
+            platform_user_ids = self._get_user_ids_for_platform(platform)
+            pwa_filter &= Q(user_id__in=platform_user_ids)
 
         # Get total PWA users
         total_pwa_users = UserActivity.objects.filter(pwa_filter).count()
@@ -77,13 +92,14 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'  ✅ With push enabled: {users_with_push} ({activation_rate:.1f}%)'))
         self.stdout.write(self.style.WARNING(f'  ❌ Without push: {users_without_push} ({100-activation_rate:.1f}%)\n'))
 
-        # Breakdown by platform
+        # Breakdown by platform (using PWADeviceInstallation for device_category)
         if not platform:
             self.stdout.write('Breakdown by platform:')
             for category in ['android', 'ios', 'desktop']:
+                platform_user_ids = self._get_user_ids_for_platform(category)
                 platform_users = UserActivity.objects.filter(
                     is_pwa_user=True,
-                    device_category=category
+                    user_id__in=platform_user_ids
                 ).annotate(
                     has_push=Exists(
                         PushSubscription.objects.filter(
@@ -119,7 +135,7 @@ class Command(BaseCommand):
             if users_no_push.exists():
                 for activity in users_no_push:
                     user = activity.user
-                    device = activity.device_category or 'unknown'
+                    device = self._get_device_categories(user)
                     last_visit = activity.last_pwa_visit.strftime('%Y-%m-%d') if activity.last_pwa_visit else 'Never'
 
                     # Check if user is still active
@@ -130,7 +146,7 @@ class Command(BaseCommand):
                         status = '⚪ Never used'
 
                     self.stdout.write(
-                        f'  {user.username:20} | {device:10} | Last: {last_visit:12} | {status}'
+                        f'  {user.username:20} | {device:15} | Last: {last_visit:12} | {status}'
                     )
 
                 self.stdout.write(f'\n💡 Tip: Encourage these {users_no_push.count()} users to enable push notifications!')
@@ -161,7 +177,3 @@ class Command(BaseCommand):
             ))
 
         self.stdout.write('')
-
-
-# Import at module level for timezone
-from django.utils import timezone

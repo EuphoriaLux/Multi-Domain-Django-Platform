@@ -1,12 +1,13 @@
 /**
  * Crush.lu Service Worker Registration
- * Handles PWA installation, updates, and network status detection
+ * Handles service worker registration and network status detection.
  *
- * This module registers the Workbox-based service worker and provides:
- * - Service worker registration and update handling
- * - PWA install prompt management
+ * This module provides:
+ * - Service worker registration
  * - Network status detection (online/offline)
- * - Server unreachable banner with auto-reconnect
+ * - Server unreachable banner with auto-reconnect (exponential backoff)
+ *
+ * Note: Update handling is in pwa-update.js, install prompts in pwa-install.js.
  */
 
 (function() {
@@ -21,48 +22,22 @@
             // Register from root path to control entire site
             navigator.serviceWorker.register('/sw-workbox.js', { scope: '/' })
                 .then(function(registration) {
-                    // Check for updates (handled by pwa-update.js which shows banner)
-                    registration.addEventListener('updatefound', function() {
-                        // Update will be handled by pwa-update.js
-                    });
+                    // Updates and controllerchange handled by pwa-update.js
                 })
                 .catch(function(error) {
                     // Silently fail
                 });
-
-            // Handle service worker updates - reload when new SW takes control
-            var refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', function() {
-                if (!refreshing) {
-                    refreshing = true;
-                    window.location.reload();
-                }
-            });
         });
     }
-
-    // ========================================================================
-    // PWA Install Prompt Handler
-    // ========================================================================
-
-    var deferredPrompt;
-    window.addEventListener('beforeinstallprompt', function(e) {
-        // Prevent the mini-infobar from appearing on mobile
-        e.preventDefault();
-        // Stash the event so it can be triggered later
-        deferredPrompt = e;
-    });
-
-    window.addEventListener('appinstalled', function() {
-        deferredPrompt = null;
-    });
 
     // ========================================================================
     // Network Status Detection - Auto-reload when back online
     // ========================================================================
 
     var wasOffline = false;
-    var serverCheckInterval = null;
+    var serverCheckTimeout = null;
+    var serverCheckDelay = 5000; // Start at 5 seconds
+    var SERVER_CHECK_MAX_DELAY = 60000; // Cap at 60 seconds
 
     // Function to check if server is reachable
     function checkServerConnection() {
@@ -84,6 +59,23 @@
                 resolve(false);
             });
         });
+    }
+
+    // Poll server with exponential backoff (5s → 10s → 20s → 40s → 60s cap)
+    function pollServerConnection() {
+        serverCheckTimeout = setTimeout(function() {
+            checkServerConnection().then(function(isOnline) {
+                if (isOnline) {
+                    serverCheckDelay = 5000; // Reset for next time
+                    hideServerUnreachableBanner();
+                    wasOffline = false;
+                    window.location.reload();
+                } else {
+                    serverCheckDelay = Math.min(serverCheckDelay * 2, SERVER_CHECK_MAX_DELAY);
+                    pollServerConnection();
+                }
+            });
+        }, serverCheckDelay);
     }
 
     // Detect when going offline (network interface down)
@@ -176,18 +168,10 @@
                     wasOffline = true;
                     showServerUnreachableBanner();
 
-                    // Start polling to detect when server comes back
-                    if (serverCheckInterval) clearInterval(serverCheckInterval);
-                    serverCheckInterval = setInterval(function() {
-                        checkServerConnection().then(function(isOnline) {
-                            if (isOnline) {
-                                clearInterval(serverCheckInterval);
-                                hideServerUnreachableBanner();
-                                wasOffline = false;
-                                window.location.reload();
-                            }
-                        });
-                    }, 5000); // Check every 5 seconds
+                    // Start polling with exponential backoff
+                    if (serverCheckTimeout) clearTimeout(serverCheckTimeout);
+                    serverCheckDelay = 5000; // Reset backoff
+                    pollServerConnection();
                 }
             }
         });

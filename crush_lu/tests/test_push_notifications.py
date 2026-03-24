@@ -17,7 +17,6 @@ from django.utils import timezone, translation
 from crush_lu.push_notifications import (
     get_user_language,
     user_language_context,
-    activate_user_language,
     get_user_language_url,
     send_push_notification,
     send_push_to_subscription,
@@ -309,27 +308,6 @@ class TestUserLanguageContext:
 
         # Language should still be restored
         assert get_language() == 'en'
-
-
-# =============================================================================
-# TESTS FOR activate_user_language() - DEPRECATED
-# =============================================================================
-
-class TestActivateUserLanguage:
-    """Tests for deprecated activate_user_language function."""
-
-    def test_returns_language_code(self, user_with_profile):
-        """Function returns the user's language code."""
-        with patch('crush_lu.push_notifications.logger') as mock_logger:
-            result = activate_user_language(user_with_profile)
-            assert result == 'en'
-
-    def test_logs_deprecation_warning(self, user_with_profile):
-        """Function logs a deprecation warning."""
-        with patch('crush_lu.push_notifications.logger') as mock_logger:
-            activate_user_language(user_with_profile)
-            mock_logger.warning.assert_called_once()
-            assert 'deprecated' in mock_logger.warning.call_args[0][0].lower()
 
 
 # =============================================================================

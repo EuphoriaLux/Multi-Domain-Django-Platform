@@ -67,8 +67,10 @@
             });
         }
 
-        // Mark user as PWA user in the backend (enables push notification UI)
-        markPWAUser();
+        // Mark user as PWA user, then register device installation
+        markPWAUser().then(function() {
+            registerPWAInstallation();
+        });
 
     } else {
         sessionStorage.setItem('isPWA', 'false');
@@ -327,12 +329,6 @@
         } catch (error) {
             // Silently fail
         }
-    }
-
-    // Register installation after marking PWA user (if running as PWA)
-    if (isRunningAsPWA) {
-        // Small delay to ensure markPWAUser runs first
-        setTimeout(registerPWAInstallation, 500);
     }
 
     // ========================================================================
