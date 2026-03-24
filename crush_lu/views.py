@@ -39,7 +39,6 @@ from .models import (
     CoachSession,
     EventConnection,
     ConnectionMessage,
-    UserActivity,
     CoachPushSubscription,
 )
 from .models.crush_connect import CrushConnectWaitlist
@@ -172,6 +171,8 @@ from .views_coach import (  # noqa: F401
     coach_connections,
     coach_connection_review,
     coach_profiles,
+    coach_team_stats,
+    api_coach_claim_submission,
 )
 
 # Voting & presentations
@@ -251,14 +252,6 @@ def dashboard(request):
         # Get connection count
         connection_count = EventConnection.objects.active_for_user(request.user).count()
 
-        # Check PWA status from UserActivity model (not CrushProfile)
-        is_pwa_user = False
-        try:
-            activity = UserActivity.objects.filter(user=request.user).first()
-            if activity:
-                is_pwa_user = activity.is_pwa_user
-        except Exception:
-            logger.warning("Failed to check PWA status for user %s", request.user.id, exc_info=True)
         # Get or create referral code for this user's profile
         from .models import ReferralCode
         from .referrals import build_referral_url
@@ -289,7 +282,6 @@ def dashboard(request):
             "coach": coach,
             "registrations": registrations,
             "connection_count": connection_count,
-            "is_pwa_user": is_pwa_user,
             "referral_url": referral_url,
             "has_crush_preferences": has_crush_preferences,
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
@@ -1036,17 +1028,10 @@ def membership(request):
     Membership program landing page.
     Public access for viewing, login required for wallet actions.
     """
-    is_pwa_user = False
     profile = None
     referral_url = None
 
     if request.user.is_authenticated:
-        try:
-            activity = UserActivity.objects.get(user=request.user)
-            is_pwa_user = activity.is_pwa_user
-        except UserActivity.DoesNotExist:
-            pass
-
         try:
             profile = CrushProfile.objects.get(user=request.user)
             from .models import ReferralCode
@@ -1105,7 +1090,6 @@ def membership(request):
     ]
 
     context = {
-        "is_pwa_user": is_pwa_user,
         "profile": profile,
         "referral_url": referral_url,
         "tiers": tiers,

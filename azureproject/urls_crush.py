@@ -34,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -108,6 +108,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/coach/push/subscriptions/', api_coach_push.list_subscriptions, name='api_coach_list_subscriptions'),
     path('api/coach/push/preferences/', api_coach_push.update_subscription_preferences, name='api_coach_update_push_preferences'),
     path('api/coach/push/test/', api_coach_push.send_test_push, name='api_coach_send_test_push'),
+
+    # Coach Team Stats API (called from alpine-components.js coachTeamStats)
+    path('api/coach/team/claim/', views_coach.api_coach_claim_submission, name='api_coach_claim_submission'),
 
     # Auth Status API (called from oauth-popup.js, auth.html templates)
     path('api/auth/status/', views_oauth_popup.check_auth_status, name='check_auth_status'),

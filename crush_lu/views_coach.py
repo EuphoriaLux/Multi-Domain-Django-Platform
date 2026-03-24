@@ -4,7 +4,18 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
-from django.db.models import Q, Count, Case, When, Value, IntegerField
+from django.db.models import (
+    Q,
+    Count,
+    Case,
+    When,
+    Value,
+    IntegerField,
+    Avg,
+    F,
+    ExpressionWrapper,
+    DurationField,
+)
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import json
@@ -2151,3 +2162,344 @@ def coach_connection_review(request, connection_id):
         "show_facilitation": show_facilitation,
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
+
+
+# ============================================================================
+# Coach Team Stats
+# ============================================================================
+
+
+def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
+    """
+    Compute suggested reassignments for unassigned and overloaded submissions.
+
+    Scores available coaches by language match (+10) and load headroom (+capacity remaining).
+    Returns a list of suggestion dicts for the Alpine component.
+    """
+    from django.utils.translation import gettext as _gt
+
+    suggestions = []
+
+    # Build list of coaches with capacity
+    available_coaches = [
+        cd
+        for cd in coach_data
+        if not cd["is_overloaded"] and cd["coach"].is_active
+    ]
+
+    if not available_coaches:
+        return suggestions
+
+    def _score_coach(cd, profile_languages):
+        """Score a coach for a given profile based on language match and headroom."""
+        score = 0
+        reason_parts = []
+        coach_langs = cd["coach"].spoken_languages or []
+
+        # Language match: +10 per matching language
+        if profile_languages:
+            matching = set(profile_languages) & set(coach_langs)
+            if matching:
+                score += 10 * len(matching)
+                reason_parts.append(
+                    _gt("Language match: %(langs)s")
+                    % {"langs": ", ".join(matching)}
+                )
+
+        # Load headroom: prefer emptier coaches
+        headroom = cd["max_active_reviews"] - cd["pending_count"]
+        score += headroom
+        if not reason_parts:
+            reason_parts.append(_gt("Load balancing"))
+
+        return score, "; ".join(reason_parts)
+
+    # Suggest coaches for unassigned submissions
+    for submission in unassigned_submissions:
+        profile_langs = getattr(submission.profile, "event_languages", None) or []
+        best_score = -1
+        best_coach = None
+        best_reason = ""
+
+        for cd in available_coaches:
+            score, reason = _score_coach(cd, profile_langs)
+            if score > best_score:
+                best_score = score
+                best_coach = cd
+                best_reason = reason
+
+        if best_coach:
+            suggestions.append(
+                {
+                    "submission_id": submission.id,
+                    "profile_display_name": submission.profile.display_name,
+                    "current_coach_name": _gt("Unassigned"),
+                    "suggested_coach_id": best_coach["coach"].id,
+                    "suggested_coach_name": best_coach["coach"].user.get_full_name()
+                    or best_coach["coach"].user.username,
+                    "reason": best_reason,
+                }
+            )
+
+    # Suggest redistribution for overloaded coaches
+    overloaded_ids = [cd["coach"].id for cd in coach_data if cd["is_overloaded"]]
+    if overloaded_ids:
+        overloaded_submissions = ProfileSubmission.objects.filter(
+            status="pending", coach_id__in=overloaded_ids
+        ).select_related("profile", "profile__user", "coach", "coach__user")
+
+        # Group by coach, take excess submissions
+        from collections import defaultdict
+
+        by_coach = defaultdict(list)
+        for sub in overloaded_submissions:
+            by_coach[sub.coach_id].append(sub)
+
+        coach_max_map = {
+            cd["coach"].id: cd["max_active_reviews"] for cd in coach_data
+        }
+
+        for coach_id, subs in by_coach.items():
+            max_reviews = coach_max_map.get(coach_id, 10)
+            target = int(max_reviews * 0.75)
+            excess = len(subs) - target
+            if excess <= 0:
+                continue
+
+            # Take the most recent excess submissions as candidates
+            candidates = sorted(subs, key=lambda s: s.submitted_at, reverse=True)[
+                :excess
+            ]
+            for submission in candidates:
+                profile_langs = (
+                    getattr(submission.profile, "event_languages", None) or []
+                )
+                best_score = -1
+                best_coach = None
+                best_reason = ""
+
+                for cd in available_coaches:
+                    if cd["coach"].id == coach_id:
+                        continue
+                    score, reason = _score_coach(cd, profile_langs)
+                    if score > best_score:
+                        best_score = score
+                        best_coach = cd
+                        best_reason = reason
+
+                if best_coach:
+                    current_coach = submission.coach
+                    suggestions.append(
+                        {
+                            "submission_id": submission.id,
+                            "profile_display_name": submission.profile.display_name,
+                            "current_coach_name": current_coach.user.get_full_name()
+                            or current_coach.user.username,
+                            "suggested_coach_id": best_coach["coach"].id,
+                            "suggested_coach_name": best_coach[
+                                "coach"
+                            ].user.get_full_name()
+                            or best_coach["coach"].user.username,
+                            "reason": best_reason,
+                        }
+                    )
+
+    return suggestions
+
+
+def _format_duration(td):
+    """Format a timedelta as a human-readable string like '2d 5h' or '3h'."""
+    if td is None:
+        return None
+    total_seconds = int(td.total_seconds())
+    if total_seconds < 0:
+        return None
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    if days > 0:
+        return f"{days}d {hours}h"
+    if hours > 0:
+        return f"{hours}h"
+    minutes = (total_seconds % 3600) // 60
+    return f"{minutes}m"
+
+
+@coach_required
+def coach_team_stats(request):
+    """Coach team stats - cross-coach performance and workload view."""
+    coach = request.coach
+
+    # Query 1: All active coaches with review count annotations
+    coaches = (
+        CrushCoach.objects.filter(is_active=True)
+        .annotate(
+            pending_count=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="pending"),
+            ),
+            total_approved=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="approved"),
+            ),
+            total_rejected=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="rejected"),
+            ),
+            total_revision=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="revision"),
+            ),
+            total_recontact=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="recontact_coach"),
+            ),
+        )
+        .select_related("user")
+        .order_by("user__first_name")
+    )
+
+    # Query 2: Avg time-to-review per coach
+    review_times = (
+        ProfileSubmission.objects.filter(
+            coach__is_active=True,
+            reviewed_at__isnull=False,
+        )
+        .values("coach_id")
+        .annotate(
+            avg_review_time=Avg(
+                ExpressionWrapper(
+                    F("reviewed_at") - F("submitted_at"),
+                    output_field=DurationField(),
+                )
+            )
+        )
+    )
+    review_time_map = {rt["coach_id"]: rt["avg_review_time"] for rt in review_times}
+
+    # Query 3: Unassigned pending submissions
+    unassigned = ProfileSubmission.objects.filter(
+        status="pending", coach__isnull=True
+    ).select_related("profile", "profile__user")
+
+    # Build coach data for template
+    coach_data = []
+    for c in coaches:
+        total_completed = (
+            c.total_approved + c.total_rejected + c.total_revision + c.total_recontact
+        )
+        approval_rate = (
+            round(c.total_approved * 100 / total_completed) if total_completed else 0
+        )
+        rejection_rate = (
+            round(c.total_rejected * 100 / total_completed) if total_completed else 0
+        )
+        avg_time = review_time_map.get(c.id)
+        is_overloaded = c.pending_count >= c.max_active_reviews
+        capacity_pct = (
+            round(c.pending_count * 100 / c.max_active_reviews)
+            if c.max_active_reviews
+            else 100
+        )
+
+        coach_data.append(
+            {
+                "coach": c,
+                "pending_count": c.pending_count,
+                "max_active_reviews": c.max_active_reviews,
+                "capacity_pct": min(capacity_pct, 100),
+                "total_completed": total_completed,
+                "total_approved": c.total_approved,
+                "total_rejected": c.total_rejected,
+                "total_revision": c.total_revision,
+                "total_recontact": c.total_recontact,
+                "approval_rate": approval_rate,
+                "rejection_rate": rejection_rate,
+                "avg_review_time": _format_duration(avg_time),
+                "languages": c.get_spoken_languages_display,
+                "specializations": c.specializations,
+                "is_overloaded": is_overloaded,
+                "is_current": c.id == coach.id,
+            }
+        )
+
+    # Compute suggestions and mark which ones the current coach can claim
+    suggestions = _compute_reassignment_suggestions(coach_data, unassigned)
+    for s in suggestions:
+        s["is_claimable"] = (
+            s["suggested_coach_id"] == coach.id
+            or s["current_coach_name"] == str(_("Unassigned"))
+        )
+
+    context = {
+        "coach": coach,
+        "coach_data": coach_data,
+        "unassigned_submissions": unassigned,
+        "unassigned_count": unassigned.count(),
+        "suggestions": suggestions,
+        "can_claim": coach.can_accept_reviews(),
+    }
+    return render(request, "crush_lu/coach_team_stats.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def api_coach_claim_submission(request):
+    """API: Coach claims a pending submission for themselves."""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    submission_id = data.get("submission_id")
+    if not submission_id:
+        return JsonResponse(
+            {"success": False, "error": "Missing submission_id"}, status=400
+        )
+
+    coach = request.coach
+
+    # Pre-check capacity (fast path)
+    if not coach.can_accept_reviews():
+        return JsonResponse(
+            {"success": False, "error": str(_("You are at capacity"))}, status=409
+        )
+
+    with transaction.atomic():
+        submission = (
+            ProfileSubmission.objects.select_for_update()
+            .filter(id=submission_id, status="pending")
+            .first()
+        )
+
+        if not submission:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(_("Submission not found or no longer pending")),
+                },
+                status=404,
+            )
+
+        # Re-check capacity inside the lock
+        current_pending = ProfileSubmission.objects.filter(
+            coach=coach, status="pending"
+        ).count()
+        if current_pending >= coach.max_active_reviews:
+            return JsonResponse(
+                {"success": False, "error": str(_("You are at capacity"))}, status=409
+            )
+
+        old_coach = submission.coach
+        submission.coach = coach
+        submission.save(update_fields=["coach"])
+
+    logger.info(
+        "Coach %s claimed submission #%d (was: %s)", coach, submission.id, old_coach
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "message": str(_("Profile claimed successfully")),
+            "submission_id": submission.id,
+        }
+    )

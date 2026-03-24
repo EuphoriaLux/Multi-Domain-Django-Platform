@@ -9253,4 +9253,77 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+    // =========================================================================
+    // Coach Team Stats - claim submissions
+    // =========================================================================
+    Alpine.data('coachTeamStats', function() {
+        return {
+            claimingId: null,
+            claimError: '',
+            claimSuccess: '',
+
+            get hasClaimError() {
+                return this.claimError !== '';
+            },
+
+            get hasClaimSuccess() {
+                return this.claimSuccess !== '';
+            },
+
+            claimFromButton: function() {
+                var id = parseInt(this.$el.getAttribute('data-submission-id'));
+                if (id) {
+                    this.claimSubmission(id);
+                }
+            },
+
+            claimSubmission: function(submissionId) {
+                var self = this;
+                if (self.claimingId) return;
+                self.claimingId = submissionId;
+                self.claimError = '';
+                self.claimSuccess = '';
+
+                fetch('/api/coach/team/claim/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': self.getCsrfToken()
+                    },
+                    body: JSON.stringify({ submission_id: submissionId })
+                })
+                .then(function(r) {
+                    return r.json().then(function(d) {
+                        return { ok: r.ok, data: d };
+                    });
+                })
+                .then(function(result) {
+                    self.claimingId = null;
+                    if (result.ok && result.data.success) {
+                        self.claimSuccess = result.data.message;
+                        setTimeout(function() { window.location.reload(); }, 1500);
+                    } else {
+                        self.claimError = result.data.error || 'Claim failed';
+                    }
+                })
+                .catch(function() {
+                    self.claimingId = null;
+                    self.claimError = 'Network error';
+                });
+            },
+
+            getCsrfToken: function() {
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                var cookies = document.cookie.split('; ');
+                for (var i = 0; i < cookies.length; i++) {
+                    if (cookies[i].indexOf('csrftoken=') === 0) {
+                        return cookies[i].substring('csrftoken='.length);
+                    }
+                }
+                return '';
+            }
+        };
+    });
+
 });

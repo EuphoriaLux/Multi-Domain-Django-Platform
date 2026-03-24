@@ -1,0 +1,184 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "Team Stats" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Coach Dashboard" %}</a>
+        <span>/</span>
+        <span>{% trans "Team Stats" %}</span>
+    </div>
+    <h2 class="text-2xl font-bold dark:text-white">{% trans "Coach Team Stats" %}</h2>
+    <p class="text-lg text-gray-500 dark:text-gray-400">{% trans "Team performance overview and workload balancing" %}</p>
+</div>
+
+{# ======== Section 1: Coach Cards Grid ======== #}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    {% for cd in coach_data %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden {% if cd.is_current %}ring-2 ring-crush-purple{% endif %}">
+        <div class="p-5">
+            {# Coach name + badge #}
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-lg dark:text-white">
+                    {{ cd.coach.user.get_full_name|default:cd.coach.user.username }}
+                </h3>
+                {% if cd.is_current %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-crush-purple/10 text-crush-purple rounded-full">{% trans "You" %}</span>
+                {% endif %}
+            </div>
+
+            {# Capacity bar #}
+            <div class="mb-4">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-gray-600 dark:text-gray-300">{% trans "Capacity" %}</span>
+                    <span class="font-medium dark:text-gray-200">{{ cd.pending_count }} / {{ cd.max_active_reviews }}</span>
+                </div>
+                <div class="w-full h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all {% if cd.capacity_pct >= 80 %}bg-red-500{% elif cd.capacity_pct >= 50 %}bg-amber-500{% else %}bg-green-500{% endif %}" style="width: {{ cd.capacity_pct }}%"></div>
+                </div>
+                {% if cd.is_overloaded %}
+                    <p class="text-xs text-red-500 dark:text-red-400 mt-1 font-medium">{% trans "Overloaded" %}</p>
+                {% endif %}
+            </div>
+
+            {# Review stats #}
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <div class="text-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
+                    <div class="text-lg font-bold text-green-600 dark:text-green-400">{{ cd.total_approved }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Approved" %}</div>
+                </div>
+                <div class="text-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20">
+                    <div class="text-lg font-bold text-red-600 dark:text-red-400">{{ cd.total_rejected }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Rejected" %}</div>
+                </div>
+                <div class="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <div class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ cd.total_revision }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Revision" %}</div>
+                </div>
+                <div class="text-center p-2 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                    <div class="text-lg font-bold text-orange-600 dark:text-orange-400">{{ cd.total_recontact }}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Recontact" %}</div>
+                </div>
+            </div>
+
+            {# Approval rate + avg time #}
+            <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-3">
+                <span>{% trans "Approval rate" %}: <strong>{{ cd.approval_rate }}%</strong></span>
+                <span>{% trans "Avg time" %}: <strong>{{ cd.avg_review_time|default_if_none:"N/A" }}</strong></span>
+            </div>
+
+            {# Languages #}
+            {% with langs=cd.languages %}
+            {% if langs %}
+            <div class="flex flex-wrap gap-1 mb-2">
+                {% for lang in langs %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
+                    {{ lang.flag }} {{ lang.name }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {# Specializations #}
+            {% if cd.specializations %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 italic">{{ cd.specializations }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ======== Section 2: Unassigned Submissions + Suggestions ======== #}
+<div x-data="coachTeamStats">
+    {% csrf_token %}
+
+    {# Feedback messages #}
+    <div x-show="hasClaimSuccess" class="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-300 text-sm" x-text="claimSuccess"></div>
+    <div x-show="hasClaimError" class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm" x-text="claimError"></div>
+
+    {# Unassigned Submissions #}
+    {% if unassigned_submissions %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 class="font-semibold dark:text-white flex items-center gap-2">
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500" %}
+                {% blocktrans count counter=unassigned_count %}{{ counter }} Unassigned Submission{% plural %}{{ counter }} Unassigned Submissions{% endblocktrans %}
+            </h3>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for sub in unassigned_submissions %}
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="font-medium dark:text-white">{{ sub.profile.display_name }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "Submitted" %}: {{ sub.submitted_at|timesince }} {% trans "ago" %}
+                    </p>
+                </div>
+                {% if can_claim %}
+                <button
+                    @click="claimFromButton"
+                    data-submission-id="{{ sub.id }}"
+                    class="btn-crush-primary text-sm px-3 py-1.5"
+                >
+                    {% trans "Claim" %}
+                </button>
+                {% else %}
+                <span class="text-xs text-gray-400 dark:text-gray-500 italic">{% trans "At capacity" %}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Suggested Reassignments #}
+    {% if suggestions %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 class="font-semibold dark:text-white flex items-center gap-2">
+                {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5 text-crush-purple" %}
+                {% trans "Suggested Reassignments" %}
+                <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-crush-purple/10 text-crush-purple rounded-full">{{ suggestions|length }}</span>
+            </h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Based on language matching and workload balancing. Claim profiles suggested for you." %}</p>
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in suggestions %}
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <p class="font-medium dark:text-white truncate">{{ s.profile_display_name }}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ s.current_coach_name }}
+                        &rarr;
+                        <span class="text-crush-purple font-medium">{{ s.suggested_coach_name }}</span>
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 italic">{{ s.reason }}</p>
+                </div>
+                {% if s.is_claimable and can_claim %}
+                <button
+                    @click="claimFromButton"
+                    data-submission-id="{{ s.submission_id }}"
+                    class="btn-crush-primary text-sm px-3 py-1.5 whitespace-nowrap"
+                >
+                    {% trans "Claim" %}
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Empty state #}
+    {% if not unassigned_submissions and not suggestions %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+        <div class="text-4xl mb-3">&#9989;</div>
+        <h3 class="font-semibold text-lg dark:text-white mb-1">{% trans "All balanced" %}</h3>
+        <p class="text-gray-500 dark:text-gray-400">{% trans "No unassigned submissions and no redistribution suggestions. The team workload looks good!" %}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

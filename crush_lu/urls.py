@@ -263,6 +263,7 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/sms-sent/', views.coach_log_sms_sent, name='coach_log_sms_sent'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
+    path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),
 
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
