@@ -120,6 +120,10 @@ class DependencyFilteringProcessor:
         """Called when a span is started."""
         pass
 
+    def _on_ending(self, span):
+        """Called when a span is ending (before on_end). Required by newer opentelemetry-sdk."""
+        pass
+
     def on_end(self, span):
         """Filter out low-value dependency spans."""
         # Check if this is an HTTP span
@@ -164,6 +168,10 @@ class ExceptionFilteringProcessor:
 
     def on_start(self, span, parent_context=None):
         """Called when a span is started. We don't filter here."""
+        pass
+
+    def _on_ending(self, span):
+        """Called when a span is ending (before on_end). Required by newer opentelemetry-sdk."""
         pass
 
     def on_end(self, span):
