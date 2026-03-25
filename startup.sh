@@ -6,8 +6,9 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Note: collectstatic is handled by Oryx during build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
-# Running it here would be redundant and add ~30-60s to startup time
+# Note: collectstatic is handled by Oryx during Azure build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
+# Oryx generates the staticfiles manifest + compressed files for WhiteNoise
+# Do NOT run collectstatic here — running it twice causes manifest conflicts
 
 # Run migrations with no-input for faster execution
 python manage.py migrate --no-input

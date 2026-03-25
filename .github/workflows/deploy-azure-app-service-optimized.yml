@@ -105,7 +105,7 @@ jobs:
         run: |
           npm ci
           npm run build:css:all
-          echo "✅ CSS build complete (collectstatic handled by Oryx)"
+          echo "✅ CSS build complete (collectstatic runs during Oryx build on Azure)"
 
   # Deploy only after validate + test + build all pass
   deploy:

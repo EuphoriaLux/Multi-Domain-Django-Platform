@@ -186,9 +186,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Disable Oryx output tarball caching - run directly from /home/site/wwwroot/
       // This fixes stale staticfiles manifest issues after deployment
       ORYX_DISABLE_OUTPUT_TAR_FILE: 'true'
-      // Skip Oryx collectstatic - CI already builds the complete staticfiles manifest
-      // This prevents Oryx from overwriting CI's manifest with an incomplete one
-      DISABLE_COLLECTSTATIC: 'true'
+      // Oryx runs collectstatic during build (generates manifest + compressed files for WhiteNoise)
       SECRET_KEY: secretKey
       // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu'
@@ -319,9 +317,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       // Disable Oryx output tarball caching - run directly from /home/site/wwwroot/
       // This fixes stale staticfiles manifest issues after deployment
       ORYX_DISABLE_OUTPUT_TAR_FILE: 'true'
-      // Skip Oryx collectstatic - CI already builds the complete staticfiles manifest
-      // This prevents Oryx from overwriting CI's manifest with an incomplete one
-      DISABLE_COLLECTSTATIC: 'true'
+      // Oryx runs collectstatic during build (generates manifest + compressed files for WhiteNoise)
       // ISOLATED DATABASE: Uses pythonapp_staging instead of pythonapp to prevent test data affecting production
       SECRET_KEY: secretKey
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
