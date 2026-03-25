@@ -8,6 +8,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 from modeltranslation.translator import translator, TranslationOptions
 
 from .models.profiles import CrushCoach, SpecialUserExperience
+from .models.matching import Trait
 from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
@@ -87,7 +88,14 @@ class EventPollOptionTranslationOptions(TranslationOptions):
     fields = ('name', 'description')
 
 
+class TraitTranslationOptions(TranslationOptions):
+    """Translatable fields for matching traits (qualities and defects)."""
+
+    fields = ('label',)
+
+
 # Register models with translation options
+translator.register(Trait, TraitTranslationOptions)
 translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
 translator.register(CrushCoach, CrushCoachTranslationOptions)
 translator.register(SpecialUserExperience, SpecialUserExperienceTranslationOptions)

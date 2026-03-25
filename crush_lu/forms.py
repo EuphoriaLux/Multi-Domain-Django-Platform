@@ -203,6 +203,16 @@ class CrushProfileForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
     )
 
+    # Trait selection fields (submitted as comma-separated IDs from Alpine.js)
+    qualities_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_qualities_ids'}),
+    )
+    defects_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_defects_ids'}),
+    )
+
     # Event languages (multi-select checkbox field for languages spoken at events)
     event_languages = forms.MultipleChoiceField(
         choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
@@ -235,11 +245,21 @@ class CrushProfileForm(forms.ModelForm):
         ]
         # Widgets are defined in field overrides above
 
+    MAX_TRAITS_PER_CATEGORY = 5
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Set initial value for event_languages from JSONField
         if self.instance and self.instance.pk and self.instance.event_languages:
             self.initial['event_languages'] = self.instance.event_languages
+        # Pre-populate trait IDs as comma-separated strings
+        if self.instance and self.instance.pk:
+            self.initial['qualities_ids'] = ','.join(
+                str(pk) for pk in self.instance.qualities.values_list('pk', flat=True)
+            )
+            self.initial['defects_ids'] = ','.join(
+                str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
+            )
 
     def clean_event_languages(self):
         """Ensure event_languages is stored as a list for JSON serialization"""
@@ -473,9 +493,65 @@ class CrushProfileForm(forms.ModelForm):
 
         return photo
 
+    def _parse_trait_ids(self, field_name):
+        """Parse comma-separated IDs into a list of ints."""
+        raw = self.cleaned_data.get(field_name, '')
+        if not raw or not raw.strip():
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(',') if x.strip()]
+        except (ValueError, TypeError):
+            raise forms.ValidationError(_("Invalid trait selection."))
+
+    def clean_qualities_ids(self):
+        ids = self._parse_trait_ids('qualities_ids')
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d qualities."),
+                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def clean_defects_ids(self):
+        ids = self._parse_trait_ids('defects_ids')
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d defects."),
+                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def save(self, commit=True):
+        """Save the form including M2M trait fields."""
+        from .models import Trait
+
+        instance = super().save(commit=commit)
+
+        if commit:
+            qualities_ids = self.cleaned_data.get('qualities_ids', [])
+            defects_ids = self.cleaned_data.get('defects_ids', [])
+
+            if qualities_ids:
+                instance.qualities.set(
+                    Trait.objects.filter(pk__in=qualities_ids, trait_type='quality')
+                )
+            else:
+                instance.qualities.clear()
+
+            if defects_ids:
+                instance.defects.set(
+                    Trait.objects.filter(pk__in=defects_ids, trait_type='defect')
+                )
+            else:
+                instance.defects.clear()
+
+        return instance
+
 
 class IdealCrushPreferencesForm(forms.ModelForm):
-    """Standalone form for ideal crush preferences (age range, gender)"""
+    """Standalone form for ideal crush preferences (age, gender, traits, astrology)"""
+
+    MAX_TRAITS_PER_CATEGORY = 5
 
     PREFERRED_GENDER_CHOICES = [
         ('M', _('Man')),
@@ -504,14 +580,50 @@ class IdealCrushPreferencesForm(forms.ModelForm):
         label=_('Who makes the first step?'),
     )
 
+    # Trait selection field (submitted as comma-separated IDs from Alpine.js)
+    sought_qualities_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_sought_qualities_ids'}),
+    )
+    astro_enabled = forms.BooleanField(
+        required=False,
+        label=_('Include zodiac compatibility'),
+    )
+
     class Meta:
         model = CrushProfile
-        fields = ['preferred_age_min', 'preferred_age_max', 'preferred_genders', 'first_step_preference']
+        fields = [
+            'preferred_age_min', 'preferred_age_max', 'preferred_genders',
+            'first_step_preference', 'astro_enabled',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and self.instance.preferred_genders:
-            self.initial['preferred_genders'] = self.instance.preferred_genders
+        if self.instance and self.instance.pk:
+            if self.instance.preferred_genders:
+                self.initial['preferred_genders'] = self.instance.preferred_genders
+            self.initial['sought_qualities_ids'] = ','.join(
+                str(pk) for pk in self.instance.sought_qualities.values_list('pk', flat=True)
+            )
+
+    def _parse_trait_ids(self, field_name):
+        """Parse comma-separated IDs into a list of ints."""
+        raw = self.cleaned_data.get(field_name, '')
+        if not raw or not raw.strip():
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(',') if x.strip()]
+        except (ValueError, TypeError):
+            raise forms.ValidationError(_("Invalid trait selection."))
+
+    def clean_sought_qualities_ids(self):
+        ids = self._parse_trait_ids('sought_qualities_ids')
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d sought qualities."),
+                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
 
     def clean_preferred_age_min(self):
         return self.cleaned_data.get('preferred_age_min') or 18
@@ -537,6 +649,25 @@ class IdealCrushPreferencesForm(forms.ModelForm):
         if age_min is not None and age_max is not None and age_min >= age_max:
             self.add_error('preferred_age_min', _("Minimum age must be less than maximum age."))
         return cleaned_data
+
+    def save(self, commit=True):
+        """Save the form including M2M trait fields."""
+        from .models import Trait
+
+        instance = super().save(commit=commit)
+
+        if commit:
+            # Save M2M sought_qualities relationship
+            sought_ids = self.cleaned_data.get('sought_qualities_ids', [])
+
+            if sought_ids:
+                instance.sought_qualities.set(
+                    Trait.objects.filter(pk__in=sought_ids, trait_type='quality')
+                )
+            else:
+                instance.sought_qualities.clear()
+
+        return instance
 
 
 class ProfileReviewForm(forms.ModelForm):

@@ -173,6 +173,8 @@ from .event_polls import (
 
 from .crush_connect import CrushConnectWaitlistAdmin
 
+from .matching import TraitAdmin, MatchScoreAdmin
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -224,6 +226,8 @@ from crush_lu.models import (
     EventPollOption,
     EventPollVote,
     CrushConnectWaitlist,
+    Trait,
+    MatchScore,
 )
 
 
@@ -327,6 +331,10 @@ crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
 
 # Crush Connect Waitlist
 crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
+
+# Matching System
+crush_admin_site.register(Trait, TraitAdmin)
+crush_admin_site.register(MatchScore, MatchScoreAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
@@ -477,4 +485,8 @@ __all__ = [
 
     # Crush Connect
     'CrushConnectWaitlistAdmin',
+
+    # Matching
+    'TraitAdmin',
+    'MatchScoreAdmin',
 ]

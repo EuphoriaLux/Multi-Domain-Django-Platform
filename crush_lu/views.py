@@ -265,6 +265,27 @@ def dashboard(request):
             profile.preferred_age_min != 18 or profile.preferred_age_max != 99
         ) or bool(profile.first_step_preference)
 
+        # Matching: top matches for dashboard widget
+        has_traits = profile.sought_qualities.exists()
+        top_matches = []
+        if profile.is_approved and has_traits:
+            from .matching import get_matches_for_user, get_score_display
+            match_scores = get_matches_for_user(request.user)[:3]
+            for ms in match_scores:
+                other_user = ms.user_b if ms.user_a == request.user else ms.user_a
+                try:
+                    other_profile = CrushProfile.objects.get(
+                        user=other_user, is_approved=True, is_active=True
+                    )
+                except CrushProfile.DoesNotExist:
+                    continue
+                score_display = get_score_display(ms.score_final)
+                if score_display:
+                    top_matches.append({
+                        "profile": other_profile,
+                        "display": score_display,
+                    })
+
         # Crush Connect waitlist status
         on_crush_connect_waitlist = False
         crush_connect_position = None
@@ -284,6 +305,8 @@ def dashboard(request):
             "connection_count": connection_count,
             "referral_url": referral_url,
             "has_crush_preferences": has_crush_preferences,
+            "has_traits": has_traits,
+            "top_matches": top_matches,
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
@@ -673,6 +696,22 @@ def _render_edit_profile_form(request):
         return redirect("crush_lu:create_profile")
 
     from .social_photos import get_all_social_photos
+    from .models import Trait
+
+    # Trait data for personality section (grouped by category)
+    qualities_list = list(Trait.objects.filter(trait_type="quality"))
+    defects_list = list(Trait.objects.filter(trait_type="defect"))
+    qualities_grouped = _group_traits_by_category(qualities_list)
+    defects_grouped = _group_traits_by_category(defects_list)
+    selected_qualities = list(profile.qualities.values_list("pk", flat=True))
+    selected_defects = list(profile.defects.values_list("pk", flat=True))
+
+    trait_context = {
+        "qualities_grouped": qualities_grouped,
+        "defects_grouped": defects_grouped,
+        "selected_qualities_json": json.dumps(selected_qualities),
+        "selected_defects_json": json.dumps(selected_defects),
+    }
 
     if request.method == "POST":
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
@@ -700,6 +739,7 @@ def _render_edit_profile_form(request):
                         "profile": profile,
                         "social_photos": get_all_social_photos(request.user),
                         "has_errors": True,
+                        **trait_context,
                     },
                 )
 
@@ -715,6 +755,7 @@ def _render_edit_profile_form(request):
         "form": form,
         "profile": profile,
         "social_photos": get_all_social_photos(request.user),
+        **trait_context,
     }
     return render(request, "crush_lu/edit_profile.html", context)
 
@@ -844,9 +885,42 @@ def edit_profile(request):
     return render(request, "crush_lu/create_profile.html", context)
 
 
+_TRAIT_CATEGORY_META = {
+    "social": "crush_lu/includes/ghost-story-chatting-pair.html",
+    "emotional": "crush_lu/includes/ghost-story-inlove.html",
+    "mindset": "crush_lu/includes/ghost-story-blushing-reader.html",
+    "relational": "crush_lu/includes/ghost-story-cuddling.html",
+    "energy": "crush_lu/includes/ghost-story-running.html",
+}
+
+
+def _group_traits_by_category(qs):
+    """Group a trait queryset by category with ghost artwork include paths."""
+    from .models.matching import TraitCategory
+
+    grouped = []
+    for cat_value, cat_label in TraitCategory.choices:
+        traits = [t for t in qs if t.category == cat_value]
+        if traits:
+            grouped.append({
+                "key": cat_value,
+                "label": cat_label,
+                "ghost_include": _TRAIT_CATEGORY_META.get(cat_value, ""),
+                "traits": traits,
+            })
+    return grouped
+
+
 @crush_login_required
 def crush_preferences(request):
-    """Standalone page for ideal crush preferences (age range, gender)"""
+    """Standalone page for ideal crush preferences (age, gender, traits, astrology)"""
+    from .models import Trait
+    from .matching import (
+        get_western_zodiac, get_chinese_zodiac,
+        update_match_scores_for_user,
+        ZODIAC_SIGN_EMOJIS, CHINESE_ANIMAL_EMOJIS,
+    )
+
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
@@ -861,6 +935,10 @@ def crush_preferences(request):
         form = IdealCrushPreferencesForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
+            # Recalculate match scores after traits change
+            transaction.on_commit(
+                lambda: update_match_scores_for_user(request.user)
+            )
             logger.info("Crush preferences saved for user %s", request.user.pk)
             messages.success(request, _("Your preferences have been saved."))
             return redirect("crush_lu:dashboard")
@@ -874,9 +952,164 @@ def crush_preferences(request):
         form = IdealCrushPreferencesForm(instance=profile)
         logger.info("Loading crush preferences for user %s", request.user.pk)
 
+    # Qualities grouped by category for "Qualities I Seek" section
+    qualities_list = list(Trait.objects.filter(trait_type="quality"))
+    qualities_grouped = _group_traits_by_category(qualities_list)
+
+    # Current user selection for sought qualities
+    selected_sought = list(profile.sought_qualities.values_list("pk", flat=True))
+
+    # Zodiac info for display
+    zodiac_sign = get_western_zodiac(profile.date_of_birth)
+    chinese_animal = get_chinese_zodiac(profile.date_of_birth)
+
     return render(request, "crush_lu/crush_preferences.html", {
         "form": form,
         "profile": profile,
+        "qualities_grouped": qualities_grouped,
+        "selected_sought_json": json.dumps(selected_sought),
+        "zodiac_sign": zodiac_sign,
+        "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
+        "chinese_animal": chinese_animal,
+        "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
+    })
+
+
+@crush_login_required
+def matches_list(request):
+    """Page showing compatible matches sorted by score."""
+    from .matching import get_matches_for_user, get_score_display
+    from django.core.paginator import Paginator
+
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        messages.info(request, _("You need to create a profile first."))
+        return redirect("crush_lu:create_profile")
+
+    if not profile.is_approved:
+        messages.warning(request, _("Your profile must be approved before viewing matches."))
+        return redirect("crush_lu:dashboard")
+
+    has_traits = profile.sought_qualities.exists()
+    matches = []
+
+    if has_traits:
+        match_scores = get_matches_for_user(request.user)
+
+        for ms in match_scores:
+            other_user = ms.user_b if ms.user_a == request.user else ms.user_a
+            try:
+                other_profile = CrushProfile.objects.get(
+                    user=other_user, is_approved=True, is_active=True
+                )
+            except CrushProfile.DoesNotExist:
+                continue
+
+            # Apply user's preference filters
+            if profile.preferred_genders and other_profile.gender not in profile.preferred_genders:
+                continue
+            if other_profile.age:
+                if other_profile.age < profile.preferred_age_min:
+                    continue
+                if other_profile.age > profile.preferred_age_max:
+                    continue
+
+            score_display = get_score_display(ms.score_final)
+            if score_display:
+                matches.append({
+                    "profile": other_profile,
+                    "score": ms.score_final,
+                    "score_percent": int(ms.score_final * 100),
+                    "display": score_display,
+                })
+
+    paginator = Paginator(matches, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, "crush_lu/matches.html", {
+        "page_obj": page_obj,
+        "matches": page_obj.object_list,
+        "has_traits": has_traits,
+        "profile": profile,
+    })
+
+
+@require_http_methods(["GET"])
+@crush_login_required
+def api_match_list(request):
+    """JSON API for match list (language-neutral)."""
+    from .matching import get_matches_for_user, get_score_display
+
+    try:
+        profile = CrushProfile.objects.get(user=request.user, is_approved=True)
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({"error": "Profile not found or not approved"}, status=404)
+
+    page = int(request.GET.get("page", 1))
+    per_page = min(int(request.GET.get("per_page", 20)), 50)
+
+    match_scores = get_matches_for_user(request.user)
+    results = []
+
+    for ms in match_scores:
+        other_user = ms.user_b if ms.user_a == request.user else ms.user_a
+        try:
+            other_profile = CrushProfile.objects.get(
+                user=other_user, is_approved=True, is_active=True
+            )
+        except CrushProfile.DoesNotExist:
+            continue
+
+        display = get_score_display(ms.score_final)
+        if display:
+            results.append({
+                "user_id": other_user.pk,
+                "display_name": other_profile.display_name,
+                "age": other_profile.age if other_profile.show_exact_age else None,
+                "score_percent": int(ms.score_final * 100),
+                "score_label": display["label"],
+            })
+
+    # Paginate
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated = results[start:end]
+
+    return JsonResponse({
+        "matches": paginated,
+        "total": len(results),
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@require_http_methods(["GET"])
+@crush_login_required
+def api_match_score(request, user_id):
+    """JSON API for score detail between authenticated user and another user."""
+    from .matching import compute_match_score, get_score_display
+
+    try:
+        my_profile = CrushProfile.objects.get(user=request.user, is_approved=True)
+        other_profile = CrushProfile.objects.get(
+            user_id=user_id, is_approved=True, is_active=True
+        )
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({"error": "Profile not found"}, status=404)
+
+    scores = compute_match_score(my_profile, other_profile)
+    display = get_score_display(scores["score_final"])
+
+    return JsonResponse({
+        "score_final": scores["score_final"],
+        "score_percent": int(scores["score_final"] * 100),
+        "score_qualities": scores["score_qualities"],
+        "score_zodiac_west": scores["score_zodiac_west"],
+        "score_zodiac_cn": scores["score_zodiac_cn"],
+        "label": display["label"] if display else None,
+        "color": display["hex"] if display else None,
     })
 
 

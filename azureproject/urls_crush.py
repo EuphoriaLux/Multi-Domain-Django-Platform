@@ -207,6 +207,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/admin/sync-contacts/delete-all/', api_admin_sync.delete_all_contacts_endpoint, name='api_admin_delete_all_contacts'),
     path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
 
+    # Matching API (language-neutral for JS calls)
+    path('api/matches/', views.api_match_list, name='api_match_list'),
+    path('api/matches/score/<int:user_id>/', views.api_match_score, name='api_match_score'),
+
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix
     # Users will be redirected to the home page in their browser's preferred language

@@ -427,6 +427,33 @@ class CrushProfile(models.Model):
         help_text=_("Who should make the first step?")
     )
 
+    # Matching: Qualities, Defects, and Sought Qualities
+    qualities = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="profiles_as_quality",
+        limit_choices_to={"trait_type": "quality"},
+        help_text=_("Your top 5 qualities (max 5)"),
+    )
+    defects = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="profiles_as_defect",
+        limit_choices_to={"trait_type": "defect"},
+        help_text=_("Your top 5 defects (max 5)"),
+    )
+    sought_qualities = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="profiles_seeking",
+        limit_choices_to={"trait_type": "quality"},
+        help_text=_("Top 5 qualities you seek in a partner (max 5)"),
+    )
+    astro_enabled = models.BooleanField(
+        default=True,
+        help_text=_("Include zodiac compatibility in matching score"),
+    )
+
     # Photos (using private storage in production with SAS tokens)
     # Path structure: users/{user_id}/photos/{uuid}.{ext}
     # Using lazy storage ensures consistent migration state across environments

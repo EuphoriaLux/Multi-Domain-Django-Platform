@@ -12,3 +12,4 @@ from .crush_spark import *
 from .newsletter import *
 from .event_polls import *
 from .crush_connect import *
+from .matching import *

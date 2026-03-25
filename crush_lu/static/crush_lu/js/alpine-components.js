@@ -9333,4 +9333,151 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
+
+    // =========================================================================
+    // Trait Selector Component (Matching System)
+    // =========================================================================
+    // CSP-safe chip-based selector for qualities, defects, and sought qualities.
+    // Traits are server-rendered as buttons; this component tracks selection state.
+    //
+    // Usage (container):
+    //   <div x-data="traitSelector" data-max="5" data-initial="[1,2,3]">
+    //
+    // Usage (each chip button, server-rendered via Django {% for %}):
+    //   <button type="button" data-trait-id="42" @click="handleClick" ...>
+    //
+    Alpine.data('traitSelector', function() {
+        return {
+            selected: [],
+            maxItems: 5,
+
+            init: function() {
+                this.maxItems = parseInt(this.$el.getAttribute('data-max') || '5', 10);
+                var initialStr = this.$el.getAttribute('data-initial');
+                if (initialStr) {
+                    try { this.selected = JSON.parse(initialStr); } catch(e) { this.selected = []; }
+                }
+                // Apply initial visual state to all chip buttons
+                this._syncAllChips();
+            },
+
+            get counterText() {
+                return this.selected.length + '/' + this.maxItems;
+            },
+
+            get hiddenValue() {
+                return this.selected.join(',');
+            },
+
+            handleClick: function() {
+                // Read trait ID from the clicked button's data attribute
+                var btn = this.$el;
+                if (!btn.hasAttribute('data-trait-id')) {
+                    // Clicked on container, find closest button
+                    return;
+                }
+                var id = parseInt(btn.getAttribute('data-trait-id'), 10);
+                var idx = this.selected.indexOf(id);
+                if (idx > -1) {
+                    this.selected.splice(idx, 1);
+                } else if (this.selected.length < this.maxItems) {
+                    this.selected.push(id);
+                }
+                this._syncAllChips();
+            },
+
+            _syncAllChips: function() {
+                var self = this;
+                var container = this.$el.closest('[x-data]');
+                if (!container) return;
+                var buttons = container.querySelectorAll('[data-trait-id]');
+                var isMax = self.selected.length >= self.maxItems;
+                var accentColor = container.getAttribute('data-accent') || 'purple';
+                for (var i = 0; i < buttons.length; i++) {
+                    var btn = buttons[i];
+                    var traitId = parseInt(btn.getAttribute('data-trait-id'), 10);
+                    var isSelected = self.selected.indexOf(traitId) > -1;
+                    var isDisabled = isMax && !isSelected;
+
+                    // Remove all state classes
+                    btn.classList.remove(
+                        'border-purple-500', 'bg-purple-100', 'dark:bg-purple-900/40', 'text-purple-700', 'dark:text-purple-300',
+                        'border-pink-500', 'bg-pink-100', 'dark:bg-pink-900/40', 'text-pink-700', 'dark:text-pink-300',
+                        'border-green-500', 'bg-green-100', 'dark:bg-green-900/40', 'text-green-700', 'dark:text-green-300',
+                        'border-gray-200', 'dark:border-gray-600', 'dark:border-gray-700',
+                        'bg-white', 'dark:bg-gray-800', 'bg-gray-100',
+                        'text-gray-700', 'dark:text-gray-200', 'text-gray-400', 'dark:text-gray-600',
+                        'cursor-not-allowed',
+                        'hover:border-purple-300', 'hover:bg-purple-50', 'dark:hover:bg-purple-900/30',
+                        'hover:border-pink-300', 'hover:bg-pink-50', 'dark:hover:bg-pink-900/30',
+                        'hover:border-green-300', 'hover:bg-green-50', 'dark:hover:bg-green-900/30'
+                    );
+
+                    if (isSelected) {
+                        btn.classList.add('border-' + accentColor + '-500', 'bg-' + accentColor + '-100', 'dark:bg-' + accentColor + '-900/40', 'text-' + accentColor + '-700', 'dark:text-' + accentColor + '-300');
+                    } else if (isDisabled) {
+                        btn.classList.add('border-gray-200', 'dark:border-gray-700', 'bg-gray-100', 'dark:bg-gray-800', 'text-gray-400', 'dark:text-gray-600', 'cursor-not-allowed');
+                    } else {
+                        btn.classList.add('border-gray-200', 'dark:border-gray-600', 'bg-white', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-200');
+                        btn.classList.add('hover:border-' + accentColor + '-300', 'hover:bg-' + accentColor + '-50', 'dark:hover:bg-' + accentColor + '-900/30');
+                    }
+                }
+            }
+        };
+    });
+
+
+    // =========================================================================
+    // Astro Toggle Component (Matching System)
+    // =========================================================================
+    Alpine.data('astroToggle', function() {
+        return {
+            enabled: true,
+
+            init: function() {
+                this.enabled = this.$el.getAttribute('data-initial') === 'true';
+                this._syncVisual();
+            },
+
+            get isEnabled() {
+                return this.enabled;
+            },
+
+            get isDisabled() {
+                return !this.enabled;
+            },
+
+            get toggleBgClass() {
+                return this.enabled ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600';
+            },
+
+            get toggleKnobClass() {
+                return this.enabled ? 'translate-x-6' : 'translate-x-1';
+            },
+
+            toggle: function() {
+                this.enabled = !this.enabled;
+                this._syncVisual();
+            },
+
+            _syncVisual: function() {
+                // Sync toggle button visual state
+                var toggleBtn = this.$el.querySelector('[data-toggle-btn]');
+                var knob = this.$el.querySelector('[data-toggle-knob]');
+                if (toggleBtn) {
+                    toggleBtn.classList.remove('bg-purple-500', 'bg-gray-300', 'dark:bg-gray-600');
+                    if (this.enabled) {
+                        toggleBtn.classList.add('bg-purple-500');
+                    } else {
+                        toggleBtn.classList.add('bg-gray-300', 'dark:bg-gray-600');
+                    }
+                }
+                if (knob) {
+                    knob.classList.remove('translate-x-6', 'translate-x-1');
+                    knob.classList.add(this.enabled ? 'translate-x-6' : 'translate-x-1');
+                }
+            }
+        };
+    });
+
 });

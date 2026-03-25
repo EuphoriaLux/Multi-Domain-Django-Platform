@@ -171,6 +171,7 @@ urlpatterns = [
     path('profile/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('profile/preferences/', views.crush_preferences, name='crush_preferences'),
+    path('matches/', views.matches_list, name='matches_list'),
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),

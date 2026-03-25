@@ -222,6 +222,91 @@
 
     </div>
 
+<!-- Personality Traits Section -->
+<div class="section-card mb-4">
+    <h5 class="section-title">
+        {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% trans "Your Personality" %}
+    </h5>
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Select up to 5 traits in each category to improve your compatibility matches." %}</p>
+
+    <!-- My Qualities (5 of 20) - Grouped by category -->
+    <div class="mb-6"
+         x-data="traitSelector"
+         data-max="5"
+         data-accent="purple"
+         data-initial="{{ selected_qualities_json }}">
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                {% trans "My Qualities" %}
+            </label>
+            <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+        </div>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What best describes you?" %}</p>
+        {% for cat in qualities_grouped %}
+        <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1.5">
+                {% include cat.ghost_include with class="w-5 h-5" %}
+                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+                {% for trait in cat.traits %}
+                <button type="button"
+                        data-trait-id="{{ trait.pk }}"
+                        @click="handleClick"
+                        class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                               border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                    {{ trait.label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        <input type="hidden" name="qualities_ids" x-bind:value="hiddenValue">
+        {% if form.qualities_ids.errors %}
+            <div class="text-red-600 text-sm mt-1">{{ form.qualities_ids.errors.0 }}</div>
+        {% endif %}
+    </div>
+
+    <!-- My Defects (5 of 20) - Grouped by category -->
+    <div class="mb-2"
+         x-data="traitSelector"
+         data-max="5"
+         data-accent="pink"
+         data-initial="{{ selected_defects_json }}">
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                {% trans "My Defects" %}
+            </label>
+            <span class="text-sm font-semibold text-pink-600 dark:text-pink-400" x-text="counterText"></span>
+        </div>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What do you own up to?" %}</p>
+        {% for cat in defects_grouped %}
+        <div class="mb-3">
+            <div class="flex items-center gap-2 mb-1.5">
+                {% include cat.ghost_include with class="w-5 h-5" %}
+                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+                {% for trait in cat.traits %}
+                <button type="button"
+                        data-trait-id="{{ trait.pk }}"
+                        @click="handleClick"
+                        class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                               border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                    {{ trait.label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        <input type="hidden" name="defects_ids" x-bind:value="hiddenValue">
+        {% if form.defects_ids.errors %}
+            <div class="text-red-600 text-sm mt-1">{{ form.defects_ids.errors.0 }}</div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Ideal Crush Preferences Link -->
 <a href="{% url 'crush_lu:crush_preferences' %}"
    class="section-card mb-4 flex items-center justify-between group hover:border-purple-300 dark:hover:border-purple-600 transition-colors block no-underline">
@@ -229,7 +314,7 @@
         <span class="text-2xl">💕</span>
         <div>
             <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Set your age range and gender preferences" %}</p>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Age, gender, qualities you seek & zodiac preferences" %}</p>
         </div>
     </div>
     <svg class="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

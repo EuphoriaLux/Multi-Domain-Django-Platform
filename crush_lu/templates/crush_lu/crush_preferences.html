@@ -130,6 +130,95 @@
             {% endif %}
         </div>
 
+        <!-- ================================================================ -->
+        <!-- Qualities I Seek Section                                         -->
+        <!-- ================================================================ -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6 mb-6">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{% trans "Personality Matching" %}</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Select 5 qualities you look for in someone to improve your compatibility matches." %}</p>
+        </div>
+
+        <!-- Qualities I Seek (5 of 20) - Grouped by category -->
+        <div class="mb-6"
+             x-data="traitSelector"
+             data-max="5"
+             data-accent="green"
+             data-initial="{{ selected_sought_json }}">
+            <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {% trans "Qualities I Seek" %}
+                </label>
+                <span class="text-sm font-semibold text-green-600 dark:text-green-400" x-text="counterText"></span>
+            </div>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What do you look for in someone?" %}</p>
+            {% for cat in qualities_grouped %}
+            <div class="mb-3">
+                <div class="flex items-center gap-2 mb-1.5">
+                    {% include cat.ghost_include with class="w-5 h-5" %}
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for trait in cat.traits %}
+                    <button type="button"
+                            data-trait-id="{{ trait.pk }}"
+                            @click="handleClick"
+                            class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                   border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                        {{ trait.label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <input type="hidden" name="sought_qualities_ids" x-bind:value="hiddenValue">
+            {% if form.sought_qualities_ids.errors %}
+                <div class="text-red-600 text-sm mt-1">{{ form.sought_qualities_ids.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- Astrology Section                                                 -->
+        <!-- ================================================================ -->
+        <div class="mb-6"
+             x-data="astroToggle"
+             data-initial="{{ profile.astro_enabled|yesno:'true,false' }}">
+            <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {% trans "Zodiac Compatibility" %}
+                </label>
+                <button type="button"
+                        data-toggle-btn
+                        @click="toggle"
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-300 dark:bg-gray-600">
+                    <span data-toggle-knob
+                          class="inline-block h-4 w-4 rounded-full bg-white transition-transform translate-x-1"></span>
+                </button>
+            </div>
+            <input type="hidden" name="astro_enabled" x-bind:value="isEnabled">
+
+            {% if zodiac_sign %}
+            <div x-show="isEnabled" x-transition class="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                <div class="flex items-center gap-4 text-sm">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg">{{ zodiac_emoji }}</span>
+                        <span class="text-gray-700 dark:text-gray-200 font-medium capitalize">{{ zodiac_sign }}</span>
+                    </div>
+                    {% if chinese_animal %}
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg">{{ chinese_emoji }}</span>
+                        <span class="text-gray-700 dark:text-gray-200 font-medium capitalize">{{ chinese_animal }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <p class="text-gray-500 dark:text-gray-400 text-xs mt-2">{% trans "Zodiac signs are computed from your date of birth and contribute to your match score." %}</p>
+            </div>
+            {% endif %}
+
+            <p x-show="isDisabled" x-transition class="text-gray-400 dark:text-gray-500 text-xs mt-2">
+                {% trans "Zodiac compatibility disabled. Your match score will be based only on personality traits." %}
+            </p>
+        </div>
+
         {% if form.preferred_age_min.errors %}
             <div class="text-red-600 text-sm mb-4">{{ form.preferred_age_min.errors.0 }}</div>
         {% endif %}
