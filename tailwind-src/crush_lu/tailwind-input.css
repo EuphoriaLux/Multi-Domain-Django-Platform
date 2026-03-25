@@ -6458,6 +6458,13 @@ html.dark .countdown-timer {
     color: #a78bfa;
 }
 
+@media (max-width: 640px) {
+    .countdown-timer {
+        font-size: 2.5rem;
+        margin: 1rem 0;
+    }
+}
+
 .countdown-banner {
     background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
     color: white;
@@ -6556,6 +6563,13 @@ html.dark .activity-group-card {
     background-color: rgba(30, 41, 59, 0.4);
 }
 
+@media (max-width: 640px) {
+    .activity-group-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+}
+
 .variant-option-item {
     border: 2px solid #e9ecef;
     border-radius: 10px;
@@ -6568,6 +6582,13 @@ html.dark .activity-group-card {
 html.dark .variant-option-item {
     border-color: #374151;
     background-color: rgba(30, 41, 59, 0.3);
+}
+
+@media (max-width: 640px) {
+    .variant-option-item {
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
 }
 
 .variant-option-item:hover {
@@ -6619,6 +6640,12 @@ html.dark .voting-status-card {
     background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
 }
 
+@media (max-width: 640px) {
+    .voting-status-card {
+        padding: 1.25rem;
+    }
+}
+
 .winner-banner {
     color: white;
     padding: 2rem;
@@ -6647,6 +6674,12 @@ html.dark .winner-banner-twist {
     box-shadow: 0 10px 30px rgba(190, 24, 93, 0.4);
 }
 
+@media (max-width: 640px) {
+    .winner-banner {
+        padding: 1.25rem;
+    }
+}
+
 .winner-icon {
     font-size: 5rem;
     margin-bottom: 1rem;
@@ -6663,6 +6696,13 @@ html.dark .winner-banner-twist {
 html.dark .result-option-card {
     border-color: #374151;
     background-color: rgba(30, 41, 59, 0.4);
+}
+
+@media (max-width: 640px) {
+    .result-option-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
 }
 
 .result-option-card.winner-option {
@@ -6706,6 +6746,16 @@ html.dark .vote-progress {
     justify-content: center;
     color: white;
     font-weight: bold;
+}
+
+@media (max-width: 640px) {
+    .vote-progress {
+        height: 24px;
+    }
+
+    .vote-progress-bar {
+        font-size: 0.75rem;
+    }
 }
 
 .winner-option .vote-progress-bar {
@@ -6754,6 +6804,12 @@ html.dark .stats-card {
     background: linear-gradient(135deg, #6D28D9 0%, #BE185D 100%);
 }
 
+@media (max-width: 640px) {
+    .stats-card {
+        padding: 1rem;
+    }
+}
+
 .badge-user-vote {
     background-color: var(--crush-purple);
     color: white;
@@ -6764,6 +6820,13 @@ html.dark .stats-card {
 
 html.dark .badge-user-vote {
     background-color: #7c3aed;
+}
+
+@media (max-width: 640px) {
+    .badge-user-vote {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 }
 
 .results-preview {

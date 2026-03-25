@@ -630,78 +630,10 @@ def crush_admin_dashboard(request):
     # IDEAL CRUSH PREFERENCE METRICS
     # ============================================================================
 
+    from .analytics import get_preference_stats
+
     pref_approved_qs = CrushProfile.objects.filter(is_approved=True)
-    pref_approved_count = pref_approved_qs.count()
-
-    # "Configured" = preferred_genders not empty OR age range differs from 18-99
-    configured_profiles = pref_approved_qs.filter(
-        Q(preferred_age_min__gt=18) | Q(preferred_age_max__lt=99) | ~Q(preferred_genders=[])
-    )
-    configured_count = configured_profiles.count()
-    adoption_rate = round(configured_count / pref_approved_count * 100, 1) if pref_approved_count > 0 else 0
-
-    # Average age range (among users who customized age range)
-    custom_age_profiles = pref_approved_qs.filter(
-        Q(preferred_age_min__gt=18) | Q(preferred_age_max__lt=99)
-    )
-    age_agg = custom_age_profiles.aggregate(
-        avg_min=Avg('preferred_age_min'),
-        avg_max=Avg('preferred_age_max'),
-    )
-    avg_age_min = round(age_agg['avg_min']) if age_agg['avg_min'] else None
-    avg_age_max = round(age_agg['avg_max']) if age_agg['avg_max'] else None
-
-    # Gender preference distribution (iterate JSONField arrays in Python)
-    gender_label_map = dict(CrushProfile.GENDER_CHOICES)
-    gender_counts = {}
-    for prefs in configured_profiles.exclude(preferred_genders=[]).values_list('preferred_genders', flat=True):
-        if isinstance(prefs, list):
-            for code in prefs:
-                gender_counts[code] = gender_counts.get(code, 0) + 1
-
-    total_gender_selections = sum(gender_counts.values()) or 1
-    gender_pref_stats = sorted(
-        [
-            {
-                'label': str(gender_label_map.get(code, code)),
-                'count': count,
-                'pct': round(count / total_gender_selections * 100, 1),
-            }
-            for code, count in gender_counts.items()
-        ],
-        key=lambda x: x['count'],
-        reverse=True,
-    )
-
-    most_popular_gender_label = gender_pref_stats[0]['label'] if gender_pref_stats else '—'
-
-    # Age range distribution (buckets based on preferred_age_min)
-    age_brackets = [
-        ('18–24', 18, 24),
-        ('25–34', 25, 34),
-        ('35–44', 35, 44),
-        ('45–54', 45, 54),
-        ('55+', 55, 999),
-    ]
-    age_distribution = []
-    total_custom_age = custom_age_profiles.count() or 1
-    for label, lo, hi in age_brackets:
-        count = custom_age_profiles.filter(preferred_age_min__gte=lo, preferred_age_min__lte=hi).count()
-        age_distribution.append({
-            'label': label,
-            'count': count,
-            'pct': round(count / total_custom_age * 100, 1),
-        })
-
-    preference_metrics = {
-        'configured_count': configured_count,
-        'adoption_rate': adoption_rate,
-        'avg_age_min': avg_age_min,
-        'avg_age_max': avg_age_max,
-        'most_popular_gender_label': most_popular_gender_label,
-        'gender_pref_stats': gender_pref_stats,
-        'age_distribution': age_distribution,
-    }
+    preference_metrics = get_preference_stats(pref_approved_qs)
 
     # ============================================================================
     # PENDING ACTIONS (Coach Workflow Quick Links)

@@ -86,6 +86,126 @@
     </div>
 </div>
 
+{# ======== Row 2.5: Ideal Crush Preferences ======== #}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    {# Adoption Overview + Unconfigured Profiles #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Ideal Crush Preferences" %}</h5>
+        </div>
+        <div class="p-6">
+            {# Adoption stat #}
+            <div class="flex items-baseline gap-2 mb-3">
+                <span class="text-3xl font-bold text-crush-purple">{{ pref_stats.adoption_rate }}%</span>
+                <span class="text-sm text-gray-500 dark:text-gray-400">
+                    {% blocktrans with configured=pref_stats.configured_count total=pref_stats.total_approved %}{{ configured }} of {{ total }} profiles{% endblocktrans %}
+                </span>
+            </div>
+            {# Progress bar #}
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4">
+                <div class="bg-crush-purple rounded-full h-3 transition-all" style="width: {{ pref_stats.adoption_rate }}%"></div>
+            </div>
+
+            {# Unconfigured profiles list #}
+            {% if pref_stats.unconfigured_profiles %}
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4"
+                 data-count="{{ pref_stats.unconfigured_profiles|length }}"
+                 data-text-show-all="{% trans 'Show all' %}"
+                 data-text-show-less="{% trans 'Show less' %}">
+                <h6 class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3">
+                    {% blocktrans with count=pref_stats.unconfigured_profiles|length %}Profiles without preferences ({{ count }}){% endblocktrans %}
+                </h6>
+                <ul class="space-y-2" x-data="callbackList">
+                    {% for profile in pref_stats.unconfigured_profiles %}
+                    <li class="{% if forloop.counter > 3 %}hidden-profile{% endif %}"
+                        {% if forloop.counter > 3 %}x-show="isExpanded"{% endif %}>
+                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ profile.display_name }}</span>
+                    </li>
+                    {% endfor %}
+                    {% if pref_stats.unconfigured_profiles|length > 3 %}
+                    <li class="pt-1">
+                        <button @click="toggle" class="text-sm text-crush-purple hover:text-crush-pink font-medium transition-colors"
+                                x-text="toggleLabel"></button>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Preference Breakdown #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Preference Breakdown" %}</h5>
+        </div>
+        <div class="p-6 space-y-0">
+            {# Gender Preferences #}
+            <div class="pb-4">
+                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "Gender Preferences" %}</h6>
+                {% if pref_stats.gender_pref_stats %}
+                <div class="flex h-6 rounded-full overflow-hidden mb-2">
+                    {% for g in pref_stats.gender_pref_stats %}
+                        {% if g.pct > 0 %}
+                        <div class="{% if g.code == 'F' %}bg-pink-500{% elif g.code == 'M' %}bg-blue-500{% elif g.code == 'NB' %}bg-purple-500{% else %}bg-gray-400{% endif %}" style="width: {{ g.pct }}%"></div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                    {% for g in pref_stats.gender_pref_stats %}
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{{ g.label }}: <strong>{{ g.count }}</strong> ({{ g.pct }}%)</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500">{% trans "No data yet" %}</p>
+                {% endif %}
+            </div>
+
+            {# Age Range Preferences #}
+            <div class="border-t border-gray-100 dark:border-gray-700 py-4">
+                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "Age Range Preferences" %}</h6>
+                {% if pref_stats.avg_age_min and pref_stats.avg_age_max %}
+                <p class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+                    {% blocktrans with min=pref_stats.avg_age_min max=pref_stats.avg_age_max %}Avg: {{ min }} – {{ max }}{% endblocktrans %}
+                </p>
+                {% endif %}
+                <div class="space-y-1">
+                    {% for bucket in pref_stats.age_distribution %}
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500 dark:text-gray-400 w-12">{{ bucket.label }}</span>
+                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-crush-purple/70 dark:bg-crush-purple/50 rounded-full h-2" style="width: {{ bucket.pct }}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{{ bucket.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# First Step Preference #}
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "First Step Preference" %}</h6>
+                {% if pref_stats.first_step_stats %}
+                <div class="flex flex-wrap gap-2">
+                    {% for fs in pref_stats.first_step_stats %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full
+                        {% if fs.key == 'i_initiate' %}bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300
+                        {% elif fs.key == 'they_initiate' %}bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300{% endif %}">
+                        {{ fs.label }}
+                        <strong>{{ fs.count }}</strong>
+                        <span class="opacity-70">({{ fs.pct }}%)</span>
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400 dark:text-gray-500">{% trans "No data yet" %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {# ======== Row 3: Tier Distribution + Coach Stats ======== #}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
     {# Membership Tier Distribution #}

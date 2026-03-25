@@ -18,7 +18,7 @@
         </a>
 
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-            <div class="p-8">
+            <div class="p-4 sm:p-6 md:p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5 dark:text-white">{% trans "Vote for Event Activities" %}</h1>
                     <p class="text-lg text-gray-500 dark:text-gray-400">{{ event.title }}</p>
@@ -63,8 +63,8 @@
 
                         <div class="variant-options">
                             {% for option in presentation_style_options %}
-                            <div class="flex items-start gap-3 variant-option-item">
-                                <input class="h-5 w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio"
+                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
+                                <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio flex-shrink-0"
                                        type="radio"
                                        name="presentation_choice"
                                        id="presentation-{{ option.id }}"
@@ -73,7 +73,8 @@
                                        data-option-id="{{ option.id }}"
                                        data-category="presentation">
                                 <label class="vote-option-label w-full cursor-pointer" for="presentation-{{ option.id }}">
-                                    <strong>{{ option.display_name }}</strong>: {{ option.description }}
+                                    <span class="font-semibold">{{ option.display_name }}</span>
+                                    <span class="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ option.description }}</span>
                                 </label>
                             </div>
                             {% endfor %}
@@ -88,8 +89,8 @@
 
                         <div class="variant-options">
                             {% for option in speed_dating_twist_options %}
-                            <div class="flex items-start gap-3 variant-option-item">
-                                <input class="h-5 w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio twist-radio"
+                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
+                                <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio twist-radio flex-shrink-0"
                                        type="radio"
                                        name="twist_choice"
                                        id="twist-{{ option.id }}"
@@ -98,7 +99,8 @@
                                        data-option-id="{{ option.id }}"
                                        data-category="twist">
                                 <label class="vote-option-label w-full cursor-pointer" for="twist-{{ option.id }}">
-                                    <strong>{{ option.display_name }}</strong>: {{ option.description }}
+                                    <span class="font-semibold">{{ option.display_name }}</span>
+                                    <span class="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ option.description }}</span>
                                 </label>
                             </div>
                             {% endfor %}

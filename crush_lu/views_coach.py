@@ -138,6 +138,11 @@ def coach_dashboard(request):
     for bucket in age_buckets:
         bucket["pct"] = round(bucket["count"] * 100 / max_age_count)
 
+    # --- Row 2.5: Ideal Crush Preferences ---
+    from .analytics import get_preference_stats
+
+    pref_stats = get_preference_stats(approved_profiles)
+
     # --- Row 3: Membership tier distribution ---
     tier_data = approved_profiles.values("membership_tier").annotate(
         count=Count("id")
@@ -186,6 +191,7 @@ def coach_dashboard(request):
         "tier_cards": tier_cards,
         "coach_stats": coach_stats,
         "pending_sparks_count": pending_sparks_count,
+        "pref_stats": pref_stats,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 

@@ -8975,9 +8975,16 @@ document.addEventListener('alpine:init', function() {
     Alpine.data('callbackList', function() {
         return {
             isExpanded: false,
+            _showAll: '',
+            _showLess: '',
+            init() {
+                var el = this.$el.closest('[data-count]') || this.$el;
+                this._showAll = el.getAttribute('data-text-show-all') || 'Show all';
+                this._showLess = el.getAttribute('data-text-show-less') || 'Show less';
+            },
             get toggleLabel() {
                 var count = this.$el.closest('[data-count]').getAttribute('data-count');
-                return this.isExpanded ? 'Show less' : 'Show all (' + count + ')';
+                return this.isExpanded ? this._showLess : this._showAll + ' (' + count + ')';
             },
             toggle() {
                 this.isExpanded = !this.isExpanded;
