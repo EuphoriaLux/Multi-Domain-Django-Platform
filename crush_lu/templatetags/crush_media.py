@@ -56,6 +56,17 @@ def has_photo(profile, photo_field):
     return bool(photo)
 
 
+@register.filter
+def split_interests(value):
+    """Split a comma-separated interests string into a list of trimmed items.
+
+    Usage: {% for tag in profile.interests|split_interests %}
+    """
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 @register.inclusion_tag('crush_lu/components/profile_photo.html')
 def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo'):
     """

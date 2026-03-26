@@ -13,6 +13,52 @@
 
 {% if profile %}
 <!-- ===================== -->
+<!-- ACTIVITY BANNER       -->
+<!-- ===================== -->
+{% if user_activity %}
+<div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-3 px-1">
+    {% if user_activity.is_online %}
+        <span class="inline-flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            {% trans "Online now" %}
+        </span>
+    {% elif user_activity.is_active_user %}
+        <span class="inline-flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+            {% trans "Last seen" %} {{ user_activity.last_seen|timesince }} {% trans "ago" %}
+        </span>
+    {% else %}
+        <span class="inline-flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+            {% trans "Last seen" %} {{ user_activity.last_seen|timesince }} {% trans "ago" %}
+        </span>
+    {% endif %}
+    {% if user_activity.days_inactive > 0 %}
+        <span class="text-gray-400 dark:text-gray-600">&middot;</span>
+        <span>{{ user_activity.days_inactive }} {% trans "days inactive" %}</span>
+    {% endif %}
+    {% if user_activity.total_visits %}
+        <span class="text-gray-400 dark:text-gray-600">&middot;</span>
+        <span>{{ user_activity.total_visits }} {% trans "visits" %}</span>
+    {% endif %}
+    {% if user_activity.uses_pwa %}
+        <span class="text-gray-400 dark:text-gray-600">&middot;</span>
+        <span class="inline-flex items-center gap-1 text-blue-500 dark:text-blue-400">
+            {% include "shared/icons/device-mobile.html" with class="w-3 h-3" %}
+            {% trans "PWA user" %}
+        </span>
+    {% endif %}
+    {% if user_activity.needs_reengagement %}
+        <span class="text-gray-400 dark:text-gray-600">&middot;</span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full font-medium">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-3 h-3" %}
+            {% trans "Needs re-engagement" %}
+        </span>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ===================== -->
 <!-- PROFILE HEADER CARD   -->
 <!-- ===================== -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 overflow-hidden">
@@ -186,6 +232,13 @@
                             ⭐ {{ profile.referral_points }} {% trans "referral pts" %}
                         </span>
                     {% endif %}
+                    {% if profile.is_approved %}
+                        <a href="{% url 'crush_lu:coach_member_matches' member.id %}"
+                           class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-crush-purple bg-crush-purple/10 dark:text-purple-300 dark:bg-purple-900/30 rounded-full hover:bg-crush-purple/20 dark:hover:bg-purple-900/50 transition-colors no-underline">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                            {% trans "View Top Matches" %}
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -202,7 +255,61 @@
         {% if profile.interests %}
             <div class="mt-3">
                 <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Interests" %}</h4>
-                <p class="text-sm text-gray-700 dark:text-gray-300">{{ profile.interests }}</p>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for tag in profile.interests|split_interests %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-crush-purple/10 dark:bg-purple-900/30 text-crush-purple dark:text-purple-300 rounded-full">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Personality Traits -->
+        {% if qualities or defects or sought_qualities %}
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{% trans "Personality" %}</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {% if qualities %}
+                        <div>
+                            <p class="text-xs font-medium text-green-600 dark:text-green-400 mb-1.5">{% trans "My Qualities" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in qualities %}
+                                    <span class="inline-flex items-center px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if defects %}
+                        <div>
+                            <p class="text-xs font-medium text-orange-600 dark:text-orange-400 mb-1.5">{% trans "My Defects" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in defects %}
+                                    <span class="inline-flex items-center px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if sought_qualities %}
+                        <div>
+                            <p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1.5">{% trans "Seeking" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in sought_qualities %}
+                                    <span class="inline-flex items-center px-2 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Zodiac -->
+        {% if zodiac_info %}
+            <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <span class="text-gray-400 dark:text-gray-500">{% trans "Zodiac" %}:</span>
+                <span>{{ zodiac_info.western_emoji }} {{ zodiac_info.western_sign }}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">({{ zodiac_info.western_element }})</span>
+                <span class="text-gray-300 dark:text-gray-600">&middot;</span>
+                <span>{{ zodiac_info.chinese_emoji }} {{ zodiac_info.chinese_animal }}</span>
             </div>
         {% endif %}
 
@@ -212,12 +319,14 @@
                 <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{% trans "Languages & Preferences" %}</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
                     {% if profile.event_languages %}
-                        <p class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5 flex-wrap">
                             <span class="text-gray-400">{% trans "Event languages" %}:</span>
                             {% for lang in profile.event_languages %}
-                                {% if lang == 'en' %}🇬🇧{% elif lang == 'de' %}🇩🇪{% elif lang == 'fr' %}🇫🇷{% elif lang == 'lu' %}🇱🇺{% endif %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
+                                    {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
+                                </span>
                             {% endfor %}
-                        </p>
+                        </div>
                     {% endif %}
                     {% if profile.preferred_age_min and profile.preferred_age_max %}
                         <p class="flex items-center gap-1.5">
@@ -360,6 +469,44 @@
             </div>
         {% endif %}
 
+        <!-- Review Call Details -->
+        {% if latest_submission.review_call_date %}
+            <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">{% trans "Review Call Details" %}</p>
+                <div class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                    <p class="flex items-center gap-1.5">
+                        {% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-gray-400" %}
+                        {{ latest_submission.review_call_date|date:"M j, Y g:i A" }}
+                    </p>
+                    {% if latest_submission.review_call_notes %}
+                        <p>{{ latest_submission.review_call_notes }}</p>
+                    {% endif %}
+                    {% if latest_submission.review_call_checklist %}
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            {% for key, value in latest_submission.review_call_checklist.items %}
+                                <span class="inline-flex items-center gap-1 text-xs">
+                                    {% if value %}
+                                        {% include "shared/icons/check-circle.html" with class="w-3.5 h-3.5 text-green-500" %}
+                                    {% else %}
+                                        {% include "shared/icons/x-circle.html" with class="w-3.5 h-3.5 text-gray-400" %}
+                                    {% endif %}
+                                    {{ key }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Feedback Sent to User -->
+        {% if latest_submission.feedback_to_user %}
+            <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Feedback Sent to User" %}</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ latest_submission.feedback_to_user }}</p>
+            </div>
+        {% endif %}
+
         <!-- Review action: only if assigned to current coach and pending -->
         {% if latest_submission.status == 'pending' %}
             <div class="mt-3">
@@ -405,6 +552,89 @@
                         </div>
                     {% endfor %}
                 </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ===================== -->
+<!-- COACH INTERACTIONS    -->
+<!-- ===================== -->
+{% if call_attempts or coach_sessions %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 class="font-semibold dark:text-white flex items-center gap-2">
+            {% include "shared/icons/phone.html" with class="w-5 h-5 text-crush-purple" %}
+            {% trans "Coach Interactions" %}
+        </h3>
+    </div>
+    <div class="p-6">
+        <!-- Call Attempts -->
+        {% if call_attempts %}
+            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">{% trans "Call Attempts" %}</h4>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700 mb-4">
+                {% for attempt in call_attempts %}
+                    <div class="py-2 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            {% if attempt.result == 'success' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{% trans "Call Completed" %}</span>
+                            {% elif attempt.result == 'failed' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">{% trans "Call Failed" %}</span>
+                            {% elif attempt.result == 'sms_sent' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">{% trans "SMS Sent" %}</span>
+                            {% elif attempt.result == 'event_invite_sms' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{% trans "Event Invite SMS" %}</span>
+                            {% endif %}
+                            {% if attempt.failure_reason %}
+                                <span class="text-xs text-red-500 dark:text-red-400">({{ attempt.get_failure_reason_display }})</span>
+                            {% endif %}
+                            {% if attempt.notes %}
+                                <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ attempt.notes }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-2 flex-shrink-0">
+                            <span>{{ attempt.attempt_date|date:"M j, Y" }}</span>
+                            {% if attempt.coach %}
+                                <span>&middot; {{ attempt.coach.user.get_full_name }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Coach Sessions -->
+        {% if coach_sessions %}
+            <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 {% if call_attempts %}pt-4 border-t border-gray-100 dark:border-gray-700{% endif %}">{% trans "Coach Sessions" %}</h4>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for session in coach_sessions %}
+                    <div class="py-2 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{{ session.get_session_type_display }}</span>
+                                {% if session.completed_at %}
+                                    <span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                        {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
+                                        {% trans "Completed" %}
+                                    </span>
+                                {% elif session.scheduled_at %}
+                                    <span class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                        {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                                        {% trans "Scheduled" %} {{ session.scheduled_at|date:"M j" }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if session.notes %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{{ session.notes }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-2 flex-shrink-0">
+                            <span>{{ session.created_at|date:"M j, Y" }}</span>
+                            <span>&middot; {{ session.coach.user.get_full_name }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
         {% endif %}
     </div>
@@ -458,6 +688,25 @@
                                     {% include "shared/icons/user-plus.html" with class="w-4 h-4" %}
                                 </span>
                             {% endif %}
+                            {% if reg.checked_in_at %}
+                                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full" title="{% trans 'Checked in' %} {{ reg.checked_in_at|date:'g:i A' }}">
+                                    {% include "shared/icons/check.html" with class="w-3 h-3" %}
+                                    {{ reg.checked_in_at|date:"g:i A" }}
+                                </span>
+                            {% endif %}
+                            {% if reg.payment_confirmed %}
+                                <span class="text-xs text-green-500 dark:text-green-400" title="{% trans 'Paid' %} {{ reg.payment_date|date:'M j' }}">&#10003; {% trans "Paid" %}</span>
+                            {% endif %}
+                            {% if reg.accessibility_needs %}
+                                <span class="text-xs text-blue-500 dark:text-blue-400" title="{{ reg.accessibility_needs }}">
+                                    {% include "shared/icons/info.html" with class="w-3.5 h-3.5" %}
+                                </span>
+                            {% endif %}
+                            {% if reg.special_requests %}
+                                <span class="text-xs text-purple-500 dark:text-purple-400" title="{{ reg.special_requests }}">
+                                    {% include "shared/icons/chat-bubble-left.html" with class="w-3.5 h-3.5" %}
+                                </span>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}
@@ -509,6 +758,69 @@
                     {% elif conn.status == 'shared' %}
                         <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">{% trans "Shared" %}</span>
                     {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ===================== -->
+<!-- CRUSH SPARKS          -->
+<!-- ===================== -->
+{% if crush_sparks %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 class="font-semibold dark:text-white flex items-center gap-2">
+            {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+            {% trans "Crush Sparks" %}
+            <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{{ crush_sparks|length }}</span>
+        </h3>
+    </div>
+    <div class="p-6">
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for spark in crush_sparks %}
+                <div class="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-900 dark:text-white">
+                            {% if spark.sender == member %}
+                                {% trans "Sent" %} &rarr;
+                                {% if spark.recipient %}{{ spark.recipient.first_name }}{% else %}({% trans "unidentified" %}){% endif %}
+                            {% else %}
+                                {{ spark.sender.first_name }} &rarr; {% trans "Received" %}
+                            {% endif %}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {{ spark.event.title }} &middot; {{ spark.created_at|date:"M j, Y" }}
+                        </p>
+                        {% if spark.sender_description and spark.sender == member %}
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1 italic truncate">"{{ spark.sender_description }}"</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        {% if spark.status == 'requested' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">{% trans "Requested" %}</span>
+                        {% elif spark.status == 'pending_review' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">{% trans "Pending Review" %}</span>
+                        {% elif spark.status == 'coach_approved' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">{% trans "Coach Approved" %}</span>
+                        {% elif spark.status == 'coach_assigned' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{% trans "Coach Assigned" %}</span>
+                        {% elif spark.status == 'journey_created' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full">{% trans "Journey Created" %}</span>
+                        {% elif spark.status == 'delivered' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">{% trans "Delivered" %}</span>
+                        {% elif spark.status == 'completed' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{% trans "Completed" %}</span>
+                        {% elif spark.status == 'cancelled' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full">{% trans "Cancelled" %}</span>
+                        {% elif spark.status == 'expired' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">{% trans "Expired" %}</span>
+                        {% endif %}
+                        {% if spark.assigned_coach %}
+                            <span class="text-xs text-gray-400 dark:text-gray-500">{{ spark.assigned_coach.user.get_full_name }}</span>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
         </div>

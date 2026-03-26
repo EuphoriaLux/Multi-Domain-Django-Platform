@@ -171,7 +171,7 @@ urlpatterns = [
     path('profile/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='profile'),
     path('profile/edit/', views.edit_profile, name='edit_profile'),
     path('profile/preferences/', views.crush_preferences, name='crush_preferences'),
-    path('matches/', views.matches_list, name='matches_list'),
+    path('matches/', RedirectView.as_view(pattern_name='crush_lu:dashboard'), name='matches_list'),
 
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),
@@ -256,6 +256,7 @@ urlpatterns = [
     # Coach dashboard & profile verification
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
     path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
+    path('coach/members/', views.coach_members, name='coach_members'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
     path('coach/review/<int:submission_id>/preview/', views.coach_preview_email, name='coach_preview_email'),
@@ -288,6 +289,8 @@ urlpatterns = [
 
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
+    path('coach/member/<int:user_id>/matches/', views.coach_member_matches, name='coach_member_matches'),
+    path('coach/match-pairs/', views.coach_match_pairs, name='coach_match_pairs'),
     path('coach/submission/<int:submission_id>/reassign/', views.coach_reassign_submission, name='coach_reassign_submission'),
 
     # Coach journey management

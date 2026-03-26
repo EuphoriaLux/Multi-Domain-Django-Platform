@@ -1,0 +1,162 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n crush_media static %}
+
+{% block title %}{% trans "Match Pairs" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Dashboard" %}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% trans "Match Pairs" %}</span>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Match Pairs" %}</h1>
+        <span class="inline-flex items-center px-2.5 py-1 text-sm font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{{ total_pairs }}</span>
+    </div>
+
+    {% if not pairs %}
+    <div class="section-card text-center py-12">
+        <div class="text-5xl mb-4">🔍</div>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{% trans "No match pairs yet" %}</h3>
+        <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Strong match pairs will appear here once members complete their personality preferences." %}</p>
+    </div>
+    {% else %}
+    <div class="grid gap-4">
+        {% for pair in pairs %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <!-- Profile A -->
+                <div class="flex-1 min-w-0 w-full sm:w-auto">
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                            {% if pair.profile_a|has_photo:'photo_1' %}
+                                <img src="{% profile_photo_url pair.profile_a 'photo_1' %}" alt="" class="w-full h-full object-cover" loading="lazy">
+                            {% else %}
+                                <div class="w-full h-full bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-700 dark:to-pink-700 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0">
+                            <a href="{% url 'crush_lu:coach_member_overview' pair.profile_a.user_id %}"
+                               class="text-sm font-semibold text-gray-900 dark:text-white hover:text-crush-purple dark:hover:text-purple-400 truncate block no-underline">
+                                {{ pair.profile_a.display_name }}
+                            </a>
+                            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                {% if pair.profile_a.gender == 'F' %}
+                                    <span class="text-pink-500">&#9792;</span>
+                                {% elif pair.profile_a.gender == 'M' %}
+                                    <span class="text-blue-500">&#9794;</span>
+                                {% elif pair.profile_a.gender %}
+                                    <span class="text-purple-500">&#9898;</span>
+                                {% endif %}
+                                {% if pair.profile_a.age %}<span>{{ pair.profile_a.age }}</span>{% endif %}
+                            </div>
+                            {% if pair.coach_a %}
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{{ pair.coach_a }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Score badge (center) -->
+                <div class="flex-shrink-0 text-center px-2">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ pair.display.color }} {{ pair.display.bg_color }}">
+                        {{ pair.score_percent }}%
+                    </span>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ pair.display.label }}</p>
+                </div>
+
+                <!-- Profile B -->
+                <div class="flex-1 min-w-0 w-full sm:w-auto">
+                    <div class="flex items-center gap-3 sm:flex-row-reverse">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                            {% if pair.profile_b|has_photo:'photo_1' %}
+                                <img src="{% profile_photo_url pair.profile_b 'photo_1' %}" alt="" class="w-full h-full object-cover" loading="lazy">
+                            {% else %}
+                                <div class="w-full h-full bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-700 dark:to-pink-700 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="min-w-0 sm:text-right">
+                            <a href="{% url 'crush_lu:coach_member_overview' pair.profile_b.user_id %}"
+                               class="text-sm font-semibold text-gray-900 dark:text-white hover:text-crush-purple dark:hover:text-purple-400 truncate block no-underline">
+                                {{ pair.profile_b.display_name }}
+                            </a>
+                            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 sm:justify-end">
+                                {% if pair.profile_b.gender == 'F' %}
+                                    <span class="text-pink-500">&#9792;</span>
+                                {% elif pair.profile_b.gender == 'M' %}
+                                    <span class="text-blue-500">&#9794;</span>
+                                {% elif pair.profile_b.gender %}
+                                    <span class="text-purple-500">&#9898;</span>
+                                {% endif %}
+                                {% if pair.profile_b.age %}<span>{{ pair.profile_b.age }}</span>{% endif %}
+                            </div>
+                            {% if pair.coach_b %}
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{{ pair.coach_b }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Score breakdown -->
+            <div class="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                <span class="text-xs text-gray-400 dark:text-gray-500">{% trans "Match factors" %}:</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-purple-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Qualities" %} {{ pair.score_qualities }}%</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Zodiac" %} {{ pair.score_zodiac_west }}%</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Chinese Zodiac" %} {{ pair.score_zodiac_cn }}%</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Language" %} {{ pair.score_language }}%</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Age Fit" %} {{ pair.score_age_fit }}%</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="flex justify-center gap-2 mt-8">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}"
+           class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+            {% trans "Previous" %}
+        </a>
+        {% endif %}
+        <span class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+            {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages %}
+            Page {{ current }} of {{ total }}
+            {% endblocktrans %}
+        </span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}"
+           class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+            {% trans "Next" %}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

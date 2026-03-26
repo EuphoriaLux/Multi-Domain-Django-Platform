@@ -173,6 +173,9 @@ from .views_coach import (  # noqa: F401
     coach_profiles,
     coach_team_stats,
     api_coach_claim_submission,
+    coach_members,
+    coach_member_matches,
+    coach_match_pairs,
 )
 
 # Voting & presentations
@@ -265,27 +268,6 @@ def dashboard(request):
             profile.preferred_age_min != 18 or profile.preferred_age_max != 99
         ) or bool(profile.first_step_preference)
 
-        # Matching: top matches for dashboard widget
-        has_traits = profile.sought_qualities.exists()
-        top_matches = []
-        if profile.is_approved and has_traits:
-            from .matching import get_matches_for_user, get_score_display
-            match_scores = get_matches_for_user(request.user)[:3]
-            for ms in match_scores:
-                other_user = ms.user_b if ms.user_a == request.user else ms.user_a
-                try:
-                    other_profile = CrushProfile.objects.get(
-                        user=other_user, is_approved=True, is_active=True
-                    )
-                except CrushProfile.DoesNotExist:
-                    continue
-                score_display = get_score_display(ms.score_final)
-                if score_display:
-                    top_matches.append({
-                        "profile": other_profile,
-                        "display": score_display,
-                    })
-
         # Crush Connect waitlist status
         on_crush_connect_waitlist = False
         crush_connect_position = None
@@ -305,8 +287,6 @@ def dashboard(request):
             "connection_count": connection_count,
             "referral_url": referral_url,
             "has_crush_preferences": has_crush_preferences,
-            "has_traits": has_traits,
-            "top_matches": top_matches,
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
@@ -718,6 +698,13 @@ def _render_edit_profile_form(request):
         if form.is_valid():
             updated_profile = form.save()
 
+            # Recalculate match scores when qualities/defects change
+            from .matching import update_match_scores_for_user
+
+            transaction.on_commit(
+                lambda: update_match_scores_for_user(request.user)
+            )
+
             if request.htmx:
                 return render(
                     request,
@@ -919,6 +906,7 @@ def crush_preferences(request):
         get_western_zodiac, get_chinese_zodiac,
         update_match_scores_for_user,
         ZODIAC_SIGN_EMOJIS, CHINESE_ANIMAL_EMOJIS,
+        ZODIAC_SIGN_LABELS, CHINESE_ANIMAL_LABELS,
     )
 
     try:
@@ -968,9 +956,9 @@ def crush_preferences(request):
         "profile": profile,
         "qualities_grouped": qualities_grouped,
         "selected_sought_json": json.dumps(selected_sought),
-        "zodiac_sign": zodiac_sign,
+        "zodiac_sign": ZODIAC_SIGN_LABELS.get(zodiac_sign, zodiac_sign),
         "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
-        "chinese_animal": chinese_animal,
+        "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
         "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
     })
 
@@ -1006,14 +994,9 @@ def matches_list(request):
             except CrushProfile.DoesNotExist:
                 continue
 
-            # Apply user's preference filters
+            # Gender filter (age filtering handled by hard filter in matching.py)
             if profile.preferred_genders and other_profile.gender not in profile.preferred_genders:
                 continue
-            if other_profile.age:
-                if other_profile.age < profile.preferred_age_min:
-                    continue
-                if other_profile.age > profile.preferred_age_max:
-                    continue
 
             score_display = get_score_display(ms.score_final)
             if score_display:

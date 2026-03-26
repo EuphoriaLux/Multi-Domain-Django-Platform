@@ -260,6 +260,10 @@ class CrushProfileForm(forms.ModelForm):
             self.initial['defects_ids'] = ','.join(
                 str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
             )
+        # Lock gender and date_of_birth for approved profiles
+        if self.instance and self.instance.pk and self.instance.is_approved:
+            self.fields['gender'].disabled = True
+            self.fields['date_of_birth'].disabled = True
 
     def clean_event_languages(self):
         """Ensure event_languages is stored as a list for JSON serialization"""

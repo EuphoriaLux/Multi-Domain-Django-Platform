@@ -84,6 +84,8 @@ class MatchScore(models.Model):
     score_qualities = models.FloatField(default=0)
     score_zodiac_west = models.FloatField(default=0)
     score_zodiac_cn = models.FloatField(default=0)
+    score_language = models.FloatField(default=0)
+    score_age_fit = models.FloatField(default=0)
     score_final = models.FloatField(default=0, db_index=True)
     computed_at = models.DateTimeField(auto_now=True)
 

@@ -21,150 +21,97 @@
     </div>
 {% endif %}
 
-<!-- Contact Information Section -->
+<!-- Photos Section -->
 <div class="section-card mb-4">
-    <h5 class="section-title">
-        {% include "shared/icons/phone.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        {% trans "Contact Information" %}
-    </h5>
+    <div class="photo-section-header">
+        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} {% trans "Photos" %}</h5>
+        <span class="photo-count">{% trans "Up to 3" %}</span>
+    </div>
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "Your main photo will be displayed first to other users." %}</p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="mb-3">
-            <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                {% trans "Phone Number" %} *
-                {% if profile.phone_verified %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} {% trans "Verified" %}</span>
-                {% endif %}
-            </label>
-            {% if profile.phone_verified %}
-                <div class="relative">
-                    <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400" value="{{ profile.phone_number }}" readonly disabled>
-                    <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2">
-                        {% include "shared/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
-                    </span>
-                </div>
-                <small class="text-gray-500 dark:text-gray-400 text-sm">
-                    {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} {% trans "Verified phone numbers cannot be changed." %}
-                    {% trans "Contact support if you need to update it." %}
-                </small>
-            {% else %}
-                <div class="phone-input-wrapper">
-                    {{ form.phone_number }}
-                </div>
-                <small class="text-yellow-600 dark:text-yellow-400 text-sm">
-                    {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
-                    <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
-                </small>
-            {% endif %}
-            {% if form.phone_number.errors %}
-                <div class="text-red-600 text-sm mt-1">{{ form.phone_number.errors.0 }}</div>
-            {% endif %}
+    <!-- Social Photo Import -->
+    {% if social_photos %}
+    <div class="social-import-section mb-4">
+        <div class="flex items-center gap-2 mb-2">
+            {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
+            <span class="font-semibold">{% trans "Import from Social Accounts" %}</span>
         </div>
-
-        <div class="mb-3">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                {% trans "Your Region" %} *
-            </label>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Click the map or use the dropdown to select your location" %}</p>
-
-            <div x-data="cantonMap"
-                 data-initial-value="{{ profile.location|default:'' }}"
-                 data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
-                 data-placeholder="Click the map to select your region"
-                 class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
-
-                <!-- Selection Display -->
-                <div class="canton-map-selection-display"
-                     x-bind:class="selectedClass">
-                    <span class="canton-map-selection-label" x-text="selectionLabel"></span>
-                    <span class="canton-map-hover-label" x-show="isHovering" x-text="hoverLabel"></span>
+        <div class="social-photos-row">
+            {% for photo in social_photos %}
+            <div class="social-photo-mini-card">
+                <div class="provider-icon">
+                    {% if photo.provider == 'facebook' %}
+                    <i class="fab fa-facebook text-blue-600 dark:text-blue-400"></i>
+                    {% elif photo.provider == 'google' %}
+                    <i class="fab fa-google text-red-500 dark:text-red-400"></i>
+                    {% elif photo.provider == 'microsoft' %}
+                    <i class="fab fa-microsoft text-cyan-500 dark:text-cyan-400"></i>
+                    {% endif %}
                 </div>
-
-                <!-- SVG Map -->
-                <div class="canton-map-wrapper">
-                    {% include "crush_lu/partials/canton_map_svg.html" %}
+                {% if photo.token_expired %}
+                <div class="no-photo-mini flex flex-col items-center gap-1">
+                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                    <a href="{% provider_login_url photo.provider process='connect' %}"
+                       class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium">
+                        {% trans "Reconnect" %}
+                    </a>
                 </div>
-
-                <!-- Hidden form field (synced by Alpine component) -->
-                {{ form.location }}
-
-                <!-- Fallback Dropdown (Accessibility) -->
-                <div class="canton-map-fallback">
+                {% elif photo.available %}
+                <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img" loading="lazy">
+                <!-- Fallback shown if image fails to load -->
+                <div class="no-photo-fallback hidden flex-col items-center gap-1">
+                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Unavailable" %}</span>
+                </div>
+                <div class="import-btns">
                     <button type="button"
-                            @click="toggleFallbackDropdown"
-                            class="canton-map-fallback-toggle">
-                        {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
-                        {% trans "Can't use the map? Select from list" %}
+                            class="import-slot-btn import-slot-btn--main import-social-photo-btn"
+                            data-account-id="{{ photo.account_id }}"
+                            data-slot="1"
+                            title="{% trans "Set as your main profile photo" %}">
+                        {% trans "Main" %}
                     </button>
-                    <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
-                        <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <option value="">{% trans "Select your region..." %}</option>
-                            <optgroup label="{% trans "Luxembourg Cantons" %}">
-                                <option value="canton-capellen">Capellen</option>
-                                <option value="canton-clervaux">Clervaux</option>
-                                <option value="canton-diekirch">Diekirch</option>
-                                <option value="canton-echternach">Echternach</option>
-                                <option value="canton-esch">Esch-sur-Alzette</option>
-                                <option value="canton-grevenmacher">Grevenmacher</option>
-                                <option value="canton-luxembourg">Luxembourg</option>
-                                <option value="canton-mersch">Mersch</option>
-                                <option value="canton-redange">Redange</option>
-                                <option value="canton-remich">Remich</option>
-                                <option value="canton-vianden">Vianden</option>
-                                <option value="canton-wiltz">Wiltz</option>
-                            </optgroup>
-                            <optgroup label="{% trans "Border Regions" %}">
-                                <option value="border-belgium">{% trans "Belgium (Arlon/Virton area)" %}</option>
-                                <option value="border-germany">{% trans "Germany (Trier/Saarland area)" %}</option>
-                                <option value="border-france">{% trans "France (Thionville/Metz area)" %}</option>
-                            </optgroup>
-                        </select>
-                    </div>
+                    <button type="button"
+                            class="import-slot-btn import-social-photo-btn"
+                            data-account-id="{{ photo.account_id }}"
+                            data-slot="2"
+                            title="{% trans "Import as your second photo" %}">
+                        {% trans "2nd" %}
+                    </button>
+                    <button type="button"
+                            class="import-slot-btn import-social-photo-btn"
+                            data-account-id="{{ photo.account_id }}"
+                            data-slot="3"
+                            title="{% trans "Import as your third photo" %}">
+                        {% trans "3rd" %}
+                    </button>
                 </div>
-            </div>
-
-            {% if form.location.errors %}
-                <div class="canton-map-error">
-                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
-                    {{ form.location.errors.0 }}
+                {% else %}
+                <div class="no-photo-mini">
+                    {% include "shared/icons/photo.html" with class="w-5 h-5" %}
                 </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                {% trans "Date of Birth" %} *
-            </label>
-            {{ form.date_of_birth }}
-            {% if form.date_of_birth.errors %}
-                <div class="text-red-600 text-sm mt-1">{{ form.date_of_birth.errors.0 }}</div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                {% trans "Gender" %} *
-            </label>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-2" role="radiogroup" aria-label="Select your gender">
-                {% for value, label in form.gender.field.choices %}
-                {% if value %}
-                <label class="cursor-pointer block">
-                    <input type="radio" name="{{ form.gender.html_name }}" value="{{ value }}" class="peer hidden"
-                           {% if form.gender.value == value or profile.gender == value %}checked{% endif %}>
-                    <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
-                                border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
-                        <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% elif value == 'P' %}🤫{% endif %}</span>
-                        <span class="whitespace-nowrap">{{ label }}</span>
-                    </div>
-                </label>
                 {% endif %}
-                {% endfor %}
             </div>
-            {% if form.gender.errors %}
-                <div class="text-red-600 text-sm mt-1">{{ form.gender.errors.0 }}</div>
-            {% endif %}
+            {% endfor %}
+        </div>
+        <div id="social-photo-notification" class="hidden mt-2"></div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Photo 1 (Main) -->
+        <div id="photo-card-1">
+            {% include 'crush_lu/partials/photo_card.html' with slot=1 photo=profile.photo_1 is_main=True %}
+        </div>
+
+        <!-- Photo 2 -->
+        <div id="photo-card-2">
+            {% include 'crush_lu/partials/photo_card.html' with slot=2 photo=profile.photo_2 is_main=False %}
+        </div>
+
+        <!-- Photo 3 -->
+        <div id="photo-card-3">
+            {% include 'crush_lu/partials/photo_card.html' with slot=3 photo=profile.photo_3 is_main=False %}
         </div>
     </div>
 </div>
@@ -307,111 +254,231 @@
     </div>
 </div>
 
-<!-- Ideal Crush Preferences Link -->
-<a href="{% url 'crush_lu:crush_preferences' %}"
-   class="section-card mb-4 flex items-center justify-between group hover:border-purple-300 dark:hover:border-purple-600 transition-colors block no-underline">
-    <div class="flex items-center gap-3">
-        <span class="text-2xl">💕</span>
-        <div>
-            <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Age, gender, qualities you seek & zodiac preferences" %}</p>
-        </div>
-    </div>
-    <svg class="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-</a>
-
-<!-- Photos Section -->
+<!-- Contact & Location Section -->
 <div class="section-card mb-4">
-    <div class="photo-section-header">
-        <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} {% trans "Photos" %}</h5>
-        <span class="photo-count">{% trans "Up to 3" %}</span>
-    </div>
-    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "Your main photo will be displayed first to other users." %}</p>
+    <h5 class="section-title">
+        {% include "shared/icons/map-pin.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% trans "Contact & Location" %}
+    </h5>
 
-    <!-- Social Photo Import -->
-    {% if social_photos %}
-    <div class="social-import-section mb-4">
-        <div class="flex items-center gap-2 mb-2">
-            {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
-            <span class="font-semibold">{% trans "Import from Social Accounts" %}</span>
-        </div>
-        <div class="social-photos-row">
-            {% for photo in social_photos %}
-            <div class="social-photo-mini-card">
-                <div class="provider-icon">
-                    {% if photo.provider == 'facebook' %}
-                    <i class="fab fa-facebook text-blue-600 dark:text-blue-400"></i>
-                    {% elif photo.provider == 'google' %}
-                    <i class="fab fa-google text-red-500 dark:text-red-400"></i>
-                    {% elif photo.provider == 'microsoft' %}
-                    <i class="fab fa-microsoft text-cyan-500 dark:text-cyan-400"></i>
-                    {% endif %}
-                </div>
-                {% if photo.token_expired %}
-                <div class="no-photo-mini flex flex-col items-center gap-1">
-                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
-                    <a href="{% provider_login_url photo.provider process='connect' %}"
-                       class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium">
-                        {% trans "Reconnect" %}
-                    </a>
-                </div>
-                {% elif photo.available %}
-                <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img" loading="lazy">
-                <!-- Fallback shown if image fails to load -->
-                <div class="no-photo-fallback hidden flex-col items-center gap-1">
-                    <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Unavailable" %}</span>
-                </div>
-                <div class="import-btns">
-                    <button type="button"
-                            class="import-slot-btn import-slot-btn--main import-social-photo-btn"
-                            data-account-id="{{ photo.account_id }}"
-                            data-slot="1"
-                            title="{% trans "Set as your main profile photo" %}">
-                        {% trans "Main" %}
-                    </button>
-                    <button type="button"
-                            class="import-slot-btn import-social-photo-btn"
-                            data-account-id="{{ photo.account_id }}"
-                            data-slot="2"
-                            title="{% trans "Import as your second photo" %}">
-                        {% trans "2nd" %}
-                    </button>
-                    <button type="button"
-                            class="import-slot-btn import-social-photo-btn"
-                            data-account-id="{{ photo.account_id }}"
-                            data-slot="3"
-                            title="{% trans "Import as your third photo" %}">
-                        {% trans "3rd" %}
-                    </button>
-                </div>
-                {% else %}
-                <div class="no-photo-mini">
-                    {% include "shared/icons/photo.html" with class="w-5 h-5" %}
-                </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mb-3">
+            <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                {% trans "Phone Number" %} *
+                {% if profile.phone_verified %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} {% trans "Verified" %}</span>
                 {% endif %}
-            </div>
-            {% endfor %}
+            </label>
+            {% if profile.phone_verified %}
+                <div class="relative">
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400" value="{{ profile.phone_number }}" readonly disabled>
+                    <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2">
+                        {% include "shared/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
+                    </span>
+                </div>
+                <small class="text-gray-500 dark:text-gray-400 text-sm">
+                    {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} {% trans "Verified phone numbers cannot be changed." %}
+                    {% trans "Contact support if you need to update it." %}
+                </small>
+            {% else %}
+                <div class="phone-input-wrapper">
+                    {{ form.phone_number }}
+                </div>
+                <small class="text-yellow-600 dark:text-yellow-400 text-sm">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
+                    <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
+                </small>
+            {% endif %}
+            {% if form.phone_number.errors %}
+                <div class="text-red-600 text-sm mt-1">{{ form.phone_number.errors.0 }}</div>
+            {% endif %}
         </div>
-        <div id="social-photo-notification" class="hidden mt-2"></div>
+
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                {% trans "Your Region" %} *
+            </label>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Click the map or use the dropdown to select your location" %}</p>
+
+            <div x-data="cantonMap"
+                 data-initial-value="{{ profile.location|default:'' }}"
+                 data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
+                 data-placeholder="Click the map to select your region"
+                 class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
+
+                <!-- Selection Display -->
+                <div class="canton-map-selection-display"
+                     x-bind:class="selectedClass">
+                    <span class="canton-map-selection-label" x-text="selectionLabel"></span>
+                    <span class="canton-map-hover-label" x-show="isHovering" x-text="hoverLabel"></span>
+                </div>
+
+                <!-- SVG Map -->
+                <div class="canton-map-wrapper">
+                    {% include "crush_lu/partials/canton_map_svg.html" %}
+                </div>
+
+                <!-- Hidden form field (synced by Alpine component) -->
+                {{ form.location }}
+
+                <!-- Fallback Dropdown (Accessibility) -->
+                <div class="canton-map-fallback">
+                    <button type="button"
+                            @click="toggleFallbackDropdown"
+                            class="canton-map-fallback-toggle">
+                        {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
+                        {% trans "Can't use the map? Select from list" %}
+                    </button>
+                    <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
+                        <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">{% trans "Select your region..." %}</option>
+                            <optgroup label="{% trans "Luxembourg Cantons" %}">
+                                <option value="canton-capellen">Capellen</option>
+                                <option value="canton-clervaux">Clervaux</option>
+                                <option value="canton-diekirch">Diekirch</option>
+                                <option value="canton-echternach">Echternach</option>
+                                <option value="canton-esch">Esch-sur-Alzette</option>
+                                <option value="canton-grevenmacher">Grevenmacher</option>
+                                <option value="canton-luxembourg">Luxembourg</option>
+                                <option value="canton-mersch">Mersch</option>
+                                <option value="canton-redange">Redange</option>
+                                <option value="canton-remich">Remich</option>
+                                <option value="canton-vianden">Vianden</option>
+                                <option value="canton-wiltz">Wiltz</option>
+                            </optgroup>
+                            <optgroup label="{% trans "Border Regions" %}">
+                                <option value="border-belgium">{% trans "Belgium (Arlon/Virton area)" %}</option>
+                                <option value="border-germany">{% trans "Germany (Trier/Saarland area)" %}</option>
+                                <option value="border-france">{% trans "France (Thionville/Metz area)" %}</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {% if form.location.errors %}
+                <div class="canton-map-error">
+                    {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                    {{ form.location.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
     </div>
+</div>
+
+<!-- Your Details Section (locked fields) -->
+<div class="section-card mb-4">
+    <h5 class="section-title">
+        {% include "shared/icons/identification.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% trans "Your Details" %}
+    </h5>
+    {% if profile.is_approved %}
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "These fields are locked after approval. Contact support to request changes." %}</p>
     {% endif %}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Photo 1 (Main) -->
-        <div id="photo-card-1">
-            {% include 'crush_lu/partials/photo_card.html' with slot=1 photo=profile.photo_1 is_main=True %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mb-3">
+            <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                {% trans "Date of Birth" %} *
+            </label>
+            {% if profile.is_approved %}
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300">
+                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 flex-shrink-0" %}
+                    <span>{{ profile.date_of_birth|date:"Y-m-d" }}</span>
+                </div>
+            {% else %}
+                {{ form.date_of_birth }}
+                {% if form.date_of_birth.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.date_of_birth.errors.0 }}</div>
+                {% endif %}
+            {% endif %}
         </div>
 
-        <!-- Photo 2 -->
-        <div id="photo-card-2">
-            {% include 'crush_lu/partials/photo_card.html' with slot=2 photo=profile.photo_2 is_main=False %}
+        <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                {% trans "Gender" %} *
+            </label>
+            {% if profile.is_approved %}
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300">
+                    {% include "shared/icons/lock-closed.html" with class="w-4 h-4 flex-shrink-0" %}
+                    <span>{% if profile.gender == 'M' %}👨{% elif profile.gender == 'F' %}👩{% elif profile.gender == 'NB' %}🧑{% elif profile.gender == 'O' %}✨{% elif profile.gender == 'P' %}🤫{% endif %} {{ profile.get_gender_display }}</span>
+                </div>
+            {% else %}
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2" role="radiogroup" aria-label="Select your gender">
+                    {% for value, label in form.gender.field.choices %}
+                    {% if value %}
+                    <label class="cursor-pointer block">
+                        <input type="radio" name="{{ form.gender.html_name }}" value="{{ value }}" class="peer hidden"
+                               {% if form.gender.value == value or profile.gender == value %}checked{% endif %}>
+                        <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                    border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                                    peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
+                            <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% elif value == 'P' %}🤫{% endif %}</span>
+                            <span class="whitespace-nowrap">{{ label }}</span>
+                        </div>
+                    </label>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% if form.gender.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.gender.errors.0 }}</div>
+                {% endif %}
+            {% endif %}
         </div>
+    </div>
+</div>
 
-        <!-- Photo 3 -->
-        <div id="photo-card-3">
-            {% include 'crush_lu/partials/photo_card.html' with slot=3 photo=profile.photo_3 is_main=False %}
-        </div>
+<!-- Event & Matching Preferences Section -->
+<div class="section-card mb-4">
+    <h5 class="section-title">
+        {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+        {% trans "Event & Matching Preferences" %}
+    </h5>
+
+    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
+        <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+            </svg>
+            {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+        </p>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+        {% for value, label in form.event_languages.field.choices %}
+        <label class="event-language-pill cursor-pointer">
+            <input type="checkbox"
+                   name="{{ form.event_languages.html_name }}"
+                   value="{{ value }}"
+                   class="peer hidden"
+                   {% if value in profile.event_languages %}checked{% endif %}>
+            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
+                {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
+                {{ label }}
+            </span>
+        </label>
+        {% endfor %}
+    </div>
+
+    {% if form.event_languages.errors %}
+        <div class="text-red-600 text-sm mt-2">{{ form.event_languages.errors.0 }}</div>
+    {% endif %}
+
+    <!-- Ideal Crush Preferences Link -->
+    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <a href="{% url 'crush_lu:crush_preferences' %}"
+           class="flex items-center justify-between group hover:text-purple-600 dark:hover:text-purple-400 transition-colors no-underline">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">💕</span>
+                <div>
+                    <h5 class="font-semibold text-gray-900 dark:text-white mb-0 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{% trans "Your Ideal Crush" %}</h5>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Age, gender, qualities you seek & zodiac preferences" %}</p>
+                </div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
     </div>
 </div>
 
@@ -460,44 +527,6 @@
             <span class="privacy-toggle-label-hint">{% trans "Photos will be revealed once you both connect" %}</span>
         </label>
     </div>
-</div>
-
-<!-- Event Languages Section -->
-<div class="section-card mb-4">
-    <h5 class="section-title">
-        {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-        {% trans "Languages for Events" %}
-        <span class="text-red-500 text-sm">*</span>
-    </h5>
-    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
-    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
-        <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
-            <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-            </svg>
-            {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
-        </p>
-    </div>
-
-    <div class="flex flex-wrap gap-3">
-        {% for value, label in form.event_languages.field.choices %}
-        <label class="event-language-pill cursor-pointer">
-            <input type="checkbox"
-                   name="{{ form.event_languages.html_name }}"
-                   value="{{ value }}"
-                   class="peer hidden"
-                   {% if value in profile.event_languages %}checked{% endif %}>
-            <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
-                {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
-                {{ label }}
-            </span>
-        </label>
-        {% endfor %}
-    </div>
-
-    {% if form.event_languages.errors %}
-        <div class="text-red-600 text-sm mt-2">{{ form.event_languages.errors.0 }}</div>
-    {% endif %}
 </div>
 
 <!-- Action Buttons -->

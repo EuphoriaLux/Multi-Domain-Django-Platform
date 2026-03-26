@@ -32,6 +32,18 @@ from .models import (
     CoachSession,
     EventConnection,
     EventInvitation,
+    CallAttempt,
+    UserActivity,
+    CrushSpark,
+)
+from .matching import (
+    get_western_zodiac,
+    get_western_element,
+    get_chinese_zodiac,
+    ZODIAC_SIGN_LABELS,
+    ZODIAC_SIGN_EMOJIS,
+    CHINESE_ANIMAL_LABELS,
+    CHINESE_ANIMAL_EMOJIS,
 )
 from .forms import (
     CrushCoachForm,
@@ -180,6 +192,45 @@ def coach_dashboard(request):
 
     pending_sparks_count = CrushSpark.objects.filter(status="pending_review").count()
 
+    # Count of approved members for this coach
+    approved_members_count = (
+        ProfileSubmission.objects.filter(coach=coach, status="approved")
+        .values("profile")
+        .distinct()
+        .count()
+    )
+
+    # Count of strong match pairs for this coach's profiles
+    from .matching import THRESHOLD_GOOD
+    from .models import MatchScore
+
+    my_user_ids = set(
+        ProfileSubmission.objects.filter(coach=coach, status="approved")
+        .values_list("profile__user_id", flat=True)
+        .distinct()
+    )
+    # Count how many of this coach's profiles have at least one strong match
+    # (matches the deduplicated view on the match-pairs page)
+    if my_user_ids:
+        matched_ids = set()
+        for ms in (
+            MatchScore.objects.filter(
+                Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
+                score_final__gte=THRESHOLD_GOOD,
+                user_a__crushprofile__is_approved=True,
+                user_a__crushprofile__is_active=True,
+                user_b__crushprofile__is_approved=True,
+                user_b__crushprofile__is_active=True,
+            ).values_list("user_a_id", "user_b_id")
+        ):
+            if ms[0] in my_user_ids:
+                matched_ids.add(ms[0])
+            if ms[1] in my_user_ids:
+                matched_ids.add(ms[1])
+        match_pairs_count = len(matched_ids)
+    else:
+        match_pairs_count = 0
+
     context = {
         "coach": coach,
         "total_approved": total_approved,
@@ -192,6 +243,8 @@ def coach_dashboard(request):
         "coach_stats": coach_stats,
         "pending_sparks_count": pending_sparks_count,
         "pref_stats": pref_stats,
+        "approved_members_count": approved_members_count,
+        "match_pairs_count": match_pairs_count,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 
@@ -371,6 +424,73 @@ def coach_profiles(request):
         "all_incomplete": all_incomplete,
     }
     return render(request, "crush_lu/coach_profiles.html", context)
+
+
+@coach_required
+def coach_members(request):
+    """Coach view of their approved members - profiles they reviewed and approved."""
+    coach = request.coach
+
+    # Get all profiles this coach approved (via ProfileSubmission)
+    approved_submissions = (
+        ProfileSubmission.objects.filter(coach=coach, status="approved")
+        .select_related("profile__user")
+        .order_by("-reviewed_at")
+    )
+
+    # Build member list with unique profiles (a profile may have multiple submissions)
+    seen_profiles = set()
+    members = []
+    for submission in approved_submissions:
+        profile = submission.profile
+        if profile.id in seen_profiles:
+            continue
+        if not profile.is_approved or not profile.is_active:
+            continue
+        seen_profiles.add(profile.id)
+        members.append(profile)
+
+    # Annotate matching readiness for each profile
+    profile_ids = [p.id for p in members]
+    from crush_lu.models import Trait
+
+    # Batch-check M2M fields to avoid N+1
+    from django.db.models import Count
+
+    readiness = (
+        CrushProfile.objects.filter(id__in=profile_ids)
+        .annotate(
+            n_qualities=Count("qualities"),
+            n_defects=Count("defects"),
+            n_sought=Count("sought_qualities"),
+        )
+        .values("id", "n_qualities", "n_defects", "n_sought")
+    )
+    readiness_map = {r["id"]: r for r in readiness}
+    for profile in members:
+        r = readiness_map.get(profile.id, {})
+        has_q = r.get("n_qualities", 0) > 0
+        has_d = r.get("n_defects", 0) > 0
+        has_s = r.get("n_sought", 0) > 0
+        profile.match_ready = has_q and has_d and has_s
+        profile.missing_fields = []
+        if not has_q:
+            profile.missing_fields.append(_("qualities"))
+        if not has_d:
+            profile.missing_fields.append(_("defects"))
+        if not has_s:
+            profile.missing_fields.append(_("ideal crush"))
+
+    paginator = Paginator(members, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "coach": coach,
+        "page_obj": page_obj,
+        "members": page_obj.object_list,
+        "total_members": len(members),
+    }
+    return render(request, "crush_lu/coach_members.html", context)
 
 
 @coach_required
@@ -1578,6 +1698,58 @@ def coach_member_overview(request, user_id):
     # Available coaches for reassignment dropdown
     all_coaches = CrushCoach.objects.filter(is_active=True).select_related("user")
 
+    # Personality traits
+    if profile:
+        qualities = profile.qualities.all()
+        defects = profile.defects.all()
+        sought_qualities = profile.sought_qualities.all()
+    else:
+        from .models import Trait
+
+        qualities = defects = sought_qualities = Trait.objects.none()
+
+    # Zodiac info (computed from date_of_birth)
+    zodiac_info = None
+    if profile and profile.astro_enabled and profile.date_of_birth:
+        western_sign = get_western_zodiac(profile.date_of_birth)
+        chinese_animal = get_chinese_zodiac(profile.date_of_birth)
+        zodiac_info = {
+            "western_sign": ZODIAC_SIGN_LABELS.get(western_sign, western_sign),
+            "western_emoji": ZODIAC_SIGN_EMOJIS.get(western_sign, ""),
+            "western_element": get_western_element(western_sign),
+            "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
+            "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
+        }
+
+    # Call attempts
+    call_attempts = (
+        CallAttempt.objects.filter(profile=profile)
+        .select_related("coach", "event")
+        .order_by("-attempt_date")[:20]
+        if profile
+        else CallAttempt.objects.none()
+    )
+
+    # Coach sessions
+    coach_sessions = (
+        CoachSession.objects.filter(user=member)
+        .select_related("coach")
+        .order_by("-created_at")[:20]
+    )
+
+    # User activity
+    try:
+        user_activity = member.activity
+    except UserActivity.DoesNotExist:
+        user_activity = None
+
+    # Crush sparks
+    crush_sparks = (
+        CrushSpark.objects.filter(Q(sender=member) | Q(recipient=member))
+        .select_related("event", "sender", "recipient", "assigned_coach")
+        .order_by("-created_at")[:10]
+    )
+
     context = {
         "coach": request.coach,
         "member": member,
@@ -1588,8 +1760,198 @@ def coach_member_overview(request, user_id):
         "event_registrations": event_registrations,
         "connections": connections,
         "all_coaches": all_coaches,
+        "qualities": qualities,
+        "defects": defects,
+        "sought_qualities": sought_qualities,
+        "zodiac_info": zodiac_info,
+        "call_attempts": call_attempts,
+        "coach_sessions": coach_sessions,
+        "user_activity": user_activity,
+        "crush_sparks": crush_sparks,
     }
     return render(request, "crush_lu/coach_member_overview.html", context)
+
+
+@coach_required
+def coach_member_matches(request, user_id):
+    """Show top matches for a member's profile (coach matchmaking view)."""
+    from django.contrib.auth.models import User
+    from .matching import get_matches_for_user, get_score_display
+
+    member = get_object_or_404(User, id=user_id)
+
+    try:
+        profile = member.crushprofile
+    except CrushProfile.DoesNotExist:
+        messages.error(request, _("This member does not have a profile."))
+        return redirect("crush_lu:coach_dashboard")
+
+    if not profile.is_approved:
+        messages.warning(request, _("This profile is not yet approved."))
+        return redirect("crush_lu:coach_member_overview", user_id=user_id)
+
+    has_traits = profile.sought_qualities.exists()
+    matches = []
+
+    if has_traits:
+        match_scores = get_matches_for_user(member)
+
+        for ms in match_scores:
+            other_user = ms.user_b if ms.user_a == member else ms.user_a
+            try:
+                other_profile = CrushProfile.objects.get(
+                    user=other_user, is_approved=True, is_active=True
+                )
+            except CrushProfile.DoesNotExist:
+                continue
+
+            score_display = get_score_display(ms.score_final)
+            if score_display:
+                matches.append(
+                    {
+                        "profile": other_profile,
+                        "user": other_user,
+                        "score": ms.score_final,
+                        "score_percent": int(ms.score_final * 100),
+                        "display": score_display,
+                    }
+                )
+
+    paginator = Paginator(matches, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "coach": request.coach,
+        "member": member,
+        "profile": profile,
+        "page_obj": page_obj,
+        "matches": page_obj.object_list,
+        "has_traits": has_traits,
+    }
+    return render(request, "crush_lu/coach_member_matches.html", context)
+
+
+@coach_required
+def coach_match_pairs(request):
+    """Show the top match for each of this coach's assigned profiles."""
+    from .matching import get_score_display, THRESHOLD_GOOD
+    from .models import MatchScore
+
+    coach = request.coach
+
+    # Step 1: Find user IDs of profiles assigned to this coach
+    my_user_ids = set(
+        ProfileSubmission.objects.filter(coach=coach, status="approved")
+        .values_list("profile__user_id", flat=True)
+        .distinct()
+    )
+
+    if not my_user_ids:
+        pairs = []
+    else:
+        # Step 2: Get good+ match scores where at least one side is this coach's profile
+        match_scores = list(
+            MatchScore.objects.filter(
+                Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
+                score_final__gte=THRESHOLD_GOOD,
+            )
+            .select_related("user_a", "user_b")
+            .order_by("-score_final")
+        )
+
+        # Step 3: Collect all user IDs involved
+        all_user_ids = set()
+        for ms in match_scores:
+            all_user_ids.add(ms.user_a_id)
+            all_user_ids.add(ms.user_b_id)
+
+        # Step 4: Batch-fetch profiles (only approved+active)
+        profiles_by_user = {
+            p.user_id: p
+            for p in CrushProfile.objects.filter(
+                user_id__in=all_user_ids, is_approved=True, is_active=True
+            )
+        }
+
+        # Step 5: Batch-fetch assigned coaches via latest approved submission
+        coach_map = {}
+        seen_profiles = set()
+        for sub in (
+            ProfileSubmission.objects.filter(
+                profile__user_id__in=all_user_ids,
+                status="approved",
+            )
+            .select_related("coach__user", "profile")
+            .order_by("-reviewed_at")
+        ):
+            uid = sub.profile.user_id
+            if uid not in seen_profiles:
+                seen_profiles.add(uid)
+                coach_map[uid] = sub.coach
+
+        # Step 6: Build pairs — one per coach's profile (their top match only)
+        # Since match_scores is sorted by score desc, the first valid pair
+        # for each of the coach's profiles is their best match.
+        seen_my_profiles = set()
+        pairs = []
+        for ms in match_scores:
+            profile_a = profiles_by_user.get(ms.user_a_id)
+            profile_b = profiles_by_user.get(ms.user_b_id)
+            if not profile_a or not profile_b:
+                continue
+
+            score_display = get_score_display(ms.score_final)
+            if not score_display:
+                continue
+
+            # Determine which side is the coach's profile
+            # A pair may have both sides as coach's profiles
+            my_uid = None
+            if ms.user_a_id in my_user_ids and ms.user_a_id not in seen_my_profiles:
+                my_uid = ms.user_a_id
+            elif ms.user_b_id in my_user_ids and ms.user_b_id not in seen_my_profiles:
+                my_uid = ms.user_b_id
+
+            if my_uid is None:
+                continue
+
+            seen_my_profiles.add(my_uid)
+
+            # Always put the coach's profile on the left (profile_a)
+            if my_uid == ms.user_a_id:
+                pa, pb = profile_a, profile_b
+                ca, cb = coach_map.get(ms.user_a_id), coach_map.get(ms.user_b_id)
+            else:
+                pa, pb = profile_b, profile_a
+                ca, cb = coach_map.get(ms.user_b_id), coach_map.get(ms.user_a_id)
+
+            pairs.append(
+                {
+                    "profile_a": pa,
+                    "profile_b": pb,
+                    "coach_a": ca,
+                    "coach_b": cb,
+                    "score": ms.score_final,
+                    "score_percent": int(ms.score_final * 100),
+                    "score_qualities": int(ms.score_qualities * 100),
+                    "score_zodiac_west": int(ms.score_zodiac_west * 100),
+                    "score_zodiac_cn": int(ms.score_zodiac_cn * 100),
+                    "score_language": int(ms.score_language * 100),
+                    "score_age_fit": int(ms.score_age_fit * 100),
+                    "display": score_display,
+                }
+            )
+
+    paginator = Paginator(pairs, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "coach": coach,
+        "page_obj": page_obj,
+        "pairs": page_obj.object_list,
+        "total_pairs": len(pairs),
+    }
+    return render(request, "crush_lu/coach_match_pairs.html", context)
 
 
 @coach_required

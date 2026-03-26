@@ -13,13 +13,23 @@ from crush_lu.matching import (
     get_chinese_zodiac,
     compute_chinese_zodiac_score,
     compute_quality_score,
+    compute_language_score,
+    compute_age_fit_score,
+    _age_fit_one_direction,
+    has_matching_profile,
+    passes_hard_filters,
     compute_match_score,
     get_score_label,
     get_score_display,
     update_match_scores_for_user,
     get_matches_for_user,
+    WEIGHT_QUALITIES,
+    WEIGHT_ZODIAC_WEST,
+    WEIGHT_ZODIAC_CN,
+    WEIGHT_LANGUAGE,
+    WEIGHT_AGE_FIT,
 )
-from crush_lu.models import CrushProfile, MatchScore, Trait
+from crush_lu.models import CrushCoach, CrushProfile, MatchScore, Trait
 from crush_lu.models.profiles import UserDataConsent
 
 
@@ -343,6 +353,233 @@ class QualityScoreTests(TestCase):
         self.assertEqual(score_ab, score_ba)
 
 
+class LanguageScoreTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user("lang_a", password="test")
+        self.user_b = User.objects.create_user("lang_b", password="test")
+        self.profile_a = CrushProfile.objects.create(
+            user=self.user_a, location="canton-luxembourg",
+            date_of_birth=date(1990, 4, 5),
+        )
+        self.profile_b = CrushProfile.objects.create(
+            user=self.user_b, location="canton-luxembourg",
+            date_of_birth=date(1992, 7, 15),
+        )
+
+    def test_full_overlap(self):
+        self.profile_a.event_languages = ["en", "fr"]
+        self.profile_b.event_languages = ["en", "fr"]
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 1.0)
+
+    def test_partial_overlap(self):
+        self.profile_a.event_languages = ["en", "fr"]
+        self.profile_b.event_languages = ["en", "de"]
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 0.5)
+
+    def test_no_overlap(self):
+        self.profile_a.event_languages = ["en"]
+        self.profile_b.event_languages = ["de"]
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 0.0)
+
+    def test_empty_languages_neutral(self):
+        self.profile_a.event_languages = []
+        self.profile_b.event_languages = ["en"]
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 0.5)
+
+    def test_both_empty_neutral(self):
+        self.profile_a.event_languages = []
+        self.profile_b.event_languages = []
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 0.5)
+
+    def test_subset_fully_covered(self):
+        self.profile_a.event_languages = ["en"]
+        self.profile_b.event_languages = ["en", "fr", "de", "lu"]
+        self.assertEqual(compute_language_score(self.profile_a, self.profile_b), 1.0)
+
+
+class AgeFitScoreTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user("age_a", password="test")
+        self.user_b = User.objects.create_user("age_b", password="test")
+        self.profile_a = CrushProfile.objects.create(
+            user=self.user_a, location="canton-luxembourg",
+            date_of_birth=date(1996, 4, 5),
+            preferred_age_min=25, preferred_age_max=35,
+        )
+        self.profile_b = CrushProfile.objects.create(
+            user=self.user_b, location="canton-luxembourg",
+            date_of_birth=date(1996, 7, 15),
+            preferred_age_min=25, preferred_age_max=35,
+        )
+
+    def test_both_in_range_center(self):
+        score = compute_age_fit_score(self.profile_a, self.profile_b)
+        self.assertGreater(score, 0.9)
+
+    def test_default_range_returns_075(self):
+        self.assertEqual(_age_fit_one_direction(30, 18, 99), 0.75)
+
+    def test_outside_range_penalty(self):
+        score = _age_fit_one_direction(40, 25, 35)
+        self.assertLess(score, 0.5)
+
+    def test_far_outside_range_zero(self):
+        score = _age_fit_one_direction(55, 25, 35)
+        self.assertEqual(score, 0.0)
+
+    def test_no_dob_neutral(self):
+        self.profile_a.date_of_birth = None
+        self.assertEqual(compute_age_fit_score(self.profile_a, self.profile_b), 0.5)
+
+    def test_at_range_edge(self):
+        score = _age_fit_one_direction(25, 25, 35)
+        self.assertGreaterEqual(score, 0.85)
+
+    def test_exact_center(self):
+        score = _age_fit_one_direction(30, 25, 35)
+        self.assertEqual(score, 1.0)
+
+
+class HardFilterTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user("filter_a", password="test")
+        self.user_b = User.objects.create_user("filter_b", password="test")
+        self.profile_a = CrushProfile.objects.create(
+            user=self.user_a, location="canton-luxembourg",
+            date_of_birth=date(1990, 4, 5),
+            event_languages=["en", "fr"],
+            preferred_age_min=25, preferred_age_max=40,
+        )
+        self.profile_b = CrushProfile.objects.create(
+            user=self.user_b, location="canton-luxembourg",
+            date_of_birth=date(1992, 7, 15),
+            event_languages=["en", "de"],
+            preferred_age_min=25, preferred_age_max=40,
+        )
+        # Both profiles must have traits set to pass the completeness check
+        all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
+        all_d = list(Trait.objects.filter(trait_type="defect").order_by("sort_order"))
+        self.profile_a.qualities.set(all_q[:5])
+        self.profile_a.defects.set(all_d[:5])
+        self.profile_a.sought_qualities.set(all_q[5:10])
+        self.profile_b.qualities.set(all_q[5:10])
+        self.profile_b.defects.set(all_d[5:10])
+        self.profile_b.sought_qualities.set(all_q[:5])
+
+    def test_fails_incomplete_profile(self):
+        """Profiles without qualities/defects/sought_qualities are excluded."""
+        self.profile_a.qualities.clear()
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_fails_no_sought_qualities(self):
+        self.profile_b.sought_qualities.clear()
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_fails_no_defects(self):
+        self.profile_a.defects.clear()
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_has_matching_profile_complete(self):
+        self.assertTrue(has_matching_profile(self.profile_a))
+        self.assertTrue(has_matching_profile(self.profile_b))
+
+    def test_has_matching_profile_incomplete(self):
+        self.profile_a.qualities.clear()
+        self.assertFalse(has_matching_profile(self.profile_a))
+
+    def test_passes_with_shared_language(self):
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_fails_no_shared_language(self):
+        self.profile_a.event_languages = ["fr"]
+        self.profile_b.event_languages = ["de"]
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_empty_language_on_one(self):
+        self.profile_a.event_languages = []
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_fails_age_out_of_mutual_range(self):
+        self.profile_b.preferred_age_min = 18
+        self.profile_b.preferred_age_max = 25  # A is ~36, out of B's range
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_default_age_range(self):
+        self.profile_b.preferred_age_min = 18
+        self.profile_b.preferred_age_max = 99
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_no_dob(self):
+        self.profile_a.date_of_birth = None
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_fails_mutual_gender_mismatch(self):
+        """Both set preferred_genders, neither wants the other's gender."""
+        self.profile_a.gender = "M"
+        self.profile_a.preferred_genders = ["F"]
+        self.profile_b.gender = "M"
+        self.profile_b.preferred_genders = ["F"]
+        self.assertFalse(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_one_side_wants_other(self):
+        """A doesn't want B's gender, but B wants A's — still passes."""
+        self.profile_a.gender = "M"
+        self.profile_a.preferred_genders = ["F"]
+        self.profile_b.gender = "M"
+        self.profile_b.preferred_genders = ["M"]
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_empty_preferred_genders(self):
+        """Empty preferred_genders = not filled out, don't filter."""
+        self.profile_a.gender = "M"
+        self.profile_a.preferred_genders = []
+        self.profile_b.gender = "M"
+        self.profile_b.preferred_genders = ["F"]
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_passes_compatible_genders(self):
+        """Both want each other's gender."""
+        self.profile_a.gender = "M"
+        self.profile_a.preferred_genders = ["F"]
+        self.profile_b.gender = "F"
+        self.profile_b.preferred_genders = ["M"]
+        self.assertTrue(passes_hard_filters(self.profile_a, self.profile_b))
+
+    def test_stale_scores_deleted(self):
+        """When profiles become incompatible, existing MatchScore is deleted."""
+        self.profile_a.is_approved = True
+        self.profile_a.is_active = True
+        self.profile_a.save()
+        self.profile_b.is_approved = True
+        self.profile_b.is_active = True
+        self.profile_b.save()
+
+        # Traits are already set in setUp — just need to set them on these
+        # profiles for the update_match_scores_for_user call
+        all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
+        all_d = list(Trait.objects.filter(trait_type="defect").order_by("sort_order"))
+        self.profile_a.qualities.set(all_q[:5])
+        self.profile_a.defects.set(all_d[:5])
+        self.profile_a.sought_qualities.set(all_q[5:10])
+        self.profile_b.qualities.set(all_q[5:10])
+        self.profile_b.defects.set(all_d[5:10])
+        self.profile_b.sought_qualities.set(all_q[:5])
+
+        # First compute — should create a score
+        update_match_scores_for_user(self.user_a)
+        self.assertEqual(MatchScore.objects.count(), 1)
+
+        # Make them incompatible (no shared language)
+        self.profile_a.event_languages = ["fr"]
+        self.profile_a.save()
+        self.profile_b.event_languages = ["de"]
+        self.profile_b.save()
+
+        # Recompute — should delete the stale score
+        update_match_scores_for_user(self.user_a)
+        self.assertEqual(MatchScore.objects.count(), 0)
+
+
 class CombinedScoreTests(TestCase):
     def setUp(self):
         self.user_a = User.objects.create_user("user_a", password="test")
@@ -359,7 +596,7 @@ class CombinedScoreTests(TestCase):
         )
 
     def test_combined_score_with_astro(self):
-        """Score should combine all three signals."""
+        """Score should combine all five signals."""
         all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
         self.profile_a.qualities.set(all_q[:5])
         self.profile_a.sought_qualities.set(all_q[5:10])
@@ -371,12 +608,20 @@ class CombinedScoreTests(TestCase):
         self.assertEqual(scores["score_qualities"], 1.0)
         self.assertGreater(scores["score_zodiac_west"], 0)
         self.assertGreater(scores["score_zodiac_cn"], 0)
-        # Final should be weighted average
-        expected = 0.70 * 1.0 + 0.20 * scores["score_zodiac_west"] + 0.10 * scores["score_zodiac_cn"]
+        self.assertIn("score_language", scores)
+        self.assertIn("score_age_fit", scores)
+        # Final should be weighted average of all 5 signals
+        expected = (
+            WEIGHT_QUALITIES * scores["score_qualities"]
+            + WEIGHT_ZODIAC_WEST * scores["score_zodiac_west"]
+            + WEIGHT_ZODIAC_CN * scores["score_zodiac_cn"]
+            + WEIGHT_LANGUAGE * scores["score_language"]
+            + WEIGHT_AGE_FIT * scores["score_age_fit"]
+        )
         self.assertAlmostEqual(scores["score_final"], round(expected, 4))
 
     def test_astro_disabled(self):
-        """When astro is disabled, score = quality score."""
+        """When astro is disabled, zodiac weights are redistributed."""
         self.profile_a.astro_enabled = False
         self.profile_a.save()
 
@@ -388,9 +633,16 @@ class CombinedScoreTests(TestCase):
 
         scores = compute_match_score(self.profile_a, self.profile_b)
 
-        self.assertEqual(scores["score_final"], scores["score_qualities"])
         self.assertEqual(scores["score_zodiac_west"], 0.0)
         self.assertEqual(scores["score_zodiac_cn"], 0.0)
+        # Zodiac weights redistributed among qualities, language, age_fit
+        remaining = WEIGHT_QUALITIES + WEIGHT_LANGUAGE + WEIGHT_AGE_FIT
+        expected = (
+            (WEIGHT_QUALITIES / remaining) * scores["score_qualities"]
+            + (WEIGHT_LANGUAGE / remaining) * scores["score_language"]
+            + (WEIGHT_AGE_FIT / remaining) * scores["score_age_fit"]
+        )
+        self.assertAlmostEqual(scores["score_final"], round(expected, 4))
 
 
 class ScoreLabelTests(TestCase):
@@ -445,9 +697,12 @@ class MatchScorePersistenceTests(TestCase):
         )
 
         all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
+        all_d = list(Trait.objects.filter(trait_type="defect").order_by("sort_order"))
         self.profile_a.qualities.set(all_q[:5])
+        self.profile_a.defects.set(all_d[:5])
         self.profile_a.sought_qualities.set(all_q[5:10])
         self.profile_b.qualities.set(all_q[5:10])
+        self.profile_b.defects.set(all_d[5:10])
         self.profile_b.sought_qualities.set(all_q[:5])
 
     def test_update_creates_score(self):
@@ -550,6 +805,8 @@ class CrushPreferencesWithTraitsTests(TestCase):
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class MatchesListViewTests(TestCase):
+    """Test that /matches/ redirects users to dashboard (matches are coach-only)."""
+
     def setUp(self):
         self.user = User.objects.create_user(
             username="match@example.com",
@@ -567,26 +824,85 @@ class MatchesListViewTests(TestCase):
         consent.save()
         self.client.login(username="match@example.com", password="testpass123")
 
-    def test_unapproved_redirected(self):
-        self.profile.is_approved = False
-        self.profile.save()
+    def test_matches_redirects_to_dashboard(self):
         response = self.client.get(
             reverse("crush_lu:matches_list"), HTTP_HOST="crush.lu"
         )
         self.assertEqual(response.status_code, 302)
 
-    def test_no_traits_shows_empty_state(self):
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CoachMemberMatchesViewTests(TestCase):
+    """Test coach views for member matches."""
+
+    def setUp(self):
+        # Create coach user
+        self.coach_user = User.objects.create_user(
+            username="coach@example.com",
+            email="coach@example.com",
+            password="testpass123",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=self.coach_user, is_active=True
+        )
+
+        # Create member with profile
+        self.member = User.objects.create_user(
+            username="member@example.com",
+            email="member@example.com",
+            password="testpass123",
+        )
+        self.member_profile = CrushProfile.objects.create(
+            user=self.member,
+            location="canton-luxembourg",
+            is_approved=True,
+            is_active=True,
+            date_of_birth=date(1990, 4, 5),
+        )
+
+        # Create approved submission linking coach to member
+        from crush_lu.models import ProfileSubmission
+
+        ProfileSubmission.objects.create(
+            profile=self.member_profile,
+            coach=self.coach,
+            status="approved",
+        )
+
+        consent, _ = UserDataConsent.objects.get_or_create(user=self.coach_user)
+        consent.crushlu_consent_given = True
+        consent.save()
+        self.client.login(username="coach@example.com", password="testpass123")
+
+    def test_coach_members_list(self):
         response = self.client.get(
-            reverse("crush_lu:matches_list"), HTTP_HOST="crush.lu"
+            reverse("crush_lu:coach_members"), HTTP_HOST="crush.lu"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.context["has_traits"])
+        self.assertEqual(response.context["total_members"], 1)
 
-    def test_with_traits_shows_matches(self):
-        # Set traits
+    def test_coach_member_matches_approved_profile(self):
+        response = self.client.get(
+            reverse("crush_lu:coach_member_matches", args=[self.member.id]),
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_coach_member_matches_unapproved_redirects(self):
+        self.member_profile.is_approved = False
+        self.member_profile.save()
+        response = self.client.get(
+            reverse("crush_lu:coach_member_matches", args=[self.member.id]),
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_coach_member_matches_with_traits(self):
         all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
-        self.profile.qualities.set(all_q[:5])
-        self.profile.sought_qualities.set(all_q[5:10])
+        all_d = list(Trait.objects.filter(trait_type="defect").order_by("sort_order"))
+        self.member_profile.qualities.set(all_q[:5])
+        self.member_profile.defects.set(all_d[:5])
+        self.member_profile.sought_qualities.set(all_q[5:10])
 
         # Create another user with matching traits
         user_b = User.objects.create_user("user_b", password="test")
@@ -596,60 +912,155 @@ class MatchesListViewTests(TestCase):
             date_of_birth=date(1992, 6, 10),
         )
         profile_b.qualities.set(all_q[5:10])
+        profile_b.defects.set(all_d[5:10])
         profile_b.sought_qualities.set(all_q[:5])
 
-        # Generate scores
-        update_match_scores_for_user(self.user)
+        update_match_scores_for_user(self.member)
 
         response = self.client.get(
-            reverse("crush_lu:matches_list"), HTTP_HOST="crush.lu"
+            reverse("crush_lu:coach_member_matches", args=[self.member.id]),
+            HTTP_HOST="crush.lu",
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["has_traits"])
         self.assertGreater(len(response.context["matches"]), 0)
 
-
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
-class MatchApiTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="api@example.com",
-            email="api@example.com",
+    def test_non_coach_cannot_access(self):
+        """Regular users cannot access coach member views."""
+        regular_user = User.objects.create_user(
+            username="regular@example.com",
+            email="regular@example.com",
             password="testpass123",
         )
-        self.profile = CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=True,
-            date_of_birth=date(1990, 4, 5),
-        )
-        consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
+        consent, _ = UserDataConsent.objects.get_or_create(user=regular_user)
         consent.crushlu_consent_given = True
         consent.save()
-        self.client.login(username="api@example.com", password="testpass123")
-
-    def test_match_list_api(self):
-        response = self.client.get("/api/matches/", HTTP_HOST="crush.lu")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("matches", data)
-        self.assertIn("total", data)
-
-    def test_match_score_api_not_found(self):
-        response = self.client.get("/api/matches/score/99999/", HTTP_HOST="crush.lu")
-        self.assertEqual(response.status_code, 404)
-
-    def test_match_score_api_success(self):
-        user_b = User.objects.create_user("user_b", password="test")
-        CrushProfile.objects.create(
-            user=user_b, location="canton-luxembourg",
-            is_approved=True, is_active=True,
-            date_of_birth=date(1992, 6, 10),
-        )
+        self.client.login(username="regular@example.com", password="testpass123")
         response = self.client.get(
-            f"/api/matches/score/{user_b.pk}/", HTTP_HOST="crush.lu"
+            reverse("crush_lu:coach_members"), HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.status_code, 302)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CoachMatchPairsViewTests(TestCase):
+    """Tests for the coach match pairs discovery page."""
+
+    def setUp(self):
+        # Create coach user
+        self.coach_user = User.objects.create_user(
+            username="paircoach@example.com",
+            email="paircoach@example.com",
+            password="testpass123",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=self.coach_user, is_active=True
+        )
+
+        # Create two users with approved profiles
+        self.user_a = User.objects.create_user(
+            username="pair_a@example.com",
+            email="pair_a@example.com",
+            password="testpass123",
+        )
+        self.user_b = User.objects.create_user(
+            username="pair_b@example.com",
+            email="pair_b@example.com",
+            password="testpass123",
+        )
+        self.profile_a = CrushProfile.objects.create(
+            user=self.user_a,
+            location="canton-luxembourg",
+            is_approved=True,
+            is_active=True,
+            gender="F",
+            date_of_birth=date(1995, 6, 15),
+        )
+        self.profile_b = CrushProfile.objects.create(
+            user=self.user_b,
+            location="canton-luxembourg",
+            is_approved=True,
+            is_active=True,
+            gender="M",
+            date_of_birth=date(1993, 3, 20),
+        )
+
+        # Create approved submissions (for coach assignment)
+        from crush_lu.models import ProfileSubmission
+
+        ProfileSubmission.objects.create(
+            profile=self.profile_a,
+            coach=self.coach,
+            status="approved",
+        )
+        ProfileSubmission.objects.create(
+            profile=self.profile_b,
+            coach=self.coach,
+            status="approved",
+        )
+
+        # Create a high match score (enforce user_a.pk < user_b.pk)
+        ua, ub = (self.user_a, self.user_b) if self.user_a.pk < self.user_b.pk else (self.user_b, self.user_a)
+        MatchScore.objects.create(user_a=ua, user_b=ub, score_final=0.85)
+
+        consent, _ = UserDataConsent.objects.get_or_create(user=self.coach_user)
+        consent.crushlu_consent_given = True
+        consent.save()
+        self.client.login(username="paircoach@example.com", password="testpass123")
+
+    def test_requires_coach(self):
+        """Non-coach users should be redirected."""
+        regular = User.objects.create_user(
+            username="regular_pair@example.com",
+            email="regular_pair@example.com",
+            password="testpass123",
+        )
+        consent, _ = UserDataConsent.objects.get_or_create(user=regular)
+        consent.crushlu_consent_given = True
+        consent.save()
+        self.client.login(username="regular_pair@example.com", password="testpass123")
+        response = self.client.get(
+            reverse("crush_lu:coach_match_pairs"), HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_coach_can_access(self):
+        """Coach should see the match pairs page with pair data."""
+        response = self.client.get(
+            reverse("crush_lu:coach_match_pairs"), HTTP_HOST="crush.lu"
         )
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("score_final", data)
-        self.assertIn("score_percent", data)
+        self.assertContains(response, "85%")
+        self.assertEqual(response.context["total_pairs"], 1)
+
+    def test_low_scores_excluded(self):
+        """Scores below THRESHOLD_GOOD should not appear."""
+        user_c = User.objects.create_user("pair_c@example.com", password="testpass123")
+        CrushProfile.objects.create(
+            user=user_c,
+            location="canton-luxembourg",
+            is_approved=True,
+            is_active=True,
+            gender="F",
+            date_of_birth=date(1990, 1, 1),
+        )
+        # Low score pair
+        ua, uc = (self.user_a, user_c) if self.user_a.pk < user_c.pk else (user_c, self.user_a)
+        MatchScore.objects.create(user_a=ua, user_b=uc, score_final=0.30)
+
+        response = self.client.get(
+            reverse("crush_lu:coach_match_pairs"), HTTP_HOST="crush.lu"
+        )
+        self.assertNotContains(response, "30%")
+
+    def test_inactive_profiles_excluded(self):
+        """Pairs with inactive profiles should not appear."""
+        self.profile_b.is_active = False
+        self.profile_b.save()
+        response = self.client.get(
+            reverse("crush_lu:coach_match_pairs"), HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.context["total_pairs"], 0)
+        # Restore
+        self.profile_b.is_active = True
+        self.profile_b.save()

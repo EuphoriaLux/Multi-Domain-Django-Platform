@@ -15,6 +15,7 @@ from datetime import date
 
 from django.db import models, transaction
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,21 @@ ZODIAC_SIGN_EMOJIS = {
     "capricorn": "\u2651",
     "aquarius": "\u2652",
     "pisces": "\u2653",
+}
+
+ZODIAC_SIGN_LABELS = {
+    "aries": _("Aries"),
+    "taurus": _("Taurus"),
+    "gemini": _("Gemini"),
+    "cancer": _("Cancer"),
+    "leo": _("Leo"),
+    "virgo": _("Virgo"),
+    "libra": _("Libra"),
+    "scorpio": _("Scorpio"),
+    "sagittarius": _("Sagittarius"),
+    "capricorn": _("Capricorn"),
+    "aquarius": _("Aquarius"),
+    "pisces": _("Pisces"),
 }
 
 
@@ -153,6 +169,21 @@ CHINESE_ANIMAL_EMOJIS = {
     "rooster": "\U0001f413",
     "dog": "\U0001f415",
     "pig": "\U0001f416",
+}
+
+CHINESE_ANIMAL_LABELS = {
+    "rat": _("Rat"),
+    "ox": _("Ox"),
+    "tiger": _("Tiger"),
+    "rabbit": _("Rabbit"),
+    "dragon": _("Dragon"),
+    "snake": _("Snake"),
+    "horse": _("Horse"),
+    "goat": _("Goat"),
+    "monkey": _("Monkey"),
+    "rooster": _("Rooster"),
+    "dog": _("Dog"),
+    "pig": _("Pig"),
 }
 
 # Trine groups: animals in the same trine are highly compatible
@@ -283,13 +314,152 @@ def compute_quality_score(profile_a, profile_b):
 
 
 # =============================================================================
+# Language Compatibility
+# =============================================================================
+
+
+def compute_language_score(profile_a, profile_b):
+    """Compute language overlap score (0.0-1.0).
+
+    Based on shared event languages relative to the smaller set.
+    Returns 0.5 (neutral) if either profile has no languages set.
+    """
+    langs_a = set(profile_a.event_languages or [])
+    langs_b = set(profile_b.event_languages or [])
+
+    if not langs_a or not langs_b:
+        return 0.5
+
+    shared = langs_a & langs_b
+    if not shared:
+        return 0.0
+
+    return len(shared) / min(len(langs_a), len(langs_b))
+
+
+# =============================================================================
+# Age Fit
+# =============================================================================
+
+
+def _age_fit_one_direction(actual_age, pref_min, pref_max):
+    """Score how well actual_age fits within [pref_min, pref_max].
+
+    Default range (18-99) = 0.75 (open to anyone).
+    Inside range = 0.85-1.0 (higher near center).
+    Outside range = decays 0.1/year, floor 0.0.
+    """
+    if pref_min == 18 and pref_max == 99:
+        return 0.75
+
+    if pref_min <= actual_age <= pref_max:
+        range_size = pref_max - pref_min
+        if range_size == 0:
+            return 1.0
+        center = (pref_min + pref_max) / 2
+        distance = abs(actual_age - center) / (range_size / 2)
+        return 1.0 - 0.15 * distance
+
+    if actual_age < pref_min:
+        gap = pref_min - actual_age
+    else:
+        gap = actual_age - pref_max
+
+    return max(0.0, 0.7 - gap * 0.1)
+
+
+def compute_age_fit_score(profile_a, profile_b):
+    """Compute mutual age fit score (0.0-1.0).
+
+    Average of: how well B fits A's age preferences,
+    and how well A fits B's age preferences.
+    Returns 0.5 if either age is unknown.
+    """
+    age_a = profile_a.age
+    age_b = profile_b.age
+
+    if age_a is None or age_b is None:
+        return 0.5
+
+    fit_a = _age_fit_one_direction(age_b, profile_a.preferred_age_min, profile_a.preferred_age_max)
+    fit_b = _age_fit_one_direction(age_a, profile_b.preferred_age_min, profile_b.preferred_age_max)
+
+    return (fit_a + fit_b) / 2
+
+
+# =============================================================================
+# Hard Filters (pre-scoring)
+# =============================================================================
+
+
+def has_matching_profile(profile):
+    """Check if a profile has completed the minimum required fields for matching.
+
+    Requires: qualities, defects, and sought_qualities all set.
+    """
+    return (
+        profile.qualities.exists()
+        and profile.defects.exists()
+        and profile.sought_qualities.exists()
+    )
+
+
+def passes_hard_filters(profile_a, profile_b):
+    """Check if two profiles pass hard compatibility filters.
+
+    Returns False if the pair should NOT be scored at all:
+    - Either profile hasn't completed qualities/defects/sought_qualities
+    - Mutual gender mismatch (when both have preferred_genders set)
+    - Zero shared languages (when both have languages set)
+    - Mutual age mismatch (both must fit each other's non-default range)
+    """
+    # Profile completeness — both must have set their traits
+    if not has_matching_profile(profile_a) or not has_matching_profile(profile_b):
+        return False
+
+    # Mutual gender filter — only applies when BOTH have set preferred_genders
+    # (empty means they haven't filled out their ideal crush yet, not "open to all")
+    genders_a = profile_a.preferred_genders or []
+    genders_b = profile_b.preferred_genders or []
+    if genders_a and genders_b:
+        a_wants_b = profile_b.gender in genders_a if profile_b.gender else True
+        b_wants_a = profile_a.gender in genders_b if profile_a.gender else True
+        if not a_wants_b and not b_wants_a:
+            return False
+
+    # Language filter
+    langs_a = set(profile_a.event_languages or [])
+    langs_b = set(profile_b.event_languages or [])
+    if langs_a and langs_b and not (langs_a & langs_b):
+        return False
+
+    # Mutual age filter
+    age_a = profile_a.age
+    age_b = profile_b.age
+
+    if age_a is not None and age_b is not None:
+        # Check A fits B's range (unless B has default)
+        if not (profile_b.preferred_age_min == 18 and profile_b.preferred_age_max == 99):
+            if age_a < profile_b.preferred_age_min or age_a > profile_b.preferred_age_max:
+                return False
+        # Check B fits A's range (unless A has default)
+        if not (profile_a.preferred_age_min == 18 and profile_a.preferred_age_max == 99):
+            if age_b < profile_a.preferred_age_min or age_b > profile_a.preferred_age_max:
+                return False
+
+    return True
+
+
+# =============================================================================
 # Combined Matching Score
 # =============================================================================
 
-# Score weights
-WEIGHT_QUALITIES = 0.70
-WEIGHT_ZODIAC_WEST = 0.20
-WEIGHT_ZODIAC_CN = 0.10
+# Score weights (5 signals)
+WEIGHT_QUALITIES = 0.55
+WEIGHT_ZODIAC_WEST = 0.15
+WEIGHT_ZODIAC_CN = 0.05
+WEIGHT_LANGUAGE = 0.10
+WEIGHT_AGE_FIT = 0.15
 
 # Score thresholds for display labels
 THRESHOLD_EXCELLENT = 0.80
@@ -300,22 +470,20 @@ THRESHOLD_POSSIBLE = 0.40
 def compute_match_score(profile_a, profile_b):
     """Compute the combined match score between two profiles.
 
-    Returns a dict with all sub-scores and the final weighted score.
-    If either user has astro_enabled=False, only qualities count.
+    Uses 5 signals: qualities, western zodiac, Chinese zodiac, language, age fit.
+    If either user has astro_enabled=False, zodiac weights are redistributed.
 
     Args:
         profile_a: CrushProfile instance
         profile_b: CrushProfile instance
 
     Returns:
-        dict: {
-            'score_qualities': float,
-            'score_zodiac_west': float,
-            'score_zodiac_cn': float,
-            'score_final': float,
-        }
+        dict with score_qualities, score_zodiac_west, score_zodiac_cn,
+        score_language, score_age_fit, score_final (all floats).
     """
     q_score = compute_quality_score(profile_a, profile_b)
+    lang_score = compute_language_score(profile_a, profile_b)
+    age_score = compute_age_fit_score(profile_a, profile_b)
 
     astro_enabled = profile_a.astro_enabled and profile_b.astro_enabled
 
@@ -330,16 +498,26 @@ def compute_match_score(profile_a, profile_b):
             WEIGHT_QUALITIES * q_score
             + WEIGHT_ZODIAC_WEST * z_west
             + WEIGHT_ZODIAC_CN * z_cn
+            + WEIGHT_LANGUAGE * lang_score
+            + WEIGHT_AGE_FIT * age_score
         )
     else:
         z_west = 0.0
         z_cn = 0.0
-        final = q_score
+        # Redistribute zodiac weight proportionally among remaining signals
+        remaining = WEIGHT_QUALITIES + WEIGHT_LANGUAGE + WEIGHT_AGE_FIT
+        final = (
+            (WEIGHT_QUALITIES / remaining) * q_score
+            + (WEIGHT_LANGUAGE / remaining) * lang_score
+            + (WEIGHT_AGE_FIT / remaining) * age_score
+        )
 
     return {
         "score_qualities": round(q_score, 4),
         "score_zodiac_west": round(z_west, 4),
         "score_zodiac_cn": round(z_cn, 4),
+        "score_language": round(lang_score, 4),
+        "score_age_fit": round(age_score, 4),
         "score_final": round(final, 4),
     }
 
@@ -420,14 +598,20 @@ def update_match_scores_for_user(user):
     )
 
     count = 0
+    filtered_out_pairs = []
     for other_profile in other_profiles:
-        scores = compute_match_score(profile, other_profile)
-
         # Enforce user_a.pk < user_b.pk
         if user.pk < other_profile.user.pk:
             user_a, user_b = user, other_profile.user
         else:
             user_a, user_b = other_profile.user, user
+
+        # Hard filter: skip incompatible pairs
+        if not passes_hard_filters(profile, other_profile):
+            filtered_out_pairs.append((user_a.pk, user_b.pk))
+            continue
+
+        scores = compute_match_score(profile, other_profile)
 
         MatchScore.objects.update_or_create(
             user_a=user_a,
@@ -436,10 +620,25 @@ def update_match_scores_for_user(user):
                 "score_qualities": scores["score_qualities"],
                 "score_zodiac_west": scores["score_zodiac_west"],
                 "score_zodiac_cn": scores["score_zodiac_cn"],
+                "score_language": scores["score_language"],
+                "score_age_fit": scores["score_age_fit"],
                 "score_final": scores["score_final"],
             },
         )
         count += 1
+
+    # Clean up stale MatchScore rows for pairs that now fail hard filters
+    if filtered_out_pairs:
+        from django.db.models import Q
+
+        filter_q = Q()
+        for pk_a, pk_b in filtered_out_pairs:
+            filter_q |= Q(user_a_id=pk_a, user_b_id=pk_b)
+        deleted, _ = MatchScore.objects.filter(filter_q).delete()
+        if deleted:
+            logger.info(
+                "Deleted %d stale match scores for user %s", deleted, user.pk
+            )
 
     logger.info(
         "Updated %d match scores for user %s (pk=%s)", count, user, user.pk
