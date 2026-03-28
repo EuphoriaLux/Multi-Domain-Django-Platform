@@ -103,7 +103,7 @@ EMAIL_TEMPLATE_METADATA = {
         'name': 'Profile Rejected',
         'category': 'profile',
         'template': 'crush_lu/emails/profile_rejected.html',
-        'subject': 'Profile Review Update - Crush.lu',
+        'subject': 'Profile Not Approved - Crush.lu',
         'description': 'Sent when coach rejects user profile',
         'required_context': ['user', 'profile'],
         'optional_context': ['reason'],

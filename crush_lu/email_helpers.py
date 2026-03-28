@@ -442,7 +442,7 @@ def send_profile_rejected_notification(profile, request, reason):
 
     # Render email in user's preferred language
     with translation.override(lang):
-        subject = _("Profile Review Update - Crush.lu")
+        subject = _("Profile Not Approved - Crush.lu")
         html_message = render_to_string('crush_lu/emails/profile_rejected.html', context)
         plain_message = strip_tags(html_message)
 

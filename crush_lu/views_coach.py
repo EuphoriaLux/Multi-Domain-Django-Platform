@@ -911,7 +911,7 @@ def coach_preview_email(request, submission_id):
             }
             template = "crush_lu/emails/profile_rejected.html"
             with translation.override(lang):
-                subject = _("Profile Review Update - Crush.lu")
+                subject = _("Profile Not Approved - Crush.lu")
 
         elif status == "revision":
             edit_profile_url = get_user_language_url(
