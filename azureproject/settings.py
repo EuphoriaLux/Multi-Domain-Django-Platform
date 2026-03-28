@@ -219,12 +219,22 @@ TEMPLATES = [
 WSGI_APPLICATION = "azureproject.wsgi.application"
 ASGI_APPLICATION = "azureproject.asgi.application"
 
-# Channel Layers - in-memory for development (no Redis needed locally)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
+# Channel Layers - Redis if REDIS_URL is set, otherwise in-memory
+if os.environ.get("REDIS_URL"):
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [os.environ["REDIS_URL"]],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
 
 
 # Database

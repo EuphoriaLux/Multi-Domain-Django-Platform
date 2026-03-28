@@ -1,0 +1,28 @@
+# Local staging environment with Redis + ASGI (WebSocket support)
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+#   .venv/Scripts/python.exe manage.py runserver 0.0.0.0:8000
+#
+# Or run with Uvicorn for full ASGI/WebSocket support:
+#   .venv/Scripts/uvicorn.exe azureproject.asgi:application --host 0.0.0.0 --port 8000 --reload
+#
+# Set in .env:
+#   REDIS_URL=redis://localhost:6379/0
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: crush-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
