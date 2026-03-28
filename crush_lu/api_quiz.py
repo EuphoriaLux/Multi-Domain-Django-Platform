@@ -15,6 +15,28 @@ from crush_lu.models.quiz import (
 )
 
 
+def _get_current_round_number(quiz):
+    """Get the rotation round_number (0-indexed) for the current round.
+
+    Issue #3: round_number in QuizRotationSchedule is the index of the
+    round among all rounds (0, 1, 2, ...), NOT the sort_order value.
+    """
+    if not quiz.current_round:
+        return 0
+    return quiz.rounds.filter(
+        sort_order__lt=quiz.current_round.sort_order
+    ).count()
+
+
+def _is_quiz_host(quiz, user):
+    """Check if user can host/score this quiz (Issue #6: include coaches)."""
+    if quiz.created_by == user or user.is_staff:
+        return True
+    from crush_lu.models import CrushCoach
+
+    return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def quiz_state(request, quiz_id):
@@ -39,6 +61,7 @@ def quiz_state(request, quiz_id):
 
     if quiz.current_round:
         data["current_round"] = {
+            "id": quiz.current_round.id,
             "title": quiz.current_round.title,
             "time_per_question": quiz.current_round.time_per_question,
             "is_bonus": quiz.current_round.is_bonus,
@@ -71,7 +94,6 @@ def quiz_tables(request, quiz_id):
         members = []
 
         if round_num is not None:
-            # Use rotation schedule for specific round
             rotations = QuizRotationSchedule.objects.filter(
                 quiz_id=quiz_id,
                 round_number=int(round_num),
@@ -90,7 +112,6 @@ def quiz_tables(request, quiz_id):
                     }
                 )
         else:
-            # Default: static membership
             for membership in table.memberships.select_related(
                 "user__crushprofile"
             ):
@@ -126,15 +147,13 @@ def my_assignment(request, quiz_id):
         return Response({"error": "Quiz not found"}, status=404)
 
     user = request.user
-    current_round_num = 0
-    if quiz.current_round:
-        current_round_num = quiz.current_round.sort_order
+    round_number = _get_current_round_number(quiz)
 
     # Look up rotation schedule
     rotation = (
         QuizRotationSchedule.objects.filter(
             quiz=quiz,
-            round_number=current_round_num,
+            round_number=round_number,
             user=user,
         )
         .select_related("table")
@@ -168,7 +187,7 @@ def my_assignment(request, quiz_id):
     for r in (
         QuizRotationSchedule.objects.filter(
             quiz=quiz,
-            round_number=current_round_num,
+            round_number=round_number,
             table=rotation.table,
         )
         .exclude(user=user)
@@ -177,7 +196,9 @@ def my_assignment(request, quiz_id):
         profile = getattr(r.user, "crushprofile", None)
         tablemates.append(
             {
-                "display_name": profile.display_name if profile else "Anonymous",
+                "display_name": (
+                    profile.display_name if profile else "Anonymous"
+                ),
                 "role": r.role,
             }
         )
@@ -187,7 +208,7 @@ def my_assignment(request, quiz_id):
     next_rotation = (
         QuizRotationSchedule.objects.filter(
             quiz=quiz,
-            round_number=current_round_num + 1,
+            round_number=round_number + 1,
             user=user,
         )
         .select_related("table")
@@ -228,8 +249,8 @@ def score_table(request, quiz_id):
     except QuizEvent.DoesNotExist:
         return Response({"error": "Quiz not found"}, status=404)
 
-    # Only host/staff can score
-    if quiz.created_by != request.user and not request.user.is_staff:
+    # Issue #6: Allow coaches, not just creator/staff
+    if not _is_quiz_host(quiz, request.user):
         return Response({"error": "Not authorized"}, status=403)
 
     table_id = request.data.get("table_id")
@@ -245,7 +266,9 @@ def score_table(request, quiz_id):
 
     try:
         table = QuizTable.objects.get(id=table_id, quiz=quiz)
-        question = QuizQuestion.objects.get(id=question_id, round__quiz=quiz)
+        question = QuizQuestion.objects.select_related("round").get(
+            id=question_id, round__quiz=quiz
+        )
     except (QuizTable.DoesNotExist, QuizQuestion.DoesNotExist):
         return Response({"error": "Table or question not found"}, status=404)
 
@@ -257,28 +280,27 @@ def score_table(request, quiz_id):
         defaults={"is_correct": is_correct},
     )
 
+    # Issue #4: Read bonus from question's own round, not quiz.current_round
     points = question.points if is_correct else 0
-    if is_correct and quiz.current_round and quiz.current_round.is_bonus:
+    if is_correct and question.round.is_bonus:
         points *= 2
 
-    # Get users at this table for the current round
-    current_round_num = 0
-    if quiz.current_round:
-        current_round_num = quiz.current_round.sort_order
+    # Issue #3: Use round index, not sort_order
+    round_number = _get_current_round_number(quiz)
 
     rotation_users = list(
         QuizRotationSchedule.objects.filter(
             quiz=quiz,
-            round_number=current_round_num,
+            round_number=round_number,
             table=table,
         ).values_list("user_id", flat=True)
     )
 
     if not rotation_users:
         rotation_users = list(
-            QuizTableMembership.objects.filter(
-                table=table
-            ).values_list("user_id", flat=True)
+            QuizTableMembership.objects.filter(table=table).values_list(
+                "user_id", flat=True
+            )
         )
 
     # Create IndividualScore for each table member

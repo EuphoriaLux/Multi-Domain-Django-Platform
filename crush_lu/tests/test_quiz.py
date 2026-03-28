@@ -693,12 +693,24 @@ class TestQuizAPI:
 @pytest.mark.django_db
 class TestQuizViews:
     def test_quiz_live_view(self, client, quiz_event, quiz_user):
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="attended"
+        )
         client.force_login(quiz_user)
         response = client.get(
             f"/en/events/{quiz_event.event_id}/quiz/"
         )
         assert response.status_code == 200
         assert b"quizLive" in response.content
+
+    def test_quiz_live_view_rejects_non_attendee(self, client, quiz_event, quiz_user):
+        client.force_login(quiz_user)
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/"
+        )
+        assert response.status_code == 404
 
     def test_quiz_coach_view_requires_coach(self, client, quiz_event, quiz_user):
         client.force_login(quiz_user)

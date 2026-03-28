@@ -1362,6 +1362,9 @@ def coach_event_detail(request, event_id):
         status__in=[CrushSpark.Status.PENDING_REVIEW, CrushSpark.Status.REQUESTED]
     ).count()
 
+    # Check if this event has a quiz
+    has_quiz = hasattr(event, "quiz")
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -1375,6 +1378,7 @@ def coach_event_detail(request, event_id):
         "mutual_connections": mutual_connections,
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
+        "has_quiz": has_quiz,
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
 

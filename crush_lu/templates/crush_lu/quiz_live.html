@@ -40,7 +40,8 @@
             </div>
             {# Table scored feedback #}
             <div x-show="hasTableScoredFeedback"
-                 class="mt-2 rounded-lg bg-green-900/50 p-2 text-center text-green-300 font-semibold animate-pulse"
+                 x-bind:class="tableScoredFeedbackClass"
+                 class="mt-2 rounded-lg p-2 text-center font-semibold animate-pulse"
                  x-text="tableScoredFeedback"></div>
         </div>
 

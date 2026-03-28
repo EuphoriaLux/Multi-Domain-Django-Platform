@@ -46,6 +46,7 @@ document.addEventListener('alpine:init', function () {
             userRole: '',
             tableScoredFeedback: '',
             tableScoredTimer: null,
+            _tableScoredCorrect: true,
 
             // Leaderboard
             tables: [],
@@ -126,20 +127,22 @@ document.addEventListener('alpine:init', function () {
                 return '';
             },
             get rotateDestination() {
-                if (this._rotateData && this._rotateData.assignments) {
-                    // User's assignment from the rotate event
-                    return this._rotateTableNumber || '';
-                }
-                return this.nextTable || '';
+                return this.tableNumber || this.nextTable || '';
             },
             get rotateMessage() {
-                if (this._rotateTableNumber) {
-                    return 'Move to Table ' + this._rotateTableNumber + '!';
-                }
                 if (this.userRole === 'anchor') {
                     return 'Stay at your table!';
                 }
+                if (this.tableNumber) {
+                    return 'Move to Table ' + this.tableNumber + '!';
+                }
                 return 'Please move to the next table.';
+            },
+            get tableScoredFeedbackClass() {
+                if (this._tableScoredCorrect) {
+                    return 'bg-green-900/50 text-green-300';
+                }
+                return 'bg-red-900/50 text-red-300';
             },
             get tableLeaderboard() {
                 var result = [];
@@ -242,11 +245,8 @@ document.addEventListener('alpine:init', function () {
                     this.individuals = data.individuals || [];
                     this.screen = 'leaderboard';
                 } else if (type === 'quiz.rotate') {
-                    this._rotateData = data;
-                    this._rotateTableNumber = null;
-                    // Find this user's new table from assignments
-                    if (data.assignments) {
-                        // We don't have user_id in JS, so re-fetch assignment
+                    // Re-fetch assignment to get new table number
+                    if (this.isQuizNight) {
                         this.fetchAssignment();
                     }
                     if (data.round_title) this.roundName = data.round_title;
@@ -259,6 +259,7 @@ document.addEventListener('alpine:init', function () {
                 } else if (type === 'quiz.table_scored') {
                     // Show feedback when host scores our table
                     if (data.table_number === this.tableNumber) {
+                        this._tableScoredCorrect = data.is_correct;
                         if (data.is_correct) {
                             var pts = data.points_awarded || 0;
                             this.tableScoredFeedback = '+' + pts + ' pts!';
@@ -388,6 +389,9 @@ document.addEventListener('alpine:init', function () {
             get isConnected() { return this.connected; },
             get isDisconnected() { return !this.connected; },
             get canStart() { return this.status === 'draft' || this.status === 'paused'; },
+            get canPause() { return this.status === 'active'; },
+            get canEnd() { return this.status === 'active' || this.status === 'paused'; },
+            get isFinished() { return this.status === 'finished'; },
             get hasCurrentQuestion() { return this.currentQuestion !== null; },
             get hasLeaderboard() { return this.tables.length > 0; },
             get showScoringGrid() { return this.isQuizNight && this.hasCurrentQuestion; },
@@ -515,6 +519,7 @@ document.addEventListener('alpine:init', function () {
                 } else if (type === 'quiz.leaderboard') {
                     this.tables = data.tables || [];
                 } else if (type === 'quiz.status') {
+                    if (data.status) this.status = data.status;
                     if (data.status === 'round_complete') {
                         this.currentQuestion = null;
                     }
@@ -548,6 +553,18 @@ document.addEventListener('alpine:init', function () {
 
             startQuiz: function () {
                 this.nextQuestion();
+            },
+
+            pauseQuiz: function () {
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({ action: 'pause_quiz' }));
+                }
+            },
+
+            endQuiz: function () {
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({ action: 'end_quiz' }));
+                }
             },
 
             // --- Table scoring (quiz night) ---
@@ -594,14 +611,12 @@ document.addEventListener('alpine:init', function () {
 
             selectRound: function (roundId) {
                 this.selectedRoundId = roundId;
-                var self = this;
-                fetch('/api/quiz/' + this.quizId + '/state/', {
-                    credentials: 'same-origin'
-                })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    self.status = data.status;
-                });
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({
+                        action: 'set_round',
+                        round_id: roundId
+                    }));
+                }
             },
 
             roundButtonClass: function (roundId) {
@@ -616,11 +631,6 @@ document.addEventListener('alpine:init', function () {
                 if (this.ws) this.ws.close();
             }
         };
-    });
-
-    // Backward compat alias
-    Alpine.data('quizCoach', Alpine.Components ? Alpine.Components.quizHost : function () {
-        return Alpine.store('_quizHostFallback') || {};
     });
 
 });

@@ -50,6 +50,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             if await self.is_host(user):
                 await self.handle_next_question()
 
+        elif action == "set_round":
+            if await self.is_host(user):
+                await self.handle_set_round(content)
+
+        elif action == "pause_quiz":
+            if await self.is_host(user):
+                await self.handle_pause_quiz()
+
+        elif action == "end_quiz":
+            if await self.is_host(user):
+                await self.handle_end_quiz()
+
         elif action == "table_answer":
             # Legacy: individual answer submission (non-quiz-night events)
             if user and user.is_authenticated:
@@ -83,6 +95,35 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_send(
                 self.quiz_group,
                 {"type": "quiz.status", "data": {"status": "round_complete"}},
+            )
+
+    async def handle_set_round(self, content):
+        """Host selects a round to play — sets current_round and resets question index."""
+        round_id = content.get("round_id")
+        if round_id is None:
+            return
+
+        result = await self.set_current_round(round_id)
+        if result:
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.status", "data": result},
+            )
+
+    async def handle_pause_quiz(self):
+        result = await self.set_quiz_status("paused")
+        if result:
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.status", "data": result},
+            )
+
+    async def handle_end_quiz(self):
+        result = await self.set_quiz_status("finished")
+        if result:
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.status", "data": result},
             )
 
     async def handle_score_table(self, content):
@@ -188,19 +229,21 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def get_user_table_id(self, user_id):
         """Get user's table for the current round (rotation-aware)."""
-        from crush_lu.models.quiz import QuizEvent, QuizRotationSchedule, QuizTableMembership
+        from crush_lu.models.quiz import (
+            QuizEvent,
+            QuizRotationSchedule,
+            QuizTableMembership,
+        )
 
         # Try rotation schedule first (quiz night events)
         try:
             quiz = QuizEvent.objects.get(id=self.quiz_id)
-            current_round_num = 0
-            if quiz.current_round:
-                current_round_num = quiz.current_round.sort_order
+            round_number = self._get_current_round_number(quiz)
 
             rotation = (
                 QuizRotationSchedule.objects.filter(
                     quiz_id=self.quiz_id,
-                    round_number=current_round_num,
+                    round_number=round_number,
                     user_id=user_id,
                 )
                 .select_related("table")
@@ -231,7 +274,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             quiz = QuizEvent.objects.select_related("event").get(
                 id=self.quiz_id
             )
-            return quiz.created_by_id == user.id or user.is_staff
+            if quiz.created_by_id == user.id or user.is_staff:
+                return True
+            # Active coaches can also host
+            from crush_lu.models import CrushCoach
+
+            return CrushCoach.objects.filter(
+                user=user, is_active=True
+            ).exists()
         except QuizEvent.DoesNotExist:
             return False
 
@@ -267,6 +317,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "event_type": quiz.event.event_type,
             "current_round": (
                 {
+                    "id": quiz.current_round.id,
                     "title": quiz.current_round.title,
                     "time_per_question": quiz.current_round.time_per_question,
                     "is_bonus": quiz.current_round.is_bonus,
@@ -283,7 +334,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 "question_type": question.question_type,
                 "points": question.points,
             }
-            # Include choices for display (attendees see question for discussion)
             if question.question_type in ("multiple_choice", "true_false"):
                 q_data["choices"] = [
                     {"text": c["text"]} for c in question.choices
@@ -292,7 +342,56 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         return data
 
     @database_sync_to_async
+    def set_current_round(self, round_id):
+        """Set the quiz to a specific round, reset question index to -1."""
+        from crush_lu.models.quiz import QuizEvent, QuizRound
+
+        try:
+            quiz = QuizEvent.objects.get(id=self.quiz_id)
+            round_obj = QuizRound.objects.get(id=round_id, quiz=quiz)
+        except (QuizEvent.DoesNotExist, QuizRound.DoesNotExist):
+            return None
+
+        quiz.current_round = round_obj
+        # Set to -1 so the first next_question lands on index 0 (Issue #2)
+        quiz.current_question_index = -1
+        quiz.status = "active"
+        quiz.save(
+            update_fields=["current_round", "current_question_index", "status"]
+        )
+
+        return {
+            "status": "active",
+            "current_round": {
+                "id": round_obj.id,
+                "title": round_obj.title,
+                "time_per_question": round_obj.time_per_question,
+                "is_bonus": round_obj.is_bonus,
+            },
+            "message": f"Round set: {round_obj.title}",
+        }
+
+    @database_sync_to_async
+    def set_quiz_status(self, status):
+        """Set quiz status to paused or finished."""
+        from crush_lu.models.quiz import QuizEvent
+
+        try:
+            quiz = QuizEvent.objects.get(id=self.quiz_id)
+        except QuizEvent.DoesNotExist:
+            return None
+
+        quiz.status = status
+        quiz.save(update_fields=["status"])
+        return {"status": status}
+
+    @database_sync_to_async
     def advance_question(self):
+        """Advance to the next question in the current round.
+
+        Uses current_question_index as the last-shown index.
+        Index starts at -1 (no question shown yet), so first +1 lands on 0.
+        """
         from crush_lu.models.quiz import QuizEvent
 
         try:
@@ -306,9 +405,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return None
 
         questions = quiz.current_round.questions.order_by("sort_order")
+        total = questions.count()
         next_index = quiz.current_question_index + 1
 
-        if next_index >= questions.count():
+        if next_index >= total:
             return None  # Round complete
 
         quiz.current_question_index = next_index
@@ -323,12 +423,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "points": question.points,
             "time": quiz.current_round.time_per_question,
             "index": next_index,
-            "total": questions.count(),
+            "total": total,
             "is_bonus": quiz.current_round.is_bonus,
         }
 
         if question.question_type in ("multiple_choice", "true_false"):
-            # Attendees see choices for table discussion
             q_data["choices"] = [{"text": c["text"]} for c in question.choices]
             # Host gets correct answer info
             q_data["choices_with_answers"] = question.choices
@@ -355,10 +454,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 id=self.quiz_id
             )
             table = QuizTable.objects.get(id=table_id, quiz=quiz)
-            question = QuizQuestion.objects.get(
+            question = QuizQuestion.objects.select_related("round").get(
                 id=question_id, round__quiz=quiz
             )
-        except (QuizEvent.DoesNotExist, QuizTable.DoesNotExist, QuizQuestion.DoesNotExist):
+        except (
+            QuizEvent.DoesNotExist,
+            QuizTable.DoesNotExist,
+            QuizQuestion.DoesNotExist,
+        ):
             return None
 
         # Create or update TableRoundScore
@@ -369,20 +472,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             defaults={"is_correct": is_correct},
         )
 
+        # Issue #4: Read bonus from question's own round, not quiz.current_round
         points = question.points if is_correct else 0
-        if is_correct and quiz.current_round and quiz.current_round.is_bonus:
+        if is_correct and question.round.is_bonus:
             points *= 2
 
         # Get users at this table for the current round
-        current_round_num = 0
-        if quiz.current_round:
-            current_round_num = quiz.current_round.sort_order
+        round_number = self._get_current_round_number(quiz)
 
         # Try rotation schedule first
         rotation_users = list(
             QuizRotationSchedule.objects.filter(
                 quiz=quiz,
-                round_number=current_round_num,
+                round_number=round_number,
                 table=table,
             ).values_list("user_id", flat=True)
         )
@@ -390,9 +492,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # Fall back to static membership
         if not rotation_users:
             rotation_users = list(
-                QuizTableMembership.objects.filter(
-                    table=table
-                ).values_list("user_id", flat=True)
+                QuizTableMembership.objects.filter(table=table).values_list(
+                    "user_id", flat=True
+                )
             )
 
         # Create IndividualScore for each table member
@@ -427,7 +529,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return {}
 
         # Find next round by sort_order
-        current_sort = quiz.current_round.sort_order if quiz.current_round else -1
+        current_sort = (
+            quiz.current_round.sort_order if quiz.current_round else -1
+        )
         next_round = (
             quiz.rounds.filter(sort_order__gt=current_sort)
             .order_by("sort_order")
@@ -436,13 +540,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         if next_round:
             quiz.current_round = next_round
-            quiz.current_question_index = 0
-            quiz.save(update_fields=["current_round", "current_question_index"])
+            # Set to -1 so first next_question lands on Q0 (Issue #2)
+            quiz.current_question_index = -1
+            quiz.save(
+                update_fields=["current_round", "current_question_index"]
+            )
+
+            # Get the round_number for rotation lookup
+            round_number = self._get_round_number_for_round(quiz, next_round)
 
             # Build per-user assignment map from rotation schedule
             assignments = {}
             rotations = QuizRotationSchedule.objects.filter(
-                quiz=quiz, round_number=next_round.sort_order
+                quiz=quiz, round_number=round_number
             ).select_related("table", "user__crushprofile")
 
             for r in rotations:
@@ -450,17 +560,22 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 assignments[r.user_id] = {
                     "table_number": r.table.table_number,
                     "role": r.role,
-                    "display_name": profile.display_name if profile else "Anonymous",
+                    "display_name": (
+                        profile.display_name if profile else "Anonymous"
+                    ),
                 }
 
             return {
                 "round_title": next_round.title,
-                "round_number": next_round.sort_order,
+                "round_number": round_number,
                 "is_bonus": next_round.is_bonus,
                 "assignments": assignments,
             }
 
-        return {"finished": True}
+        # Issue #5: Set status to finished when no more rounds
+        quiz.status = "finished"
+        quiz.save(update_fields=["status"])
+        return {"finished": True, "status": "finished"}
 
     @database_sync_to_async
     def score_answer(self, user_id, question_id, answer):
@@ -500,13 +615,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "is_correct": is_correct,
             "points_earned": points,
             "correct_answer": next(
-                (c["text"] for c in question.choices if c.get("is_correct")),
+                (
+                    c["text"]
+                    for c in question.choices
+                    if c.get("is_correct")
+                ),
                 None,
             ),
         }
 
     @database_sync_to_async
     def get_table_score_for_user(self, user_id):
+        """Get total score for a user's current table (legacy path)."""
         from crush_lu.models.quiz import IndividualScore, QuizTableMembership
 
         membership = (
@@ -520,11 +640,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return {"table_number": 0, "total_score": 0}
 
         table = membership.table
+        # Issue #7: Sum scores for all members of this table via membership
+        member_ids = list(
+            QuizTableMembership.objects.filter(table=table).values_list(
+                "user_id", flat=True
+            )
+        )
         total = (
             IndividualScore.objects.filter(
-                quiz_id=self.quiz_id,
-                user__quiz_tables__quiz_id=self.quiz_id,
-                user__quiz_tables__table_number=table.table_number,
+                quiz_id=self.quiz_id, user_id__in=member_ids
             ).aggregate(total=Sum("points_earned"))["total"]
             or 0
         )
@@ -549,6 +673,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
 
         # Individual top scorers (using display_name for privacy)
+        from crush_lu.models import CrushProfile
+
         top_individuals = (
             IndividualScore.objects.filter(quiz_id=self.quiz_id)
             .values("user_id")
@@ -558,8 +684,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         individual_scores = []
         for entry in top_individuals:
-            from crush_lu.models import CrushProfile
-
             try:
                 profile = CrushProfile.objects.get(user_id=entry["user_id"])
                 name = profile.display_name
@@ -573,3 +697,26 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "tables": leaderboard,
             "individuals": individual_scores,
         }
+
+    # --- Helpers ---
+
+    @staticmethod
+    def _get_current_round_number(quiz):
+        """Get the rotation round_number for the current round.
+
+        Issue #3: round_number in QuizRotationSchedule is the index of the
+        round among all rounds (0, 1, 2, ...), NOT the sort_order value.
+        We compute it by counting how many rounds come before the current one.
+        """
+        if not quiz.current_round:
+            return 0
+        return quiz.rounds.filter(
+            sort_order__lt=quiz.current_round.sort_order
+        ).count()
+
+    @staticmethod
+    def _get_round_number_for_round(quiz, round_obj):
+        """Get the rotation round_number for a specific round."""
+        return quiz.rounds.filter(
+            sort_order__lt=round_obj.sort_order
+        ).count()

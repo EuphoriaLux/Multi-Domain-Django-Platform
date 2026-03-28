@@ -2,6 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 
+from crush_lu.models import CrushCoach
+from crush_lu.models.events import EventRegistration
 from crush_lu.models.quiz import QuizEvent, QuizRotationSchedule, QuizTable
 
 
@@ -12,6 +14,13 @@ def quiz_live_view(request, event_id):
         QuizEvent.objects.select_related("event", "current_round"),
         event_id=event_id,
     )
+
+    # Only attended registrants (or staff) can access the quiz
+    if not request.user.is_staff:
+        if not EventRegistration.objects.filter(
+            event=quiz.event, user=request.user, status="attended"
+        ).exists():
+            raise Http404
 
     # Get user's current table assignment
     current_round_num = 0
@@ -47,8 +56,15 @@ def quiz_coach_view(request, event_id):
         QuizEvent.objects.select_related("event", "current_round"),
         event_id=event_id,
     )
-    # Only quiz creator or staff can access host view
-    if quiz.created_by != request.user and not request.user.is_staff:
+    # Quiz creator, staff, or assigned coaches can access host view
+    is_coach = CrushCoach.objects.filter(
+        user=request.user, is_active=True
+    ).exists()
+    if (
+        quiz.created_by != request.user
+        and not request.user.is_staff
+        and not is_coach
+    ):
         raise Http404
 
     rounds = quiz.rounds.prefetch_related("questions").order_by("sort_order")

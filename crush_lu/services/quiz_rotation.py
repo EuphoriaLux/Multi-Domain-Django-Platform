@@ -64,9 +64,15 @@ def generate_rotation_schedule(men, women, num_rounds=3):
         if i * 2 + 1 >= len(men):
             men_tables[i] = [men[i * 2]]
 
-    # Split women into two rotation groups
-    group_a = women[:num_tables]
-    group_b = women[num_tables : num_tables * 2]
+    # Split women into two rotation groups.
+    # With 2 tables, Group B step +2 is identity mod 2, so we merge all women
+    # into a single group rotating at +1 (each table gets up to 2 women).
+    if num_tables == 2:
+        group_a = women[: num_tables * 2]  # All women in one group
+        group_b = []
+    else:
+        group_a = women[:num_tables]
+        group_b = women[num_tables : num_tables * 2]
 
     for round_num in range(num_rounds):
         for table_idx in range(num_tables):
@@ -84,31 +90,45 @@ def generate_rotation_schedule(men, women, num_rounds=3):
                     }
                 )
 
-            # Group A rotates by +1 per round
-            a_idx = (table_idx + round_num) % num_tables
-            if a_idx < len(group_a):
-                schedule.append(
-                    {
-                        "round_number": round_num,
-                        "table_number": table_number,
-                        "user": group_a[a_idx],
-                        "role": "rotator",
-                        "rotation_group": "A",
-                    }
-                )
+            if num_tables == 2:
+                # 2 tables: all women in one group, 2 per table, rotating +1
+                for offset in range(2):
+                    w_idx = (table_idx * 2 + offset + round_num) % len(group_a)
+                    if w_idx < len(group_a):
+                        schedule.append(
+                            {
+                                "round_number": round_num,
+                                "table_number": table_number,
+                                "user": group_a[w_idx],
+                                "role": "rotator",
+                                "rotation_group": "A",
+                            }
+                        )
+            else:
+                # 3+ tables: Group A at step +1, Group B at step +2
+                a_idx = (table_idx + round_num) % num_tables
+                if a_idx < len(group_a):
+                    schedule.append(
+                        {
+                            "round_number": round_num,
+                            "table_number": table_number,
+                            "user": group_a[a_idx],
+                            "role": "rotator",
+                            "rotation_group": "A",
+                        }
+                    )
 
-            # Group B rotates by +2 per round (different speed)
-            b_idx = (table_idx + round_num * 2) % num_tables
-            if b_idx < len(group_b):
-                schedule.append(
-                    {
-                        "round_number": round_num,
-                        "table_number": table_number,
-                        "user": group_b[b_idx],
-                        "role": "rotator",
-                        "rotation_group": "B",
-                    }
-                )
+                b_idx = (table_idx + round_num * 2) % num_tables
+                if b_idx < len(group_b):
+                    schedule.append(
+                        {
+                            "round_number": round_num,
+                            "table_number": table_number,
+                            "user": group_b[b_idx],
+                            "role": "rotator",
+                            "rotation_group": "B",
+                        }
+                    )
 
     return schedule
 
