@@ -33,9 +33,9 @@
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
             <div class="space-y-2">
                 {% for round in rounds %}
-                <button x-on:click="selectRound({{ round.id }})"
-                        x-bind:class="roundButtonClass({{ round.id }})"
-                        class="w-full rounded-lg p-3 text-left transition-all">
+                <button x-on:click="selectRoundFromEl"
+                        data-round-id="{{ round.id }}"
+                        class="quiz-round-btn w-full rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 p-3 text-left transition-all">
                     <div class="flex items-center justify-between">
                         <span class="font-medium">
                             {{ round.title }}
@@ -72,13 +72,14 @@
                 {% for table in tables %}
                 <div data-table-id="{{ table.id }}" class="text-center">
                     {# Correct button #}
-                    <button x-on:click="scoreTable({{ table.id }}, true)"
-                            x-bind:class="tableScoreClass({{ table.id }})"
-                            class="w-full rounded-xl p-4 font-bold transition-all text-lg">
+                    <button x-on:click="scoreTableCorrectFromEl"
+                            data-table-id="{{ table.id }}"
+                            class="quiz-table-btn w-full rounded-xl bg-slate-700 text-gray-300 hover:bg-slate-600 p-4 font-bold transition-all text-lg">
                         T{{ table.table_number }}
                     </button>
                     {# Wrong button (small, below) #}
-                    <button x-on:click="scoreTable({{ table.id }}, false)"
+                    <button x-on:click="scoreTableWrongFromEl"
+                            data-table-id="{{ table.id }}"
                             class="mt-1 w-full rounded-lg bg-red-900/30 px-2 py-1 text-xs text-red-400 hover:bg-red-900/60 transition-all">
                         ✗
                     </button>

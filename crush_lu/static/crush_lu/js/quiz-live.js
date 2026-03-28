@@ -172,6 +172,7 @@ document.addEventListener('alpine:init', function () {
             // --- Init ---
 
             init: function () {
+                this._root = this.$el;
                 this.quizId = this.$el.getAttribute('data-quiz-id');
                 this.isQuizNight = this.$el.getAttribute('data-quiz-night') === 'true';
                 var tn = this.$el.getAttribute('data-table-number');
@@ -307,10 +308,11 @@ document.addEventListener('alpine:init', function () {
 
             // --- User actions (legacy, non-quiz-night only) ---
 
-            selectAnswer: function (index) {
-                if (!this.answered) {
-                    this.selectedIndex = index;
-                }
+            selectAnswerFromEl: function () {
+                if (this.answered) return;
+                var index = parseInt(this.$el.getAttribute('data-choice-index'), 10);
+                this.selectedIndex = index;
+                this._updateChoiceButtons();
             },
 
             submitAnswer: function () {
@@ -325,24 +327,33 @@ document.addEventListener('alpine:init', function () {
                 }));
             },
 
-            choiceClass: function (index) {
-                if (!this.isQuizNight) {
-                    // Legacy: interactive choices
-                    if (this.answered && this.selectedIndex === index) {
-                        if (this.lastResult && this.lastResult.is_correct) {
-                            return 'bg-green-700 ring-2 ring-green-400';
+            _updateChoiceButtons: function () {
+                var buttons = this._root.querySelectorAll('.quiz-choice-btn');
+                for (var i = 0; i < buttons.length; i++) {
+                    var idx = parseInt(buttons[i].getAttribute('data-choice-index'), 10);
+                    // Reset
+                    buttons[i].className = buttons[i].className.replace(
+                        /bg-\S+|ring-\S+/g, ''
+                    ).trim();
+                    var cls = 'bg-slate-700';
+                    if (!this.isQuizNight) {
+                        if (this.answered && this.selectedIndex === idx) {
+                            if (this.lastResult && this.lastResult.is_correct) {
+                                cls = 'bg-green-700 ring-2 ring-green-400';
+                            } else if (this.lastResult && !this.lastResult.is_correct) {
+                                cls = 'bg-red-700 ring-2 ring-red-400';
+                            } else {
+                                cls = 'bg-crush-purple ring-2 ring-crush-pink';
+                            }
+                        } else if (this.selectedIndex === idx) {
+                            cls = 'bg-crush-purple/50 ring-2 ring-crush-pink';
                         }
-                        if (this.lastResult && !this.lastResult.is_correct) {
-                            return 'bg-red-700 ring-2 ring-red-400';
-                        }
-                        return 'bg-crush-purple ring-2 ring-crush-pink';
                     }
-                    if (this.selectedIndex === index) {
-                        return 'bg-crush-purple/50 ring-2 ring-crush-pink';
+                    var parts = cls.split(' ');
+                    for (var j = 0; j < parts.length; j++) {
+                        buttons[i].classList.add(parts[j]);
                     }
                 }
-                // Quiz night: read-only display
-                return 'bg-slate-700';
             },
 
             // Cleanup
@@ -461,6 +472,7 @@ document.addEventListener('alpine:init', function () {
             // --- Init ---
 
             init: function () {
+                this._root = this.$el;
                 this.quizId = this.$el.getAttribute('data-quiz-id');
                 this.isQuizNight = this.$el.getAttribute('data-quiz-night') === 'true';
                 var tc = this.$el.getAttribute('data-table-count');
@@ -527,6 +539,7 @@ document.addEventListener('alpine:init', function () {
                     // Track which tables have been scored
                     if (data.table_id) {
                         this.scoredTables[data.table_id] = data.is_correct;
+                        this._updateTableButtons();
                     }
                 }
             },
@@ -569,7 +582,7 @@ document.addEventListener('alpine:init', function () {
 
             // --- Table scoring (quiz night) ---
 
-            scoreTable: function (tableId, isCorrect) {
+            _scoreTable: function (tableId, isCorrect) {
                 if (!this.ws || !this.connected || !this.currentQuestion) return;
                 this.ws.send(JSON.stringify({
                     action: 'score_table',
@@ -578,38 +591,64 @@ document.addEventListener('alpine:init', function () {
                     is_correct: isCorrect
                 }));
                 this.scoredTables[tableId] = isCorrect;
+                this._updateTableButtons();
+            },
+
+            scoreTableCorrectFromEl: function () {
+                var tid = parseInt(this.$el.getAttribute('data-table-id'), 10);
+                this._scoreTable(tid, true);
+            },
+
+            scoreTableWrongFromEl: function () {
+                var tid = parseInt(this.$el.getAttribute('data-table-id'), 10);
+                this._scoreTable(tid, false);
             },
 
             scoreAllCorrect: function () {
-                // Score all unscored tables as correct
-                var tableEls = this.$el.querySelectorAll('[data-table-id]');
+                var root = this._root;
+                var tableEls = root.querySelectorAll('.quiz-table-btn[data-table-id]');
                 for (var i = 0; i < tableEls.length; i++) {
                     var tid = parseInt(tableEls[i].getAttribute('data-table-id'), 10);
                     if (this.scoredTables[tid] === undefined) {
-                        this.scoreTable(tid, true);
+                        this._scoreTable(tid, true);
                     }
                 }
             },
 
             clearScoring: function () {
                 this.scoredTables = {};
+                this._updateTableButtons();
             },
 
-            tableScoreClass: function (tableId) {
-                if (this.scoredTables[tableId] === true) {
-                    return 'bg-green-700 ring-2 ring-green-400 text-white';
+            _updateTableButtons: function () {
+                var root = this._root;
+                var buttons = root.querySelectorAll('.quiz-table-btn[data-table-id]');
+                for (var i = 0; i < buttons.length; i++) {
+                    var tid = parseInt(buttons[i].getAttribute('data-table-id'), 10);
+                    buttons[i].className = buttons[i].className
+                        .replace(/bg-\S+/g, '')
+                        .replace(/ring-\S+/g, '')
+                        .replace(/text-\S+/g, '')
+                        .replace(/hover:\S+/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    var cls;
+                    if (this.scoredTables[tid] === true) {
+                        cls = 'bg-green-700 ring-2 ring-green-400 text-white';
+                    } else if (this.scoredTables[tid] === false) {
+                        cls = 'bg-red-700 ring-2 ring-red-400 text-white';
+                    } else {
+                        cls = 'bg-slate-700 text-gray-300 hover:bg-slate-600';
+                    }
+                    var parts = cls.split(' ');
+                    for (var j = 0; j < parts.length; j++) {
+                        buttons[i].classList.add(parts[j]);
+                    }
                 }
-                if (this.scoredTables[tableId] === false) {
-                    return 'bg-red-700 ring-2 ring-red-400 text-white';
-                }
-                return 'bg-slate-700 text-gray-300 hover:bg-slate-600';
             },
 
-            isTableScored: function (tableId) {
-                return this.scoredTables[tableId] !== undefined;
-            },
-
-            selectRound: function (roundId) {
+            selectRoundFromEl: function () {
+                var roundId = parseInt(this.$el.getAttribute('data-round-id'), 10);
                 this.selectedRoundId = roundId;
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({
@@ -617,13 +656,32 @@ document.addEventListener('alpine:init', function () {
                         round_id: roundId
                     }));
                 }
+                this._updateRoundButtons();
             },
 
-            roundButtonClass: function (roundId) {
-                if (this.selectedRoundId === roundId) {
-                    return 'bg-crush-purple/30 text-white ring-1 ring-crush-purple';
+            _updateRoundButtons: function () {
+                var root = this._root;
+                var buttons = root.querySelectorAll('.quiz-round-btn[data-round-id]');
+                for (var i = 0; i < buttons.length; i++) {
+                    var rid = parseInt(buttons[i].getAttribute('data-round-id'), 10);
+                    buttons[i].className = buttons[i].className
+                        .replace(/bg-\S+/g, '')
+                        .replace(/ring-\S+/g, '')
+                        .replace(/text-\S+/g, '')
+                        .replace(/hover:\S+/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    var cls;
+                    if (this.selectedRoundId === rid) {
+                        cls = 'bg-crush-purple/30 text-white ring-1 ring-crush-purple';
+                    } else {
+                        cls = 'bg-slate-700 text-gray-300 hover:bg-slate-600';
+                    }
+                    var parts = cls.split(' ');
+                    for (var j = 0; j < parts.length; j++) {
+                        buttons[i].classList.add(parts[j]);
+                    }
                 }
-                return 'bg-slate-700 text-gray-300 hover:bg-slate-600';
             },
 
             // Cleanup

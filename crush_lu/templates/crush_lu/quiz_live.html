@@ -77,10 +77,10 @@
             {# Answer choices (read-only for quiz night, interactive for legacy) #}
             <div class="space-y-3">
                 <template x-for="(choice, index) in choices" x-bind:key="index">
-                    <button x-bind:class="choiceClass(index)"
-                            x-bind:disabled="hasAnswered"
-                            x-on:click="selectAnswer(index)"
-                            class="w-full rounded-xl p-4 text-left text-white transition-all">
+                    <button x-bind:disabled="hasAnswered"
+                            x-on:click="selectAnswerFromEl"
+                            x-bind:data-choice-index="index"
+                            class="quiz-choice-btn w-full rounded-xl bg-slate-700 p-4 text-left text-white transition-all">
                         <span x-text="choice.text"></span>
                     </button>
                 </template>
