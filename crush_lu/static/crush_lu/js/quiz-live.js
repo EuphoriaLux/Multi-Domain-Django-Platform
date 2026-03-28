@@ -7,7 +7,7 @@
  *
  * Both use the native WebSocket API – no external libraries.
  */
-function _registerQuizComponents() {
+document.addEventListener('alpine:init', function () {
 
     // ========================================================================
     // ATTENDEE COMPONENT
@@ -633,11 +633,4 @@ function _registerQuizComponents() {
         };
     });
 
-}
-
-// Register immediately if Alpine is already loaded, otherwise wait for alpine:init
-if (typeof Alpine !== 'undefined') {
-    _registerQuizComponents();
-} else {
-    document.addEventListener('alpine:init', _registerQuizComponents);
-}
+});

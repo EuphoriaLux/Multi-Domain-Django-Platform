@@ -174,7 +174,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block pre_alpine_js %}
 {% if debug %}
     {% now "U" as ts %}
     <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>

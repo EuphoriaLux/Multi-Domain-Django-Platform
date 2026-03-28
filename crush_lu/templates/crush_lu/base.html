@@ -1242,6 +1242,7 @@
         <script defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
     {% endif %}
 
+    {% block pre_alpine_js %}{% endblock %}
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
     {% if debug %}
         {% now "U" as ts %}
