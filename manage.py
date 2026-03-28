@@ -28,6 +28,43 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
+
+    # Auto-switch to Uvicorn ASGI when REDIS_URL is set and running 'runserver'
+    if (
+        len(sys.argv) >= 2
+        and sys.argv[1] == "runserver"
+        and os.environ.get("REDIS_URL")
+    ):
+        import uvicorn
+
+        # Parse address/port from args (e.g., "0.0.0.0:8000" or "8000")
+        host, port = "127.0.0.1", 8000
+        for arg in sys.argv[2:]:
+            if not arg.startswith("-"):
+                if ":" in arg:
+                    host, port = arg.rsplit(":", 1)
+                    port = int(port)
+                else:
+                    port = int(arg)
+                break
+
+        noreload = "--noreload" in sys.argv
+
+        print(f"\n{'='*60}")
+        print(f"ASGI mode (Uvicorn) — WebSocket support enabled")
+        print(f"Redis: {os.environ['REDIS_URL']}")
+        print(f"Listening: http://{host}:{port}/")
+        print(f"{'='*60}\n")
+
+        uvicorn.run(
+            "azureproject.asgi:application",
+            host=host,
+            port=port,
+            reload=not noreload,
+            log_level="info",
+        )
+        return
+
     execute_from_command_line(sys.argv)
 
 
