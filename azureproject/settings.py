@@ -140,6 +140,7 @@ INSTALLED_APPS = [
     "django_htmx",  # HTMX server-side integration
     "azureproject",  # For custom analytics templatetags
     "cookie_consent",  # GDPR cookie consent banner
+    "channels",  # Django Channels for WebSocket support
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -217,6 +218,14 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = "azureproject.wsgi.application"
+ASGI_APPLICATION = "azureproject.asgi.application"
+
+# Channel Layers - in-memory for development (no Redis needed locally)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 
 # Database

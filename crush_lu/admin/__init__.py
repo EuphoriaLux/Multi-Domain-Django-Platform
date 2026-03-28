@@ -175,6 +175,17 @@ from .crush_connect import CrushConnectWaitlistAdmin
 
 from .matching import TraitAdmin, MatchScoreAdmin
 
+from .quiz import (
+    QuizRoundInline,
+    QuizQuestionInline,
+    QuizTableMembershipInline,
+    QuizEventAdmin,
+    QuizRoundAdmin,
+    QuizQuestionAdmin,
+    QuizTableAdmin,
+    IndividualScoreAdmin,
+)
+
 # Import all models for registration
 from crush_lu.models import (
     SpecialUserExperience,
@@ -228,6 +239,11 @@ from crush_lu.models import (
     CrushConnectWaitlist,
     Trait,
     MatchScore,
+    QuizEvent,
+    QuizRound,
+    QuizQuestion,
+    QuizTable,
+    IndividualScore,
 )
 
 
@@ -335,6 +351,13 @@ crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)
 crush_admin_site.register(MatchScore, MatchScoreAdmin)
+
+# Live Quiz System
+crush_admin_site.register(QuizEvent, QuizEventAdmin)
+crush_admin_site.register(QuizRound, QuizRoundAdmin)
+crush_admin_site.register(QuizQuestion, QuizQuestionAdmin)
+crush_admin_site.register(QuizTable, QuizTableAdmin)
+crush_admin_site.register(IndividualScore, IndividualScoreAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
@@ -489,4 +512,14 @@ __all__ = [
     # Matching
     'TraitAdmin',
     'MatchScoreAdmin',
+
+    # Live Quiz
+    'QuizRoundInline',
+    'QuizQuestionInline',
+    'QuizTableMembershipInline',
+    'QuizEventAdmin',
+    'QuizRoundAdmin',
+    'QuizQuestionAdmin',
+    'QuizTableAdmin',
+    'IndividualScoreAdmin',
 ]

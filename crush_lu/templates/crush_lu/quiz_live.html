@@ -1,0 +1,132 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Live Quiz" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-crush-dark pt-4 pb-8">
+    <div class="mx-auto max-w-lg px-4"
+         x-data="quizLive"
+         data-quiz-id="{{ quiz.id }}">
+
+        {# --- Header --- #}
+        <div class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-white">{{ event.title }}</h1>
+            <p class="mt-1 text-sm text-gray-400" x-text="roundTitle"></p>
+        </div>
+
+        {# --- Waiting Screen --- #}
+        <div x-show="isWaiting" class="rounded-xl bg-slate-800 p-8 text-center shadow-lg">
+            <div class="mx-auto mb-4 h-16 w-16 animate-pulse rounded-full bg-crush-purple/30 flex items-center justify-center">
+                <svg class="h-8 w-8 text-crush-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-white">{% trans "Waiting for the quiz to start..." %}</h2>
+            <p class="mt-2 text-gray-400">{% trans "The coach will launch the first question soon." %}</p>
+        </div>
+
+        {# --- Question Screen --- #}
+        <div x-show="isQuestion" class="space-y-4">
+            {# Timer bar #}
+            <div class="relative h-2 overflow-hidden rounded-full bg-slate-700">
+                <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-1000"
+                     x-bind:style="timerBarStyle"></div>
+            </div>
+            <div class="flex items-center justify-between text-sm text-gray-400">
+                <span x-text="questionProgress"></span>
+                <span x-text="countdownDisplay"></span>
+            </div>
+
+            {# Question text #}
+            <div class="rounded-xl bg-slate-800 p-6 shadow-lg">
+                <p class="text-lg font-medium text-white" x-text="questionText"></p>
+                <p class="mt-1 text-sm text-crush-purple" x-text="pointsLabel"></p>
+            </div>
+
+            {# Answer choices #}
+            <div class="space-y-3">
+                <template x-for="(choice, index) in choices" x-bind:key="index">
+                    <button x-bind:class="choiceClass(index)"
+                            x-bind:disabled="hasAnswered"
+                            x-on:click="selectAnswer(index)"
+                            class="w-full rounded-xl p-4 text-left text-white transition-all">
+                        <span x-text="choice.text"></span>
+                    </button>
+                </template>
+            </div>
+
+            {# Submit button #}
+            <button x-show="hasSelected"
+                    x-bind:disabled="hasAnswered"
+                    x-on:click="submitAnswer"
+                    class="w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-3 text-center font-semibold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-50">
+                {% trans "Submit Answer" %}
+            </button>
+
+            {# Answer feedback #}
+            <div x-show="hasAnswered" class="rounded-xl p-4 text-center" x-bind:class="feedbackClass">
+                <p class="font-semibold" x-text="feedbackText"></p>
+                <p class="text-sm" x-text="pointsFeedback"></p>
+            </div>
+        </div>
+
+        {# --- Leaderboard Screen --- #}
+        <div x-show="isLeaderboard" class="space-y-4">
+            <h2 class="text-center text-xl font-bold text-white">{% trans "Leaderboard" %}</h2>
+
+            {# Table rankings #}
+            <div class="space-y-2">
+                <template x-for="(entry, index) in tableLeaderboard" x-bind:key="index">
+                    <div class="flex items-center justify-between rounded-xl bg-slate-800 p-4">
+                        <div class="flex items-center gap-3">
+                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-crush-purple/30 text-sm font-bold text-crush-purple" x-text="entry.rank"></span>
+                            <span class="font-medium text-white" x-text="entry.label"></span>
+                        </div>
+                        <span class="font-bold text-crush-pink" x-text="entry.scoreLabel"></span>
+                    </div>
+                </template>
+            </div>
+
+            {# Individual top scorers #}
+            <div x-show="hasIndividualScores">
+                <h3 class="mb-2 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Top Players" %}</h3>
+                <div class="space-y-1">
+                    <template x-for="(player, index) in individualLeaderboard" x-bind:key="index">
+                        <div class="flex items-center justify-between rounded-lg bg-slate-800/50 px-4 py-2">
+                            <span class="text-sm text-gray-300" x-text="player.display_name"></span>
+                            <span class="text-sm font-medium text-crush-pink" x-text="player.scoreLabel"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {# --- Rotate Screen --- #}
+        <div x-show="isRotate" class="rounded-xl bg-slate-800 p-8 text-center shadow-lg">
+            <div class="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-crush-purple border-t-transparent"></div>
+            <h2 class="text-xl font-semibold text-white">{% trans "Time to rotate!" %}</h2>
+            <p class="mt-2 text-gray-400">{% trans "Please move to the next table." %}</p>
+        </div>
+
+        {# --- Connection status --- #}
+        <div class="mt-6 text-center">
+            <span x-show="isConnected" class="inline-flex items-center gap-1 text-xs text-green-400">
+                <span class="h-2 w-2 rounded-full bg-green-400"></span> {% trans "Connected" %}
+            </span>
+            <span x-show="isDisconnected" class="inline-flex items-center gap-1 text-xs text-red-400">
+                <span class="h-2 w-2 rounded-full bg-red-400"></span> {% trans "Reconnecting..." %}
+            </span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if debug %}
+    {% now "U" as ts %}
+    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
+{% else %}
+    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
+{% endif %}
+{% endblock %}

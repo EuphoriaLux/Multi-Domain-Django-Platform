@@ -34,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -207,6 +207,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/admin/sync-contacts/delete-all/', api_admin_sync.delete_all_contacts_endpoint, name='api_admin_delete_all_contacts'),
     path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
 
+
+    # Live Quiz API (called from quiz-live.js WebSocket fallback)
+    path('api/quiz/<int:quiz_id>/state/', api_quiz.quiz_state, name='api_quiz_state'),
+    path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix

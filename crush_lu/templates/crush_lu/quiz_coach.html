@@ -1,0 +1,115 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Quiz Control" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-crush-dark pt-4 pb-8">
+    <div class="mx-auto max-w-2xl px-4"
+         x-data="quizCoach"
+         data-quiz-id="{{ quiz.id }}">
+
+        {# --- Header --- #}
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-white">{% trans "Quiz Control Panel" %}</h1>
+            <p class="mt-1 text-gray-400">{{ event.title }}</p>
+            <div class="mt-2 flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium" x-bind:class="statusBadgeClass">
+                    <span class="h-2 w-2 rounded-full" x-bind:class="statusDotClass"></span>
+                    <span x-text="statusText"></span>
+                </span>
+                <span x-show="isConnected" class="text-xs text-green-400">{% trans "WebSocket connected" %}</span>
+                <span x-show="isDisconnected" class="text-xs text-red-400">{% trans "Disconnected" %}</span>
+            </div>
+        </div>
+
+        {# --- Round selector --- #}
+        <div class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
+            <div class="space-y-2">
+                {% for round in rounds %}
+                <button x-on:click="selectRound({{ round.id }})"
+                        x-bind:class="roundButtonClass({{ round.id }})"
+                        class="w-full rounded-lg p-3 text-left transition-all">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium">{{ round.title }}</span>
+                        <span class="text-sm text-gray-400">{{ round.questions.count }} {% trans "questions" %} &middot; {{ round.time_per_question }}s</span>
+                    </div>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# --- Current question info --- #}
+        <div x-show="hasCurrentQuestion" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+            <div class="flex items-center justify-between text-sm text-gray-400">
+                <span x-text="questionProgress"></span>
+                <span x-text="currentRoundTitle"></span>
+            </div>
+            <p class="mt-2 text-lg font-medium text-white" x-text="currentQuestionText"></p>
+        </div>
+
+        {# --- Coach controls --- #}
+        <div class="grid grid-cols-2 gap-4">
+            <button x-on:click="nextQuestion"
+                    class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+                </svg>
+                {% trans "Next Question" %}
+            </button>
+
+            <button x-on:click="showLeaderboard"
+                    class="flex items-center justify-center gap-2 rounded-xl bg-slate-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-slate-600">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                {% trans "Leaderboard" %}
+            </button>
+
+            <button x-on:click="triggerRotate"
+                    class="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                {% trans "Rotate Tables" %}
+            </button>
+
+            <button x-on:click="startQuiz"
+                    x-show="canStart"
+                    class="flex items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-green-500">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {% trans "Start Quiz" %}
+            </button>
+        </div>
+
+        {# --- Live leaderboard preview --- #}
+        <div x-show="hasLeaderboard" class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
+            <div class="space-y-2">
+                <template x-for="(entry, index) in tableLeaderboard" x-bind:key="index">
+                    <div class="flex items-center justify-between rounded-lg bg-slate-700/50 px-4 py-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-crush-purple" x-text="entry.rank"></span>
+                            <span class="text-sm text-white" x-text="entry.label"></span>
+                        </div>
+                        <span class="text-sm font-medium text-crush-pink" x-text="entry.scoreLabel"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if debug %}
+    {% now "U" as ts %}
+    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
+{% else %}
+    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
+{% endif %}
+{% endblock %}

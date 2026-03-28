@@ -309,6 +309,20 @@ CACHES = {
     }
 }
 
+# Channel Layers - Redis for production WebSocket support (Django Channels)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                os.environ.get(
+                    "AZURE_REDIS_CONNECTIONSTRING", "redis://localhost:6379/0"
+                )
+            ],
+        },
+    },
+}
+
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from signed_cookies to db for PWA persistence
 
 # Override session settings from base settings.py for PWA

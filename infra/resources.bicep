@@ -13,11 +13,8 @@ var pgServerName = '${prefix}-postgres-server'
 var databaseSubnetName = 'database-subnet'
 var webappSubnetName = 'webapp-subnet'
 
-// Added for Azure Redis Cache
-//var cacheServerName = '${prefix}-redisCache'
-//var cacheSubnetName = 'cache-subnet'
-//var cachePrivateEndpointName = 'cache-privateEndpoint'
-//var cachePvtEndpointDnsGroupName = 'cacheDnsGroup'
+// Azure Redis Cache (Basic C0 - no VNet/private endpoint support)
+var cacheServerName = '${prefix}-redisCache'
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   name: '${prefix}-vnet'
@@ -171,6 +168,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
+      webSocketsEnabled: true
     }
     httpsOnly: true
   }
@@ -204,8 +202,8 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Legacy options (kept for backward compatibility)
       SYNC_MEDIA_TO_AZURE: 'false'
       POPULATE_SAMPLE_DATA: 'false'
-      //Added for Azure Redis Cache
- //     AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
+      // Azure Redis Cache - production uses DB 0
+      AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
 
       // =============================================================================
       // WALLET PASS CONFIGURATION (Crush.lu)
@@ -302,6 +300,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       ftpsState: 'Disabled'
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
+      webSocketsEnabled: true
     }
     httpsOnly: true
   }
@@ -335,6 +334,8 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       REFERRAL_POINTS_PER_PROFILE_APPROVED: '50'
       // STAGING MODE FLAG: Enables staging-specific behavior (email prefixes, analytics skip, etc.)
       STAGING_MODE: 'true'
+      // Azure Redis Cache - staging uses DB 1 (isolated from production DB 0)
+      AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/1'
       // NOTE: GA4_CRUSH_LU, GA4_POWERUP, GA4_ARBORIST are intentionally NOT set for staging
       // to prevent test traffic from polluting production analytics
     }
@@ -366,6 +367,8 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // AZURE_CONTAINER_NAME removed - platform-specific storage handles isolation
       // Staging mode flag - only set in staging slot
       'STAGING_MODE'
+      // Redis - different DB per slot (production /0, staging /1)
+      'AZURE_REDIS_CONNECTIONSTRING'
       // Analytics - only production should track GA4
       'GA4_CRUSH_LU'
       'GA4_POWERUP'
@@ -525,22 +528,23 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
   name: 'pythonapp_staging'
 }
 
-//added for Redis Cache
-//resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
-//  location:location
-//  name:cacheServerName
-//  properties:{
-//    sku:{
-//      capacity: 1
-//      family:'C'
-//      name:'Standard'
-//    }
-//    enableNonSslPort:false
-//    redisVersion:'6'
-//    publicNetworkAccess:'Disabled'
-//    minimumTlsVersion: '1.2'
-//  }
-//}    
+// Azure Redis Cache (Basic C0) for Django Channels WebSocket support
+resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
+  location: location
+  name: cacheServerName
+  tags: tags
+  properties: {
+    sku: {
+      capacity: 0
+      family: 'C'
+      name: 'Basic'
+    }
+    enableNonSslPort: false
+    redisVersion: '6.0'
+    minimumTlsVersion: '1.2'
+    publicNetworkAccess: 'Enabled'
+  }
+}    
 
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString

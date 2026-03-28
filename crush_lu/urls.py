@@ -92,6 +92,7 @@ from . import views_advent
 from . import views_journey_gift
 from . import views_crush_spark
 from . import views_ticket
+from . import views_quiz
 from . import views_coach as views_coach_module
 
 app_name = 'crush_lu'
@@ -223,6 +224,10 @@ urlpatterns = [
     # Coach Presentation Controls
     path('coach/events/<int:event_id>/presentations/control/', views.coach_presentation_control, name='coach_presentation_control'),
     path('coach/events/<int:event_id>/presentations/advance/', views.coach_advance_presentation, name='coach_advance_presentation'),
+
+    # Live Quiz (WebSocket-based)
+    path('events/<int:event_id>/quiz/', views_quiz.quiz_live_view, name='quiz_live'),
+    path('events/<int:event_id>/quiz/coach/', views_quiz.quiz_coach_view, name='quiz_coach'),
 
     # Voting Demo/Guided Tour
     path('voting-demo/', views.voting_demo, name='voting_demo'),

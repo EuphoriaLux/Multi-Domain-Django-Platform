@@ -13,3 +13,4 @@ from .newsletter import *
 from .event_polls import *
 from .crush_connect import *
 from .matching import *
+from .quiz import *

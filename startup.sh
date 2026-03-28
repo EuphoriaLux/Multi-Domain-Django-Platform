@@ -41,13 +41,14 @@ fi
 
 echo "✅ Migrations complete. Starting Gunicorn..."
 
-# Gunicorn settings
+# Gunicorn + Uvicorn ASGI settings
 # OPTIMIZATION: Increased workers from 2 to 4 for P0v3 plan (2 vCPU, 8GB RAM)
 # Formula: (2 * CPU_CORES) + 1 = (2 * 2) + 1 = 5 workers (using 4 for safety)
-# Throughput increase: 8 → 16 concurrent requests (2x capacity)
+# Using UvicornWorker for ASGI support (HTTP + WebSocket via Django Channels)
 # Access logs sent to stderr for Azure Log Stream visibility (minimal format)
 # Application Insights also captures requests via OpenTelemetry for full telemetry
-gunicorn --workers 4 --threads 4 --timeout 120 \
+gunicorn --workers 4 --timeout 120 \
+    -k uvicorn.workers.UvicornWorker \
     --access-logfile '-' --access-logformat '%(h)s %(m)s %(U)s %(s)s %(D)sms' \
     --error-logfile '-' --bind=0.0.0.0:8000 \
-    azureproject.wsgi
+    azureproject.asgi:application
