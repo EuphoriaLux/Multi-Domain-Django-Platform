@@ -59,6 +59,7 @@ class MeetupEvent(models.Model):
         ("mixer", "Social Mixer"),
         ("activity", "Activity Meetup"),
         ("themed", "Themed Event"),
+        ("quiz_night", "Quiz Night"),
     ]
 
     title = models.CharField(max_length=200)

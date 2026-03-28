@@ -376,6 +376,7 @@ def event_detail(request, event_id):
         "mixer": "SocialEvent",
         "activity": "SocialEvent",
         "themed": "SocialEvent",
+        "quiz_night": "SocialEvent",
     }
     schema_type = event_type_schema.get(event.event_type, "SocialEvent")
 

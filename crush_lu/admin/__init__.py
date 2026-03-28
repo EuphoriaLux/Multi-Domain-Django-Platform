@@ -179,10 +179,12 @@ from .quiz import (
     QuizRoundInline,
     QuizQuestionInline,
     QuizTableMembershipInline,
+    QuizRotationScheduleInline,
     QuizEventAdmin,
     QuizRoundAdmin,
     QuizQuestionAdmin,
     QuizTableAdmin,
+    TableRoundScoreAdmin,
     IndividualScoreAdmin,
 )
 
@@ -243,6 +245,7 @@ from crush_lu.models import (
     QuizRound,
     QuizQuestion,
     QuizTable,
+    TableRoundScore,
     IndividualScore,
 )
 
@@ -358,6 +361,7 @@ crush_admin_site.register(QuizRound, QuizRoundAdmin)
 crush_admin_site.register(QuizQuestion, QuizQuestionAdmin)
 crush_admin_site.register(QuizTable, QuizTableAdmin)
 crush_admin_site.register(IndividualScore, IndividualScoreAdmin)
+crush_admin_site.register(TableRoundScore, TableRoundScoreAdmin)
 
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
@@ -521,5 +525,7 @@ __all__ = [
     'QuizRoundAdmin',
     'QuizQuestionAdmin',
     'QuizTableAdmin',
+    'QuizRotationScheduleInline',
+    'TableRoundScoreAdmin',
     'IndividualScoreAdmin',
 ]

@@ -6,17 +6,22 @@
 {% block content %}
 <div class="min-h-screen bg-crush-dark pt-4 pb-8">
     <div class="mx-auto max-w-2xl px-4"
-         x-data="quizCoach"
-         data-quiz-id="{{ quiz.id }}">
+         x-data="quizHost"
+         data-quiz-id="{{ quiz.id }}"
+         data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
+         data-table-count="{{ tables.count }}">
 
         {# --- Header --- #}
         <div class="mb-6">
-            <h1 class="text-2xl font-bold text-white">{% trans "Quiz Control Panel" %}</h1>
+            <h1 class="text-2xl font-bold text-white">{% trans "Quiz Host Panel" %}</h1>
             <p class="mt-1 text-gray-400">{{ event.title }}</p>
             <div class="mt-2 flex items-center gap-2">
                 <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium" x-bind:class="statusBadgeClass">
                     <span class="h-2 w-2 rounded-full" x-bind:class="statusDotClass"></span>
                     <span x-text="statusText"></span>
+                </span>
+                <span x-show="hasBonusRound" class="inline-flex items-center rounded-full bg-amber-900/50 px-3 py-1 text-xs font-medium text-amber-300">
+                    <span x-text="isBonusLabel"></span>
                 </span>
                 <span x-show="isConnected" class="text-xs text-green-400">{% trans "WebSocket connected" %}</span>
                 <span x-show="isDisconnected" class="text-xs text-red-400">{% trans "Disconnected" %}</span>
@@ -32,7 +37,10 @@
                         x-bind:class="roundButtonClass({{ round.id }})"
                         class="w-full rounded-lg p-3 text-left transition-all">
                     <div class="flex items-center justify-between">
-                        <span class="font-medium">{{ round.title }}</span>
+                        <span class="font-medium">
+                            {{ round.title }}
+                            {% if round.is_bonus %}<span class="ml-1 text-xs text-amber-400">BONUS x2</span>{% endif %}
+                        </span>
                         <span class="text-sm text-gray-400">{{ round.questions.count }} {% trans "questions" %} &middot; {{ round.time_per_question }}s</span>
                     </div>
                 </button>
@@ -47,9 +55,51 @@
                 <span x-text="currentRoundTitle"></span>
             </div>
             <p class="mt-2 text-lg font-medium text-white" x-text="currentQuestionText"></p>
+
+            {# Correct answer reference for host #}
+            <div x-show="hasCorrectAnswer" class="mt-3 rounded-lg bg-green-900/30 border border-green-700 p-3">
+                <p class="text-xs font-semibold uppercase tracking-wider text-green-400 mb-1">{% trans "Correct Answer" %}</p>
+                <p class="text-sm text-green-300 font-medium" x-text="correctAnswerText"></p>
+            </div>
         </div>
 
-        {# --- Coach controls --- #}
+        {# --- Table Scoring Grid (Quiz Night) --- #}
+        <div x-show="showScoringGrid" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
+            <p class="mb-3 text-xs text-gray-500">{% trans "Click table to mark correct, click again for incorrect" %}</p>
+
+            <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {% for table in tables %}
+                <div data-table-id="{{ table.id }}" class="text-center">
+                    {# Correct button #}
+                    <button x-on:click="scoreTable({{ table.id }}, true)"
+                            x-bind:class="tableScoreClass({{ table.id }})"
+                            class="w-full rounded-xl p-4 font-bold transition-all text-lg">
+                        T{{ table.table_number }}
+                    </button>
+                    {# Wrong button (small, below) #}
+                    <button x-on:click="scoreTable({{ table.id }}, false)"
+                            class="mt-1 w-full rounded-lg bg-red-900/30 px-2 py-1 text-xs text-red-400 hover:bg-red-900/60 transition-all">
+                        ✗
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# Convenience buttons #}
+            <div class="mt-4 flex gap-3">
+                <button x-on:click="scoreAllCorrect"
+                        class="flex-1 rounded-lg bg-green-700 py-2 text-sm font-medium text-white hover:bg-green-600 transition-all">
+                    {% trans "Score All Correct" %}
+                </button>
+                <button x-on:click="clearScoring"
+                        class="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all">
+                    {% trans "Clear" %}
+                </button>
+            </div>
+        </div>
+
+        {# --- Host controls --- #}
         <div class="grid grid-cols-2 gap-4">
             <button x-on:click="nextQuestion"
                     class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90">

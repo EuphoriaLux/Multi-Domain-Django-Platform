@@ -211,6 +211,8 @@ urlpatterns = base_patterns + api_patterns + [
     # Live Quiz API (called from quiz-live.js WebSocket fallback)
     path('api/quiz/<int:quiz_id>/state/', api_quiz.quiz_state, name='api_quiz_state'),
     path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
+    path('api/quiz/<int:quiz_id>/my-assignment/', api_quiz.my_assignment, name='api_quiz_my_assignment'),
+    path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix
