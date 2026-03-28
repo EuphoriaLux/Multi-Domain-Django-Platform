@@ -19,6 +19,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azureproject.settings")
 django.setup()
 
 from asgiref.wsgi import WsgiToAsgi  # noqa: E402
+from channels.auth import AuthMiddlewareStack  # noqa: E402
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
 from django.conf import settings  # noqa: E402
@@ -68,7 +69,7 @@ application = ProtocolTypeRouter(
     {
         "http": StaticFilesASGI(django_asgi_app),
         "websocket": AllowedHostsOriginValidator(
-            URLRouter(websocket_urlpatterns)
+            AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
         ),
     }
 )
