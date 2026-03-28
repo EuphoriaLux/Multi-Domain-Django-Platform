@@ -28,7 +28,7 @@ class QuizEvent(models.Model):
         blank=True,
         related_name="+",
     )
-    current_question_index = models.PositiveIntegerField(default=0)
+    current_question_index = models.IntegerField(default=-1)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
