@@ -2,10 +2,21 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models.quiz import (
+    QuizEvent,
     QuizRound,
     QuizQuestion,
     QuizTableMembership,
 )
+
+
+class QuizEventInline(admin.StackedInline):
+    """Inline for creating/editing a QuizEvent from the MeetupEvent admin page."""
+
+    model = QuizEvent
+    extra = 0
+    max_num = 1
+    fields = ("status", "created_by", "current_round", "current_question_index")
+    raw_id_fields = ("created_by", "current_round")
 
 
 class QuizRoundInline(admin.TabularInline):

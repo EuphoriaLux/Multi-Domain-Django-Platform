@@ -25,6 +25,7 @@ from crush_lu.models import (
     SpeedDatingPair,
 )
 from .filters import EventCapacityFilter
+from .quiz import QuizEventInline
 
 
 # Inline admin for Event Registrations
@@ -152,6 +153,7 @@ class MeetupEventAdmin(TranslationAdmin):
         "get_speed_dating_status",
     )
     inlines = [
+        QuizEventInline,
         EventRegistrationInline,
         EventInvitationInline,
         EventVotingSessionInline,

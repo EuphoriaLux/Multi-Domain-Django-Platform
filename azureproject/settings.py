@@ -149,10 +149,10 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "azureproject.middleware.HealthCheckMiddleware",  # MUST be first - bypasses all other middleware for /healthz/
     "django.middleware.security.SecurityMiddleware",
-    "django.middleware.gzip.GZipMiddleware",  # Compress HTML responses (27 KiB savings per Lighthouse)
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.0 native CSP
     "azureproject.csp_middleware.PermissionsPolicyMiddleware",  # Browser feature restrictions
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.middleware.gzip.GZipMiddleware",  # Below WhiteNoise to avoid ASGI Content-Length mismatch on static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "azureproject.middleware.DomainURLRoutingMiddleware",  # Multi-domain routing - MUST be before LocaleMiddleware
