@@ -29,6 +29,15 @@ if [ -d "/antenv/bin" ]; then
         ln -s "$SYSTEM_PYTHON" /antenv/bin/python3.12
         echo "✅ Python symlinks fixed → $SYSTEM_PYTHON"
     fi
+    # Fix shebang lines in venv scripts (gunicorn, uvicorn, etc.)
+    # They contain the GitHub Actions workspace path which doesn't exist on Azure
+    echo "🔧 Fixing shebang lines in venv scripts..."
+    for script in /antenv/bin/*; do
+        if [ -f "$script" ] && head -1 "$script" | grep -q "^#!.*antenv.*python"; then
+            sed -i "1s|^#!.*|#!/antenv/bin/python|" "$script"
+        fi
+    done
+    echo "✅ Shebang lines fixed"
 fi
 
 # Use explicit venv python path — source activate can fail silently in Oryx wrappers
