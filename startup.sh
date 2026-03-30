@@ -6,8 +6,8 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
-# Note: collectstatic is handled by Oryx during Azure build (SCM_DO_BUILD_DURING_DEPLOYMENT=true)
-# Oryx generates the staticfiles manifest + compressed files for WhiteNoise
+# Note: collectstatic is handled during CI/CD build (GitHub Actions workflow)
+# The antenv virtual environment and static files are pre-built and included in the deployment zip
 # Do NOT run collectstatic here — running it twice causes manifest conflicts
 
 # Run migrations with no-input for faster execution
