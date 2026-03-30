@@ -151,8 +151,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.0 native CSP
     "azureproject.csp_middleware.PermissionsPolicyMiddleware",  # Browser feature restrictions
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.middleware.gzip.GZipMiddleware",  # Below WhiteNoise to avoid ASGI Content-Length mismatch on static files
+    "django.middleware.gzip.GZipMiddleware",  # Compress dynamic responses (static files served at ASGI level)
     "django.contrib.sessions.middleware.SessionMiddleware",
     "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "azureproject.middleware.DomainURLRoutingMiddleware",  # Multi-domain routing - MUST be before LocaleMiddleware
@@ -579,11 +578,6 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-
-# WhiteNoise development settings - enable auto-refresh for instant CSS/JS updates
-if DEBUG:
-    WHITENOISE_AUTOREFRESH = True  # Re-check files on every request
-    WHITENOISE_MAX_AGE = 0  # No caching in development
 
 # STATICFILES_DIRS removed - all static files now in app-level directories
 # (e.g., crush_lu/static/crush_lu/, vinsdelux/static/vinsdelux/)
