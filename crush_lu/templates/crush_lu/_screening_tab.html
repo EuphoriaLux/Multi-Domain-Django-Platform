@@ -158,6 +158,9 @@
             <p class="text-gray-600 dark:text-gray-300">{% trans "You can now proceed to the Decision tab to complete the review." %}</p>
         </div>
 
+        {# Review Guidelines - Inline #}
+        {% include 'crush_lu/_review_guidelines.html' %}
+
     {% else %}
         {# Not completed - show interactive checklist #}
         <div class="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-6 mb-6">
@@ -223,6 +226,9 @@
             <div class="space-y-3">
                 {% include 'crush_lu/_screening_call_section.html' %}
             </div>
+
+            {# Review Guidelines - Inline #}
+            {% include 'crush_lu/_review_guidelines.html' %}
         </div>
     {% endif %}
 </div>

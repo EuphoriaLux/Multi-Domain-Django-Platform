@@ -16,6 +16,7 @@ from django.db.models import (
     ExpressionWrapper,
     DurationField,
 )
+from django.db.models import prefetch_related_objects
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import json
@@ -666,6 +667,14 @@ def coach_review_profile(request, submission_id):
 
     submission = get_object_or_404(ProfileSubmission, id=submission_id, coach=coach)
 
+    # Block changes to already-reviewed submissions
+    if submission.status in ("approved", "rejected") and submission.reviewed_at:
+        messages.info(
+            request,
+            _("This profile has already been reviewed. No further changes are allowed."),
+        )
+        return redirect("crush_lu:coach_profiles")
+
     if request.method == "POST":
         form = ProfileReviewForm(request.POST, instance=submission)
         if form.is_valid():
@@ -770,7 +779,7 @@ def coach_review_profile(request, submission_id):
                     logger.error(f"Failed to send recontact notification: {e}")
 
             submission.save()
-            return redirect("crush_lu:coach_dashboard")
+            return redirect("crush_lu:coach_profiles")
     else:
         form = ProfileReviewForm(instance=submission)
 
@@ -780,6 +789,7 @@ def coach_review_profile(request, submission_id):
     # Build SMS template for coach outreach
     sms_template_encoded = ""
     profile = submission.profile
+    prefetch_related_objects([profile], "qualities", "defects", "sought_qualities")
     if profile.phone_number and profile.phone_verified:
         from urllib.parse import quote
         from .models.site_config import CrushSiteConfig

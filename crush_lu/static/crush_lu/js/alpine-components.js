@@ -7946,125 +7946,40 @@ document.addEventListener('alpine:init', function() {
         };
     });
 
-    // Review Tabs Component (for redesigned coach review page)
+    // Review Tabs Component (for coach review page - 2 tabs: Screening + Decision)
     Alpine.data('reviewTabs', function() {
         return {
-            activeTab: 1, // Default to profile tab
+            activeTab: 1, // 1=Screening, 2=Decision
             callCompleted: false,
 
-            // Initialize from data attribute
             init: function() {
-                // Check if call is completed (from data attribute)
                 var callCompletedAttr = this.$el.getAttribute('data-call-completed');
                 if (callCompletedAttr === 'true') {
                     this.callCompleted = true;
                 }
             },
 
-            // CSP-compatible computed getters
-            get isProfileTab() { return this.activeTab === 1; },
-            get isScreeningTab() { return this.activeTab === 2; },
-            get isDecisionTab() { return this.activeTab === 3; },
+            get isScreeningTab() { return this.activeTab === 1; },
+            get isDecisionTab() { return this.activeTab === 2; },
 
-            // For showing profile summary on non-profile tabs
-            get showProfileSummary() { return this.activeTab !== 1; },
+            get screeningTabClass() { return this.getTabClasses(1); },
+            get decisionTabClass() { return this.getTabClasses(2); },
 
-            get profileTabClass() {
-                return this.getTabClasses(1);
-            },
-            get screeningTabClass() {
-                return this.getTabClasses(2);
-            },
-            get decisionTabClass() {
-                return this.getTabClasses(3);
-            },
+            get showCallWarning() { return !this.callCompleted; },
 
-            get showCallWarning() {
-                return !this.callCompleted;
-            },
+            showScreening: function() { this.activeTab = 1; },
+            showDecision: function() { this.activeTab = 2; },
 
-            // Methods
-            showProfile: function() {
-                this.activeTab = 1;
-            },
-            showScreening: function() {
-                this.activeTab = 2;
-            },
-            showDecision: function() {
-                this.activeTab = 3;
-            },
-
-            // Tab styling helper
             getTabClasses: function(tabNum) {
                 var base = 'px-6 py-3 font-semibold rounded-t-lg transition-all cursor-pointer';
-                var active = 'bg-white text-purple-600 border-b-2 border-purple-600';
-                var inactive = 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                var active = 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400';
+                var inactive = 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600';
                 return this.activeTab === tabNum ? base + ' ' + active : base + ' ' + inactive;
             },
 
-            // Auto-advance workflow when screening call is completed
             completeScreening: function() {
                 this.callCompleted = true;
-                this.activeTab = 3; // Move to decision tab
-            }
-        };
-    });
-
-    // Guidelines Panel Component (sticky bottom-right panel)
-    Alpine.data('guidelinesPanel', function() {
-        return {
-            isOpen: true,
-
-            get isClosed() {
-                return !this.isOpen;
-            },
-
-            toggle: function() {
-                this.isOpen = !this.isOpen;
-            },
-            close: function() {
-                this.isOpen = false;
-            },
-            open: function() {
-                this.isOpen = true;
-            }
-        };
-    });
-
-    // Profile Accordion Component (for profile tab in coach review)
-    Alpine.data('profileAccordion', function() {
-        return {
-            photoOpen: true,
-            basicOpen: false,
-            bioOpen: false,
-            privacyOpen: false,
-
-            // CSP-safe rotation classes
-            get photoOpenRotateClass() {
-                return this.photoOpen ? 'rotate-180' : '';
-            },
-            get basicOpenRotateClass() {
-                return this.basicOpen ? 'rotate-180' : '';
-            },
-            get bioOpenRotateClass() {
-                return this.bioOpen ? 'rotate-180' : '';
-            },
-            get privacyOpenRotateClass() {
-                return this.privacyOpen ? 'rotate-180' : '';
-            },
-
-            // Toggle methods
-            togglePhoto: function() {
-                this.photoOpen = !this.photoOpen;
-            },
-            toggleBasic: function() {
-                this.basicOpen = !this.basicOpen;
-            },
-            toggleBio: function() {
-                this.bioOpen = !this.bioOpen;
-            },
-            togglePrivacy: function() {
-                this.privacyOpen = !this.privacyOpen;
+                this.activeTab = 2;
             }
         };
     });

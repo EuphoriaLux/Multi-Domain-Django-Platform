@@ -30,133 +30,241 @@
         </div>
     </div>
 
-    {# Compact Profile Summary - Always Visible on Screening & Decision Tabs #}
-    <div x-show="showProfileSummary" x-cloak class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-200 dark:border-purple-700">
-        <div class="p-4">
-            <div class="flex flex-col sm:flex-row items-start gap-4">
-                {# Photos - Compact View #}
-                <div class="flex shrink-0 gap-2">
-                    {% if profile|has_photo:'photo_1' %}
-                        <img src="{% profile_photo_url profile 'photo_1' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 1" loading="lazy">
+    {# ============================================================ #}
+    {# PROFILE SUMMARY - Always Visible                             #}
+    {# ============================================================ #}
+    <div class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border-2 border-purple-200 dark:border-purple-700">
+        <div class="p-6">
+
+            {# Photos Row #}
+            <div class="flex flex-wrap gap-3 mb-6">
+                {% if profile|has_photo:'photo_1' %}
+                    <img src="{% profile_photo_url profile 'photo_1' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 1" loading="lazy">
+                {% endif %}
+                {% if profile|has_photo:'photo_2' %}
+                    <img src="{% profile_photo_url profile 'photo_2' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 2" loading="lazy">
+                {% endif %}
+                {% if profile|has_photo:'photo_3' %}
+                    <img src="{% profile_photo_url profile 'photo_3' %}" class="w-40 h-48 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 3" loading="lazy">
+                {% endif %}
+            </div>
+
+            {% trans "Not set" as not_set %}
+
+            {# 4-Column Info Grid #}
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 text-sm">
+
+                {# Column 1: Identity & Contact #}
+                <div class="space-y-2">
+                    <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "Identity" %}</p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Name:" %}</span> {{ profile.user.get_full_name }}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Email:" %}</span> {{ profile.user.email }}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Age:" %}</span>
+                        {% if profile.age %}{{ profile.age }} {% trans "years old" %}{% else %}{{ not_set }}{% endif %}
+                        {% if profile.date_of_birth %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400">({{ profile.date_of_birth }})</span>
+                        {% endif %}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Gender:" %}</span> {{ profile.get_gender_display|default:not_set }}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Location:" %}</span> 📍 {{ profile.location|default:not_set }}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Phone:" %}</span> 📞 {{ profile.phone_number|default:not_set }}
+                        {% if profile.phone_verified %}
+                            <span class="text-green-600 dark:text-green-400 text-xs font-medium">✓ {% trans "verified" %}</span>
+                        {% endif %}
+                    </p>
+
+                    {# Preferred language highlight #}
+                    <div class="mt-3 bg-purple-100 dark:bg-purple-800/40 border border-purple-300 dark:border-purple-600 rounded-lg p-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">
+                                {% if profile.preferred_language == 'en' %}🇬🇧
+                                {% elif profile.preferred_language == 'de' %}🇩🇪
+                                {% elif profile.preferred_language == 'fr' %}🇫🇷
+                                {% endif %}
+                            </span>
+                            <div>
+                                <p class="font-semibold text-purple-900 dark:text-purple-200 text-xs">{% trans "Email Language" %}</p>
+                                <p class="font-bold text-purple-700 dark:text-purple-300">
+                                    {% if profile.preferred_language == 'en' %}English
+                                    {% elif profile.preferred_language == 'de' %}Deutsch
+                                    {% elif profile.preferred_language == 'fr' %}Français
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Column 2: Bio, Interests & Traits #}
+                <div class="space-y-2">
+                    <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "About" %}</p>
+
+                    {% if profile.bio %}
+                        <div>
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Bio" %}</p>
+                            <p class="text-gray-600 dark:text-gray-300 text-xs leading-relaxed">{{ profile.bio }}</p>
+                        </div>
                     {% endif %}
-                    {% if profile|has_photo:'photo_2' %}
-                        <img src="{% profile_photo_url profile 'photo_2' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 2" loading="lazy">
+
+                    {% if profile.interests %}
+                        <div class="mt-2">
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Interests" %}</p>
+                            <p class="text-gray-600 dark:text-gray-300 text-xs">{{ profile.interests }}</p>
+                        </div>
                     {% endif %}
-                    {% if profile|has_photo:'photo_3' %}
-                        <img src="{% profile_photo_url profile 'photo_3' %}" class="w-20 h-20 shrink-0 rounded-lg object-cover border-2 border-white dark:border-gray-600 shadow-md dark:shadow-gray-900/20" alt="{% trans "Photo" %} 3" loading="lazy">
+
+                    {# Qualities (green pills) #}
+                    {% if profile.qualities.all %}
+                        <div class="mt-3">
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1 text-xs">{% trans "Qualities" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in profile.qualities.all %}
+                                    <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {# Defects (orange pills) #}
+                    {% if profile.defects.all %}
+                        <div class="mt-2">
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1 text-xs">{% trans "Defects" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in profile.defects.all %}
+                                    <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full text-xs font-medium">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {# Sought qualities (blue pills) #}
+                    {% if profile.sought_qualities.all %}
+                        <div class="mt-2">
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1 text-xs">{% trans "Looking for in others" %}</p>
+                            <div class="flex flex-wrap gap-1">
+                                {% for trait in profile.sought_qualities.all %}
+                                    <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">{{ trait.label }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
                     {% endif %}
                 </div>
 
-                {# Key Info - 3 Columns #}
-                <div class="min-w-0 w-full grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    {# Column 1: Basic Info #}
-                    <div class="space-y-1">
-                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Basic Info" %}</p>
-                        <p class="text-gray-700 dark:text-gray-200">{{ profile.age }} {% trans "years old" %} • {{ profile.get_gender_display }}</p>
-                        <p class="text-gray-700 dark:text-gray-200">📍 {% trans "Not set" as not_set %}{{ profile.location|default:not_set }}</p>
-                        <p class="text-gray-700 dark:text-gray-200">📞 {{ profile.phone_number }}</p>
+                {# Column 3: Matching Preferences #}
+                <div class="space-y-2">
+                    <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "Preferences" %}</p>
 
-                        {# Divider before account metadata #}
-                        <hr class="my-2 border-gray-300 dark:border-gray-600">
-
-                        {# Account creation date #}
-                        <p class="text-xs text-gray-600 dark:text-gray-400">
-                            🗓️ {% trans "Joined" %} {{ profile.created_at|timesince }} {% trans "ago" %}
-                        </p>
-
-                        {# Social login provider #}
-                        {% if social_account %}
-                            <p class="text-xs text-gray-600 dark:text-gray-400">
-                                {% if social_account.provider == 'linkedin_oauth2' %}
-                                    🔗 {% trans "LinkedIn signup" %}
-                                {% elif social_account.provider == 'facebook' %}
-                                    📘 {% trans "Facebook signup" %}
-                                {% elif social_account.provider == 'google' %}
-                                    🔴 {% trans "Google signup" %}
-                                {% elif social_account.provider == 'microsoft' %}
-                                    🪟 {% trans "Microsoft signup" %}
-                                {% else %}
-                                    🔗 {% trans "Social signup" %}
-                                {% endif %}
-                            </p>
-                        {% else %}
-                            <p class="text-xs text-gray-600 dark:text-gray-400">📧 {% trans "Email signup" %}</p>
-                        {% endif %}
-
-                        {# Phone verification (only show if verified) #}
-                        {% if profile.phone_verified %}
-                            <p class="text-xs text-green-600">✓ {% trans "Phone verified" %}</p>
-                        {% endif %}
-
-                        {# Last activity #}
-                        {% if profile.user.last_login %}
-                            <p class="text-xs text-gray-600 dark:text-gray-400">
-                                👁️ {% trans "Active" %} {{ profile.user.last_login|timesince }} {% trans "ago" %}
-                            </p>
-                        {% endif %}
-                    </div>
-
-                    {# Column 2: Languages & Preferences #}
-                    <div class="space-y-1">
-                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Languages" %}</p>
+                    {% if profile.looking_for %}
                         <p class="text-gray-700 dark:text-gray-200">
-                            <span class="font-medium">{% trans "Email:" %}</span>
-                            {% if profile.preferred_language == 'en' %}🇬🇧 EN
-                            {% elif profile.preferred_language == 'de' %}🇩🇪 DE
-                            {% elif profile.preferred_language == 'fr' %}🇫🇷 FR
+                            <span class="font-medium">{% trans "Looking for:" %}</span> 💕 {{ profile.get_looking_for_display }}
+                        </p>
+                    {% endif %}
+
+                    <p class="text-gray-700 dark:text-gray-200">
+                        <span class="font-medium">{% trans "Age range:" %}</span> {{ profile.preferred_age_min }} - {{ profile.preferred_age_max }}
+                    </p>
+
+                    {% if profile.preferred_genders %}
+                        <p class="text-gray-700 dark:text-gray-200">
+                            <span class="font-medium">{% trans "Interested in:" %}</span>
+                            {% for code in profile.preferred_genders %}{% if code == 'M' %}{% trans "Male" %}{% elif code == 'F' %}{% trans "Female" %}{% elif code == 'NB' %}{% trans "Non-binary" %}{% elif code == 'O' %}{% trans "Other" %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        </p>
+                    {% endif %}
+
+                    {% if profile.first_step_preference %}
+                        <p class="text-gray-700 dark:text-gray-200">
+                            <span class="font-medium">{% trans "First step:" %}</span> {{ profile.get_first_step_preference_display }}
+                        </p>
+                    {% endif %}
+
+                    {# Event languages #}
+                    <div class="mt-3">
+                        <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Event Languages" %}</p>
+                        <div class="flex flex-wrap gap-1">
+                            {% for lang in profile.event_languages %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
+                                    {% if lang == 'en' %}🇬🇧 EN{% elif lang == 'de' %}🇩🇪 DE{% elif lang == 'fr' %}🇫🇷 FR{% elif lang == 'lu' %}🇱🇺 LU{% endif %}
+                                </span>
+                            {% empty %}
+                                <span class="text-gray-400 dark:text-gray-500 text-xs italic">{{ not_set }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                {# Column 4: Account & Privacy #}
+                <div class="space-y-2">
+                    <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "Account" %}</p>
+
+                    <p class="text-gray-600 dark:text-gray-400 text-xs">
+                        🗓️ {% trans "Joined" %} {{ profile.created_at|timesince }} {% trans "ago" %}
+                    </p>
+
+                    {# Social login provider #}
+                    {% if social_account %}
+                        <p class="text-gray-600 dark:text-gray-400 text-xs">
+                            {% if social_account.provider == 'linkedin_oauth2' %}🔗 {% trans "LinkedIn signup" %}
+                            {% elif social_account.provider == 'facebook' %}📘 {% trans "Facebook signup" %}
+                            {% elif social_account.provider == 'google' %}🔴 {% trans "Google signup" %}
+                            {% elif social_account.provider == 'microsoft' %}🪟 {% trans "Microsoft signup" %}
+                            {% else %}🔗 {% trans "Social signup" %}
                             {% endif %}
                         </p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            <span class="font-medium">{% trans "Events:" %}</span>
-                            {% for lang in profile.event_languages %}
-                                {% if lang == 'en' %}🇬🇧{% elif lang == 'de' %}🇩🇪{% elif lang == 'fr' %}🇫🇷{% elif lang == 'lu' %}🇱🇺{% endif %}
-                            {% endfor %}
-                        </p>
-                        {% if profile.looking_for %}
-                        <p class="text-gray-700 dark:text-gray-200">💕 {{ profile.get_looking_for_display }}</p>
-                        {% endif %}
-                    </div>
+                    {% else %}
+                        <p class="text-gray-600 dark:text-gray-400 text-xs">📧 {% trans "Email signup" %}</p>
+                    {% endif %}
 
-                    {# Column 3: Privacy & Quick Access #}
-                    <div class="space-y-1">
-                        <p class="font-semibold text-gray-900 dark:text-white">{% trans "Privacy" %}</p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            {% if profile.show_full_name %}✅{% else %}❌{% endif %} {% trans "Full name" %}
+                    {% if profile.user.last_login %}
+                        <p class="text-gray-600 dark:text-gray-400 text-xs">
+                            👁️ {% trans "Active" %} {{ profile.user.last_login|timesince }} {% trans "ago" %}
                         </p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            {% if profile.show_exact_age %}✅{% else %}❌{% endif %} {% trans "Exact age" %}
+                    {% endif %}
+
+                    {% if profile.membership_tier %}
+                        <p class="text-gray-600 dark:text-gray-400 text-xs">
+                            ⭐ {% trans "Tier:" %} {{ profile.get_membership_tier_display }}
                         </p>
-                        <p class="text-gray-700 dark:text-gray-200">
-                            {% if profile.blur_photos %}🔒{% else %}👁️{% endif %} {% trans "Photos" %}
-                        </p>
-                        <button @click="showProfile" class="mt-2 text-xs text-purple-600 hover:text-purple-800 font-medium underline">
-                            {% trans "View Full Profile →" %}
-                        </button>
-                    </div>
+                    {% endif %}
+
+                    {# Privacy section #}
+                    <hr class="my-2 border-gray-300 dark:border-gray-600">
+                    <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-1">{% trans "Privacy" %}</p>
+                    <p class="text-gray-700 dark:text-gray-200 text-xs">
+                        {% if profile.show_full_name %}✅{% else %}❌{% endif %} {% trans "Full name visible" %}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200 text-xs">
+                        {% if profile.show_exact_age %}✅{% else %}❌{% endif %} {% trans "Exact age visible" %}
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-200 text-xs">
+                        {% if profile.blur_photos %}🔒 {% trans "Photos blurred" %}{% else %}👁️ {% trans "Photos visible" %}{% endif %}
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 
-    {# Tab Navigation #}
+    {# ============================================================ #}
+    {# TAB NAVIGATION - 2 tabs: Screening Call + Review Decision    #}
+    {# ============================================================ #}
     <div class="mb-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 border border-gray-200 dark:border-gray-700">
         <div class="flex flex-col sm:flex-row gap-2">
-            <button
-                @click="showProfile"
-                :class="profileTabClass"
-                type="button"
-                class="flex-1"
-            >
-                <span class="hidden sm:inline">1. </span>{% trans "Profile Overview" %}
-            </button>
-
             <button
                 @click="showScreening"
                 :class="screeningTabClass"
                 type="button"
                 class="flex-1 relative"
             >
-                <span class="hidden sm:inline">2. </span>{% trans "Screening Call" %}
+                <span class="hidden sm:inline">1. </span>{% trans "Screening Call" %}
                 <span x-show="showCallWarning" x-cloak class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
                     !
                 </span>
@@ -168,26 +276,16 @@
                 type="button"
                 class="flex-1"
             >
-                <span class="hidden sm:inline">3. </span>{% trans "Review Decision" %}
+                <span class="hidden sm:inline">2. </span>{% trans "Review Decision" %}
             </button>
         </div>
     </div>
 
-    {# Tab Content Area #}
+    {# ============================================================ #}
+    {# TAB CONTENT                                                  #}
+    {# ============================================================ #}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 border border-gray-200 dark:border-gray-700 p-6 min-h-[500px]">
-        {# Tab 1: Profile Overview (Full Detail) #}
-        <div x-show="isProfileTab" x-cloak>
-            <div class="mb-4">
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    {% include "shared/icons/user.html" with class="w-6 h-6 text-purple-600" %}
-                    {% trans "Profile Overview" %}
-                </h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Quick reference for user information" %}</p>
-            </div>
-            {% include 'crush_lu/_profile_tab.html' %}
-        </div>
-
-        {# Tab 2: Screening Call #}
+        {# Tab 1: Screening Call #}
         <div x-show="isScreeningTab" x-cloak>
             <div class="mb-4">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -199,7 +297,7 @@
             {% include 'crush_lu/_screening_tab.html' %}
         </div>
 
-        {# Tab 3: Review Decision #}
+        {# Tab 2: Review Decision #}
         <div x-show="isDecisionTab" x-cloak>
             <div class="mb-6">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -212,94 +310,6 @@
         </div>
     </div>
 
-    {# Sticky Guidelines Panel (bottom-right corner) #}
-    <div
-        x-data="guidelinesPanel"
-        x-show="isOpen"
-        x-cloak
-        class="fixed bottom-6 right-6 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:shadow-gray-900/20 border-2 border-purple-200 dark:border-purple-700 z-40"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-4"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-150"
-        x-transition:leave-start="opacity-100 translate-y-0"
-        x-transition:leave-end="opacity-0 translate-y-4"
-    >
-        <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-xl">
-            <h3 class="font-semibold text-white flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                </svg>
-                {% trans "Review Guidelines" %}
-            </h3>
-            <button @click="close" class="text-white hover:text-gray-200 transition-colors" aria-label="{% trans 'Close review guidelines' %}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
-
-        <div class="p-4 max-h-96 overflow-y-auto">
-            <ul class="space-y-3 text-sm">
-                <li class="flex items-start gap-2">
-                    <span class="text-yellow-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200"><strong class="text-gray-900 dark:text-white">{% trans "Complete screening call first!" %}</strong></span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-green-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Verify photos are clear and appropriate" %}</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-green-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Ensure bio is genuine and respectful" %}</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-green-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/check.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Confirm age verification (18+)" %}</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-red-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/x-mark.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Look for red flags or suspicious content" %}</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-purple-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/language.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Write feedback in user's preferred language" %}</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-blue-500 mt-0.5 flex-shrink-0">
-                        {% include "shared/icons/eye.html" with class="w-4 h-4" %}
-                    </span>
-                    <span class="text-gray-700 dark:text-gray-200">{% trans "Use preview button to verify email before sending" %}</span>
-                </li>
-            </ul>
-        </div>
-
-        {# Toggle button to reopen when closed #}
-        <button
-            @click="open"
-            x-show="isClosed"
-            x-cloak
-            class="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-pink-500 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-shadow"
-            title="{% trans 'Show Review Guidelines' %}"
-            aria-label="{% trans 'Show Review Guidelines' %}"
-        >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-        </button>
-    </div>
 </div>
 
 {# Email Preview Modal #}
@@ -357,19 +367,19 @@ const userLanguage = '{{ profile.preferred_language }}';
 
 const feedbackTemplates = {
     en: {
-        welcome: "Welcome to Crush.lu! Your profile looks great and we're excited to have you join our community. See you at an upcoming event! 💜",
+        welcome: "Welcome to Crush.lu! Your profile looks great and we're excited to have you join our community. See you at an upcoming event! \ud83d\udc9c",
         better_photo: "Please upload a clearer profile photo where your face is clearly visible. This helps other members recognize you at events.",
         more_bio: "Please add more details to your bio - tell us about your interests, hobbies, or what you're looking for."
     },
     de: {
-        welcome: "Willkommen bei Crush.lu! Dein Profil sieht toll aus und wir freuen uns, dich in unserer Community begrüßen zu dürfen. Wir sehen uns bei einer kommenden Veranstaltung! 💜",
+        welcome: "Willkommen bei Crush.lu! Dein Profil sieht toll aus und wir freuen uns, dich in unserer Community begr\u00fc\u00dfen zu d\u00fcrfen. Wir sehen uns bei einer kommenden Veranstaltung! \ud83d\udc9c",
         better_photo: "Bitte lade ein klareres Profilfoto hoch, auf dem dein Gesicht deutlich zu sehen ist. Das hilft anderen Mitgliedern, dich bei Veranstaltungen zu erkennen.",
-        more_bio: "Bitte füge mehr Details zu deiner Biografie hinzu - erzähle uns von deinen Interessen, Hobbys oder wonach du suchst."
+        more_bio: "Bitte f\u00fcge mehr Details zu deiner Biografie hinzu - erz\u00e4hle uns von deinen Interessen, Hobbys oder wonach du suchst."
     },
     fr: {
-        welcome: "Bienvenue sur Crush.lu ! Votre profil est superbe et nous sommes ravis de vous accueillir dans notre communauté. À bientôt lors d'un événement ! 💜",
-        better_photo: "Veuillez télécharger une photo de profil plus claire où votre visage est clairement visible. Cela aide les autres membres à vous reconnaître lors des événements.",
-        more_bio: "Veuillez ajouter plus de détails à votre biographie - parlez-nous de vos intérêts, passe-temps ou de ce que vous recherchez."
+        welcome: "Bienvenue sur Crush.lu ! Votre profil est superbe et nous sommes ravis de vous accueillir dans notre communaut\u00e9. \u00c0 bient\u00f4t lors d'un \u00e9v\u00e9nement ! \ud83d\udc9c",
+        better_photo: "Veuillez t\u00e9l\u00e9charger une photo de profil plus claire o\u00f9 votre visage est clairement visible. Cela aide les autres membres \u00e0 vous reconna\u00eetre lors des \u00e9v\u00e9nements.",
+        more_bio: "Veuillez ajouter plus de d\u00e9tails \u00e0 votre biographie - parlez-nous de vos int\u00e9r\u00eats, passe-temps ou de ce que vous recherchez."
     }
 };
 
