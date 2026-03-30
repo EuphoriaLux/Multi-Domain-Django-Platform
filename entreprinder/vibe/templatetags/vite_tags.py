@@ -1,9 +1,13 @@
 import json
+import logging
 import os
+
 from django import template
 from django.conf import settings
 from django.templatetags.static import static
 from django.utils.safestring import mark_safe
+
+logger = logging.getLogger(__name__)
 
 register = template.Library()
 
@@ -45,7 +49,8 @@ def vite_asset(entry_name):
             asset_url = static(f'vibe/js/{entry_name}.js')
             return mark_safe(f'<script type="module" src="{asset_url}"></script>')
         else:
-            return mark_safe(f'<!-- Vite manifest error: {e} -->')
+            logger.warning("Vite manifest error for entry '%s': %s", entry_name, e)
+            return mark_safe('<!-- Vite asset unavailable -->')
 
 @register.simple_tag
 def vite_chunk_asset(chunk_name):

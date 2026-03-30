@@ -37,18 +37,21 @@ class AdminImageWidget(forms.widgets.Widget):
     
     def render(self, name, value, attrs=None, renderer=None):
         context = self.get_context(name, value, attrs)
-        return mark_safe(format_html(
+        options_html = ''.join(
+            format_html(
+                '<option value="{}" {}>{}</option>',
+                file,
+                'selected' if file == context['widget']['selected_image'] else '',
+                file
+            ) for file in context['widget']['media_files']
+        )
+        return format_html(
             '<div class="admin-image-widget">'
-            '<input type="hidden" name="{}" id="{}_hidden" value="{}">'.format(name, name, value or '') +
-            '<select name="{}_select" class="form-select" onchange="document.getElementById(\'{}_hidden\').value = this.value;">'.format(name, name) +
-            ''.join(
-                format_html(
-                    '<option value="{}" {}>{}</option>',
-                    file,
-                    'selected' if file == context['widget']['selected_image'] else '',
-                    file
-                ) for file in context['widget']['media_files']
-            ) +
-            '</select>'
-            '</div>'
-        ))
+            '<input type="hidden" name="{}" id="{}_hidden" value="{}">'
+            '<select name="{}_select" class="form-select"'
+            ' onchange="document.getElementById(\'{}_hidden\').value = this.value;">'
+            '{}</select></div>',
+            name, name, value or '',
+            name, name,
+            mark_safe(options_html)
+        )
