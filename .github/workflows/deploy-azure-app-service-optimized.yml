@@ -131,6 +131,14 @@ jobs:
           source antenv/bin/activate
           pip install -q -r requirements.txt
           python manage.py collectstatic --noinput
+          # Fix native extensions for Azure App Service (Debian 11 / GLIBC 2.31)
+          # CI runner (ubuntu-latest) has GLIBC 2.39 — cryptography's .abi3.so
+          # needs manylinux_2_28 (GLIBC 2.28) to run on Azure
+          echo "🔧 Replacing native extensions with Azure-compatible builds..."
+          SITE_PKGS="antenv/lib/python3.12/site-packages"
+          rm -rf $SITE_PKGS/cryptography* $SITE_PKGS/cffi* $SITE_PKGS/_cffi_backend*
+          pip install --no-deps --platform manylinux_2_28_x86_64 --only-binary=:all: \
+            --target $SITE_PKGS cryptography cffi
           deactivate
           zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md"
           echo "✅ Deployment package built locally (with antenv)"

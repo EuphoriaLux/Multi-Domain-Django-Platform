@@ -170,11 +170,29 @@ def powerup_upload_path(subfolder: str = ''):
 
 def get_powerup_media_storage():
     """Get PowerUP media storage instance (lazy initialization)."""
-    return PowerUpMediaStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = PowerUpMediaStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 def get_finops_storage():
     """Get FinOps storage instance (lazy initialization)."""
-    return FinOpsStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = FinOpsStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 # Aliases for backward compatibility and convenience
 powerup_media_storage = get_powerup_media_storage

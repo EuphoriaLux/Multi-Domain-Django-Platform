@@ -132,7 +132,16 @@ def shared_upload_path(subfolder: str = ''):
 
 def get_shared_media_storage():
     """Get shared media storage instance (lazy initialization)."""
-    return SharedMediaStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = SharedMediaStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 # Alias for backward compatibility and convenience
 shared_media_storage = get_shared_media_storage
