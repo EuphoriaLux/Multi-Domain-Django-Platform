@@ -19,6 +19,8 @@ which sets GOOGLE_ANALYTICS_GTAG_PROPERTY_ID, FACEBOOK_PIXEL_ID, and
 APPLICATIONINSIGHTS_CONNECTION_STRING based on domain.
 """
 
+import json
+
 from django import template
 from django.middleware.csp import get_nonce
 from django.utils.safestring import mark_safe
@@ -210,12 +212,12 @@ def ga4_event(context, event_name, **params):
     nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
-    # Build params object
+    # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
-        params_str = ', '.join(f"'{k}': '{v}'" for k, v in params.items())
-        script = f"<script{nonce_attr}>gtag('event', '{event_name}', {{{params_str}}});</script>"
+        params_json = json.dumps(params)
+        script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)}, {params_json});</script>"
     else:
-        script = f"<script{nonce_attr}>gtag('event', '{event_name}');</script>"
+        script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)});</script>"
 
     return mark_safe(script)
 
@@ -238,12 +240,12 @@ def fb_event(context, event_name, **params):
     nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
-    # Build params object
+    # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
-        params_str = ', '.join(f"'{k}': '{v}'" for k, v in params.items())
-        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', '{event_name}', {{{params_str}}});</script>"
+        params_json = json.dumps(params)
+        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)}, {params_json});</script>"
     else:
-        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', '{event_name}');</script>"
+        script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)});</script>"
 
     return mark_safe(script)
 
@@ -338,11 +340,11 @@ def appinsights_event(context, event_name, **params):
     nonce = get_nonce(request) if request else None
     nonce_attr = f' nonce="{nonce}"' if nonce else ''
 
-    # Build properties object
+    # Build properties object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
-        props_str = ', '.join(f'"{k}": "{v}"' for k, v in params.items())
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: "{event_name}", properties: {{{props_str}}}}});</script>'
+        props_json = json.dumps(params)
+        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}, properties: {props_json}}});</script>'
     else:
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: "{event_name}"}});</script>'
+        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}}});</script>'
 
     return mark_safe(script)

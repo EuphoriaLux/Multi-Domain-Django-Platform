@@ -529,6 +529,9 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
 }
 
 // Azure Redis Cache (Basic C0) for Django Channels WebSocket support
+// SECURITY NOTE: Basic SKU does NOT support private endpoints or publicNetworkAccess: 'Disabled'.
+// Firewall rules below restrict access to App Service outbound IPs only.
+// To fully resolve alerts #126/#129 (private endpoints), upgrade to Standard C1+ or Premium P1+.
 resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
   location: location
   name: cacheServerName
@@ -542,9 +545,26 @@ resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
     enableNonSslPort: false
     redisVersion: '6.0'
     minimumTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Enabled' // Required for Basic SKU — restricted by firewall rules below
   }
-}    
+}
+
+// Redis firewall rules: restrict access to App Service outbound IPs only
+// Uses possibleOutboundIpAddresses (superset stable across scaling events)
+// Resolves alerts #127 (cleanup firewall rules) and #128 (limit IP addresses)
+var appServiceOutboundIps = split(web.properties.possibleOutboundIpAddresses, ',')
+
+@batchSize(1)
+resource redisCacheFirewallRules 'Microsoft.Cache/redis/firewallRules@2023-04-01' = [
+  for (ip, i) in appServiceOutboundIps: {
+    parent: redisCache
+    name: 'AllowAppService${i}'
+    properties: {
+      startIP: trim(ip)
+      endIP: trim(ip)
+    }
+  }
+]    
 
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString

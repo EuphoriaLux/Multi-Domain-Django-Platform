@@ -821,7 +821,8 @@ SECURE_CSP_REPORT_ONLY = {
     "script-src": [
         CSP.SELF,
         CSP.NONCE,
-        CSP.UNSAFE_INLINE,  # Temporary: HTMX/Alpine.js event handlers
+        CSP.UNSAFE_INLINE,  # TODO: Remove once HTMX/Alpine.js handlers use nonce-based scripts.
+                            # unsafe-inline negates nonce protection in script-src for CSP3 browsers.
         # CDN sources
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
