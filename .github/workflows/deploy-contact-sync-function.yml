@@ -54,7 +54,7 @@ jobs:
       - name: Deploy to Azure Functions
         run: |
           cd azure-functions/contact-sync
-          func azure functionapp publish crush-contact-sync --python
+          func azure functionapp publish crush-contact-sync --python --build local
 
       - name: Deployment summary
         run: |
