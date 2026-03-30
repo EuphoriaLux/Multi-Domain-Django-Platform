@@ -20,7 +20,7 @@ django.setup()
 
 from asgiref.wsgi import WsgiToAsgi  # noqa: E402
 from channels.auth import AuthMiddlewareStack  # noqa: E402
-from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
+from channels.routing import URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
 from django.conf import settings  # noqa: E402
 from django.core.asgi import get_asgi_application  # noqa: E402
@@ -80,11 +80,29 @@ class StaticFilesASGI:
         await self.app(scope, receive, send)
 
 
-application = ProtocolTypeRouter(
-    {
-        "http": StaticFilesASGI(django_asgi_app),
-        "websocket": AllowedHostsOriginValidator(
-            AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-        ),
-    }
+_http_app = StaticFilesASGI(django_asgi_app)
+_websocket_app = AllowedHostsOriginValidator(
+    AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
 )
+
+
+async def application(scope, receive, send):
+    """
+    Lightweight protocol router that bypasses channels' ProtocolTypeRouter
+    for HTTP requests, avoiding CurrentThreadExecutor conflicts with
+    channels-redis under uvicorn workers.
+    """
+    if scope["type"] == "http":
+        await _http_app(scope, receive, send)
+    elif scope["type"] == "websocket":
+        await _websocket_app(scope, receive, send)
+    elif scope["type"] == "lifespan":
+        while True:
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            elif message["type"] == "lifespan.shutdown":
+                await send({"type": "lifespan.shutdown.complete"})
+                return
+    else:
+        raise ValueError(f"Unknown ASGI scope type: {scope['type']}")
