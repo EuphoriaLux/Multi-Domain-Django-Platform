@@ -13,8 +13,10 @@ var pgServerName = '${prefix}-postgres-server'
 var databaseSubnetName = 'database-subnet'
 var webappSubnetName = 'webapp-subnet'
 
-// Azure Redis Cache (Basic C0 - no VNet/private endpoint support)
+// Azure Redis Cache (Basic C0) with Private Endpoint
 var cacheServerName = '${prefix}-redisCache'
+var cacheSubnetName = 'cache-subnet'
+var cachePrivateEndpointName = '${prefix}-cache-pvt-endpoint'
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   name: '${prefix}-vnet'
@@ -55,12 +57,12 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
           ]
         }
       }
- //     {
-  //      name: cacheSubnetName
-   //     properties:{
-  //        addressPrefix: '10.0.2.0/24'
-   //     }
-  //    }
+      {
+        name: cacheSubnetName
+        properties: {
+          addressPrefix: '10.0.2.0/24'
+        }
+      }
     ]
   }
   resource databaseSubnet 'subnets' existing = {
@@ -69,10 +71,9 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
   resource webappSubnet 'subnets' existing = {
     name: webappSubnetName
   }
-  // Added for Azure Redis Cache
-//  resource cacheSubnet 'subnets' existing = {
-//    name: cacheSubnetName
-//  }
+  resource cacheSubnet 'subnets' existing = {
+    name: cacheSubnetName
+  }
 }
 
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
@@ -84,15 +85,15 @@ resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   ]
 }
 
-// Added for Azure Redis Cache
-//resource privateDnsZoneCache 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-//  name: 'privatelink.redis.cache.windows.net'
-//  location: 'global'
-//  tags: tags
-//  dependsOn:[
-//    virtualNetwork
-//  ]
-//}
+// Private DNS zone for Azure Redis Cache private endpoint
+resource privateDnsZoneCache 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.redis.cache.windows.net'
+  location: 'global'
+  tags: tags
+  dependsOn: [
+    virtualNetwork
+  ]
+}
 
 resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: privateDnsZone
@@ -106,54 +107,56 @@ resource privateDnsZoneLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
   }
 }
 
-// Added for Azure Redis Cache
-//resource privateDnsZoneLinkCache 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-// parent: privateDnsZoneCache
-// name: 'privatelink.redis.cache.windows.net-applink'
-// location: 'global'
-// properties: {
-//   registrationEnabled: false
-//   virtualNetwork: {
-//     id: virtualNetwork.id
-//   }
-// }
-//}
+// Link Redis private DNS zone to VNet for name resolution
+resource privateDnsZoneLinkCache 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: privateDnsZoneCache
+  name: 'privatelink.redis.cache.windows.net-applink'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+  }
+}
 
 
-//resource cachePrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = {
- // name: cachePrivateEndpointName
-//  location: location
- // properties: {
- //   subnet: {
- //     id: virtualNetwork::cacheSubnet.id
- //   }
- //   privateLinkServiceConnections: [
- //     {
- //       name: cachePrivateEndpointName
-  //      properties: {
-  //        privateLinkServiceId: redisCache.id
-  //        groupIds: [
- //           'redisCache'
-  //        ]
- //       }
- //     }
- //   ]
- // }
+// Private endpoint for Redis Cache — keeps traffic inside the VNet
+// Resolves alerts #126/#129 (use private endpoints with Azure Cache for Redis)
+resource cachePrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = {
+  name: cachePrivateEndpointName
+  location: location
+  properties: {
+    subnet: {
+      id: virtualNetwork::cacheSubnet.id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: cachePrivateEndpointName
+        properties: {
+          privateLinkServiceId: redisCache.id
+          groupIds: [
+            'redisCache'
+          ]
+        }
+      }
+    ]
+  }
 
- // resource cachePvtEndpointDnsGroup 'privateDnsZoneGroups' = {
- //   name: cachePvtEndpointDnsGroupName
- //   properties: {
- //     privateDnsZoneConfigs: [
- //       {
- //         name: 'privatelink-redis-cache-windows-net'
- //         properties: {
- //           privateDnsZoneId: privateDnsZoneCache.id
-//          }
- //       }
- //     ]
- //   }
-//  }
-//}
+  resource cachePvtEndpointDnsGroup 'privateDnsZoneGroups' = {
+    name: 'cache-pvt-endpoint-dns-group'
+    properties: {
+      privateDnsZoneConfigs: [
+        {
+          name: 'privatelink-redis-cache-windows-net'
+          properties: {
+            privateDnsZoneId: privateDnsZoneCache.id
+          }
+        }
+      ]
+    }
+  }
+}
 
 resource web 'Microsoft.Web/sites@2022-03-01' = {
   name: '${prefix}-app-service'
@@ -529,12 +532,9 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
 }
 
 // Azure Redis Cache (Basic C0) for Django Channels WebSocket support
-// SECURITY NOTE: Basic SKU does NOT support private endpoints or publicNetworkAccess: 'Disabled'.
-// The App Service uses VNet integration (webapp-subnet), so outbound traffic does NOT use
-// the App Service's public outbound IPs — IP-based firewall rules would not match.
-// Instead, we allow Azure-internal traffic only via a 0.0.0.0 firewall rule (equivalent to
-// "Allow Azure services and resources to access this cache" in the portal).
-// To fully resolve alerts #126/#129 (private endpoints), upgrade to Standard C1+ or Premium P1+.
+// Private endpoint enabled — all traffic stays inside the VNet.
+// publicNetworkAccess disabled — no internet-facing access.
+// Resolves all 4 code scanning alerts (#126, #127, #128, #129).
 resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
   location: location
   name: cacheServerName
@@ -548,21 +548,7 @@ resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
     enableNonSslPort: false
     redisVersion: '6.0'
     minimumTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled' // Required for Basic SKU — restricted by firewall rule below
-  }
-}
-
-// Redis firewall: allow Azure services only (blocks public internet access)
-// The 0.0.0.0 rule is Azure's convention for "Allow Azure services and resources"
-// This is the most practical restriction for Basic SKU + VNet-integrated App Service,
-// since VNet outbound traffic uses unpredictable SNAT IPs (no NAT gateway configured).
-// Resolves alerts #127 (cleanup firewall rules) and #128 (limit IP addresses)
-resource redisCacheFirewallAllowAzure 'Microsoft.Cache/redis/firewallRules@2023-04-01' = {
-  parent: redisCache
-  name: 'AllowAzureServices'
-  properties: {
-    startIP: '0.0.0.0'
-    endIP: '0.0.0.0'
+    publicNetworkAccess: 'Disabled'
   }
 }    
 
