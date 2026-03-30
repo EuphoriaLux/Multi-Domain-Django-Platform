@@ -112,7 +112,7 @@ document.addEventListener('alpine:init', function () {
                 return 'Correct answer: ' + (this.lastResult.correct_answer || '');
             },
             get tableLabel() {
-                return 'Table ' + this.tableNumber;
+                return 'T' + this.tableNumber;
             },
             get personalScoreLabel() {
                 return this.personalScore + ' pts';
@@ -144,27 +144,6 @@ document.addEventListener('alpine:init', function () {
                 }
                 return 'bg-red-900/50 text-red-300';
             },
-            get tableLeaderboard() {
-                var result = [];
-                for (var i = 0; i < this.tables.length; i++) {
-                    result.push({
-                        rank: '#' + (i + 1),
-                        label: 'Table ' + this.tables[i].table_number,
-                        scoreLabel: this.tables[i].total_score + ' pts'
-                    });
-                }
-                return result;
-            },
-            get individualLeaderboard() {
-                var result = [];
-                for (var i = 0; i < this.individuals.length; i++) {
-                    result.push({
-                        display_name: this.individuals[i].display_name,
-                        scoreLabel: this.individuals[i].total_score + ' pts'
-                    });
-                }
-                return result;
-            },
             get hasIndividualScores() {
                 return this.individuals.length > 0;
             },
@@ -179,8 +158,18 @@ document.addEventListener('alpine:init', function () {
                 if (tn) this.tableNumber = parseInt(tn, 10);
                 var role = this.$el.getAttribute('data-user-role');
                 if (role) this.userRole = role;
+                // Parse initial tablemates from server
+                var tmAttr = this.$el.getAttribute('data-tablemates');
+                if (tmAttr) {
+                    try { this.tablemates = JSON.parse(tmAttr); } catch (e) {}
+                }
                 this.connectWebSocket();
-                if (this.isQuizNight) this.fetchAssignment();
+                if (this.isQuizNight) {
+                    this._renderRoleBadge();
+                    this._renderTablemates();
+                    this._renderCoachTables();
+                    this.fetchAssignment();
+                }
             },
 
             fetchAssignment: function () {
@@ -188,11 +177,17 @@ document.addEventListener('alpine:init', function () {
                 fetch('/api/quiz/' + this.quizId + '/my-assignment/', {
                     credentials: 'same-origin'
                 })
-                .then(function (r) { return r.json(); })
+                .then(function (r) { if (!r.ok) throw r; return r.json(); })
                 .then(function (data) {
                     if (data.table_number) self.tableNumber = data.table_number;
-                    if (data.role) self.userRole = data.role;
-                    if (data.tablemates) self.tablemates = data.tablemates;
+                    if (data.role) {
+                        self.userRole = data.role;
+                        self._renderRoleBadge();
+                    }
+                    if (data.tablemates) {
+                        self.tablemates = data.tablemates;
+                        self._renderTablemates();
+                    }
                     if (data.personal_score !== undefined) self.personalScore = data.personal_score;
                     if (data.next_table) self.nextTable = data.next_table;
                 })
@@ -245,6 +240,8 @@ document.addEventListener('alpine:init', function () {
                     this.tables = data.tables || [];
                     this.individuals = data.individuals || [];
                     this.screen = 'leaderboard';
+                    this._renderTableLeaderboard();
+                    this._renderIndividualLeaderboard();
                 } else if (type === 'quiz.rotate') {
                     // Re-fetch assignment to get new table number
                     if (this.isQuizNight) {
@@ -291,6 +288,7 @@ document.addEventListener('alpine:init', function () {
                 this.lastResult = null;
                 this.isBonusRound = data.is_bonus || false;
                 this.screen = 'question';
+                this._renderChoices();
                 this.startCountdown();
             },
 
@@ -356,6 +354,209 @@ document.addEventListener('alpine:init', function () {
                 }
             },
 
+            // --- DOM rendering (CSP-safe replacements for x-for) ---
+
+            _renderChoices: function () {
+                var container = this.$refs.choices;
+                if (!container) return;
+                container.innerHTML = '';
+                var self = this;
+                for (var i = 0; i < this.choices.length; i++) {
+                    var btn = document.createElement('button');
+                    btn.setAttribute('data-choice-index', String(i));
+                    btn.className = 'quiz-choice-btn w-full rounded-xl bg-slate-700 p-4 text-left text-white transition-all';
+                    btn.textContent = this.choices[i].text;
+                    btn.addEventListener('click', function () {
+                        if (self.answered) return;
+                        var index = parseInt(this.getAttribute('data-choice-index'), 10);
+                        self.selectedIndex = index;
+                        self._updateChoiceButtons();
+                    });
+                    container.appendChild(btn);
+                }
+            },
+
+            _renderRoleBadge: function () {
+                var container = this.$refs.rolebadge;
+                if (!container) return;
+                container.innerHTML = '';
+                if (!this.userRole) return;
+                var badge = document.createElement('span');
+                if (this.userRole === 'anchor') {
+                    badge.className = 'inline-flex items-center gap-1 rounded-full bg-blue-900/40 px-3 py-1 text-xs font-medium text-blue-300';
+                    badge.textContent = '\u{1F4CC} Anchor \u2013 stay here';
+                } else {
+                    badge.className = 'inline-flex items-center gap-1 rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300';
+                    badge.textContent = '\u{1F504} Rotator \u2013 you move!';
+                }
+                container.appendChild(badge);
+            },
+
+            _renderTablemates: function () {
+                var container = this.$refs.tablemates;
+                if (!container) return;
+                container.innerHTML = '';
+                if (this.tablemates.length === 0) return;
+
+                var label = document.createElement('p');
+                label.className = 'mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500';
+                label.textContent = 'Your tablemates';
+                container.appendChild(label);
+
+                var list = document.createElement('div');
+                list.className = 'space-y-1';
+                for (var i = 0; i < this.tablemates.length; i++) {
+                    var m = this.tablemates[i];
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center justify-between rounded-lg bg-slate-700/40 px-3 py-2';
+
+                    var nameSpan = document.createElement('span');
+                    nameSpan.className = 'text-sm text-gray-200';
+                    nameSpan.textContent = m.display_name;
+                    row.appendChild(nameSpan);
+
+                    if (m.role) {
+                        var roleBadge = document.createElement('span');
+                        if (m.role === 'anchor') {
+                            roleBadge.className = 'rounded-full bg-blue-900/30 px-2 py-0.5 text-xs text-blue-400';
+                            roleBadge.textContent = '\u{1F4CC} Anchor';
+                        } else {
+                            roleBadge.className = 'rounded-full bg-amber-900/30 px-2 py-0.5 text-xs text-amber-400';
+                            roleBadge.textContent = '\u{1F504} Rotator';
+                        }
+                        row.appendChild(roleBadge);
+                    }
+
+                    list.appendChild(row);
+                }
+                container.appendChild(list);
+            },
+
+            _renderTableLeaderboard: function () {
+                var container = this.$refs.tableboard;
+                if (!container) return;
+                container.innerHTML = '';
+                for (var i = 0; i < this.tables.length; i++) {
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center justify-between rounded-xl bg-slate-800 p-4';
+
+                    var left = document.createElement('div');
+                    left.className = 'flex items-center gap-3';
+
+                    var rank = document.createElement('span');
+                    rank.className = 'flex h-8 w-8 items-center justify-center rounded-full bg-crush-purple/30 text-sm font-bold text-crush-purple';
+                    rank.textContent = '#' + (i + 1);
+
+                    var label = document.createElement('span');
+                    label.className = 'font-medium text-white';
+                    label.textContent = 'Table ' + this.tables[i].table_number;
+
+                    left.appendChild(rank);
+                    left.appendChild(label);
+
+                    var score = document.createElement('span');
+                    score.className = 'font-bold text-crush-pink';
+                    score.textContent = this.tables[i].total_score + ' pts';
+
+                    row.appendChild(left);
+                    row.appendChild(score);
+                    container.appendChild(row);
+                }
+            },
+
+            _renderIndividualLeaderboard: function () {
+                var container = this.$refs.playerboard;
+                if (!container) return;
+                container.innerHTML = '';
+                for (var i = 0; i < this.individuals.length; i++) {
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center justify-between rounded-lg bg-slate-800/50 px-4 py-2';
+
+                    var name = document.createElement('span');
+                    name.className = 'text-sm text-gray-300';
+                    name.textContent = this.individuals[i].display_name;
+
+                    var score = document.createElement('span');
+                    score.className = 'text-sm font-medium text-crush-pink';
+                    score.textContent = this.individuals[i].total_score + ' pts';
+
+                    row.appendChild(name);
+                    row.appendChild(score);
+                    container.appendChild(row);
+                }
+            },
+
+            _renderCoachTables: function () {
+                var container = this.$refs.coachtables;
+                if (!container) return;
+                var dataAttr = container.getAttribute('data-all-tables');
+                if (!dataAttr) return;
+                var allTables;
+                try { allTables = JSON.parse(dataAttr); } catch (e) { return; }
+                container.innerHTML = '';
+                for (var i = 0; i < allTables.length; i++) {
+                    var t = allTables[i];
+                    var card = document.createElement('div');
+                    card.className = 'rounded-lg bg-slate-700/50 p-3 ring-1 ring-white/5';
+
+                    var header = document.createElement('div');
+                    header.className = 'mb-2 flex items-center justify-between';
+
+                    var titleWrap = document.createElement('div');
+                    titleWrap.className = 'flex items-center gap-2';
+
+                    var numBadge = document.createElement('span');
+                    numBadge.className = 'flex h-8 w-8 items-center justify-center rounded-lg bg-crush-purple/20 text-sm font-bold text-crush-purple';
+                    numBadge.textContent = 'T' + t.table_number;
+
+                    var title = document.createElement('span');
+                    title.className = 'font-semibold text-white';
+                    title.textContent = 'Table ' + t.table_number;
+
+                    titleWrap.appendChild(numBadge);
+                    titleWrap.appendChild(title);
+
+                    var scoreBadge = document.createElement('span');
+                    scoreBadge.className = 'rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-medium text-crush-pink';
+                    scoreBadge.textContent = t.total_score + ' pts';
+
+                    header.appendChild(titleWrap);
+                    header.appendChild(scoreBadge);
+                    card.appendChild(header);
+
+                    var memberList = document.createElement('div');
+                    memberList.className = 'space-y-1';
+
+                    for (var j = 0; j < t.members.length; j++) {
+                        var m = t.members[j];
+                        var memberRow = document.createElement('div');
+                        memberRow.className = 'flex items-center justify-between text-sm';
+
+                        var nameSpan = document.createElement('span');
+                        nameSpan.className = 'text-gray-300';
+                        nameSpan.textContent = m.display_name;
+                        memberRow.appendChild(nameSpan);
+
+                        if (m.role) {
+                            var roleBadge = document.createElement('span');
+                            if (m.role === 'anchor') {
+                                roleBadge.className = 'rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300';
+                                roleBadge.textContent = '\u{1F4CC} Anchor';
+                            } else {
+                                roleBadge.className = 'rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300';
+                                roleBadge.textContent = '\u{1F504} Rotator';
+                            }
+                            memberRow.appendChild(roleBadge);
+                        }
+
+                        memberList.appendChild(memberRow);
+                    }
+
+                    card.appendChild(memberList);
+                    container.appendChild(card);
+                }
+            },
+
             // Cleanup
             destroy: function () {
                 if (this.countdownTimer) clearInterval(this.countdownTimer);
@@ -386,11 +587,15 @@ document.addEventListener('alpine:init', function () {
             questionIdx: 0,
             questionCount: 0,
             isBonusRound: false,
+            roundComplete: false,
 
             // Scoring
             tableCount: 0,
             scoredTables: {},  // { tableId: true/false }
             scoringQuestionId: null,
+
+            // Table overview (who sits where)
+            tableMembers: [],  // [{ table_number, members: [{display_name, role}], total_score }]
 
             // Leaderboard
             tables: [],
@@ -399,10 +604,14 @@ document.addEventListener('alpine:init', function () {
 
             get isConnected() { return this.connected; },
             get isDisconnected() { return !this.connected; },
+            get showQuizNight() { return this.isQuizNight; },
             get canStart() { return this.status === 'draft' || this.status === 'paused'; },
             get canPause() { return this.status === 'active'; },
             get canEnd() { return this.status === 'active' || this.status === 'paused'; },
             get isFinished() { return this.status === 'finished'; },
+            get isRoundComplete() { return this.roundComplete; },
+            get canRotate() { return this.isQuizNight && this.roundComplete; },
+            get showNextQuestion() { return !this.roundComplete; },
             get hasCurrentQuestion() { return this.currentQuestion !== null; },
             get hasLeaderboard() { return this.tables.length > 0; },
             get showScoringGrid() { return this.isQuizNight && this.hasCurrentQuestion; },
@@ -457,18 +666,6 @@ document.addEventListener('alpine:init', function () {
             get hasCorrectAnswer() {
                 return this.correctAnswerText !== '';
             },
-            get tableLeaderboard() {
-                var result = [];
-                for (var i = 0; i < this.tables.length; i++) {
-                    result.push({
-                        rank: '#' + (i + 1),
-                        label: 'Table ' + this.tables[i].table_number,
-                        scoreLabel: this.tables[i].total_score + ' pts'
-                    });
-                }
-                return result;
-            },
-
             // --- Init ---
 
             init: function () {
@@ -477,7 +674,13 @@ document.addEventListener('alpine:init', function () {
                 this.isQuizNight = this.$el.getAttribute('data-quiz-night') === 'true';
                 var tc = this.$el.getAttribute('data-table-count');
                 if (tc) this.tableCount = parseInt(tc, 10);
+                // Parse initial table members from server
+                var tmAttr = this.$el.getAttribute('data-table-members');
+                if (tmAttr) {
+                    try { this.tableMembers = JSON.parse(tmAttr); } catch (e) {}
+                }
                 this.connectWebSocket();
+                this._renderTableOverview();
             },
 
             connectWebSocket: function () {
@@ -514,9 +717,17 @@ document.addEventListener('alpine:init', function () {
                     if (data.current_round) {
                         this.currentRound = data.current_round;
                         this.isBonusRound = data.current_round.is_bonus || false;
+                    } else {
+                        this.currentRound = null;
                     }
                     if (data.question) {
                         this.currentQuestion = data.question;
+                        this.roundComplete = false;
+                    } else {
+                        this.currentQuestion = null;
+                        // Round complete only if active AND we've gone past index 0
+                        // (index -1 or 0 means no questions asked yet)
+                        this.roundComplete = (data.status === 'active' && data.question_index > 0);
                     }
                     this.questionIdx = data.question_index || 0;
                 } else if (type === 'quiz.question') {
@@ -525,16 +736,33 @@ document.addEventListener('alpine:init', function () {
                     this.questionCount = data.total || 0;
                     this.isBonusRound = data.is_bonus || false;
                     this.status = 'active';
+                    this.roundComplete = false;
                     // Reset scoring state for new question
                     this.scoredTables = {};
                     this.scoringQuestionId = data.id;
                 } else if (type === 'quiz.leaderboard') {
                     this.tables = data.tables || [];
+                    this._renderTableLeaderboard();
+                    // Update scores in table overview
+                    this._updateTableScores();
                 } else if (type === 'quiz.status') {
-                    if (data.status) this.status = data.status;
                     if (data.status === 'round_complete') {
                         this.currentQuestion = null;
+                        this.roundComplete = true;
+                    } else if (data.status) {
+                        this.status = data.status;
                     }
+                } else if (type === 'quiz.rotate') {
+                    // Rebuild table overview from rotation assignments
+                    if (data.assignments) {
+                        this._rebuildTableMembersFromAssignments(data.assignments);
+                        this._renderTableOverview();
+                    }
+                    if (data.round_title && data.is_bonus !== undefined) {
+                        this.isBonusRound = data.is_bonus;
+                    }
+                    this.roundComplete = false;
+                    this.currentQuestion = null;
                 } else if (type === 'quiz.table_scored') {
                     // Track which tables have been scored
                     if (data.table_id) {
@@ -561,6 +789,8 @@ document.addEventListener('alpine:init', function () {
             triggerRotate: function () {
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({ action: 'rotate' }));
+                    this.roundComplete = false;
+                    this.currentQuestion = null;
                 }
             },
 
@@ -650,6 +880,8 @@ document.addEventListener('alpine:init', function () {
             selectRoundFromEl: function () {
                 var roundId = parseInt(this.$el.getAttribute('data-round-id'), 10);
                 this.selectedRoundId = roundId;
+                this.roundComplete = false;
+                this.currentQuestion = null;
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({
                         action: 'set_round',
@@ -681,6 +913,156 @@ document.addEventListener('alpine:init', function () {
                     for (var j = 0; j < parts.length; j++) {
                         buttons[i].classList.add(parts[j]);
                     }
+                }
+            },
+
+            // --- DOM rendering (CSP-safe replacement for x-for) ---
+
+            _renderTableLeaderboard: function () {
+                var container = this.$refs.tableboard;
+                if (!container) return;
+                container.innerHTML = '';
+                for (var i = 0; i < this.tables.length; i++) {
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center justify-between rounded-lg bg-slate-700/50 px-4 py-2';
+
+                    var left = document.createElement('div');
+                    left.className = 'flex items-center gap-2';
+
+                    var rank = document.createElement('span');
+                    rank.className = 'text-sm font-bold text-crush-purple';
+                    rank.textContent = '#' + (i + 1);
+
+                    var label = document.createElement('span');
+                    label.className = 'text-sm text-white';
+                    label.textContent = 'Table ' + this.tables[i].table_number;
+
+                    left.appendChild(rank);
+                    left.appendChild(label);
+
+                    var score = document.createElement('span');
+                    score.className = 'text-sm font-medium text-crush-pink';
+                    score.textContent = this.tables[i].total_score + ' pts';
+
+                    row.appendChild(left);
+                    row.appendChild(score);
+                    container.appendChild(row);
+                }
+            },
+
+            _updateTableScores: function () {
+                // Sync scores from leaderboard data into tableMembers
+                for (var i = 0; i < this.tables.length; i++) {
+                    var tn = this.tables[i].table_number;
+                    for (var j = 0; j < this.tableMembers.length; j++) {
+                        if (this.tableMembers[j].table_number === tn) {
+                            this.tableMembers[j].total_score = this.tables[i].total_score;
+                            break;
+                        }
+                    }
+                }
+                this._renderTableOverview();
+            },
+
+            _rebuildTableMembersFromAssignments: function (assignments) {
+                // assignments = { userId: { table_number, role, display_name } }
+                var byTable = {};
+                for (var uid in assignments) {
+                    var a = assignments[uid];
+                    var tn = a.table_number;
+                    if (!byTable[tn]) byTable[tn] = { table_number: tn, members: [], total_score: 0 };
+                    byTable[tn].members.push({ display_name: a.display_name, role: a.role });
+                }
+                // Preserve scores from current tableMembers
+                for (var i = 0; i < this.tableMembers.length; i++) {
+                    var tm = this.tableMembers[i];
+                    if (byTable[tm.table_number]) {
+                        byTable[tm.table_number].total_score = tm.total_score;
+                    }
+                }
+                // Sort by table number
+                var result = [];
+                var keys = Object.keys(byTable).sort(function (a, b) { return a - b; });
+                for (var k = 0; k < keys.length; k++) {
+                    result.push(byTable[keys[k]]);
+                }
+                this.tableMembers = result;
+            },
+
+            _renderTableOverview: function () {
+                var container = this.$refs.tableoverview;
+                if (!container) return;
+                container.innerHTML = '';
+                for (var i = 0; i < this.tableMembers.length; i++) {
+                    var t = this.tableMembers[i];
+                    var card = document.createElement('div');
+                    card.className = 'rounded-lg bg-slate-700/50 p-3 ring-1 ring-white/5';
+
+                    // Header: table number + score
+                    var header = document.createElement('div');
+                    header.className = 'mb-2 flex items-center justify-between';
+
+                    var titleWrap = document.createElement('div');
+                    titleWrap.className = 'flex items-center gap-2';
+
+                    var numBadge = document.createElement('span');
+                    numBadge.className = 'flex h-8 w-8 items-center justify-center rounded-lg bg-crush-purple/20 text-sm font-bold text-crush-purple';
+                    numBadge.textContent = 'T' + t.table_number;
+
+                    var title = document.createElement('span');
+                    title.className = 'font-semibold text-white';
+                    title.textContent = 'Table ' + t.table_number;
+
+                    titleWrap.appendChild(numBadge);
+                    titleWrap.appendChild(title);
+
+                    var scoreBadge = document.createElement('span');
+                    scoreBadge.className = 'rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-medium text-crush-pink';
+                    scoreBadge.textContent = t.total_score + ' pts';
+
+                    header.appendChild(titleWrap);
+                    header.appendChild(scoreBadge);
+                    card.appendChild(header);
+
+                    // Members list
+                    var memberList = document.createElement('div');
+                    memberList.className = 'space-y-1';
+
+                    for (var j = 0; j < t.members.length; j++) {
+                        var m = t.members[j];
+                        var memberRow = document.createElement('div');
+                        memberRow.className = 'flex items-center justify-between text-sm';
+
+                        var nameSpan = document.createElement('span');
+                        nameSpan.className = 'text-gray-300';
+                        nameSpan.textContent = m.display_name;
+
+                        memberRow.appendChild(nameSpan);
+
+                        if (m.role) {
+                            var roleBadge = document.createElement('span');
+                            if (m.role === 'anchor') {
+                                roleBadge.className = 'rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300';
+                                roleBadge.textContent = '\u{1F4CC} Anchor';
+                            } else {
+                                roleBadge.className = 'rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300';
+                                roleBadge.textContent = '\u{1F504} Rotator';
+                            }
+                            memberRow.appendChild(roleBadge);
+                        }
+
+                        memberList.appendChild(memberRow);
+                    }
+
+                    if (t.members.length === 0) {
+                        var emptyMsg = document.createElement('p');
+                        emptyMsg.className = 'text-xs italic text-gray-500';
+                        emptyMsg.textContent = 'No members assigned';
+                        memberList.appendChild(emptyMsg);
+                    }
+
+                    card.appendChild(memberList);
+                    container.appendChild(card);
                 }
             },
 

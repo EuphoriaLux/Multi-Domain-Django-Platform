@@ -5,6 +5,25 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db.models import Sum
 
 
+def _parse_choices(choices):
+    """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
+    if isinstance(choices, str):
+        try:
+            choices = json.loads(choices)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(choices, list):
+        return []
+    # Normalize: if items are plain strings, wrap them in {"text": ...}
+    result = []
+    for c in choices:
+        if isinstance(c, dict):
+            result.append(c)
+        elif isinstance(c, str):
+            result.append({"text": c, "is_correct": False})
+    return result
+
+
 class QuizConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for live quiz during Crush.lu events."""
 
@@ -335,8 +354,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 "points": question.points,
             }
             if question.question_type in ("multiple_choice", "true_false"):
+                choices = _parse_choices(question.choices)
                 q_data["choices"] = [
-                    {"text": c["text"]} for c in question.choices
+                    {"text": c["text"]} for c in choices if isinstance(c, dict)
                 ]
             data["question"] = q_data
         return data
@@ -355,13 +375,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.current_round = round_obj
         # Set to -1 so the first next_question lands on index 0 (Issue #2)
         quiz.current_question_index = -1
-        quiz.status = "active"
         quiz.save(
-            update_fields=["current_round", "current_question_index", "status"]
+            update_fields=["current_round", "current_question_index"]
         )
 
         return {
-            "status": "active",
+            "status": quiz.status,
             "current_round": {
                 "id": round_obj.id,
                 "title": round_obj.title,
@@ -428,9 +447,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         }
 
         if question.question_type in ("multiple_choice", "true_false"):
-            q_data["choices"] = [{"text": c["text"]} for c in question.choices]
+            choices = _parse_choices(question.choices)
+            q_data["choices"] = [
+                {"text": c["text"]} for c in choices if isinstance(c, dict)
+            ]
             # Host gets correct answer info
-            q_data["choices_with_answers"] = question.choices
+            q_data["choices_with_answers"] = choices
         elif question.question_type == "open_ended":
             q_data["correct_answer"] = question.correct_answer
 

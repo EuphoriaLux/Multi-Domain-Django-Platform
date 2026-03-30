@@ -43,6 +43,21 @@ whitenoise_app = WhiteNoise(
     prefix=settings.STATIC_URL,
 )
 
+# In DEBUG mode, also serve files from each app's static/ directory
+# so developers don't need to run collectstatic after every change.
+if settings.DEBUG:
+    import importlib
+
+    for app_label in settings.INSTALLED_APPS:
+        try:
+            mod = importlib.import_module(app_label)
+        except ImportError:
+            continue
+        app_dir = os.path.dirname(mod.__file__)
+        static_dir = os.path.join(app_dir, "static")
+        if os.path.isdir(static_dir):
+            whitenoise_app.add_files(static_dir, prefix=settings.STATIC_URL)
+
 
 class StaticFilesASGI:
     """

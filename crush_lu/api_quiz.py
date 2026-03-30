@@ -1,9 +1,32 @@
+import json
+
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+
+def _parse_choices(choices):
+    """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
+    if isinstance(choices, str):
+        try:
+            choices = json.loads(choices)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(choices, list):
+        return []
+    # Normalize: if items are plain strings, wrap them in {"text": ...}
+    result = []
+    for c in choices:
+        if isinstance(c, dict):
+            result.append(c)
+        elif isinstance(c, str):
+            result.append({"text": c, "is_correct": False})
+    return result
 
 from crush_lu.models.quiz import (
     IndividualScore,
@@ -38,6 +61,7 @@ def _is_quiz_host(quiz, user):
 
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def quiz_state(request, quiz_id):
     """Return current quiz state for initial page load."""
@@ -75,13 +99,17 @@ def quiz_state(request, quiz_id):
             "points": question.points,
         }
         if question.question_type in ("multiple_choice", "true_false"):
-            q_data["choices"] = [{"text": c["text"]} for c in question.choices]
+            choices = _parse_choices(question.choices)
+            q_data["choices"] = [
+                {"text": c["text"]} for c in choices if isinstance(c, dict)
+            ]
         data["question"] = q_data
 
     return Response(data)
 
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def quiz_tables(request, quiz_id):
     """Return table assignments for a quiz, optionally filtered by round."""
@@ -136,6 +164,7 @@ def quiz_tables(request, quiz_id):
 
 
 @api_view(["GET"])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def my_assignment(request, quiz_id):
     """Return current user's table assignment, role, tablemates, and score."""
@@ -170,7 +199,9 @@ def my_assignment(request, quiz_id):
             .first()
         )
         if not membership:
-            return Response({"error": "Not assigned to a table"}, status=404)
+            return Response(
+                {"error": "Not assigned to a table"}, status=404
+            )
 
         return Response(
             {
@@ -238,27 +269,34 @@ def _get_personal_score(quiz, user):
     )
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@login_required
 def score_table(request, quiz_id):
     """Host-only REST endpoint to score a table for a question."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
     try:
         quiz = QuizEvent.objects.select_related(
             "event", "current_round"
         ).get(id=quiz_id)
     except QuizEvent.DoesNotExist:
-        return Response({"error": "Quiz not found"}, status=404)
+        return JsonResponse({"error": "Quiz not found"}, status=404)
 
     # Issue #6: Allow coaches, not just creator/staff
     if not _is_quiz_host(quiz, request.user):
-        return Response({"error": "Not authorized"}, status=403)
+        return JsonResponse({"error": "Not authorized"}, status=403)
 
-    table_id = request.data.get("table_id")
-    question_id = request.data.get("question_id")
-    is_correct = request.data.get("is_correct", False)
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    table_id = body.get("table_id")
+    question_id = body.get("question_id")
+    is_correct = body.get("is_correct", False)
 
     if table_id is None or question_id is None:
-        return Response(
+        return JsonResponse(
             {"error": "table_id and question_id required"}, status=400
         )
 
@@ -270,7 +308,9 @@ def score_table(request, quiz_id):
             id=question_id, round__quiz=quiz
         )
     except (QuizTable.DoesNotExist, QuizQuestion.DoesNotExist):
-        return Response({"error": "Table or question not found"}, status=404)
+        return JsonResponse(
+            {"error": "Table or question not found"}, status=404
+        )
 
     # Create or update TableRoundScore
     TableRoundScore.objects.update_or_create(
@@ -316,7 +356,7 @@ def score_table(request, quiz_id):
             },
         )
 
-    return Response(
+    return JsonResponse(
         {
             "table_number": table.table_number,
             "is_correct": is_correct,

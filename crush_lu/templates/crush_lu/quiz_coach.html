@@ -9,7 +9,8 @@
          x-data="quizHost"
          data-quiz-id="{{ quiz.id }}"
          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
-         data-table-count="{{ tables.count }}">
+         data-table-count="{{ tables.count }}"
+         data-table-members="{{ table_members_json }}">
 
         {# --- Header --- #}
         <div class="mb-6">
@@ -46,6 +47,17 @@
                 </button>
                 {% endfor %}
             </div>
+        </div>
+
+        {# --- Table Overview (who sits where) --- #}
+        <div x-show="showQuizNight" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <svg class="mr-1 inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                {% trans "Table Setup" %}
+            </h2>
+            <div x-ref="tableoverview" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
         </div>
 
         {# --- Current question info --- #}
@@ -100,14 +112,32 @@
             </div>
         </div>
 
+        {# --- Round complete banner --- #}
+        <div x-show="isRoundComplete" class="mb-6 rounded-xl bg-amber-900/40 border border-amber-600 p-4 shadow-lg">
+            <p class="text-center text-lg font-bold text-amber-300">{% trans "Round Complete!" %}</p>
+            <p class="mt-1 text-center text-sm text-amber-400">{% trans "Score any remaining tables, then rotate or select the next round." %}</p>
+        </div>
+
         {# --- Host controls --- #}
         <div class="grid grid-cols-2 gap-4">
+            {# Next Question — hidden when round is done #}
             <button x-on:click="nextQuestion"
+                    x-show="showNextQuestion"
                     class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
                 </svg>
                 {% trans "Next Question" %}
+            </button>
+
+            {# Rotate Tables — only after a round finishes #}
+            <button x-on:click="triggerRotate"
+                    x-show="canRotate"
+                    class="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500 animate-pulse">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                {% trans "Rotate Tables" %}
             </button>
 
             <button x-on:click="showLeaderboard"
@@ -116,14 +146,6 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
                 {% trans "Leaderboard" %}
-            </button>
-
-            <button x-on:click="triggerRotate"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                {% trans "Rotate Tables" %}
             </button>
 
             <button x-on:click="startQuiz"
@@ -138,7 +160,7 @@
 
             <button x-on:click="pauseQuiz"
                     x-show="canPause"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500">
+                    class="flex items-center justify-center gap-2 rounded-xl bg-yellow-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-yellow-600">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -159,17 +181,8 @@
         {# --- Live leaderboard preview --- #}
         <div x-show="hasLeaderboard" class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
-            <div class="space-y-2">
-                <template x-for="(entry, index) in tableLeaderboard" x-bind:key="index">
-                    <div class="flex items-center justify-between rounded-lg bg-slate-700/50 px-4 py-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm font-bold text-crush-purple" x-text="entry.rank"></span>
-                            <span class="text-sm text-white" x-text="entry.label"></span>
-                        </div>
-                        <span class="text-sm font-medium text-crush-pink" x-text="entry.scoreLabel"></span>
-                    </div>
-                </template>
-            </div>
+            {# Rendered via JS for CSP compliance #}
+            <div x-ref="tableboard" class="space-y-2"></div>
         </div>
     </div>
 </div>

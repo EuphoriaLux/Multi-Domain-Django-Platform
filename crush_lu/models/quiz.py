@@ -54,7 +54,7 @@ class QuizEvent(models.Model):
         if not self.current_round:
             return None
         questions = self.current_round.questions.order_by("sort_order")
-        if self.current_question_index < questions.count():
+        if 0 <= self.current_question_index < questions.count():
             return questions[self.current_question_index]
         return None
 
