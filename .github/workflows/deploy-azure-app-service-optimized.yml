@@ -127,10 +127,13 @@ jobs:
         env:
           SECRET_KEY: 'ci-build-key'
         run: |
+          python -m venv antenv
+          source antenv/bin/activate
           pip install -q -r requirements.txt
           python manage.py collectstatic --noinput
+          deactivate
           zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md"
-          echo "✅ Deployment package built locally"
+          echo "✅ Deployment package built locally (with antenv)"
 
       - name: Login to Azure
         uses: azure/login@v3
@@ -138,12 +141,14 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Staging Slot
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'django-app-ajfffwjb5ie3s-app-service'
-          slot-name: 'staging'
-          package: deploy.zip
-          clean: false
+        run: |
+          az webapp deploy \
+            --name django-app-ajfffwjb5ie3s-app-service \
+            --resource-group django-app-rg \
+            --slot staging \
+            --src-path deploy.zip \
+            --type zip \
+            --restart true
 
       - name: Verify Deployment
         run: |
