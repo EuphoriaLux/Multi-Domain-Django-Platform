@@ -3,8 +3,6 @@
 import os
 import sys
 
-from dotenv import load_dotenv
-
 
 def main():
     """Run administrative tasks."""
@@ -12,6 +10,7 @@ def main():
 
     # Only for Local Development - Load environment variables from the .env file
     if 'WEBSITE_HOSTNAME' not in os.environ:
+        from dotenv import load_dotenv
         if os.environ.get('RUN_MAIN'):  # Only print in main process
             print("Loading environment variables for .env file")
         load_dotenv('./.env')

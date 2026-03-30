@@ -4,7 +4,7 @@ set -e  # Exit on error
 
 echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
-echo "🐍 Python version: $(python --version)"
+echo "🐍 System Python: $(python --version) at $(which python)"
 
 # Extract pre-built virtual environment if not already present
 if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
@@ -13,13 +13,20 @@ if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
     echo "✅ Virtual environment extracted to /antenv"
 fi
 
-# Activate virtual environment
-if [ -d "/antenv/bin" ]; then
-    echo "🔧 Activating virtual environment from /antenv"
-    . /antenv/bin/activate
-elif [ -d "antenv/bin" ]; then
-    echo "🔧 Activating virtual environment from antenv"
-    . antenv/bin/activate
+# Use explicit venv python path — source activate can fail silently in Oryx wrappers
+if [ -f "/antenv/bin/python" ]; then
+    PYTHON="/antenv/bin/python"
+    export PATH="/antenv/bin:$PATH"
+    export VIRTUAL_ENV="/antenv"
+    echo "🔧 Using virtual environment: $PYTHON ($($PYTHON --version))"
+elif [ -f "antenv/bin/python" ]; then
+    PYTHON="$(pwd)/antenv/bin/python"
+    export PATH="$(pwd)/antenv/bin:$PATH"
+    export VIRTUAL_ENV="$(pwd)/antenv"
+    echo "🔧 Using virtual environment: $PYTHON ($($PYTHON --version))"
+else
+    PYTHON="python"
+    echo "⚠️ No virtual environment found, using system python"
 fi
 
 # Note: collectstatic is handled during CI/CD build (GitHub Actions workflow)
@@ -27,32 +34,32 @@ fi
 # Do NOT run collectstatic here — running it twice causes manifest conflicts
 
 # Run migrations with no-input for faster execution
-python manage.py migrate --no-input
+$PYTHON manage.py migrate --no-input
 
 # Create cache table for database-backed caching (rate limiting)
 # This is idempotent - safe to run on every deployment
 echo "📦 Creating cache table if needed..."
-python manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
+$PYTHON manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
 
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
 if [ "$INITIAL_DEPLOYMENT" = "true" ]; then
     echo "📦 Initial deployment - setting up media and data..."
-    python manage.py deploy_media_and_data --force-refresh
+    $PYTHON manage.py deploy_media_and_data --force-refresh
 elif [ "$DEPLOY_MEDIA_AND_DATA" = "true" ]; then
     echo "🚀 Deploying complete media and data setup..."
-    python manage.py deploy_media_and_data --force-refresh
+    $PYTHON manage.py deploy_media_and_data --force-refresh
 fi
 
 # Legacy options (kept for backward compatibility)
 if [ "$SYNC_MEDIA_TO_AZURE" = "true" ]; then
     echo "📸 Syncing local media files to Azure Blob Storage..."
-    python manage.py sync_media_to_azure
+    $PYTHON manage.py sync_media_to_azure
 fi
 
 if [ "$POPULATE_SAMPLE_DATA" = "true" ]; then
     echo "🍷 Auto-populating sample data with images..."
-    python manage.py populate_with_images --force-refresh
+    $PYTHON manage.py populate_with_images --force-refresh
 fi
 
 echo "✅ Migrations complete. Starting Gunicorn..."
