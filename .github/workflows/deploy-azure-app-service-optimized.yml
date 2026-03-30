@@ -137,14 +137,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Disable remote build
-        run: |
-          az webapp config appsettings set \
-            --name django-app-ajfffwjb5ie3s-app-service \
-            --resource-group django-app-rg \
-            --slot staging \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
-
       - name: Deploy to Staging Slot
         uses: azure/webapps-deploy@v3
         with:
