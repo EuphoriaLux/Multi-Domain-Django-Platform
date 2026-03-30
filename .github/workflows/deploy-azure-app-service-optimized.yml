@@ -117,8 +117,36 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # CSS files are now committed to git, no artifact needed
-      # Oryx will run collectstatic during Azure build
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Build deployment package locally
+        env:
+          SECRET_KEY: 'ci-build-key'
+          # Use production settings so collectstatic generates the manifest (staticfiles.json)
+          # required by WhiteNoise's CompressedManifestStaticFilesStorage at runtime
+          WEBSITE_HOSTNAME: 'ci-build'
+          POSTGRESQLCONNSTR_CI: 'dbname=ci host=localhost user=ci password=ci'
+        run: |
+          python -m venv antenv
+          source antenv/bin/activate
+          pip install -q -r requirements.txt
+          python manage.py collectstatic --noinput
+          test -f staticfiles/staticfiles.json || { echo "❌ staticfiles manifest missing"; exit 1; }
+          # Fix native extensions for Azure App Service (Debian 11 / GLIBC 2.31)
+          # CI runner (ubuntu-latest) has GLIBC 2.39 — cryptography's .abi3.so
+          # needs manylinux_2_28 (GLIBC 2.28) to run on Azure
+          echo "🔧 Replacing native extensions with Azure-compatible builds..."
+          SITE_PKGS="antenv/lib/python3.12/site-packages"
+          rm -rf $SITE_PKGS/cryptography* $SITE_PKGS/cffi* $SITE_PKGS/_cffi_backend*
+          pip install --no-deps --platform manylinux_2_28_x86_64 --only-binary=:all: \
+            --target $SITE_PKGS cryptography cffi
+          deactivate
+          zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md"
+          echo "✅ Deployment package built locally (with antenv)"
 
       - name: Login to Azure
         uses: azure/login@v3
@@ -126,11 +154,14 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Staging Slot
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'django-app-ajfffwjb5ie3s-app-service'
-          slot-name: 'staging'
-          clean: false
+        run: |
+          az webapp deploy \
+            --name django-app-ajfffwjb5ie3s-app-service \
+            --resource-group django-app-rg \
+            --slot staging \
+            --src-path deploy.zip \
+            --type zip \
+            --restart true
 
       - name: Verify Deployment
         run: |

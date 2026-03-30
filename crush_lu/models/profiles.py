@@ -24,9 +24,14 @@ def get_crush_photo_storage():
     callable reference, preventing false "model changes detected" warnings.
     """
     try:
-        # Try to get the crush_private storage (defined in production STORAGES)
-        return storages["crush_private"]
-    except (KeyError, Exception):
+        from django.core.files.storage.base import Storage
+        storage = storages["crush_private"]
+        # Validate the backend is a proper Storage instance (guards against
+        # broken native extensions where AzureStorage falls back to object)
+        if not isinstance(storage, Storage):
+            return default_storage
+        return storage
+    except Exception:
         # Fall back to default storage in development
         return default_storage
 
