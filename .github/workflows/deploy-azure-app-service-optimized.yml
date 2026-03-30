@@ -117,19 +117,40 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # CSS files are now committed to git, no artifact needed
-      # Oryx will run collectstatic during Azure build
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Build deployment package locally
+        env:
+          SECRET_KEY: 'ci-build-key'
+        run: |
+          pip install -q -r requirements.txt
+          python manage.py collectstatic --noinput
+          zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md"
+          echo "✅ Deployment package built locally"
 
       - name: Login to Azure
         uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Disable remote build
+        run: |
+          az webapp config appsettings set \
+            --name django-app-ajfffwjb5ie3s-app-service \
+            --resource-group django-app-rg \
+            --slot staging \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+
       - name: Deploy to Staging Slot
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'django-app-ajfffwjb5ie3s-app-service'
           slot-name: 'staging'
+          package: deploy.zip
           clean: false
 
       - name: Verify Deployment
