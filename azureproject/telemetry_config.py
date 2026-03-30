@@ -201,7 +201,7 @@ class ExceptionFilteringProcessor:
         return True
 
 
-def configure_azure_monitor_telemetry():
+def configure_azure_monitor_telemetry(environment="production"):
     """
     Configure Azure Monitor OpenTelemetry SDK with exception filtering and sampling.
 
@@ -210,9 +210,14 @@ def configure_azure_monitor_telemetry():
     2. Configures azure-monitor-opentelemetry with custom span processor
     3. Sets up Django instrumentation automatically
     4. Configures sampling to reduce data ingestion costs
-    5. Falls back gracefully if connection string is missing (local dev)
+    5. Sets cloud_RoleName via service.name resource attribute
+    6. Falls back gracefully if connection string is missing (local dev)
 
     Call this once at application startup (in production.py).
+
+    Args:
+        environment: Deployment environment name ("production" or "staging").
+                     Sets cloud_RoleName to "crush.lu-{environment}" in App Insights.
 
     Environment Variables:
         APPLICATIONINSIGHTS_CONNECTION_STRING: Required for telemetry
@@ -237,15 +242,23 @@ def configure_azure_monitor_telemetry():
 
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
+        from opentelemetry.sdk.resources import Resource
 
         # Create filtering processors
         exception_filter = ExceptionFilteringProcessor()
         dependency_filter = DependencyFilteringProcessor()
 
+        # Set cloud_RoleName via service.name resource attribute.
+        # This overrides the Azure App Service resource detector default
+        # and enables filtering by environment in App Insights dashboards/alerts.
+        service_name = f"crush.lu-{environment}"
+        resource = Resource.create({"service.name": service_name})
+
         # Configure Azure Monitor with our custom processors and sampling
         # The SDK automatically instruments Django, requests, urllib, psycopg2
         configure_azure_monitor(
             connection_string=connection_string,
+            resource=resource,
             # Add our custom span processors for filtering
             span_processors=[dependency_filter, exception_filter],
             # Use Azure Monitor's ApplicationInsightsSampler (NOT TraceIdRatioBased).
@@ -265,7 +278,8 @@ def configure_azure_monitor_telemetry():
         )
 
         logger.info(
-            f"Azure Monitor OpenTelemetry configured with exception filtering, "
+            f"Azure Monitor OpenTelemetry configured for '{environment}' "
+            f"(cloud_RoleName: {service_name}) with exception filtering, "
             f"{sampling_rate*100:.0f}% sampling, performance counters disabled "
             f"(Live Metrics: {'enabled' if enable_live_metrics else 'disabled'}). "
             "Auto-instrumentation should be DISABLED in Azure App Service."
@@ -285,13 +299,13 @@ def configure_azure_monitor_telemetry():
 
 
 # Legacy function for backward compatibility
-def configure_exception_filtering():
+def configure_exception_filtering(environment="production"):
     """
     Legacy function - now calls configure_azure_monitor_telemetry().
 
     Kept for backward compatibility with existing imports.
     """
-    return configure_azure_monitor_telemetry()
+    return configure_azure_monitor_telemetry(environment=environment)
 
 
 class SuppressedExceptionFilter(logging.Filter):
