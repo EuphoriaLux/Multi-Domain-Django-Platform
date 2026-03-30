@@ -145,8 +145,10 @@ jobs:
           pip install --no-deps --platform manylinux_2_28_x86_64 --only-binary=:all: \
             --target $SITE_PKGS cryptography cffi
           deactivate
-          zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md"
-          echo "✅ Deployment package built locally (with antenv)"
+          # Package venv as tar.gz — Oryx expects antenv.tar.gz (not a raw directory)
+          tar czf antenv.tar.gz antenv/
+          zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md" -x "antenv/*"
+          echo "✅ Deployment package built locally (with antenv.tar.gz)"
 
       - name: Login to Azure
         uses: azure/login@v3
