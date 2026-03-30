@@ -19,7 +19,13 @@ class QuizEventInline(admin.StackedInline):
     model = QuizEvent
     extra = 0
     max_num = 1
-    fields = ("status", "created_by", "current_round", "current_question_index")
+    fields = (
+        "status",
+        "created_by",
+        "current_round",
+        "current_question_index",
+        "num_tables",
+    )
     raw_id_fields = ("created_by", "current_round")
 
 
@@ -63,7 +69,8 @@ class QuizRotationScheduleInline(admin.TabularInline):
 
 def generate_quiz_night_tables(modeladmin, request, queryset):
     """Admin action: generate table rotation schedule for quiz night events."""
-    from crush_lu.models import MeetupEvent
+    from django.utils import timezone
+
     from crush_lu.models.events import EventRegistration
     from crush_lu.services.quiz_rotation import (
         generate_rotation_schedule,
@@ -73,19 +80,19 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
     for quiz in queryset:
         event = quiz.event
 
-        # Get confirmed registrations with profiles
+        # Get confirmed or attended registrations with profiles
         registrations = (
             EventRegistration.objects.filter(
-                event=event, status="confirmed"
+                event=event, status__in=["confirmed", "attended"]
             )
             .select_related("user__crushprofile")
             .order_by("registered_at")
         )
 
-        if registrations.count() < 8:
+        if registrations.count() < 4:
             messages.error(
                 request,
-                f"'{event}': Need at least 8 confirmed registrations, "
+                f"'{event}': Need at least 4 registrations, "
                 f"got {registrations.count()}.",
             )
             continue
@@ -93,21 +100,45 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
         men, women = split_participants_by_gender(registrations)
 
         try:
-            num_tables = len(men) // 2
             num_rounds = quiz.rounds.count() or 3
-            schedule = generate_rotation_schedule(men, women, num_rounds)
+            result = generate_rotation_schedule(
+                men, women, num_rounds, num_tables=quiz.num_tables
+            )
         except Exception as e:
             messages.error(request, f"'{event}': {e}")
             continue
 
-        # Clear existing rotation data
-        QuizRotationSchedule.objects.filter(quiz=quiz).delete()
-        QuizTable.objects.filter(quiz=quiz).delete()
+        schedule = result["schedule"]
+        actual_num_tables = result["num_tables"]
 
-        # Create tables
+        # Display any warnings from the algorithm
+        for warning in result["warnings"]:
+            messages.warning(request, f"'{event}': {warning}")
+
+        # Clear existing rotation data and memberships (but preserve tables
+        # to avoid cascade-deleting TableRoundScore records)
+        QuizRotationSchedule.objects.filter(quiz=quiz).delete()
+        QuizTableMembership.objects.filter(table__quiz=quiz).delete()
+
+        # Reuse or create tables (don't delete -- TableRoundScore has FK)
+        existing_tables = {
+            t.table_number: t
+            for t in QuizTable.objects.filter(quiz=quiz)
+        }
         tables = {}
-        for t in range(1, num_tables + 1):
-            tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
+        for t in range(1, actual_num_tables + 1):
+            if t in existing_tables:
+                tables[t] = existing_tables[t]
+            else:
+                tables[t] = QuizTable.objects.create(
+                    quiz=quiz, table_number=t
+                )
+
+        # Remove excess tables (only if no scores attached)
+        for t_num, t_obj in existing_tables.items():
+            if t_num > actual_num_tables:
+                if not t_obj.round_scores.exists():
+                    t_obj.delete()
 
         # Bulk-create rotation schedule
         rotation_entries = []
@@ -138,9 +169,13 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
             )
         QuizTableMembership.objects.bulk_create(memberships)
 
+        # Update generation timestamp
+        quiz.tables_generated_at = timezone.now()
+        quiz.save(update_fields=["tables_generated_at"])
+
         messages.success(
             request,
-            f"'{event}': Created {num_tables} tables with "
+            f"'{event}': Created {actual_num_tables} tables with "
             f"{len(men)} anchors + {len(women)} rotators, "
             f"{num_rounds} rounds.",
         )
@@ -155,14 +190,16 @@ class QuizEventAdmin(admin.ModelAdmin):
     list_display = (
         "event",
         "status",
+        "num_tables",
         "current_round",
         "created_by",
+        "tables_generated_at",
         "created_at",
     )
     list_filter = ("status",)
     inlines = [QuizRoundInline, QuizRotationScheduleInline]
     raw_id_fields = ("event", "created_by", "current_round")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "tables_generated_at")
     actions = [generate_quiz_night_tables]
 
 

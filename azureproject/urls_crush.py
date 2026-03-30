@@ -213,6 +213,7 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
     path('api/quiz/<int:quiz_id>/my-assignment/', api_quiz.my_assignment, name='api_quiz_my_assignment'),
     path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
+    path('api/quiz/<int:quiz_id>/regenerate-tables/', api_quiz.regenerate_tables, name='api_quiz_regenerate_tables'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix

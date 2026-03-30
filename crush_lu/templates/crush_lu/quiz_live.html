@@ -19,6 +19,13 @@
             <p class="mt-1 text-sm text-gray-400" x-text="roundTitle"></p>
         </div>
 
+        {# --- Error banner --- #}
+        <div x-show="hasError"
+             x-cloak
+             class="mb-4 rounded-lg border border-red-600 bg-red-900/40 px-4 py-3 text-center text-sm text-red-300">
+            <span x-text="errorMessage"></span>
+        </div>
+
         {# --- Table Info (Quiz Night) --- #}
         <div x-show="hasTableInfo" class="mb-4 rounded-xl bg-gradient-to-br from-slate-800 to-slate-800/80 p-4 shadow-lg ring-1 ring-white/5">
             {# Table header with number + score #}

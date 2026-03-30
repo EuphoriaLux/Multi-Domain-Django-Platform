@@ -56,8 +56,13 @@ document.addEventListener('alpine:init', function () {
             roundName: '',
             isBonusRound: false,
 
+            // Error display
+            errorMessage: '',
+            errorTimer: null,
+
             // --- Getters (CSP-safe computed properties) ---
 
+            get hasError() { return this.errorMessage !== ''; },
             get isWaiting() { return this.screen === 'waiting'; },
             get isQuestion() { return this.screen === 'question'; },
             get isLeaderboard() { return this.screen === 'leaderboard'; },
@@ -273,7 +278,18 @@ document.addEventListener('alpine:init', function () {
                     }
                 } else if (type === 'quiz.table_score') {
                     // Legacy table score update
+                } else if (type === 'quiz.error') {
+                    this.showError(data.message || 'An error occurred');
                 }
+            },
+
+            showError: function (message) {
+                var self = this;
+                this.errorMessage = message;
+                if (this.errorTimer) clearTimeout(this.errorTimer);
+                this.errorTimer = setTimeout(function () {
+                    self.errorMessage = '';
+                }, 5000);
             },
 
             showQuestion: function (data) {
@@ -589,6 +605,9 @@ document.addEventListener('alpine:init', function () {
             isBonusRound: false,
             roundComplete: false,
 
+            // Guided flow: round list with statuses
+            rounds: [],  // [{ id, title, sort_order, is_bonus, question_count, status: 'done'|'current'|'upcoming' }]
+
             // Scoring
             tableCount: 0,
             scoredTables: {},  // { tableId: true/false }
@@ -600,12 +619,20 @@ document.addEventListener('alpine:init', function () {
             // Leaderboard
             tables: [],
 
+            // Error / feedback
+            errorMessage: '',
+            errorTimer: null,
+            regenerating: false,
+
             // --- Getters ---
 
+            get hasError() { return this.errorMessage !== ''; },
+            get isRegenerating() { return this.regenerating; },
+            get isNotRegenerating() { return !this.regenerating; },
             get isConnected() { return this.connected; },
             get isDisconnected() { return !this.connected; },
             get showQuizNight() { return this.isQuizNight; },
-            get canStart() { return this.status === 'draft' || this.status === 'paused'; },
+            get canStart() { return this.status === 'draft'; },
             get canPause() { return this.status === 'active'; },
             get canEnd() { return this.status === 'active' || this.status === 'paused'; },
             get isFinished() { return this.status === 'finished'; },
@@ -716,9 +743,14 @@ document.addEventListener('alpine:init', function () {
                     if (data.event_type) this.isQuizNight = data.event_type === 'quiz_night';
                     if (data.current_round) {
                         this.currentRound = data.current_round;
+                        this.selectedRoundId = data.current_round.id;
                         this.isBonusRound = data.current_round.is_bonus || false;
                     } else {
                         this.currentRound = null;
+                    }
+                    if (data.rounds) {
+                        this.rounds = data.rounds;
+                        this._renderRoundButtons();
                     }
                     if (data.question) {
                         this.currentQuestion = data.question;
@@ -749,8 +781,16 @@ document.addEventListener('alpine:init', function () {
                     if (data.status === 'round_complete') {
                         this.currentQuestion = null;
                         this.roundComplete = true;
+                        // Mark current round as done in guided flow
+                        this._markCurrentRoundDone();
                     } else if (data.status) {
                         this.status = data.status;
+                    }
+                    if (data.current_round) {
+                        this.currentRound = data.current_round;
+                        this.selectedRoundId = data.current_round.id;
+                        this.isBonusRound = data.current_round.is_bonus || false;
+                        this._updateRoundCurrent(data.current_round.id);
                     }
                 } else if (type === 'quiz.rotate') {
                     // Rebuild table overview from rotation assignments
@@ -763,16 +803,85 @@ document.addEventListener('alpine:init', function () {
                     }
                     this.roundComplete = false;
                     this.currentQuestion = null;
+                    // Update rounds to reflect the new current round from rotation
+                    if (data.round_number !== undefined) {
+                        this._advanceRoundsByNumber(data.round_number);
+                    }
                 } else if (type === 'quiz.table_scored') {
                     // Track which tables have been scored
                     if (data.table_id) {
                         this.scoredTables[data.table_id] = data.is_correct;
                         this._updateTableButtons();
                     }
+                } else if (type === 'quiz.error') {
+                    this.showError(data.message || 'An error occurred');
                 }
             },
 
+            showError: function (message) {
+                var self = this;
+                this.errorMessage = message;
+                if (this.errorTimer) clearTimeout(this.errorTimer);
+                this.errorTimer = setTimeout(function () {
+                    self.errorMessage = '';
+                }, 5000);
+            },
+
             // --- Host actions ---
+
+            regenerateTables: function () {
+                if (this.regenerating) return;
+                var self = this;
+                this.regenerating = true;
+                fetch('/api/quiz/' + this.quizId + '/regenerate-tables/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this._getCsrfToken()
+                    }
+                })
+                .then(function (resp) { return resp.json().then(function (d) { return { ok: resp.ok, data: d }; }); })
+                .then(function (result) {
+                    self.regenerating = false;
+                    if (!result.ok) {
+                        self.showError(result.data.error || 'Regeneration failed');
+                        return;
+                    }
+                    var d = result.data;
+                    // Refresh table overview by refetching assignment data
+                    self._fetchTableOverview();
+                    var msg = d.num_tables + ' tables: ' + d.anchors + ' anchors + ' + d.rotators + ' rotators';
+                    if (d.warnings && d.warnings.length) {
+                        msg += '. Warnings: ' + d.warnings.join('; ');
+                    }
+                    self.showError(msg);  // Reuse error banner for feedback
+                })
+                .catch(function () {
+                    self.regenerating = false;
+                    self.showError('Network error during regeneration');
+                });
+            },
+
+            _getCsrfToken: function () {
+                // Hidden form input first (works with CSRF_COOKIE_HTTPONLY=True)
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                // Fallback to cookie
+                var cookie = document.cookie.split('; ')
+                    .find(function (row) { return row.startsWith('csrftoken='); });
+                return cookie ? cookie.split('=')[1] : '';
+            },
+
+            _fetchTableOverview: function () {
+                var self = this;
+                fetch('/api/quiz/' + this.quizId + '/tables/?round=0')
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    self.tableMembers = data;
+                    self._renderTableOverview();
+                })
+                .catch(function () {});
+            },
 
             nextQuestion: function () {
                 if (this.ws && this.connected) {
@@ -795,7 +904,9 @@ document.addEventListener('alpine:init', function () {
             },
 
             startQuiz: function () {
-                this.nextQuestion();
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({ action: 'start_quiz' }));
+                }
             },
 
             pauseQuiz: function () {
@@ -891,29 +1002,110 @@ document.addEventListener('alpine:init', function () {
                 this._updateRoundButtons();
             },
 
-            _updateRoundButtons: function () {
+            // --- Guided flow: round status tracking ---
+
+            _markCurrentRoundDone: function () {
+                for (var i = 0; i < this.rounds.length; i++) {
+                    if (this.rounds[i].status === 'current') {
+                        this.rounds[i].status = 'done';
+                        break;
+                    }
+                }
+                this._renderRoundButtons();
+            },
+
+            _updateRoundCurrent: function (roundId) {
+                for (var i = 0; i < this.rounds.length; i++) {
+                    if (this.rounds[i].id === roundId) {
+                        this.rounds[i].status = 'current';
+                    }
+                }
+                this._renderRoundButtons();
+            },
+
+            _advanceRoundsByNumber: function (roundNumber) {
+                // After rotation: mark all rounds before roundNumber as done,
+                // the round at roundNumber as current
+                for (var i = 0; i < this.rounds.length; i++) {
+                    if (i < roundNumber) {
+                        this.rounds[i].status = 'done';
+                    } else if (i === roundNumber) {
+                        this.rounds[i].status = 'current';
+                        this.selectedRoundId = this.rounds[i].id;
+                        this.currentRound = {
+                            id: this.rounds[i].id,
+                            title: this.rounds[i].title,
+                            is_bonus: this.rounds[i].is_bonus
+                        };
+                    } else {
+                        this.rounds[i].status = 'upcoming';
+                    }
+                }
+                this._renderRoundButtons();
+            },
+
+            _renderRoundButtons: function () {
                 var root = this._root;
                 var buttons = root.querySelectorAll('.quiz-round-btn[data-round-id]');
                 for (var i = 0; i < buttons.length; i++) {
                     var rid = parseInt(buttons[i].getAttribute('data-round-id'), 10);
+                    // Find round info
+                    var roundInfo = null;
+                    for (var j = 0; j < this.rounds.length; j++) {
+                        if (this.rounds[j].id === rid) { roundInfo = this.rounds[j]; break; }
+                    }
+                    var status = roundInfo ? roundInfo.status : 'upcoming';
+
+                    // Reset classes
                     buttons[i].className = buttons[i].className
                         .replace(/bg-\S+/g, '')
                         .replace(/ring-\S+/g, '')
                         .replace(/text-\S+/g, '')
                         .replace(/hover:\S+/g, '')
+                        .replace(/border-\S+/g, '')
+                        .replace(/opacity-\S+/g, '')
                         .replace(/\s+/g, ' ')
                         .trim();
+
                     var cls;
-                    if (this.selectedRoundId === rid) {
-                        cls = 'bg-crush-purple/30 text-white ring-1 ring-crush-purple';
+                    if (status === 'current') {
+                        cls = 'bg-crush-purple/30 text-white ring-2 ring-crush-purple';
+                    } else if (status === 'done') {
+                        cls = 'bg-green-900/30 text-green-300 ring-1 ring-green-700';
                     } else {
                         cls = 'bg-slate-700 text-gray-300 hover:bg-slate-600';
                     }
                     var parts = cls.split(' ');
-                    for (var j = 0; j < parts.length; j++) {
-                        buttons[i].classList.add(parts[j]);
+                    for (var k = 0; k < parts.length; k++) {
+                        buttons[i].classList.add(parts[k]);
+                    }
+
+                    // Update or create status badge
+                    var badge = buttons[i].querySelector('.round-status-badge');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full';
+                        var rightSpan = buttons[i].querySelector('.text-gray-400');
+                        if (rightSpan && rightSpan.parentNode) {
+                            rightSpan.parentNode.insertBefore(badge, rightSpan);
+                        }
+                    }
+                    if (status === 'current') {
+                        badge.textContent = '▶ NOW';
+                        badge.className = 'round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-crush-purple text-white';
+                    } else if (status === 'done') {
+                        badge.textContent = '✓ DONE';
+                        badge.className = 'round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-green-700 text-green-200';
+                    } else {
+                        badge.textContent = '';
+                        badge.className = 'round-status-badge hidden';
                     }
                 }
+            },
+
+            _updateRoundButtons: function () {
+                // Alias for backward compat — delegates to guided flow renderer
+                this._renderRoundButtons();
             },
 
             // --- DOM rendering (CSP-safe replacement for x-for) ---

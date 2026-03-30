@@ -67,12 +67,7 @@ def quiz_live_view(request, event_id):
     is_quiz_night = quiz.event.event_type == "quiz_night"
 
     # Get user's current table assignment
-    # round_number is 0-indexed count of rounds before the current one
-    round_number = 0
-    if quiz.current_round:
-        round_number = quiz.rounds.filter(
-            sort_order__lt=quiz.current_round.sort_order
-        ).count()
+    round_number = quiz.get_round_number()
 
     rotation = (
         QuizRotationSchedule.objects.filter(
@@ -182,11 +177,7 @@ def quiz_coach_view(request, event_id):
     is_quiz_night = quiz.event.event_type == "quiz_night"
 
     # Build table members data for the overview panel
-    round_number = 0
-    if quiz.current_round:
-        round_number = quiz.rounds.filter(
-            sort_order__lt=quiz.current_round.sort_order
-        ).count()
+    round_number = quiz.get_round_number()
     table_members = _get_table_members_json(quiz, round_number)
 
     context = {

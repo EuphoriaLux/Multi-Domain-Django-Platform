@@ -29,6 +29,13 @@
             </div>
         </div>
 
+        {# --- Error / feedback banner --- #}
+        <div x-show="hasError"
+             x-cloak
+             class="mb-4 rounded-lg border border-amber-600 bg-amber-900/40 px-4 py-3 text-sm text-amber-300">
+            <span x-text="errorMessage"></span>
+        </div>
+
         {# --- Round selector --- #}
         <div class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
@@ -58,6 +65,19 @@
                 {% trans "Table Setup" %}
             </h2>
             <div x-ref="tableoverview" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
+            <div class="mt-3 flex items-center justify-between">
+                <button x-on:click="regenerateTables"
+                        x-bind:disabled="isRegenerating"
+                        class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all disabled:opacity-50">
+                    <span x-show="isRegenerating">{% trans "Regenerating..." %}</span>
+                    <span x-show="isNotRegenerating">{% trans "Regenerate Tables" %}</span>
+                </button>
+                {% if quiz.tables_generated_at %}
+                <span class="text-xs text-gray-500">
+                    {% trans "Last generated:" %} {{ quiz.tables_generated_at|date:"d M H:i" }}
+                </span>
+                {% endif %}
+            </div>
         </div>
 
         {# --- Current question info --- #}

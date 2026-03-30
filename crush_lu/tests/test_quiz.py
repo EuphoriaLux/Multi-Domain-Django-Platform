@@ -352,7 +352,8 @@ class TestRotationAlgorithm:
         men = self._make_users("man", 12)
         women = self._make_users("woman", 12)
 
-        schedule = generate_rotation_schedule(men, women, num_rounds=3)
+        result = generate_rotation_schedule(men, women, num_rounds=3)
+        schedule = result["schedule"]
         assert len(schedule) > 0
 
         # Verify men never move
@@ -373,7 +374,8 @@ class TestRotationAlgorithm:
         women = self._make_users("w", 8)
         num_tables = 4
 
-        schedule = generate_rotation_schedule(men, women, num_rounds=num_tables)
+        result = generate_rotation_schedule(men, women, num_rounds=num_tables)
+        schedule = result["schedule"]
 
         # Check each woman in group A visits all 4 tables
         for w in women[:num_tables]:
@@ -391,7 +393,8 @@ class TestRotationAlgorithm:
 
         men = self._make_users("m", 8)
         women = self._make_users("w", 8)
-        schedule = generate_rotation_schedule(men, women, num_rounds=4)
+        result = generate_rotation_schedule(men, women, num_rounds=4)
+        schedule = result["schedule"]
 
         # For each round+table, at most 1 woman per rotation group
         from collections import defaultdict
@@ -414,7 +417,8 @@ class TestRotationAlgorithm:
 
         men = self._make_users("m", 4)
         women = self._make_users("w", 4)
-        schedule = generate_rotation_schedule(men, women, num_rounds=2)
+        result = generate_rotation_schedule(men, women, num_rounds=2)
+        schedule = result["schedule"]
 
         for man in men:
             man_entries = [e for e in schedule if e["user"] == man]
@@ -423,34 +427,34 @@ class TestRotationAlgorithm:
             assert len(tables) == 1
 
     def test_validation_too_few_men(self):
-        """Need at least 4 men for 2 tables."""
+        """Need at least 2 tables."""
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
         men = self._make_users("m", 2)
         women = self._make_users("w", 2)
 
-        with pytest.raises(ValidationError, match="at least 4 men"):
+        with pytest.raises(ValidationError, match="at least 2 tables"):
             generate_rotation_schedule(men, women)
 
-    def test_validation_too_few_women(self):
-        """Need at least num_tables women."""
+    def test_validation_too_few_participants(self):
+        """Need at least 4 participants."""
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
-        men = self._make_users("m", 4)
+        men = self._make_users("m", 2)
         women = self._make_users("w", 1)
 
-        with pytest.raises(ValidationError, match="at least 2 women"):
-            generate_rotation_schedule(men, women)
+        with pytest.raises(ValidationError, match="at least 4 participants"):
+            generate_rotation_schedule(men, women, num_tables=2)
 
-    def test_validation_too_many_women(self):
-        """Max num_tables * 2 women."""
+    def test_extra_women_produce_warning(self):
+        """Extra women beyond num_tables * 2 produce a warning, not an error."""
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
         men = self._make_users("m", 4)
         women = self._make_users("w", 6)
 
-        with pytest.raises(ValidationError, match="Too many women"):
-            generate_rotation_schedule(men, women)
+        result = generate_rotation_schedule(men, women)
+        assert any("could not be seated" in w for w in result["warnings"])
 
     def test_split_participants_by_gender(self):
         """NB/O/P genders go to whichever pool is smaller."""
@@ -512,7 +516,8 @@ class TestRotationAlgorithm:
         men = self._make_users("m32", 16)
         women = self._make_users("w32", 16)
 
-        schedule = generate_rotation_schedule(men, women, num_rounds=8)
+        result = generate_rotation_schedule(men, women, num_rounds=8)
+        schedule = result["schedule"]
         assert len(schedule) > 0
 
         # Verify all anchors

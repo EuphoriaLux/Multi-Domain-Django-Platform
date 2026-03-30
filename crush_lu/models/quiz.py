@@ -34,6 +34,19 @@ class QuizEvent(models.Model):
         on_delete=models.CASCADE,
         related_name="created_quizzes",
     )
+    num_tables = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Number of physical tables available. "
+            "Leave blank to auto-calculate from participant count."
+        ),
+    )
+    tables_generated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When table assignments were last generated."),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,6 +61,24 @@ class QuizEvent(models.Model):
     @property
     def is_active(self):
         return self.status == "active"
+
+    def get_round_number(self, round_obj=None):
+        """Get the 0-indexed rotation round_number for a given round.
+
+        round_number in QuizRotationSchedule is the count of rounds
+        with sort_order less than the target round (0, 1, 2, ...).
+        This is NOT the sort_order value itself.
+
+        Args:
+            round_obj: The round to compute for. Defaults to current_round.
+
+        Returns:
+            int: 0-indexed round number, or 0 if no round is set.
+        """
+        target = round_obj or self.current_round
+        if not target:
+            return 0
+        return self.rounds.filter(sort_order__lt=target.sort_order).count()
 
     def get_current_question(self):
         """Return the current question based on round and index."""

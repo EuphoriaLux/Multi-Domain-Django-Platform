@@ -2,7 +2,7 @@
 Quiz Night table rotation algorithm.
 
 Generates a rotation schedule where:
-- Men are anchored at fixed tables (2 per table)
+- Men are anchored at fixed tables (distributed evenly)
 - Women rotate between tables (split into groups A and B at different speeds)
 - After N rounds (N = number of tables), every woman has visited every table
 - No two women are paired at the same table more than once
@@ -11,74 +11,112 @@ Generates a rotation schedule where:
 from django.core.exceptions import ValidationError
 
 
-def generate_rotation_schedule(men, women, num_rounds=3):
+def _distribute_evenly(people, num_buckets):
+    """Distribute people into num_buckets using round-robin.
+
+    Returns a dict mapping bucket index (0-based) to a list of people.
+    Example: 5 people into 3 buckets = {0: [P0, P3], 1: [P1, P4], 2: [P2]}
+    """
+    buckets = {i: [] for i in range(num_buckets)}
+    for idx, person in enumerate(people):
+        buckets[idx % num_buckets].append(person)
+    return buckets
+
+
+def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
     """
     Generate a rotation schedule for quiz night.
 
     Args:
-        men: list of user objects/IDs to anchor at tables (2 per table)
+        men: list of user objects/IDs to anchor at tables
         women: list of user objects/IDs to rotate between tables
         num_rounds: number of quiz rounds (default 3)
+        num_tables: number of physical tables available. If None,
+            auto-calculated as len(men) // 2.
 
     Returns:
-        list of dicts: [
-            {
-                "round_number": 0,
-                "table_number": 1,
-                "user": <user>,
-                "role": "anchor" | "rotator",
-                "rotation_group": "" | "A" | "B",
-            },
-            ...
-        ]
+        dict: {
+            "schedule": [
+                {
+                    "round_number": 0,
+                    "table_number": 1,
+                    "user": <user>,
+                    "role": "anchor" | "rotator",
+                    "rotation_group": "" | "A" | "B",
+                },
+                ...
+            ],
+            "num_tables": int,
+            "warnings": [str, ...],
+        }
 
     Raises:
-        ValidationError: if participant counts are invalid
+        ValidationError: if participant counts make rotation impossible
     """
-    num_tables = len(men) // 2
+    warnings = []
+
+    # Determine table count
+    if num_tables is None:
+        num_tables = len(men) // 2
+    else:
+        num_tables = int(num_tables)
 
     if num_tables < 2:
         raise ValidationError(
-            f"Need at least 4 men for 2 tables, got {len(men)}."
+            f"Need at least 2 tables. Got {num_tables} "
+            f"(with {len(men)} anchors, {len(women)} rotators)."
         )
 
-    if len(women) < num_tables:
+    total_participants = len(men) + len(women)
+    if total_participants < 4:
         raise ValidationError(
-            f"Need at least {num_tables} women for {num_tables} tables, "
-            f"got {len(women)}."
+            f"Need at least 4 participants, got {total_participants}."
         )
 
-    if len(women) > num_tables * 2:
-        raise ValidationError(
-            f"Too many women ({len(women)}) for {num_tables} tables. "
-            f"Maximum is {num_tables * 2}."
+    # Distribute men evenly across tables (round-robin)
+    men_tables = _distribute_evenly(men, num_tables)
+
+    # Check for empty anchor tables
+    empty_anchor_tables = [i for i in range(num_tables) if not men_tables[i]]
+    if empty_anchor_tables:
+        warnings.append(
+            f"{len(empty_anchor_tables)} table(s) have no anchors "
+            f"({len(men)} anchors for {num_tables} tables)."
+        )
+
+    # Handle women distribution
+    max_women = num_tables * 2
+    seated_women = women[:max_women]
+    unseated_women = women[max_women:]
+
+    if unseated_women:
+        warnings.append(
+            f"{len(unseated_women)} rotator(s) could not be seated "
+            f"(max {max_women} for {num_tables} tables). "
+            f"Consider adding more tables."
+        )
+
+    if len(seated_women) < num_tables:
+        warnings.append(
+            f"Only {len(seated_women)} rotator(s) for {num_tables} tables. "
+            f"Some tables will have no rotators in some rounds."
         )
 
     schedule = []
 
-    # Assign men to tables: men[0],men[1] → T1; men[2],men[3] → T2; etc.
-    men_tables = {}
-    for i in range(num_tables):
-        men_tables[i] = [men[i * 2], men[i * 2 + 1]]
-        # Handle odd number of men: last table gets 1 man
-        if i * 2 + 1 >= len(men):
-            men_tables[i] = [men[i * 2]]
-
-    # Split women into two rotation groups.
-    # With 2 tables, Group B step +2 is identity mod 2, so we merge all women
-    # into a single group rotating at +1 (each table gets up to 2 women).
+    # Split women into rotation groups
     if num_tables == 2:
-        group_a = women[: num_tables * 2]  # All women in one group
+        group_a = seated_women  # All women in one group
         group_b = []
     else:
-        group_a = women[:num_tables]
-        group_b = women[num_tables : num_tables * 2]
+        group_a = seated_women[:num_tables]
+        group_b = seated_women[num_tables : num_tables * 2]
 
     for round_num in range(num_rounds):
         for table_idx in range(num_tables):
             table_number = table_idx + 1  # 1-indexed
 
-            # Men are anchored — same table every round
+            # Men are anchored -- same table every round
             for man in men_tables[table_idx]:
                 schedule.append(
                     {
@@ -91,10 +129,12 @@ def generate_rotation_schedule(men, women, num_rounds=3):
                 )
 
             if num_tables == 2:
-                # 2 tables: all women in one group, 2 per table, rotating +1
+                # 2 tables: all women in one group, rotating +1
                 for offset in range(2):
-                    w_idx = (table_idx * 2 + offset + round_num) % len(group_a)
-                    if w_idx < len(group_a):
+                    w_idx = (table_idx * 2 + offset + round_num) % len(
+                        group_a
+                    ) if group_a else -1
+                    if 0 <= w_idx < len(group_a):
                         schedule.append(
                             {
                                 "round_number": round_num,
@@ -130,7 +170,11 @@ def generate_rotation_schedule(men, women, num_rounds=3):
                         }
                     )
 
-    return schedule
+    return {
+        "schedule": schedule,
+        "num_tables": num_tables,
+        "warnings": warnings,
+    }
 
 
 def split_participants_by_gender(registrations_with_profiles):
@@ -144,12 +188,12 @@ def split_participants_by_gender(registrations_with_profiles):
     Returns:
         (men_users, women_users): two lists of User objects
 
-    Uses GENDER_POOL_MAP logic: M → men pool, F → women pool,
-    NB/O/P → whichever pool needs more people.
+    Uses GENDER_POOL_MAP logic: M -> men pool, F -> women pool,
+    NB/O/P -> whichever pool needs more people.
     """
     men = []
     women = []
-    flexible = []  # NB, O, P — assigned to smaller pool
+    flexible = []  # NB, O, P -- assigned to smaller pool
 
     for reg in registrations_with_profiles:
         profile = getattr(reg.user, "crushprofile", None)

@@ -38,19 +38,6 @@ from crush_lu.models.quiz import (
 )
 
 
-def _get_current_round_number(quiz):
-    """Get the rotation round_number (0-indexed) for the current round.
-
-    Issue #3: round_number in QuizRotationSchedule is the index of the
-    round among all rounds (0, 1, 2, ...), NOT the sort_order value.
-    """
-    if not quiz.current_round:
-        return 0
-    return quiz.rounds.filter(
-        sort_order__lt=quiz.current_round.sort_order
-    ).count()
-
-
 def _is_quiz_host(quiz, user):
     """Check if user can host/score this quiz (Issue #6: include coaches)."""
     if quiz.created_by == user or user.is_staff:
@@ -176,7 +163,7 @@ def my_assignment(request, quiz_id):
         return Response({"error": "Quiz not found"}, status=404)
 
     user = request.user
-    round_number = _get_current_round_number(quiz)
+    round_number = quiz.get_round_number()
 
     # Look up rotation schedule
     rotation = (
@@ -326,7 +313,7 @@ def score_table(request, quiz_id):
         points *= 2
 
     # Issue #3: Use round index, not sort_order
-    round_number = _get_current_round_number(quiz)
+    round_number = quiz.get_round_number()
 
     rotation_users = list(
         QuizRotationSchedule.objects.filter(
@@ -362,5 +349,119 @@ def score_table(request, quiz_id):
             "is_correct": is_correct,
             "points_awarded": points,
             "members_scored": len(rotation_users),
+        }
+    )
+
+
+@login_required
+def regenerate_tables(request, quiz_id):
+    """Host-only endpoint to regenerate table assignments based on current attendees."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"error": "Quiz not found"}, status=404)
+
+    if not _is_quiz_host(quiz, request.user):
+        return JsonResponse({"error": "Not authorized"}, status=403)
+
+    from django.utils import timezone
+
+    from crush_lu.models.events import EventRegistration
+    from crush_lu.services.quiz_rotation import (
+        generate_rotation_schedule,
+        split_participants_by_gender,
+    )
+
+    # Get currently attended or confirmed registrations
+    registrations = (
+        EventRegistration.objects.filter(
+            event=quiz.event, status__in=["confirmed", "attended"]
+        )
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
+
+    if registrations.count() < 4:
+        return JsonResponse(
+            {
+                "error": f"Need at least 4 registrations, "
+                f"got {registrations.count()}."
+            },
+            status=400,
+        )
+
+    men, women = split_participants_by_gender(registrations)
+
+    try:
+        num_rounds = quiz.rounds.count() or 3
+        result = generate_rotation_schedule(
+            men, women, num_rounds, num_tables=quiz.num_tables
+        )
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    schedule = result["schedule"]
+    actual_num_tables = result["num_tables"]
+
+    # Clear rotation data and memberships (preserve tables for score FKs)
+    QuizRotationSchedule.objects.filter(quiz=quiz).delete()
+    QuizTableMembership.objects.filter(table__quiz=quiz).delete()
+
+    # Reuse or create tables
+    existing_tables = {
+        t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)
+    }
+    tables = {}
+    for t in range(1, actual_num_tables + 1):
+        if t in existing_tables:
+            tables[t] = existing_tables[t]
+        else:
+            tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
+
+    # Remove excess tables only if they have no scores
+    for t_num, t_obj in existing_tables.items():
+        if t_num > actual_num_tables:
+            if not t_obj.round_scores.exists():
+                t_obj.delete()
+
+    # Build rotation schedule and round-0 memberships
+    rotation_entries = []
+    round_0_members = set()
+    for entry in schedule:
+        table = tables[entry["table_number"]]
+        rotation_entries.append(
+            QuizRotationSchedule(
+                quiz=quiz,
+                round_number=entry["round_number"],
+                table=table,
+                user=entry["user"],
+                role=entry["role"],
+                rotation_group=entry["rotation_group"],
+            )
+        )
+        if entry["round_number"] == 0:
+            round_0_members.add((entry["table_number"], entry["user"]))
+
+    QuizRotationSchedule.objects.bulk_create(rotation_entries)
+
+    memberships = []
+    for table_num, user in round_0_members:
+        memberships.append(
+            QuizTableMembership(table=tables[table_num], user=user)
+        )
+    QuizTableMembership.objects.bulk_create(memberships)
+
+    quiz.tables_generated_at = timezone.now()
+    quiz.save(update_fields=["tables_generated_at"])
+
+    return JsonResponse(
+        {
+            "num_tables": actual_num_tables,
+            "anchors": len(men),
+            "rotators": len(women),
+            "warnings": result["warnings"],
         }
     )
