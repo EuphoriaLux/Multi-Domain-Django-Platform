@@ -616,7 +616,7 @@ class TestQuizAPI:
         )
 
         client = APIClient()
-        client.force_authenticate(user=coach_user)
+        client.force_login(coach_user)
         response = client.post(
             f"/api/quiz/{quiz_event.id}/score-table/",
             {
