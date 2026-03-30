@@ -1,5 +1,11 @@
 import os
 
+# ─── Environment detection ─────────────────────────────────────────────────────
+# Set DJANGO_ENV as a slot-sticky App Service setting:
+#   Staging slot  → DJANGO_ENV=staging
+#   Production    → DJANGO_ENV=production  (or omit; defaults to "production")
+DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
+
 # ============================================================================
 # Azure Internal IP Support (MUST be before ALLOWED_HOSTS)
 # ============================================================================
@@ -406,8 +412,9 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "production": {
-            "format": "{levelname} [{name}] {message}",
+            "format": "{levelname} [{name}] [{environment}] {message}",
             "style": "{",
+            "defaults": {"environment": DJANGO_ENV},
         },
     },
     "filters": {
@@ -539,7 +546,7 @@ if "WEBSITE_HOSTNAME" in os.environ:
 # The SDK automatically instruments: Django, requests, urllib, psycopg2
 from azureproject.telemetry_config import configure_azure_monitor_telemetry
 
-telemetry_ok = configure_azure_monitor_telemetry()
+telemetry_ok = configure_azure_monitor_telemetry(environment=DJANGO_ENV)
 if not telemetry_ok:
     import sys
     print(
