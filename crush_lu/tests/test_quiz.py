@@ -661,7 +661,7 @@ class TestQuizAPI:
         )
 
         client = APIClient()
-        client.force_authenticate(user=coach_user)
+        client.force_login(coach_user)
         response = client.post(
             f"/api/quiz/{quiz_event.id}/score-table/",
             {"table_id": quiz_table.id, "question_id": q.id, "is_correct": True},
@@ -672,7 +672,7 @@ class TestQuizAPI:
 
     def test_score_table_rejects_non_host(self, quiz_event, quiz_table, quiz_questions, quiz_user):
         client = APIClient()
-        client.force_authenticate(user=quiz_user)
+        client.force_login(quiz_user)
         response = client.post(
             f"/api/quiz/{quiz_event.id}/score-table/",
             {
