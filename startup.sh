@@ -13,13 +13,31 @@ if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
     echo "✅ Virtual environment extracted to /antenv"
 fi
 
+# Fix broken python symlinks — venv was built on GitHub Actions (different Python path)
+# The symlinks point to /opt/hostedtoolcache/... but Azure has /opt/python/...
+if [ -d "/antenv/bin" ]; then
+    SYSTEM_PYTHON="$(which python3 2>/dev/null || which python)"
+    echo "🔍 Debug: venv bin contents:"
+    ls -la /antenv/bin/python* 2>&1 || true
+    echo "🔍 Debug: system python is $SYSTEM_PYTHON"
+    # If python symlink is broken, relink to system python
+    if [ -L "/antenv/bin/python" ] && [ ! -e "/antenv/bin/python" ]; then
+        echo "🔧 Fixing broken python symlink in venv..."
+        rm -f /antenv/bin/python /antenv/bin/python3 /antenv/bin/python3.12
+        ln -s "$SYSTEM_PYTHON" /antenv/bin/python
+        ln -s "$SYSTEM_PYTHON" /antenv/bin/python3
+        ln -s "$SYSTEM_PYTHON" /antenv/bin/python3.12
+        echo "✅ Python symlinks fixed → $SYSTEM_PYTHON"
+    fi
+fi
+
 # Use explicit venv python path — source activate can fail silently in Oryx wrappers
-if [ -f "/antenv/bin/python" ]; then
+if [ -x "/antenv/bin/python" ]; then
     PYTHON="/antenv/bin/python"
     export PATH="/antenv/bin:$PATH"
     export VIRTUAL_ENV="/antenv"
     echo "🔧 Using virtual environment: $PYTHON ($($PYTHON --version))"
-elif [ -f "antenv/bin/python" ]; then
+elif [ -x "antenv/bin/python" ]; then
     PYTHON="$(pwd)/antenv/bin/python"
     export PATH="$(pwd)/antenv/bin:$PATH"
     export VIRTUAL_ENV="$(pwd)/antenv"
