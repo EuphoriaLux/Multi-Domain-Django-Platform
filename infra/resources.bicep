@@ -60,7 +60,7 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-01-01' = {
       {
         name: cacheSubnetName
         properties: {
-          addressPrefix: '10.0.2.0/24'
+          addressPrefix: '10.0.3.0/24'
         }
       }
     ]
