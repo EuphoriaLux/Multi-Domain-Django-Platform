@@ -530,7 +530,10 @@ resource pythonAppStagingDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/dat
 
 // Azure Redis Cache (Basic C0) for Django Channels WebSocket support
 // SECURITY NOTE: Basic SKU does NOT support private endpoints or publicNetworkAccess: 'Disabled'.
-// Firewall rules below restrict access to App Service outbound IPs only.
+// The App Service uses VNet integration (webapp-subnet), so outbound traffic does NOT use
+// the App Service's public outbound IPs — IP-based firewall rules would not match.
+// Instead, we allow Azure-internal traffic only via a 0.0.0.0 firewall rule (equivalent to
+// "Allow Azure services and resources to access this cache" in the portal).
 // To fully resolve alerts #126/#129 (private endpoints), upgrade to Standard C1+ or Premium P1+.
 resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
   location: location
@@ -545,26 +548,23 @@ resource redisCache 'Microsoft.Cache/redis@2023-04-01' = {
     enableNonSslPort: false
     redisVersion: '6.0'
     minimumTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled' // Required for Basic SKU — restricted by firewall rules below
+    publicNetworkAccess: 'Enabled' // Required for Basic SKU — restricted by firewall rule below
   }
 }
 
-// Redis firewall rules: restrict access to App Service outbound IPs only
-// Uses possibleOutboundIpAddresses (superset stable across scaling events)
+// Redis firewall: allow Azure services only (blocks public internet access)
+// The 0.0.0.0 rule is Azure's convention for "Allow Azure services and resources"
+// This is the most practical restriction for Basic SKU + VNet-integrated App Service,
+// since VNet outbound traffic uses unpredictable SNAT IPs (no NAT gateway configured).
 // Resolves alerts #127 (cleanup firewall rules) and #128 (limit IP addresses)
-var appServiceOutboundIps = split(web.properties.possibleOutboundIpAddresses, ',')
-
-@batchSize(1)
-resource redisCacheFirewallRules 'Microsoft.Cache/redis/firewallRules@2023-04-01' = [
-  for (ip, i) in appServiceOutboundIps: {
-    parent: redisCache
-    name: 'AllowAppService${i}'
-    properties: {
-      startIP: trim(ip)
-      endIP: trim(ip)
-    }
+resource redisCacheFirewallAllowAzure 'Microsoft.Cache/redis/firewallRules@2023-04-01' = {
+  parent: redisCache
+  name: 'AllowAzureServices'
+  properties: {
+    startIP: '0.0.0.0'
+    endIP: '0.0.0.0'
   }
-]    
+}    
 
 // Azure Storage Account for Media Files
 var storageAccountName = '${toLower('media')}${uniqueString(resourceGroup().id)}' // Use a fixed prefix and uniqueString
