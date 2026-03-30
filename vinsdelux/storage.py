@@ -214,11 +214,29 @@ def vinsdelux_upload_path(subfolder: str = ''):
 
 def get_vinsdelux_media_storage():
     """Get VinsDelux media storage instance (lazy initialization)."""
-    return VdlMediaStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = VdlMediaStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 def get_vinsdelux_private_storage():
     """Get VinsDelux private storage instance (lazy initialization)."""
-    return VdlPrivateStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = VdlPrivateStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 # Aliases for backward compatibility and convenience
 vinsdelux_media_storage = get_vinsdelux_media_storage

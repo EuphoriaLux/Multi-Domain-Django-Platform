@@ -128,7 +128,16 @@ def entreprinder_upload_path(subfolder: str = ''):
 
 def get_entreprinder_media_storage():
     """Get Entreprinder media storage instance (lazy initialization)."""
-    return EntreprinderMediaStorage()
+    try:
+        from django.core.files.storage.base import Storage
+        storage = EntreprinderMediaStorage()
+        if not isinstance(storage, Storage):
+            from django.core.files.storage import default_storage
+            return default_storage
+        return storage
+    except Exception:
+        from django.core.files.storage import default_storage
+        return default_storage
 
 # Alias for backward compatibility and convenience
 entreprinder_media_storage = get_entreprinder_media_storage
