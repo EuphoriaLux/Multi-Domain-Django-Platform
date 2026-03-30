@@ -6,6 +6,22 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 Python version: $(python --version)"
 
+# Extract pre-built virtual environment if not already present
+if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
+    echo "📦 Extracting pre-built virtual environment..."
+    tar xzf antenv.tar.gz -C /
+    echo "✅ Virtual environment extracted to /antenv"
+fi
+
+# Activate virtual environment
+if [ -d "/antenv/bin" ]; then
+    echo "🔧 Activating virtual environment from /antenv"
+    . /antenv/bin/activate
+elif [ -d "antenv/bin" ]; then
+    echo "🔧 Activating virtual environment from antenv"
+    . antenv/bin/activate
+fi
+
 # Note: collectstatic is handled during CI/CD build (GitHub Actions workflow)
 # The antenv virtual environment and static files are pre-built and included in the deployment zip
 # Do NOT run collectstatic here — running it twice causes manifest conflicts
