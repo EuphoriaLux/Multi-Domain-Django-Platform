@@ -126,11 +126,16 @@ jobs:
       - name: Build deployment package locally
         env:
           SECRET_KEY: 'ci-build-key'
+          # Use production settings so collectstatic generates the manifest (staticfiles.json)
+          # required by WhiteNoise's CompressedManifestStaticFilesStorage at runtime
+          WEBSITE_HOSTNAME: 'ci-build'
+          POSTGRESQLCONNSTR_CI: 'dbname=ci host=localhost user=ci password=ci'
         run: |
           python -m venv antenv
           source antenv/bin/activate
           pip install -q -r requirements.txt
           python manage.py collectstatic --noinput
+          test -f staticfiles/staticfiles.json || { echo "❌ staticfiles manifest missing"; exit 1; }
           # Fix native extensions for Azure App Service (Debian 11 / GLIBC 2.31)
           # CI runner (ubuntu-latest) has GLIBC 2.39 — cryptography's .abi3.so
           # needs manylinux_2_28 (GLIBC 2.28) to run on Azure
