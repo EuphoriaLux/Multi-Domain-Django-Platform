@@ -185,6 +185,7 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Oryx disabled — we ship a pre-built antenv.tar.gz extracted by startup.sh
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
       ENABLE_ORYX_BUILD: 'false'
+      DISABLE_ORYX_BUILD: 'true'
       SECRET_KEY: secretKey
       // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu'
@@ -314,6 +315,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       // Oryx disabled — we ship a pre-built antenv.tar.gz extracted by startup.sh
       SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
       ENABLE_ORYX_BUILD: 'false'
+      DISABLE_ORYX_BUILD: 'true'
       // ISOLATED DATABASE: Uses pythonapp_staging instead of pythonapp to prevent test data affecting production
       SECRET_KEY: secretKey
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
@@ -358,6 +360,10 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
   name: 'slotConfigNames'
   properties: {
     appSettingNames: [
+      // Build settings - must stay with each slot to prevent Oryx from rebuilding
+      'ENABLE_ORYX_BUILD'
+      'SCM_DO_BUILD_DURING_DEPLOYMENT'
+      'DISABLE_ORYX_BUILD'
       // Domain settings - each slot has its own domains
       'CUSTOM_DOMAINS'
       'ALLOWED_HOSTS_ENV'
