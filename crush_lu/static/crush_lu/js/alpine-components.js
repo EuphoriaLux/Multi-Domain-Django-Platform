@@ -4207,7 +4207,7 @@ document.addEventListener('alpine:init', function() {
                         if (result.success) {
                             self.step = 'success';
                             // Update phone verification state
-                            window.dispatchEvent(new CustomEvent('phone-verified', { detail: result.phoneNumber }));
+                            window.dispatchEvent(new CustomEvent('phone-verified', { detail: result.phone_number }));
                             setTimeout(function() { self.close(); }, 2000);
                         } else if (result.error_code === 'phone_already_in_use') {
                             self.phoneAlreadyInUse = true;
