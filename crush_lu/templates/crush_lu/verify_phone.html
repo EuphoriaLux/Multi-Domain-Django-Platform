@@ -95,7 +95,7 @@
                                 {% trans "Verification Code" %}
                             </label>
                             <div class="flex justify-center gap-2">
-                                <input type="text" id="otp-0" maxlength="1" inputmode="numeric"
+                                <input type="text" id="otp-0" maxlength="1" inputmode="numeric" autocomplete="one-time-code"
                                        class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
                                        :value="otp0"
                                        @input="handleOtpInput(0, $event)"
