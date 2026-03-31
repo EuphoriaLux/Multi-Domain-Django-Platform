@@ -2174,15 +2174,19 @@ document.addEventListener('alpine:init', function() {
                 // CRITICAL: Before form submission, ensure phone number input has full international number
                 // intlTelInput with separateDialCode=true stores only national number in input.value
                 // We need to set the full number so Django form receives it correctly
-                if (window.itiInstance) {
-                    var phoneInput = document.querySelector('[name="phone_number"]');
-                    if (phoneInput && !phoneInput.readOnly) {
-                        // Get full international number from intlTelInput
+                var phoneInput = document.querySelector('[name="phone_number"]');
+                if (phoneInput) {
+                    if (window.itiInstance) {
+                        // Get full international number from intlTelInput (works for both
+                        // readOnly/verified and editable phones)
                         var fullNumber = window.itiInstance.getNumber();
                         if (fullNumber) {
                             phoneInput.value = fullNumber;
                         }
                     }
+                    // Safety net: if value still lacks '+' prefix and looks like a
+                    // national number, the backend clean_phone_number will handle it
+                    // for verified phones by returning the DB value.
                 }
             },
 
@@ -3841,8 +3845,25 @@ document.addEventListener('alpine:init', function() {
                     self.verified = true;
                     var phoneInput = document.getElementById(self.phoneInputId);
                     if (phoneInput && e.detail) {
+                        if (self.iti) {
+                            // Use setNumber() to keep intl-tel-input in sync, then
+                            // destroy the instance so it can't strip the dial code later
+                            self.iti.setNumber(e.detail);
+                        }
+                        // Set the raw input value to full E.164 number as a safety net
                         phoneInput.value = e.detail;
                         phoneInput.readOnly = true;
+                        // Destroy intl-tel-input instance - phone is now verified and locked,
+                        // we don't want the library interfering with the value on form submit
+                        if (self.iti) {
+                            try {
+                                self.iti.destroy();
+                            } catch (err) {
+                                console.warn('intl-tel-input: Could not destroy after verification', err);
+                            }
+                            self.iti = null;
+                            window.itiInstance = null;
+                        }
                     }
                 });
             },
@@ -3879,11 +3900,40 @@ document.addEventListener('alpine:init', function() {
                     return;
                 }
 
-                // Dispatch event to open modal
-                window.dispatchEvent(new CustomEvent('open-phone-modal'));
-
                 // Get phone number
                 var phoneNumber = this.iti ? this.iti.getNumber() : document.getElementById(this.phoneInputId).value;
+
+                // Check if phone is already taken BEFORE sending SMS
+                var csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                fetch('/api/phone/check-available/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken ? csrfToken.value : ''
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ phone_number: phoneNumber })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (!data.available) {
+                        self.errorMessage = data.error || 'This phone number is already in use';
+                        return;
+                    }
+                    // Phone is available - open modal and send SMS
+                    self._doStartVerification(phoneNumber);
+                })
+                .catch(function() {
+                    // If check fails, proceed anyway (backend will still catch duplicates)
+                    self._doStartVerification(phoneNumber);
+                });
+            },
+
+            _doStartVerification: function(phoneNumber) {
+                var self = this;
+
+                // Dispatch event to open modal
+                window.dispatchEvent(new CustomEvent('open-phone-modal'));
 
                 // Initialize phone verification
                 if (window.phoneVerification) {
@@ -4357,6 +4407,38 @@ document.addEventListener('alpine:init', function() {
                 this.displayPhone = phoneNumber;
                 this.isLoading = true;
 
+                // Check if phone is already taken BEFORE sending the SMS
+                // (saves Firebase SMS credits)
+                var csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                fetch('/api/phone/check-available/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken ? csrfToken.value : ''
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ phone_number: phoneNumber })
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (!data.available) {
+                        self.isLoading = false;
+                        self.phoneAlreadyInUse = true;
+                        self.error = data.error || 'This phone number is already in use';
+                        return;
+                    }
+                    // Phone is available - proceed with Firebase SMS
+                    self._sendFirebaseSms(phoneNumber);
+                })
+                .catch(function() {
+                    // If check fails (network error), proceed with SMS anyway
+                    // The backend mark_phone_verified will still catch duplicates
+                    self._sendFirebaseSms(phoneNumber);
+                });
+            },
+
+            _sendFirebaseSms: function(phoneNumber) {
+                var self = this;
                 if (window.phoneVerification) {
                     window.phoneVerification.sendVerificationCode(phoneNumber).then(function(result) {
                         self.isLoading = false;

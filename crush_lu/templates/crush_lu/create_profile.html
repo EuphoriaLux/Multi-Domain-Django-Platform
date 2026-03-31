@@ -1331,7 +1331,7 @@
 
                     <!-- OTP Inputs - CSP-compatible: using :value + @input with method names only (no $event) -->
                     <div class="flex justify-center gap-2 mb-4">
-                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0"
+                        <input type="text" id="otp-0" x-ref="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" data-index="0"
                                :value="otp0" @input="handleOtp0Input" @keydown.backspace="handleOtpBackspace" @paste="handleOtpPaste"
                                class="w-12 h-14 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition dark:bg-gray-700 dark:text-white dark:border-gray-600">
                         <input type="text" id="otp-1" x-ref="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"

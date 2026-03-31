@@ -75,6 +75,7 @@ urlpatterns = base_patterns + api_patterns + [
 
     # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
+    path('api/phone/check-available/', views_phone_verification.check_phone_available, name='api_phone_check_available'),
     path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
 
     # ============================================================================
