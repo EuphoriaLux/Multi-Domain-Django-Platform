@@ -391,7 +391,7 @@ class CrushProfile(models.Model):
     phone_number = models.CharField(
         max_length=20, blank=True, db_index=True,
         validators=[RegexValidator(
-            regex=r'^\+?[\d\s\-().]{7,20}$',
+            regex=r'^\+[\d\s\-().]{7,20}$',
             message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
         )],
     )  # Required in form, not model

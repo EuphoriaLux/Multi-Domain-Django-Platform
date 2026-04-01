@@ -308,6 +308,22 @@ class CrushProfileForm(forms.ModelForm):
         # Remove all whitespace and dashes for validation
         phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
 
+        # Skip format validation for already-verified phones: the number was
+        # validated by Firebase in E.164 format during verification, so we
+        # trust the DB value.  This prevents false negatives caused by
+        # intl-tel-input's separateDialCode stripping the dial code from
+        # input.value on re-submission.
+        if self.instance and self.instance.pk:
+            from .models import CrushProfile
+            try:
+                db_profile = CrushProfile.objects.get(pk=self.instance.pk)
+                if db_profile.phone_verified:
+                    # Return the verified phone from DB (normalized E.164)
+                    db_phone_clean = re.sub(r'[\s\-\(\)]', '', db_profile.phone_number)
+                    return db_phone_clean
+            except CrushProfile.DoesNotExist:
+                pass
+
         # Must start with + for international format
         if not phone_clean.startswith('+'):
             raise forms.ValidationError(
@@ -343,7 +359,8 @@ class CrushProfileForm(forms.ModelForm):
                 _("Phone number can only contain digits after the country code.")
             )
 
-        return phone
+        # Return normalized phone (no spaces/dashes) for consistent DB storage
+        return phone_clean
 
     def clean(self):
         """Additional cross-field validation"""

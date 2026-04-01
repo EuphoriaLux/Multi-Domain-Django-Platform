@@ -9,8 +9,18 @@ echo "🐍 System Python: $(python --version) at $(which python)"
 # Extract pre-built virtual environment if not already present
 if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
     echo "📦 Extracting pre-built virtual environment..."
-    tar xzf antenv.tar.gz -C /
+    mkdir -p /antenv
+    tar xzf antenv.tar.gz -C /antenv
     echo "✅ Virtual environment extracted to /antenv"
+fi
+
+# Fix nested extraction: Oryx may extract antenv.tar.gz into /antenv/antenv/
+# (happens when tar contains antenv/ prefix and Oryx uses tar -C /antenv)
+if [ -d "/antenv/antenv/bin" ] && [ ! -d "/antenv/bin" ]; then
+    echo "🔧 Fixing nested venv extraction (Oryx created /antenv/antenv/)..."
+    mv /antenv/antenv/* /antenv/
+    rmdir /antenv/antenv 2>/dev/null || true
+    echo "✅ Nested venv structure fixed"
 fi
 
 # Fix broken python symlinks — venv was built on GitHub Actions (different Python path)

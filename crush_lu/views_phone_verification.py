@@ -181,6 +181,50 @@ def mark_phone_verified(request):
 
 
 @login_required
+@require_POST
+@csrf_protect
+@ratelimit(key='user', rate='10/m', method='POST')
+def check_phone_available(request):
+    """
+    Check if a phone number is available (not already verified by another user).
+
+    Call this BEFORE sending the Firebase SMS to avoid wasting SMS credits
+    on phone numbers that are already taken.
+
+    Returns:
+        JsonResponse with:
+        - available: bool (True if phone can be used)
+        - error: str (only when available is False)
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({"available": False, "error": "Invalid request"}, status=400)
+
+    if not phone_number:
+        return JsonResponse({"available": False, "error": "Phone number is required"}, status=400)
+
+    # Normalize: remove spaces/dashes for comparison
+    import re
+    phone_clean = re.sub(r'[\s\-\(\)]', '', phone_number)
+
+    # Check if this phone is already verified by a different user
+    already_taken = CrushProfile.objects.filter(
+        phone_number=phone_clean,
+        phone_verified=True,
+    ).exclude(user=request.user).exists()
+
+    if already_taken:
+        return JsonResponse({
+            "available": False,
+            "error": _("This phone number is already associated with another account."),
+        })
+
+    return JsonResponse({"available": True})
+
+
+@login_required
 @require_GET
 def phone_verification_status(request):
     """
