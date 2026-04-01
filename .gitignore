@@ -204,5 +204,7 @@ social-media/
 # Google Search Console credentials and reports
 scripts/gsc_credentials.json
 scripts/gsc_token.json
+scripts/ga4_token.json
 scripts/gsc_report.json
 scripts/gsc_deep_dive.json
+scripts/exports/

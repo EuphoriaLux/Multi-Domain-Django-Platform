@@ -26,7 +26,8 @@ Utility scripts for development, translation, deployment, and maintenance tasks.
 
 ## SEO / Analytics
 
-- `gsc_report.py` - Google Search Console performance report
+- `gsc_report.py` - Google Search Console performance report (queries, pages, countries)
+- `ga4_report.py` - GA4 traffic acquisition report (sources, landing pages, geography, devices)
 
 ## Usage
 
