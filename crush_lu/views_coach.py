@@ -122,22 +122,22 @@ def coach_dashboard(request):
             {"label": label, "count": count, "pct": pct, "color": color}
         )
 
-    # Age distribution
+    # Age distribution (with gender breakdown)
     today = date.today()
-    dob_list = list(
+    dob_gender_list = list(
         approved_profiles.exclude(date_of_birth__isnull=True).values_list(
-            "date_of_birth", flat=True
+            "date_of_birth", "gender"
         )
     )
     age_buckets = [
-        {"label": "18-24", "min": 18, "max": 24, "count": 0},
-        {"label": "25-30", "min": 25, "max": 30, "count": 0},
-        {"label": "31-35", "min": 31, "max": 35, "count": 0},
-        {"label": "36-40", "min": 36, "max": 40, "count": 0},
-        {"label": "41-50", "min": 41, "max": 50, "count": 0},
-        {"label": "50+", "min": 51, "max": 999, "count": 0},
+        {"label": "18-24", "min": 18, "max": 24, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "25-30", "min": 25, "max": 30, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "31-35", "min": 31, "max": 35, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "36-40", "min": 36, "max": 40, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "41-50", "min": 41, "max": 50, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "50+", "min": 51, "max": 999, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
     ]
-    for dob in dob_list:
+    for dob, gender in dob_gender_list:
         age = (
             today.year
             - dob.year
@@ -146,10 +146,40 @@ def coach_dashboard(request):
         for bucket in age_buckets:
             if bucket["min"] <= age <= bucket["max"]:
                 bucket["count"] += 1
+                if gender == "F":
+                    bucket["count_f"] += 1
+                elif gender == "M":
+                    bucket["count_m"] += 1
+                else:
+                    bucket["count_other"] += 1
                 break
     max_age_count = max((b["count"] for b in age_buckets), default=1) or 1
     for bucket in age_buckets:
         bucket["pct"] = round(bucket["count"] * 100 / max_age_count)
+        if bucket["count"] > 0:
+            bucket["pct_f"] = round(bucket["count_f"] * 100 / bucket["count"])
+            bucket["pct_m"] = round(bucket["count_m"] * 100 / bucket["count"])
+            bucket["pct_other"] = 100 - bucket["pct_f"] - bucket["pct_m"]
+        else:
+            bucket["pct_f"] = bucket["pct_m"] = bucket["pct_other"] = 0
+
+    # Language distribution (approved profiles)
+    lang_data = (
+        approved_profiles.exclude(preferred_language="")
+        .values("preferred_language")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷"}
+    lang_total = sum(item["count"] for item in lang_data) or 1
+    language_stats = [
+        {
+            "label": f"{lang_flags.get(item['preferred_language'], '')} {item['preferred_language'].upper()}",
+            "count": item["count"],
+            "pct": round(item["count"] * 100 / lang_total),
+        }
+        for item in lang_data
+    ]
 
     # --- Row 2.5: Ideal Crush Preferences ---
     from .analytics import get_preference_stats
@@ -246,6 +276,7 @@ def coach_dashboard(request):
         "pref_stats": pref_stats,
         "approved_members_count": approved_members_count,
         "match_pairs_count": match_pairs_count,
+        "language_stats": language_stats,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 

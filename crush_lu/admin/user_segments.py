@@ -1098,6 +1098,31 @@ def user_segments_dashboard(request):
     segments = get_segment_definitions()
     demographics = get_demographic_stats()
 
+    # Preference stats for approved profiles
+    from crush_lu.analytics import get_preference_stats
+
+    approved_profiles = CrushProfile.objects.filter(is_approved=True)
+    pref_stats = get_preference_stats(approved_profiles)
+
+    # Approved-only language distribution
+    lang_data = (
+        approved_profiles.exclude(preferred_language="")
+        .values("preferred_language")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷"}
+    lang_total = sum(item["count"] for item in lang_data) or 1
+    approved_language_stats = [
+        {
+            "label": f"{lang_flags.get(item['preferred_language'], '')} {item['preferred_language'].upper()}",
+            "code": item["preferred_language"],
+            "count": item["count"],
+            "pct": round(item["count"] * 100 / lang_total, 1),
+        }
+        for item in lang_data
+    ]
+
     # Calculate totals
     total_incomplete = sum(
         seg["count"] for seg in segments["profile_completion"]["segments"]
@@ -1121,6 +1146,8 @@ def user_segments_dashboard(request):
         "total_inactive": total_inactive,
         "total_reminder_eligible": total_reminder_eligible,
         "total_unverified": total_unverified,
+        "pref_stats": pref_stats,
+        "approved_language_stats": approved_language_stats,
         "title": "User Segments",
         "site_header": "💕 Crush.lu Administration",
     }

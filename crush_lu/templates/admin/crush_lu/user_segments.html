@@ -633,6 +633,86 @@
         </div>
     </div>
     {% endif %}
+
+    {% if pref_stats %}
+    <div class="distribution-section">
+        <h2>💘 {% trans "Ideal Crush Preferences (Approved Profiles)" %}</h2>
+
+        <div style="margin-bottom: 16px;">
+            <span style="font-size: 28px; font-weight: bold; color: #9B59B6;">{{ pref_stats.adoption_rate }}%</span>
+            <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">
+                {% blocktrans with configured=pref_stats.configured_count total=pref_stats.total_approved %}{{ configured }} of {{ total }} profiles have configured preferences{% endblocktrans %}
+            </span>
+        </div>
+
+        <div class="distribution-grid">
+            <div class="distribution-column">
+                <h3>{% trans "Gender Preferences" %}</h3>
+                {% for g in pref_stats.gender_pref_stats %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ g.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill {% if g.code == 'F' %}bar-pink{% elif g.code == 'M' %}bar-blue{% elif g.code == 'NB' %}bar-purple{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No data yet" %}</p>
+                {% endfor %}
+            </div>
+
+            <div class="distribution-column">
+                <h3>{% trans "First Step Preference" %}</h3>
+                {% for fs in pref_stats.first_step_stats %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ fs.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill {% if fs.key == 'i_initiate' %}bar-green{% elif fs.key == 'they_initiate' %}bar-blue{% else %}bar-gray{% endif %}" style="width: {{ fs.pct|unlocalize }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ fs.pct }}% ({{ fs.count }})</span>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No data yet" %}</p>
+                {% endfor %}
+            </div>
+
+            <div class="distribution-column">
+                <h3>{% trans "Preferred Age Range" %}</h3>
+                {% if pref_stats.avg_age_min and pref_stats.avg_age_max %}
+                <p style="font-size: 16px; font-weight: bold; color: var(--text-primary); margin-bottom: 12px;">
+                    {% blocktrans with min=pref_stats.avg_age_min max=pref_stats.avg_age_max %}Average: {{ min }} – {{ max }}{% endblocktrans %}
+                </p>
+                {% endif %}
+                {% for bucket in pref_stats.age_distribution %}
+                <div class="dist-bar-row">
+                    <span class="dist-bar-label">{{ bucket.label }}</span>
+                    <div class="dist-bar-track">
+                        <div class="dist-bar-fill bar-purple" style="width: {{ bucket.pct|unlocalize }}%"></div>
+                    </div>
+                    <span class="dist-bar-value">{{ bucket.pct }}% ({{ bucket.count }})</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if approved_language_stats %}
+    <div class="distribution-section">
+        <h2>🌐 {% trans "Language Preferences (Approved Profiles)" %}</h2>
+        <div class="distribution-column" style="max-width: 600px;">
+            {% for lang in approved_language_stats %}
+            <div class="dist-bar-row">
+                <span class="dist-bar-label">{{ lang.label }}</span>
+                <div class="dist-bar-track">
+                    <div class="dist-bar-fill bar-blue" style="width: {{ lang.pct|unlocalize }}%"></div>
+                </div>
+                <span class="dist-bar-value">{{ lang.pct }}% ({{ lang.count }})</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     <!-- Segment Categories -->

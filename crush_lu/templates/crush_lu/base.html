@@ -297,6 +297,11 @@
                                         <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
                                         {% trans "Crush Sparks" %}
                                     </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_edit_profile' %}">
+                                        {% include "shared/icons/user-circle.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Edit Coach Profile" %}
+                                    </a>
                                 </div>
                             </div>
 
@@ -756,6 +761,10 @@
                             <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
                                 <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
                                 {% trans "Crush Sparks" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_edit_profile' %}">
+                                {% include "shared/icons/user-circle.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Edit Coach Profile" %}
                             </a>
 
                             {# My Crush Section #}
