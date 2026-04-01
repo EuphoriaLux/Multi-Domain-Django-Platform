@@ -81,6 +81,7 @@ instance/
 docs/_build/
 docs/
 
+
 # PyBuilder
 target/
 
@@ -198,6 +199,7 @@ sent_emails/
 
 # Screenshots folder (development/debugging screenshots)
 screenshots/
+social-media/
 
 # Google Search Console credentials and reports
 scripts/gsc_credentials.json
