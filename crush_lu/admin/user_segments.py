@@ -1104,24 +1104,30 @@ def user_segments_dashboard(request):
     approved_profiles = CrushProfile.objects.filter(is_approved=True)
     pref_stats = get_preference_stats(approved_profiles)
 
-    # Approved-only language distribution
-    lang_data = (
-        approved_profiles.exclude(preferred_language="")
-        .values("preferred_language")
-        .annotate(count=Count("id"))
-        .order_by("-count")
+    # Approved-only event language distribution
+    lang_label_map = dict(CrushProfile.EVENT_LANGUAGE_CHOICES)
+    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷", "lu": "🇱🇺"}
+    lang_counts = {}
+    for langs in approved_profiles.exclude(event_languages=[]).values_list(
+        "event_languages", flat=True
+    ):
+        if isinstance(langs, list):
+            for code in langs:
+                lang_counts[code] = lang_counts.get(code, 0) + 1
+    lang_total = sum(lang_counts.values()) or 1
+    approved_language_stats = sorted(
+        [
+            {
+                "code": code,
+                "label": f"{lang_flags.get(code, '')} {lang_label_map.get(code, code)}",
+                "count": count,
+                "pct": round(count * 100 / lang_total, 1),
+            }
+            for code, count in lang_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
     )
-    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷"}
-    lang_total = sum(item["count"] for item in lang_data) or 1
-    approved_language_stats = [
-        {
-            "label": f"{lang_flags.get(item['preferred_language'], '')} {item['preferred_language'].upper()}",
-            "code": item["preferred_language"],
-            "count": item["count"],
-            "pct": round(item["count"] * 100 / lang_total, 1),
-        }
-        for item in lang_data
-    ]
 
     # Calculate totals
     total_incomplete = sum(

@@ -11,7 +11,9 @@ For more information on this file, see
 https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
 """
 
+import logging
 import os
+import sys
 
 import django
 
@@ -27,6 +29,8 @@ from django.core.asgi import get_asgi_application  # noqa: E402
 from whitenoise import WhiteNoise  # noqa: E402
 
 from crush_lu.routing import websocket_urlpatterns  # noqa: E402
+
+logger = logging.getLogger("azureproject.asgi")
 
 django_asgi_app = get_asgi_application()
 
@@ -93,7 +97,33 @@ async def application(scope, receive, send):
     channels-redis under uvicorn workers.
     """
     if scope["type"] == "http":
-        await _http_app(scope, receive, send)
+        try:
+            await _http_app(scope, receive, send)
+        except Exception:
+            # Log to Python logging — OpenTelemetry forwards this to App Insights.
+            # These ASGI transport errors (e.g. CurrentThreadExecutor broken) occur
+            # before Django's request pipeline, so OpenTelemetry's Django
+            # instrumentation never sees them without this explicit catch.
+            path = scope.get("path", "unknown")
+            logger.exception("ASGI transport error on %s", path)
+
+            # Record an OpenTelemetry exception span so the error also appears
+            # in the App Insights 'exceptions' table with full stack trace.
+            try:
+                from opentelemetry import trace
+
+                tracer = trace.get_tracer(__name__)
+                with tracer.start_as_current_span("asgi-transport-error") as span:
+                    span.set_attribute("http.target", path)
+                    span.record_exception(sys.exc_info()[1])
+                    span.set_status(
+                        trace.StatusCode.ERROR,
+                        str(sys.exc_info()[1]),
+                    )
+            except Exception:
+                pass  # Don't let telemetry failures mask the original error
+
+            raise
     elif scope["type"] == "websocket":
         await _websocket_app(scope, receive, send)
     elif scope["type"] == "lifespan":

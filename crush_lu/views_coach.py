@@ -163,23 +163,30 @@ def coach_dashboard(request):
         else:
             bucket["pct_f"] = bucket["pct_m"] = bucket["pct_other"] = 0
 
-    # Language distribution (approved profiles)
-    lang_data = (
-        approved_profiles.exclude(preferred_language="")
-        .values("preferred_language")
-        .annotate(count=Count("id"))
-        .order_by("-count")
+    # Event language distribution (approved profiles)
+    lang_label_map = dict(CrushProfile.EVENT_LANGUAGE_CHOICES)
+    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷", "lu": "🇱🇺"}
+    lang_counts = {}
+    for langs in approved_profiles.exclude(event_languages=[]).values_list(
+        "event_languages", flat=True
+    ):
+        if isinstance(langs, list):
+            for code in langs:
+                lang_counts[code] = lang_counts.get(code, 0) + 1
+    lang_total = sum(lang_counts.values()) or 1
+    language_stats = sorted(
+        [
+            {
+                "code": code,
+                "label": f"{lang_flags.get(code, '')} {lang_label_map.get(code, code)}",
+                "count": count,
+                "pct": round(count * 100 / lang_total),
+            }
+            for code, count in lang_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
     )
-    lang_flags = {"en": "🇬🇧", "de": "🇩🇪", "fr": "🇫🇷"}
-    lang_total = sum(item["count"] for item in lang_data) or 1
-    language_stats = [
-        {
-            "label": f"{lang_flags.get(item['preferred_language'], '')} {item['preferred_language'].upper()}",
-            "count": item["count"],
-            "pct": round(item["count"] * 100 / lang_total),
-        }
-        for item in lang_data
-    ]
 
     # --- Row 2.5: Ideal Crush Preferences ---
     from .analytics import get_preference_stats

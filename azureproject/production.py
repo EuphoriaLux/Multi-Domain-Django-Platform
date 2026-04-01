@@ -27,7 +27,7 @@ def _custom_validate_host(host, allowed_hosts):
 
     This handles two scenarios:
     1. Azure internal IPs (169.254.*) - health checks and instrumentation
-    2. test.* subdomains - staging slots OR external scanner probes
+    2. test.* and test-* subdomains - staging slots OR external scanner probes
 
     Why this monkey-patch is needed:
     - Azure auto-injects OpenTelemetry middleware BEFORE our middleware stack
@@ -35,7 +35,7 @@ def _custom_validate_host(host, allowed_hosts):
     - This triggers Django's get_host() → validate_host() → DisallowedHost exception
     - The exception crashes OpenTelemetry and can cause app restarts
 
-    By returning True for test.* hosts:
+    By returning True for test.*/test-* hosts:
     - OpenTelemetry proceeds without crashing
     - If test.* is in ALLOWED_HOSTS (staging slot): request proceeds normally
     - If test.* is NOT in ALLOWED_HOSTS (scanner probe): Django returns 400 later
@@ -53,10 +53,11 @@ def _custom_validate_host(host, allowed_hosts):
     if host_without_port.startswith("169.254."):
         return True
 
-    # Allow test.* subdomains through validation to prevent OpenTelemetry crashes
+    # Allow test.*/test-* subdomains through validation to prevent OpenTelemetry crashes
     # These will still be rejected with 400 by Django's normal request handling
     # but without causing exceptions that trigger app restarts
-    if host_without_port.startswith("test."):
+    # test. = most staging domains (test.crush.lu), test- = portal (test-portal.powerup.lu)
+    if host_without_port.startswith("test.") or host_without_port.startswith("test-"):
         return True
 
     # Fall back to standard validation
@@ -87,6 +88,14 @@ ALLOWED_HOSTS += [
 ]
 # Add localhost for development
 ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
+# Auto-include all domains and aliases from domains.py (e.g. test-portal.powerup.lu)
+# This ensures staging aliases are always allowed without manual env var management
+from azureproject.domains import DOMAINS
+
+for _config in DOMAINS.values():
+    for _alias in _config.get('aliases', []):
+        if _alias not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_alias)
 
 
 # Configure CSRF_TRUSTED_ORIGINS
@@ -500,6 +509,13 @@ LOGGING = {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": True,  # Propagate to App Insights
+        },
+        # ASGI transport errors (e.g. CurrentThreadExecutor broken)
+        # These occur before Django's request pipeline starts
+        "azureproject.asgi": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": True,  # Propagate to root → App Insights
         },
         # Middleware logging (CSRF failures, routing)
         "azureproject.middleware": {
