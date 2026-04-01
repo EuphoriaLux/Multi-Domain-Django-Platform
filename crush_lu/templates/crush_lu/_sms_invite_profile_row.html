@@ -20,6 +20,10 @@
                     {% endif %}
                     <!-- Language badge -->
                     <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded uppercase">{{ p.language }}</span>
+                    {% if p.age %}
+                    <!-- Age badge -->
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">{{ p.age }}y</span>
+                    {% endif %}
                 </div>
                 <div class="flex items-center gap-1.5 mt-0.5">
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ p.profile.phone_number }}</p>

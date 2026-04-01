@@ -73,13 +73,13 @@ class StaticFilesASGI:
     def __init__(self, app):
         self.app = app
         self.static_prefix = settings.STATIC_URL
+        self._static_asgi = WsgiToAsgi(whitenoise_app)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")
             if path.startswith(self.static_prefix) and path in whitenoise_app.files:
-                wsgi_to_asgi = WsgiToAsgi(whitenoise_app)
-                await wsgi_to_asgi(scope, receive, send)
+                await self._static_asgi(scope, receive, send)
                 return
         await self.app(scope, receive, send)
 

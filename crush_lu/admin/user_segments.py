@@ -1129,6 +1129,65 @@ def user_segments_dashboard(request):
         reverse=True,
     )
 
+    # Gender x Event Language matrix
+    lang_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
+    lang_labels = [
+        f"{lang_flags.get(code, '')} {label}"
+        for code, label in CrushProfile.EVENT_LANGUAGE_CHOICES
+    ]
+    gender_lang_matrix = []
+    for gender_code, gender_label in [("F", "Women"), ("M", "Men"), ("other", "Other")]:
+        row = {"label": gender_label, "cells": [], "total": 0}
+        if gender_code == "other":
+            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(event_languages=[])
+        else:
+            qs = approved_profiles.filter(gender=gender_code).exclude(event_languages=[])
+        gender_lang_counts = {}
+        for langs_list in qs.values_list("event_languages", flat=True):
+            if isinstance(langs_list, list):
+                for code in langs_list:
+                    gender_lang_counts[code] = gender_lang_counts.get(code, 0) + 1
+        for code in lang_codes:
+            count = gender_lang_counts.get(code, 0)
+            row["cells"].append(count)
+            row["total"] += count
+        gender_lang_matrix.append(row)
+    gender_lang_col_totals = [
+        sum(row["cells"][i] for row in gender_lang_matrix)
+        for i in range(len(lang_codes))
+    ]
+
+    # Age x Event Language matrix
+    today = date.today()
+    age_ranges = [
+        {"label": "18-24", "min": 18, "max": 24},
+        {"label": "25-30", "min": 25, "max": 30},
+        {"label": "31-35", "min": 31, "max": 35},
+        {"label": "36-40", "min": 36, "max": 40},
+        {"label": "41-50", "min": 41, "max": 50},
+        {"label": "50+", "min": 51, "max": 999},
+    ]
+    age_lang_matrix = [
+        {"label": ar["label"], "cells": [0] * len(lang_codes), "total": 0}
+        for ar in age_ranges
+    ]
+    for dob, langs_list in approved_profiles.exclude(
+        date_of_birth__isnull=True
+    ).exclude(event_languages=[]).values_list("date_of_birth", "event_languages"):
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if isinstance(langs_list, list):
+            for idx, ar in enumerate(age_ranges):
+                if ar["min"] <= age <= ar["max"]:
+                    for code in langs_list:
+                        if code in lang_codes:
+                            age_lang_matrix[idx]["cells"][lang_codes.index(code)] += 1
+                            age_lang_matrix[idx]["total"] += 1
+                    break
+    age_lang_col_totals = [
+        sum(row["cells"][i] for row in age_lang_matrix)
+        for i in range(len(lang_codes))
+    ]
+
     # Calculate totals
     total_incomplete = sum(
         seg["count"] for seg in segments["profile_completion"]["segments"]
@@ -1154,6 +1213,11 @@ def user_segments_dashboard(request):
         "total_unverified": total_unverified,
         "pref_stats": pref_stats,
         "approved_language_stats": approved_language_stats,
+        "lang_labels": lang_labels,
+        "gender_lang_matrix": gender_lang_matrix,
+        "gender_lang_col_totals": gender_lang_col_totals,
+        "age_lang_matrix": age_lang_matrix,
+        "age_lang_col_totals": age_lang_col_totals,
         "title": "User Segments",
         "site_header": "💕 Crush.lu Administration",
     }

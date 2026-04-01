@@ -483,12 +483,12 @@ class EventRegistration(models.Model):
     """User registration for meetup events"""
 
     STATUS_CHOICES = [
-        ("pending", "Pending Payment"),
-        ("confirmed", "Confirmed"),
-        ("waitlist", "Waitlist"),
-        ("cancelled", "Cancelled"),
-        ("attended", "Attended"),
-        ("no_show", "No Show"),
+        ("pending", _("Pending Payment")),
+        ("confirmed", _("Confirmed")),
+        ("waitlist", _("Waitlist")),
+        ("cancelled", _("Cancelled")),
+        ("attended", _("Attended")),
+        ("no_show", _("No Show")),
     ]
 
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE)

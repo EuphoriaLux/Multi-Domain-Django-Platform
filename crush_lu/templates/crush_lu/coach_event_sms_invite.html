@@ -24,8 +24,20 @@
                     {{ event.date_time|date:"D, M j, Y \a\t g:i A" }}
                 </span>
                 <span class="inline-flex items-center px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-full">
-                    {% trans "Unverified Profiles" %}
+                    {{ profile_requirement_display }}
                 </span>
+                {% if has_age_filter %}
+                <span class="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded-full">
+                    {% blocktrans with min=min_age max=max_age %}Age {{ min }}-{{ max }}{% endblocktrans %}
+                </span>
+                {% endif %}
+                {% if has_language_filter %}
+                    {% for lang in event_languages_display %}
+                    <span class="inline-flex items-center px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
+                        {{ lang.flag }} {{ lang.name }}
+                    </span>
+                    {% endfor %}
+                {% endif %}
             </div>
         </div>
         <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors self-start">
@@ -100,14 +112,20 @@
     </div>
     {% endif %}
 
-    <!-- Section 2: Unsubmitted Profiles (Incomplete) -->
+    <!-- Section 2: Profile Pool -->
     {% if unsubmitted_profiles %}
     <div>
         <div class="flex items-center gap-3 mb-3">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Incomplete Profiles" %}</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ pool_label }}</h3>
             <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{{ unsubmitted_count }}</span>
         </div>
+        {% if profile_requirement == "approved" %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Approved profiles with verified phone numbers matching event criteria." %}</p>
+        {% elif profile_requirement == "unverified" %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "These users have a verified phone number but have not completed their profile yet. Sending an SMS invite may encourage them to finish." %}</p>
+        {% else %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Profiles with verified phone numbers matching event criteria." %}</p>
+        {% endif %}
         <div class="space-y-3">
             {% for p in unsubmitted_profiles %}
                 {% include "crush_lu/_sms_invite_profile_row.html" %}

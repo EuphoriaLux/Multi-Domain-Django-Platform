@@ -188,6 +188,60 @@ def coach_dashboard(request):
         reverse=True,
     )
 
+    # Gender x Event Language matrix
+    lang_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
+    lang_labels = [
+        f"{lang_flags.get(code, '')} {label}"
+        for code, label in CrushProfile.EVENT_LANGUAGE_CHOICES
+    ]
+    gender_lang_matrix = []
+    for gender_code, gender_label, _color in [
+        ("F", _("Women"), "bg-pink-500"),
+        ("M", _("Men"), "bg-blue-500"),
+        ("other", _("Other"), "bg-purple-500"),
+    ]:
+        row = {"label": gender_label, "cells": [], "total": 0}
+        if gender_code == "other":
+            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(event_languages=[])
+        else:
+            qs = approved_profiles.filter(gender=gender_code).exclude(event_languages=[])
+        gender_lang_counts = {}
+        for langs in qs.values_list("event_languages", flat=True):
+            if isinstance(langs, list):
+                for code in langs:
+                    gender_lang_counts[code] = gender_lang_counts.get(code, 0) + 1
+        for code in lang_codes:
+            count = gender_lang_counts.get(code, 0)
+            row["cells"].append(count)
+            row["total"] += count
+        gender_lang_matrix.append(row)
+    gender_lang_col_totals = [
+        sum(row["cells"][i] for row in gender_lang_matrix)
+        for i in range(len(lang_codes))
+    ]
+
+    # Age x Event Language matrix
+    age_lang_matrix = [
+        {"label": bucket["label"], "cells": [0] * len(lang_codes), "total": 0}
+        for bucket in age_buckets
+    ]
+    for dob, _gender, langs in approved_profiles.exclude(
+        date_of_birth__isnull=True
+    ).exclude(event_languages=[]).values_list("date_of_birth", "gender", "event_languages"):
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        if isinstance(langs, list):
+            for idx, bucket in enumerate(age_buckets):
+                if bucket["min"] <= age <= bucket["max"]:
+                    for code in langs:
+                        if code in lang_codes:
+                            age_lang_matrix[idx]["cells"][lang_codes.index(code)] += 1
+                            age_lang_matrix[idx]["total"] += 1
+                    break
+    age_lang_col_totals = [
+        sum(row["cells"][i] for row in age_lang_matrix)
+        for i in range(len(lang_codes))
+    ]
+
     # --- Row 2.5: Ideal Crush Preferences ---
     from .analytics import get_preference_stats
 
@@ -284,6 +338,11 @@ def coach_dashboard(request):
         "approved_members_count": approved_members_count,
         "match_pairs_count": match_pairs_count,
         "language_stats": language_stats,
+        "lang_labels": lang_labels,
+        "gender_lang_matrix": gender_lang_matrix,
+        "gender_lang_col_totals": gender_lang_col_totals,
+        "age_lang_matrix": age_lang_matrix,
+        "age_lang_col_totals": age_lang_col_totals,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
 
@@ -1465,9 +1524,14 @@ def coach_event_checkin(request, event_id):
 
 @coach_required
 def coach_event_sms_invite(request, event_id):
-    """Page listing pending profiles with verified phones for SMS event invites."""
+    """Page listing eligible profiles with verified phones for SMS event invites."""
+    from datetime import date
     from urllib.parse import quote
+
+    from django.db.models import Q
+    from django.urls import reverse
     from django.utils.formats import date_format
+
     from .models import CallAttempt
     from .models.site_config import CrushSiteConfig
 
@@ -1477,31 +1541,98 @@ def coach_event_sms_invite(request, event_id):
     coach_name = coach.user.first_name or "Coach"
 
     # Build absolute event URL for the SMS
-    from django.urls import reverse
-
     event_url = request.build_absolute_uri(
         reverse("crush_lu:event_detail", args=[event.id])
     )
 
-    # All pending/recontact submissions with verified phones
-    pending_submissions = (
-        ProfileSubmission.objects.filter(status__in=["pending", "recontact_coach"])
-        .select_related("profile__user")
-        .order_by("submitted_at")
-    )
+    # --- Age filter boundaries (same pattern as user_segments._age_range_queryset) ---
+    today = date.today()
+    max_dob = date(today.year - event.min_age, today.month, today.day)
+    min_dob = date(today.year - event.max_age - 1, today.month, today.day)
+    has_age_filter = event.min_age != 18 or event.max_age != 99
 
-    # Profiles with verified phones but NO submission at all
-    no_submission_profiles = (
-        CrushProfile.objects.filter(
-            phone_number__isnull=False,
-            phone_verified=True,
+    age_q = Q(date_of_birth__gt=min_dob, date_of_birth__lte=max_dob)
+    age_q_lenient = age_q | Q(date_of_birth__isnull=True)  # include profiles missing DOB
+
+    # Age filter through profile__ FK (for ProfileSubmission queries)
+    sub_age_q = Q(
+        profile__date_of_birth__gt=min_dob, profile__date_of_birth__lte=max_dob
+    ) | Q(profile__date_of_birth__isnull=True)
+
+    # --- Language filter ---
+    lang_q = Q()
+    sub_lang_q = Q()
+    has_language_filter = bool(event.languages)
+    if has_language_filter:
+        for code in event.languages:
+            lang_q |= Q(event_languages__contains=[code])
+            sub_lang_q |= Q(profile__event_languages__contains=[code])
+
+    # --- Base phone filters ---
+    phone_q = Q(phone_number__isnull=False, phone_verified=True) & ~Q(phone_number="")
+    sub_phone_q = Q(
+        profile__phone_number__isnull=False, profile__phone_verified=True
+    ) & ~Q(profile__phone_number="")
+
+    # --- Build profile pools based on event.profile_requirement ---
+    pending_submissions_qs = ProfileSubmission.objects.none()
+    profile_pool_qs = CrushProfile.objects.none()
+    pool_label = ""
+
+    if event.profile_requirement == "unverified":
+        # Current behavior: pending/recontact submissions + profiles with no submission
+        pending_submissions_qs = (
+            ProfileSubmission.objects.filter(
+                status__in=["pending", "recontact_coach"],
+            )
+            .filter(sub_phone_q)
+            .filter(sub_age_q)
         )
-        .exclude(phone_number="")
-        .exclude(
-            id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
+        if has_language_filter:
+            pending_submissions_qs = pending_submissions_qs.filter(sub_lang_q)
+        pending_submissions_qs = pending_submissions_qs.select_related(
+            "profile__user"
+        ).order_by("submitted_at")
+
+        profile_pool_qs = (
+            CrushProfile.objects.filter(phone_q)
+            .filter(age_q_lenient)
+            .exclude(
+                id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
+            )
         )
-        .select_related("user")
-    )
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(
+                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
+            )
+        profile_pool_qs = profile_pool_qs.select_related("user")
+        pool_label = _("Incomplete Profiles")
+
+    elif event.profile_requirement == "approved":
+        profile_pool_qs = (
+            CrushProfile.objects.filter(phone_q, is_approved=True)
+            .filter(age_q_lenient)
+        )
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
+        profile_pool_qs = profile_pool_qs.select_related("user")
+        pool_label = _("Approved Profiles")
+
+    elif event.profile_requirement == "profile_exists":
+        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
+        profile_pool_qs = profile_pool_qs.select_related("user")
+        pool_label = _("All Profiles")
+
+    else:  # "none"
+        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(
+                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
+            )
+        profile_pool_qs = profile_pool_qs.select_related("user")
+        pool_label = _("All Profiles")
 
     # Get IDs of submissions already sent an invite for this event
     already_sent_submission_ids = set(
@@ -1559,10 +1690,9 @@ def coach_event_sms_invite(request, event_id):
         else:
             gender_counts["other"] += 1
 
-    for sub in pending_submissions:
+    # Process submissions (only for "unverified" events)
+    for sub in pending_submissions_qs:
         profile = sub.profile
-        if not profile.phone_number or not profile.phone_verified:
-            continue
 
         lang, sms_uri = _build_sms_uri(profile)
 
@@ -1584,6 +1714,7 @@ def coach_event_sms_invite(request, event_id):
                 "row_id": f"sub-{sub.id}",
                 "display_name": profile.display_name,
                 "gender": gender,
+                "age": profile.age,
                 "language": lang,
                 "status": sub.status,
                 "sms_uri": sms_uri,
@@ -1592,7 +1723,8 @@ def coach_event_sms_invite(request, event_id):
             }
         )
 
-    for profile in no_submission_profiles:
+    # Process profile pool
+    for profile in profile_pool_qs:
         lang, sms_uri = _build_sms_uri(profile)
 
         sent = profile.id in already_sent_profile_ids
@@ -1613,6 +1745,7 @@ def coach_event_sms_invite(request, event_id):
                 "row_id": f"prof-{profile.id}",
                 "display_name": profile.display_name,
                 "gender": gender,
+                "age": profile.age,
                 "language": lang,
                 "status": "no_submission",
                 "sms_uri": sms_uri,
@@ -1632,6 +1765,14 @@ def coach_event_sms_invite(request, event_id):
         "already_sent_count": already_sent_count,
         "already_registered_count": already_registered_count,
         "coach": coach,
+        "profile_requirement": event.profile_requirement,
+        "profile_requirement_display": event.get_profile_requirement_display(),
+        "has_age_filter": has_age_filter,
+        "min_age": event.min_age,
+        "max_age": event.max_age,
+        "has_language_filter": has_language_filter,
+        "event_languages_display": event.get_languages_display,
+        "pool_label": pool_label,
     }
     return render(request, "crush_lu/coach_event_sms_invite.html", context)
 

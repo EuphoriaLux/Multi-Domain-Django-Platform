@@ -713,6 +713,84 @@
         </div>
     </div>
     {% endif %}
+
+    {% if gender_lang_matrix %}
+    <div class="distribution-section">
+        <h2>🔀 {% trans "Gender x Event Language (Approved Profiles)" %}</h2>
+        <div class="distribution-columns">
+            <div class="distribution-column">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Gender" %}</th>
+                            {% for label in lang_labels %}
+                            <th>{{ label }}</th>
+                            {% endfor %}
+                            <th>{% trans "Total" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in gender_lang_matrix %}
+                        {% if row.total > 0 %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            {% for cell in row.cells %}
+                            <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                            {% endfor %}
+                            <td class="cell-highlight">{{ row.total }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>{% trans "Total" %}</td>
+                            {% for col_total in gender_lang_col_totals %}
+                            <td>{{ col_total }}</td>
+                            {% endfor %}
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="distribution-column">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "Age" %}</th>
+                            {% for label in lang_labels %}
+                            <th>{{ label }}</th>
+                            {% endfor %}
+                            <th>{% trans "Total" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in age_lang_matrix %}
+                        {% if row.total > 0 %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            {% for cell in row.cells %}
+                            <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                            {% endfor %}
+                            <td class="cell-highlight">{{ row.total }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>{% trans "Total" %}</td>
+                            {% for col_total in age_lang_col_totals %}
+                            <td>{{ col_total }}</td>
+                            {% endfor %}
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
     <!-- Segment Categories -->
