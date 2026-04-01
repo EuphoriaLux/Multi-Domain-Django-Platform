@@ -204,8 +204,8 @@
                         {% endif %}
                     </div>
                     <div class="px-5 py-4 border-t border-purple-100 dark:border-purple-800/30 bg-purple-50/50 dark:bg-purple-900/10 flex flex-col gap-2.5">
-                        {% if whatsapp_enabled and whatsapp_number %}
-                        <a href="https://wa.me/{{ whatsapp_number }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}"
+                        {% if coach_phone_available %}
+                        <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}"
                            target="_blank"
                            rel="noopener noreferrer"
                            class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold text-sm transition-colors shadow-sm">
@@ -214,7 +214,7 @@
                             </svg>
                             {% trans "WhatsApp Coach" %}
                         </a>
-                        <a href="tel:+{{ whatsapp_number }}"
+                        <a href="tel:+{{ coach_contact_phone }}"
                            class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 text-white font-semibold text-sm transition-opacity shadow-sm">
                             {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                             {% trans "Call Coach" %}
@@ -254,8 +254,8 @@
                                 {% include "shared/icons/envelope.html" with class="w-3.5 h-3.5" %}
                                 {% trans "Email Coach" %}
                             </a>
-                            {% if whatsapp_enabled and whatsapp_number %}
-                            <a href="https://wa.me/{{ whatsapp_number }}?text={% trans 'Hi! I would like to schedule my screening call with my Crush Coach.' %}"
+                            {% if coach_phone_available %}
+                            <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call with my Crush Coach.' %}"
                                target="_blank"
                                rel="noopener noreferrer"
                                class="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors font-medium">

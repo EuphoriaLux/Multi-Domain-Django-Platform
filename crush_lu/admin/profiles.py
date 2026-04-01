@@ -51,7 +51,7 @@ class CrushCoachAdmin(TranslationAdmin):
     actions = ['deactivate_coach_allow_dating', 'deactivate_coaches', 'activate_coaches']
     fieldsets = (
         ('Coach Information', {
-            'fields': ('user', 'bio', 'specializations', 'spoken_languages')
+            'fields': ('user', 'bio', 'specializations', 'spoken_languages', 'phone_number')
         }),
         ('Photo', {
             'fields': ('photo', 'get_photo_preview'),

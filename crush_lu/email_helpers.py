@@ -477,22 +477,26 @@ def send_profile_recontact_notification(profile, coach, request):
     # Get base footer URLs
     base_urls = get_email_base_urls(profile.user, request)
 
-    # Get WhatsApp config for contact buttons
-    from .models import CrushSiteConfig
-    try:
-        config = CrushSiteConfig.get_config()
-        whatsapp_number = config.whatsapp_number
-        whatsapp_enabled = config.whatsapp_enabled and bool(whatsapp_number)
-    except Exception:
-        whatsapp_number = ""
-        whatsapp_enabled = False
+    # Determine coach contact phone: per-coach or global fallback
+    if coach.phone_number:
+        coach_contact_phone = coach.whatsapp_number
+        coach_phone_available = True
+    else:
+        from .models import CrushSiteConfig
+        try:
+            config = CrushSiteConfig.get_config()
+            coach_contact_phone = config.whatsapp_number
+            coach_phone_available = config.whatsapp_enabled and bool(coach_contact_phone)
+        except Exception:
+            coach_contact_phone = ""
+            coach_phone_available = False
 
     context = {
         'user': profile.user,
         'first_name': profile.user.first_name,
         'coach': coach,
-        'whatsapp_number': whatsapp_number,
-        'whatsapp_enabled': whatsapp_enabled,
+        'coach_contact_phone': coach_contact_phone,
+        'coach_phone_available': coach_phone_available,
         'LANGUAGE_CODE': lang,
         'social_links': get_social_links(),
         **base_urls,

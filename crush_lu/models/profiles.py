@@ -273,6 +273,15 @@ class CrushCoach(models.Model):
         blank=True,
         help_text=_("Languages the coach can speak for profile reviews")
     )
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        validators=[RegexValidator(
+            regex=r'^\+?[\d\s\-().]{7,20}$',
+            message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
+        )],
+        help_text=_("Coach's direct phone number for WhatsApp and calls")
+    )
     is_active = models.BooleanField(default=True)
     max_active_reviews = models.PositiveIntegerField(
         default=10,
@@ -304,6 +313,14 @@ class CrushCoach(models.Model):
             for code in self.spoken_languages
             if code in self.LANGUAGE_DISPLAY
         ]
+
+    @property
+    def whatsapp_number(self):
+        """Return phone_number formatted for wa.me links (digits only, no +)."""
+        if not self.phone_number:
+            return ""
+        import re
+        return re.sub(r'[^\d]', '', self.phone_number)
 
     def get_active_reviews_count(self):
         return self.profilesubmission_set.filter(status='pending').count()

@@ -146,7 +146,7 @@ EMAIL_TEMPLATE_METADATA = {
         'subject': 'Your Crush Coach Needs to Speak With You',
         'description': 'Sent when coach attempts to reach user for screening call but cannot connect',
         'required_context': ['user', 'coach'],
-        'optional_context': [],
+        'optional_context': ['coach_contact_phone', 'coach_phone_available'],
         'context_builder': 'build_profile_recontact_context',
     },
 

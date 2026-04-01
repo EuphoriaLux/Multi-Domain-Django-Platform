@@ -64,6 +64,22 @@
 
                     <hr class="my-6 border-gray-200 dark:border-gray-700">
 
+                    <!-- Phone Number -->
+                    <div class="mb-6">
+                        <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                            {% trans "Phone Number" %}
+                        </label>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
+                            {% trans "Your direct phone number for WhatsApp and calls with users. Leave blank to use the site default number." %}
+                        </p>
+                        {{ form.phone_number }}
+                        {% if form.phone_number.errors %}
+                            <div class="text-red-500 text-sm mt-1">{{ form.phone_number.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <hr class="my-6 border-gray-200 dark:border-gray-700">
+
                     <!-- Multilingual Bio & Specializations -->
                     <div x-data="languageTabs">
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">

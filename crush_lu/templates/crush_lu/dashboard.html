@@ -63,6 +63,19 @@
                             <a href="mailto:{{ submission.coach.user.email }}" class="underline">{{ submission.coach.user.email }}</a>
                         </p>
                         {% endif %}
+                        {% if submission.coach.phone_number %}
+                        <p class="mt-1 mb-0">
+                            <a href="tel:{{ submission.coach.phone_number }}" class="underline">{{ submission.coach.phone_number }}</a>
+                            |
+                            <a href="https://wa.me/{{ submission.coach.whatsapp_number }}" target="_blank" rel="noopener noreferrer" class="underline">{% trans "WhatsApp" %}</a>
+                        </p>
+                        {% elif whatsapp_enabled and whatsapp_number %}
+                        <p class="mt-1 mb-0">
+                            <a href="tel:+{{ whatsapp_number }}" class="underline">+{{ whatsapp_number }}</a>
+                            |
+                            <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer" class="underline">{% trans "WhatsApp" %}</a>
+                        </p>
+                        {% endif %}
                         {% if submission.feedback_to_user %}
                         <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
                         {% endif %}

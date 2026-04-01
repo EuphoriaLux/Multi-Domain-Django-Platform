@@ -862,6 +862,18 @@ class CrushCoachForm(forms.ModelForm):
         help_text=_('What groups or demographics do you specialize in coaching?')
     )
 
+    phone_number = forms.CharField(
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'placeholder': _('+352 621 123 456'),
+            'class': TAILWIND_INPUT,
+            'type': 'tel',
+        }),
+        label=_('Phone Number'),
+        help_text=_('Your direct phone number for WhatsApp and calls with users. Leave blank to use the site default.')
+    )
+
     photo = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
@@ -930,6 +942,7 @@ class CrushCoachForm(forms.ModelForm):
     class Meta:
         model = CrushCoach
         fields = [
+            'phone_number',
             'bio_en', 'bio_de', 'bio_fr',
             'specializations_en', 'specializations_de', 'specializations_fr',
             'photo', 'spoken_languages',

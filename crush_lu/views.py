@@ -1108,8 +1108,25 @@ def profile_submitted(request):
         messages.error(request, _("No profile submission found."))
         return redirect("crush_lu:create_profile")
 
+    # Determine coach contact phone: per-coach or global fallback
+    coach_contact_phone = ""
+    coach_phone_available = False
+    if submission and submission.coach and submission.coach.phone_number:
+        coach_contact_phone = submission.coach.whatsapp_number
+        coach_phone_available = True
+    else:
+        from .models import CrushSiteConfig
+        try:
+            config = CrushSiteConfig.get_config()
+            coach_contact_phone = config.whatsapp_number
+            coach_phone_available = config.whatsapp_enabled and bool(coach_contact_phone)
+        except Exception:
+            pass
+
     context = {
         "submission": submission,
+        "coach_contact_phone": coach_contact_phone,
+        "coach_phone_available": coach_phone_available,
     }
     return render(request, "crush_lu/profile_submitted.html", context)
 
