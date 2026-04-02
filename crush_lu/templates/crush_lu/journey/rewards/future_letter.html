@@ -1,15 +1,14 @@
-{% extends "crush_lu/journey/journey_base.html" %}
-{% load static i18n %}
-
-{% block extra_journey_css %}{% endblock %}
-
-{% block journey_content %}
-<div class="journey-container-content my-12 journey-animate-fade-in">
+{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
+extra_journey_css %}{% endblock %} {% block journey_content %}
+<div class="journey-container-content journey-animate-fade-in my-12">
     <!-- Back Button -->
-    <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
-            {% trans "Back to Chapter" %}
+    <nav class="mb-6 text-center" aria-label="{% trans 'Navigation' %}">
+        <a
+            href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+            class="journey-nav-btn"
+        >
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans
+            "Back to Chapter" %}
         </a>
     </nav>
 
@@ -27,9 +26,15 @@
         <div class="letter-paper-texture" aria-hidden="true"></div>
 
         <!-- Floating heart decorations -->
-        <div class="letter-heart-decoration letter-heart-1" aria-hidden="true">&#128149;</div>
-        <div class="letter-heart-decoration letter-heart-2" aria-hidden="true">&#128150;</div>
-        <div class="letter-heart-decoration letter-heart-3" aria-hidden="true">&#128151;</div>
+        <div class="letter-heart-decoration letter-heart-1" aria-hidden="true">
+            &#128149;
+        </div>
+        <div class="letter-heart-decoration letter-heart-2" aria-hidden="true">
+            &#128150;
+        </div>
+        <div class="letter-heart-decoration letter-heart-3" aria-hidden="true">
+            &#128151;
+        </div>
 
         <header class="letter-header">
             <div class="letter-date">{% now "F j, Y" %}</div>
@@ -46,14 +51,16 @@
         <div class="letter-extras">
             {% if reward.photo and reward.photo.name %}
             <div class="letter-postscript">
-                <strong>{% trans "P.S." %}</strong> {% trans "I've included something special for you below..." %}
+                <strong>{% trans "P.S." %}</strong> {% trans "I've included something
+                special for you below..." %}
                 <div class="letter-postscript-photo">
-                    <img src="{{ reward.photo.url|safe }}" alt="{% trans 'Special Memory' %}">
+                    <img
+                        src="{{ reward.photo.url|safe }}"
+                        alt="{% trans 'Special Memory' %}"
+                    />
                 </div>
             </div>
-            {% endif %}
-
-            {% if reward.audio_file %}
+            {% endif %} {% if reward.audio_file %}
             <div class="letter-audio" x-data="letterAudioPlayer">
                 <p class="letter-audio-label">
                     {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
@@ -62,37 +69,42 @@
 
                 <!-- Autoplay blocked prompt - shown when browser blocks autoplay -->
                 <div x-show="showPlayPrompt" class="letter-audio-prompt">
-                    <button type="button" @click="playMusic" class="letter-audio-play-btn">
+                    <button
+                        type="button"
+                        @click="playMusic"
+                        class="letter-audio-play-btn"
+                    >
                         {% include "shared/icons/play.html" with class="w-6 h-6" %}
                         <span>{% trans "Click to play music" %}</span>
                     </button>
                 </div>
 
                 <audio x-ref="audio" controls x-bind:class="playButtonClass">
-                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg">
-                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3">
+                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mpeg" />
+                    <source src="{{ reward.audio_file.url|safe }}" type="audio/mp3" />
                     {% trans "Your browser does not support the audio element." %}
                 </audio>
             </div>
-            {% endif %}
-
-            {% if reward.video_file %}
+            {% endif %} {% if reward.video_file %}
             <div class="letter-video">
                 <p class="letter-video-label">
                     {% include "shared/icons/video-camera.html" with class="w-5 h-5" %}
                     {% trans "A special video message for you..." %}
                 </p>
                 <video controls>
-                    <source src="{{ reward.video_file.url|safe }}" type="video/mp4">
+                    <source src="{{ reward.video_file.url|safe }}" type="video/mp4" />
                     {% trans "Your browser does not support the video element." %}
                 </video>
             </div>
             {% endif %}
         </div>
 
-        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary block w-fit mx-auto mt-10 relative z-10">
-            {% trans "Continue Your Journey" %}
-            {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+        <a
+            href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+            class="journey-btn-primary relative z-10 mx-auto mt-10 block w-fit"
+        >
+            {% trans "Continue Your Journey" %} {% include
+            "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     </article>
 </div>

@@ -1,126 +1,194 @@
-{% extends 'crush_lu/base.html' %}
-{% load socialaccount %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Login - Crush.lu" %}{% endblock %}
-
-{% block content %}
-<div class="min-h-[70vh] flex items-center justify-center px-4 py-12">
+{% extends 'crush_lu/base.html' %} {% load socialaccount %} {% load static %} {% load
+i18n %} {% block title %}{% trans "Login - Crush.lu" %}{% endblock %} {% block content
+%}
+<div class="flex min-h-[70vh] items-center justify-center px-4 py-12">
     <div class="w-full max-w-md">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20 p-8">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Welcome Back!" %}</h2>
-                <p class="text-gray-500 dark:text-gray-400 mt-1">{% trans "Login to your Crush.lu account" %}</p>
+        <div
+            class="rounded-2xl bg-white p-8 shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
+        >
+            <div class="mb-6 text-center">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                    {% trans "Welcome Back!" %}
+                </h2>
+                <p class="mt-1 text-gray-500 dark:text-gray-400">
+                    {% trans "Login to your Crush.lu account" %}
+                </p>
             </div>
 
             <form method="post" novalidate>
-                {% csrf_token %}
-
-                {% if form.non_field_errors %}
-                    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
-
-                {# AllAuth uses 'login' field for email/username #}
+                {% csrf_token %} {% if form.non_field_errors %}
+                <div
+                    class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300"
+                >
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %} {# AllAuth uses 'login' field for email/username #}
                 <div class="mb-4">
-                    <label for="id_login" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
-                    <input type="email"
-                           class="w-full px-4 py-3 border {% if form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                           id="id_login" name="login"
-                           value="{{ form.login.value|default:'' }}" required autofocus
-                           placeholder="your@email.com">
+                    <label
+                        for="id_login"
+                        class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                        >{% trans "Email" %}</label
+                    >
+                    <input
+                        type="email"
+                        class="{% if form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                        id="id_login"
+                        name="login"
+                        value="{{ form.login.value|default:'' }}"
+                        required
+                        autofocus
+                        placeholder="your@email.com"
+                    />
                     {% if form.login.errors %}
-                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.login.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {{ form.login.errors.0 }}
+                    </p>
                     {% endif %}
                 </div>
 
                 <div class="mb-6">
-                    <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
-                    <input type="password"
-                           class="w-full px-4 py-3 border {% if form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                           id="id_password" name="password" required>
+                    <label
+                        for="id_password"
+                        class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                        >{% trans "Password" %}</label
+                    >
+                    <input
+                        type="password"
+                        class="{% if form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                        id="id_password"
+                        name="password"
+                        required
+                    />
                     {% if form.password.errors %}
-                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password.errors.0 }}</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {{ form.password.errors.0 }}
+                    </p>
                     {% endif %}
                 </div>
 
-                {# Hidden redirect field #}
-                {% if redirect_field_value %}
-                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                {# Hidden redirect field #} {% if redirect_field_value %}
+                <input
+                    type="hidden"
+                    name="{{ redirect_field_name }}"
+                    value="{{ redirect_field_value }}"
+                />
                 {% endif %}
 
-                <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold mb-4">{% trans "Login" %}</button>
+                <button
+                    type="submit"
+                    class="btn-crush-primary mb-4 w-full py-3 text-lg font-semibold"
+                >
+                    {% trans "Login" %}
+                </button>
 
                 <div class="text-center">
                     <span class="text-sm text-gray-500 dark:text-gray-400">
                         {% trans "Don't have an account?" %}
-                        <a href="{% url 'crush_lu:signup' %}" class="text-purple-600 hover:text-purple-700 font-medium">{% trans "Sign up here" %}</a>
+                        <a
+                            href="{% url 'crush_lu:signup' %}"
+                            class="font-medium text-purple-600 hover:text-purple-700"
+                            >{% trans "Sign up here" %}</a
+                        >
                     </span>
                 </div>
             </form>
 
-            {% get_providers as socialaccount_providers %}
-            {% if socialaccount_providers %}
+            {% get_providers as socialaccount_providers %} {% if socialaccount_providers
+            %}
             <div class="social-login-divider my-6 flex items-center gap-4">
-                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-600"></div>
-                <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Or continue with" %}</span>
-                <div class="flex-1 h-px bg-gray-200 dark:bg-gray-600"></div>
+                <div class="h-px flex-1 bg-gray-200 dark:bg-gray-600"></div>
+                <span class="text-sm text-gray-500 dark:text-gray-400"
+                    >{% trans "Or continue with" %}</span
+                >
+                <div class="h-px flex-1 bg-gray-200 dark:bg-gray-600"></div>
             </div>
 
-            <div class="space-y-3 mb-6">
-                {% for provider in socialaccount_providers %}
-                    {% if provider.id == "google" %}
-                <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                   data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
-                    <span class="w-5 h-5">
+            <div class="mb-6 space-y-3">
+                {% for provider in socialaccount_providers %} {% if provider.id ==
+                "google" %}
+                <a
+                    href="{% provider_login_url 'google' %}"
+                    class="social-login-btn google-btn no-loading flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    data-oauth-url="{% provider_login_url 'google' %}"
+                    data-provider="Google"
+                >
+                    <span class="h-5 w-5">
                         <!-- Official Google "G" Logo SVG -->
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            <path
+                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                fill="#4285F4"
+                            />
+                            <path
+                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                fill="#34A853"
+                            />
+                            <path
+                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                fill="#FBBC05"
+                            />
+                            <path
+                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                fill="#EA4335"
+                            />
                         </svg>
                     </span>
                     Google
                 </a>
-                    {% endif %}
-                    {% if provider.id == "facebook" %}
-                <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-[#1877F2] rounded-lg font-medium text-white hover:bg-[#166FE5] transition-colors"
-                   data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
-                    <span class="w-5 h-5">
+                {% endif %} {% if provider.id == "facebook" %}
+                <a
+                    href="{% provider_login_url 'facebook' %}"
+                    class="social-login-btn facebook-btn no-loading flex w-full items-center justify-center gap-3 rounded-lg bg-[#1877F2] px-4 py-3 font-medium text-white transition-colors hover:bg-[#166FE5]"
+                    data-oauth-url="{% provider_login_url 'facebook' %}"
+                    data-provider="Facebook"
+                >
+                    <span class="h-5 w-5">
                         <!-- Official Facebook "f" Logo SVG -->
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
+                            <path
+                                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                                fill="#ffffff"
+                            />
                         </svg>
                     </span>
                     Facebook
                 </a>
-                    {% endif %}
-                    {% if provider.id == "microsoft" %}
-                <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                   data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
-                    <span class="w-5 h-5">
+                {% endif %} {% if provider.id == "microsoft" %}
+                <a
+                    href="{% provider_login_url 'microsoft' %}"
+                    class="social-login-btn microsoft-btn no-loading flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    data-oauth-url="{% provider_login_url 'microsoft' %}"
+                    data-provider="Microsoft"
+                >
+                    <span class="h-5 w-5">
                         <!-- Official Microsoft Logo SVG (4 squares) -->
                         <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
                         </svg>
                     </span>
                     Microsoft
                 </a>
-                    {% endif %}
-                {% endfor %}
-                {# Apple rendered separately — bypasses provider list filtering #}
-                <a href="{% provider_login_url 'apple' %}" class="social-login-btn apple-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-black rounded-lg font-medium text-white hover:bg-gray-900 transition-colors"
-                   data-oauth-url="{% provider_login_url 'apple' %}" data-provider="Apple">
-                    <span class="w-5 h-5">
+                {% endif %} {% endfor %} {# Apple rendered separately — bypasses
+                provider list filtering #}
+                <a
+                    href="{% provider_login_url 'apple' %}"
+                    class="social-login-btn apple-btn no-loading flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 font-medium text-white transition-colors hover:bg-gray-900"
+                    data-oauth-url="{% provider_login_url 'apple' %}"
+                    data-provider="Apple"
+                >
+                    <span class="h-5 w-5">
                         <!-- Official Apple Logo SVG -->
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#ffffff">
-                            <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                        <svg
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="#ffffff"
+                        >
+                            <path
+                                d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+                            />
                         </svg>
                     </span>
                     Apple
@@ -128,214 +196,266 @@
             </div>
             {% endif %}
 
-            <hr class="my-6 border-gray-200 dark:border-gray-700">
+            <hr class="my-6 border-gray-200 dark:border-gray-700" />
 
             <div class="text-center">
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Your privacy is our priority" %}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Crush.lu accounts are separate from other platforms" %}</p>
+                <p class="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                    {% trans "Your privacy is our priority" %}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {% trans "Crush.lu accounts are separate from other platforms" %}
+                </p>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
-/**
- * OAuth Handler for Crush.lu - Unified for Google and Facebook
- *
- * CRITICAL: Android PWA Cookie Timing Issue
- *
- * The Problem:
- * - Android PWAs run in a Trusted Web Activity (TWA) with a SEPARATE cookie store
- * - TWAs have asynchronous cookie commits during cross-site redirects
- * - The session cookie is written but NOT YET READABLE when the next request fires
- * - Result: Django sees anonymous user, login fails silently
- *
- * Key insight: PWAs can READ cookies reliably — they just can't always CREATE them during OAuth.
- *
- * Solution (battle-tested, used by Twitter/Reddit/Notion):
- * - Android PWA: Force OAuth to run in Chrome browser (not TWA) using Android Intent URL
- * - iOS PWA: Use Safari redirect (iOS handles cookies better)
- * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
- *
- * Flow for Android PWA:
- * PWA → open Chrome → OAuth login → redirect back → PWA reads existing cookie
- */
-(function() {
-    'use strict';
+    /**
+     * OAuth Handler for Crush.lu - Unified for Google and Facebook
+     *
+     * CRITICAL: Android PWA Cookie Timing Issue
+     *
+     * The Problem:
+     * - Android PWAs run in a Trusted Web Activity (TWA) with a SEPARATE cookie store
+     * - TWAs have asynchronous cookie commits during cross-site redirects
+     * - The session cookie is written but NOT YET READABLE when the next request fires
+     * - Result: Django sees anonymous user, login fails silently
+     *
+     * Key insight: PWAs can READ cookies reliably — they just can't always CREATE them during OAuth.
+     *
+     * Solution (battle-tested, used by Twitter/Reddit/Notion):
+     * - Android PWA: Force OAuth to run in Chrome browser (not TWA) using Android Intent URL
+     * - iOS PWA: Use Safari redirect (iOS handles cookies better)
+     * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
+     *
+     * Flow for Android PWA:
+     * PWA → open Chrome → OAuth login → redirect back → PWA reads existing cookie
+     */
+    (function () {
+        "use strict";
 
-    // FIRST: Check if user is already authenticated (session recovery after Chrome OAuth)
-    // This handles the case where user logged in via Chrome and returned to PWA
-    (function checkExistingSession() {
-        fetch('/api/auth/status/', {
-            method: 'GET',
-            credentials: 'include',
-            cache: 'no-store',
-            headers: { 'Accept': 'application/json' }
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            if (data.authenticated) {
-                console.log('[Crush.lu Login] Already authenticated, redirecting...');
-                window.location.replace(data.redirect_url || '/dashboard/');
+        // FIRST: Check if user is already authenticated (session recovery after Chrome OAuth)
+        // This handles the case where user logged in via Chrome and returned to PWA
+        (function checkExistingSession() {
+            fetch("/api/auth/status/", {
+                method: "GET",
+                credentials: "include",
+                cache: "no-store",
+                headers: { Accept: "application/json" },
+            })
+                .then(function (res) {
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (data.authenticated) {
+                        console.log(
+                            "[Crush.lu Login] Already authenticated, redirecting...",
+                        );
+                        window.location.replace(data.redirect_url || "/dashboard/");
+                    }
+                })
+                .catch(function () {
+                    /* ignore errors */
+                });
+        })();
+
+        // Detect if running as installed PWA (standalone mode)
+        function isPWA() {
+            var standaloneMedia = window.matchMedia(
+                "(display-mode: standalone)",
+            ).matches;
+            var iosStandalone = window.navigator.standalone === true;
+            // Also check for android-app referrer (indicates TWA)
+            var androidApp = document.referrer.indexOf("android-app://") === 0;
+            return standaloneMedia || iosStandalone || androidApp;
+        }
+
+        // Detect Android device
+        function isAndroid() {
+            return /Android/i.test(navigator.userAgent);
+        }
+
+        // Detect iOS device
+        function isIOS() {
+            return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+
+        // Detect mobile device
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+                navigator.userAgent,
+            );
+        }
+
+        // Detect Android browser from User Agent
+        // Returns package name for Intent URL
+        function getAndroidBrowserPackage() {
+            var ua = navigator.userAgent;
+
+            // Samsung Internet Browser
+            if (/SamsungBrowser/i.test(ua)) {
+                return {
+                    name: "Samsung Internet",
+                    package: "com.sec.android.app.sbrowser",
+                };
             }
-        })
-        .catch(function() { /* ignore errors */ });
-    })();
-
-    // Detect if running as installed PWA (standalone mode)
-    function isPWA() {
-        var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
-        var iosStandalone = window.navigator.standalone === true;
-        // Also check for android-app referrer (indicates TWA)
-        var androidApp = document.referrer.indexOf('android-app://') === 0;
-        return standaloneMedia || iosStandalone || androidApp;
-    }
-
-    // Detect Android device
-    function isAndroid() {
-        return /Android/i.test(navigator.userAgent);
-    }
-
-    // Detect iOS device
-    function isIOS() {
-        return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    }
-
-    // Detect mobile device
-    function isMobile() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    }
-
-    // Detect Android browser from User Agent
-    // Returns package name for Intent URL
-    function getAndroidBrowserPackage() {
-        var ua = navigator.userAgent;
-
-        // Samsung Internet Browser
-        if (/SamsungBrowser/i.test(ua)) {
-            return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+            // Firefox
+            if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
+                return { name: "Firefox", package: "org.mozilla.firefox" };
+            }
+            // Microsoft Edge
+            if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
+                return { name: "Edge", package: "com.microsoft.emmx" };
+            }
+            // Opera
+            if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
+                return { name: "Opera", package: "com.opera.browser" };
+            }
+            // Brave
+            if (/Brave/i.test(ua)) {
+                return { name: "Brave", package: "com.brave.browser" };
+            }
+            // DuckDuckGo
+            if (/DuckDuckGo/i.test(ua)) {
+                return { name: "DuckDuckGo", package: "com.duckduckgo.mobile.android" };
+            }
+            // Default to Chrome (most common on Android)
+            return { name: "Chrome", package: "com.android.chrome" };
         }
-        // Firefox
-        if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
-            return { name: 'Firefox', package: 'org.mozilla.firefox' };
-        }
-        // Microsoft Edge
-        if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
-            return { name: 'Edge', package: 'com.microsoft.emmx' };
-        }
-        // Opera
-        if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
-            return { name: 'Opera', package: 'com.opera.browser' };
-        }
-        // Brave
-        if (/Brave/i.test(ua)) {
-            return { name: 'Brave', package: 'com.brave.browser' };
-        }
-        // DuckDuckGo
-        if (/DuckDuckGo/i.test(ua)) {
-            return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
-        }
-        // Default to Chrome (most common on Android)
-        return { name: 'Chrome', package: 'com.android.chrome' };
-    }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Find all social login buttons (Google and Facebook)
-        var socialButtons = document.querySelectorAll('.social-login-btn');
-        if (!socialButtons.length) return;
+        document.addEventListener("DOMContentLoaded", function () {
+            // Find all social login buttons (Google and Facebook)
+            var socialButtons = document.querySelectorAll(".social-login-btn");
+            if (!socialButtons.length) return;
 
-        // Log debug info
-        console.log('[Crush.lu Login] PWA:', isPWA(), 'Android:', isAndroid(), 'iOS:', isIOS(), 'Mobile:', isMobile());
+            // Log debug info
+            console.log(
+                "[Crush.lu Login] PWA:",
+                isPWA(),
+                "Android:",
+                isAndroid(),
+                "iOS:",
+                isIOS(),
+                "Mobile:",
+                isMobile(),
+            );
 
-        // Setup handler for each social button
-        socialButtons.forEach(function(button) {
-            var rawUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
-            var oauthMatch = typeof rawUrl === 'string' && rawUrl.match(/^(\/accounts\/[a-z0-9_]+\/login\/[^\s'"]*)$/);
-            if (!oauthMatch) return;
-            var oauthUrl = oauthMatch[1];
-            var providerName = button.getAttribute('data-provider') || 'OAuth';
-            var fullOAuthUrl = window.location.origin + oauthUrl;
+            // Setup handler for each social button
+            socialButtons.forEach(function (button) {
+                var rawUrl =
+                    button.getAttribute("data-oauth-url") ||
+                    button.getAttribute("href");
+                var oauthMatch =
+                    typeof rawUrl === "string" &&
+                    rawUrl.match(/^(\/accounts\/[a-z0-9_]+\/login\/[^\s'"]*)$/);
+                if (!oauthMatch) return;
+                var oauthUrl = oauthMatch[1];
+                var providerName = button.getAttribute("data-provider") || "OAuth";
+                var fullOAuthUrl = window.location.origin + oauthUrl;
 
-            // ANDROID PWA: MUST force OAuth to run in external browser (not WebView/TWA)
-            if (isPWA() && isAndroid()) {
-                var browserInfo = getAndroidBrowserPackage();
-                console.log('[Crush.lu Login] Android PWA detected for ' + providerName + ': using ' + browserInfo.name);
+                // ANDROID PWA: MUST force OAuth to run in external browser (not WebView/TWA)
+                if (isPWA() && isAndroid()) {
+                    var browserInfo = getAndroidBrowserPackage();
+                    console.log(
+                        "[Crush.lu Login] Android PWA detected for " +
+                            providerName +
+                            ": using " +
+                            browserInfo.name,
+                    );
 
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    button.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                    // Show loading state
-                    button.classList.add('opacity-50', 'pointer-events-none');
-                    button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening ' + browserInfo.name + '...';
+                        // Show loading state
+                        button.classList.add("opacity-50", "pointer-events-none");
+                        button.setAttribute("aria-busy", "true");
+                        button.textContent = "Opening " + browserInfo.name + "...";
 
-                    // Samsung Internet PWA doesn't support Intent URLs properly
-                    if (browserInfo.package === 'com.sec.android.app.sbrowser') {
-                        console.log('[Crush.lu Login] Samsung Internet PWA: using window.open()');
+                        // Samsung Internet PWA doesn't support Intent URLs properly
+                        if (browserInfo.package === "com.sec.android.app.sbrowser") {
+                            console.log(
+                                "[Crush.lu Login] Samsung Internet PWA: using window.open()",
+                            );
 
-                        var newWindow = window.open(fullOAuthUrl, '_system');
-                        if (!newWindow || newWindow.closed) {
-                            newWindow = window.open(fullOAuthUrl, '_blank');
+                            var newWindow = window.open(fullOAuthUrl, "_system");
+                            if (!newWindow || newWindow.closed) {
+                                newWindow = window.open(fullOAuthUrl, "_blank");
+                            }
+                            if (!newWindow || newWindow.closed) {
+                                console.log(
+                                    "[Crush.lu Login] window.open blocked, using location.href fallback",
+                                );
+                                window.location.href = oauthUrl;
+                            }
+                            return;
                         }
-                        if (!newWindow || newWindow.closed) {
-                            console.log('[Crush.lu Login] window.open blocked, using location.href fallback');
+
+                        // For Chrome and other browsers: Use Intent URL
+                        var intentUrl =
+                            "intent://" +
+                            window.location.host +
+                            oauthUrl +
+                            "#Intent;" +
+                            "scheme=https;" +
+                            "action=android.intent.action.VIEW;" +
+                            "package=" +
+                            browserInfo.package +
+                            ";" +
+                            "S.browser_fallback_url=" +
+                            encodeURIComponent(fullOAuthUrl) +
+                            ";" +
+                            "end;";
+
+                        console.log(
+                            "[Crush.lu Login] Opening " +
+                                browserInfo.name +
+                                " with Intent URL for " +
+                                providerName,
+                        );
+
+                        try {
+                            window.location.href = intentUrl;
+                        } catch (err) {
+                            console.error("[Crush.lu Login] Intent error:", err);
                             window.location.href = oauthUrl;
                         }
-                        return;
-                    }
+                    });
 
-                    // For Chrome and other browsers: Use Intent URL
-                    var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
-                        'scheme=https;' +
-                        'action=android.intent.action.VIEW;' +
-                        'package=' + browserInfo.package + ';' +
-                        'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
-                        'end;';
+                    return;
+                }
 
-                    console.log('[Crush.lu Login] Opening ' + browserInfo.name + ' with Intent URL for ' + providerName);
+                // ANDROID BROWSER (not PWA): Use direct OAuth
+                if (isAndroid()) {
+                    console.log(
+                        "[Crush.lu Login] Android browser detected for " + providerName,
+                    );
 
-                    try {
-                        window.location.href = intentUrl;
-                    } catch (err) {
-                        console.error('[Crush.lu Login] Intent error:', err);
+                    button.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        button.classList.add("opacity-50", "pointer-events-none");
+                        button.setAttribute("aria-busy", "true");
+                        button.textContent = "Opening login...";
                         window.location.href = oauthUrl;
-                    }
+                    });
+
+                    return;
+                }
+
+                // iOS PWA and Desktop: Use standard redirect
+                console.log("[Crush.lu Login] Standard redirect for " + providerName);
+
+                button.addEventListener("click", function (e) {
+                    // Show loading state but let the default link action proceed
+                    button.classList.add("opacity-50", "pointer-events-none");
+                    button.setAttribute("aria-busy", "true");
+                    button.textContent = "Redirecting to " + providerName + "...";
+                    // Don't prevent default - let django-allauth handle the OAuth redirect naturally
                 });
-
-                return;
-            }
-
-            // ANDROID BROWSER (not PWA): Use direct OAuth
-            if (isAndroid()) {
-                console.log('[Crush.lu Login] Android browser detected for ' + providerName);
-
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    button.classList.add('opacity-50', 'pointer-events-none');
-                    button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening login...';
-                    window.location.href = oauthUrl;
-                });
-
-                return;
-            }
-
-            // iOS PWA and Desktop: Use standard redirect
-            console.log('[Crush.lu Login] Standard redirect for ' + providerName);
-
-            button.addEventListener('click', function(e) {
-                // Show loading state but let the default link action proceed
-                button.classList.add('opacity-50', 'pointer-events-none');
-                button.setAttribute('aria-busy', 'true');
-                button.textContent = 'Redirecting to ' + providerName + '...';
-                // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
         });
-    });
-})();
+    })();
 </script>
 {% endblock %}

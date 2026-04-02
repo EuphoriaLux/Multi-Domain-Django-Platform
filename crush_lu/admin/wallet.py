@@ -21,56 +21,67 @@ from crush_lu.models import CrushProfile
 
 class WalletNotificationForm(forms.Form):
     """Form for sending a notification to Google Wallet pass holders."""
+
     header = forms.CharField(
         max_length=100,
-        widget=forms.TextInput(attrs={"size": 60, "placeholder": "e.g. New Event This Weekend!"}),
+        widget=forms.TextInput(
+            attrs={"size": 60, "placeholder": "e.g. New Event This Weekend!"}
+        ),
         help_text="Notification title shown to users",
     )
     body = forms.CharField(
         max_length=500,
-        widget=forms.Textarea(attrs={"rows": 3, "cols": 60, "placeholder": "e.g. Speed Dating Night - Saturday 8PM. Tap to register!"}),
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "cols": 60,
+                "placeholder": "e.g. Speed Dating Night - Saturday 8PM. Tap to register!",
+            }
+        ),
         help_text="Notification body text",
     )
 
 
 class WalletPassFilter(admin.SimpleListFilter):
     """Filter profiles by wallet pass status"""
-    title = 'Wallet Pass Status'
-    parameter_name = 'wallet_status'
+
+    title = "Wallet Pass Status"
+    parameter_name = "wallet_status"
 
     def lookups(self, request, model_admin):
         return (
-            ('has_apple', 'Has Apple Wallet'),
-            ('has_google', 'Has Google Wallet'),
-            ('has_both', 'Has Both'),
-            ('has_any', 'Has Any Pass'),
-            ('no_pass', 'No Wallet Pass'),
+            ("has_apple", "Has Apple Wallet"),
+            ("has_google", "Has Google Wallet"),
+            ("has_both", "Has Both"),
+            ("has_any", "Has Any Pass"),
+            ("no_pass", "No Wallet Pass"),
         )
 
     def queryset(self, request, queryset):
-        if self.value() == 'has_apple':
+        if self.value() == "has_apple":
             return queryset.exclude(
-                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial='')
+                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial="")
             )
-        if self.value() == 'has_google':
+        if self.value() == "has_google":
             return queryset.exclude(
-                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
+                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id="")
             )
-        if self.value() == 'has_both':
+        if self.value() == "has_both":
             return queryset.exclude(
-                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial='')
+                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial="")
             ).exclude(
-                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
+                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id="")
             )
-        if self.value() == 'has_any':
+        if self.value() == "has_any":
             return queryset.filter(
-                Q(apple_pass_serial__isnull=False) & ~Q(apple_pass_serial='') |
-                Q(google_wallet_object_id__isnull=False) & ~Q(google_wallet_object_id='')
+                Q(apple_pass_serial__isnull=False) & ~Q(apple_pass_serial="")
+                | Q(google_wallet_object_id__isnull=False)
+                & ~Q(google_wallet_object_id="")
             )
-        if self.value() == 'no_pass':
+        if self.value() == "no_pass":
             return queryset.filter(
-                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial=''),
-                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id=''),
+                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial=""),
+                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id=""),
             )
         return queryset
 
@@ -82,38 +93,44 @@ class WalletPassAdmin(admin.ModelAdmin):
     This is a proxy admin that shows CrushProfiles with wallet pass management
     actions and information.
     """
+
     list_display = (
-        'get_user_link',
-        'get_email',
-        'get_tier_badge',
-        'referral_points',
-        'get_apple_pass_status',
-        'get_google_pass_status',
-        'get_next_event_display',
-        'get_actions_buttons',
+        "get_user_link",
+        "get_email",
+        "get_tier_badge",
+        "referral_points",
+        "get_apple_pass_status",
+        "get_google_pass_status",
+        "get_next_event_display",
+        "get_actions_buttons",
     )
-    list_filter = (WalletPassFilter, 'membership_tier', 'is_approved')
-    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
-    ordering = ['-referral_points', '-created_at']
+    list_filter = (WalletPassFilter, "membership_tier", "is_approved")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+    )
+    ordering = ["-referral_points", "-created_at"]
     readonly_fields = (
-        'get_wallet_summary',
-        'apple_pass_serial',
-        'apple_auth_token',
-        'google_wallet_object_id',
-        'referral_points',
-        'membership_tier',
+        "get_wallet_summary",
+        "apple_pass_serial",
+        "apple_auth_token",
+        "google_wallet_object_id",
+        "referral_points",
+        "membership_tier",
     )
     actions = [
-        'update_google_wallet_passes',
-        'update_apple_wallet_passes',
-        'update_all_wallet_passes',
-        'send_google_wallet_notification',
+        "update_google_wallet_passes",
+        "update_apple_wallet_passes",
+        "update_all_wallet_passes",
+        "send_google_wallet_notification",
     ]
 
     # Only show profiles with wallet passes by default
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('user').filter(is_approved=True)
+        return qs.select_related("user").filter(is_approved=True)
 
     def has_add_permission(self, request):
         # Don't allow adding - users get passes through the app
@@ -125,71 +142,93 @@ class WalletPassAdmin(admin.ModelAdmin):
 
     def get_user_link(self, obj):
         """Display username with link to profile"""
-        profile_url = reverse('crush_admin:crush_lu_crushprofile_change', args=[obj.pk])
+        profile_url = reverse("crush_admin:crush_lu_crushprofile_change", args=[obj.pk])
         return format_html(
             '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
             profile_url,
-            obj.user.get_full_name() or obj.user.username
+            obj.user.get_full_name() or obj.user.username,
         )
-    get_user_link.short_description = _('User')
-    get_user_link.admin_order_field = 'user__first_name'
+
+    get_user_link.short_description = _("User")
+    get_user_link.admin_order_field = "user__first_name"
 
     def get_email(self, obj):
         return obj.user.email
-    get_email.short_description = _('Email')
-    get_email.admin_order_field = 'user__email'
+
+    get_email.short_description = _("Email")
+    get_email.admin_order_field = "user__email"
 
     def get_tier_badge(self, obj):
         """Display membership tier with badge"""
-        tier = obj.membership_tier or 'basic'
+        tier = obj.membership_tier or "basic"
         tier_config = {
-            'basic': {'emoji': '💜', 'color': '#9B59B6', 'bg': '#f0e6f7'},
-            'bronze': {'emoji': '🥉', 'color': '#CD7F32', 'bg': '#fdf4e8'},
-            'silver': {'emoji': '🥈', 'color': '#C0C0C0', 'bg': '#f5f5f5'},
-            'gold': {'emoji': '🥇', 'color': '#FFD700', 'bg': '#fffbe6'},
+            "basic": {"emoji": "💜", "color": "#9B59B6", "bg": "#f0e6f7"},
+            "bronze": {"emoji": "🥉", "color": "#CD7F32", "bg": "#fdf4e8"},
+            "silver": {"emoji": "🥈", "color": "#C0C0C0", "bg": "#f5f5f5"},
+            "gold": {"emoji": "🥇", "color": "#FFD700", "bg": "#fffbe6"},
         }
-        config = tier_config.get(tier, tier_config['basic'])
+        config = tier_config.get(tier, tier_config["basic"])
         return format_html(
             '<span style="background: {}; color: {}; padding: 3px 10px; '
             'border-radius: 12px; font-size: 12px; font-weight: bold;">'
-            '{} {}</span>',
-            config['bg'], config['color'], config['emoji'], tier.capitalize()
+            "{} {}</span>",
+            config["bg"],
+            config["color"],
+            config["emoji"],
+            tier.capitalize(),
         )
-    get_tier_badge.short_description = _('Tier')
-    get_tier_badge.admin_order_field = 'membership_tier'
+
+    get_tier_badge.short_description = _("Tier")
+    get_tier_badge.admin_order_field = "membership_tier"
 
     def get_apple_pass_status(self, obj):
         """Display Apple Wallet pass status"""
         if obj.apple_pass_serial:
             return format_html(
                 '<span style="color: #28a745;" title="Serial: {}">🍎 Active</span>',
-                obj.apple_pass_serial[:20] + '...' if len(obj.apple_pass_serial) > 20 else obj.apple_pass_serial
+                (
+                    obj.apple_pass_serial[:20] + "..."
+                    if len(obj.apple_pass_serial) > 20
+                    else obj.apple_pass_serial
+                ),
             )
         return mark_safe('<span style="color: #999;">—</span>')
-    get_apple_pass_status.short_description = _('Apple')
+
+    get_apple_pass_status.short_description = _("Apple")
 
     def get_google_pass_status(self, obj):
         """Display Google Wallet pass status"""
         if obj.google_wallet_object_id:
             return format_html(
                 '<span style="color: #28a745;" title="Object ID: {}">🤖 Active</span>',
-                obj.google_wallet_object_id[:30] + '...' if len(obj.google_wallet_object_id) > 30 else obj.google_wallet_object_id
+                (
+                    obj.google_wallet_object_id[:30] + "..."
+                    if len(obj.google_wallet_object_id) > 30
+                    else obj.google_wallet_object_id
+                ),
             )
         return mark_safe('<span style="color: #999;">—</span>')
-    get_google_pass_status.short_description = _('Google')
+
+    get_google_pass_status.short_description = _("Google")
 
     def get_next_event_display(self, obj):
         """Display next event info"""
         from crush_lu.wallet_pass import get_next_event_for_pass
+
         next_event = get_next_event_for_pass(obj)
         if next_event:
             return format_html(
                 '<span title="{}">{}</span>',
-                next_event.get('date', ''),
-                next_event.get('title', '')[:25] + '...' if len(next_event.get('title', '')) > 25 else next_event.get('title', '')
+                next_event.get("date", ""),
+                (
+                    next_event.get("title", "")[:25] + "..."
+                    if len(next_event.get("title", "")) > 25
+                    else next_event.get("title", "")
+                ),
             )
         return mark_safe('<span style="color: #999;">No events</span>')
-    get_next_event_display.short_description = _('Next Event')
+
+    get_next_event_display.short_description = _("Next Event")
 
     def get_actions_buttons(self, obj):
         """Display quick action buttons"""
@@ -208,10 +247,13 @@ class WalletPassAdmin(admin.ModelAdmin):
             )
 
         if not buttons:
-            return mark_safe('<span style="color: #999; font-size: 11px;">No pass</span>')
+            return mark_safe(
+                '<span style="color: #999; font-size: 11px;">No pass</span>'
+            )
 
-        return mark_safe(' | '.join(buttons))
-    get_actions_buttons.short_description = _('Actions')
+        return mark_safe(" | ".join(buttons))
+
+    get_actions_buttons.short_description = _("Actions")
 
     def get_wallet_summary(self, obj):
         """Display comprehensive wallet summary"""
@@ -219,7 +261,7 @@ class WalletPassAdmin(admin.ModelAdmin):
 
         pass_data = build_wallet_pass_data(obj)
 
-        html = '''
+        html = """
         <div style="background: linear-gradient(135deg, #9B59B6, #FF6B9D);
                     color: white; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -258,17 +300,29 @@ class WalletPassAdmin(admin.ModelAdmin):
                     <td>{has_photo}</td></tr>
             </table>
         </div>
-        '''
+        """
 
-        apple_status = '<span style="color: #28a745;">✅ Active</span><br><code style="font-size: 10px;">{}</code>'.format(
-            obj.apple_pass_serial[:40] + '...' if obj.apple_pass_serial and len(obj.apple_pass_serial) > 40 else obj.apple_pass_serial or ''
-        ) if obj.apple_pass_serial else '<span style="color: #999;">Not installed</span>'
+        apple_status = (
+            '<span style="color: #28a745;">✅ Active</span><br><code style="font-size: 10px;">{}</code>'.format(
+                obj.apple_pass_serial[:40] + "..."
+                if obj.apple_pass_serial and len(obj.apple_pass_serial) > 40
+                else obj.apple_pass_serial or ""
+            )
+            if obj.apple_pass_serial
+            else '<span style="color: #999;">Not installed</span>'
+        )
 
-        google_status = '<span style="color: #28a745;">✅ Active</span><br><code style="font-size: 10px;">{}</code>'.format(
-            obj.google_wallet_object_id[:40] + '...' if obj.google_wallet_object_id and len(obj.google_wallet_object_id) > 40 else obj.google_wallet_object_id or ''
-        ) if obj.google_wallet_object_id else '<span style="color: #999;">Not installed</span>'
+        google_status = (
+            '<span style="color: #28a745;">✅ Active</span><br><code style="font-size: 10px;">{}</code>'.format(
+                obj.google_wallet_object_id[:40] + "..."
+                if obj.google_wallet_object_id and len(obj.google_wallet_object_id) > 40
+                else obj.google_wallet_object_id or ""
+            )
+            if obj.google_wallet_object_id
+            else '<span style="color: #999;">Not installed</span>'
+        )
 
-        next_event_info = pass_data.get('next_event')
+        next_event_info = pass_data.get("next_event")
         if next_event_info:
             next_event_str = f"{next_event_info.get('title', '')} - {next_event_info.get('date', '')}"
         else:
@@ -276,37 +330,50 @@ class WalletPassAdmin(admin.ModelAdmin):
 
         return format_html(
             html,
-            display_name=pass_data.get('display_name', ''),
-            tier_display=pass_data.get('tier_display', ''),
-            points=pass_data.get('referral_points', 0),
+            display_name=pass_data.get("display_name", ""),
+            tier_display=pass_data.get("tier_display", ""),
+            points=pass_data.get("referral_points", 0),
             apple_status=apple_status,
             google_status=google_status,
-            referral_url=pass_data.get('referral_url', ''),
+            referral_url=pass_data.get("referral_url", ""),
             next_event=next_event_str,
-            member_since=pass_data.get('member_since', 'N/A'),
-            has_photo='Yes' if pass_data.get('photo_url') else 'No',
+            member_since=pass_data.get("member_since", "N/A"),
+            has_photo="Yes" if pass_data.get("photo_url") else "No",
         )
-    get_wallet_summary.short_description = _('Wallet Pass Preview')
+
+    get_wallet_summary.short_description = _("Wallet Pass Preview")
 
     fieldsets = (
-        ('Wallet Pass Preview', {
-            'fields': ('get_wallet_summary',),
-            'description': 'Preview of how the wallet pass looks',
-        }),
-        ('Apple Wallet', {
-            'fields': ('apple_pass_serial', 'apple_auth_token'),
-            'classes': ('collapse',),
-        }),
-        ('Google Wallet', {
-            'fields': ('google_wallet_object_id',),
-            'classes': ('collapse',),
-        }),
-        ('Points & Tier', {
-            'fields': ('referral_points', 'membership_tier'),
-        }),
+        (
+            "Wallet Pass Preview",
+            {
+                "fields": ("get_wallet_summary",),
+                "description": "Preview of how the wallet pass looks",
+            },
+        ),
+        (
+            "Apple Wallet",
+            {
+                "fields": ("apple_pass_serial", "apple_auth_token"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Google Wallet",
+            {
+                "fields": ("google_wallet_object_id",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Points & Tier",
+            {
+                "fields": ("referral_points", "membership_tier"),
+            },
+        ),
     )
 
-    @admin.action(description=_('🔄 Update Google Wallet passes'))
+    @admin.action(description=_("🔄 Update Google Wallet passes"))
     def update_google_wallet_passes(self, request, queryset):
         """Update Google Wallet passes for selected profiles"""
         from crush_lu.wallet.google_api import update_google_wallet_pass
@@ -322,21 +389,30 @@ class WalletPassAdmin(admin.ModelAdmin):
 
             try:
                 result = update_google_wallet_pass(profile)
-                if result.get('success'):
+                if result.get("success"):
                     updated += 1
                 else:
                     failed += 1
-            except Exception as e:
+            except Exception:
                 failed += 1
 
         if updated > 0:
-            django_messages.success(request, _('🤖 Updated %(count)d Google Wallet pass(es)') % {'count': updated})
+            django_messages.success(
+                request,
+                _("🤖 Updated %(count)d Google Wallet pass(es)") % {"count": updated},
+            )
         if failed > 0:
-            django_messages.warning(request, _('❌ Failed to update %(count)d pass(es)') % {'count': failed})
+            django_messages.warning(
+                request, _("❌ Failed to update %(count)d pass(es)") % {"count": failed}
+            )
         if skipped > 0:
-            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without Google Wallet') % {'count': skipped})
+            django_messages.info(
+                request,
+                _("⏭️ Skipped %(count)d profile(s) without Google Wallet")
+                % {"count": skipped},
+            )
 
-    @admin.action(description=_('🔄 Update Apple Wallet passes (trigger refresh)'))
+    @admin.action(description=_("🔄 Update Apple Wallet passes (trigger refresh)"))
     def update_apple_wallet_passes(self, request, queryset):
         """Trigger Apple Wallet pass refresh for selected profiles"""
         from crush_lu.signals import _trigger_apple_pass_refresh
@@ -356,11 +432,19 @@ class WalletPassAdmin(admin.ModelAdmin):
                 pass  # Apple refresh is best-effort
 
         if updated > 0:
-            django_messages.success(request, _('🍎 Triggered refresh for %(count)d Apple Wallet pass(es)') % {'count': updated})
+            django_messages.success(
+                request,
+                _("🍎 Triggered refresh for %(count)d Apple Wallet pass(es)")
+                % {"count": updated},
+            )
         if skipped > 0:
-            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without Apple Wallet') % {'count': skipped})
+            django_messages.info(
+                request,
+                _("⏭️ Skipped %(count)d profile(s) without Apple Wallet")
+                % {"count": skipped},
+            )
 
-    @admin.action(description=_('🔄 Update ALL wallet passes (Apple + Google)'))
+    @admin.action(description=_("🔄 Update ALL wallet passes (Apple + Google)"))
     def update_all_wallet_passes(self, request, queryset):
         """Update both Apple and Google wallet passes"""
         from crush_lu.signals import trigger_wallet_pass_updates
@@ -380,35 +464,43 @@ class WalletPassAdmin(admin.ModelAdmin):
                 pass
 
         if updated > 0:
-            django_messages.success(request, _('🔄 Updated %(count)d wallet pass(es)') % {'count': updated})
+            django_messages.success(
+                request, _("🔄 Updated %(count)d wallet pass(es)") % {"count": updated}
+            )
         if skipped > 0:
-            django_messages.info(request, _('⏭️ Skipped %(count)d profile(s) without any wallet pass') % {'count': skipped})
+            django_messages.info(
+                request,
+                _("⏭️ Skipped %(count)d profile(s) without any wallet pass")
+                % {"count": skipped},
+            )
 
-    @admin.action(description=_('📨 Send notification to Google Wallet'))
+    @admin.action(description=_("📨 Send notification to Google Wallet"))
     def send_google_wallet_notification(self, request, queryset):
         """Send a notification message to selected profiles' Google Wallet passes."""
         # Filter to only profiles with Google Wallet passes
         google_profiles = queryset.exclude(
-            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
+            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id="")
         )
 
         if not google_profiles.exists():
-            django_messages.warning(request, _('None of the selected profiles have a Google Wallet pass.'))
+            django_messages.warning(
+                request, _("None of the selected profiles have a Google Wallet pass.")
+            )
             return
 
-        if 'send_notification' in request.POST:
+        if "send_notification" in request.POST:
             form = WalletNotificationForm(request.POST)
             if form.is_valid():
                 from crush_lu.wallet.google_api import send_wallet_notification_to_user
 
-                header = form.cleaned_data['header']
-                body = form.cleaned_data['body']
+                header = form.cleaned_data["header"]
+                body = form.cleaned_data["body"]
                 sent = 0
                 failed = 0
 
                 for profile in google_profiles:
                     result = send_wallet_notification_to_user(profile, header, body)
-                    if result['success']:
+                    if result["success"]:
                         sent += 1
                     else:
                         failed += 1
@@ -416,27 +508,28 @@ class WalletPassAdmin(admin.ModelAdmin):
                 if sent:
                     django_messages.success(
                         request,
-                        _('📨 Sent notification to %(count)d Google Wallet pass(es)') % {'count': sent},
+                        _("📨 Sent notification to %(count)d Google Wallet pass(es)")
+                        % {"count": sent},
                     )
                 if failed:
                     django_messages.warning(
                         request,
-                        _('❌ Failed to notify %(count)d pass(es)') % {'count': failed},
+                        _("❌ Failed to notify %(count)d pass(es)") % {"count": failed},
                     )
-                return HttpResponseRedirect(request.get_full_path().split('?')[0])
+                return HttpResponseRedirect(request.get_full_path().split("?")[0])
         else:
             form = WalletNotificationForm()
 
         context = {
-            'title': _('Send Google Wallet Notification'),
-            'form': form,
-            'profiles': google_profiles,
-            'profile_count': google_profiles.count(),
-            'queryset': queryset,
-            'opts': self.model._meta,
-            'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME,
+            "title": _("Send Google Wallet Notification"),
+            "form": form,
+            "profiles": google_profiles,
+            "profile_count": google_profiles.count(),
+            "queryset": queryset,
+            "opts": self.model._meta,
+            "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
         }
-        return render(request, 'admin/crush_lu/wallet_notification.html', context)
+        return render(request, "admin/crush_lu/wallet_notification.html", context)
 
     def changelist_view(self, request, extra_context=None):
         """Add statistics to the changelist view"""
@@ -445,23 +538,27 @@ class WalletPassAdmin(admin.ModelAdmin):
         # Calculate wallet pass statistics
         total_profiles = CrushProfile.objects.filter(is_approved=True).count()
         apple_passes = CrushProfile.objects.exclude(
-            Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial='')
+            Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial="")
         ).count()
         google_passes = CrushProfile.objects.exclude(
-            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
+            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id="")
         ).count()
-        both_passes = CrushProfile.objects.exclude(
-            Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial='')
-        ).exclude(
-            Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id='')
-        ).count()
+        both_passes = (
+            CrushProfile.objects.exclude(
+                Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial="")
+            )
+            .exclude(
+                Q(google_wallet_object_id__isnull=True) | Q(google_wallet_object_id="")
+            )
+            .count()
+        )
 
-        extra_context['wallet_stats'] = {
-            'total_profiles': total_profiles,
-            'apple_passes': apple_passes,
-            'google_passes': google_passes,
-            'both_passes': both_passes,
-            'any_pass': apple_passes + google_passes - both_passes,
+        extra_context["wallet_stats"] = {
+            "total_profiles": total_profiles,
+            "apple_passes": apple_passes,
+            "google_passes": google_passes,
+            "both_passes": both_passes,
+            "any_pass": apple_passes + google_passes - both_passes,
         }
 
         return super().changelist_view(request, extra_context=extra_context)
@@ -470,7 +567,8 @@ class WalletPassAdmin(admin.ModelAdmin):
 # Create a proxy model for the admin
 class WalletPassProxy(CrushProfile):
     """Proxy model for Wallet Pass admin"""
+
     class Meta:
         proxy = True
-        verbose_name = 'Wallet Pass'
-        verbose_name_plural = 'Wallet Passes'
+        verbose_name = "Wallet Pass"
+        verbose_name_plural = "Wallet Passes"

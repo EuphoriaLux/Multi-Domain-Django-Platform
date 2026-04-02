@@ -9,6 +9,7 @@ Comprehensive tests for all Crush.lu models including:
 
 Run with: pytest crush_lu/tests/test_models.py -v
 """
+
 from datetime import date, timedelta
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -23,11 +24,11 @@ class CrushProfileTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username='testuser@example.com',
-            email='testuser@example.com',
-            password='testpass123',
-            first_name='John',
-            last_name='Doe'
+            username="testuser@example.com",
+            email="testuser@example.com",
+            password="testpass123",
+            first_name="John",
+            last_name="Doe",
         )
 
     def test_age_calculation(self):
@@ -39,10 +40,7 @@ class CrushProfileTests(TestCase):
         dob = date(today.year - 25, today.month, today.day)
 
         profile = CrushProfile.objects.create(
-            user=self.user,
-            date_of_birth=dob,
-            gender='M',
-            location='Luxembourg'
+            user=self.user, date_of_birth=dob, gender="M", location="Luxembourg"
         )
 
         self.assertEqual(profile.age, 25)
@@ -62,10 +60,7 @@ class CrushProfileTests(TestCase):
             dob = date(today.year - 25, next_day.month, next_day.day)
 
         profile = CrushProfile.objects.create(
-            user=self.user,
-            date_of_birth=dob,
-            gender='M',
-            location='Luxembourg'
+            user=self.user, date_of_birth=dob, gender="M", location="Luxembourg"
         )
 
         self.assertEqual(profile.age, 24)
@@ -79,13 +74,10 @@ class CrushProfileTests(TestCase):
         dob = date(today.year - 27, 1, 1)
 
         profile = CrushProfile.objects.create(
-            user=self.user,
-            date_of_birth=dob,
-            gender='M',
-            location='Luxembourg'
+            user=self.user, date_of_birth=dob, gender="M", location="Luxembourg"
         )
 
-        self.assertEqual(profile.age_range, '25-29')
+        self.assertEqual(profile.age_range, "25-29")
 
     def test_display_name_full_name(self):
         """Test display_name returns full name when allowed."""
@@ -94,13 +86,13 @@ class CrushProfileTests(TestCase):
         profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            show_full_name=True
+            gender="M",
+            location="Luxembourg",
+            show_full_name=True,
         )
 
         # Model uses user.get_full_name() which returns 'John Doe'
-        self.assertEqual(profile.display_name, 'John Doe')
+        self.assertEqual(profile.display_name, "John Doe")
 
     def test_display_name_first_only(self):
         """Test display_name returns first name only when privacy enabled."""
@@ -109,12 +101,12 @@ class CrushProfileTests(TestCase):
         profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            show_full_name=False
+            gender="M",
+            location="Luxembourg",
+            show_full_name=False,
         )
 
-        self.assertEqual(profile.display_name, 'John')
+        self.assertEqual(profile.display_name, "John")
 
     def test_city_alias_for_location(self):
         """Test city property is alias for location."""
@@ -123,11 +115,11 @@ class CrushProfileTests(TestCase):
         profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='canton-luxembourg'  # Canton-based location
+            gender="M",
+            location="canton-luxembourg",  # Canton-based location
         )
 
-        self.assertEqual(profile.city, 'canton-luxembourg')
+        self.assertEqual(profile.city, "canton-luxembourg")
 
 
 class MeetupEventTests(TestCase):
@@ -138,15 +130,15 @@ class MeetupEventTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title='Test Event',
-            description='A test event',
-            event_type='mixer',
+            title="Test Event",
+            description="A test event",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=10,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_is_registration_open_before_deadline(self):
@@ -158,15 +150,15 @@ class MeetupEventTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         past_event = MeetupEvent.objects.create(
-            title='Past Event',
-            description='A past event',
-            event_type='mixer',
+            title="Past Event",
+            description="A past event",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(days=1),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=10,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
         self.assertFalse(past_event.is_registration_open)
@@ -192,32 +184,32 @@ class EventRegistrationTests(TestCase):
         from crush_lu.models import MeetupEvent, CrushProfile
 
         self.user = User.objects.create_user(
-            username='testuser@example.com',
-            email='testuser@example.com',
-            password='testpass123',
-            first_name='John',
-            last_name='Doe'
+            username="testuser@example.com",
+            email="testuser@example.com",
+            password="testpass123",
+            first_name="John",
+            last_name="Doe",
         )
 
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
-            is_active=True
+            is_active=True,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Test Event',
-            description='A test event',
-            event_type='mixer',
+            title="Test Event",
+            description="A test event",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=2,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_registration_creates_pending_status(self):
@@ -225,27 +217,20 @@ class EventRegistrationTests(TestCase):
         from crush_lu.models import EventRegistration
 
         registration = EventRegistration.objects.create(
-            event=self.event,
-            user=self.user
+            event=self.event, user=self.user
         )
 
-        self.assertEqual(registration.status, 'pending')
+        self.assertEqual(registration.status, "pending")
 
     def test_duplicate_registration_prevented(self):
         """Test user cannot register twice for same event."""
         from crush_lu.models import EventRegistration
         from django.db import IntegrityError
 
-        EventRegistration.objects.create(
-            event=self.event,
-            user=self.user
-        )
+        EventRegistration.objects.create(event=self.event, user=self.user)
 
         with self.assertRaises(IntegrityError):
-            EventRegistration.objects.create(
-                event=self.event,
-                user=self.user
-            )
+            EventRegistration.objects.create(event=self.event, user=self.user)
 
     def test_event_is_full_after_max_registrations(self):
         """Test event shows as full after max registrations."""
@@ -253,21 +238,17 @@ class EventRegistrationTests(TestCase):
 
         # Create another user
         user2 = User.objects.create_user(
-            username='testuser2@example.com',
-            email='testuser2@example.com',
-            password='testpass123'
+            username="testuser2@example.com",
+            email="testuser2@example.com",
+            password="testpass123",
         )
 
         # Register both users (max is 2)
         EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='confirmed'
+            event=self.event, user=self.user, status="confirmed"
         )
         EventRegistration.objects.create(
-            event=self.event,
-            user=user2,
-            status='confirmed'
+            event=self.event, user=user2, status="confirmed"
         )
 
         self.assertTrue(self.event.is_full)
@@ -282,41 +263,41 @@ class EventConnectionTests(TestCase):
         from crush_lu.models import MeetupEvent, CrushProfile
 
         self.user1 = User.objects.create_user(
-            username='user1@example.com',
-            email='user1@example.com',
-            password='testpass123',
-            first_name='John',
-            last_name='Doe'
+            username="user1@example.com",
+            email="user1@example.com",
+            password="testpass123",
+            first_name="John",
+            last_name="Doe",
         )
 
         self.user2 = User.objects.create_user(
-            username='user2@example.com',
-            email='user2@example.com',
-            password='testpass123',
-            first_name='Jane',
-            last_name='Smith'
+            username="user2@example.com",
+            email="user2@example.com",
+            password="testpass123",
+            first_name="Jane",
+            last_name="Smith",
         )
 
         for user in [self.user1, self.user2]:
             CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
-                gender='M' if user == self.user1 else 'F',
-                location='Luxembourg',
+                gender="M" if user == self.user1 else "F",
+                location="Luxembourg",
                 is_approved=True,
-                is_active=True
+                is_active=True,
             )
 
         self.event = MeetupEvent.objects.create(
-            title='Test Event',
-            description='A test event',
-            event_type='mixer',
+            title="Test Event",
+            description="A test event",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_connection_request_creates_pending(self):
@@ -324,12 +305,10 @@ class EventConnectionTests(TestCase):
         from crush_lu.models import EventConnection
 
         connection = EventConnection.objects.create(
-            event=self.event,
-            requester=self.user1,
-            recipient=self.user2
+            event=self.event, requester=self.user1, recipient=self.user2
         )
 
-        self.assertEqual(connection.status, 'pending')
+        self.assertEqual(connection.status, "pending")
 
     def test_mutual_connection_required(self):
         """Test both users must connect for status to be 'connected'."""
@@ -340,11 +319,11 @@ class EventConnectionTests(TestCase):
             event=self.event,
             requester=self.user1,
             recipient=self.user2,
-            status='pending'
+            status="pending",
         )
 
         # Still pending, not connected
-        self.assertEqual(connection.status, 'pending')
+        self.assertEqual(connection.status, "pending")
 
 
 class SpecialUserExperienceTests(TestCase):
@@ -355,17 +334,15 @@ class SpecialUserExperienceTests(TestCase):
         from crush_lu.models import SpecialUserExperience
 
         experience = SpecialUserExperience.objects.create(
-            first_name='John',
-            last_name='Doe',
-            custom_welcome_message='Welcome, John!',
-            is_active=True
+            first_name="John",
+            last_name="Doe",
+            custom_welcome_message="Welcome, John!",
+            is_active=True,
         )
 
         # Should match regardless of case
         match = SpecialUserExperience.objects.filter(
-            first_name__iexact='JOHN',
-            last_name__iexact='DOE',
-            is_active=True
+            first_name__iexact="JOHN", last_name__iexact="DOE", is_active=True
         ).first()
 
         self.assertIsNotNone(match)
@@ -376,11 +353,11 @@ class SpecialUserExperienceTests(TestCase):
         from crush_lu.models import SpecialUserExperience
 
         experience = SpecialUserExperience.objects.create(
-            first_name='John',
-            last_name='Doe',
-            custom_welcome_message='Welcome!',
+            first_name="John",
+            last_name="Doe",
+            custom_welcome_message="Welcome!",
             is_active=True,
-            trigger_count=0
+            trigger_count=0,
         )
 
         # Simulate trigger using the trigger() method
@@ -399,53 +376,50 @@ class ProfileSubmissionTests(TestCase):
         from crush_lu.models import CrushProfile, CrushCoach
 
         self.user = User.objects.create_user(
-            username='testuser@example.com',
-            email='testuser@example.com',
-            password='testpass123',
-            first_name='John',
-            last_name='Doe'
+            username="testuser@example.com",
+            email="testuser@example.com",
+            password="testpass123",
+            first_name="John",
+            last_name="Doe",
         )
 
         self.coach_user = User.objects.create_user(
-            username='coach@example.com',
-            email='coach@example.com',
-            password='testpass123',
-            first_name='Coach',
-            last_name='Marie'
+            username="coach@example.com",
+            email="coach@example.com",
+            password="testpass123",
+            first_name="Coach",
+            last_name="Marie",
         )
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
-            bio='Experienced dating coach',
+            bio="Experienced dating coach",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=False
+            gender="M",
+            location="Luxembourg",
+            is_approved=False,
         )
 
     def test_submission_starts_as_pending(self):
         """Test new submission has pending status."""
         from crush_lu.models import ProfileSubmission
 
-        submission = ProfileSubmission.objects.create(
-            profile=self.profile
-        )
+        submission = ProfileSubmission.objects.create(profile=self.profile)
 
-        self.assertEqual(submission.status, 'pending')
+        self.assertEqual(submission.status, "pending")
 
     def test_coach_assignment(self):
         """Test coach can be assigned to submission."""
         from crush_lu.models import ProfileSubmission
 
         submission = ProfileSubmission.objects.create(
-            profile=self.profile,
-            coach=self.coach
+            profile=self.profile, coach=self.coach
         )
 
         self.assertEqual(submission.coach, self.coach)
@@ -455,12 +429,11 @@ class ProfileSubmissionTests(TestCase):
         from crush_lu.models import ProfileSubmission
 
         submission = ProfileSubmission.objects.create(
-            profile=self.profile,
-            coach=self.coach
+            profile=self.profile, coach=self.coach
         )
 
         # Approve the submission
-        submission.status = 'approved'
+        submission.status = "approved"
         submission.save()
 
         # Update profile

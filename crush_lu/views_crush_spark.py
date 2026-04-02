@@ -6,24 +6,23 @@ Recipient views: view received anonymous sparks.
 Coach views: list pending sparks, assign recipients.
 API views: poll spark status.
 """
+
 import logging
 from datetime import timedelta
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods
 
 from .decorators import crush_login_required, coach_required
 from .forms_crush_spark import CoachSparkAssignForm, SparkJourneyForm, SparkRequestForm
 from .models import (
     CrushCoach,
-    CrushProfile,
     EventRegistration,
     MeetupEvent,
 )
@@ -47,7 +46,9 @@ def spark_request(request, event_id):
         event=event, user=request.user, status="attended"
     ).first()
     if not registration:
-        messages.error(request, _("You must have attended this event to send a Crush Spark."))
+        messages.error(
+            request, _("You must have attended this event to send a Crush Spark.")
+        )
         return redirect("crush_lu:event_detail", event_id=event.id)
 
     # Check deadline
@@ -58,15 +59,22 @@ def spark_request(request, event_id):
 
     # Check max sparks limit (use select_for_update for race conditions)
     with transaction.atomic():
-        existing_count = CrushSpark.objects.select_for_update().filter(
-            event=event,
-            sender=request.user,
-        ).exclude(status=CrushSpark.Status.CANCELLED).count()
+        existing_count = (
+            CrushSpark.objects.select_for_update()
+            .filter(
+                event=event,
+                sender=request.user,
+            )
+            .exclude(status=CrushSpark.Status.CANCELLED)
+            .count()
+        )
 
         if existing_count >= event.max_sparks_per_event:
             messages.error(
                 request,
-                _("You've reached the maximum number of Crush Sparks for this event (%(max)s).")
+                _(
+                    "You've reached the maximum number of Crush Sparks for this event (%(max)s)."
+                )
                 % {"max": event.max_sparks_per_event},
             )
             return redirect("crush_lu:spark_list")
@@ -91,7 +99,9 @@ def spark_request(request, event_id):
             spark.save()
             messages.success(
                 request,
-                _("Your Crush Spark has been submitted! A coach will identify your person."),
+                _(
+                    "Your Crush Spark has been submitted! A coach will identify your person."
+                ),
             )
             return redirect("crush_lu:spark_detail", spark_id=spark.id)
     else:
@@ -202,7 +212,9 @@ def spark_create_journey(request, spark_id):
                 return redirect("crush_lu:spark_detail", spark_id=spark.id)
 
             except Exception as e:
-                logger.error(f"Failed to create spark journey {spark.id}: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to create spark journey {spark.id}: {e}", exc_info=True
+                )
                 messages.error(
                     request,
                     _("There was an error creating the journey. Please try again."),
@@ -272,9 +284,15 @@ def spark_send_inline(request, event_id, user_id):
         )
 
     # Check for existing spark to same person
-    existing = CrushSpark.objects.filter(
-        event=event, sender=request.user, recipient=recipient,
-    ).exclude(status=CrushSpark.Status.CANCELLED).exists()
+    existing = (
+        CrushSpark.objects.filter(
+            event=event,
+            sender=request.user,
+            recipient=recipient,
+        )
+        .exclude(status=CrushSpark.Status.CANCELLED)
+        .exists()
+    )
     if existing:
         return render(
             request,
@@ -284,16 +302,26 @@ def spark_send_inline(request, event_id, user_id):
 
     # Check max sparks limit
     with transaction.atomic():
-        existing_count = CrushSpark.objects.select_for_update().filter(
-            event=event, sender=request.user,
-        ).exclude(status=CrushSpark.Status.CANCELLED).count()
+        existing_count = (
+            CrushSpark.objects.select_for_update()
+            .filter(
+                event=event,
+                sender=request.user,
+            )
+            .exclude(status=CrushSpark.Status.CANCELLED)
+            .count()
+        )
 
         if existing_count >= event.max_sparks_per_event:
             return render(
                 request,
                 "crush_lu/_htmx_error.html",
-                {"message": _("You've reached the maximum number of Crush Sparks for this event (%(max)s).")
-                 % {"max": event.max_sparks_per_event}},
+                {
+                    "message": _(
+                        "You've reached the maximum number of Crush Sparks for this event (%(max)s)."
+                    )
+                    % {"max": event.max_sparks_per_event}
+                },
             )
 
         # Create the spark with recipient already set
@@ -317,18 +345,29 @@ def spark_actions(request, event_id, user_id):
     event = get_object_or_404(MeetupEvent, id=event_id)
 
     # Check if spark exists from request.user to this user for this event
-    spark = CrushSpark.objects.filter(
-        event=event, sender=request.user, recipient_id=user_id,
-    ).exclude(status=CrushSpark.Status.CANCELLED).first()
+    spark = (
+        CrushSpark.objects.filter(
+            event=event,
+            sender=request.user,
+            recipient_id=user_id,
+        )
+        .exclude(status=CrushSpark.Status.CANCELLED)
+        .first()
+    )
 
     # Check deadline
     deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
     spark_deadline_active = timezone.now() <= deadline
 
     # Check remaining sparks
-    existing_count = CrushSpark.objects.filter(
-        event=event, sender=request.user,
-    ).exclude(status=CrushSpark.Status.CANCELLED).count()
+    existing_count = (
+        CrushSpark.objects.filter(
+            event=event,
+            sender=request.user,
+        )
+        .exclude(status=CrushSpark.Status.CANCELLED)
+        .count()
+    )
 
     context = {
         "event": event,
@@ -415,7 +454,9 @@ def coach_spark_assign(request, spark_id):
     )
 
     event = spark.event
-    is_review_mode = spark.status == CrushSpark.Status.PENDING_REVIEW and spark.recipient is not None
+    is_review_mode = (
+        spark.status == CrushSpark.Status.PENDING_REVIEW and spark.recipient is not None
+    )
 
     # For old-flow (requested without recipient), show attendee list
     attendees = None
@@ -457,7 +498,9 @@ def coach_spark_assign(request, spark_id):
                 )
                 messages.success(
                     request,
-                    _("Spark approved! The sender will be notified to create their journey."),
+                    _(
+                        "Spark approved! The sender will be notified to create their journey."
+                    ),
                 )
             elif action == "reject":
                 spark.status = CrushSpark.Status.CANCELLED
@@ -481,7 +524,9 @@ def coach_spark_assign(request, spark_id):
                     event=event, user_id=recipient_user_id, status="attended"
                 ).first()
                 if not recipient_reg:
-                    messages.error(request, _("Selected person did not attend this event."))
+                    messages.error(
+                        request, _("Selected person did not attend this event.")
+                    )
                     return redirect("crush_lu:coach_spark_assign", spark_id=spark.id)
 
                 if recipient_user_id == spark.sender_id:
@@ -504,7 +549,9 @@ def coach_spark_assign(request, spark_id):
                 )
                 messages.success(
                     request,
-                    _("Recipient assigned! The sender will be notified to create their journey."),
+                    _(
+                        "Recipient assigned! The sender will be notified to create their journey."
+                    ),
                 )
                 return redirect("crush_lu:coach_spark_list")
     else:

@@ -1,127 +1,191 @@
 {% load i18n %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "Welcome to Crush.lu" %}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            background-color: #9B59B6; /* Solid fallback for Outlook */
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-            border-radius: 10px 10px 0 0;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            color: #ffffff; /* Explicit white for Outlook */
-        }
-        .content {
-            background: #ffffff;
-            padding: 30px;
-            border: 1px solid #e0e0e0;
-        }
-        .button {
-            display: inline-block;
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            color: white !important;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-size: 14px;
-            background: #f8f9fa;
-            border-radius: 0 0 10px 10px;
-        }
-        .steps {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .step {
-            margin: 10px 0;
-            padding-left: 30px;
-            position: relative;
-        }
-        .step::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: #9B59B6;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <div class="header" style="background-color: #9B59B6; color: white; padding: 30px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px; color: #ffffff;">🎉 {% trans "Welcome to Crush.lu!" %}</h1>
-    </div>
-
-    <div class="content">
-        <p>{% blocktrans with first_name=first_name %}Hi {{ first_name }},{% endblocktrans %}</p>
-
-        <p><strong>{% trans "Congratulations on taking the first step toward meaningful connections!" %}</strong> 🌟</p>
-
-        <p>{% trans "Your Crush.lu account has been successfully created. Now let's build your profile so you can start meeting amazing people at our events." %}</p>
-
-        <div class="steps">
-            <h3 style="margin-top: 0; color: #9B59B6;">{% trans "Complete Your Profile (4 Simple Steps):" %}</h3>
-            <div class="step"><strong>{% trans "Basic Info:" %}</strong> {% trans "Tell us about yourself (age, location, etc.)" %}</div>
-            <div class="step"><strong>{% trans "About You:" %}</strong> {% trans "Share your bio and interests" %}</div>
-            <div class="step"><strong>{% trans "Photos:" %}</strong> {% trans "Add up to 3 photos" %}</div>
-            <div class="step"><strong>{% trans "Review & Submit:" %}</strong> {% trans "Double-check everything and submit!" %}</div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% trans "Welcome to Crush.lu" %}</title>
+        <style>
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                    Ubuntu, Cantarell, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .header {
+                background-color: #9b59b6; /* Solid fallback for Outlook */
+                background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+                border-radius: 10px 10px 0 0;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 28px;
+                color: #ffffff; /* Explicit white for Outlook */
+            }
+            .content {
+                background: #ffffff;
+                padding: 30px;
+                border: 1px solid #e0e0e0;
+            }
+            .button {
+                display: inline-block;
+                background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
+                color: white !important;
+                padding: 15px 30px;
+                text-decoration: none;
+                border-radius: 25px;
+                font-weight: bold;
+                margin: 20px 0;
+            }
+            .footer {
+                text-align: center;
+                padding: 20px;
+                color: #666;
+                font-size: 14px;
+                background: #f8f9fa;
+                border-radius: 0 0 10px 10px;
+            }
+            .steps {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }
+            .step {
+                margin: 10px 0;
+                padding-left: 30px;
+                position: relative;
+            }
+            .step::before {
+                content: "✓";
+                position: absolute;
+                left: 0;
+                color: #9b59b6;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div
+            class="header"
+            style="
+                background-color: #9b59b6;
+                color: white;
+                padding: 30px;
+                text-align: center;
+            "
+        >
+            <h1 style="margin: 0; font-size: 28px; color: #ffffff">
+                🎉 {% trans "Welcome to Crush.lu!" %}
+            </h1>
         </div>
 
-        <p><strong>{% trans "What happens next?" %}</strong></p>
-        <ul>
-            <li>📝 {% trans "Complete your profile (takes 5-10 minutes)" %}</li>
-            <li>📞 {% trans "A coach may contact you for a quick screening call" %}</li>
-            <li>✅ {% trans "Once approved, you can register for events!" %}</li>
-            <li>💕 {% trans "Meet people in real life at our speed dating & social events" %}</li>
-        </ul>
+        <div class="content">
+            <p>
+                {% blocktrans with first_name=first_name %}Hi {{ first_name }},{%
+                endblocktrans %}
+            </p>
 
-        <div style="text-align: center;">
-            <a href="{{ profile_url }}" class="button">{% trans "Complete Your Profile Now" %}</a>
+            <p>
+                <strong
+                    >{% trans "Congratulations on taking the first step toward
+                    meaningful connections!" %}</strong
+                >
+                🌟
+            </p>
+
+            <p>
+                {% trans "Your Crush.lu account has been successfully created. Now let's
+                build your profile so you can start meeting amazing people at our
+                events." %}
+            </p>
+
+            <div class="steps">
+                <h3 style="margin-top: 0; color: #9b59b6">
+                    {% trans "Complete Your Profile (4 Simple Steps):" %}
+                </h3>
+                <div class="step">
+                    <strong>{% trans "Basic Info:" %}</strong> {% trans "Tell us about
+                    yourself (age, location, etc.)" %}
+                </div>
+                <div class="step">
+                    <strong>{% trans "About You:" %}</strong> {% trans "Share your bio
+                    and interests" %}
+                </div>
+                <div class="step">
+                    <strong>{% trans "Photos:" %}</strong> {% trans "Add up to 3 photos"
+                    %}
+                </div>
+                <div class="step">
+                    <strong>{% trans "Review & Submit:" %}</strong> {% trans
+                    "Double-check everything and submit!" %}
+                </div>
+            </div>
+
+            <p><strong>{% trans "What happens next?" %}</strong></p>
+            <ul>
+                <li>📝 {% trans "Complete your profile (takes 5-10 minutes)" %}</li>
+                <li>
+                    📞 {% trans "A coach may contact you for a quick screening call" %}
+                </li>
+                <li>✅ {% trans "Once approved, you can register for events!" %}</li>
+                <li>
+                    💕 {% trans "Meet people in real life at our speed dating & social
+                    events" %}
+                </li>
+            </ul>
+
+            <div style="text-align: center">
+                <a href="{{ profile_url }}" class="button"
+                    >{% trans "Complete Your Profile Now" %}</a
+                >
+            </div>
+
+            <p style="margin-top: 30px">
+                <strong>{% trans "Need help?" %}</strong> {% trans "Reply to this email
+                or check out our" %}
+                <a
+                    href="{{ how_it_works_url|default:'https://crush.lu/how-it-works/' }}"
+                    style="color: #9b59b6"
+                    >{% trans "How It Works" %}</a
+                >
+                {% trans "page." %}
+            </p>
+
+            <p>{% trans "We're excited to have you in the Crush.lu community!" %}</p>
+
+            <p style="margin-top: 30px">
+                {% trans "Warmly," %}<br />
+                <strong>{% trans "The Crush.lu Team" %}</strong> 💜
+            </p>
         </div>
 
-        <p style="margin-top: 30px;"><strong>{% trans "Need help?" %}</strong> {% trans "Reply to this email or check out our" %} <a href="{{ how_it_works_url|default:'https://crush.lu/how-it-works/' }}" style="color: #9B59B6;">{% trans "How It Works" %}</a> {% trans "page." %}</p>
-
-        <p>{% trans "We're excited to have you in the Crush.lu community!" %}</p>
-
-        <p style="margin-top: 30px;">
-            {% trans "Warmly," %}<br>
-            <strong>{% trans "The Crush.lu Team" %}</strong> 💜
-        </p>
-    </div>
-
-    <div class="footer">
-        {% if social_links %}
-        <p style="margin: 10px 0; font-size: 14px;">
-            {% for link in social_links %}
-            <a href="{{ link.url }}" style="color: #9B59B6; text-decoration: none; margin: 0 6px;">{{ link.name }}</a>{% if not forloop.last %} |{% endif %}
-            {% endfor %}
-        </p>
-        {% endif %}
-        <p>{% blocktrans with email=user.email %}This email was sent to {{ email }} because you created a Crush.lu account.{% endblocktrans %}</p>
-        <p>© {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-focused dating in Luxembourg" %}</p>
-    </div>
-</body>
+        <div class="footer">
+            {% if social_links %}
+            <p style="margin: 10px 0; font-size: 14px">
+                {% for link in social_links %}
+                <a
+                    href="{{ link.url }}"
+                    style="color: #9b59b6; text-decoration: none; margin: 0 6px"
+                    >{{ link.name }}</a
+                >{% if not forloop.last %} |{% endif %} {% endfor %}
+            </p>
+            {% endif %}
+            <p>
+                {% blocktrans with email=user.email %}This email was sent to {{ email }}
+                because you created a Crush.lu account.{% endblocktrans %}
+            </p>
+            <p>
+                © {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-focused dating in
+                Luxembourg" %}
+            </p>
+        </div>
+    </body>
 </html>

@@ -1,43 +1,59 @@
-{% extends 'vinsdelux/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "VinsDelux - Wine Adoption Portfolio" %}{% endblock %}
-
-{% block content %}
+{% extends 'vinsdelux/base.html' %} {% load static %} {% load i18n %} {% block title
+%}{% trans "VinsDelux - Wine Adoption Portfolio" %}{% endblock %} {% block content %}
 <!-- Hero Section -->
-<section class="hero-section bg-light text-center py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+<section
+    class="hero-section bg-light py-5 text-center"
+    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white"
+>
     <div class="container py-5">
         <h1 class="display-3 fw-bold mb-3">{% trans "VinsDelux Wine Adoption" %}</h1>
-        <p class="lead mb-4">{% trans "Portfolio demonstration of a wine vineyard adoption platform concept" %}</p>
-        <div class="badge bg-white text-dark px-4 py-2 fs-6">{% trans "Portfolio Project" %}</div>
+        <p class="lead mb-4">
+            {% trans "Portfolio demonstration of a wine vineyard adoption platform
+            concept" %}
+        </p>
+        <div class="badge text-dark fs-6 bg-white px-4 py-2">
+            {% trans "Portfolio Project" %}
+        </div>
     </div>
 </section>
 
 <!-- Journey Section - Simple Cards -->
 <section id="journey-section" class="journey-section py-5">
     <div class="container">
-        <div class="text-center mb-5">
+        <div class="mb-5 text-center">
             <h2 class="display-5 fw-bold">{% trans "The Adoption Journey" %}</h2>
-            <p class="lead text-muted">{% trans "Five steps from vineyard plot selection to creating your wine legacy" %}</p>
+            <p class="lead text-muted">
+                {% trans "Five steps from vineyard plot selection to creating your wine
+                legacy" %}
+            </p>
         </div>
 
         <div class="row g-4">
             {% for step in client_journey_steps %}
             <div class="col-md-6 col-lg-4">
                 <div class="card journey-card h-100 border-0 shadow-sm">
-                    <div class="card-img-wrapper" style="height: 250px; overflow: hidden;">
+                    <div
+                        class="card-img-wrapper"
+                        style="height: 250px; overflow: hidden"
+                    >
                         <picture>
-                            <source srcset="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.webp' %}" type="image/webp">
-                            <img src="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.png' %}"
-                                 alt="{{ step.title }}"
-                                 class="card-img-top w-100 h-100"
-                                 style="object-fit: cover;"
-                                 loading="lazy">
+                            <source
+                                srcset="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.webp' %}"
+                                type="image/webp"
+                            />
+                            <img
+                                src="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.png' %}"
+                                alt="{{ step.title }}"
+                                class="card-img-top h-100 w-100"
+                                style="object-fit: cover"
+                                loading="lazy"
+                            />
                         </picture>
                     </div>
                     <div class="card-body">
-                        <div class="badge bg-primary mb-2">{% trans "Step" %} {{ step.step }}</div>
+                        <div class="badge bg-primary mb-2">
+                            {% trans "Step" %} {{ step.step }}
+                        </div>
                         <h5 class="card-title fw-bold">{{ step.title }}</h5>
                         <p class="card-text text-muted">{{ step.description }}</p>
                     </div>
@@ -49,18 +65,21 @@
 </section>
 
 <!-- Call to Action -->
-<section class="cta-section bg-light text-center py-5">
+<section class="cta-section bg-light py-5 text-center">
     <div class="container">
         <h2 class="display-6 fw-bold mb-3">{% trans "Concept Demonstration" %}</h2>
         <p class="lead mb-4">
-            {% trans "This is a portfolio project showcasing a wine vineyard adoption platform." %}<br>
-            {% trans "Original functionality included interactive plot selection, adoption plans, and producer catalogs." %}
+            {% trans "This is a portfolio project showcasing a wine vineyard adoption
+            platform." %}<br />
+            {% trans "Original functionality included interactive plot selection,
+            adoption plans, and producer catalogs." %}
         </p>
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle me-2"></i>
-                    {% trans "This simplified version demonstrates the concept without the full e-commerce implementation." %}
+                    {% trans "This simplified version demonstrates the concept without
+                    the full e-commerce implementation." %}
                 </div>
             </div>
         </div>

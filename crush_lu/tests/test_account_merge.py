@@ -17,22 +17,22 @@ from crush_lu.services.account_merge import merge_accounts
 @pytest.fixture
 def keeper_user(db):
     return User.objects.create_user(
-        username='keeper@example.com',
-        email='keeper@example.com',
-        password='testpass123',
-        first_name='Keeper',
-        last_name='User',
+        username="keeper@example.com",
+        email="keeper@example.com",
+        password="testpass123",
+        first_name="Keeper",
+        last_name="User",
     )
 
 
 @pytest.fixture
 def duplicate_user(db):
     return User.objects.create_user(
-        username='duplicate@privaterelay.appleid.com',
-        email='duplicate@privaterelay.appleid.com',
-        password='testpass123',
-        first_name='Duplicate',
-        last_name='User',
+        username="duplicate@privaterelay.appleid.com",
+        email="duplicate@privaterelay.appleid.com",
+        password="testpass123",
+        first_name="Duplicate",
+        last_name="User",
     )
 
 
@@ -42,12 +42,12 @@ def merge_event(db):
     from crush_lu.models import MeetupEvent
 
     return MeetupEvent.objects.create(
-        title='Merge Test Event',
-        description='Event for merge testing',
-        event_type='speed_dating',
+        title="Merge Test Event",
+        description="Event for merge testing",
+        event_type="speed_dating",
         date_time=timezone.now() + timedelta(days=7),
-        location='Test Location',
-        address='123 Test Street',
+        location="Test Location",
+        address="123 Test Street",
         max_participants=20,
         min_age=18,
         max_age=35,
@@ -64,9 +64,9 @@ def keeper_with_profile(keeper_user):
     profile = CrushProfile.objects.create(
         user=keeper_user,
         date_of_birth=date(1995, 5, 15),
-        gender='F',
-        location='Luxembourg City',
-        bio='Keeper bio',
+        gender="F",
+        location="Luxembourg City",
+        bio="Keeper bio",
         is_approved=True,
         is_active=True,
     )
@@ -80,9 +80,9 @@ def duplicate_with_profile(duplicate_user):
     profile = CrushProfile.objects.create(
         user=duplicate_user,
         date_of_birth=date(1995, 5, 15),
-        gender='F',
-        location='Esch-sur-Alzette',
-        bio='Duplicate bio',
+        gender="F",
+        location="Esch-sur-Alzette",
+        bio="Duplicate bio",
         is_approved=False,
         is_active=True,
     )
@@ -117,24 +117,24 @@ class TestMergeSocialAccounts:
 
         SocialAccount.objects.create(
             user=duplicate_user,
-            provider='apple',
-            uid='apple-uid-123',
-            extra_data={'email': 'relay@privaterelay.appleid.com'},
+            provider="apple",
+            uid="apple-uid-123",
+            extra_data={"email": "relay@privaterelay.appleid.com"},
         )
 
         merge_accounts(keeper_user, duplicate_user)
 
-        assert SocialAccount.objects.filter(user=keeper_user, provider='apple').exists()
+        assert SocialAccount.objects.filter(user=keeper_user, provider="apple").exists()
         assert not SocialAccount.objects.filter(user=duplicate_user).exists()
 
     def test_moves_different_provider(self, keeper_user, duplicate_user):
         from allauth.socialaccount.models import SocialAccount
 
         SocialAccount.objects.create(
-            user=keeper_user, provider='google', uid='google-uid-1', extra_data={}
+            user=keeper_user, provider="google", uid="google-uid-1", extra_data={}
         )
         SocialAccount.objects.create(
-            user=duplicate_user, provider='apple', uid='apple-uid-1', extra_data={}
+            user=duplicate_user, provider="apple", uid="apple-uid-1", extra_data={}
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -148,12 +148,12 @@ class TestMergeEmailAddresses:
         from allauth.account.models import EmailAddress
 
         EmailAddress.objects.create(
-            user=duplicate_user, email='relay@privaterelay.appleid.com', verified=True
+            user=duplicate_user, email="relay@privaterelay.appleid.com", verified=True
         )
 
         merge_accounts(keeper_user, duplicate_user)
 
-        ea = EmailAddress.objects.get(email='relay@privaterelay.appleid.com')
+        ea = EmailAddress.objects.get(email="relay@privaterelay.appleid.com")
         assert ea.user == keeper_user
         assert ea.primary is False
 
@@ -161,20 +161,22 @@ class TestMergeEmailAddresses:
         from allauth.account.models import EmailAddress
 
         EmailAddress.objects.create(
-            user=keeper_user, email='shared@example.com', verified=True, primary=True
+            user=keeper_user, email="shared@example.com", verified=True, primary=True
         )
         EmailAddress.objects.create(
-            user=duplicate_user, email='shared@example.com', verified=False
+            user=duplicate_user, email="shared@example.com", verified=False
         )
 
         merge_accounts(keeper_user, duplicate_user)
 
-        assert EmailAddress.objects.filter(email='shared@example.com').count() == 1
-        assert EmailAddress.objects.get(email='shared@example.com').user == keeper_user
+        assert EmailAddress.objects.filter(email="shared@example.com").count() == 1
+        assert EmailAddress.objects.get(email="shared@example.com").user == keeper_user
 
 
 class TestMergeProfiles:
-    def test_moves_profile_if_keeper_has_none(self, keeper_user, duplicate_with_profile):
+    def test_moves_profile_if_keeper_has_none(
+        self, keeper_user, duplicate_with_profile
+    ):
         from crush_lu.models import CrushProfile
 
         dup_user, dup_profile = duplicate_with_profile
@@ -195,7 +197,7 @@ class TestMergeProfiles:
         merge_accounts(keeper_user, dup_user)
 
         keeper_profile.refresh_from_db()
-        assert keeper_profile.bio == 'Keeper bio'
+        assert keeper_profile.bio == "Keeper bio"
         assert not CrushProfile.objects.filter(user=dup_user).exists()
 
 
@@ -204,7 +206,7 @@ class TestMergeEventRegistrations:
         from crush_lu.models import EventRegistration
 
         EventRegistration.objects.create(
-            event=merge_event, user=duplicate_user, status='confirmed'
+            event=merge_event, user=duplicate_user, status="confirmed"
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -213,14 +215,16 @@ class TestMergeEventRegistrations:
             event=merge_event, user=keeper_user
         ).exists()
 
-    def test_skips_duplicate_registration(self, keeper_user, duplicate_user, merge_event):
+    def test_skips_duplicate_registration(
+        self, keeper_user, duplicate_user, merge_event
+    ):
         from crush_lu.models import EventRegistration
 
         EventRegistration.objects.create(
-            event=merge_event, user=keeper_user, status='confirmed'
+            event=merge_event, user=keeper_user, status="confirmed"
         )
         EventRegistration.objects.create(
-            event=merge_event, user=duplicate_user, status='pending'
+            event=merge_event, user=duplicate_user, status="pending"
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -230,18 +234,20 @@ class TestMergeEventRegistrations:
 
 
 class TestMergeConnections:
-    def test_moves_connection_as_requester(self, keeper_user, duplicate_user, merge_event):
+    def test_moves_connection_as_requester(
+        self, keeper_user, duplicate_user, merge_event
+    ):
         from crush_lu.models import EventConnection
 
         third_user = User.objects.create_user(
-            username='third@example.com', email='third@example.com', password='pass123'
+            username="third@example.com", email="third@example.com", password="pass123"
         )
 
         EventConnection.objects.create(
             requester=duplicate_user,
             recipient=third_user,
             event=merge_event,
-            status='pending',
+            status="pending",
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -257,7 +263,7 @@ class TestMergeConnections:
             requester=duplicate_user,
             recipient=keeper_user,
             event=merge_event,
-            status='pending',
+            status="pending",
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -268,7 +274,7 @@ class TestMergeConnections:
         from crush_lu.models import EventConnection
 
         third_user = User.objects.create_user(
-            username='third@example.com', email='third@example.com', password='pass123'
+            username="third@example.com", email="third@example.com", password="pass123"
         )
 
         # Both users have connection to same person on same event
@@ -276,13 +282,13 @@ class TestMergeConnections:
             requester=keeper_user,
             recipient=third_user,
             event=merge_event,
-            status='accepted',
+            status="accepted",
         )
         EventConnection.objects.create(
             requester=duplicate_user,
             recipient=third_user,
             event=merge_event,
-            status='pending',
+            status="pending",
         )
 
         merge_accounts(keeper_user, duplicate_user)
@@ -290,7 +296,7 @@ class TestMergeConnections:
         conns = EventConnection.objects.filter(recipient=third_user, event=merge_event)
         assert conns.count() == 1
         assert conns.first().requester == keeper_user
-        assert conns.first().status == 'accepted'  # Keeper's original status preserved
+        assert conns.first().status == "accepted"  # Keeper's original status preserved
 
 
 class TestMergeAtomicity:
@@ -300,19 +306,19 @@ class TestMergeAtomicity:
         from unittest.mock import patch
 
         SocialAccount.objects.create(
-            user=duplicate_user, provider='apple', uid='test-uid', extra_data={}
+            user=duplicate_user, provider="apple", uid="test-uid", extra_data={}
         )
 
-        with patch(
-            'crush_lu.models.ProfileReminder.objects'
-        ) as mock_manager:
+        with patch("crush_lu.models.ProfileReminder.objects") as mock_manager:
             mock_manager.filter.side_effect = Exception("Simulated error")
 
             with pytest.raises(Exception, match="Simulated error"):
                 merge_accounts(keeper_user, duplicate_user)
 
         # Social account should NOT have been moved (rolled back)
-        assert SocialAccount.objects.filter(user=duplicate_user, provider='apple').exists()
+        assert SocialAccount.objects.filter(
+            user=duplicate_user, provider="apple"
+        ).exists()
         # Duplicate user should NOT be deactivated (rolled back)
         duplicate_user.refresh_from_db()
         assert duplicate_user.is_active is True

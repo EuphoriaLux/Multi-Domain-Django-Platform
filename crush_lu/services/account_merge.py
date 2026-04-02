@@ -10,7 +10,6 @@ handling unique constraints and bidirectional relationships.
 
 import logging
 from django.db import transaction
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,6 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
     from crush_lu.models import (
-        CrushProfile,
         EventRegistration,
         EventConnection,
         ConnectionMessage,
@@ -62,7 +60,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             user=keeper_user, provider=sa.provider, uid=sa.uid
         ).exists():
             sa.user = keeper_user
-            sa.save(update_fields=['user'])
+            sa.save(update_fields=["user"])
             log.append(f"Moved {sa.provider} social account to keeper")
         else:
             sa.delete()
@@ -73,24 +71,26 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         if not EmailAddress.objects.filter(user=keeper_user, email=ea.email).exists():
             ea.user = keeper_user
             ea.primary = False  # Keeper's primary email stays
-            ea.save(update_fields=['user', 'primary'])
+            ea.save(update_fields=["user", "primary"])
             log.append(f"Moved email address {ea.email} to keeper")
         else:
             ea.delete()
             log.append(f"Deleted duplicate email address {ea.email}")
 
     # 3. Handle CrushProfile (OneToOne)
-    keeper_profile = getattr(keeper_user, 'crushprofile', None)
-    dup_profile = getattr(duplicate_user, 'crushprofile', None)
+    keeper_profile = getattr(keeper_user, "crushprofile", None)
+    dup_profile = getattr(duplicate_user, "crushprofile", None)
 
     if dup_profile and not keeper_profile:
         # Move duplicate's profile to keeper
         dup_profile.user = keeper_user
-        dup_profile.save(update_fields=['user'])
+        dup_profile.save(update_fields=["user"])
         log.append("Moved CrushProfile from duplicate to keeper")
     elif dup_profile and keeper_profile:
         # Both have profiles - keep keeper's, transfer referral data
-        ReferralCode.objects.filter(referrer=dup_profile).update(referrer=keeper_profile)
+        ReferralCode.objects.filter(referrer=dup_profile).update(
+            referrer=keeper_profile
+        )
         moved_codes = ReferralCode.objects.filter(referrer=keeper_profile).count()
         ReferralAttribution.objects.filter(referrer=dup_profile).update(
             referrer=keeper_profile
@@ -115,13 +115,11 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             event=reg.event, user=keeper_user
         ).exists():
             reg.user = keeper_user
-            reg.save(update_fields=['user'])
+            reg.save(update_fields=["user"])
             log.append(f"Moved registration for event '{reg.event}' to keeper")
         else:
             reg.delete()
-            log.append(
-                f"Deleted duplicate registration for event '{reg.event}'"
-            )
+            log.append(f"Deleted duplicate registration for event '{reg.event}'")
 
     # 6. EventConnections (bidirectional, unique_together: requester, recipient, event)
     # Handle connections where duplicate is requester
@@ -139,7 +137,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             )
         else:
             conn.requester = keeper_user
-            conn.save(update_fields=['requester'])
+            conn.save(update_fields=["requester"])
             log.append(f"Moved connection (as requester) for event {conn.event_id}")
 
     # Handle connections where duplicate is recipient
@@ -157,7 +155,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             )
         else:
             conn.recipient = keeper_user
-            conn.save(update_fields=['recipient'])
+            conn.save(update_fields=["recipient"])
             log.append(f"Moved connection (as recipient) for event {conn.event_id}")
 
     # 7. ConnectionMessages
@@ -177,7 +175,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             if jp.completion_percentage > existing.completion_percentage:
                 existing.delete()
                 jp.user = keeper_user
-                jp.save(update_fields=['user'])
+                jp.save(update_fields=["user"])
                 log.append(
                     f"Replaced keeper's journey progress with duplicate's "
                     f"(higher: {jp.completion_percentage}%)"
@@ -190,7 +188,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
                 )
         else:
             jp.user = keeper_user
-            jp.save(update_fields=['user'])
+            jp.save(update_fields=["user"])
             log.append(f"Moved journey progress for '{jp.journey}' to keeper")
 
     # 9. PushSubscription (unique_together: user, endpoint)
@@ -199,7 +197,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             user=keeper_user, endpoint=sub.endpoint
         ).exists():
             sub.user = keeper_user
-            sub.save(update_fields=['user'])
+            sub.save(update_fields=["user"])
             log.append("Moved push subscription to keeper")
         else:
             sub.delete()
@@ -211,7 +209,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             user=keeper_user, device_fingerprint=device.device_fingerprint
         ).exists():
             device.user = keeper_user
-            device.save(update_fields=['user'])
+            device.save(update_fields=["user"])
             log.append("Moved PWA device installation to keeper")
         else:
             device.delete()
@@ -230,7 +228,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     dup_consent = UserDataConsent.objects.filter(user=duplicate_user).first()
     if dup_consent and not keeper_consent:
         dup_consent.user = keeper_user
-        dup_consent.save(update_fields=['user'])
+        dup_consent.save(update_fields=["user"])
         log.append("Moved data consent record to keeper")
     elif dup_consent:
         dup_consent.delete()
@@ -250,7 +248,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             user=keeper_user, reminder_type=reminder.reminder_type
         ).exists():
             reminder.user = keeper_user
-            reminder.save(update_fields=['user'])
+            reminder.save(update_fields=["user"])
             log.append(f"Moved profile reminder ({reminder.reminder_type}) to keeper")
         else:
             reminder.delete()
@@ -258,7 +256,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
 
     # 14. Deactivate duplicate user
     duplicate_user.is_active = False
-    duplicate_user.save(update_fields=['is_active'])
+    duplicate_user.save(update_fields=["is_active"])
     log.append(f"Deactivated duplicate user (id={duplicate_user.id})")
 
     logger.info(

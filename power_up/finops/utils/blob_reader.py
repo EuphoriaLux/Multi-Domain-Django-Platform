@@ -2,11 +2,12 @@
 Azure Blob Storage reader for FinOps cost exports
 Handles gzip-compressed CSV files from Azure Cost Management exports
 """
+
 import os
 import gzip
 import io
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient, ContainerClient
+from azure.storage.blob import BlobServiceClient
 from django.conf import settings
 
 
@@ -30,36 +31,47 @@ class AzureCostBlobReader:
     def __init__(self):
         """Initialize Azure Blob Service Client using Django settings"""
         # Check if we're running in Azurite mode (local development)
-        is_azurite = os.getenv('AZURITE_MODE', 'False').lower() == 'true'
+        is_azurite = os.getenv("AZURITE_MODE", "False").lower() == "true"
 
         if is_azurite:
             # Azurite: use connection string
-            connection_string = os.getenv('AZURE_CONNECTION_STRING') or getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            connection_string = os.getenv("AZURE_CONNECTION_STRING") or getattr(
+                settings, "AZURE_CONNECTION_STRING", None
+            )
             if not connection_string:
                 raise ValueError("Azurite mode requires AZURE_CONNECTION_STRING")
 
-            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-            self.account_name = 'devstoreaccount1'
+            self.blob_service_client = BlobServiceClient.from_connection_string(
+                connection_string
+            )
+            self.account_name = "devstoreaccount1"
         else:
             # Production: use account name + key
-            account_name = os.getenv('AZURE_ACCOUNT_NAME') or getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-            account_key = os.getenv('AZURE_ACCOUNT_KEY') or getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+            account_name = os.getenv("AZURE_ACCOUNT_NAME") or getattr(
+                settings, "AZURE_ACCOUNT_NAME", None
+            )
+            account_key = os.getenv("AZURE_ACCOUNT_KEY") or getattr(
+                settings, "AZURE_ACCOUNT_KEY", None
+            )
 
             if not account_name or not account_key:
-                raise ValueError("Azure Storage credentials not configured. Set AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variables.")
+                raise ValueError(
+                    "Azure Storage credentials not configured. Set AZURE_ACCOUNT_NAME and AZURE_ACCOUNT_KEY environment variables."
+                )
 
             self.account_name = account_name
             self.account_url = f"https://{account_name}.blob.core.windows.net"
             self.blob_service_client = BlobServiceClient(
-                account_url=self.account_url,
-                credential=account_key
+                account_url=self.account_url, credential=account_key
             )
 
         # Container name: use environment variable override for local testing, default to production 'msexports'
-        self.container_name = os.getenv('FINOPS_COST_EXPORT_CONTAINER', 'msexports')
-        self.container_client = self.blob_service_client.get_container_client(self.container_name)
+        self.container_name = os.getenv("FINOPS_COST_EXPORT_CONTAINER", "msexports")
+        self.container_client = self.blob_service_client.get_container_client(
+            self.container_name
+        )
 
-    def list_cost_exports(self, prefix='', subscription_filter=None):
+    def list_cost_exports(self, prefix="", subscription_filter=None):
         """
         List all cost export CSV files in the msexports container
 
@@ -88,7 +100,7 @@ class AzureCostBlobReader:
 
         for blob in blob_list:
             # Only process .csv.gz files
-            if not blob.name.endswith('.csv.gz'):
+            if not blob.name.endswith(".csv.gz"):
                 continue
 
             # Parse blob path dynamically to handle multiple patterns
@@ -98,22 +110,27 @@ class AzureCostBlobReader:
                 continue  # Invalid or unsupported path structure
 
             # Apply subscription filter if specified
-            if subscription_filter and parsed_data['subscription_name'] != subscription_filter:
+            if (
+                subscription_filter
+                and parsed_data["subscription_name"] != subscription_filter
+            ):
                 continue
 
             # Add blob metadata including ETag for change detection
-            parsed_data.update({
-                'blob_path': blob.name,
-                'blob_name': blob.name.split('/')[-1],
-                'size': blob.size,
-                'last_modified': blob.last_modified,
-                'etag': blob.etag,  # ETag for detecting blob changes
-            })
+            parsed_data.update(
+                {
+                    "blob_path": blob.name,
+                    "blob_name": blob.name.split("/")[-1],
+                    "size": blob.size,
+                    "last_modified": blob.last_modified,
+                    "etag": blob.etag,  # ETag for detecting blob changes
+                }
+            )
 
             exports.append(parsed_data)
 
         # Sort by date range descending (most recent first)
-        exports.sort(key=lambda x: x['date_range'], reverse=True)
+        exports.sort(key=lambda x: x["date_range"], reverse=True)
 
         return exports
 
@@ -132,39 +149,41 @@ class AzureCostBlobReader:
         Returns:
             dict or None: Parsed metadata or None if invalid
         """
-        path_parts = blob_path.split('/')
+        path_parts = blob_path.split("/")
 
         # Pattern A: partnerled/{subscription}/{date_range}/{guid}/part_*.csv.gz (5 parts)
-        if len(path_parts) == 5 and path_parts[0].lower() == 'partnerled':
+        if len(path_parts) == 5 and path_parts[0].lower() == "partnerled":
             return {
-                'subscription_name': path_parts[1],
-                'export_name': 'partnerled',
-                'date_range': path_parts[2],
-                'guid': path_parts[3],
-                'path_pattern': 'partnerled',
+                "subscription_name": path_parts[1],
+                "export_name": "partnerled",
+                "date_range": path_parts[2],
+                "guid": path_parts[3],
+                "path_pattern": "partnerled",
             }
 
         # Pattern C: subscriptions/{subscription_id}/{export_name}/{date_range}/{guid}/part_*.csv.gz (6 parts)
-        elif len(path_parts) == 6 and path_parts[0].lower() == 'subscriptions':
+        elif len(path_parts) == 6 and path_parts[0].lower() == "subscriptions":
             # Extract subscription ID and use export name as subscription_name for consistency
             subscription_id = path_parts[1]
             return {
-                'subscription_name': path_parts[2],  # Use export name as subscription name
-                'export_name': path_parts[2],
-                'date_range': path_parts[3],
-                'guid': path_parts[4],
-                'path_pattern': 'subscription-id',
-                'subscription_id': subscription_id,  # Store actual subscription ID
+                "subscription_name": path_parts[
+                    2
+                ],  # Use export name as subscription name
+                "export_name": path_parts[2],
+                "date_range": path_parts[3],
+                "guid": path_parts[4],
+                "path_pattern": "subscription-id",
+                "subscription_id": subscription_id,  # Store actual subscription ID
             }
 
         # Pattern B: {subscription}/{export_name}/{date_range}/{guid}/part_*.csv.gz (5 parts)
-        elif len(path_parts) == 5 and path_parts[0].lower() != 'partnerled':
+        elif len(path_parts) == 5 and path_parts[0].lower() != "partnerled":
             return {
-                'subscription_name': path_parts[0],
-                'export_name': path_parts[1],
-                'date_range': path_parts[2],
-                'guid': path_parts[3],
-                'path_pattern': 'pay-as-you-go',
+                "subscription_name": path_parts[0],
+                "export_name": path_parts[1],
+                "date_range": path_parts[2],
+                "guid": path_parts[3],
+                "path_pattern": "pay-as-you-go",
             }
 
         # Unknown pattern
@@ -181,9 +200,9 @@ class AzureCostBlobReader:
             tuple: (start_date, end_date) as datetime.date objects
         """
         try:
-            start_str, end_str = date_range_str.split('-')
-            start_date = datetime.strptime(start_str, '%Y%m%d').date()
-            end_date = datetime.strptime(end_str, '%Y%m%d').date()
+            start_str, end_str = date_range_str.split("-")
+            start_date = datetime.strptime(start_str, "%Y%m%d").date()
+            end_date = datetime.strptime(end_str, "%Y%m%d").date()
             return start_date, end_date
         except (ValueError, AttributeError):
             return None, None
@@ -203,8 +222,7 @@ class AzureCostBlobReader:
         """
         # Get blob client
         blob_client = self.blob_service_client.get_blob_client(
-            container=self.container_name,
-            blob=blob_path
+            container=self.container_name, blob=blob_path
         )
 
         # Download blob content as bytes (Azure SDK 12.x compatible)
@@ -221,7 +239,7 @@ class AzureCostBlobReader:
             decompressed_data = gz_file.read()
 
         # Convert bytes to string and create StringIO object
-        text_data = decompressed_data.decode('utf-8-sig')  # utf-8-sig handles BOM
+        text_data = decompressed_data.decode("utf-8-sig")  # utf-8-sig handles BOM
         return io.StringIO(text_data)
 
     def stream_csv_records(self, blob_path, batch_size=1000):
@@ -263,15 +281,14 @@ class AzureCostBlobReader:
             dict: Blob properties (size, last_modified, etc.)
         """
         blob_client = self.blob_service_client.get_blob_client(
-            container=self.container_name,
-            blob=blob_path
+            container=self.container_name, blob=blob_path
         )
 
         properties = blob_client.get_blob_properties()
 
         return {
-            'name': properties.name,
-            'size': properties.size,
-            'last_modified': properties.last_modified,
-            'content_type': properties.content_settings.content_type,
+            "name": properties.name,
+            "size": properties.size,
+            "last_modified": properties.last_modified,
+            "content_type": properties.content_settings.content_type,
         }

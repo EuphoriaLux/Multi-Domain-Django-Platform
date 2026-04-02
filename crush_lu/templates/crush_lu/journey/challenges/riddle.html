@@ -1,9 +1,5 @@
-{% extends "crush_lu/journey/journey_base.html" %}
-{% load static i18n %}
-
-{% block extra_journey_css %}{% endblock %}
-
-{% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
+extra_journey_css %}{% endblock %} {% block journey_content %}
 <div class="journey-container-narrow journey-animate-fade-in">
     {% include "crush_lu/journey/partials/challenge_header.html" %}
 
@@ -25,12 +21,15 @@
     >
         <!-- Challenge Type Badge -->
         <div class="journey-badge mb-6">
-            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %}
-            {% trans "Riddle Challenge" %}
+            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans
+            "Riddle Challenge" %}
         </div>
 
         <!-- Points Display -->
-        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div
+            class="journey-points-display"
+            aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}"
+        >
             <span aria-hidden="true">&#128142;</span>
             <span x-text="currentPoints">{{ challenge.points_awarded }}</span>
             {% trans "Points" %}
@@ -43,10 +42,11 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already solved this riddle and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>." %}
-        {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
-        {% else %}
+        {% with completion_message=_("You already solved this riddle and earned
+        <strong
+            >")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong
+        >." %} {% include "crush_lu/journey/partials/already_completed.html" %} {%
+        endwith %} {% else %}
         <!-- Answer Input Section -->
         <div x-show="isNotSuccess" x-cloak>
             <label for="answerInput" class="sr-only">{% trans "Your answer" %}</label>
@@ -60,8 +60,8 @@
                     @keydown="handleKeydown"
                     class="journey-input mb-2"
                     aria-describedby="dateHelp"
-                >
-                <p id="dateHelp" class="text-sm text-white/60 text-center mb-4">
+                />
+                <p id="dateHelp" class="mb-4 text-center text-sm text-white/60">
                     {% trans "Select a date using the calendar" %}
                 </p>
             </div>
@@ -77,8 +77,10 @@
                 placeholder="{% trans 'Type your answer here...' %}"
                 autocomplete="off"
                 aria-describedby="answerHelp"
-            >
-            <p id="answerHelp" class="sr-only">{% trans "Enter your answer to the riddle above" %}</p>
+            />
+            <p id="answerHelp" class="sr-only">
+                {% trans "Enter your answer to the riddle above" %}
+            </p>
 
             <button
                 @click="submitAnswer"
@@ -87,7 +89,8 @@
             >
                 <span x-show="isNotSubmitting">{% trans "Submit Answer" %}</span>
                 <span x-show="isSubmitting" x-cloak>{% trans "Checking..." %}</span>
-                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
+                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5"
+                %}
             </button>
         </div>
 

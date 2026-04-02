@@ -6,37 +6,46 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vinsdelux', '0002_alter_vdladoptionplan_coffrets_per_year_and_more'),
+        ("vinsdelux", "0002_alter_vdladoptionplan_coffrets_per_year_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='vdladoptionplan',
-            name='created_at',
+            model_name="vdladoptionplan",
+            name="created_at",
         ),
         migrations.RemoveField(
-            model_name='vdladoptionplan',
-            name='is_featured',
+            model_name="vdladoptionplan",
+            name="is_featured",
         ),
         migrations.RemoveField(
-            model_name='vdladoptionplan',
-            name='updated_at',
+            model_name="vdladoptionplan",
+            name="updated_at",
         ),
         migrations.RemoveField(
-            model_name='vdlcoffret',
-            name='created_at',
+            model_name="vdlcoffret",
+            name="created_at",
         ),
         migrations.RemoveField(
-            model_name='vdlcoffret',
-            name='is_featured',
+            model_name="vdlcoffret",
+            name="is_featured",
         ),
         migrations.RemoveField(
-            model_name='vdlcoffret',
-            name='updated_at',
+            model_name="vdlcoffret",
+            name="updated_at",
         ),
         migrations.AlterField(
-            model_name='vdlorder',
-            name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('processing', 'Processing'), ('shipped', 'Shipped'), ('delivered', 'Cancelled')], default='pending', max_length=50),
+            model_name="vdlorder",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("pending", "Pending"),
+                    ("processing", "Processing"),
+                    ("shipped", "Shipped"),
+                    ("delivered", "Cancelled"),
+                ],
+                default="pending",
+                max_length=50,
+            ),
         ),
     ]

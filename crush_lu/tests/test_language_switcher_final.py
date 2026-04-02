@@ -1,4 +1,5 @@
 """Final test for language switcher on mobile."""
+
 import pytest
 from playwright.sync_api import Page
 
@@ -11,7 +12,7 @@ def test_mobile_language_switcher_complete(page: Page, live_server):
 
     # Navigate to English home page
     page.goto(f"{live_server.url}/en/")
-    page.wait_for_load_state('networkidle')
+    page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)
 
     # Take screenshot 1: Initial state
@@ -20,7 +21,9 @@ def test_mobile_language_switcher_complete(page: Page, live_server):
 
     # Find and click the hamburger menu button
     # Look for the button with the SVG hamburger icon
-    hamburger_button = page.locator('button[aria-label="Toggle navigation"], button.lg\\:hidden').first
+    hamburger_button = page.locator(
+        'button[aria-label="Toggle navigation"], button.lg\\:hidden'
+    ).first
 
     if hamburger_button.is_visible():
         print("Found hamburger button, clicking...")
@@ -33,13 +36,15 @@ def test_mobile_language_switcher_complete(page: Page, live_server):
 
         # Find the language select in the mobile menu
         # The mobile version should now be visible
-        language_select = page.locator('#language-mobile')
+        language_select = page.locator("#language-mobile")
 
         if language_select.is_visible():
             print("Language select is visible")
 
             # Take screenshot 3: Before selection
-            page.screenshot(path="screenshots/final_3_before_selection.png", full_page=True)
+            page.screenshot(
+                path="screenshots/final_3_before_selection.png", full_page=True
+            )
             print("Screenshot 3: Before language selection")
 
             # Get current URL
@@ -47,11 +52,11 @@ def test_mobile_language_switcher_complete(page: Page, live_server):
 
             # Select German
             print("Selecting German...")
-            language_select.select_option('de')
+            language_select.select_option("de")
 
             # Wait for the form to submit and page to navigate
             page.wait_for_timeout(3000)
-            page.wait_for_load_state('networkidle')
+            page.wait_for_load_state("networkidle")
 
             # Take screenshot 4: After language change
             page.screenshot(path="screenshots/final_4_after_change.png", full_page=True)
@@ -62,13 +67,17 @@ def test_mobile_language_switcher_complete(page: Page, live_server):
             print(f"Final URL: {final_url}")
 
             # Verify the URL changed
-            if '/de/' in final_url:
-                print("[SUCCESS] Language switcher works! URL correctly changed to /de/")
+            if "/de/" in final_url:
+                print(
+                    "[SUCCESS] Language switcher works! URL correctly changed to /de/"
+                )
             else:
                 print(f"[ISSUE] URL did not change to /de/. Got: {final_url}")
 
             # Take a screenshot of the page content to verify it's in German
-            page.screenshot(path="screenshots/final_5_german_content.png", full_page=True)
+            page.screenshot(
+                path="screenshots/final_5_german_content.png", full_page=True
+            )
             print("Screenshot 5: German content verification")
 
         else:

@@ -60,14 +60,14 @@ TEN_CS_SERVICES_PROD = uuid.UUID("c0000002-0000-0000-0000-000000000005")
 TEN_CS_HOLDING_PROD = uuid.UUID("c0000002-0000-0000-0000-000000000006")
 
 # Contacts (from 0004 — admin-role contacts per group)
-CON_MARC = uuid.UUID("d0000001-0000-0000-0000-000000000001")      # ArcelorMittal admin
-CON_LUC = uuid.UUID("d0000001-0000-0000-0000-000000000005")       # Ferrero admin
-CON_SARAH = uuid.UUID("d0000001-0000-0000-0000-000000000008")     # SES admin
-CON_NICOLAS = uuid.UUID("d0000001-0000-0000-0000-000000000011")   # Cactus admin
-CON_FRANK = uuid.UUID("d0000001-0000-0000-0000-000000000013")     # POST admin
-CON_PAUL = uuid.UUID("d0000001-0000-0000-0000-000000000015")      # Clearstream admin
-CON_ROMAIN = uuid.UUID("d0000001-0000-0000-0000-000000000017")    # Goodyear admin
-CON_CHRISTINE = uuid.UUID("d0000001-0000-0000-0000-000000000018") # Encevo admin
+CON_MARC = uuid.UUID("d0000001-0000-0000-0000-000000000001")  # ArcelorMittal admin
+CON_LUC = uuid.UUID("d0000001-0000-0000-0000-000000000005")  # Ferrero admin
+CON_SARAH = uuid.UUID("d0000001-0000-0000-0000-000000000008")  # SES admin
+CON_NICOLAS = uuid.UUID("d0000001-0000-0000-0000-000000000011")  # Cactus admin
+CON_FRANK = uuid.UUID("d0000001-0000-0000-0000-000000000013")  # POST admin
+CON_PAUL = uuid.UUID("d0000001-0000-0000-0000-000000000015")  # Clearstream admin
+CON_ROMAIN = uuid.UUID("d0000001-0000-0000-0000-000000000017")  # Goodyear admin
+CON_CHRISTINE = uuid.UUID("d0000001-0000-0000-0000-000000000018")  # Encevo admin
 
 # New deterministic UUIDs for onboarding-specific data
 SE_THOMAS = uuid.UUID("ee000001-0000-0000-0000-000000000001")
@@ -294,7 +294,11 @@ class Command(BaseCommand):
             if candidate.weekday() in (1, 3):  # Tue, Thu
                 for hour in (10, 10, 14, 14):
                     minute = 0 if slots and slots[-1].hour != hour else 30
-                    slots.append(candidate.replace(hour=hour, minute=minute, second=0, microsecond=0))
+                    slots.append(
+                        candidate.replace(
+                            hour=hour, minute=minute, second=0, microsecond=0
+                        )
+                    )
                 if len(slots) >= 8:
                     break
 
@@ -325,8 +329,12 @@ class Command(BaseCommand):
         )
         if created:
             session1.tenants.set([TEN_ARCELOR_PROD, TEN_ARCELOR_DEV, TEN_ARCELOR_BE])
-        CustomerGroup.objects.filter(id=GRP_ARCELOR).update(onboarding_status="in_progress")
-        self.stdout.write(f"    ArcelorMittal session ({'created' if created else 'updated'})")
+        CustomerGroup.objects.filter(id=GRP_ARCELOR).update(
+            onboarding_status="in_progress"
+        )
+        self.stdout.write(
+            f"    ArcelorMittal session ({'created' if created else 'updated'})"
+        )
 
         # --- Session 2: Clearstream — email generated ---
         session2, created = OnboardingSession.objects.update_or_create(
@@ -352,15 +360,21 @@ class Command(BaseCommand):
             },
         )
         if created:
-            session2.tenants.set([
-                TEN_CLEARSTREAM,
-                TEN_CS_BANKING_PROD,
-                TEN_CS_FUND_PROD,
-                TEN_CS_SERVICES_PROD,
-                TEN_CS_HOLDING_PROD,
-            ])
-        CustomerGroup.objects.filter(id=GRP_CLEARSTREAM).update(onboarding_status="email_sent")
-        self.stdout.write(f"    Clearstream session ({'created' if created else 'updated'})")
+            session2.tenants.set(
+                [
+                    TEN_CLEARSTREAM,
+                    TEN_CS_BANKING_PROD,
+                    TEN_CS_FUND_PROD,
+                    TEN_CS_SERVICES_PROD,
+                    TEN_CS_HOLDING_PROD,
+                ]
+            )
+        CustomerGroup.objects.filter(id=GRP_CLEARSTREAM).update(
+            onboarding_status="email_sent"
+        )
+        self.stdout.write(
+            f"    Clearstream session ({'created' if created else 'updated'})"
+        )
 
         # --- Session 3: Cactus — draft (just started) ---
         session3, created = OnboardingSession.objects.update_or_create(
@@ -387,9 +401,13 @@ class Command(BaseCommand):
         )
         if created:
             session3.tenants.set([TEN_CACTUS_PROD])
-        CustomerGroup.objects.filter(id=GRP_CACTUS).update(onboarding_status="in_progress")
+        CustomerGroup.objects.filter(id=GRP_CACTUS).update(
+            onboarding_status="in_progress"
+        )
         self.stdout.write(f"    Cactus session ({'created' if created else 'updated'})")
 
         # Groups left at "none" status — ready for fresh onboarding:
         # Ferrero, SES, POST, Goodyear, Encevo
-        self.stdout.write("    Groups with no session: Ferrero, SES, POST, Goodyear, Encevo")
+        self.stdout.write(
+            "    Groups with no session: Ferrero, SES, POST, Goodyear, Encevo"
+        )

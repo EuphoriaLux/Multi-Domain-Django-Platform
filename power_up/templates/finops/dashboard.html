@@ -1,31 +1,54 @@
-{% extends "finops/base_finops.html" %}
-{% load static %}
-{% load finops_filters %}
-
-{% block title %}{{ page_title }}{% endblock %}
-
-{% block finops_content %}
+{% extends "finops/base_finops.html" %} {% load static %} {% load finops_filters %} {%
+block title %}{{ page_title }}{% endblock %} {% block finops_content %}
 <!-- Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">FinOps Hub - Cost Dashboard</h1>
         <p class="text-gray-500">Azure cost analytics and insights</p>
         {% if last_import_at %}
-        <p class="text-xs text-gray-400 mt-1">Last updated: {{ last_import_at|date:"M d, Y H:i" }} UTC</p>
+        <p class="mt-1 text-xs text-gray-400">
+            Last updated: {{ last_import_at|date:"M d, Y H:i" }} UTC
+        </p>
         {% endif %}
     </div>
     <div class="mt-4 md:mt-0">
         <form method="get" action="" class="flex items-center space-x-2">
             <!-- Preserve existing filters -->
-            {% if filters.subscription %}<input type="hidden" name="subscription" value="{{ filters.subscription }}">{% endif %}
-            {% if filters.service %}<input type="hidden" name="service" value="{{ filters.service }}">{% endif %}
-            {% if filters.charge_type %}<input type="hidden" name="charge_type" value="{{ filters.charge_type }}">{% endif %}
+            {% if filters.subscription %}<input
+                type="hidden"
+                name="subscription"
+                value="{{ filters.subscription }}"
+            />{% endif %} {% if filters.service %}<input
+                type="hidden"
+                name="service"
+                value="{{ filters.service }}"
+            />{% endif %} {% if filters.charge_type %}<input
+                type="hidden"
+                name="charge_type"
+                value="{{ filters.charge_type }}"
+            />{% endif %}
 
             <label for="month" class="text-sm font-medium text-gray-700">Period:</label>
-            <select name="month" id="month" onchange="this.form.submit()" class="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <select
+                name="month"
+                id="month"
+                onchange="this.form.submit()"
+                class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
                 <option value="">Custom (Last 30 days)</option>
                 {% for month in filters.available_months %}
-                <option value="{{ month.value }}" {% if filters.month == month.value %}selected{% endif %}>{{ month.label }}</option>
+                <option
+                    value="{{ month.value }}"
+                    {%
+                    if
+                    filters.month=""
+                    ="month.value"
+                    %}selected{%
+                    endif
+                    %}
+                >
+                    {{ month.label }}
+                </option>
                 {% endfor %}
             </select>
         </form>
@@ -33,65 +56,156 @@
 </div>
 
 <!-- Advanced Filters -->
-<div class="bg-white rounded-lg shadow p-4 mb-6" x-data="finopsFilterToggle" data-initial-open="{% if filters.subscription or filters.service %}true{% else %}false{% endif %}">
-    <div class="flex items-center justify-between mb-3">
+<div
+    class="mb-6 rounded-lg bg-white p-4 shadow"
+    x-data="finopsFilterToggle"
+    data-initial-open="{% if filters.subscription or filters.service %}true{% else %}false{% endif %}"
+>
+    <div class="mb-3 flex items-center justify-between">
         <h3 class="text-sm font-semibold text-gray-700">Filters</h3>
-        <button @click="toggle" class="text-sm text-blue-600 hover:text-blue-800" x-text="showLabel"></button>
+        <button
+            @click="toggle"
+            class="text-sm text-blue-600 hover:text-blue-800"
+            x-text="showLabel"
+        ></button>
     </div>
 
-    <form method="get" action="" x-show="showFilters" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <form
+        method="get"
+        action=""
+        x-show="showFilters"
+        class="grid grid-cols-1 gap-4 md:grid-cols-4"
+    >
         {% if filters.month %}
-        <input type="hidden" name="month" value="{{ filters.month }}">
+        <input type="hidden" name="month" value="{{ filters.month }}" />
         {% else %}
-        <input type="hidden" name="days" value="{{ period.days }}">
+        <input type="hidden" name="days" value="{{ period.days }}" />
         {% endif %}
 
         <div>
-            <label for="charge_type" class="block text-sm font-medium text-gray-700 mb-1">Pricing Model</label>
-            <select name="charge_type" id="charge_type" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <label
+                for="charge_type"
+                class="mb-1 block text-sm font-medium text-gray-700"
+                >Pricing Model</label
+            >
+            <select
+                name="charge_type"
+                id="charge_type"
+                class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+            >
                 {% for value, label in filters.pricing_categories %}
-                <option value="{{ value }}" {% if filters.charge_type == value %}selected{% endif %}>{{ label }}</option>
+                <option
+                    value="{{ value }}"
+                    {%
+                    if
+                    filters.charge_type=""
+                    ="value"
+                    %}selected{%
+                    endif
+                    %}
+                >
+                    {{ label }}
+                </option>
                 {% endfor %}
             </select>
         </div>
 
         <div>
-            <label for="subscription" class="block text-sm font-medium text-gray-700 mb-1">Subscription</label>
-            <select name="subscription" id="subscription" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <label
+                for="subscription"
+                class="mb-1 block text-sm font-medium text-gray-700"
+                >Subscription</label
+            >
+            <select
+                name="subscription"
+                id="subscription"
+                class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+            >
                 <option value="">All Subscriptions</option>
                 {% for sub in filters.all_subscriptions %}
-                <option value="{{ sub }}" {% if filters.subscription == sub %}selected{% endif %}>{{ sub }}</option>
+                <option
+                    value="{{ sub }}"
+                    {%
+                    if
+                    filters.subscription=""
+                    ="sub"
+                    %}selected{%
+                    endif
+                    %}
+                >
+                    {{ sub }}
+                </option>
                 {% endfor %}
             </select>
         </div>
 
         <div>
-            <label for="service" class="block text-sm font-medium text-gray-700 mb-1">Service</label>
-            <select name="service" id="service" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <label for="service" class="mb-1 block text-sm font-medium text-gray-700"
+                >Service</label
+            >
+            <select
+                name="service"
+                id="service"
+                class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+            >
                 <option value="">All Services</option>
                 {% for svc in filters.all_services %}
-                <option value="{{ svc }}" {% if filters.service == svc %}selected{% endif %}>{{ svc }}</option>
+                <option
+                    value="{{ svc }}"
+                    {%
+                    if
+                    filters.service=""
+                    ="svc"
+                    %}selected{%
+                    endif
+                    %}
+                >
+                    {{ svc }}
+                </option>
                 {% endfor %}
             </select>
         </div>
 
         {% if filters.tag_keys %}
         <div>
-            <label for="tag_key" class="block text-sm font-medium text-gray-700 mb-1">Tag</label>
-            <select name="tag_key" id="tag_key" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <label for="tag_key" class="mb-1 block text-sm font-medium text-gray-700"
+                >Tag</label
+            >
+            <select
+                name="tag_key"
+                id="tag_key"
+                class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
+            >
                 <option value="">All Tags</option>
                 {% for key in filters.tag_keys %}
-                <option value="{{ key }}" {% if filters.tag_key == key %}selected{% endif %}>{{ key }}</option>
+                <option
+                    value="{{ key }}"
+                    {%
+                    if
+                    filters.tag_key=""
+                    ="key"
+                    %}selected{%
+                    endif
+                    %}
+                >
+                    {{ key }}
+                </option>
                 {% endfor %}
             </select>
         </div>
         {% endif %}
 
         <div class="flex items-end space-x-2">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button
+                type="submit"
+                class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
                 Apply Filters
             </button>
-            <a href="?days={{ period.days }}" class="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-300">
+            <a
+                href="?days={{ period.days }}"
+                class="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+            >
                 Clear
             </a>
         </div>
@@ -101,21 +215,39 @@
     <div class="mt-3 flex flex-wrap gap-2">
         <span class="text-sm text-gray-600">Active filters:</span>
         {% if filters.charge_type and filters.charge_type != 'payg' %}
-        <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-            Pricing: {% if filters.charge_type == 'reserved' %}Reserved Instance{% elif filters.charge_type == 'all' %}All Usage{% else %}{{ filters.charge_type|title }}{% endif %}
-            <a href="?days={{ period.days }}&charge_type=payg{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-purple-600 hover:text-purple-900">&times;</a>
+        <span
+            class="inline-flex items-center rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800"
+        >
+            Pricing: {% if filters.charge_type == 'reserved' %}Reserved Instance{% elif
+            filters.charge_type == 'all' %}All Usage{% else %}{{
+            filters.charge_type|title }}{% endif %}
+            <a
+                href="?days={{ period.days }}&charge_type=payg{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}{% if filters.service %}&service={{ filters.service }}{% endif %}"
+                class="ml-1 text-purple-600 hover:text-purple-900"
+                >&times;</a
+            >
         </span>
-        {% endif %}
-        {% if filters.subscription %}
-        <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+        {% endif %} {% if filters.subscription %}
+        <span
+            class="inline-flex items-center rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800"
+        >
             Subscription: {{ filters.subscription }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.service %}&service={{ filters.service }}{% endif %}" class="ml-1 text-blue-600 hover:text-blue-900">&times;</a>
+            <a
+                href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.service %}&service={{ filters.service }}{% endif %}"
+                class="ml-1 text-blue-600 hover:text-blue-900"
+                >&times;</a
+            >
         </span>
-        {% endif %}
-        {% if filters.service %}
-        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+        {% endif %} {% if filters.service %}
+        <span
+            class="inline-flex items-center rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800"
+        >
             Service: {{ filters.service }}
-            <a href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}" class="ml-1 text-green-600 hover:text-green-900">&times;</a>
+            <a
+                href="?days={{ period.days }}&charge_type={{ filters.charge_type|default:'payg' }}{% if filters.subscription %}&subscription={{ filters.subscription }}{% endif %}"
+                class="ml-1 text-green-600 hover:text-green-900"
+                >&times;</a
+            >
         </span>
         {% endif %}
     </div>
@@ -123,24 +255,44 @@
 
     <!-- Info message about default filtering -->
     {% if filters.charge_type == 'payg' or not filters.charge_type %}
-    <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+    <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
         <div class="flex items-start">
-            <svg class="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            <svg
+                class="mr-2 h-5 w-5 flex-shrink-0 text-blue-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+            >
+                <path
+                    fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clip-rule="evenodd"
+                />
             </svg>
             <p class="text-sm text-blue-800">
-                Showing <strong>Pay-as-you-go costs only</strong>. Reserved Instance usage is excluded. Select "All Usage" to include reservation-covered workloads.
+                Showing <strong>Pay-as-you-go costs only</strong>. Reserved Instance
+                usage is excluded. Select "All Usage" to include reservation-covered
+                workloads.
             </p>
         </div>
     </div>
     {% elif filters.charge_type == 'reserved' %}
-    <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+    <div class="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
         <div class="flex items-start">
-            <svg class="h-5 w-5 text-green-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            <svg
+                class="mr-2 h-5 w-5 flex-shrink-0 text-green-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+            >
+                <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd"
+                />
             </svg>
             <p class="text-sm text-green-800">
-                Showing <strong>Reserved Instance usage only</strong>. These costs are covered by your reservation commitment. Effective cost is typically &euro;0 (already paid upfront).
+                Showing <strong>Reserved Instance usage only</strong>. These costs are
+                covered by your reservation commitment. Effective cost is typically
+                &euro;0 (already paid upfront).
             </p>
         </div>
     </div>
@@ -148,16 +300,34 @@
 </div>
 
 <!-- Discount Control -->
-<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+<div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between">
         <div class="mb-3 md:mb-0">
             <h6 class="font-semibold text-amber-800">Microsoft Services Discount</h6>
-            <p class="text-sm text-amber-700">Apply partner concession to Microsoft Azure services (0-15%)</p>
+            <p class="text-sm text-amber-700">
+                Apply partner concession to Microsoft Azure services (0-15%)
+            </p>
         </div>
         <div class="flex items-center space-x-3">
-            <input type="range" id="discountSlider" min="0" max="15" step="0.5" value="0" class="w-32 h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer">
+            <input
+                type="range"
+                id="discountSlider"
+                min="0"
+                max="15"
+                step="0.5"
+                value="0"
+                class="h-2 w-32 cursor-pointer appearance-none rounded-lg bg-amber-200"
+            />
             <div class="flex items-center">
-                <input type="number" id="discountInput" min="0" max="15" step="0.5" value="0" class="w-16 px-2 py-1 text-sm border border-amber-300 rounded">
+                <input
+                    type="number"
+                    id="discountInput"
+                    min="0"
+                    max="15"
+                    step="0.5"
+                    value="0"
+                    class="w-16 rounded border border-amber-300 px-2 py-1 text-sm"
+                />
                 <span class="ml-1 text-amber-800">%</span>
             </div>
             <div id="discountSavings" class="text-right">
@@ -172,72 +342,95 @@
 {% if budgets %}
 <div class="grid grid-cols-1 md:grid-cols-{{ budgets|length }} gap-4 mb-6">
     {% for budget in budgets %}
-    <div class="bg-white rounded-lg shadow p-4">
-        <div class="flex justify-between items-center mb-2">
+    <div class="rounded-lg bg-white p-4 shadow">
+        <div class="mb-2 flex items-center justify-between">
             <h4 class="text-sm font-medium text-gray-700">{{ budget.name }}</h4>
-            <span class="text-xs {% if budget.utilization_pct > budget.alert_threshold_pct %}text-red-600 font-bold{% elif budget.utilization_pct > 80 %}text-amber-600{% else %}text-green-600{% endif %}">
+            <span
+                class="{% if budget.utilization_pct > budget.alert_threshold_pct %}text-red-600 font-bold{% elif budget.utilization_pct > 80 %}text-amber-600{% else %}text-green-600{% endif %} text-xs"
+            >
                 {{ budget.utilization_pct|floatformat:0 }}%
             </span>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-3">
-            <div class="h-3 rounded-full {% if budget.utilization_pct > budget.alert_threshold_pct %}bg-red-500{% elif budget.utilization_pct > 80 %}bg-amber-500{% else %}bg-green-500{% endif %}"
-                 style="width: {% if budget.utilization_pct > 100 %}100{% else %}{{ budget.utilization_pct|floatformat:0 }}{% endif %}%;"></div>
+        <div class="h-3 w-full rounded-full bg-gray-200">
+            <div
+                class="{% if budget.utilization_pct > budget.alert_threshold_pct %}bg-red-500{% elif budget.utilization_pct > 80 %}bg-amber-500{% else %}bg-green-500{% endif %} h-3 rounded-full"
+                style="width: {% if budget.utilization_pct > 100 %}100{% else %}{{ budget.utilization_pct|floatformat:0 }}{% endif %}%;"
+            ></div>
         </div>
-        <p class="text-xs text-gray-500 mt-1">&euro;{{ budget.spent|format_currency }} / &euro;{{ budget.monthly_budget|format_currency }}</p>
+        <p class="mt-1 text-xs text-gray-500">
+            &euro;{{ budget.spent|format_currency }} / &euro;{{
+            budget.monthly_budget|format_currency }}
+        </p>
     </div>
     {% endfor %}
 </div>
 {% endif %}
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Usage Cost ({{ period.days }} days)</p>
-        <p class="text-2xl font-bold text-blue-600">&euro;{{ summary.total_cost|format_currency }}</p>
-        <p class="text-sm text-gray-400">Avg: &euro;{{ summary.avg_daily_cost|format_currency }}/day</p>
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div class="rounded-lg border-l-4 border-blue-500 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">Usage Cost ({{ period.days }} days)</p>
+        <p class="text-2xl font-bold text-blue-600">
+            &euro;{{ summary.total_cost|format_currency }}
+        </p>
+        <p class="text-sm text-gray-400">
+            Avg: &euro;{{ summary.avg_daily_cost|format_currency }}/day
+        </p>
     </div>
 
     {% if filters.charge_type != 'reserved' %}
-    <div class="bg-white rounded-lg shadow border-l-4 border-orange-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Reservation Cost ({{ period.days }} days)</p>
-        <p class="text-2xl font-bold text-orange-600">&euro;{{ summary.reservation_cost|format_currency }}</p>
+    <div class="rounded-lg border-l-4 border-orange-500 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">
+            Reservation Cost ({{ period.days }} days)
+        </p>
+        <p class="text-2xl font-bold text-orange-600">
+            &euro;{{ summary.reservation_cost|format_currency }}
+        </p>
         <p class="text-sm text-gray-400">Amortized (from Azure)</p>
     </div>
 
-    <div class="bg-white rounded-lg shadow border-l-4 border-indigo-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Total Cost</p>
-        <p class="text-2xl font-bold text-indigo-600">&euro;{{ summary.total_cost_with_reservations|format_currency }}</p>
+    <div class="rounded-lg border-l-4 border-indigo-500 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">Total Cost</p>
+        <p class="text-2xl font-bold text-indigo-600">
+            &euro;{{ summary.total_cost_with_reservations|format_currency }}
+        </p>
         <p class="text-sm text-gray-400">Usage + Reservations</p>
     </div>
     {% else %}
-    <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">Reserved Instance Usage</p>
-        <p class="text-2xl font-bold text-green-600">&euro;{{ summary.total_list_cost|format_currency }}</p>
+    <div class="rounded-lg border-l-4 border-green-500 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">Reserved Instance Usage</p>
+        <p class="text-2xl font-bold text-green-600">
+            &euro;{{ summary.total_list_cost|format_currency }}
+        </p>
         <p class="text-sm text-gray-400">Capacity tracked</p>
     </div>
     {% endif %}
 
-    <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-5">
-        <p class="text-sm text-gray-500 mb-1">
-            {% if filters.charge_type == 'reserved' %}Reservation Savings{% else %}Est. Savings{% endif %}
+    <div class="rounded-lg border-l-4 border-green-500 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">
+            {% if filters.charge_type == 'reserved' %}Reservation Savings{% else %}Est.
+            Savings{% endif %}
         </p>
         <p class="text-2xl font-bold text-green-600">
-            {% if filters.charge_type == 'reserved' %}
-            &euro;{{ summary.total_savings|format_currency }}
-            {% else %}
-            &euro;{{ summary.reservation_savings_estimate|format_currency }}
-            {% endif %}
+            {% if filters.charge_type == 'reserved' %} &euro;{{
+            summary.total_savings|format_currency }} {% else %} &euro;{{
+            summary.reservation_savings_estimate|format_currency }} {% endif %}
         </p>
         <p class="text-sm text-gray-400">
-            {% if filters.charge_type == 'reserved' %}List cost{% else %}~55% discount{% endif %}
+            {% if filters.charge_type == 'reserved' %}List cost{% else %}~55% discount{%
+            endif %}
         </p>
     </div>
 
-    <div class="bg-white rounded-lg shadow border-l-4 border-gray-400 p-5">
-        <p class="text-sm text-gray-500 mb-1">Data Imports</p>
-        <p class="text-2xl font-bold text-gray-700">{{ summary.completed_exports }}/{{ summary.total_exports }}</p>
+    <div class="rounded-lg border-l-4 border-gray-400 bg-white p-5 shadow">
+        <p class="mb-1 text-sm text-gray-500">Data Imports</p>
+        <p class="text-2xl font-bold text-gray-700">
+            {{ summary.completed_exports }}/{{ summary.total_exports }}
+        </p>
         {% if latest_export %}
-        <p class="text-sm text-gray-400">Latest: {{ latest_export.billing_period_start|date:"M Y" }}</p>
+        <p class="text-sm text-gray-400">
+            Latest: {{ latest_export.billing_period_start|date:"M Y" }}
+        </p>
         {% else %}
         <p class="text-sm text-gray-400">No imports yet</p>
         {% endif %}
@@ -246,22 +439,29 @@
 
 <!-- Reservation Cost Disclaimer -->
 {% if filters.charge_type != 'reserved' and summary.reservation_cost > 0 %}
-<div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+<div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
     <div class="flex items-start">
-        <svg class="h-5 w-5 text-blue-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        <svg
+            class="mt-0.5 mr-3 h-5 w-5 text-blue-400"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+        >
+            <path
+                fill-rule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clip-rule="evenodd"
+            />
         </svg>
         <div>
             <p class="text-sm font-medium text-blue-800">About reservation costs</p>
-            <p class="text-sm text-blue-700 mt-1">
-                Reservation costs are amortized from the monthly cost shown in Azure Portal Cost Management.
-                {% if active_reservations %}
-                Active reservations:
-                {% for res in active_reservations %}
-                    {{ res.reservation_name }} (&euro;{{ res.monthly_amortization|format_currency }}/month){% if not forloop.last %}, {% endif %}
-                {% endfor %}.
-                {% endif %}
-                Savings estimates assume typical 3-year reservation discounts (~55% off pay-as-you-go rates).
+            <p class="mt-1 text-sm text-blue-700">
+                Reservation costs are amortized from the monthly cost shown in Azure
+                Portal Cost Management. {% if active_reservations %} Active
+                reservations: {% for res in active_reservations %} {{
+                res.reservation_name }} (&euro;{{
+                res.monthly_amortization|format_currency }}/month){% if not forloop.last
+                %}, {% endif %} {% endfor %}. {% endif %} Savings estimates assume
+                typical 3-year reservation discounts (~55% off pay-as-you-go rates).
             </p>
         </div>
     </div>
@@ -269,32 +469,52 @@
 {% endif %}
 
 <!-- Charts Row -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
     <!-- Cost Trend Chart -->
-    <div class="lg:col-span-2 bg-white rounded-lg shadow p-5">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Cost Trend ({{ period.start|date:"M d" }} &ndash; {{ period.end|date:"M d, Y" }})</h3>
+    <div class="rounded-lg bg-white p-5 shadow lg:col-span-2">
+        <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">
+                Cost Trend ({{ period.start|date:"M d" }} &ndash; {{ period.end|date:"M
+                d, Y" }})
+            </h3>
             <div class="flex space-x-2">
-                <button id="dailyView" class="px-3 py-1 text-sm font-medium rounded-md bg-blue-600 text-white" onclick="toggleChartView('daily')">Daily</button>
-                <button id="weeklyView" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-700 border border-gray-300 hover:bg-gray-50" onclick="toggleChartView('weekly')">Weekly</button>
+                <button
+                    id="dailyView"
+                    class="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white"
+                    onclick="toggleChartView('daily')"
+                >
+                    Daily
+                </button>
+                <button
+                    id="weeklyView"
+                    class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    onclick="toggleChartView('weekly')"
+                >
+                    Weekly
+                </button>
             </div>
         </div>
         <div class="relative">
-            <div id="costTrendLoading" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div
+                id="costTrendLoading"
+                class="bg-opacity-80 absolute inset-0 z-10 flex items-center justify-center bg-white"
+            >
+                <div
+                    class="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"
+                ></div>
             </div>
             <canvas id="costTrendChart" height="100"></canvas>
         </div>
-        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+        <div class="mt-4 rounded-lg bg-blue-50 p-3">
             <div class="flex flex-wrap items-center gap-4 text-sm">
                 <span class="font-medium text-blue-800">Cost Categories:</span>
                 <span class="flex items-center">
-                    <span class="w-4 h-4 bg-blue-500 rounded mr-2"></span>
+                    <span class="mr-2 h-4 w-4 rounded bg-blue-500"></span>
                     <strong>Usage Cost</strong>
                     <span class="ml-1 text-gray-600">- Pay-as-you-go</span>
                 </span>
                 <span class="flex items-center">
-                    <span class="w-4 h-4 bg-orange-400 rounded mr-2"></span>
+                    <span class="mr-2 h-4 w-4 rounded bg-orange-400"></span>
                     <strong>Purchase Cost</strong>
                     <span class="ml-1 text-gray-600">- Reservations</span>
                 </span>
@@ -303,50 +523,88 @@
     </div>
 
     <!-- Subscription Chart -->
-    <div class="bg-white rounded-lg shadow p-5">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Subscriptions</h3>
-        <div class="flex justify-center items-center" style="height: 300px;">
+    <div class="rounded-lg bg-white p-5 shadow">
+        <h3 class="mb-4 text-lg font-semibold text-gray-900">Top Subscriptions</h3>
+        <div class="flex items-center justify-center" style="height: 300px">
             <canvas id="subscriptionChart"></canvas>
         </div>
     </div>
 </div>
 
 <!-- Top Services Table -->
-<div class="bg-white rounded-lg shadow mb-6">
-    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-200">
+<div class="mb-6 rounded-lg bg-white shadow">
+    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
         <h3 class="text-lg font-semibold text-gray-900">Top Services by Cost</h3>
-        <a href="{% url 'finops_hub:services' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View All Services</a>
+        <a
+            href="{% url 'finops_hub:services' %}"
+            class="text-sm font-medium text-blue-600 hover:text-blue-800"
+            >View All Services</a
+        >
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Cost Distribution</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Cost (EUR)</th>
+                    <th
+                        class="w-12 px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+                    >
+                        #
+                    </th>
+                    <th
+                        class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+                    >
+                        Service Name
+                    </th>
+                    <th
+                        class="w-64 px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+                    >
+                        Cost Distribution
+                    </th>
+                    <th
+                        class="w-32 px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase"
+                    >
+                        Cost (EUR)
+                    </th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-200 bg-white">
                 {% for service in top_services %}
-                <tr class="service-row hover:bg-gray-50" data-service-name="{{ service.service_name }}" data-original-cost="{{ service.cost }}">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ forloop.counter }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ service.service_name|default:"Unknown" }}</td>
+                <tr
+                    class="service-row hover:bg-gray-50"
+                    data-service-name="{{ service.service_name }}"
+                    data-original-cost="{{ service.cost }}"
+                >
+                    <td class="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
+                        {{ forloop.counter }}
+                    </td>
+                    <td
+                        class="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900"
+                    >
+                        {{ service.service_name|default:"Unknown" }}
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% with width=service.cost|percentage:summary.total_cost %}
-                        <div class="relative w-full bg-gray-200 rounded-full h-4">
-                            <div class="progress-bar bg-blue-600 h-4 rounded-full"
-                                 style="width: {{ width }}%; min-width: 2px;"
-                                 data-width="{{ width }}" data-cost="{{ service.cost }}" data-total="{{ summary.total_cost }}">
-                            </div>
-                            <span class="absolute inset-0 flex items-center {% if width|floatformat:0 > '15' %}justify-end pr-2 text-white{% else %}pl-2 text-gray-700{% endif %} text-xs font-medium" style="{% if width|floatformat:0 > '15' %}{% else %}left: {{ width }}%;{% endif %}">
+                        <div class="relative h-4 w-full rounded-full bg-gray-200">
+                            <div
+                                class="progress-bar h-4 rounded-full bg-blue-600"
+                                style="width: {{ width }}%; min-width: 2px;"
+                                data-width="{{ width }}"
+                                data-cost="{{ service.cost }}"
+                                data-total="{{ summary.total_cost }}"
+                            ></div>
+                            <span
+                                class="{% if width|floatformat:0 > '15' %}justify-end text-white{% else %}pl-2 text-gray-700{% endif %} absolute inset-0 flex items-center pr-2 text-xs font-medium"
+                                style="{% if width|floatformat:0 > '15' %}{% else %}left: {{ width }}%;{% endif %}"
+                            >
                                 {{ service.cost|format_percentage:summary.total_cost }}
                             </span>
                         </div>
                         {% endwith %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <strong class="service-cost text-gray-900">{{ service.cost|format_currency }}</strong>
+                    <td class="px-6 py-4 text-right text-sm whitespace-nowrap">
+                        <strong class="service-cost text-gray-900"
+                            >{{ service.cost|format_currency }}</strong
+                        >
                     </td>
                 </tr>
                 {% empty %}
@@ -362,24 +620,50 @@
 </div>
 
 <!-- Quick Actions & Export -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
     <div>
-        <h6 class="text-sm font-medium text-gray-500 mb-3">Quick Actions</h6>
+        <h6 class="mb-3 text-sm font-medium text-gray-500">Quick Actions</h6>
         <div class="flex flex-wrap gap-2">
-            <a href="{% url 'finops_hub:subscriptions' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">View Subscriptions</a>
-            <a href="{% url 'finops_hub:services' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">View Services</a>
-            <a href="{% url 'finops_hub:resources' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">Explore Resources</a>
-            <a href="{% url 'finops_hub:import' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700">Import Data</a>
-            <a href="{% url 'finops_hub:faq' %}" class="inline-flex items-center px-4 py-2 bg-cyan-600 text-white text-sm font-medium rounded-md hover:bg-cyan-700">FAQ & Data Flow</a>
+            <a
+                href="{% url 'finops_hub:subscriptions' %}"
+                class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >View Subscriptions</a
+            >
+            <a
+                href="{% url 'finops_hub:services' %}"
+                class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >View Services</a
+            >
+            <a
+                href="{% url 'finops_hub:resources' %}"
+                class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >Explore Resources</a
+            >
+            <a
+                href="{% url 'finops_hub:import' %}"
+                class="inline-flex items-center rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+                >Import Data</a
+            >
+            <a
+                href="{% url 'finops_hub:faq' %}"
+                class="inline-flex items-center rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                >FAQ & Data Flow</a
+            >
         </div>
     </div>
     <div>
-        <h6 class="text-sm font-medium text-gray-500 mb-3">Export Data</h6>
+        <h6 class="mb-3 text-sm font-medium text-gray-500">Export Data</h6>
         <div class="flex flex-wrap gap-2">
-            <a href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=daily_summary" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+            <a
+                href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=daily_summary"
+                class="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
                 Export Daily CSV
             </a>
-            <a href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=by_service" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700">
+            <a
+                href="{% url 'finops_hub:api_export_csv' %}?days={{ period.days }}&format=by_service"
+                class="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
                 Export by Service
             </a>
         </div>
@@ -387,24 +671,30 @@
 </div>
 
 <!-- JSON config for finops_dashboard.js -->
-<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
+<script id="finops-config" type="application/json">
+    {{ finops_json_config|safe }}
+</script>
 
 <!-- Hide loading spinner once chart renders -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var loader = document.getElementById('costTrendLoading');
-    if (loader) {
-        var observer = new MutationObserver(function() {
-            var canvas = document.getElementById('costTrendChart');
-            if (canvas && canvas.style.display !== 'none') {
-                loader.style.display = 'none';
-                observer.disconnect();
-            }
-        });
-        observer.observe(document.getElementById('costTrendChart'), { attributes: true });
-        // Fallback: hide after 5s
-        setTimeout(function() { loader.style.display = 'none'; }, 5000);
-    }
-});
+    document.addEventListener("DOMContentLoaded", function () {
+        var loader = document.getElementById("costTrendLoading");
+        if (loader) {
+            var observer = new MutationObserver(function () {
+                var canvas = document.getElementById("costTrendChart");
+                if (canvas && canvas.style.display !== "none") {
+                    loader.style.display = "none";
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.getElementById("costTrendChart"), {
+                attributes: true,
+            });
+            // Fallback: hide after 5s
+            setTimeout(function () {
+                loader.style.display = "none";
+            }, 5000);
+        }
+    });
 </script>
 {% endblock %}

@@ -1,13 +1,15 @@
-{% extends 'crush_lu/base.html' %}
-{% load static i18n %}
-
-{% block title %}{% trans "Verify Your Phone" %} - Crush.lu{% endblock %}
-
-{% block extra_css %}
+{% extends 'crush_lu/base.html' %} {% load static i18n %} {% block title %}{% trans
+"Verify Your Phone" %} - Crush.lu{% endblock %} {% block extra_css %}
 <!-- intl-tel-input CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css"
+/>
 <!-- Custom intl-tel-input styling for Crush.lu -->
-<link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
+<link
+    rel="stylesheet"
+    href="{% static 'crush_lu/css/components/intl-tel-input.css' %}"
+/>
 <style>
     /* Force padding-left to prevent dial code overlap */
     .iti input[type="tel"],
@@ -16,66 +18,106 @@
         padding-left: var(--intl-tel-input-padding, 110px) !important;
     }
 </style>
-{% endblock %}
-
-{% block content %}
-<div class="py-10"
-     x-data="standalonePhoneVerification"
-     data-phone-input-id="phone_number"
-     data-current-phone="{{ current_phone }}"
-     data-next-url="{{ next_url }}"
-     {% if whatsapp_enabled and whatsapp_number %}data-whatsapp-number="{{ whatsapp_number }}"
-     data-whatsapp-message="{% trans 'Hi! I need help with phone verification on Crush.lu. My phone number seems to be linked to another account.' %}"{% endif %}>
+{% endblock %} {% block content %}
+<div
+    class="py-10"
+    x-data="standalonePhoneVerification"
+    data-phone-input-id="phone_number"
+    data-current-phone="{{ current_phone }}"
+    data-next-url="{{ next_url }}"
+    {%
+    if
+    whatsapp_enabled
+    and
+    whatsapp_number
+    %}data-whatsapp-number="{{ whatsapp_number }}"
+    data-whatsapp-message="{% trans 'Hi! I need help with phone verification on Crush.lu. My phone number seems to be linked to another account.' %}"
+    {%
+    endif
+    %}
+>
     <div class="flex justify-center">
         <div class="w-full max-w-md">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20">
+            <div
+                class="rounded-xl bg-white shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
+            >
                 <div class="p-6">
                     <!-- Header -->
-                    <div class="text-center mb-6">
+                    <div class="mb-6 text-center">
                         <div class="mb-4">
-                            <div class="w-16 h-16 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                                {% include "shared/icons/phone.html" with class="w-8 h-8 text-white" %}
+                            <div
+                                class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                            >
+                                {% include "shared/icons/phone.html" with class="w-8 h-8
+                                text-white" %}
                             </div>
                         </div>
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Verify Your Phone Number" %}</h2>
-                        <p class="text-gray-500 dark:text-gray-400 mt-2">
-                            {% trans "We'll send a verification code via SMS to confirm your phone number." %}
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                            {% trans "Verify Your Phone Number" %}
+                        </h2>
+                        <p class="mt-2 text-gray-500 dark:text-gray-400">
+                            {% trans "We'll send a verification code via SMS to confirm
+                            your phone number." %}
                         </p>
                     </div>
 
                     <!-- Step 1: Phone Input -->
                     <div x-show="isPhoneStep" x-cloak>
                         <div class="mb-4">
-                            <label for="phone_number" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                            <label
+                                for="phone_number"
+                                class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >
                                 {% trans "Phone Number" %}
                             </label>
                             <div class="phone-input-wrapper">
-                                <input type="tel"
-                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="phone_number"
-                                       name="phone_number"
-                                       required>
+                                <input
+                                    type="tel"
+                                    class="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    id="phone_number"
+                                    name="phone_number"
+                                    required
+                                />
                             </div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {% trans "Select your country and enter your phone number" %}
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {% trans "Select your country and enter your phone
+                                number" %}
                             </p>
                         </div>
 
-                        <button type="button"
-                                @click="sendCode"
-                                x-bind:disabled="isLoading"
-                                class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
+                        <button
+                            type="button"
+                            @click="sendCode"
+                            x-bind:disabled="isLoading"
+                            class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 py-3 font-semibold text-white transition-all duration-200 hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                             <template x-if="isNotLoading">
                                 <span class="flex items-center gap-2">
-                                    {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
-                                    {% trans "Send Verification Code" %}
+                                    {% include "shared/icons/paper-airplane.html" with
+                                    class="w-5 h-5" %} {% trans "Send Verification Code"
+                                    %}
                                 </span>
                             </template>
                             <template x-if="isLoading">
                                 <span class="flex items-center gap-2">
-                                    <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    <svg
+                                        class="h-5 w-5 animate-spin"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            class="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            stroke-width="4"
+                                        ></circle>
+                                        <path
+                                            class="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
                                     </svg>
                                     {% trans "Sending..." %}
                                 </span>
@@ -85,88 +127,154 @@
 
                     <!-- Step 2: OTP Input -->
                     <div x-show="isOtpStep" x-cloak>
-                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4 flex items-start gap-2">
-                            {% include "shared/icons/information-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
-                            <span>{% trans "A 6-digit code has been sent to" %} <strong x-text="displayPhone"></strong></span>
+                        <div
+                            class="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        >
+                            {% include "shared/icons/information-circle.html" with
+                            class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                            <span
+                                >{% trans "A 6-digit code has been sent to" %}
+                                <strong x-text="displayPhone"></strong
+                            ></span>
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                            <label
+                                class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >
                                 {% trans "Verification Code" %}
                             </label>
                             <div class="flex justify-center gap-2">
-                                <input type="text" id="otp-0" maxlength="1" inputmode="numeric" autocomplete="one-time-code"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp0"
-                                       @input="handleOtpInput(0, $event)"
-                                       @keydown="handleOtpKeydown(0, $event)">
-                                <input type="text" id="otp-1" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp1"
-                                       @input="handleOtpInput(1, $event)"
-                                       @keydown="handleOtpKeydown(1, $event)">
-                                <input type="text" id="otp-2" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp2"
-                                       @input="handleOtpInput(2, $event)"
-                                       @keydown="handleOtpKeydown(2, $event)">
-                                <input type="text" id="otp-3" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp3"
-                                       @input="handleOtpInput(3, $event)"
-                                       @keydown="handleOtpKeydown(3, $event)">
-                                <input type="text" id="otp-4" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp4"
-                                       @input="handleOtpInput(4, $event)"
-                                       @keydown="handleOtpKeydown(4, $event)">
-                                <input type="text" id="otp-5" maxlength="1" inputmode="numeric"
-                                       class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-700 dark:text-white"
-                                       :value="otp5"
-                                       @input="handleOtpInput(5, $event)"
-                                       @keydown="handleOtpKeydown(5, $event)">
+                                <input
+                                    type="text"
+                                    id="otp-0"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    autocomplete="one-time-code"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp0"
+                                    @input="handleOtpInput(0, $event)"
+                                    @keydown="handleOtpKeydown(0, $event)"
+                                />
+                                <input
+                                    type="text"
+                                    id="otp-1"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp1"
+                                    @input="handleOtpInput(1, $event)"
+                                    @keydown="handleOtpKeydown(1, $event)"
+                                />
+                                <input
+                                    type="text"
+                                    id="otp-2"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp2"
+                                    @input="handleOtpInput(2, $event)"
+                                    @keydown="handleOtpKeydown(2, $event)"
+                                />
+                                <input
+                                    type="text"
+                                    id="otp-3"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp3"
+                                    @input="handleOtpInput(3, $event)"
+                                    @keydown="handleOtpKeydown(3, $event)"
+                                />
+                                <input
+                                    type="text"
+                                    id="otp-4"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp4"
+                                    @input="handleOtpInput(4, $event)"
+                                    @keydown="handleOtpKeydown(4, $event)"
+                                />
+                                <input
+                                    type="text"
+                                    id="otp-5"
+                                    maxlength="1"
+                                    inputmode="numeric"
+                                    class="h-14 w-12 rounded-lg border-2 border-gray-300 text-center text-2xl font-bold focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    :value="otp5"
+                                    @input="handleOtpInput(5, $event)"
+                                    @keydown="handleOtpKeydown(5, $event)"
+                                />
                             </div>
                         </div>
 
-                        <button type="button"
-                                @click="verifyCode"
-                                x-bind:disabled="isLoading"
-                                class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 mb-4">
+                        <button
+                            type="button"
+                            @click="verifyCode"
+                            x-bind:disabled="isLoading"
+                            class="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 py-3 font-semibold text-white transition-all duration-200 hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
                             <template x-if="isNotLoading">
                                 <span class="flex items-center gap-2">
-                                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                                    {% trans "Verify Code" %}
+                                    {% include "shared/icons/check-circle.html" with
+                                    class="w-5 h-5" %} {% trans "Verify Code" %}
                                 </span>
                             </template>
                             <template x-if="isLoading">
                                 <span class="flex items-center gap-2">
-                                    <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    <svg
+                                        class="h-5 w-5 animate-spin"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            class="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            stroke-width="4"
+                                        ></circle>
+                                        <path
+                                            class="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
                                     </svg>
                                     {% trans "Verifying..." %}
                                 </span>
                             </template>
                         </button>
 
-                        <div class="text-center space-y-3">
-                            <button type="button"
-                                    @click="resendCode"
-                                    x-bind:disabled="cannotResend"
-                                    class="text-purple-600 hover:text-purple-800 disabled:text-gray-400 disabled:cursor-not-allowed">
-                                <span x-show="cannotResend">{% trans "Resend code in" %} <span x-text="resendCountdown"></span>s</span>
-                                <span x-show="canResend" class="flex items-center justify-center gap-1">
-                                    {% include "shared/icons/arrow-path.html" with class="w-4 h-4" %}
-                                    {% trans "Resend Code" %}
+                        <div class="space-y-3 text-center">
+                            <button
+                                type="button"
+                                @click="resendCode"
+                                x-bind:disabled="cannotResend"
+                                class="text-purple-600 hover:text-purple-800 disabled:cursor-not-allowed disabled:text-gray-400"
+                            >
+                                <span x-show="cannotResend"
+                                    >{% trans "Resend code in" %}
+                                    <span x-text="resendCountdown"></span>s</span
+                                >
+                                <span
+                                    x-show="canResend"
+                                    class="flex items-center justify-center gap-1"
+                                >
+                                    {% include "shared/icons/arrow-path.html" with
+                                    class="w-4 h-4" %} {% trans "Resend Code" %}
                                 </span>
                             </button>
 
                             <div>
-                                <button type="button"
-                                        @click="changePhone"
-                                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm inline-flex items-center gap-1">
-                                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-                                    {% trans "Change Phone Number" %}
+                                <button
+                                    type="button"
+                                    @click="changePhone"
+                                    class="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                >
+                                    {% include "shared/icons/arrow-left.html" with
+                                    class="w-4 h-4" %} {% trans "Change Phone Number" %}
                                 </button>
                             </div>
                         </div>
@@ -176,48 +284,81 @@
                     <div x-show="isSuccessStep" x-cloak>
                         <div class="text-center">
                             <div class="mb-4">
-                                <div class="w-16 h-16 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                                    {% include "shared/icons/check-circle.html" with class="w-10 h-10 text-green-500 dark:text-green-400" %}
+                                <div
+                                    class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
+                                >
+                                    {% include "shared/icons/check-circle.html" with
+                                    class="w-10 h-10 text-green-500 dark:text-green-400"
+                                    %}
                                 </div>
                             </div>
-                            <h3 class="text-xl font-semibold text-green-600 dark:text-green-400 mb-2">{% trans "Phone Verified!" %}</h3>
-                            <p class="text-gray-500 dark:text-gray-400 mb-4">
-                                {% trans "Your number" %} <strong x-text="verifiedPhone"></strong> {% trans "has been verified." %}
+                            <h3
+                                class="mb-2 text-xl font-semibold text-green-600 dark:text-green-400"
+                            >
+                                {% trans "Phone Verified!" %}
+                            </h3>
+                            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                                {% trans "Your number" %}
+                                <strong x-text="verifiedPhone"></strong> {% trans "has
+                                been verified." %}
                             </p>
                             {% if next_url %}
-                            <a href="{{ next_url }}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200">
-                                {% trans "Continue" %}
-                                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                            <a
+                                href="{{ next_url }}"
+                                class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 font-semibold text-white transition-all duration-200 hover:from-purple-600 hover:to-pink-600"
+                            >
+                                {% trans "Continue" %} {% include
+                                "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                             </a>
                             {% else %}
-                            <a href="{% url 'crush_lu:dashboard' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200">
-                                {% include "shared/icons/home.html" with class="w-5 h-5" %}
-                                {% trans "Back to Dashboard" %}
+                            <a
+                                href="{% url 'crush_lu:dashboard' %}"
+                                class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 font-semibold text-white transition-all duration-200 hover:from-purple-600 hover:to-pink-600"
+                            >
+                                {% include "shared/icons/home.html" with class="w-5 h-5"
+                                %} {% trans "Back to Dashboard" %}
                             </a>
                             {% endif %}
                         </div>
                     </div>
 
                     <!-- Error Display -->
-                    <div x-show="hasError" x-cloak
-                         class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mt-4 flex items-start gap-2">
-                        {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
+                    <div
+                        x-show="hasError"
+                        x-cloak
+                        class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300"
+                    >
+                        {% include "shared/icons/exclamation-circle.html" with
+                        class="w-5 h-5 flex-shrink-0 mt-0.5" %}
                         <span x-text="error"></span>
                     </div>
 
                     <!-- WhatsApp support contact after repeated failures -->
                     {% if whatsapp_enabled and whatsapp_number %}
-                    <div x-show="showSupportContact" x-cloak
-                         class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mt-4">
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                            {% trans "Having trouble verifying your phone? Our team can help you directly." %}
+                    <div
+                        x-show="showSupportContact"
+                        x-cloak
+                        class="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-700 dark:bg-green-900/20"
+                    >
+                        <p class="mb-3 text-sm text-gray-700 dark:text-gray-300">
+                            {% trans "Having trouble verifying your phone? Our team can
+                            help you directly." %}
                         </p>
-                        <a href="https://wa.me/{{ whatsapp_number }}?text={% trans 'Hi! I need help with phone verification on Crush.lu.' %}"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        <a
+                            href="https://wa.me/{{ whatsapp_number }}?text={% trans 'Hi! I need help with phone verification on Crush.lu.' %}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="currentColor"
+                            >
+                                <path
+                                    d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+                                />
                             </svg>
                             {% trans "Contact us on WhatsApp" %}
                         </a>
@@ -225,21 +366,36 @@
                     {% endif %}
 
                     <!-- Phone number already in use -->
-                    <div x-show="showPhoneInUseError" x-cloak
-                         class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 mt-4">
-                        <div class="flex items-start gap-2 mb-3">
-                            {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" %}
+                    <div
+                        x-show="showPhoneInUseError"
+                        x-cloak
+                        class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20"
+                    >
+                        <div class="mb-3 flex items-start gap-2">
+                            {% include "shared/icons/exclamation-circle.html" with
+                            class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" %}
                             <p class="text-sm text-gray-700 dark:text-gray-300">
-                                {% trans "This phone number is already linked to another account. If this is your number, please contact our support team for help." %}
+                                {% trans "This phone number is already linked to another
+                                account. If this is your number, please contact our
+                                support team for help." %}
                             </p>
                         </div>
                         <template x-if="hasWhatsappSupport">
-                            <a x-bind:href="whatsappSupportUrl"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            <a
+                                x-bind:href="whatsappSupportUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600"
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="18"
+                                    height="18"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+                                    />
                                 </svg>
                                 {% trans "Contact us on WhatsApp" %}
                             </a>
@@ -252,25 +408,29 @@
             </div>
 
             <!-- Back Link -->
-            <div class="text-center mt-6">
+            <div class="mt-6 text-center">
                 {% if next_url %}
-                <a href="{{ next_url }}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
-                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-                    {% trans "Back" %}
+                <a
+                    href="{{ next_url }}"
+                    class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {%
+                    trans "Back" %}
                 </a>
                 {% else %}
-                <a href="{% url 'crush_lu:dashboard' %}" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1">
-                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-                    {% trans "Back to Dashboard" %}
+                <a
+                    href="{% url 'crush_lu:dashboard' %}"
+                    class="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                    {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {%
+                    trans "Back to Dashboard" %}
                 </a>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <!-- Firebase SDK for Phone Authentication -->
 <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth-compat.js"></script>
@@ -290,19 +450,21 @@
 <script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 
 <script nonce="{{ csp_nonce }}">
-// Initialize PhoneVerification instance for Alpine component to use
-document.addEventListener('DOMContentLoaded', function() {
-    window.phoneVerification = new PhoneVerification({
-        phoneInputId: 'phone_number',
-        recaptchaContainerId: 'recaptcha-container',
-        csrfToken: '{{ csrf_token }}',
-        onVerified: function(phoneNumber) {
-            window.dispatchEvent(new CustomEvent('phone-verified', { detail: phoneNumber }));
-        },
-        onError: function(error) {
-            console.error('Phone verification error:', error);
-        }
+    // Initialize PhoneVerification instance for Alpine component to use
+    document.addEventListener("DOMContentLoaded", function () {
+        window.phoneVerification = new PhoneVerification({
+            phoneInputId: "phone_number",
+            recaptchaContainerId: "recaptcha-container",
+            csrfToken: "{{ csrf_token }}",
+            onVerified: function (phoneNumber) {
+                window.dispatchEvent(
+                    new CustomEvent("phone-verified", { detail: phoneNumber }),
+                );
+            },
+            onError: function (error) {
+                console.error("Phone verification error:", error);
+            },
+        });
     });
-});
 </script>
 {% endblock %}

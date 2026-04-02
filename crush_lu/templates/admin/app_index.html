@@ -1,20 +1,17 @@
-{% extends "admin/index.html" %}
-{% load i18n static %}
-
-{% block content %}
+{% extends "admin/index.html" %} {% load i18n static %} {% block content %}
 <div id="content-main">
     <style>
         .crush-admin-section {
             background: white;
             border-radius: 8px;
             margin-bottom: 25px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
 
         html.dark .crush-admin-section {
             background: #1e293b;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .crush-section-header {
@@ -160,7 +157,7 @@
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .crush-quick-start h2 {
@@ -184,15 +181,33 @@
         <h2>✨ Welcome to Crush.lu Special Journey System</h2>
         <p><strong>Create a personalized journey in 6 steps:</strong></p>
         <ol>
-            <li><strong>Special User Experience</strong> - Define who receives the journey (first + last name)</li>
-            <li><strong>Journey Configuration</strong> - Create the journey structure and settings</li>
-            <li><strong>Chapters</strong> - Add themed chapters to organize the journey</li>
-            <li><strong>Challenges</strong> - Create interactive activities (riddles, quizzes, word games)</li>
-            <li><strong>Rewards</strong> - Upload photos, videos, audio, and letters as surprises</li>
-            <li><strong>Test & Launch</strong> - Log in as the special user to experience it!</li>
+            <li>
+                <strong>Special User Experience</strong> - Define who receives the
+                journey (first + last name)
+            </li>
+            <li>
+                <strong>Journey Configuration</strong> - Create the journey structure
+                and settings
+            </li>
+            <li>
+                <strong>Chapters</strong> - Add themed chapters to organize the journey
+            </li>
+            <li>
+                <strong>Challenges</strong> - Create interactive activities (riddles,
+                quizzes, word games)
+            </li>
+            <li>
+                <strong>Rewards</strong> - Upload photos, videos, audio, and letters as
+                surprises
+            </li>
+            <li>
+                <strong>Test & Launch</strong> - Log in as the special user to
+                experience it!
+            </li>
         </ol>
-        <p style="margin-top: 15px; font-size: 14px; opacity: 0.9;">
-            📚 <strong>Need help?</strong> Check JOURNEY_QUICK_START.md and JOURNEY_SYSTEM_IMPLEMENTATION.md
+        <p style="margin-top: 15px; font-size: 14px; opacity: 0.9">
+            📚 <strong>Need help?</strong> Check JOURNEY_QUICK_START.md and
+            JOURNEY_SYSTEM_IMPLEMENTATION.md
         </p>
     </div>
 
@@ -206,26 +221,30 @@
             <span class="crush-toggle-icon">▼</span>
         </div>
         <div class="crush-section-description">
-            Create and configure personalized journey experiences. Start from top to bottom.
+            Create and configure personalized journey experiences. Start from top to
+            bottom.
         </div>
         <div class="crush-section-content">
             <table>
-                {% for model in app_list.0.models %}
-                    {% if "1. Special" in model.name or "2. Journey Config" in model.name or "3. Journey Chapter" in model.name or "4. Journey Challenge" in model.name or "5. Journey Reward" in model.name %}
-                    <tr>
-                        <td>
-                            <a href="{{ model.admin_url }}" class="crush-model-link">
-                                <span class="crush-model-name">{{ model.name }}</span>
-                                <div class="crush-model-actions">
-                                    {% if model.add_url %}
-                                    <a href="{{ model.add_url }}" class="crush-action-btn">+ Add New</a>
-                                    {% endif %}
-                                </div>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
+                {% for model in app_list.0.models %} {% if "1. Special" in model.name or
+                "2. Journey Config" in model.name or "3. Journey Chapter" in model.name
+                or "4. Journey Challenge" in model.name or "5. Journey Reward" in
+                model.name %}
+                <tr>
+                    <td>
+                        <a href="{{ model.admin_url }}" class="crush-model-link">
+                            <span class="crush-model-name">{{ model.name }}</span>
+                            <div class="crush-model-actions">
+                                {% if model.add_url %}
+                                <a href="{{ model.add_url }}" class="crush-action-btn"
+                                    >+ Add New</a
+                                >
+                                {% endif %}
+                            </div>
+                        </a>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
             </table>
         </div>
     </div>
@@ -240,26 +259,29 @@
             <span class="crush-toggle-icon">▼</span>
         </div>
         <div class="crush-section-description">
-            Monitor how users progress through their journeys. View completion rates, answers, and puzzle progress.
+            Monitor how users progress through their journeys. View completion rates,
+            answers, and puzzle progress.
         </div>
         <div class="crush-section-content">
             <table>
-                {% for model in app_list.0.models %}
-                    {% if "6. Journey Progress" in model.name or "7. Chapter Progress" in model.name or "8. Challenge Attempts" in model.name or "9. Reward Progress" in model.name %}
-                    <tr>
-                        <td>
-                            <a href="{{ model.admin_url }}" class="crush-model-link">
-                                <span class="crush-model-name">{{ model.name }}</span>
-                                <div class="crush-model-actions">
-                                    {% if model.admin_url %}
-                                    <a href="{{ model.admin_url }}" class="crush-action-btn">View All</a>
-                                    {% endif %}
-                                </div>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
+                {% for model in app_list.0.models %} {% if "6. Journey Progress" in
+                model.name or "7. Chapter Progress" in model.name or "8. Challenge
+                Attempts" in model.name or "9. Reward Progress" in model.name %}
+                <tr>
+                    <td>
+                        <a href="{{ model.admin_url }}" class="crush-model-link">
+                            <span class="crush-model-name">{{ model.name }}</span>
+                            <div class="crush-model-actions">
+                                {% if model.admin_url %}
+                                <a href="{{ model.admin_url }}" class="crush-action-btn"
+                                    >View All</a
+                                >
+                                {% endif %}
+                            </div>
+                        </a>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
             </table>
         </div>
     </div>
@@ -278,17 +300,17 @@
         </div>
         <div class="crush-section-content collapsed">
             <table>
-                {% for model in app_list.0.models %}
-                    {% if "Crush profile" in model.name or "Profile submission" in model.name or "Crush coach" in model.name or "Coach session" in model.name %}
-                    <tr>
-                        <td>
-                            <a href="{{ model.admin_url }}" class="crush-model-link">
-                                <span class="crush-model-name">{{ model.name }}</span>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
+                {% for model in app_list.0.models %} {% if "Crush profile" in model.name
+                or "Profile submission" in model.name or "Crush coach" in model.name or
+                "Coach session" in model.name %}
+                <tr>
+                    <td>
+                        <a href="{{ model.admin_url }}" class="crush-model-link">
+                            <span class="crush-model-name">{{ model.name }}</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
             </table>
         </div>
     </div>
@@ -307,17 +329,18 @@
         </div>
         <div class="crush-section-content collapsed">
             <table>
-                {% for model in app_list.0.models %}
-                    {% if "Meetup event" in model.name or "Event registration" in model.name or "Event activity" in model.name or "Event voting" in model.name or "Presentation" in model.name or "Speed dating" in model.name or "Global Activity" in model.name %}
-                    <tr>
-                        <td>
-                            <a href="{{ model.admin_url }}" class="crush-model-link">
-                                <span class="crush-model-name">{{ model.name }}</span>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
+                {% for model in app_list.0.models %} {% if "Meetup event" in model.name
+                or "Event registration" in model.name or "Event activity" in model.name
+                or "Event voting" in model.name or "Presentation" in model.name or
+                "Speed dating" in model.name or "Global Activity" in model.name %}
+                <tr>
+                    <td>
+                        <a href="{{ model.admin_url }}" class="crush-model-link">
+                            <span class="crush-model-name">{{ model.name }}</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
             </table>
         </div>
     </div>
@@ -336,35 +359,33 @@
         </div>
         <div class="crush-section-content collapsed">
             <table>
-                {% for model in app_list.0.models %}
-                    {% if "Event connection" in model.name or "Connection message" in model.name %}
-                    <tr>
-                        <td>
-                            <a href="{{ model.admin_url }}" class="crush-model-link">
-                                <span class="crush-model-name">{{ model.name }}</span>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                {% endfor %}
+                {% for model in app_list.0.models %} {% if "Event connection" in
+                model.name or "Connection message" in model.name %}
+                <tr>
+                    <td>
+                        <a href="{{ model.admin_url }}" class="crush-model-link">
+                            <span class="crush-model-name">{{ model.name }}</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
             </table>
         </div>
     </div>
-
 </div>
 
 <script nonce="{{ csp_nonce }}">
-function toggleSection(header) {
-    const content = header.nextElementSibling.nextElementSibling;
-    const isCollapsed = content.classList.contains('collapsed');
+    function toggleSection(header) {
+        const content = header.nextElementSibling.nextElementSibling;
+        const isCollapsed = content.classList.contains("collapsed");
 
-    if (isCollapsed) {
-        content.classList.remove('collapsed');
-        header.classList.remove('collapsed');
-    } else {
-        content.classList.add('collapsed');
-        header.classList.add('collapsed');
+        if (isCollapsed) {
+            content.classList.remove("collapsed");
+            header.classList.remove("collapsed");
+        } else {
+            content.classList.add("collapsed");
+            header.classList.add("collapsed");
+        }
     }
-}
 </script>
 {% endblock %}

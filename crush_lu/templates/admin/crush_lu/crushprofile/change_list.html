@@ -1,7 +1,4 @@
-{% extends "admin/change_list.html" %}
-{% load i18n admin_list %}
-
-{% block extrahead %}
+{% extends "admin/change_list.html" %} {% load i18n admin_list %} {% block extrahead %}
 {{ block.super }}
 <style>
     /* Quick filter tabs */
@@ -113,7 +110,7 @@
 
     .crush-quick-filters a:hover {
         transform: translateY(-2px);
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
 
     .crush-quick-filters a.active {
@@ -133,21 +130,28 @@
         border-top: 1px solid #e0e0e0;
     }
 </style>
-{% endblock %}
-
-{% block search %}
+{% endblock %} {% block search %}
 <!-- Quick Filter Tabs with counts - Production-Informed Priorities -->
 <div class="crush-quick-filters">
     <!-- Core Status Filters -->
-    <a href="?" class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__in and not request.GET.email_verification %}active{% endif %}">
+    <a
+        href="?"
+        class="all {% if not request.GET.is_approved__exact and not request.GET.completion_status__in and not request.GET.email_verification %}active{% endif %}"
+    >
         📊 All Profiles
         <span class="count">{{ filter_counts.total }}</span>
     </a>
-    <a href="?is_approved__exact=1" class="approved {% if request.GET.is_approved__exact == '1' %}active{% endif %}">
+    <a
+        href="?is_approved__exact=1"
+        class="approved {% if request.GET.is_approved__exact == '1' %}active{% endif %}"
+    >
         ✅ Approved
         <span class="count">{{ filter_counts.approved }}</span>
     </a>
-    <a href="?is_approved__exact=0&completion_status__in=step4,submitted" class="awaiting-review {% if request.GET.is_approved__exact == '0' and request.GET.completion_status__in == 'step4,submitted' %}active{% endif %}">
+    <a
+        href="?is_approved__exact=0&completion_status__in=step4,submitted"
+        class="awaiting-review {% if request.GET.is_approved__exact == '0' and request.GET.completion_status__in == 'step4,submitted' %}active{% endif %}"
+    >
         📝 Awaiting Review
         <span class="count">{{ filter_counts.awaiting_review }}</span>
     </a>
@@ -162,13 +166,19 @@
     </a>
 
     <!-- PRIORITY 1: Email Verification (58% unverified in production) -->
-    <a href="?email_verification=unverified" class="unverified-email {% if request.GET.email_verification == 'unverified' %}active{% endif %}">
+    <a
+        href="?email_verification=unverified"
+        class="unverified-email {% if request.GET.email_verification == 'unverified' %}active{% endif %}"
+    >
         ❌ Email Not Verified
         <span class="count">{{ filter_counts.unverified_email }}</span>
     </a>
 
     <!-- PRIORITY 3: Never Submitted (57% in production) -->
-    <a href="?submission_history=never_submitted" class="never-submitted {% if request.GET.submission_history == 'never_submitted' %}active{% endif %}">
+    <a
+        href="?submission_history=never_submitted"
+        class="never-submitted {% if request.GET.submission_history == 'never_submitted' %}active{% endif %}"
+    >
         📝 Never Submitted for Review
         <span class="count">{{ filter_counts.never_submitted }}</span>
     </a>
@@ -177,22 +187,30 @@
     <span class="crush-filter-section">👥 User Segments</span>
 
     <!-- PRIORITY 2: Privacy-Conscious Users (95% in production) -->
-    <a href="?privacy_settings=name_hidden" class="high-privacy {% if request.GET.privacy_settings == 'name_hidden' %}active{% endif %}">
+    <a
+        href="?privacy_settings=name_hidden"
+        class="high-privacy {% if request.GET.privacy_settings == 'name_hidden' %}active{% endif %}"
+    >
         👤 Name Privacy
         <span class="count">{{ filter_counts.name_privacy }}</span>
     </a>
 
     <!-- Completion Workflow -->
-    <a href="?completion_status__in=not_started,step1,step2,step3,step4" class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3,step4' and not request.GET.phone_verified__exact %}active{% endif %}">
+    <a
+        href="?completion_status__in=not_started,step1,step2,step3,step4"
+        class="incomplete {% if request.GET.completion_status__in == 'not_started,step1,step2,step3,step4' and not request.GET.phone_verified__exact %}active{% endif %}"
+    >
         ⏳ Incomplete Profile
         <span class="count">{{ filter_counts.incomplete }}</span>
     </a>
 
     <!-- Engagement (for approved users) -->
-    <a href="?connection_activity=no_connections&is_approved__exact=1" class="incomplete-unverified {% if request.GET.connection_activity == 'no_connections' and request.GET.is_approved__exact == '1' %}active{% endif %}">
+    <a
+        href="?connection_activity=no_connections&is_approved__exact=1"
+        class="incomplete-unverified {% if request.GET.connection_activity == 'no_connections' and request.GET.is_approved__exact == '1' %}active{% endif %}"
+    >
         🚫 No Connections (Approved)
         <span class="count">{{ filter_counts.no_connections }}</span>
     </a>
 </div>
-{{ block.super }}
-{% endblock %}
+{{ block.super }} {% endblock %}

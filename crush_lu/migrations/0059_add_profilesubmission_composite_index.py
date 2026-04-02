@@ -6,12 +6,14 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0058_add_gift_error_tracking'),
+        ("crush_lu", "0058_add_gift_error_tracking"),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='profilesubmission',
-            index=models.Index(fields=['coach', 'status'], name='crush_lu_prof_coach_status_idx'),
+            model_name="profilesubmission",
+            index=models.Index(
+                fields=["coach", "status"], name="crush_lu_prof_coach_status_idx"
+            ),
         ),
     ]

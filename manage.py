@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
+
 import os
 import sys
 
@@ -9,15 +10,20 @@ def main():
     # If WEBSITE_HOSTNAME is defined as an environment variable, then we're running on Azure App Service
 
     # Only for Local Development - Load environment variables from the .env file
-    if 'WEBSITE_HOSTNAME' not in os.environ:
+    if "WEBSITE_HOSTNAME" not in os.environ:
         from dotenv import load_dotenv
-        if os.environ.get('RUN_MAIN'):  # Only print in main process
+
+        if os.environ.get("RUN_MAIN"):  # Only print in main process
             print("Loading environment variables for .env file")
-        load_dotenv('./.env')
+        load_dotenv("./.env")
 
     # When running on Azure App Service you should use the production settings.
-    settings_module = "azureproject.production" if 'WEBSITE_HOSTNAME' in os.environ else 'azureproject.settings'
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', settings_module)
+    settings_module = (
+        "azureproject.production"
+        if "WEBSITE_HOSTNAME" in os.environ
+        else "azureproject.settings"
+    )
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", settings_module)
 
     try:
         from django.core.management import execute_from_command_line
@@ -50,7 +56,7 @@ def main():
         noreload = "--noreload" in sys.argv
 
         print(f"\n{'='*60}")
-        print(f"ASGI mode (Uvicorn) — WebSocket support enabled")
+        print("ASGI mode (Uvicorn) — WebSocket support enabled")
         print(f"Redis: {os.environ['REDIS_URL']}")
         print(f"Listening: http://{host}:{port}/")
         print(f"{'='*60}\n")
@@ -67,5 +73,5 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

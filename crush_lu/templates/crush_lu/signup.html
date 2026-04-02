@@ -1,338 +1,497 @@
-{% extends 'crush_lu/base.html' %}
-{% load socialaccount %}
-{% load static i18n %}
-{% load analytics %}
-
-{% block title %}{% trans "Sign Up - Crush.lu" %}{% endblock %}
-
-{% block content %}
-{# Track signup page view in Application Insights #}
-{% appinsights_event "signup_page_viewed" %}
-{% ga4_event "sign_up" method="page_view" %}
+{% extends 'crush_lu/base.html' %} {% load socialaccount %} {% load static i18n %} {%
+load analytics %} {% block title %}{% trans "Sign Up - Crush.lu" %}{% endblock %} {%
+block content %} {# Track signup page view in Application Insights #} {%
+appinsights_event "signup_page_viewed" %} {% ga4_event "sign_up" method="page_view" %}
 {% fb_event "CompleteRegistration" %}
 <div class="flex justify-center">
     <div class="w-full max-w-lg">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20">
+        <div
+            class="rounded-xl bg-white shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
+        >
             <div class="p-8 md:p-10">
-                <h2 class="text-center text-2xl font-bold text-gray-900 dark:text-white mb-4">{% trans "Join Crush.lu" %}</h2>
-                <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
+                <h2
+                    class="mb-4 text-center text-2xl font-bold text-gray-900 dark:text-white"
+                >
+                    {% trans "Join Crush.lu" %}
+                </h2>
+                <p class="mb-6 text-center text-gray-500 dark:text-gray-400">
                     {% trans "Create your account to start meeting new people" %}
                 </p>
 
-                {% get_providers as socialaccount_providers %}
-                {% if socialaccount_providers %}
-                <div class="flex flex-col gap-3 mb-6">
-                    {% for provider in socialaccount_providers %}
-                        {% if provider.id == "google" %}
-                    <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
-                       data-oauth-url="{% provider_login_url 'google' %}" data-provider="Google">
+                {% get_providers as socialaccount_providers %} {% if
+                socialaccount_providers %}
+                <div class="mb-6 flex flex-col gap-3">
+                    {% for provider in socialaccount_providers %} {% if provider.id ==
+                    "google" %}
+                    <a
+                        href="{% provider_login_url 'google' %}"
+                        class="social-login-btn google-btn"
+                        data-oauth-url="{% provider_login_url 'google' %}"
+                        data-provider="Google"
+                    >
                         <span class="social-icon">
                             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                <path
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                    fill="#4285F4"
+                                />
+                                <path
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                    fill="#34A853"
+                                />
+                                <path
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                    fill="#FBBC05"
+                                />
+                                <path
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                    fill="#EA4335"
+                                />
                             </svg>
                         </span>
                         {% trans "Sign up with Google" %}
                     </a>
-                        {% endif %}
-                        {% if provider.id == "facebook" %}
-                    <a href="{% provider_login_url 'facebook' %}" class="social-login-btn facebook-btn"
-                       data-oauth-url="{% provider_login_url 'facebook' %}" data-provider="Facebook">
+                    {% endif %} {% if provider.id == "facebook" %}
+                    <a
+                        href="{% provider_login_url 'facebook' %}"
+                        class="social-login-btn facebook-btn"
+                        data-oauth-url="{% provider_login_url 'facebook' %}"
+                        data-provider="Facebook"
+                    >
                         <span class="social-icon">
                             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#ffffff"/>
+                                <path
+                                    d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                                    fill="#ffffff"
+                                />
                             </svg>
                         </span>
                         {% trans "Sign up with Facebook" %}
                     </a>
-                        {% endif %}
-                        {% if provider.id == "microsoft" %}
-                    <a href="{% provider_login_url 'microsoft' %}" class="social-login-btn microsoft-btn"
-                       data-oauth-url="{% provider_login_url 'microsoft' %}" data-provider="Microsoft">
+                    {% endif %} {% if provider.id == "microsoft" %}
+                    <a
+                        href="{% provider_login_url 'microsoft' %}"
+                        class="social-login-btn microsoft-btn"
+                        data-oauth-url="{% provider_login_url 'microsoft' %}"
+                        data-provider="Microsoft"
+                    >
                         <span class="social-icon">
                             <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                                <rect
+                                    x="1"
+                                    y="11"
+                                    width="9"
+                                    height="9"
+                                    fill="#00a4ef"
+                                />
+                                <rect
+                                    x="11"
+                                    y="1"
+                                    width="9"
+                                    height="9"
+                                    fill="#7fba00"
+                                />
+                                <rect
+                                    x="11"
+                                    y="11"
+                                    width="9"
+                                    height="9"
+                                    fill="#ffb900"
+                                />
                             </svg>
                         </span>
                         {% trans "Sign up with Microsoft" %}
                     </a>
-                        {% endif %}
-                        {% if provider.id == "apple" %}
-                    <a href="{% provider_login_url 'apple' %}" class="social-login-btn apple-btn"
-                       data-oauth-url="{% provider_login_url 'apple' %}" data-provider="Apple">
+                    {% endif %} {% if provider.id == "apple" %}
+                    <a
+                        href="{% provider_login_url 'apple' %}"
+                        class="social-login-btn apple-btn"
+                        data-oauth-url="{% provider_login_url 'apple' %}"
+                        data-provider="Apple"
+                    >
                         <span class="social-icon">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#ffffff">
-                                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                            <svg
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="#ffffff"
+                            >
+                                <path
+                                    d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+                                />
                             </svg>
                         </span>
                         {% trans "Sign up with Apple" %}
                     </a>
-                        {% endif %}
-                    {% endfor %}
+                    {% endif %} {% endfor %}
                 </div>
 
-                <div class="social-login-divider text-center text-gray-500 dark:text-gray-400 text-sm my-6 relative">{% trans "Or sign up with email" %}</div>
+                <div
+                    class="social-login-divider relative my-6 text-center text-sm text-gray-500 dark:text-gray-400"
+                >
+                    {% trans "Or sign up with email" %}
+                </div>
                 {% endif %}
 
                 <form method="post" novalidate>
-                    {% csrf_token %}
-
-                    {% if form.non_field_errors %}
-                        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
-                            {{ form.non_field_errors }}
-                        </div>
+                    {% csrf_token %} {% if form.non_field_errors %}
+                    <div
+                        class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300"
+                    >
+                        {{ form.non_field_errors }}
+                    </div>
                     {% endif %}
 
                     <div class="mb-4">
-                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
-                        <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.name }}"
-                               value="{{ form.first_name.value|default:'' }}" required>
+                        <label
+                            for="{{ form.first_name.id_for_label }}"
+                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >{% trans "First Name" %}</label
+                        >
+                        <input
+                            type="text"
+                            class="{% if form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                            id="{{ form.first_name.id_for_label }}"
+                            name="{{ form.first_name.name }}"
+                            value="{{ form.first_name.value|default:'' }}"
+                            required
+                        />
                         {% if form.first_name.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
+                        <p class="mt-1 text-sm text-red-600">
+                            {{ form.first_name.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Last Name" %}</label>
-                        <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
-                               value="{{ form.last_name.value|default:'' }}" required>
+                        <label
+                            for="{{ form.last_name.id_for_label }}"
+                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >{% trans "Last Name" %}</label
+                        >
+                        <input
+                            type="text"
+                            class="{% if form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                            id="{{ form.last_name.id_for_label }}"
+                            name="{{ form.last_name.name }}"
+                            value="{{ form.last_name.value|default:'' }}"
+                            required
+                        />
                         {% if form.last_name.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
+                        <p class="mt-1 text-sm text-red-600">
+                            {{ form.last_name.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
-                        <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
-                               value="{{ form.email.value|default:'' }}" required>
+                        <label
+                            for="{{ form.email.id_for_label }}"
+                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >{% trans "Email" %}</label
+                        >
+                        <input
+                            type="email"
+                            class="{% if form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                            id="{{ form.email.id_for_label }}"
+                            name="{{ form.email.name }}"
+                            value="{{ form.email.value|default:'' }}"
+                            required
+                        />
                         {% if form.email.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                        <p class="mt-1 text-sm text-red-600">
+                            {{ form.email.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
 
                     <div class="mb-4">
-                        <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
-                        <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
+                        <label
+                            for="{{ form.password1.id_for_label }}"
+                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >{% trans "Password" %}</label
+                        >
+                        <input
+                            type="password"
+                            class="{% if form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                            id="{{ form.password1.id_for_label }}"
+                            name="{{ form.password1.name }}"
+                            required
+                        />
                         {% if form.password1.errors %}
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password1.errors.0 }}</p>
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {{ form.password1.errors.0 }}
+                        </p>
                         {% endif %}
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Your password must contain at least 8 characters." %}
+                            {% trans "Your password must contain at least 8 characters."
+                            %}
                         </p>
                     </div>
 
                     <div class="mb-6">
-                        <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
-                        <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
+                        <label
+                            for="{{ form.password2.id_for_label }}"
+                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+                            >{% trans "Confirm Password" %}</label
+                        >
+                        <input
+                            type="password"
+                            class="{% if form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} w-full rounded-lg border px-4 py-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                            id="{{ form.password2.id_for_label }}"
+                            name="{{ form.password2.name }}"
+                            required
+                        />
                         {% if form.password2.errors %}
-                            <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
+                        <p class="mt-1 text-sm text-red-600">
+                            {{ form.password2.errors.0 }}
+                        </p>
                         {% endif %}
                     </div>
 
-                    <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold" id="signup-submit-btn">{% trans "Create Account" %}</button>
+                    <button
+                        type="submit"
+                        class="btn-crush-primary w-full py-3 text-lg font-semibold"
+                        id="signup-submit-btn"
+                    >
+                        {% trans "Create Account" %}
+                    </button>
                 </form>
 
-                <hr class="my-6 border-gray-200 dark:border-gray-700">
+                <hr class="my-6 border-gray-200 dark:border-gray-700" />
 
-                <p class="text-center text-gray-500 dark:text-gray-400 mb-0">
+                <p class="mb-0 text-center text-gray-500 dark:text-gray-400">
                     {% trans "Already have an account?" %}
-                    <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium">{% trans "Log in" %}</a>
+                    <a
+                        href="{% url 'crush_lu:login' %}"
+                        class="font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                        >{% trans "Log in" %}</a
+                    >
                 </p>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-var _i18n = {
-    creatingAccount: '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
-    redirectingTo: '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}'
-};
-/**
- * Double-submit prevention for signup form
- * Prevents users from clicking the button multiple times while waiting
- */
-(function() {
-    'use strict';
+    var _i18n = {
+        creatingAccount:
+            '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
+        redirectingTo:
+            '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}',
+    };
+    /**
+     * Double-submit prevention for signup form
+     * Prevents users from clicking the button multiple times while waiting
+     */
+    (function () {
+        "use strict";
 
-    document.addEventListener('DOMContentLoaded', function() {
-        var signupForm = document.querySelector('form[method="post"]');
-        var submitBtn = document.getElementById('signup-submit-btn');
+        document.addEventListener("DOMContentLoaded", function () {
+            var signupForm = document.querySelector('form[method="post"]');
+            var submitBtn = document.getElementById("signup-submit-btn");
 
-        if (signupForm && submitBtn) {
-            var isSubmitting = false;
+            if (signupForm && submitBtn) {
+                var isSubmitting = false;
 
-            signupForm.addEventListener('submit', function(e) {
-                if (isSubmitting) {
-                    // Prevent duplicate submission
-                    e.preventDefault();
-                    return false;
-                }
+                signupForm.addEventListener("submit", function (e) {
+                    if (isSubmitting) {
+                        // Prevent duplicate submission
+                        e.preventDefault();
+                        return false;
+                    }
 
-                // Mark as submitting and disable button
-                isSubmitting = true;
-                submitBtn.disabled = true;
-                submitBtn.textContent = _i18n.creatingAccount;
-                submitBtn.classList.add('opacity-75');
-            });
-        }
-    });
-})();
+                    // Mark as submitting and disable button
+                    isSubmitting = true;
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = _i18n.creatingAccount;
+                    submitBtn.classList.add("opacity-75");
+                });
+            }
+        });
+    })();
 </script>
 
 <script nonce="{{ csp_nonce }}">
-/**
- * OAuth Handler for Crush.lu Signup - Unified for Google and Facebook
- *
- * Strategy:
- * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
- * - Android PWA: Force OAuth to run in Chrome browser via Intent URL
- * - iOS PWA: Use standard redirect (iOS handles cookies well)
- * - Mobile browser: Use standard redirect
- *
- * The popup OAuth adds complexity without benefit on desktop.
- * Standard redirect is the django-allauth default and works reliably.
- */
-(function() {
-    'use strict';
+    /**
+     * OAuth Handler for Crush.lu Signup - Unified for Google and Facebook
+     *
+     * Strategy:
+     * - Desktop browser: Use standard redirect (django-allauth default - simple and reliable)
+     * - Android PWA: Force OAuth to run in Chrome browser via Intent URL
+     * - iOS PWA: Use standard redirect (iOS handles cookies well)
+     * - Mobile browser: Use standard redirect
+     *
+     * The popup OAuth adds complexity without benefit on desktop.
+     * Standard redirect is the django-allauth default and works reliably.
+     */
+    (function () {
+        "use strict";
 
-    // Detect if running as installed PWA (standalone mode)
-    function isPWA() {
-        var standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
-        var iosStandalone = window.navigator.standalone === true;
-        var androidApp = document.referrer.indexOf('android-app://') === 0;
-        return standaloneMedia || iosStandalone || androidApp;
-    }
-
-    // Detect Android device
-    function isAndroid() {
-        return /Android/i.test(navigator.userAgent);
-    }
-
-    // Detect Android browser from User Agent
-    // Returns package name for Intent URL
-    function getAndroidBrowserPackage() {
-        var ua = navigator.userAgent;
-
-        // Samsung Internet Browser
-        if (/SamsungBrowser/i.test(ua)) {
-            return { name: 'Samsung Internet', package: 'com.sec.android.app.sbrowser' };
+        // Detect if running as installed PWA (standalone mode)
+        function isPWA() {
+            var standaloneMedia = window.matchMedia(
+                "(display-mode: standalone)",
+            ).matches;
+            var iosStandalone = window.navigator.standalone === true;
+            var androidApp = document.referrer.indexOf("android-app://") === 0;
+            return standaloneMedia || iosStandalone || androidApp;
         }
-        // Firefox
-        if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
-            return { name: 'Firefox', package: 'org.mozilla.firefox' };
+
+        // Detect Android device
+        function isAndroid() {
+            return /Android/i.test(navigator.userAgent);
         }
-        // Microsoft Edge
-        if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
-            return { name: 'Edge', package: 'com.microsoft.emmx' };
+
+        // Detect Android browser from User Agent
+        // Returns package name for Intent URL
+        function getAndroidBrowserPackage() {
+            var ua = navigator.userAgent;
+
+            // Samsung Internet Browser
+            if (/SamsungBrowser/i.test(ua)) {
+                return {
+                    name: "Samsung Internet",
+                    package: "com.sec.android.app.sbrowser",
+                };
+            }
+            // Firefox
+            if (/Firefox/i.test(ua) && !/Seamonkey/i.test(ua)) {
+                return { name: "Firefox", package: "org.mozilla.firefox" };
+            }
+            // Microsoft Edge
+            if (/Edg/i.test(ua) || /Edge/i.test(ua)) {
+                return { name: "Edge", package: "com.microsoft.emmx" };
+            }
+            // Opera
+            if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
+                return { name: "Opera", package: "com.opera.browser" };
+            }
+            // Brave
+            if (/Brave/i.test(ua)) {
+                return { name: "Brave", package: "com.brave.browser" };
+            }
+            // DuckDuckGo
+            if (/DuckDuckGo/i.test(ua)) {
+                return { name: "DuckDuckGo", package: "com.duckduckgo.mobile.android" };
+            }
+            // Default to Chrome (most common on Android)
+            return { name: "Chrome", package: "com.android.chrome" };
         }
-        // Opera
-        if (/OPR/i.test(ua) || /Opera/i.test(ua)) {
-            return { name: 'Opera', package: 'com.opera.browser' };
-        }
-        // Brave
-        if (/Brave/i.test(ua)) {
-            return { name: 'Brave', package: 'com.brave.browser' };
-        }
-        // DuckDuckGo
-        if (/DuckDuckGo/i.test(ua)) {
-            return { name: 'DuckDuckGo', package: 'com.duckduckgo.mobile.android' };
-        }
-        // Default to Chrome (most common on Android)
-        return { name: 'Chrome', package: 'com.android.chrome' };
-    }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Find all social signup buttons (Google and Facebook)
-        var socialButtons = document.querySelectorAll('.social-login-btn');
-        if (!socialButtons.length) return;
+        document.addEventListener("DOMContentLoaded", function () {
+            // Find all social signup buttons (Google and Facebook)
+            var socialButtons = document.querySelectorAll(".social-login-btn");
+            if (!socialButtons.length) return;
 
-        // Log debug info
-        console.log('[Crush.lu Signup] PWA mode:', isPWA(), 'Android:', isAndroid());
+            // Log debug info
+            console.log(
+                "[Crush.lu Signup] PWA mode:",
+                isPWA(),
+                "Android:",
+                isAndroid(),
+            );
 
-        // Setup handler for each social button
-        socialButtons.forEach(function(button) {
-            var rawUrl = button.getAttribute('data-oauth-url') || button.getAttribute('href');
-            var oauthMatch = typeof rawUrl === 'string' && rawUrl.match(/^(\/accounts\/[a-z0-9_]+\/login\/[^\s'"]*)$/);
-            if (!oauthMatch) return;
-            var oauthUrl = oauthMatch[1];
-            var providerName = button.getAttribute('data-provider') || 'OAuth';
-            var fullOAuthUrl = window.location.origin + oauthUrl;
+            // Setup handler for each social button
+            socialButtons.forEach(function (button) {
+                var rawUrl =
+                    button.getAttribute("data-oauth-url") ||
+                    button.getAttribute("href");
+                var oauthMatch =
+                    typeof rawUrl === "string" &&
+                    rawUrl.match(/^(\/accounts\/[a-z0-9_]+\/login\/[^\s'"]*)$/);
+                if (!oauthMatch) return;
+                var oauthUrl = oauthMatch[1];
+                var providerName = button.getAttribute("data-provider") || "OAuth";
+                var fullOAuthUrl = window.location.origin + oauthUrl;
 
-            // ANDROID PWA: Force OAuth to run in external browser (not WebView/TWA)
-            if (isPWA() && isAndroid()) {
-                var browserInfo = getAndroidBrowserPackage();
-                console.log('[Crush.lu Signup] Android PWA detected for ' + providerName + ': using ' + browserInfo.name);
+                // ANDROID PWA: Force OAuth to run in external browser (not WebView/TWA)
+                if (isPWA() && isAndroid()) {
+                    var browserInfo = getAndroidBrowserPackage();
+                    console.log(
+                        "[Crush.lu Signup] Android PWA detected for " +
+                            providerName +
+                            ": using " +
+                            browserInfo.name,
+                    );
 
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                    button.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                    // Show loading state
-                    button.classList.add('disabled', 'opacity-75');
-                    button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening ' + browserInfo.name + '...';
+                        // Show loading state
+                        button.classList.add("disabled", "opacity-75");
+                        button.setAttribute("aria-busy", "true");
+                        button.textContent = "Opening " + browserInfo.name + "...";
 
-                    // Samsung Internet PWA doesn't support Intent URLs properly
-                    if (browserInfo.package === 'com.sec.android.app.sbrowser') {
-                        console.log('[Crush.lu Signup] Samsung Internet PWA: using window.open()');
+                        // Samsung Internet PWA doesn't support Intent URLs properly
+                        if (browserInfo.package === "com.sec.android.app.sbrowser") {
+                            console.log(
+                                "[Crush.lu Signup] Samsung Internet PWA: using window.open()",
+                            );
 
-                        var newWindow = window.open(fullOAuthUrl, '_system');
-                        if (!newWindow || newWindow.closed) {
-                            newWindow = window.open(fullOAuthUrl, '_blank');
+                            var newWindow = window.open(fullOAuthUrl, "_system");
+                            if (!newWindow || newWindow.closed) {
+                                newWindow = window.open(fullOAuthUrl, "_blank");
+                            }
+                            if (!newWindow || newWindow.closed) {
+                                console.log(
+                                    "[Crush.lu Signup] window.open blocked, using location.href fallback",
+                                );
+                                window.location.href = oauthUrl;
+                            }
+                            return;
                         }
-                        if (!newWindow || newWindow.closed) {
-                            console.log('[Crush.lu Signup] window.open blocked, using location.href fallback');
+
+                        // For Chrome and other browsers: Use Intent URL
+                        var intentUrl =
+                            "intent://" +
+                            window.location.host +
+                            oauthUrl +
+                            "#Intent;" +
+                            "scheme=https;" +
+                            "action=android.intent.action.VIEW;" +
+                            "package=" +
+                            browserInfo.package +
+                            ";" +
+                            "S.browser_fallback_url=" +
+                            encodeURIComponent(fullOAuthUrl) +
+                            ";" +
+                            "end;";
+
+                        console.log(
+                            "[Crush.lu Signup] Opening " +
+                                browserInfo.name +
+                                " with Intent URL for " +
+                                providerName,
+                        );
+
+                        try {
+                            window.location.href = intentUrl;
+                        } catch (err) {
+                            console.error("[Crush.lu Signup] Intent error:", err);
                             window.location.href = oauthUrl;
                         }
-                        return;
-                    }
+                    });
 
-                    // For Chrome and other browsers: Use Intent URL
-                    var intentUrl = 'intent://' + window.location.host + oauthUrl + '#Intent;' +
-                        'scheme=https;' +
-                        'action=android.intent.action.VIEW;' +
-                        'package=' + browserInfo.package + ';' +
-                        'S.browser_fallback_url=' + encodeURIComponent(fullOAuthUrl) + ';' +
-                        'end;';
+                    return;
+                }
 
-                    console.log('[Crush.lu Signup] Opening ' + browserInfo.name + ' with Intent URL for ' + providerName);
+                // ALL OTHER CASES: Use standard redirect (django-allauth default)
+                console.log(
+                    "[Crush.lu Signup] Using standard redirect for " + providerName,
+                );
 
-                    try {
-                        window.location.href = intentUrl;
-                    } catch (err) {
-                        console.error('[Crush.lu Signup] Intent error:', err);
-                        window.location.href = oauthUrl;
-                    }
+                button.addEventListener("click", function (e) {
+                    // Show loading state but let the default link action proceed
+                    button.classList.add("disabled", "opacity-75");
+                    button.setAttribute("aria-busy", "true");
+                    button.textContent =
+                        _i18n.redirectingTo + " " + providerName + "...";
+                    // Don't prevent default - let django-allauth handle the OAuth redirect naturally
                 });
-
-                return;
-            }
-
-            // ALL OTHER CASES: Use standard redirect (django-allauth default)
-            console.log('[Crush.lu Signup] Using standard redirect for ' + providerName);
-
-            button.addEventListener('click', function(e) {
-                // Show loading state but let the default link action proceed
-                button.classList.add('disabled', 'opacity-75');
-                button.setAttribute('aria-busy', 'true');
-                button.textContent = _i18n.redirectingTo + ' ' + providerName + '...';
-                // Don't prevent default - let django-allauth handle the OAuth redirect naturally
             });
         });
-    });
-})();
+    })();
 </script>
 {% endblock %}

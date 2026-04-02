@@ -1,7 +1,8 @@
 """
 Cost aggregation logic for pre-computing dashboard queries
 """
-from django.db import models, transaction
+
+from django.db import transaction
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -13,7 +14,7 @@ class CostAggregator:
     """Generate pre-computed cost aggregations for faster dashboard queries"""
 
     @staticmethod
-    def aggregate_daily(start_date=None, end_date=None, currency='EUR'):
+    def aggregate_daily(start_date=None, end_date=None, currency="EUR"):
         """
         Generate daily cost aggregations
 
@@ -39,43 +40,55 @@ class CostAggregator:
             while current_date <= end_date:
                 # Overall daily aggregation
                 records_created += CostAggregator._aggregate_for_day(
-                    current_date, 'overall', 'Total', currency
+                    current_date, "overall", "Total", currency
                 )
 
                 # By subscription
-                subscriptions = CostRecord.objects.filter(
-                    charge_period_start__date=current_date,
-                    billing_currency=currency
-                ).values_list('sub_account_name', flat=True).distinct()
+                subscriptions = (
+                    CostRecord.objects.filter(
+                        charge_period_start__date=current_date,
+                        billing_currency=currency,
+                    )
+                    .values_list("sub_account_name", flat=True)
+                    .distinct()
+                )
 
                 for subscription in subscriptions:
                     if subscription:
                         records_created += CostAggregator._aggregate_for_day(
-                            current_date, 'subscription', subscription, currency
+                            current_date, "subscription", subscription, currency
                         )
 
                 # By service
-                services = CostRecord.objects.filter(
-                    charge_period_start__date=current_date,
-                    billing_currency=currency
-                ).values_list('service_name', flat=True).distinct()
+                services = (
+                    CostRecord.objects.filter(
+                        charge_period_start__date=current_date,
+                        billing_currency=currency,
+                    )
+                    .values_list("service_name", flat=True)
+                    .distinct()
+                )
 
                 for service in services:
                     if service:
                         records_created += CostAggregator._aggregate_for_day(
-                            current_date, 'service', service, currency
+                            current_date, "service", service, currency
                         )
 
                 # By resource group
-                resource_groups = CostRecord.objects.filter(
-                    charge_period_start__date=current_date,
-                    billing_currency=currency
-                ).values_list('resource_group_name', flat=True).distinct()
+                resource_groups = (
+                    CostRecord.objects.filter(
+                        charge_period_start__date=current_date,
+                        billing_currency=currency,
+                    )
+                    .values_list("resource_group_name", flat=True)
+                    .distinct()
+                )
 
                 for rg in resource_groups:
                     if rg:
                         records_created += CostAggregator._aggregate_for_day(
-                            current_date, 'resource_group', rg, currency
+                            current_date, "resource_group", rg, currency
                         )
 
                 current_date += timedelta(days=1)
@@ -87,18 +100,18 @@ class CostAggregator:
         """Generate aggregation for a single day and dimension"""
         # Build query filters
         filters = {
-            'charge_period_start__date': date,
-            'billing_currency': currency,
+            "charge_period_start__date": date,
+            "billing_currency": currency,
         }
 
-        if dimension_type == 'subscription':
-            filters['sub_account_name'] = dimension_value
-        elif dimension_type == 'service':
-            filters['service_name'] = dimension_value
-        elif dimension_type == 'resource_group':
-            filters['resource_group_name'] = dimension_value
-        elif dimension_type == 'region':
-            filters['region_name'] = dimension_value
+        if dimension_type == "subscription":
+            filters["sub_account_name"] = dimension_value
+        elif dimension_type == "service":
+            filters["service_name"] = dimension_value
+        elif dimension_type == "resource_group":
+            filters["resource_group_name"] = dimension_value
+        elif dimension_type == "region":
+            filters["region_name"] = dimension_value
 
         # Query cost data
         queryset = CostRecord.objects.filter(**filters)
@@ -108,58 +121,63 @@ class CostAggregator:
 
         # Aggregate totals
         aggregates = queryset.aggregate(
-            total_cost=Sum('billed_cost'),
-            record_count=Count('id'),
-            usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
-            purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
-            tax_cost=Sum('billed_cost', filter=Q(charge_category='Tax')),
+            total_cost=Sum("billed_cost"),
+            record_count=Count("id"),
+            usage_cost=Sum("billed_cost", filter=Q(charge_category="Usage")),
+            purchase_cost=Sum("billed_cost", filter=Q(charge_category="Purchase")),
+            tax_cost=Sum("billed_cost", filter=Q(charge_category="Tax")),
         )
 
         # Get top services (for non-service dimensions)
         top_services = []
-        if dimension_type != 'service':
-            top_services_qs = queryset.values('service_name').annotate(
-                cost=Sum('billed_cost')
-            ).order_by('-cost')[:5]
+        if dimension_type != "service":
+            top_services_qs = (
+                queryset.values("service_name")
+                .annotate(cost=Sum("billed_cost"))
+                .order_by("-cost")[:5]
+            )
 
             top_services = [
-                {'name': item['service_name'], 'cost': float(item['cost'])}
+                {"name": item["service_name"], "cost": float(item["cost"])}
                 for item in top_services_qs
             ]
 
         # Get top resources
-        top_resources_qs = queryset.values('resource_name').annotate(
-            cost=Sum('billed_cost')
-        ).order_by('-cost')[:5]
+        top_resources_qs = (
+            queryset.values("resource_name")
+            .annotate(cost=Sum("billed_cost"))
+            .order_by("-cost")[:5]
+        )
 
         top_resources = [
-            {'name': item['resource_name'], 'cost': float(item['cost'])}
-            for item in top_resources_qs if item['resource_name']
+            {"name": item["resource_name"], "cost": float(item["cost"])}
+            for item in top_resources_qs
+            if item["resource_name"]
         ]
 
         # Create or update aggregation
         aggregation, created = CostAggregation.objects.update_or_create(
-            aggregation_type='daily',
+            aggregation_type="daily",
             dimension_type=dimension_type,
             dimension_value=dimension_value,
             period_start=date,
             currency=currency,
             defaults={
-                'period_end': date,
-                'total_cost': aggregates['total_cost'] or Decimal('0.00'),
-                'record_count': aggregates['record_count'] or 0,
-                'usage_cost': aggregates['usage_cost'] or Decimal('0.00'),
-                'purchase_cost': aggregates['purchase_cost'] or Decimal('0.00'),
-                'tax_cost': aggregates['tax_cost'] or Decimal('0.00'),
-                'top_services': top_services,
-                'top_resources': top_resources,
-            }
+                "period_end": date,
+                "total_cost": aggregates["total_cost"] or Decimal("0.00"),
+                "record_count": aggregates["record_count"] or 0,
+                "usage_cost": aggregates["usage_cost"] or Decimal("0.00"),
+                "purchase_cost": aggregates["purchase_cost"] or Decimal("0.00"),
+                "tax_cost": aggregates["tax_cost"] or Decimal("0.00"),
+                "top_services": top_services,
+                "top_resources": top_resources,
+            },
         )
 
         return 1 if created else 0
 
     @staticmethod
-    def aggregate_monthly(year, month, currency='EUR'):
+    def aggregate_monthly(year, month, currency="EUR"):
         """
         Generate monthly cost aggregations
 
@@ -173,6 +191,7 @@ class CostAggregator:
         """
         # Calculate month start and end
         from calendar import monthrange
+
         start_date = datetime(year, month, 1).date()
         last_day = monthrange(year, month)[1]
         end_date = datetime(year, month, last_day).date()
@@ -183,53 +202,68 @@ class CostAggregator:
         with transaction.atomic():
             # Overall monthly aggregation
             records_created += CostAggregator._aggregate_for_period(
-                start_date, end_date, 'monthly', 'overall', 'Total', currency
+                start_date, end_date, "monthly", "overall", "Total", currency
             )
 
             # By subscription
-            subscriptions = CostRecord.objects.filter(
-                charge_period_start__date__gte=start_date,
-                charge_period_start__date__lte=end_date,
-                billing_currency=currency
-            ).values_list('sub_account_name', flat=True).distinct()
+            subscriptions = (
+                CostRecord.objects.filter(
+                    charge_period_start__date__gte=start_date,
+                    charge_period_start__date__lte=end_date,
+                    billing_currency=currency,
+                )
+                .values_list("sub_account_name", flat=True)
+                .distinct()
+            )
 
             for subscription in subscriptions:
                 if subscription:
                     records_created += CostAggregator._aggregate_for_period(
-                        start_date, end_date, 'monthly', 'subscription', subscription, currency
+                        start_date,
+                        end_date,
+                        "monthly",
+                        "subscription",
+                        subscription,
+                        currency,
                     )
 
             # By service
-            services = CostRecord.objects.filter(
-                charge_period_start__date__gte=start_date,
-                charge_period_start__date__lte=end_date,
-                billing_currency=currency
-            ).values_list('service_name', flat=True).distinct()
+            services = (
+                CostRecord.objects.filter(
+                    charge_period_start__date__gte=start_date,
+                    charge_period_start__date__lte=end_date,
+                    billing_currency=currency,
+                )
+                .values_list("service_name", flat=True)
+                .distinct()
+            )
 
             for service in services:
                 if service:
                     records_created += CostAggregator._aggregate_for_period(
-                        start_date, end_date, 'monthly', 'service', service, currency
+                        start_date, end_date, "monthly", "service", service, currency
                     )
 
         return records_created
 
     @staticmethod
-    def _aggregate_for_period(start_date, end_date, agg_type, dimension_type, dimension_value, currency):
+    def _aggregate_for_period(
+        start_date, end_date, agg_type, dimension_type, dimension_value, currency
+    ):
         """Generate aggregation for a date range"""
         # Build query filters
         filters = {
-            'charge_period_start__date__gte': start_date,
-            'charge_period_start__date__lte': end_date,
-            'billing_currency': currency,
+            "charge_period_start__date__gte": start_date,
+            "charge_period_start__date__lte": end_date,
+            "billing_currency": currency,
         }
 
-        if dimension_type == 'subscription':
-            filters['sub_account_name'] = dimension_value
-        elif dimension_type == 'service':
-            filters['service_name'] = dimension_value
-        elif dimension_type == 'resource_group':
-            filters['resource_group_name'] = dimension_value
+        if dimension_type == "subscription":
+            filters["sub_account_name"] = dimension_value
+        elif dimension_type == "service":
+            filters["service_name"] = dimension_value
+        elif dimension_type == "resource_group":
+            filters["resource_group_name"] = dimension_value
 
         # Query cost data
         queryset = CostRecord.objects.filter(**filters)
@@ -239,33 +273,38 @@ class CostAggregator:
 
         # Aggregate totals
         aggregates = queryset.aggregate(
-            total_cost=Sum('billed_cost'),
-            record_count=Count('id'),
-            usage_cost=Sum('billed_cost', filter=Q(charge_category='Usage')),
-            purchase_cost=Sum('billed_cost', filter=Q(charge_category='Purchase')),
-            tax_cost=Sum('billed_cost', filter=Q(charge_category='Tax')),
+            total_cost=Sum("billed_cost"),
+            record_count=Count("id"),
+            usage_cost=Sum("billed_cost", filter=Q(charge_category="Usage")),
+            purchase_cost=Sum("billed_cost", filter=Q(charge_category="Purchase")),
+            tax_cost=Sum("billed_cost", filter=Q(charge_category="Tax")),
         )
 
         # Get top services
         top_services = []
-        if dimension_type != 'service':
-            top_services_qs = queryset.values('service_name').annotate(
-                cost=Sum('billed_cost')
-            ).order_by('-cost')[:5]
+        if dimension_type != "service":
+            top_services_qs = (
+                queryset.values("service_name")
+                .annotate(cost=Sum("billed_cost"))
+                .order_by("-cost")[:5]
+            )
 
             top_services = [
-                {'name': item['service_name'], 'cost': float(item['cost'])}
+                {"name": item["service_name"], "cost": float(item["cost"])}
                 for item in top_services_qs
             ]
 
         # Get top resources
-        top_resources_qs = queryset.values('resource_name').annotate(
-            cost=Sum('billed_cost')
-        ).order_by('-cost')[:5]
+        top_resources_qs = (
+            queryset.values("resource_name")
+            .annotate(cost=Sum("billed_cost"))
+            .order_by("-cost")[:5]
+        )
 
         top_resources = [
-            {'name': item['resource_name'], 'cost': float(item['cost'])}
-            for item in top_resources_qs if item['resource_name']
+            {"name": item["resource_name"], "cost": float(item["cost"])}
+            for item in top_resources_qs
+            if item["resource_name"]
         ]
 
         # Create or update aggregation
@@ -276,21 +315,21 @@ class CostAggregator:
             period_start=start_date,
             currency=currency,
             defaults={
-                'period_end': end_date,
-                'total_cost': aggregates['total_cost'] or Decimal('0.00'),
-                'record_count': aggregates['record_count'] or 0,
-                'usage_cost': aggregates['usage_cost'] or Decimal('0.00'),
-                'purchase_cost': aggregates['purchase_cost'] or Decimal('0.00'),
-                'tax_cost': aggregates['tax_cost'] or Decimal('0.00'),
-                'top_services': top_services,
-                'top_resources': top_resources,
-            }
+                "period_end": end_date,
+                "total_cost": aggregates["total_cost"] or Decimal("0.00"),
+                "record_count": aggregates["record_count"] or 0,
+                "usage_cost": aggregates["usage_cost"] or Decimal("0.00"),
+                "purchase_cost": aggregates["purchase_cost"] or Decimal("0.00"),
+                "tax_cost": aggregates["tax_cost"] or Decimal("0.00"),
+                "top_services": top_services,
+                "top_resources": top_resources,
+            },
         )
 
         return 1 if created else 0
 
     @staticmethod
-    def refresh_all(days_back=30, currency='EUR'):
+    def refresh_all(days_back=30, currency="EUR"):
         """
         Refresh all aggregations for the past N days
 
@@ -323,7 +362,7 @@ class CostAggregator:
             current_date += timedelta(days=1)
 
         return {
-            'daily_aggregations': daily_count,
-            'monthly_aggregations': monthly_count,
-            'period': f'{start_date} to {end_date}',
+            "daily_aggregations": daily_count,
+            "monthly_aggregations": monthly_count,
+            "period": f"{start_date} to {end_date}",
         }

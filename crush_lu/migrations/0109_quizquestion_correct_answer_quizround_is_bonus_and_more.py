@@ -8,73 +8,175 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0108_quizevent_quizround_quizquestion_and_more'),
+        ("crush_lu", "0108_quizevent_quizround_quizquestion_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='quizquestion',
-            name='correct_answer',
-            field=models.CharField(blank=True, help_text='Reference answer for host (used for open-ended questions)', max_length=500),
+            model_name="quizquestion",
+            name="correct_answer",
+            field=models.CharField(
+                blank=True,
+                help_text="Reference answer for host (used for open-ended questions)",
+                max_length=500,
+            ),
         ),
         migrations.AddField(
-            model_name='quizround',
-            name='is_bonus',
-            field=models.BooleanField(default=False, help_text='Bonus round: points are doubled'),
+            model_name="quizround",
+            name="is_bonus",
+            field=models.BooleanField(
+                default=False, help_text="Bonus round: points are doubled"
+            ),
         ),
         migrations.AlterField(
-            model_name='individualscore',
-            name='answer',
-            field=models.JSONField(blank=True, default=str, help_text='The chosen answer'),
+            model_name="individualscore",
+            name="answer",
+            field=models.JSONField(
+                blank=True, default=str, help_text="The chosen answer"
+            ),
         ),
         migrations.AlterField(
-            model_name='meetupevent',
-            name='event_type',
-            field=models.CharField(choices=[('speed_dating', 'Speed Dating'), ('mixer', 'Social Mixer'), ('activity', 'Activity Meetup'), ('themed', 'Themed Event'), ('quiz_night', 'Quiz Night')], max_length=20),
+            model_name="meetupevent",
+            name="event_type",
+            field=models.CharField(
+                choices=[
+                    ("speed_dating", "Speed Dating"),
+                    ("mixer", "Social Mixer"),
+                    ("activity", "Activity Meetup"),
+                    ("themed", "Themed Event"),
+                    ("quiz_night", "Quiz Night"),
+                ],
+                max_length=20,
+            ),
         ),
         migrations.AlterField(
-            model_name='quizquestion',
-            name='choices',
-            field=models.JSONField(blank=True, default=list, help_text='List of {"text": "...", "is_correct": true/false}'),
+            model_name="quizquestion",
+            name="choices",
+            field=models.JSONField(
+                blank=True,
+                default=list,
+                help_text='List of {"text": "...", "is_correct": true/false}',
+            ),
         ),
         migrations.AlterField(
-            model_name='quizquestion',
-            name='question_type',
-            field=models.CharField(choices=[('multiple_choice', 'Multiple Choice'), ('true_false', 'True / False'), ('open_ended', 'Open Ended')], default='multiple_choice', max_length=20),
+            model_name="quizquestion",
+            name="question_type",
+            field=models.CharField(
+                choices=[
+                    ("multiple_choice", "Multiple Choice"),
+                    ("true_false", "True / False"),
+                    ("open_ended", "Open Ended"),
+                ],
+                default="multiple_choice",
+                max_length=20,
+            ),
         ),
         migrations.CreateModel(
-            name='QuizRotationSchedule',
+            name="QuizRotationSchedule",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('round_number', models.PositiveIntegerField()),
-                ('role', models.CharField(choices=[('anchor', 'Anchor (stays at table)'), ('rotator', 'Rotator (moves between tables)')], max_length=10)),
-                ('rotation_group', models.CharField(blank=True, help_text='Rotation group: A or B (empty for anchors)', max_length=1)),
-                ('quiz', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='rotation_schedule', to='crush_lu.quizevent')),
-                ('table', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='rotation_entries', to='crush_lu.quiztable')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("round_number", models.PositiveIntegerField()),
+                (
+                    "role",
+                    models.CharField(
+                        choices=[
+                            ("anchor", "Anchor (stays at table)"),
+                            ("rotator", "Rotator (moves between tables)"),
+                        ],
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "rotation_group",
+                    models.CharField(
+                        blank=True,
+                        help_text="Rotation group: A or B (empty for anchors)",
+                        max_length=1,
+                    ),
+                ),
+                (
+                    "quiz",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="rotation_schedule",
+                        to="crush_lu.quizevent",
+                    ),
+                ),
+                (
+                    "table",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="rotation_entries",
+                        to="crush_lu.quiztable",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Rotation Schedule Entry',
-                'verbose_name_plural': 'Rotation Schedule',
-                'ordering': ['round_number', 'table__table_number'],
-                'unique_together': {('quiz', 'round_number', 'user')},
+                "verbose_name": "Rotation Schedule Entry",
+                "verbose_name_plural": "Rotation Schedule",
+                "ordering": ["round_number", "table__table_number"],
+                "unique_together": {("quiz", "round_number", "user")},
             },
         ),
         migrations.CreateModel(
-            name='TableRoundScore',
+            name="TableRoundScore",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('is_correct', models.BooleanField(default=False)),
-                ('scored_at', models.DateTimeField(auto_now_add=True)),
-                ('question', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='table_scores', to='crush_lu.quizquestion')),
-                ('quiz', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='table_scores', to='crush_lu.quizevent')),
-                ('table', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='round_scores', to='crush_lu.quiztable')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("is_correct", models.BooleanField(default=False)),
+                ("scored_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "question",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="table_scores",
+                        to="crush_lu.quizquestion",
+                    ),
+                ),
+                (
+                    "quiz",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="table_scores",
+                        to="crush_lu.quizevent",
+                    ),
+                ),
+                (
+                    "table",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="round_scores",
+                        to="crush_lu.quiztable",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Table Round Score',
-                'verbose_name_plural': 'Table Round Scores',
-                'unique_together': {('quiz', 'table', 'question')},
+                "verbose_name": "Table Round Score",
+                "verbose_name_plural": "Table Round Scores",
+                "unique_together": {("quiz", "table", "question")},
             },
         ),
     ]

@@ -15,7 +15,6 @@ Or via management command:
 
 from azure.storage.blob import BlobServiceClient, PublicAccess
 
-
 # Azurite well-known development credentials
 AZURITE_ACCOUNT_NAME = "devstoreaccount1"
 AZURITE_ACCOUNT_KEY = (
@@ -55,7 +54,7 @@ def setup_containers():
 
     except Exception as e:
         print(f"ERROR: Could not connect to Azurite at {AZURITE_BLOB_URL}")
-        print(f"Make sure Azurite is running: docker-compose up -d azurite")
+        print("Make sure Azurite is running: docker-compose up -d azurite")
         print(f"Error details: {e}")
         return False
 

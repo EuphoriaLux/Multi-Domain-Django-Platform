@@ -8,23 +8,44 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0055_add_slideshow_photos_to_journeyreward'),
+        ("crush_lu", "0055_add_slideshow_photos_to_journeyreward"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='journeygift',
-            name='chapter5_letter_music',
-            field=models.FileField(blank=True, help_text='Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)', max_length=255, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to=crush_lu.models.journey_gift.gift_chapter5_audio_path),
+            model_name="journeygift",
+            name="chapter5_letter_music",
+            field=models.FileField(
+                blank=True,
+                help_text="Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)",
+                max_length=255,
+                null=True,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
+                upload_to=crush_lu.models.journey_gift.gift_chapter5_audio_path,
+            ),
         ),
         migrations.AlterField(
-            model_name='journeygift',
-            name='chapter4_audio',
-            field=models.FileField(blank=True, help_text='DEPRECATED: Use chapter5_letter_music instead', max_length=255, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to=crush_lu.models.journey_gift.gift_chapter4_audio_path),
+            model_name="journeygift",
+            name="chapter4_audio",
+            field=models.FileField(
+                blank=True,
+                help_text="DEPRECATED: Use chapter5_letter_music instead",
+                max_length=255,
+                null=True,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
+                upload_to=crush_lu.models.journey_gift.gift_chapter4_audio_path,
+            ),
         ),
         migrations.AlterField(
-            model_name='journeygift',
-            name='chapter4_video',
-            field=models.FileField(blank=True, help_text='Video message file for Chapter 4 (MP4, MOV - max 50MB)', max_length=255, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to=crush_lu.models.journey_gift.gift_chapter4_audio_path),
+            model_name="journeygift",
+            name="chapter4_video",
+            field=models.FileField(
+                blank=True,
+                help_text="Video message file for Chapter 4 (MP4, MOV - max 50MB)",
+                max_length=255,
+                null=True,
+                storage=crush_lu.models.profiles.get_crush_photo_storage,
+                upload_to=crush_lu.models.journey_gift.gift_chapter4_audio_path,
+            ),
         ),
     ]

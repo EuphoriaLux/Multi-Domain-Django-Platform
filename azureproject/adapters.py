@@ -3,12 +3,10 @@ Multi-domain Allauth adapters.
 
 Routes authentication to appropriate handlers based on request domain.
 """
+
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
-from django.conf import settings
-from django.urls import reverse
-from django.shortcuts import render
 from django.http import HttpResponseForbidden
 import os
 import logging
@@ -23,7 +21,7 @@ def _is_oauth_callback(request):
     # OAuth callbacks typically come from external domains
     # Check referrer or specific callback patterns
     path = request.path
-    return '/accounts/' in path and '/login/callback' in path
+    return "/accounts/" in path and "/login/callback" in path
 
 
 def _is_from_pwa(request):
@@ -37,15 +35,15 @@ def _is_from_pwa(request):
         return False
 
     # Check if we set a PWA flag in session before OAuth redirect
-    if request.session.get('oauth_from_pwa'):
+    if request.session.get("oauth_from_pwa"):
         return True
 
     # Check Sec-Fetch-Dest header (standalone mode)
-    sec_fetch_dest = request.META.get('HTTP_SEC_FETCH_DEST', '')
-    if sec_fetch_dest == 'document':
+    sec_fetch_dest = request.META.get("HTTP_SEC_FETCH_DEST", "")
+    if sec_fetch_dest == "document":
         # Check display-mode in UA-CH or Sec-Fetch-Site
-        sec_fetch_mode = request.META.get('HTTP_SEC_FETCH_MODE', '')
-        if sec_fetch_mode in ('navigate', 'same-origin'):
+        sec_fetch_mode = request.META.get("HTTP_SEC_FETCH_MODE", "")
+        if sec_fetch_mode in ("navigate", "same-origin"):
             return True
 
     return False
@@ -55,8 +53,8 @@ def _get_domain(request):
     """Extract domain from request, removing port and www prefix."""
     if not request:
         return None
-    host = request.get_host().split(':')[0].lower()
-    if host.startswith('www.'):
+    host = request.get_host().split(":")[0].lower()
+    if host.startswith("www."):
         host = host[4:]
     return host
 
@@ -65,13 +63,13 @@ def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
     domain = _get_domain(request)
     # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
-    return domain in ('crush.lu', 'localhost', '127.0.0.1')
+    return domain in ("crush.lu", "localhost", "127.0.0.1")
 
 
 def _is_delegation_domain(request):
     """Check if request is from delegations.lu."""
     domain = _get_domain(request)
-    return domain == 'delegations.lu'
+    return domain == "delegations.lu"
 
 
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -93,7 +91,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         providers = super().list_providers(request)
         provider_ids = [p.id for p in providers]
-        if 'apple' not in provider_ids:
+        if "apple" not in provider_ids:
             logger.warning(
                 f"[OAUTH-ADAPTER] Apple missing from list_providers. "
                 f"Returned: {provider_ids}, host: {request.get_host()}"
@@ -101,24 +99,26 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             # Log diagnostic info to find root cause
             from allauth.socialaccount.models import SocialApp
             from django.contrib.sites.shortcuts import get_current_site
+
             current_site = get_current_site(request)
             logger.warning(
                 f"[OAUTH-ADAPTER] current_site: id={current_site.id}, "
                 f"domain={current_site.domain}"
             )
             all_apps = list(
-                SocialApp.objects.filter(provider='apple')
-                .values('id', 'provider', 'name')
+                SocialApp.objects.filter(provider="apple").values(
+                    "id", "provider", "name"
+                )
             )
             # Show which sites the Apple app is linked to
-            apple_app = SocialApp.objects.filter(provider='apple').first()
-            apple_sites = list(
-                apple_app.sites.values_list('id', 'domain')
-            ) if apple_app else []
+            apple_app = SocialApp.objects.filter(provider="apple").first()
+            apple_sites = (
+                list(apple_app.sites.values_list("id", "domain")) if apple_app else []
+            )
             site_apps = list(
                 SocialApp.objects.on_site(request)
-                .filter(provider='apple')
-                .values('id', 'provider', 'name')
+                .filter(provider="apple")
+                .values("id", "provider", "name")
             )
             logger.warning(
                 f"[OAUTH-ADAPTER] Apple SocialApp: all={all_apps}, "
@@ -134,9 +134,11 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                 apple_app.sites.add(current_site)
             # Try to recover Apple provider via direct lookup
             try:
-                apple_provider = self.get_provider(request, 'apple')
+                apple_provider = self.get_provider(request, "apple")
                 providers.append(apple_provider)
-                logger.info("[OAUTH-ADAPTER] Apple provider recovered via get_provider()")
+                logger.info(
+                    "[OAUTH-ADAPTER] Apple provider recovered via get_provider()"
+                )
             except Exception as e:
                 logger.error(f"[OAUTH-ADAPTER] Failed to recover Apple provider: {e}")
         return providers
@@ -151,31 +153,37 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         # Debug logging for Microsoft OAuth troubleshooting
         provider = sociallogin.account.provider
-        logger.info(f"[OAUTH-ADAPTER] pre_social_login: provider={provider}, "
-                   f"is_existing={sociallogin.is_existing}, "
-                   f"user_id={getattr(sociallogin.user, 'id', None)}, "
-                   f"uid={sociallogin.account.uid[:20] if sociallogin.account.uid else 'None'}...")
+        logger.info(
+            f"[OAUTH-ADAPTER] pre_social_login: provider={provider}, "
+            f"is_existing={sociallogin.is_existing}, "
+            f"user_id={getattr(sociallogin.user, 'id', None)}, "
+            f"uid={sociallogin.account.uid[:20] if sociallogin.account.uid else 'None'}..."
+        )
 
-        if provider == 'microsoft':
+        if provider == "microsoft":
             extra = sociallogin.account.extra_data
-            logger.info(f"[OAUTH-ADAPTER] Microsoft extra_data: "
-                       f"displayName={extra.get('displayName')}, "
-                       f"mail={extra.get('mail')}, "
-                       f"userPrincipalName={extra.get('userPrincipalName')}")
+            logger.info(
+                f"[OAUTH-ADAPTER] Microsoft extra_data: "
+                f"displayName={extra.get('displayName')}, "
+                f"mail={extra.get('mail')}, "
+                f"userPrincipalName={extra.get('userPrincipalName')}"
+            )
 
             # Tenant validation for ADMIN PANEL access only
             # Consumers on crush.lu can use any Microsoft account
             # But admin panel requires users from the enterprise tenant
-            next_url = request.session.get('next') or request.GET.get('next', '')
-            is_admin_login = '/admin/' in next_url or '/crush-admin/' in next_url
+            next_url = request.session.get("next") or request.GET.get("next", "")
+            is_admin_login = "/admin/" in next_url or "/crush-admin/" in next_url
 
             if is_admin_login:
-                allowed_tenant = os.environ.get('GRAPH_TENANT_ID')
+                allowed_tenant = os.environ.get("GRAPH_TENANT_ID")
                 if allowed_tenant:
                     # Get tenant ID from token (stored in extra_data by allauth)
-                    user_tenant = extra.get('tid')  # Azure AD tenant ID claim
-                    logger.info(f"[OAUTH-ADAPTER] Admin login attempt: "
-                               f"user_tenant={user_tenant}, allowed_tenant={allowed_tenant}")
+                    user_tenant = extra.get("tid")  # Azure AD tenant ID claim
+                    logger.info(
+                        f"[OAUTH-ADAPTER] Admin login attempt: "
+                        f"user_tenant={user_tenant}, allowed_tenant={allowed_tenant}"
+                    )
 
                     if user_tenant and user_tenant != allowed_tenant:
                         logger.warning(
@@ -191,11 +199,13 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         # Store the OAuth provider in session for PWA redirect handling
         if _is_crush_domain(request):
-            request.session['oauth_provider'] = sociallogin.account.provider
+            request.session["oauth_provider"] = sociallogin.account.provider
             # Log success without session data (avoid clear-text logging)
             logger.debug("OAuth login successful")
 
-    def on_authentication_error(self, request, provider_id, error=None, exception=None, extra_context=None):
+    def on_authentication_error(
+        self, request, provider_id, error=None, exception=None, extra_context=None
+    ):
         """
         Handle authentication errors with detailed logging.
         This helps debug OAuth issues like Microsoft login failures.
@@ -207,7 +217,9 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         )
 
         # Let the default handler show the error page
-        return super().on_authentication_error(request, provider_id, error, exception, extra_context)
+        return super().on_authentication_error(
+            request, provider_id, error, exception, extra_context
+        )
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """Allow automatic signup for social logins on all domains."""
@@ -226,58 +238,74 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         # IMPORTANT: first_name and last_name must never be None - database has NOT NULL constraint
         # Handle Microsoft provider
-        if sociallogin.account.provider == 'microsoft':
+        if sociallogin.account.provider == "microsoft":
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('givenName', '') or data.get('first_name', '') or ''
-            user.last_name = extra_data.get('surname', '') or data.get('last_name', '') or ''
-            email = extra_data.get('mail') or extra_data.get('userPrincipalName')
+            user.first_name = (
+                extra_data.get("givenName", "") or data.get("first_name", "") or ""
+            )
+            user.last_name = (
+                extra_data.get("surname", "") or data.get("last_name", "") or ""
+            )
+            email = extra_data.get("mail") or extra_data.get("userPrincipalName")
             if email:
                 user.email = email
         # Handle Google provider
-        elif sociallogin.account.provider == 'google':
+        elif sociallogin.account.provider == "google":
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '') or ''
-            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '') or ''
-            if extra_data.get('email'):
-                user.email = extra_data['email']
+            user.first_name = (
+                extra_data.get("given_name", "") or data.get("first_name", "") or ""
+            )
+            user.last_name = (
+                extra_data.get("family_name", "") or data.get("last_name", "") or ""
+            )
+            if extra_data.get("email"):
+                user.email = extra_data["email"]
         # Handle Facebook provider
-        elif sociallogin.account.provider == 'facebook':
+        elif sociallogin.account.provider == "facebook":
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('first_name', '') or data.get('first_name', '') or ''
-            user.last_name = extra_data.get('last_name', '') or data.get('last_name', '') or ''
-            if extra_data.get('email'):
-                user.email = extra_data['email']
+            user.first_name = (
+                extra_data.get("first_name", "") or data.get("first_name", "") or ""
+            )
+            user.last_name = (
+                extra_data.get("last_name", "") or data.get("last_name", "") or ""
+            )
+            if extra_data.get("email"):
+                user.email = extra_data["email"]
         # Handle Apple provider
         # Apple only sends name on the FIRST authorization — subsequent logins omit it
-        elif sociallogin.account.provider == 'apple':
+        elif sociallogin.account.provider == "apple":
             extra_data = sociallogin.account.extra_data
-            name_data = extra_data.get('name', {}) or {}
-            user.first_name = name_data.get('firstName', '') or data.get('first_name', '') or ''
-            user.last_name = name_data.get('lastName', '') or data.get('last_name', '') or ''
-            if extra_data.get('email'):
-                user.email = extra_data['email']
+            name_data = extra_data.get("name", {}) or {}
+            user.first_name = (
+                name_data.get("firstName", "") or data.get("first_name", "") or ""
+            )
+            user.last_name = (
+                name_data.get("lastName", "") or data.get("last_name", "") or ""
+            )
+            if extra_data.get("email"):
+                user.email = extra_data["email"]
         else:
             # Other providers (LinkedIn, etc.)
-            user.first_name = data.get('first_name', '') or ''
-            user.last_name = data.get('last_name', '') or ''
+            user.first_name = data.get("first_name", "") or ""
+            user.last_name = data.get("last_name", "") or ""
 
         return user
 
     def get_signup_redirect_url(self, request):
         """Redirect to appropriate page after social signup based on domain."""
         if _is_delegation_domain(request):
-            return '/dashboard/'
+            return "/dashboard/"
         elif _is_crush_domain(request):
             # Check for pending gift to claim (highest priority)
-            pending_gift_code = request.session.get('pending_gift_code')
+            pending_gift_code = request.session.get("pending_gift_code")
             if pending_gift_code:
-                return f'/journey/gift/{pending_gift_code}/claim/'
+                return f"/journey/gift/{pending_gift_code}/claim/"
             # CRITICAL FIX: Always redirect to oauth_landing for Crush.lu
             # This returns 200 OK with JavaScript-delayed redirect to fix
             # Android PWA cookie timing issue (302 fires before cookie commit)
-            return '/oauth/landing/'
+            return "/oauth/landing/"
         else:
-            return '/profile/'
+            return "/profile/"
 
     def get_connect_redirect_url(self, request, socialaccount):
         """
@@ -290,13 +318,14 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         if _is_crush_domain(request):
             # Redirect back to Crush.lu account settings page
-            return '/account/settings/'
+            return "/account/settings/"
         elif _is_delegation_domain(request):
-            return '/account/settings/'
+            return "/account/settings/"
         else:
             # Default to Allauth's connections page for other domains
             from django.urls import reverse
-            return reverse('socialaccount_connections')
+
+            return reverse("socialaccount_connections")
 
 
 class MultiDomainAccountAdapter(DefaultAccountAdapter):
@@ -327,23 +356,23 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         except (AttributeError, RuntimeError):
             pass
         if request is None:
-            request = context.get('request')
+            request = context.get("request")
 
         # Ensure request is in the template context for URL generation
         ctx = {"request": request, "email": email}
         ctx.update(context)
 
         # Render email subject and body from Allauth templates
-        subject = render_to_string(f'{template_prefix}_subject.txt', ctx)
-        subject = ' '.join(subject.splitlines()).strip()  # Remove newlines
+        subject = render_to_string(f"{template_prefix}_subject.txt", ctx)
+        subject = " ".join(subject.splitlines()).strip()  # Remove newlines
 
         # Try HTML first, fallback to plain text
         try:
-            html_message = render_to_string(f'{template_prefix}_message.html', ctx)
+            html_message = render_to_string(f"{template_prefix}_message.html", ctx)
         except:
             html_message = None
 
-        message = render_to_string(f'{template_prefix}_message.txt', ctx)
+        message = render_to_string(f"{template_prefix}_message.txt", ctx)
 
         # Use domain-specific email sending (handles Graph API for Crush.lu)
         send_domain_email(
@@ -352,10 +381,12 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             recipient_list=[email],
             request=request,
             html_message=html_message,
-            fail_silently=False
+            fail_silently=False,
         )
 
-        logger.info(f"Sent Allauth email via domain-specific backend: {template_prefix} to {email}")
+        logger.info(
+            f"Sent Allauth email via domain-specific backend: {template_prefix} to {email}"
+        )
 
     def login(self, request, user):
         """
@@ -367,9 +398,11 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         """
         # Rotate session key BEFORE login to prevent session fixation
         # This creates a new session ID while preserving session data
-        if hasattr(request, 'session') and request.session.session_key:
+        if hasattr(request, "session") and request.session.session_key:
             request.session.cycle_key()
-            logger.debug(f"[SECURITY] Session key rotated after login for user {user.id}")
+            logger.debug(
+                f"[SECURITY] Session key rotated after login for user {user.id}"
+            )
 
         # Call parent login
         return super().login(request, user)
@@ -390,14 +423,14 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             # Azure may include port: "94.252.75.68:22272" - extract just IP
             ip_value = x_forwarded_for.split(",")[0].strip()
             # Strip port if present (handles both IPv4:port and [IPv6]:port)
-            if ':' in ip_value:
+            if ":" in ip_value:
                 # Check if it's IPv6 (contains multiple colons) or IPv4:port
-                if ip_value.count(':') == 1:
+                if ip_value.count(":") == 1:
                     # IPv4:port format - strip the port
-                    ip_value = ip_value.split(':')[0]
-                elif ip_value.startswith('['):
+                    ip_value = ip_value.split(":")[0]
+                elif ip_value.startswith("["):
                     # [IPv6]:port format
-                    ip_value = ip_value.split(']')[0][1:]
+                    ip_value = ip_value.split("]")[0][1:]
                 # else: plain IPv6 without port, use as-is
         else:
             ip_value = request.META.get("REMOTE_ADDR", "")
@@ -413,75 +446,78 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
 
     def _get_crush_redirect_url(self, request):
         """Get the appropriate redirect URL for Crush.lu after login."""
-        if hasattr(request.user, 'crushprofile'):
-            return '/dashboard/'
+        if hasattr(request.user, "crushprofile"):
+            return "/dashboard/"
         else:
-            return '/create-profile/'
+            return "/create-profile/"
 
     def get_login_redirect_url(self, request):
         """Redirect to appropriate dashboard after login based on domain."""
         if _is_delegation_domain(request):
             # Delegation domain: route based on profile status
             from delegations.models import DelegationProfile
+
             try:
                 profile = request.user.delegation_profile
                 if profile.is_approved:
-                    return '/dashboard/'
-                elif profile.status == 'pending':
-                    return '/pending-approval/'
-                elif profile.status == 'no_company':
-                    return '/no-company/'
-                elif profile.status == 'rejected':
-                    return '/access-denied/'
+                    return "/dashboard/"
+                elif profile.status == "pending":
+                    return "/pending-approval/"
+                elif profile.status == "no_company":
+                    return "/no-company/"
+                elif profile.status == "rejected":
+                    return "/access-denied/"
             except DelegationProfile.DoesNotExist:
                 pass
-            return '/dashboard/'
+            return "/dashboard/"
 
         elif _is_crush_domain(request):
             # Check for pending gift to claim (highest priority)
-            pending_gift_code = request.session.get('pending_gift_code')
+            pending_gift_code = request.session.get("pending_gift_code")
             if pending_gift_code:
-                return f'/journey/gift/{pending_gift_code}/claim/'
+                return f"/journey/gift/{pending_gift_code}/claim/"
 
             # Check for special user experience (set by user_logged_in signal)
             # This must be checked FIRST as it takes priority over other redirects
-            if request.session.get('special_experience_active'):
-                return '/special-welcome/'
+            if request.session.get("special_experience_active"):
+                return "/special-welcome/"
 
             # Check if this is an OAuth login (has oauth_provider in session)
             # OAuth logins need the delayed redirect landing page
-            if request.session.get('oauth_provider') or request.session.get('oauth_popup_mode'):
+            if request.session.get("oauth_provider") or request.session.get(
+                "oauth_popup_mode"
+            ):
                 # CRITICAL FIX: Redirect to oauth_landing for ALL OAuth flows
                 # This returns 200 OK with JavaScript-delayed redirect to fix
                 # Android PWA cookie timing issue (302 fires before cookie commit)
-                return '/oauth/landing/'
+                return "/oauth/landing/"
 
             # Non-OAuth login (email/password) - direct to dashboard
             return self._get_crush_redirect_url(request)
         else:
             # Default behavior for other domains
-            return '/profile/'
+            return "/profile/"
 
     def get_signup_redirect_url(self, request):
         """Redirect to appropriate page after signup based on domain."""
         if _is_delegation_domain(request):
-            return '/dashboard/'
+            return "/dashboard/"
         elif _is_crush_domain(request):
             # Check for pending gift to claim (highest priority)
-            pending_gift_code = request.session.get('pending_gift_code')
+            pending_gift_code = request.session.get("pending_gift_code")
             if pending_gift_code:
-                return f'/journey/gift/{pending_gift_code}/claim/'
-            return '/create-profile/'
+                return f"/journey/gift/{pending_gift_code}/claim/"
+            return "/create-profile/"
         else:
-            return '/profile/'
+            return "/profile/"
 
     def get_logout_redirect_url(self, request):
         """Redirect to home page after logout."""
         if _is_delegation_domain(request):
-            return '/'
+            return "/"
         elif _is_crush_domain(request):
-            return '/'
-        return '/'
+            return "/"
+        return "/"
 
     def is_open_for_signup(self, request):
         """
@@ -499,8 +535,8 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         This controls where Allauth redirects for login pages.
         """
         if _is_crush_domain(request):
-            return '/login/'
+            return "/login/"
         elif _is_delegation_domain(request):
-            return '/login/'
+            return "/login/"
         # Default Allauth login URL for other domains
-        return '/accounts/login/'
+        return "/accounts/login/"

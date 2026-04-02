@@ -17,6 +17,7 @@ The solution:
 - Allauth's state_id is passed through OAuth flow and returned by Facebook
 - We look up state from database instead of session
 """
+
 import secrets
 import json
 from datetime import timedelta
@@ -43,81 +44,68 @@ class OAuthState(models.Model):
         user_agent: User agent of the originating request (for debugging)
         ip_address: IP address of the originating request (for security)
     """
+
     state_id = models.CharField(
         max_length=64,
         unique=True,
         primary_key=True,
-        help_text=_("Unique state identifier passed through OAuth flow")
+        help_text=_("Unique state identifier passed through OAuth flow"),
     )
-    state_data = models.TextField(
-        help_text=_("JSON serialized state dictionary")
-    )
+    state_data = models.TextField(help_text=_("JSON serialized state dictionary"))
     created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text=_("When the state was created")
+        auto_now_add=True, help_text=_("When the state was created")
     )
-    expires_at = models.DateTimeField(
-        help_text=_("When the state expires")
-    )
+    expires_at = models.DateTimeField(help_text=_("When the state expires"))
     used = models.BooleanField(
-        default=False,
-        help_text=_("Whether the state has been consumed")
+        default=False, help_text=_("Whether the state has been consumed")
     )
     provider = models.CharField(
-        max_length=50,
-        blank=True,
-        default='',
-        help_text=_("OAuth provider name")
+        max_length=50, blank=True, default="", help_text=_("OAuth provider name")
     )
     user_agent = models.TextField(
-        blank=True,
-        default='',
-        help_text=_("User agent of originating request")
+        blank=True, default="", help_text=_("User agent of originating request")
     )
     ip_address = models.GenericIPAddressField(
-        null=True,
-        blank=True,
-        help_text=_("IP address of originating request")
+        null=True, blank=True, help_text=_("IP address of originating request")
     )
 
     # Popup mode flag (for desktop OAuth flow)
     # When popup=1 is passed, we store it here so it survives the OAuth redirect
     is_popup = models.BooleanField(
         default=False,
-        help_text=_("Whether this OAuth flow was initiated from a popup window")
+        help_text=_("Whether this OAuth flow was initiated from a popup window"),
     )
 
     # OAuth completion result (for handling duplicate callbacks on Android PWA)
     # When the first callback succeeds, we store the result here so that
     # duplicate requests can retrieve the auth info without needing session cookies
     auth_completed = models.BooleanField(
-        default=False,
-        help_text=_("Whether OAuth completed successfully")
+        default=False, help_text=_("Whether OAuth completed successfully")
     )
     auth_user_id = models.IntegerField(
         null=True,
         blank=True,
-        help_text=_("Authenticated user ID (for duplicate request handling)")
+        help_text=_("Authenticated user ID (for duplicate request handling)"),
     )
     auth_redirect_url = models.CharField(
         max_length=255,
         blank=True,
-        default='',
-        help_text=_("Post-authentication redirect URL")
+        default="",
+        help_text=_("Post-authentication redirect URL"),
     )
     last_callback_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Timestamp of last callback (for duplicate detection diagnostics)")
+        help_text=_("Timestamp of last callback (for duplicate detection diagnostics)"),
     )
 
     class Meta:
-        app_label = 'crush_lu'
-        verbose_name = _('OAuth State')
-        verbose_name_plural = _('OAuth States')
+        app_label = "crush_lu"
+        verbose_name = _("OAuth State")
+        verbose_name_plural = _("OAuth States")
         indexes = [
-            models.Index(fields=['expires_at']),
-            models.Index(fields=['used']),
+            models.Index(fields=["expires_at"]),
+            models.Index(fields=["used"]),
         ]
 
     def __str__(self):
@@ -132,11 +120,11 @@ class OAuthState(models.Model):
     def create_state(
         cls,
         state_data: dict,
-        provider: str = '',
-        user_agent: str = '',
+        provider: str = "",
+        user_agent: str = "",
         ip_address: str = None,
-        expiry_minutes: int = 10
-    ) -> 'OAuthState':
+        expiry_minutes: int = 10,
+    ) -> "OAuthState":
         """
         Create a new OAuth state record.
 
@@ -158,7 +146,7 @@ class OAuthState(models.Model):
             state_data=json.dumps(state_data),
             expires_at=expires_at,
             provider=provider,
-            user_agent=user_agent[:500] if user_agent else '',  # Truncate long UAs
+            user_agent=user_agent[:500] if user_agent else "",  # Truncate long UAs
             ip_address=ip_address,
         )
 
@@ -182,34 +170,46 @@ class OAuthState(models.Model):
         import logging
         from django.db import transaction
 
-        logger = logging.getLogger('crush_lu.oauth_statekit')
+        logger = logging.getLogger("crush_lu.oauth_statekit")
 
         try:
             with transaction.atomic():
-                logger.warning(f"[OAUTH-DB] get_and_consume_state: Looking up state_id={state_id}")
+                logger.warning(
+                    f"[OAUTH-DB] get_and_consume_state: Looking up state_id={state_id}"
+                )
                 state = cls.objects.select_for_update().get(state_id=state_id)
-                logger.warning(f"[OAUTH-DB] get_and_consume_state: Found state! used={state.used}, expires_at={state.expires_at}, now={timezone.now()}")
+                logger.warning(
+                    f"[OAUTH-DB] get_and_consume_state: Found state! used={state.used}, expires_at={state.expires_at}, now={timezone.now()}"
+                )
 
                 # Check if expired
                 if timezone.now() > state.expires_at:
-                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State EXPIRED, deleting")
+                    logger.warning(
+                        "[OAUTH-DB] get_and_consume_state: State EXPIRED, deleting"
+                    )
                     state.delete()  # Clean up expired state
                     return None
 
                 # Check if already used
                 if state.used:
-                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State ALREADY USED")
+                    logger.warning(
+                        "[OAUTH-DB] get_and_consume_state: State ALREADY USED"
+                    )
                     return None
 
                 # Mark as used (consume)
                 state.used = True
-                state.save(update_fields=['used'])
-                logger.warning(f"[OAUTH-DB] get_and_consume_state: SUCCESS - marked as used")
+                state.save(update_fields=["used"])
+                logger.warning(
+                    "[OAUTH-DB] get_and_consume_state: SUCCESS - marked as used"
+                )
 
                 return json.loads(state.state_data)
 
         except cls.DoesNotExist:
-            logger.warning(f"[OAUTH-DB] get_and_consume_state: DoesNotExist for state_id={state_id}")
+            logger.warning(
+                f"[OAUTH-DB] get_and_consume_state: DoesNotExist for state_id={state_id}"
+            )
             return None
 
     @classmethod
@@ -222,9 +222,7 @@ class OAuthState(models.Model):
         Returns:
             Number of deleted states
         """
-        deleted_count, _ = cls.objects.filter(
-            expires_at__lt=timezone.now()
-        ).delete()
+        deleted_count, _ = cls.objects.filter(expires_at__lt=timezone.now()).delete()
         return deleted_count
 
     @classmethod
@@ -241,8 +239,5 @@ class OAuthState(models.Model):
             Number of deleted states
         """
         cutoff = timezone.now() - timedelta(hours=hours)
-        deleted_count, _ = cls.objects.filter(
-            used=True,
-            created_at__lt=cutoff
-        ).delete()
+        deleted_count, _ = cls.objects.filter(used=True, created_at__lt=cutoff).delete()
         return deleted_count

@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 try:
     from storages.backends.azure_storage import AzureStorage
     from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+
     AZURE_STORAGE_AVAILABLE = True
 except ImportError:
     AzureStorage = object  # Placeholder for class inheritance
@@ -47,7 +48,7 @@ except ImportError:
 
 def is_azurite_mode():
     """Check if we're running in Azurite (local emulator) mode."""
-    return getattr(settings, 'AZURITE_MODE', False)
+    return getattr(settings, "AZURITE_MODE", False)
 
 
 class PrivateAzureStorage(AzureStorage):
@@ -61,32 +62,40 @@ class PrivateAzureStorage(AzureStorage):
     Default: 'crush-lu-private'
     Staging: 'crush-lu-private-staging' (set via env var)
     """
+
     # Container name configurable via environment variable
     # Check new env var first, fall back to legacy name for backward compatibility
-    azure_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                 os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
+    azure_container = os.getenv(
+        "AZURE_CRUSH_PRIVATE_CONTAINER",
+        os.getenv("AZURE_PRIVATE_CONTAINER_NAME", "crush-lu-private"),
+    )
     expiration_secs = 3600  # SAS token valid for 1 hour
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings (handles both Azurite and production)
-        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
+        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
 
         # Allow container name override from settings or environment
         # Priority: 1) New env var, 2) Legacy env var, 3) Default
         container_name = getattr(
-            settings, 'AZURE_CRUSH_PRIVATE_CONTAINER',
-            os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                     os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
+            settings,
+            "AZURE_CRUSH_PRIVATE_CONTAINER",
+            os.getenv(
+                "AZURE_CRUSH_PRIVATE_CONTAINER",
+                os.getenv("AZURE_PRIVATE_CONTAINER_NAME", "crush-lu-private"),
+            ),
         )
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+            self._azurite_host = getattr(
+                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
+            )
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -115,7 +124,7 @@ class PrivateAzureStorage(AzureStorage):
             container_name=self.azure_container,
             blob_name=name,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire),
         )
 
         # Build URL based on environment
@@ -149,22 +158,21 @@ class CrushMediaStorage(AzureStorage):
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings
-        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
+        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
 
         # Container name (configurable via environment)
-        container_name = os.getenv(
-            'AZURE_CRUSH_MEDIA_CONTAINER',
-            'crush-lu-media'
-        )
+        container_name = os.getenv("AZURE_CRUSH_MEDIA_CONTAINER", "crush-lu-media")
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+            self._azurite_host = getattr(
+                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
+            )
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -180,6 +188,7 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
     Container: Configured via AZURE_CRUSH_PRIVATE_CONTAINER env var
     Default: 'crush-lu-private'
     """
+
     # Inherits container name from PrivateAzureStorage (configurable via env var)
     expiration_secs = 1800  # 30 minutes for profile photos
 
@@ -231,7 +240,7 @@ def initialize_user_storage(user_id):
 
     try:
         # Check storage mode: Azurite, Production Azure, or Local filesystem
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+        if is_azurite_mode() or os.getenv("AZURE_ACCOUNT_NAME"):
             # Use CrushProfilePhotoStorage for both Azurite and production Azure
             storage = CrushProfilePhotoStorage()
 
@@ -241,7 +250,7 @@ def initialize_user_storage(user_id):
                 return True
 
             # Create empty marker file
-            storage.save(marker_path, ContentFile(b''))
+            storage.save(marker_path, ContentFile(b""))
             mode = "Azurite" if is_azurite_mode() else "Azure"
             logger.info(f"Initialized {mode} storage for user {user_id}")
         else:
@@ -255,7 +264,7 @@ def initialize_user_storage(user_id):
             os.makedirs(full_path, exist_ok=True)
 
             # Create empty marker file
-            default_storage.save(marker_path, ContentFile(b''))
+            default_storage.save(marker_path, ContentFile(b""))
             logger.info(f"Initialized local storage for user {user_id}")
 
         return True
@@ -278,7 +287,7 @@ def user_storage_exists(user_id):
     marker_path = f"users/{user_id}/.user_created"
 
     try:
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+        if is_azurite_mode() or os.getenv("AZURE_ACCOUNT_NAME"):
             storage = CrushProfilePhotoStorage()
             return storage.exists(marker_path)
         else:
@@ -309,7 +318,7 @@ def delete_user_storage(user_id):
     deleted_count = 0
 
     try:
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+        if is_azurite_mode() or os.getenv("AZURE_ACCOUNT_NAME"):
             # Azure Blob Storage (Azurite or production)
             # Need to clean up BOTH containers:
             # 1. 'media' (public) - where actual photos are stored
@@ -320,27 +329,31 @@ def delete_user_storage(user_id):
 
             # Get BlobServiceClient from the container client
             # We need to access both containers
-            account_url = private_storage.client.url.rsplit('/', 1)[0]
+            account_url = private_storage.client.url.rsplit("/", 1)[0]
 
             from azure.storage.blob import BlobServiceClient
 
             if is_azurite_mode():
                 # Azurite connection
-                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
-                blob_service = BlobServiceClient.from_connection_string(connection_string)
+                connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
+                blob_service = BlobServiceClient.from_connection_string(
+                    connection_string
+                )
             else:
                 # Production Azure
                 blob_service = BlobServiceClient(
                     account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
-                    credential=private_storage.account_key
+                    credential=private_storage.account_key,
                 )
 
             # Containers to clean up
             # Use new env var first, fall back to legacy for backward compatibility
-            private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
+            private_container = os.getenv(
+                "AZURE_CRUSH_PRIVATE_CONTAINER",
+                os.getenv("AZURE_PRIVATE_CONTAINER_NAME", "crush-lu-private"),
+            )
             containers = [
-                getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),  # Public media
+                getattr(settings, "AZURE_CONTAINER_NAME", "media"),  # Public media
                 private_container,  # Private profile data
             ]
 
@@ -382,6 +395,7 @@ def delete_user_storage(user_id):
         else:
             # Local filesystem fallback
             import shutil
+
             user_dir = os.path.join(settings.MEDIA_ROOT, f"users/{user_id}")
 
             if os.path.exists(user_dir):
@@ -421,27 +435,31 @@ def list_user_storage_folders():
     user_ids = set()
 
     try:
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
+        if is_azurite_mode() or os.getenv("AZURE_ACCOUNT_NAME"):
             # Azure Blob Storage (Azurite or production)
             from azure.storage.blob import BlobServiceClient
 
             private_storage = CrushProfilePhotoStorage()
 
             if is_azurite_mode():
-                connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
-                blob_service = BlobServiceClient.from_connection_string(connection_string)
+                connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
+                blob_service = BlobServiceClient.from_connection_string(
+                    connection_string
+                )
             else:
                 blob_service = BlobServiceClient(
                     account_url=f"https://{private_storage.account_name}.blob.core.windows.net",
-                    credential=private_storage.account_key
+                    credential=private_storage.account_key,
                 )
 
             # Scan both containers
             # Use new env var first, fall back to legacy for backward compatibility
-            private_container = os.getenv('AZURE_CRUSH_PRIVATE_CONTAINER',
-                                         os.getenv('AZURE_PRIVATE_CONTAINER_NAME', 'crush-lu-private'))
+            private_container = os.getenv(
+                "AZURE_CRUSH_PRIVATE_CONTAINER",
+                os.getenv("AZURE_PRIVATE_CONTAINER_NAME", "crush-lu-private"),
+            )
             containers = [
-                getattr(settings, 'AZURE_CONTAINER_NAME', 'media'),
+                getattr(settings, "AZURE_CONTAINER_NAME", "media"),
                 private_container,
             ]
 
@@ -451,7 +469,7 @@ def list_user_storage_folders():
                     blobs = container_client.list_blobs(name_starts_with="users/")
 
                     for blob in blobs:
-                        parts = blob.name.split('/')
+                        parts = blob.name.split("/")
                         if len(parts) >= 2 and parts[0] == "users":
                             try:
                                 user_id = int(parts[1])
@@ -506,13 +524,12 @@ def list_user_storage_folders():
 import uuid
 from functools import partial
 
-
 # Domain prefixes for blob storage organization
 DOMAIN_PREFIXES = {
-    'crush_lu': '',
-    'powerup': '',
-    'vinsdelux': '',
-    'shared': '',
+    "crush_lu": "",
+    "powerup": "",
+    "vinsdelux": "",
+    "shared": "",
 }
 
 
@@ -533,14 +550,14 @@ def _domain_upload_path(domain: str, subfolder: str, instance, filename: str) ->
     unique_filename = f"{uuid.uuid4().hex}{ext}"
 
     # Normalize subfolder (remove leading/trailing slashes)
-    subfolder = subfolder.strip('/')
+    subfolder = subfolder.strip("/")
 
     parts = [p for p in (domain, subfolder) if p]
     parts.append(unique_filename)
-    return '/'.join(parts)
+    return "/".join(parts)
 
 
-def _make_upload_path(domain: str, subfolder: str = ''):
+def _make_upload_path(domain: str, subfolder: str = ""):
     """
     Factory function to create domain-prefixed upload_to callables.
 
@@ -555,7 +572,7 @@ def _make_upload_path(domain: str, subfolder: str = ''):
     return partial(_domain_upload_path, prefix, subfolder)
 
 
-def vinsdelux_upload_path(subfolder: str = ''):
+def vinsdelux_upload_path(subfolder: str = ""):
     """
     Create upload path for VinsDelux assets.
 
@@ -566,10 +583,10 @@ def vinsdelux_upload_path(subfolder: str = ''):
         upload_to=vinsdelux_upload_path('products/gallery')
         -> products/gallery/{uuid}.{ext}
     """
-    return _make_upload_path('vinsdelux', subfolder)
+    return _make_upload_path("vinsdelux", subfolder)
 
 
-def crush_upload_path(subfolder: str = ''):
+def crush_upload_path(subfolder: str = ""):
     """
     Create upload path for Crush.lu PUBLIC assets.
 
@@ -583,10 +600,10 @@ def crush_upload_path(subfolder: str = ''):
         upload_to=crush_upload_path('advent/backgrounds')
         -> advent/backgrounds/{uuid}.{ext}
     """
-    return _make_upload_path('crush_lu', subfolder)
+    return _make_upload_path("crush_lu", subfolder)
 
 
-def powerup_upload_path(subfolder: str = ''):
+def powerup_upload_path(subfolder: str = ""):
     """
     Create upload path for PowerUP assets.
 
@@ -597,10 +614,10 @@ def powerup_upload_path(subfolder: str = ''):
         upload_to=powerup_upload_path('companies/logos')
         -> companies/logos/{uuid}.{ext}
     """
-    return _make_upload_path('powerup', subfolder)
+    return _make_upload_path("powerup", subfolder)
 
 
-def shared_upload_path(subfolder: str = ''):
+def shared_upload_path(subfolder: str = ""):
     """
     Create upload path for shared cross-domain assets.
 
@@ -608,7 +625,7 @@ def shared_upload_path(subfolder: str = ''):
         upload_to=shared_upload_path('homepage')
         -> homepage/{uuid}.{ext}
     """
-    return _make_upload_path('shared', subfolder)
+    return _make_upload_path("shared", subfolder)
 
 
 # =============================================================================
@@ -617,9 +634,11 @@ def shared_upload_path(subfolder: str = ''):
 # Note: This is a callable factory, not an instance, to avoid Django settings
 # issues during module import. It will be instantiated when first accessed.
 
+
 def get_crush_media_storage():
     """Get Crush.lu media storage instance (lazy initialization)."""
     return CrushMediaStorage()
+
 
 # Alias for backward compatibility and convenience
 crush_media_storage = get_crush_media_storage

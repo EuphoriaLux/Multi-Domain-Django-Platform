@@ -1,138 +1,150 @@
-{% load i18n %}
-{% load static %}
-{% load socialaccount %}
-{% load analytics %}
-{# Removed account load - now in settings builtins #}
-<!DOCTYPE html>
+{% load i18n %} {% load static %} {% load socialaccount %} {% load analytics %} {#
+Removed account load - now in settings builtins #}
+<!doctype html>
 <html lang="{{ LANGUAGE_CODE }}">
-<head>
-    {% analytics_head %}
-    {% appinsights_head %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Vinsdelux{% endblock %}</title>
-    <link rel="icon" type="image/x-icon" href="{% static 'core/favicon.ico' %}">
+    <head>
+        {% analytics_head %} {% appinsights_head %}
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}Vinsdelux{% endblock %}</title>
+        <link rel="icon" type="image/x-icon" href="{% static 'core/favicon.ico' %}" />
 
-    <!-- Vendor assets -->
-    <link rel="stylesheet" href="{% static 'core/vendor/bootstrap/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'core/vendor/fontawesome/css/all.min.css' %}">
-    <!-- Core shared assets -->
-    <link rel="stylesheet" href="{% static 'core/css/bootstrap-overrides.css' %}">
-    <!-- VinsDelux Design System -->
-    <link rel="stylesheet" href="{% static 'vinsdelux/css/vinsdelux.css' %}">
-    {% block extra_css %}
-    <style>
-      /* LinkedIn Login Button Styling */
-      .linkedin-login-button {
-          display: inline-block;
-          width: 250px;  /* Adjust width if necessary */
-          height: 60px;  /* Adjust height if necessary */
-          background: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
-          background-size: contain;
-          border: none;
-          text-indent: -9999px; /* Hides text but remains accessible */
-          cursor: pointer;
-      }
-      .linkedin-login-button:hover {
-          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
-      }
-      .linkedin-login-button:active {
-          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
-      }
-    </style>
-    {% endblock %}
-</head>
-<body class="vinsdelux-page"
-      data-vineyard-defaults-url="{{ VINSDELUX_VINEYARD_DEFAULTS_URL }}"
-      data-journey-base-url="{{ VINSDELUX_JOURNEY_BASE_URL }}">
-    {% include "includes/staging_banner.html" %}
-    {% analytics_body %}
-    <header>
-        <nav class="navbar navbar-expand-lg navbar-custom">
-            <div class="container">
-                <a class="navbar-brand" href="{% url 'vinsdelux:home' %}">
-                    <i class="fas fa-wine-glass me-2"></i>Vinsdelux
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"><i class="fas fa-bars"></i></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'vinsdelux:home' %}">
-                                <i class="fas fa-home me-1"></i>{% trans "Home" %}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#journey-section">
-                                <i class="fas fa-route me-1"></i>{% trans "The Journey" %}
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#about">
-                                <i class="fas fa-info-circle me-1"></i>{% trans "About" %}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-
-    <main>
-        {% block content %}
+        <!-- Vendor assets -->
+        <link
+            rel="stylesheet"
+            href="{% static 'core/vendor/bootstrap/css/bootstrap.min.css' %}"
+        />
+        <link
+            rel="stylesheet"
+            href="{% static 'core/vendor/fontawesome/css/all.min.css' %}"
+        />
+        <!-- Core shared assets -->
+        <link rel="stylesheet" href="{% static 'core/css/bootstrap-overrides.css' %}" />
+        <!-- VinsDelux Design System -->
+        <link rel="stylesheet" href="{% static 'vinsdelux/css/vinsdelux.css' %}" />
+        {% block extra_css %}
+        <style>
+            /* LinkedIn Login Button Styling */
+            .linkedin-login-button {
+                display: inline-block;
+                width: 250px; /* Adjust width if necessary */
+                height: 60px; /* Adjust height if necessary */
+                background: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Default.png' %}")
+                    no-repeat center center;
+                background-size: contain;
+                border: none;
+                text-indent: -9999px; /* Hides text but remains accessible */
+                cursor: pointer;
+            }
+            .linkedin-login-button:hover {
+                background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
+            }
+            .linkedin-login-button:active {
+                background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
+            }
+        </style>
         {% endblock %}
-    </main>
+    </head>
+    <body
+        class="vinsdelux-page"
+        data-vineyard-defaults-url="{{ VINSDELUX_VINEYARD_DEFAULTS_URL }}"
+        data-journey-base-url="{{ VINSDELUX_JOURNEY_BASE_URL }}"
+    >
+        {% include "includes/staging_banner.html" %} {% analytics_body %}
+        <header>
+            <nav class="navbar navbar-expand-lg navbar-custom">
+                <div class="container">
+                    <a class="navbar-brand" href="{% url 'vinsdelux:home' %}">
+                        <i class="fas fa-wine-glass me-2"></i>Vinsdelux
+                    </a>
+                    <button
+                        class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbarNav"
+                        aria-controls="navbarNav"
+                        aria-expanded="false"
+                        aria-label="Toggle navigation"
+                    >
+                        <span class="navbar-toggler-icon"
+                            ><i class="fas fa-bars"></i
+                        ></span>
+                    </button>
+                    <div class="navbar-collapse collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'vinsdelux:home' %}">
+                                    <i class="fas fa-home me-1"></i>{% trans "Home" %}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#journey-section">
+                                    <i class="fas fa-route me-1"></i>{% trans "The
+                                    Journey" %}
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#about">
+                                    <i class="fas fa-info-circle me-1"></i>{% trans
+                                    "About" %}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </header>
 
-    <footer class="bg-light text-center mt-5" id="about">
-        <div class="container p-4">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <h5 class="text-uppercase fw-bold mb-3">VinsDelux</h5>
-                    <p class="text-muted">
-                        {% trans "A portfolio demonstration of a wine vineyard adoption platform." %}<br>
-                        {% trans "This project showcases the concept of connecting wine enthusiasts with vineyard plots." %}
-                    </p>
-                    <div class="mt-4">
-                        <span class="badge bg-secondary me-2">Django</span>
-                        <span class="badge bg-secondary me-2">Bootstrap 5</span>
-                        <span class="badge bg-secondary me-2">PostgreSQL</span>
-                        <span class="badge bg-secondary">Azure</span>
+        <main>{% block content %} {% endblock %}</main>
+
+        <footer class="bg-light mt-5 text-center" id="about">
+            <div class="container p-4">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <h5 class="text-uppercase fw-bold mb-3">VinsDelux</h5>
+                        <p class="text-muted">
+                            {% trans "A portfolio demonstration of a wine vineyard
+                            adoption platform." %}<br />
+                            {% trans "This project showcases the concept of connecting
+                            wine enthusiasts with vineyard plots." %}
+                        </p>
+                        <div class="mt-4">
+                            <span class="badge bg-secondary me-2">Django</span>
+                            <span class="badge bg-secondary me-2">Bootstrap 5</span>
+                            <span class="badge bg-secondary me-2">PostgreSQL</span>
+                            <span class="badge bg-secondary">Azure</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
-            © 2025 VinsDelux Portfolio Project
-        </div>
-    </footer>
+            <div class="p-3 text-center" style="background-color: rgba(0, 0, 0, 0.05)">
+                © 2025 VinsDelux Portfolio Project
+            </div>
+        </footer>
 
-    <!-- Bootstrap JS (required for responsive navigation) -->
-    <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+        <!-- Bootstrap JS (required for responsive navigation) -->
+        <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 
-    <!-- Simple smooth scroll behavior -->
-    <script>
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                const href = this.getAttribute('href');
-                if (href !== '#' && href !== '') {
-                    e.preventDefault();
-                    const target = document.querySelector(href);
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
+        <!-- Simple smooth scroll behavior -->
+        <script>
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+                anchor.addEventListener("click", function (e) {
+                    const href = this.getAttribute("href");
+                    if (href !== "#" && href !== "") {
+                        e.preventDefault();
+                        const target = document.querySelector(href);
+                        if (target) {
+                            target.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                            });
+                        }
                     }
-                }
+                });
             });
-        });
-    </script>
-    
-    {% block extra_js %}{% endblock %}
+        </script>
 
-    {% include "includes/cookie_banner.html" %}
-</body>
+        {% block extra_js %}{% endblock %} {% include "includes/cookie_banner.html" %}
+    </body>
 </html>

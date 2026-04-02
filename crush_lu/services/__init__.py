@@ -7,4 +7,4 @@ Contains external integrations and service classes.
 
 from .graph_contacts import GraphContactsService, is_sync_enabled
 
-__all__ = ['GraphContactsService', 'is_sync_enabled']
+__all__ = ["GraphContactsService", "is_sync_enabled"]

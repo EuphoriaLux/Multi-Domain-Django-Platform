@@ -7,120 +7,134 @@
  * Escape HTML to prevent XSS (including quotes for attribute safety)
  */
 function escapeHtml(text) {
-    if (text === null || text === undefined) return '';
+    if (text === null || text === undefined) return "";
     const str = String(text);
     return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;');
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;");
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔧 Producer Selector Fix initializing...');
-    
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("🔧 Producer Selector Fix initializing...");
+
     // Handle clicks on any producer selection triggers
-    document.addEventListener('click', function(e) {
+    document.addEventListener("click", function (e) {
         // Check for various producer selection buttons/links
-        if (e.target.matches('.select-producer-btn, .view-adoption-plans, [onclick*="loadAdoptionPlans"]') || 
-            e.target.closest('.select-producer-btn, .view-adoption-plans')) {
-            
+        if (
+            e.target.matches(
+                '.select-producer-btn, .view-adoption-plans, [onclick*="loadAdoptionPlans"]',
+            ) ||
+            e.target.closest(".select-producer-btn, .view-adoption-plans")
+        ) {
             e.preventDefault();
             e.stopPropagation();
-            
-            console.log('Producer button clicked:', e.target);
-            
+
+            console.log("Producer button clicked:", e.target);
+
             // Extract producer info from the popup or button
             const producerName = extractProducerName(e.target);
-            
+
             if (producerName) {
-                console.log('Triggering producer selection for:', producerName);
+                console.log("Triggering producer selection for:", producerName);
                 showProducerModal(producerName);
             }
         }
     });
-    
+
     function extractProducerName(element) {
         // Try different methods to get producer name
-        
+
         // Method 1: From onclick attribute
-        const onclickAttr = element.getAttribute('onclick');
-        if (onclickAttr && onclickAttr.includes('loadAdoptionPlans')) {
+        const onclickAttr = element.getAttribute("onclick");
+        if (onclickAttr && onclickAttr.includes("loadAdoptionPlans")) {
             const match = onclickAttr.match(/loadAdoptionPlans\(['"]([^'"]+)['"]\)/);
             if (match) return match[1];
         }
-        
+
         // Method 2: From popup content
-        const popup = element.closest('.leaflet-popup-content');
+        const popup = element.closest(".leaflet-popup-content");
         if (popup) {
-            const heading = popup.querySelector('h3, h4, h5, h6');
+            const heading = popup.querySelector("h3, h4, h5, h6");
             if (heading) return heading.textContent.trim();
         }
-        
+
         // Method 3: From data attribute
         if (element.dataset.producer) {
             return element.dataset.producer;
         }
-        
+
         // Method 4: From parent elements
-        const parent = element.closest('[data-producer]');
+        const parent = element.closest("[data-producer]");
         if (parent) return parent.dataset.producer;
-        
+
         return null;
     }
-    
+
     function showProducerModal(producerName) {
-        console.log('📍 Showing modal for producer:', producerName);
-        
+        console.log("📍 Showing modal for producer:", producerName);
+
         // Create producer data object
         const producerData = {
             name: producerName,
-            id: producerName.toLowerCase().replace(/\s+/g, '-'),
+            id: producerName.toLowerCase().replace(/\s+/g, "-"),
             region: getProducerRegion(producerName),
             description: getProducerDescription(producerName),
-            elevation: '350-550m',
-            soil_type: 'Clay-limestone',
-            sun_exposure: 'South-facing slopes'
+            elevation: "350-550m",
+            soil_type: "Clay-limestone",
+            sun_exposure: "South-facing slopes",
         };
-        
+
         // Check if ProducerPlotSelector exists
-        if (window.producerPlotSelector && typeof window.producerPlotSelector.showProducerDetails === 'function') {
-            console.log('✅ Using ProducerPlotSelector');
+        if (
+            window.producerPlotSelector &&
+            typeof window.producerPlotSelector.showProducerDetails === "function"
+        ) {
+            console.log("✅ Using ProducerPlotSelector");
             window.producerPlotSelector.showProducerDetails(producerData);
         } else {
-            console.log('⚠️ ProducerPlotSelector not found, creating fallback modal');
+            console.log("⚠️ ProducerPlotSelector not found, creating fallback modal");
             createFallbackModal(producerData);
         }
     }
-    
+
     function getProducerRegion(producerName) {
         const regions = {
-            'Château Margaux': 'Bordeaux, France',
-            'Domaine de la Romanée-Conti': 'Burgundy, France',
-            'Antinori': 'Tuscany, Italy',
-            'Penfolds': 'Barossa Valley, Australia',
-            'Catena Zapata': 'Mendoza, Argentina'
+            "Château Margaux": "Bordeaux, France",
+            "Domaine de la Romanée-Conti": "Burgundy, France",
+            Antinori: "Tuscany, Italy",
+            Penfolds: "Barossa Valley, Australia",
+            "Catena Zapata": "Mendoza, Argentina",
         };
-        return regions[producerName] || 'Luxembourg';
+        return regions[producerName] || "Luxembourg";
     }
-    
+
     function getProducerDescription(producerName) {
         const descriptions = {
-            'Château Margaux': 'One of Bordeaux\'s most prestigious estates, producing exceptional wines since 1572.',
-            'Domaine de la Romanée-Conti': 'The pinnacle of Burgundy wine, crafting the world\'s most sought-after Pinot Noir.',
-            'Antinori': 'Six centuries of Italian winemaking excellence, pioneering Super Tuscans.',
-            'Penfolds': 'Australia\'s most iconic wine producer, home of the legendary Grange.',
-            'Catena Zapata': 'Argentina\'s leading wine estate, elevating Malbec to world-class status.'
+            "Château Margaux":
+                "One of Bordeaux's most prestigious estates, producing exceptional wines since 1572.",
+            "Domaine de la Romanée-Conti":
+                "The pinnacle of Burgundy wine, crafting the world's most sought-after Pinot Noir.",
+            Antinori:
+                "Six centuries of Italian winemaking excellence, pioneering Super Tuscans.",
+            Penfolds:
+                "Australia's most iconic wine producer, home of the legendary Grange.",
+            "Catena Zapata":
+                "Argentina's leading wine estate, elevating Malbec to world-class status.",
         };
-        return descriptions[producerName] || 'Premium wine producer with exceptional terroir and centuries of winemaking tradition.';
+        return (
+            descriptions[producerName] ||
+            "Premium wine producer with exceptional terroir and centuries of winemaking tradition."
+        );
     }
-    
+
     function createFallbackModal(producer) {
         // Remove existing modal if any
-        const existingModal = document.getElementById('fallbackProducerModal');
+        const existingModal = document.getElementById("fallbackProducerModal");
         if (existingModal) existingModal.remove();
-        
+
         const modalHTML = `
             <div class="modal fade" id="fallbackProducerModal" tabindex="-1">
                 <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -177,39 +191,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
+
+        document.body.insertAdjacentHTML("beforeend", modalHTML);
+
         // Show the modal
-        const modal = new bootstrap.Modal(document.getElementById('fallbackProducerModal'));
+        const modal = new bootstrap.Modal(
+            document.getElementById("fallbackProducerModal"),
+        );
         modal.show();
     }
-    
+
     // Global function to proceed to adoption plans
-    window.proceedToAdoptionPlans = function(producerName) {
-        console.log('Proceeding to adoption plans for:', producerName);
+    window.proceedToAdoptionPlans = function (producerName) {
+        console.log("Proceeding to adoption plans for:", producerName);
         // Store selection
-        sessionStorage.setItem('selectedProducer', producerName);
+        sessionStorage.setItem("selectedProducer", producerName);
         // You can redirect or load adoption plans here
-        alert('Loading adoption plans for ' + escapeHtml(producerName) + '...');
+        alert("Loading adoption plans for " + escapeHtml(producerName) + "...");
     };
-    
+
     // Also fix the existing loadAdoptionPlans function if it exists
-    if (typeof window.loadAdoptionPlans === 'undefined') {
-        window.loadAdoptionPlans = function(producerName) {
-            console.log('loadAdoptionPlans called for:', producerName);
+    if (typeof window.loadAdoptionPlans === "undefined") {
+        window.loadAdoptionPlans = function (producerName) {
+            console.log("loadAdoptionPlans called for:", producerName);
             showProducerModal(producerName);
         };
     } else {
         // Wrap the existing function
         const originalLoadAdoptionPlans = window.loadAdoptionPlans;
-        window.loadAdoptionPlans = function(producerName) {
-            console.log('Intercepting loadAdoptionPlans for:', producerName);
+        window.loadAdoptionPlans = function (producerName) {
+            console.log("Intercepting loadAdoptionPlans for:", producerName);
             showProducerModal(producerName);
             // Still call original if needed
             // originalLoadAdoptionPlans(producerName);
         };
     }
-    
-    console.log('✅ Producer Selector Fix ready');
+
+    console.log("✅ Producer Selector Fix ready");
 });

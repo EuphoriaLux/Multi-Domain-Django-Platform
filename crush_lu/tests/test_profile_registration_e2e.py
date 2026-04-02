@@ -5,6 +5,7 @@ Tests the complete 4-step wizard and captures console errors/CSP violations.
 Run with: pytest crush_lu/tests/test_profile_registration_e2e.py -v -m playwright
 Run visible: pytest crush_lu/tests/test_profile_registration_e2e.py -v --headed
 """
+
 import re
 import pytest
 from playwright.sync_api import Page, expect, ConsoleMessage
@@ -43,17 +44,17 @@ def setup_site_for_tests(transactional_db):
     # Ensure localhost Site exists (primary Site with id=1)
     try:
         site = Site.objects.get(id=1)
-        if site.domain != 'localhost':
-            Site.objects.filter(domain='localhost').exclude(id=1).delete()
-            site.domain = 'localhost'
-            site.name = 'localhost'
+        if site.domain != "localhost":
+            Site.objects.filter(domain="localhost").exclude(id=1).delete()
+            site.domain = "localhost"
+            site.name = "localhost"
             site.save()
     except Site.DoesNotExist:
-        Site.objects.filter(domain='localhost').delete()
-        Site.objects.create(id=1, domain='localhost', name='localhost')
+        Site.objects.filter(domain="localhost").delete()
+        Site.objects.create(id=1, domain="localhost", name="localhost")
 
     # Also ensure 127.0.0.1 Site exists
-    Site.objects.get_or_create(domain='127.0.0.1', defaults={'name': 'Live Server'})
+    Site.objects.get_or_create(domain="127.0.0.1", defaults={"name": "Live Server"})
 
     yield
 
@@ -70,17 +71,14 @@ class TestProfileRegistrationE2E:
         from allauth.account.models import EmailAddress
 
         user = User.objects.create_user(
-            username='newuser@example.com',
-            email='newuser@example.com',
-            password='testpass123',
-            first_name='New',
-            last_name='User'
+            username="newuser@example.com",
+            email="newuser@example.com",
+            password="testpass123",
+            first_name="New",
+            last_name="User",
         )
         EmailAddress.objects.create(
-            user=user,
-            email=user.email,
-            verified=True,
-            primary=True
+            user=user, email=user.email, verified=True, primary=True
         )
         return user
 
@@ -92,21 +90,30 @@ class TestProfileRegistrationE2E:
     @pytest.fixture
     def page_with_console_capture(self, page: Page, console_messages):
         """Page with console message capture enabled."""
+
         def handle_console(msg: ConsoleMessage):
-            console_messages.append({
-                'type': msg.type,
-                'text': msg.text,
-                'location': msg.location
-            })
-        page.on('console', handle_console)
+            console_messages.append(
+                {"type": msg.type, "text": msg.text, "location": msg.location}
+            )
+
+        page.on("console", handle_console)
         return page
 
     @pytest.fixture
-    def logged_in_page(self, page_with_console_capture: Page, live_server_url, new_user, transactional_db):
+    def logged_in_page(
+        self,
+        page_with_console_capture: Page,
+        live_server_url,
+        new_user,
+        transactional_db,
+    ):
         """Log in the new user and return page ready for profile creation."""
         from django.contrib.sites.models import Site
-        Site.objects.get_or_create(id=1, defaults={'domain': 'localhost', 'name': 'localhost'})
-        Site.objects.get_or_create(domain='127.0.0.1', defaults={'name': 'Live Server'})
+
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "localhost", "name": "localhost"}
+        )
+        Site.objects.get_or_create(domain="127.0.0.1", defaults={"name": "Live Server"})
 
         page = page_with_console_capture
         page.goto(f"{live_server_url}/accounts/login/")
@@ -119,9 +126,9 @@ class TestProfileRegistrationE2E:
             page.wait_for_timeout(500)
 
         page.fill('input[name="login"]', new_user.email)
-        page.fill('input[name="password"]', 'testpass123')
+        page.fill('input[name="password"]', "testpass123")
         page.click('button:has-text("Login")')
-        page.wait_for_load_state('networkidle')
+        page.wait_for_load_state("networkidle")
 
         return page
 
@@ -131,7 +138,7 @@ class TestProfileRegistrationE2E:
         csp_violations = []
 
         for msg in console_messages:
-            text = msg['text']
+            text = msg["text"]
 
             # Check for CSP violations
             for pattern in CSP_PATTERNS:
@@ -140,7 +147,7 @@ class TestProfileRegistrationE2E:
                     break
 
             # Check for JS errors
-            if msg['type'] == 'error':
+            if msg["type"] == "error":
                 for pattern in ERROR_PATTERNS:
                     if re.search(pattern, text, re.IGNORECASE):
                         errors.append(msg)
@@ -157,7 +164,7 @@ class TestProfileRegistrationE2E:
         """
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Verify we're on Step 1 (Basic Information) - h3 heading in the card
         step1_content = page.locator('h3:has-text("Basic Information")')
@@ -165,10 +172,10 @@ class TestProfileRegistrationE2E:
 
         # Fill phone number
         phone_input = page.locator('input[name="phone_number"]')
-        phone_input.fill('+352621123456')
+        phone_input.fill("+352621123456")
 
         # Press Enter key - this should NOT submit the form
-        phone_input.press('Enter')
+        phone_input.press("Enter")
         page.wait_for_timeout(500)
 
         # CRITICAL: We should still be on Step 1, not submitted
@@ -176,7 +183,9 @@ class TestProfileRegistrationE2E:
         expect(step1_content).to_be_visible()
 
         # Check that we didn't navigate away
-        assert '/create-profile' in page.url, f"Enter key caused navigation to {page.url}"
+        assert (
+            "/create-profile" in page.url
+        ), f"Enter key caused navigation to {page.url}"
 
         # Check console for errors
         errors, csp = self._check_for_errors(console_messages)
@@ -189,7 +198,7 @@ class TestProfileRegistrationE2E:
         """Check for console errors and CSP violations when Step 1 loads."""
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Wait for Alpine.js initialization
         page.wait_for_timeout(1000)
@@ -201,7 +210,7 @@ class TestProfileRegistrationE2E:
             print(f"\nJavaScript Errors Found ({len(errors)}):")
             for e in errors:
                 print(f"  - {e['type']}: {e['text']}")
-                if e.get('location'):
+                if e.get("location"):
                     print(f"    at {e['location']}")
 
         if csp_violations:
@@ -209,8 +218,12 @@ class TestProfileRegistrationE2E:
             for v in csp_violations:
                 print(f"  - {v['text']}")
 
-        assert len(errors) == 0, f"JavaScript errors on Step 1: {[e['text'] for e in errors]}"
-        assert len(csp_violations) == 0, f"CSP violations on Step 1: {[v['text'] for v in csp_violations]}"
+        assert (
+            len(errors) == 0
+        ), f"JavaScript errors on Step 1: {[e['text'] for e in errors]}"
+        assert (
+            len(csp_violations) == 0
+        ), f"CSP violations on Step 1: {[v['text'] for v in csp_violations]}"
 
     def test_step1_interaction_no_errors(
         self, logged_in_page: Page, live_server_url, console_messages
@@ -218,11 +231,11 @@ class TestProfileRegistrationE2E:
         """Test Step 1 interactions for console errors."""
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Interact with phone field
         phone_input = page.locator('input[name="phone_number"]')
-        phone_input.fill('+352621123456')
+        phone_input.fill("+352621123456")
 
         # Select gender - the radio button is hidden and styled via label
         # Click on the label which is the visible interactive element
@@ -232,7 +245,7 @@ class TestProfileRegistrationE2E:
             page.wait_for_timeout(300)
 
         # Select age range in DOB picker (if visible)
-        age_range_btn = page.locator('[data-dob-age-ranges] button').first
+        age_range_btn = page.locator("[data-dob-age-ranges] button").first
         if age_range_btn.count() > 0 and age_range_btn.is_visible():
             age_range_btn.click()
             page.wait_for_timeout(300)
@@ -245,8 +258,12 @@ class TestProfileRegistrationE2E:
 
         # Check for errors after all interactions
         errors, csp_violations = self._check_for_errors(console_messages)
-        assert len(errors) == 0, f"JavaScript errors during Step 1 interactions: {errors}"
-        assert len(csp_violations) == 0, f"CSP violations during Step 1 interactions: {csp_violations}"
+        assert (
+            len(errors) == 0
+        ), f"JavaScript errors during Step 1 interactions: {errors}"
+        assert (
+            len(csp_violations) == 0
+        ), f"CSP violations during Step 1 interactions: {csp_violations}"
 
     def test_full_wizard_navigation_console_capture(
         self, logged_in_page: Page, live_server_url, console_messages
@@ -260,7 +277,7 @@ class TestProfileRegistrationE2E:
         """
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Step 1 - Verify visible (h3 heading in the card)
         expect(page.locator('h3:has-text("Basic Information")')).to_be_visible()
@@ -277,7 +294,7 @@ class TestProfileRegistrationE2E:
         print(f"Errors: {len(errors1)}, CSP Violations: {len(csp1)}")
 
         for msg in console_messages:
-            if msg['type'] in ['error', 'warning']:
+            if msg["type"] in ["error", "warning"]:
                 print(f"  [{msg['type'].upper()}] {msg['text'][:200]}")
 
         assert len(csp1) == 0, f"CSP violations found: {[v['text'] for v in csp1]}"
@@ -288,20 +305,21 @@ class TestProfileRegistrationE2E:
         """Test Enter key in text input fields doesn't cause form submission."""
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_load_state('networkidle')
+        page.wait_for_load_state("networkidle")
 
         initial_url = page.url
 
         # Test Enter in phone number field
         phone_input = page.locator('input[name="phone_number"]')
         if phone_input.count() > 0 and phone_input.is_visible():
-            phone_input.fill('+352621123456')
-            phone_input.press('Enter')
+            phone_input.fill("+352621123456")
+            phone_input.press("Enter")
             page.wait_for_timeout(500)
 
             # URL should not have changed (form not submitted)
-            assert page.url == initial_url or '/create-profile' in page.url, \
-                f"Enter in phone field caused unexpected navigation to {page.url}"
+            assert (
+                page.url == initial_url or "/create-profile" in page.url
+            ), f"Enter in phone field caused unexpected navigation to {page.url}"
 
     def test_form_has_submit_prevention(
         self, logged_in_page: Page, live_server_url, console_messages
@@ -312,10 +330,10 @@ class TestProfileRegistrationE2E:
         """
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Get the form element
-        form = page.locator('#profileForm')
+        form = page.locator("#profileForm")
         expect(form).to_be_visible()
 
         # Check that form has the @submit handler
@@ -323,17 +341,18 @@ class TestProfileRegistrationE2E:
 
         # Try to trigger form submission via JavaScript
         # This simulates what happens when Enter is pressed
-        page.evaluate('''() => {
+        page.evaluate("""() => {
             const form = document.getElementById('profileForm');
             const event = new Event('submit', { bubbles: true, cancelable: true });
             form.dispatchEvent(event);
-        }''')
+        }""")
 
         page.wait_for_timeout(500)
 
         # We should still be on the create-profile page (form submission prevented)
-        assert '/create-profile' in page.url, \
-            f"Form submission was not prevented, navigated to {page.url}"
+        assert (
+            "/create-profile" in page.url
+        ), f"Form submission was not prevented, navigated to {page.url}"
 
         # Check for any errors
         errors, csp = self._check_for_errors(console_messages)
@@ -345,27 +364,27 @@ class TestProfileRegistrationE2E:
         """Test that Alpine.js profileWizard component initializes correctly."""
         page = logged_in_page
         page.goto(f"{live_server_url}/en/create-profile/")
-        page.wait_for_selector('#phone-verification-container', timeout=10000)
+        page.wait_for_selector("#phone-verification-container", timeout=10000)
 
         # Wait for Alpine to initialize
         page.wait_for_timeout(1000)
 
         # Check that Alpine data is accessible
-        has_alpine = page.evaluate('''() => {
+        has_alpine = page.evaluate("""() => {
             const el = document.querySelector('[x-data="profileWizard"]');
             return el && el._x_dataStack && el._x_dataStack.length > 0;
-        }''')
+        }""")
 
         assert has_alpine, "Alpine.js profileWizard component did not initialize"
 
         # Check current step is 1
-        current_step = page.evaluate('''() => {
+        current_step = page.evaluate("""() => {
             const el = document.querySelector('[x-data="profileWizard"]');
             if (el && el._x_dataStack) {
                 return el._x_dataStack[0].currentStep;
             }
             return null;
-        }''')
+        }""")
 
         assert current_step == 1, f"Expected currentStep to be 1, got {current_step}"
 

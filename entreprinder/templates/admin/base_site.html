@@ -1,37 +1,32 @@
-{% extends "admin/base.html" %}
-{% load i18n %}
-
-{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Entreprinder Administration') }}{% endblock %}
-
-{% block extrastyle %}
-{{ block.super }}
+{% extends "admin/base.html" %} {% load i18n %} {% block title %}{% if subtitle %}{{
+subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Entreprinder
+Administration') }}{% endblock %} {% block extrastyle %} {{ block.super }}
 <style>
     /* Entreprinder Admin Branding - Orange/Amber theme for business networking */
     #header {
         background: linear-gradient(135deg, #f39c12, #e67e22) !important;
     }
-    #branding h1, #branding h1 a:link, #branding h1 a:visited {
+    #branding h1,
+    #branding h1 a:link,
+    #branding h1 a:visited {
         color: white !important;
     }
     #user-tools {
         background: transparent;
     }
     #user-tools a {
-        color: rgba(255,255,255,0.9) !important;
+        color: rgba(255, 255, 255, 0.9) !important;
     }
     #user-tools a:hover {
         color: white !important;
     }
 </style>
-{% endblock %}
-
-{% block branding %}
-<div id="site-name"><a href="{% url 'entreprinder_admin:index' %}">{{ site_header|default:_('Entreprinder Administration') }}</a></div>
-{% if user.is_anonymous %}
-  {% include "admin/color_theme_toggle.html" %}
-{% endif %}
-{% endblock %}
-
-{% block nav-global %}
-{% include "admin/includes/platform_nav.html" %}
-{% endblock %}
+{% endblock %} {% block branding %}
+<div id="site-name">
+    <a href="{% url 'entreprinder_admin:index' %}"
+        >{{ site_header|default:_('Entreprinder Administration') }}</a
+    >
+</div>
+{% if user.is_anonymous %} {% include "admin/color_theme_toggle.html" %} {% endif %} {%
+endblock %} {% block nav-global %} {% include "admin/includes/platform_nav.html" %} {%
+endblock %}

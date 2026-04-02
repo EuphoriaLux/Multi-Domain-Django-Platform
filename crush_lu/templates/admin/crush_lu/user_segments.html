@@ -1,15 +1,11 @@
-{% extends "admin/base_site.html" %}
-{% load static l10n i18n %}
-
-{% block title %}{% trans "User Segments" %} - Crush.lu{% endblock %}
-
-{% block extrastyle %}
-{{ block.super }}
+{% extends "admin/base_site.html" %} {% load static l10n i18n %} {% block title %}{%
+trans "User Segments" %} - Crush.lu{% endblock %} {% block extrastyle %} {{ block.super
+}}
 <style>
     /* Theme-aware CSS variables */
     :root {
         --card-bg: #ffffff;
-        --card-shadow: rgba(0,0,0,0.1);
+        --card-shadow: rgba(0, 0, 0, 0.1);
         --text-primary: #333333;
         --text-secondary: #666666;
         --text-muted: #999999;
@@ -18,7 +14,7 @@
     @media (prefers-color-scheme: dark) {
         :root {
             --card-bg: #1e1e2e;
-            --card-shadow: rgba(0,0,0,0.3);
+            --card-shadow: rgba(0, 0, 0, 0.3);
             --text-primary: #e0e0e0;
             --text-secondary: #b0b0b0;
             --text-muted: #888888;
@@ -27,7 +23,7 @@
 
     [data-theme="dark"] {
         --card-bg: #1e1e2e;
-        --card-shadow: rgba(0,0,0,0.3);
+        --card-shadow: rgba(0, 0, 0, 0.3);
         --text-primary: #e0e0e0;
         --text-secondary: #b0b0b0;
         --text-muted: #888888;
@@ -124,7 +120,9 @@
         border-radius: 8px;
         padding: 16px;
         border: 1px solid var(--card-shadow);
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition:
+            transform 0.2s,
+            box-shadow 0.2s;
         position: relative;
     }
 
@@ -162,7 +160,7 @@
     }
 
     .segment-card.color-purple {
-        border-left: 4px solid #9B59B6;
+        border-left: 4px solid #9b59b6;
     }
 
     .segment-card.color-yellow {
@@ -183,7 +181,7 @@
     }
 
     .segment-group-divider::after {
-        content: '';
+        content: "";
         flex: 1;
         height: 1px;
         background: var(--card-shadow);
@@ -298,7 +296,7 @@
     .dist-bar-track {
         flex: 1;
         height: 20px;
-        background: rgba(128,128,128,0.1);
+        background: rgba(128, 128, 128, 0.1);
         border-radius: 4px;
         overflow: hidden;
         position: relative;
@@ -311,14 +309,30 @@
         min-width: 2px;
     }
 
-    .dist-bar-fill.bar-blue { background: #007bff; }
-    .dist-bar-fill.bar-pink { background: #e83e8c; }
-    .dist-bar-fill.bar-purple { background: #9B59B6; }
-    .dist-bar-fill.bar-green { background: #28a745; }
-    .dist-bar-fill.bar-gray { background: #6c757d; }
-    .dist-bar-fill.bar-orange { background: #fd7e14; }
-    .dist-bar-fill.bar-yellow { background: #ffc107; }
-    .dist-bar-fill.bar-red { background: #dc3545; }
+    .dist-bar-fill.bar-blue {
+        background: #007bff;
+    }
+    .dist-bar-fill.bar-pink {
+        background: #e83e8c;
+    }
+    .dist-bar-fill.bar-purple {
+        background: #9b59b6;
+    }
+    .dist-bar-fill.bar-green {
+        background: #28a745;
+    }
+    .dist-bar-fill.bar-gray {
+        background: #6c757d;
+    }
+    .dist-bar-fill.bar-orange {
+        background: #fd7e14;
+    }
+    .dist-bar-fill.bar-yellow {
+        background: #ffc107;
+    }
+    .dist-bar-fill.bar-red {
+        background: #dc3545;
+    }
 
     .dist-bar-value {
         width: 80px;
@@ -389,7 +403,7 @@
     }
 
     .segment-btn-primary {
-        background-color: #9B59B6;
+        background-color: #9b59b6;
         color: white;
     }
 
@@ -435,9 +449,7 @@
         color: var(--text-primary);
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="segments-container">
     <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
         &larr; {% trans "Back to Dashboard" %}
@@ -511,12 +523,17 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}"
+                            style="width: {{ g.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No gender data available" %}</p>
+                <p style="color: var(--text-muted); font-size: 13px">
+                    {% trans "No gender data available" %}
+                </p>
                 {% endfor %}
             </div>
             <div class="distribution-column">
@@ -525,12 +542,17 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill {% if g.gender == 'M' %}bar-blue{% elif g.gender == 'F' %}bar-pink{% elif g.gender == 'NB' %}bar-purple{% elif g.gender == 'O' %}bar-green{% else %}bar-gray{% endif %}"
+                            style="width: {{ g.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No approved profiles yet" %}</p>
+                <p style="color: var(--text-muted); font-size: 13px">
+                    {% trans "No approved profiles yet" %}
+                </p>
                 {% endfor %}
             </div>
         </div>
@@ -550,17 +572,19 @@
                 </tr>
             </thead>
             <tbody>
-                {% for row in demographics.gender_age_matrix %}
-                {% if row.total > 0 %}
+                {% for row in demographics.gender_age_matrix %} {% if row.total > 0 %}
                 <tr>
                     <td>{{ row.label }}</td>
                     {% for cell in row.cells %}
-                    <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                    <td
+                        class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}"
+                    >
+                        {{ cell }}
+                    </td>
                     {% endfor %}
                     <td class="cell-highlight">{{ row.total }}</td>
                 </tr>
-                {% endif %}
-                {% endfor %}
+                {% endif %} {% endfor %}
             </tbody>
             <tfoot>
                 <tr>
@@ -584,7 +608,10 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ a.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill bar-purple" style="width: {{ a.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill bar-purple"
+                            style="width: {{ a.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ a.pct }}% ({{ a.count }})</span>
                 </div>
@@ -596,7 +623,10 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ lf.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}" style="width: {{ lf.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}"
+                            style="width: {{ lf.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ lf.pct }}% ({{ lf.count }})</span>
                 </div>
@@ -608,7 +638,10 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ l.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill bar-blue" style="width: {{ l.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill bar-blue"
+                            style="width: {{ l.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ l.pct }}% ({{ l.count }})</span>
                 </div>
@@ -620,28 +653,33 @@
     {% if demographics.locations %}
     <div class="distribution-section">
         <h2>📍 {% trans "Top Locations" %}</h2>
-        <div class="distribution-column" style="max-width: 600px;">
+        <div class="distribution-column" style="max-width: 600px">
             {% for loc in demographics.locations %}
             <div class="dist-bar-row">
                 <span class="dist-bar-label">{{ loc.label }}</span>
                 <div class="dist-bar-track">
-                    <div class="dist-bar-fill bar-orange" style="width: {{ loc.pct|unlocalize }}%"></div>
+                    <div
+                        class="dist-bar-fill bar-orange"
+                        style="width: {{ loc.pct|unlocalize }}%"
+                    ></div>
                 </div>
                 <span class="dist-bar-value">{{ loc.pct }}% ({{ loc.count }})</span>
             </div>
             {% endfor %}
         </div>
     </div>
-    {% endif %}
-
-    {% if pref_stats %}
+    {% endif %} {% if pref_stats %}
     <div class="distribution-section">
         <h2>💘 {% trans "Ideal Crush Preferences (Approved Profiles)" %}</h2>
 
-        <div style="margin-bottom: 16px;">
-            <span style="font-size: 28px; font-weight: bold; color: #9B59B6;">{{ pref_stats.adoption_rate }}%</span>
-            <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">
-                {% blocktrans with configured=pref_stats.configured_count total=pref_stats.total_approved %}{{ configured }} of {{ total }} profiles have configured preferences{% endblocktrans %}
+        <div style="margin-bottom: 16px">
+            <span style="font-size: 28px; font-weight: bold; color: #9b59b6"
+                >{{ pref_stats.adoption_rate }}%</span
+            >
+            <span style="font-size: 13px; color: var(--text-muted); margin-left: 8px">
+                {% blocktrans with configured=pref_stats.configured_count
+                total=pref_stats.total_approved %}{{ configured }} of {{ total }}
+                profiles have configured preferences{% endblocktrans %}
             </span>
         </div>
 
@@ -652,12 +690,17 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ g.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if g.code == 'F' %}bar-pink{% elif g.code == 'M' %}bar-blue{% elif g.code == 'NB' %}bar-purple{% else %}bar-gray{% endif %}" style="width: {{ g.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill {% if g.code == 'F' %}bar-pink{% elif g.code == 'M' %}bar-blue{% elif g.code == 'NB' %}bar-purple{% else %}bar-gray{% endif %}"
+                            style="width: {{ g.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ g.pct }}% ({{ g.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No data yet" %}</p>
+                <p style="color: var(--text-muted); font-size: 13px">
+                    {% trans "No data yet" %}
+                </p>
                 {% endfor %}
             </div>
 
@@ -667,54 +710,71 @@
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ fs.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if fs.key == 'i_initiate' %}bar-green{% elif fs.key == 'they_initiate' %}bar-blue{% else %}bar-gray{% endif %}" style="width: {{ fs.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill {% if fs.key == 'i_initiate' %}bar-green{% elif fs.key == 'they_initiate' %}bar-blue{% else %}bar-gray{% endif %}"
+                            style="width: {{ fs.pct|unlocalize }}%"
+                        ></div>
                     </div>
                     <span class="dist-bar-value">{{ fs.pct }}% ({{ fs.count }})</span>
                 </div>
                 {% empty %}
-                <p style="color: var(--text-muted); font-size: 13px;">{% trans "No data yet" %}</p>
+                <p style="color: var(--text-muted); font-size: 13px">
+                    {% trans "No data yet" %}
+                </p>
                 {% endfor %}
             </div>
 
             <div class="distribution-column">
                 <h3>{% trans "Preferred Age Range" %}</h3>
                 {% if pref_stats.avg_age_min and pref_stats.avg_age_max %}
-                <p style="font-size: 16px; font-weight: bold; color: var(--text-primary); margin-bottom: 12px;">
-                    {% blocktrans with min=pref_stats.avg_age_min max=pref_stats.avg_age_max %}Average: {{ min }} – {{ max }}{% endblocktrans %}
+                <p
+                    style="
+                        font-size: 16px;
+                        font-weight: bold;
+                        color: var(--text-primary);
+                        margin-bottom: 12px;
+                    "
+                >
+                    {% blocktrans with min=pref_stats.avg_age_min
+                    max=pref_stats.avg_age_max %}Average: {{ min }} – {{ max }}{%
+                    endblocktrans %}
                 </p>
-                {% endif %}
-                {% for bucket in pref_stats.age_distribution %}
+                {% endif %} {% for bucket in pref_stats.age_distribution %}
                 <div class="dist-bar-row">
                     <span class="dist-bar-label">{{ bucket.label }}</span>
                     <div class="dist-bar-track">
-                        <div class="dist-bar-fill bar-purple" style="width: {{ bucket.pct|unlocalize }}%"></div>
+                        <div
+                            class="dist-bar-fill bar-purple"
+                            style="width: {{ bucket.pct|unlocalize }}%"
+                        ></div>
                     </div>
-                    <span class="dist-bar-value">{{ bucket.pct }}% ({{ bucket.count }})</span>
+                    <span class="dist-bar-value"
+                        >{{ bucket.pct }}% ({{ bucket.count }})</span
+                    >
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
-    {% endif %}
-
-    {% if approved_language_stats %}
+    {% endif %} {% if approved_language_stats %}
     <div class="distribution-section">
         <h2>🌐 {% trans "Event Languages (Approved Profiles)" %}</h2>
-        <div class="distribution-column" style="max-width: 600px;">
+        <div class="distribution-column" style="max-width: 600px">
             {% for lang in approved_language_stats %}
             <div class="dist-bar-row">
                 <span class="dist-bar-label">{{ lang.label }}</span>
                 <div class="dist-bar-track">
-                    <div class="dist-bar-fill bar-blue" style="width: {{ lang.pct|unlocalize }}%"></div>
+                    <div
+                        class="dist-bar-fill bar-blue"
+                        style="width: {{ lang.pct|unlocalize }}%"
+                    ></div>
                 </div>
                 <span class="dist-bar-value">{{ lang.pct }}% ({{ lang.count }})</span>
             </div>
             {% endfor %}
         </div>
     </div>
-    {% endif %}
-
-    {% if gender_lang_matrix %}
+    {% endif %} {% if gender_lang_matrix %}
     <div class="distribution-section">
         <h2>🔀 {% trans "Gender x Event Language (Approved Profiles)" %}</h2>
         <div class="distribution-columns">
@@ -730,17 +790,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in gender_lang_matrix %}
-                        {% if row.total > 0 %}
+                        {% for row in gender_lang_matrix %} {% if row.total > 0 %}
                         <tr>
                             <td>{{ row.label }}</td>
                             {% for cell in row.cells %}
-                            <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                            <td
+                                class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}"
+                            >
+                                {{ cell }}
+                            </td>
                             {% endfor %}
                             <td class="cell-highlight">{{ row.total }}</td>
                         </tr>
-                        {% endif %}
-                        {% endfor %}
+                        {% endif %} {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
@@ -765,17 +827,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in age_lang_matrix %}
-                        {% if row.total > 0 %}
+                        {% for row in age_lang_matrix %} {% if row.total > 0 %}
                         <tr>
                             <td>{{ row.label }}</td>
                             {% for cell in row.cells %}
-                            <td class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}">{{ cell }}</td>
+                            <td
+                                class="{% if cell == 0 %}cell-zero{% elif cell >= 3 %}cell-highlight{% endif %}"
+                            >
+                                {{ cell }}
+                            </td>
                             {% endfor %}
                             <td class="cell-highlight">{{ row.total }}</td>
                         </tr>
-                        {% endif %}
-                        {% endfor %}
+                        {% endif %} {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr>
@@ -790,21 +854,17 @@
             </div>
         </div>
     </div>
-    {% endif %}
-    {% endif %}
+    {% endif %} {% endif %}
 
     <!-- Segment Categories -->
-    {% regroup segments.values by group as grouped_segments %}
-    {% for group in grouped_segments %}
-    {% if group.grouper == 'operational' %}
+    {% regroup segments.values by group as grouped_segments %} {% for group in
+    grouped_segments %} {% if group.grouper == 'operational' %}
     <div class="segment-group-divider">{% trans "Operational Segments" %}</div>
     {% elif group.grouper == 'demographic' %}
     <div class="segment-group-divider">{% trans "Demographic Segments" %}</div>
     {% elif group.grouper == 'behavioral' %}
     <div class="segment-group-divider">{% trans "Behavioral Segments" %}</div>
-    {% endif %}
-
-    {% for category in group.list %}
+    {% endif %} {% for category in group.list %}
     <div class="segment-category">
         <div class="category-header">
             <span class="category-icon">{{ category.icon }}</span>
@@ -826,10 +886,16 @@
                 <p class="segment-description">{{ segment.description }}</p>
 
                 <div class="segment-actions">
-                    <a href="{% url 'segment_detail' segment.key %}" class="segment-btn segment-btn-primary">
+                    <a
+                        href="{% url 'segment_detail' segment.key %}"
+                        class="segment-btn segment-btn-primary"
+                    >
                         {% trans "View Users" %}
                     </a>
-                    <a href="{% url 'segment_detail' segment.key %}?export=csv" class="segment-btn segment-btn-secondary">
+                    <a
+                        href="{% url 'segment_detail' segment.key %}?export=csv"
+                        class="segment-btn segment-btn-secondary"
+                    >
                         {% trans "Export CSV" %}
                     </a>
                 </div>
@@ -837,7 +903,6 @@
             {% endfor %}
         </div>
     </div>
-    {% endfor %}
-    {% endfor %}
+    {% endfor %} {% endfor %}
 </div>
 {% endblock %}

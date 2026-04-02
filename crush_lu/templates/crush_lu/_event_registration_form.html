@@ -1,87 +1,107 @@
 {% load i18n %}
-<form method="post"
-      hx-post="{% url 'crush_lu:event_register' event.id %}"
-      hx-target="#registration-form-container"
-      hx-swap="outerHTML"
-      novalidate
-      id="registration-form-container"
-      aria-live="polite"
-      aria-atomic="true">
-    {% csrf_token %}
-
-    {% if form.non_field_errors %}
-        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
-            {% for error in form.non_field_errors %}
-                <p class="m-0">{{ error }}</p>
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    {% if form.dietary_restrictions %}
+<form
+    method="post"
+    hx-post="{% url 'crush_lu:event_register' event.id %}"
+    hx-target="#registration-form-container"
+    hx-swap="outerHTML"
+    novalidate
+    id="registration-form-container"
+    aria-live="polite"
+    aria-atomic="true"
+>
+    {% csrf_token %} {% if form.non_field_errors %}
+    <div
+        class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300"
+    >
+        {% for error in form.non_field_errors %}
+        <p class="m-0">{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %} {% if form.dietary_restrictions %}
     <div class="mb-4">
-        <label for="{{ form.dietary_restrictions.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+        <label
+            for="{{ form.dietary_restrictions.id_for_label }}"
+            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+        >
             {% trans "Dietary Restrictions" %}
         </label>
         {{ form.dietary_restrictions }}
-        <small class="text-gray-500 dark:text-gray-400 text-sm">{% trans "e.g., vegetarian, gluten-free" %}</small>
+        <small class="text-sm text-gray-500 dark:text-gray-400"
+            >{% trans "e.g., vegetarian, gluten-free" %}</small
+        >
         {% if form.dietary_restrictions.errors %}
-            <div class="text-red-500 text-sm mt-1">{{ form.dietary_restrictions.errors.0 }}</div>
+        <div class="mt-1 text-sm text-red-500">
+            {{ form.dietary_restrictions.errors.0 }}
+        </div>
         {% endif %}
     </div>
-    {% endif %}
-
-    {% if form.bringing_guest %}
+    {% endif %} {% if form.bringing_guest %}
     <div class="mb-4">
-        <div class="flex items-center gap-3 mb-3">
+        <div class="mb-3 flex items-center gap-3">
             {{ form.bringing_guest }}
-            <label for="{{ form.bringing_guest.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+            <label
+                for="{{ form.bringing_guest.id_for_label }}"
+                class="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+            >
                 {% trans "I'm bringing a guest" %}
             </label>
         </div>
 
         <div class="ml-7">
-            <label for="{{ form.guest_name.id_for_label }}" class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 block">
+            <label
+                for="{{ form.guest_name.id_for_label }}"
+                class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
                 {% trans "Guest's Name" %}
             </label>
-            {{ form.guest_name }}
-            {% if form.guest_name.errors %}
-                <div class="text-red-500 text-sm mt-1">{{ form.guest_name.errors.0 }}</div>
+            {{ form.guest_name }} {% if form.guest_name.errors %}
+            <div class="mt-1 text-sm text-red-500">{{ form.guest_name.errors.0 }}</div>
             {% endif %}
         </div>
     </div>
-    {% endif %}
-
-    {% if requires_age_confirmation and form.age_confirmation %}
-    <div class="bg-amber-50 dark:bg-yellow-900/20 border border-amber-200 dark:border-yellow-700 rounded-lg p-4 mb-4">
-        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
-            {% trans "Since your profile is not yet verified, please confirm your age to register for this event." %}
+    {% endif %} {% if requires_age_confirmation and form.age_confirmation %}
+    <div
+        class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20"
+    >
+        <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+            {% trans "Since your profile is not yet verified, please confirm your age to
+            register for this event." %}
         </p>
         <div class="flex items-center gap-3">
             {{ form.age_confirmation }}
-            <label for="{{ form.age_confirmation.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+            <label
+                for="{{ form.age_confirmation.id_for_label }}"
+                class="cursor-pointer text-sm text-gray-700 dark:text-gray-200"
+            >
                 {% trans "I confirm that I am 18 years or older" %}
             </label>
         </div>
         {% if form.age_confirmation.errors %}
-            <div class="text-red-500 text-sm mt-1">{{ form.age_confirmation.errors.0 }}</div>
+        <div class="mt-1 text-sm text-red-500">
+            {{ form.age_confirmation.errors.0 }}
+        </div>
         {% endif %}
     </div>
     {% endif %}
 
     <div class="flex flex-col gap-3">
-        <button type="submit" class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2">
+        <button
+            type="submit"
+            class="btn-crush-primary inline-flex items-center justify-center gap-2 py-4 text-lg"
+        >
             <span class="htmx-indicator">
-                {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
+                {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin"
+                %}
             </span>
             <span class="htmx-hide-on-request">
-                {% if event.is_full %}
-                    {% trans "Join Waitlist" %}
-                {% else %}
-                    {% trans "Confirm Registration" %}
-                {% endif %}
+                {% if event.is_full %} {% trans "Join Waitlist" %} {% else %} {% trans
+                "Confirm Registration" %} {% endif %}
             </span>
         </button>
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="block w-full text-center py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+        <a
+            href="{% url 'crush_lu:event_detail' event.id %}"
+            class="block w-full rounded-lg border border-gray-300 px-4 py-3 text-center font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
             {% trans "Cancel" %}
         </a>
     </div>

@@ -1,10 +1,6 @@
-{% extends "crush_lu/base.html" %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Journey Report" %} - {{ progress.user.first_name|default:progress.user.username }}{% endblock %}
-
-{% block extra_css %}
+{% extends "crush_lu/base.html" %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Journey Report" %} - {{ progress.user.first_name|default:progress.user.username
+}}{% endblock %} {% block extra_css %}
 <style>
     /* Header & Summary */
     .report-header {
@@ -17,13 +13,17 @@
         overflow: hidden;
     }
     .report-header::before {
-        content: '';
+        content: "";
         position: absolute;
         top: -50%;
         right: -50%;
         width: 100%;
         height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        background: radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0.1) 0%,
+            transparent 70%
+        );
         pointer-events: none;
     }
     .report-title {
@@ -44,7 +44,7 @@
         margin-top: 25px;
     }
     .stat-card {
-        background: rgba(255,255,255,0.15);
+        background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(10px);
         padding: 20px;
         border-radius: 12px;
@@ -113,7 +113,7 @@
         padding: 20px;
         margin-bottom: 15px;
         border-left: 4px solid #667eea;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
     .insight-card h5 {
         color: #4a5568;
@@ -184,12 +184,12 @@
         border-radius: 12px;
         padding: 25px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         border-left: 5px solid #e2e8f0;
         transition: all 0.2s;
     }
     .challenge-card:hover {
-        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     }
     .challenge-card.correct {
         border-left-color: #48bb78;
@@ -391,17 +391,34 @@
 
     /* Print Styles */
     @media print {
-        .action-buttons { display: none; }
-        .report-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .challenge-card { break-inside: avoid; }
+        .action-buttons {
+            display: none;
+        }
+        .report-header {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .challenge-card {
+            break-inside: avoid;
+        }
     }
 
     /* Responsive */
     @media (max-width: 768px) {
-        .report-header { padding: 25px; }
-        .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        .chapter-header { flex-direction: column; gap: 15px; }
-        .chapter-stats { width: 100%; justify-content: flex-start; }
+        .report-header {
+            padding: 25px;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .chapter-header {
+            flex-direction: column;
+            gap: 15px;
+        }
+        .chapter-stats {
+            width: 100%;
+            justify-content: flex-start;
+        }
     }
 
     /* Dark mode overrides */
@@ -526,30 +543,38 @@
         background: transparent;
     }
 </style>
-{% endblock %}
-
-{% block content %}
-<div class="max-w-5xl mx-auto px-4 mt-8">
+{% endblock %} {% block content %}
+<div class="mx-auto mt-8 max-w-5xl px-4">
     <!-- Report Header -->
     <div class="report-header">
         <div class="report-title">
-            {% include "shared/icons/book-open.html" with class="w-5 h-5" %} {% blocktrans with name=progress.journey.journey_name %}Journey Report: {{ name }}{% endblocktrans %}
+            {% include "shared/icons/book-open.html" with class="w-5 h-5" %} {%
+            blocktrans with name=progress.journey.journey_name %}Journey Report: {{ name
+            }}{% endblocktrans %}
         </div>
         <div class="report-subtitle">
-            <strong>{{ progress.user.first_name|default:progress.user.username }}</strong>
+            <strong
+                >{{ progress.user.first_name|default:progress.user.username }}</strong
+            >
             {% if progress.user.email %} ({{ progress.user.email }}){% endif %}
         </div>
-        <div class="report-subtitle" style="margin-top: 10px;">
-            {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %} {% blocktrans with started=progress.started_at|date:"M d, Y" %}Started: {{ started }}{% endblocktrans %} &bull;
-            {% include "shared/icons/clock.html" with class="w-5 h-5" %} {% blocktrans with activity=progress.last_activity|date:"M d, Y H:i" %}Last Activity: {{ activity }}{% endblocktrans %}
-            {% if stats.journey_duration %}
-                &bull; {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} {% blocktrans count counter=stats.journey_duration.days %}Duration: {{ counter }} day{% plural %}Duration: {{ counter }} days{% endblocktrans %}
-            {% endif %}
+        <div class="report-subtitle" style="margin-top: 10px">
+            {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %} {%
+            blocktrans with started=progress.started_at|date:"M d, Y" %}Started: {{
+            started }}{% endblocktrans %} &bull; {% include "shared/icons/clock.html"
+            with class="w-5 h-5" %} {% blocktrans with
+            activity=progress.last_activity|date:"M d, Y H:i" %}Last Activity: {{
+            activity }}{% endblocktrans %} {% if stats.journey_duration %} &bull; {%
+            include "shared/icons/hourglass.html" with class="w-5 h-5" %} {% blocktrans
+            count counter=stats.journey_duration.days %}Duration: {{ counter }} day{%
+            plural %}Duration: {{ counter }} days{% endblocktrans %} {% endif %}
         </div>
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number">{{ progress.current_chapter }}/{{ progress.journey.total_chapters }}</div>
+                <div class="stat-number">
+                    {{ progress.current_chapter }}/{{ progress.journey.total_chapters }}
+                </div>
                 <div class="stat-label">{% trans "Chapters Completed" %}</div>
             </div>
             <div class="stat-card">
@@ -557,7 +582,9 @@
                 <div class="stat-label">{% trans "Total Points" %}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.completed_challenges }}/{{ stats.total_challenges }}</div>
+                <div class="stat-number">
+                    {{ stats.completed_challenges }}/{{ stats.total_challenges }}
+                </div>
                 <div class="stat-label">{% trans "Challenges Done" %}</div>
             </div>
             <div class="stat-card">
@@ -566,13 +593,15 @@
             </div>
             <div class="stat-card">
                 <div class="stat-number">
-                    {% if progress.is_completed %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    {% else %}
-                        {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
-                    {% endif %}
+                    {% if progress.is_completed %} {% include
+                    "shared/icons/check-circle.html" with class="w-5 h-5" %} {% else %}
+                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} {%
+                    endif %}
                 </div>
-                <div class="stat-label">{% if progress.is_completed %}{% trans "Completed" %}{% else %}{% trans "In Progress" %}{% endif %}</div>
+                <div class="stat-label">
+                    {% if progress.is_completed %}{% trans "Completed" %}{% else %}{%
+                    trans "In Progress" %}{% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -581,16 +610,17 @@
     {% if progress.final_response %}
     <div class="final-response-banner">
         <div class="final-response-icon">
-            {% if progress.final_response == 'yes' %}
-                {% include "shared/icons/heart.html" with class="w-5 h-5" %}
-            {% else %}
-                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
-            {% endif %}
+            {% if progress.final_response == 'yes' %} {% include
+            "shared/icons/heart.html" with class="w-5 h-5" %} {% else %} {% include
+            "shared/icons/sparkles.html" with class="w-5 h-5" %} {% endif %}
         </div>
         <div class="final-response-text">
             <h4>{% trans "Final Response" %}</h4>
             <p>{{ progress.get_final_response_display }}</p>
-            <small style="opacity: 0.8;">{% include "shared/icons/clock.html" with class="w-5 h-5" %} {{ progress.final_response_at|date:"M d, Y H:i" }}</small>
+            <small style="opacity: 0.8"
+                >{% include "shared/icons/clock.html" with class="w-5 h-5" %} {{
+                progress.final_response_at|date:"M d, Y H:i" }}</small
+            >
         </div>
     </div>
     {% endif %}
@@ -599,15 +629,20 @@
     {% if questionnaire_responses %}
     <div class="insights-section">
         <div class="insights-title">
-            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans "Key Insights & Personal Responses" %}
+            {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {% trans
+            "Key Insights & Personal Responses" %}
         </div>
 
         {% for response in questionnaire_responses %}
         <div class="insight-card">
             <h5>
-                Chapter {{ response.chapter.chapter_number }}: {{ response.challenge.question|truncatewords:12 }}
+                Chapter {{ response.chapter.chapter_number }}: {{
+                response.challenge.question|truncatewords:12 }}
             </h5>
-            <p>{% if response.display_answer|length > 200 %}{{ response.answer }}{% else %}{{ response.display_answer|default:response.answer }}{% endif %}</p>
+            <p>
+                {% if response.display_answer|length > 200 %}{{ response.answer }}{%
+                else %}{{ response.display_answer|default:response.answer }}{% endif %}
+            </p>
         </div>
         {% endfor %}
     </div>
@@ -615,16 +650,20 @@
 
     <!-- Hardest Challenge Note -->
     {% if stats.hardest_challenge_obj and stats.hardest_challenge_attempts > 5 %}
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-xl p-4 mb-6">
-        {% include "shared/icons/trophy.html" with class="w-5 h-5" %} <strong>Persistence Award:</strong>
-        The challenge "{{ stats.hardest_challenge_obj.question|truncatewords:10 }}"
-        took <strong>{{ stats.hardest_challenge_attempts }} attempts</strong> to complete!
+    <div
+        class="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+    >
+        {% include "shared/icons/trophy.html" with class="w-5 h-5" %}
+        <strong>Persistence Award:</strong> The challenge "{{
+        stats.hardest_challenge_obj.question|truncatewords:10 }}" took
+        <strong>{{ stats.hardest_challenge_attempts }} attempts</strong> to complete!
     </div>
     {% endif %}
 
     <!-- Chapter-by-Chapter Results -->
     <h3 class="mb-4 text-gray-800 dark:text-white">
-        {% include "shared/icons/document-text.html" with class="w-5 h-5" %} {% trans "Detailed Journey Results" %}
+        {% include "shared/icons/document-text.html" with class="w-5 h-5" %} {% trans
+        "Detailed Journey Results" %}
     </h3>
 
     {% for chapter_info in chapter_data %}
@@ -632,62 +671,74 @@
         <div class="chapter-header">
             <div>
                 <h4 class="chapter-title">
-                    Chapter {{ chapter_info.chapter.chapter_number }}: {{ chapter_info.chapter.title }}
+                    Chapter {{ chapter_info.chapter.chapter_number }}: {{
+                    chapter_info.chapter.title }}
                 </h4>
                 <div class="chapter-theme">{{ chapter_info.chapter.theme }}</div>
             </div>
             <div class="chapter-stats">
                 <span class="chapter-badge badge-points">
-                    {% include "shared/icons/star.html" with class="w-5 h-5" %} {{ chapter_info.chapter_points }} pts
+                    {% include "shared/icons/star.html" with class="w-5 h-5" %} {{
+                    chapter_info.chapter_points }} pts
                 </span>
                 {% if chapter_info.is_completed %}
-                    <span class="chapter-badge badge-complete">
-                        {% include "shared/icons/check.html" with class="w-5 h-5" %} Complete
-                    </span>
+                <span class="chapter-badge badge-complete">
+                    {% include "shared/icons/check.html" with class="w-5 h-5" %}
+                    Complete
+                </span>
                 {% else %}
-                    <span class="chapter-badge badge-progress">
-                        {% include "shared/icons/clock.html" with class="w-5 h-5" %} In Progress
-                    </span>
+                <span class="chapter-badge badge-progress">
+                    {% include "shared/icons/clock.html" with class="w-5 h-5" %} In
+                    Progress
+                </span>
                 {% endif %}
             </div>
         </div>
 
         {% for challenge_info in chapter_info.challenges %}
-        <div class="challenge-card {% if challenge_info.result %}{% if challenge_info.is_questionnaire %}questionnaire{% elif challenge_info.result.is_correct %}correct{% else %}incorrect{% endif %}{% else %}pending{% endif %}">
+        <div
+            class="challenge-card {% if challenge_info.result %}{% if challenge_info.is_questionnaire %}questionnaire{% elif challenge_info.result.is_correct %}correct{% else %}incorrect{% endif %}{% else %}pending{% endif %}"
+        >
             <div class="challenge-header">
                 <div>
                     <span class="challenge-type-badge">
-                        {% if challenge_info.challenge.challenge_type == 'riddle' %}
-                            {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5" %}
-                        {% elif challenge_info.challenge.challenge_type == 'multiple_choice' %}
-                            {% include "shared/icons/list-bullet.html" with class="w-5 h-5" %}
-                        {% elif challenge_info.challenge.challenge_type == 'word_scramble' %}
-                            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
-                        {% elif challenge_info.challenge.challenge_type == 'timeline_sort' %}
-                            {% include "shared/icons/bars-arrow-down.html" with class="w-5 h-5" %}
-                        {% elif challenge_info.challenge.challenge_type == 'open_text' %}
-                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
-                        {% elif challenge_info.challenge.challenge_type == 'would_you_rather' %}
-                            {% include "shared/icons/arrows-pointing-out.html" with class="w-5 h-5" %}
-                        {% else %}
-                            {% include "shared/icons/puzzle-piece.html" with class="w-5 h-5" %}
-                        {% endif %}
-                        {{ challenge_info.challenge.get_challenge_type_display }}
+                        {% if challenge_info.challenge.challenge_type == 'riddle' %} {%
+                        include "shared/icons/question-mark-circle.html" with class="w-5
+                        h-5" %} {% elif challenge_info.challenge.challenge_type ==
+                        'multiple_choice' %} {% include "shared/icons/list-bullet.html"
+                        with class="w-5 h-5" %} {% elif
+                        challenge_info.challenge.challenge_type == 'word_scramble' %} {%
+                        include "shared/icons/arrows-right-left.html" with class="w-5
+                        h-5" %} {% elif challenge_info.challenge.challenge_type ==
+                        'timeline_sort' %} {% include
+                        "shared/icons/bars-arrow-down.html" with class="w-5 h-5" %} {%
+                        elif challenge_info.challenge.challenge_type == 'open_text' %}
+                        {% include "shared/icons/chat-bubble-left.html" with class="w-5
+                        h-5" %} {% elif challenge_info.challenge.challenge_type ==
+                        'would_you_rather' %} {% include
+                        "shared/icons/arrows-pointing-out.html" with class="w-5 h-5" %}
+                        {% else %} {% include "shared/icons/puzzle-piece.html" with
+                        class="w-5 h-5" %} {% endif %} {{
+                        challenge_info.challenge.get_challenge_type_display }}
                     </span>
-                    <span class="text-gray-400 dark:text-gray-500 ml-2.5">Challenge {{ challenge_info.challenge.challenge_order }}</span>
+                    <span class="ml-2.5 text-gray-400 dark:text-gray-500"
+                        >Challenge {{ challenge_info.challenge.challenge_order }}</span
+                    >
                 </div>
                 <div class="challenge-meta">
                     {% if challenge_info.result %}
-                        <span class="points-badge {% if challenge_info.result.points_earned > 0 %}points-earned{% else %}points-zero{% endif %}">
-                            {{ challenge_info.result.points_earned }} pts
-                        </span>
-                        {% if challenge_info.attempt_count > 1 %}
-                            <span class="attempt-count">
-                                {% include "shared/icons/arrow-path.html" with class="w-5 h-5" %} {{ challenge_info.attempt_count }} attempts
-                            </span>
-                        {% endif %}
-                    {% else %}
-                        <span class="points-badge points-zero">Not attempted</span>
+                    <span
+                        class="points-badge {% if challenge_info.result.points_earned > 0 %}points-earned{% else %}points-zero{% endif %}"
+                    >
+                        {{ challenge_info.result.points_earned }} pts
+                    </span>
+                    {% if challenge_info.attempt_count > 1 %}
+                    <span class="attempt-count">
+                        {% include "shared/icons/arrow-path.html" with class="w-5 h-5"
+                        %} {{ challenge_info.attempt_count }} attempts
+                    </span>
+                    {% endif %} {% else %}
+                    <span class="points-badge points-zero">Not attempted</span>
                     {% endif %}
                 </div>
             </div>
@@ -697,76 +748,96 @@
             </div>
 
             {% if challenge_info.result %}
-                <!-- User's Answer -->
-                <div class="answer-section">
-                    <div class="answer-label">
-                        {% if challenge_info.is_questionnaire %}
-                            {% include "shared/icons/chat-bubble-bottom-center-text.html" with class="w-5 h-5" %} Response
-                        {% else %}
-                            {% include "shared/icons/user.html" with class="w-5 h-5" %} User's Answer
+            <!-- User's Answer -->
+            <div class="answer-section">
+                <div class="answer-label">
+                    {% if challenge_info.is_questionnaire %} {% include
+                    "shared/icons/chat-bubble-bottom-center-text.html" with class="w-5
+                    h-5" %} Response {% else %} {% include "shared/icons/user.html" with
+                    class="w-5 h-5" %} User's Answer {% endif %}
+                </div>
+
+                {% if challenge_info.challenge.challenge_type == 'timeline_sort' and
+                challenge_info.display_answer|length > 0 %}
+                <!-- Timeline as ordered list -->
+                <ol class="timeline-list">
+                    {% for item in challenge_info.display_answer %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ol>
+                {% elif challenge_info.challenge.challenge_type == 'multiple_choice' and
+                challenge_info.options %}
+                <!-- Show all options with selected highlighted -->
+                <div class="options-grid">
+                    {% for key, value in challenge_info.options.items %}
+                    <div
+                        class="option-item {% if challenge_info.result.user_answer|upper == key %}selected{% endif %} {% if challenge_info.challenge.correct_answer|upper == key %}correct-option{% endif %}"
+                    >
+                        <span class="option-key">{{ key }}</span>
+                        <span>{{ value }}</span>
+                        {% if challenge_info.result.user_answer|upper == key %} {%
+                        include "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-purple-600" %} {% endif %} {% if
+                        challenge_info.challenge.correct_answer|upper == key and
+                        challenge_info.challenge.correct_answer %} {% include
+                        "shared/icons/star.html" with class="w-5 h-5 text-green-600" %}
                         {% endif %}
                     </div>
-
-                    {% if challenge_info.challenge.challenge_type == 'timeline_sort' and challenge_info.display_answer|length > 0 %}
-                        <!-- Timeline as ordered list -->
-                        <ol class="timeline-list">
-                            {% for item in challenge_info.display_answer %}
-                                <li>{{ item }}</li>
-                            {% endfor %}
-                        </ol>
-                    {% elif challenge_info.challenge.challenge_type == 'multiple_choice' and challenge_info.options %}
-                        <!-- Show all options with selected highlighted -->
-                        <div class="options-grid">
-                            {% for key, value in challenge_info.options.items %}
-                                <div class="option-item {% if challenge_info.result.user_answer|upper == key %}selected{% endif %} {% if challenge_info.challenge.correct_answer|upper == key %}correct-option{% endif %}">
-                                    <span class="option-key">{{ key }}</span>
-                                    <span>{{ value }}</span>
-                                    {% if challenge_info.result.user_answer|upper == key %}
-                                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-purple-600" %}
-                                    {% endif %}
-                                    {% if challenge_info.challenge.correct_answer|upper == key and challenge_info.challenge.correct_answer %}
-                                        {% include "shared/icons/star.html" with class="w-5 h-5 text-green-600" %}
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% elif challenge_info.challenge.challenge_type == 'open_text' or challenge_info.result.user_answer|length > 200 %}
-                        <!-- Long text response -->
-                        <div class="answer-content long-text {% if challenge_info.result.is_correct %}success{% endif %}">
-                            {{ challenge_info.result.user_answer }}
-                        </div>
-                    {% else %}
-                        <!-- Standard answer -->
-                        <div class="answer-content {% if challenge_info.result.is_correct %}success{% endif %}">
-                            {{ challenge_info.display_answer|default:challenge_info.result.user_answer }}
-                        </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
-
-                <!-- Expected Answer (for quiz challenges) -->
-                {% if challenge_info.challenge.correct_answer and not challenge_info.is_questionnaire and not challenge_info.result.is_correct %}
-                <div class="expected-answer">
-                    <strong>{% include "shared/icons/check-circle.html" with class="w-5 h-5" %} Expected Answer:</strong>
-                    {{ challenge_info.challenge.correct_answer }}
+                {% elif challenge_info.challenge.challenge_type == 'open_text' or
+                challenge_info.result.user_answer|length > 200 %}
+                <!-- Long text response -->
+                <div
+                    class="answer-content long-text {% if challenge_info.result.is_correct %}success{% endif %}"
+                >
+                    {{ challenge_info.result.user_answer }}
+                </div>
+                {% else %}
+                <!-- Standard answer -->
+                <div
+                    class="answer-content {% if challenge_info.result.is_correct %}success{% endif %}"
+                >
+                    {{
+                    challenge_info.display_answer|default:challenge_info.result.user_answer
+                    }}
                 </div>
                 {% endif %}
+            </div>
 
-                <!-- Hints Used -->
-                {% if challenge_info.result.hints_used %}
-                <div class="mt-3">
-                    <span class="inline-block px-2 py-1 bg-amber-500 text-gray-900 text-xs rounded">
-                        {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {{ challenge_info.result.hints_used|length }} hint(s) used
-                    </span>
-                </div>
-                {% endif %}
+            <!-- Expected Answer (for quiz challenges) -->
+            {% if challenge_info.challenge.correct_answer and not
+            challenge_info.is_questionnaire and not challenge_info.result.is_correct %}
+            <div class="expected-answer">
+                <strong
+                    >{% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    Expected Answer:</strong
+                >
+                {{ challenge_info.challenge.correct_answer }}
+            </div>
+            {% endif %}
 
-                <div class="timestamp">
-                    {% include "shared/icons/clock.html" with class="w-5 h-5" %} Answered: {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
-                </div>
+            <!-- Hints Used -->
+            {% if challenge_info.result.hints_used %}
+            <div class="mt-3">
+                <span
+                    class="inline-block rounded bg-amber-500 px-2 py-1 text-xs text-gray-900"
+                >
+                    {% include "shared/icons/light-bulb.html" with class="w-5 h-5" %} {{
+                    challenge_info.result.hints_used|length }} hint(s) used
+                </span>
+            </div>
+            {% endif %}
+
+            <div class="timestamp">
+                {% include "shared/icons/clock.html" with class="w-5 h-5" %} Answered:
+                {{ challenge_info.result.attempted_at|date:"M d, Y H:i" }}
+            </div>
             {% else %}
-                <div class="answer-content text-center text-gray-400 dark:text-gray-500">
-                    {% include "shared/icons/hourglass.html" with class="w-5 h-5" %} Challenge not yet attempted
-                </div>
+            <div class="answer-content text-center text-gray-400 dark:text-gray-500">
+                {% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
+                Challenge not yet attempted
+            </div>
             {% endif %}
         </div>
         {% endfor %}
@@ -775,14 +846,26 @@
 
     <!-- Action Buttons -->
     <div class="mt-10 flex flex-wrap gap-4">
-        <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journeys" %}
+        <a
+            href="{% url 'crush_lu:coach_journey_dashboard' %}"
+            class="inline-flex items-center gap-2 rounded-lg bg-gray-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700"
+        >
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans
+            "Back to Journeys" %}
         </a>
-        <button onclick="window.print()" class="border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Report" %}
+        <button
+            onclick="window.print()"
+            class="inline-flex items-center gap-2 rounded-lg border border-purple-500 px-6 py-3 font-semibold text-purple-600 transition-colors hover:bg-purple-50 dark:border-purple-400 dark:text-purple-400 dark:hover:bg-purple-900/30"
+        >
+            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans
+            "Print Report" %}
         </button>
-        <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
-            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} {% trans "Admin View" %}
+        <a
+            href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}"
+            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %} {% trans
+            "Admin View" %}
         </a>
     </div>
 </div>

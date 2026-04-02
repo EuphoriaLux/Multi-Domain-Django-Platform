@@ -1,49 +1,72 @@
-{% extends 'crush_lu/base.html' %}
-{% load i18n crush_media %}
-
-{% block title %}{{ profile.display_name }} - {% trans "Top Matches" %} - Crush.lu{% endblock %}
-{% block meta_robots %}noindex, nofollow{% endblock %}
-
-{% block content %}
-<div class="max-w-4xl mx-auto">
+{% extends 'crush_lu/base.html' %} {% load i18n crush_media %} {% block title %}{{
+profile.display_name }} - {% trans "Top Matches" %} - Crush.lu{% endblock %} {% block
+meta_robots %}noindex, nofollow{% endblock %} {% block content %}
+<div class="mx-auto max-w-4xl">
     <!-- Breadcrumb -->
-    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
-        <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Dashboard" %}</a>
+    <div class="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <a
+            href="{% url 'crush_lu:coach_dashboard' %}"
+            class="hover:text-crush-purple transition-colors"
+            >{% trans "Dashboard" %}</a
+        >
         <span>/</span>
-        <a href="{% url 'crush_lu:coach_members' %}" class="hover:text-crush-purple transition-colors">{% trans "My Members" %}</a>
+        <a
+            href="{% url 'crush_lu:coach_members' %}"
+            class="hover:text-crush-purple transition-colors"
+            >{% trans "My Members" %}</a
+        >
         <span>/</span>
-        <a href="{% url 'crush_lu:coach_member_overview' member.id %}" class="hover:text-crush-purple transition-colors">{{ profile.display_name }}</a>
+        <a
+            href="{% url 'crush_lu:coach_member_overview' member.id %}"
+            class="hover:text-crush-purple transition-colors"
+            >{{ profile.display_name }}</a
+        >
         <span>/</span>
         <span class="text-gray-700 dark:text-gray-300">{% trans "Top Matches" %}</span>
     </div>
 
     <!-- Member header -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6">
+    <div
+        class="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-14 h-14 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+            <div
+                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+            >
                 {% if profile|has_photo:'photo_1' %}
-                    <img src="{% profile_photo_url profile 'photo_1' %}"
-                         alt="" class="w-full h-full object-cover" loading="lazy">
+                <img
+                    src="{% profile_photo_url profile 'photo_1' %}"
+                    alt=""
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                />
                 {% else %}
-                    <div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
-                        <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ member.first_name|first|upper }}</span>
-                    </div>
+                <div
+                    class="from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex h-full w-full items-center justify-center bg-gradient-to-br"
+                >
+                    <span
+                        class="text-crush-purple dark:text-crush-pink text-lg font-semibold"
+                        >{{ member.first_name|first|upper }}</span
+                    >
+                </div>
                 {% endif %}
             </div>
-            <div class="flex-1 min-w-0">
+            <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
-                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ profile.display_name }}</h1>
+                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+                        {{ profile.display_name }}
+                    </h1>
                     {% if profile.gender == 'F' %}
-                        <span class="text-pink-500">&#9792;</span>
+                    <span class="text-pink-500">&#9792;</span>
                     {% elif profile.gender == 'M' %}
-                        <span class="text-blue-500">&#9794;</span>
+                    <span class="text-blue-500">&#9794;</span>
                     {% elif profile.gender %}
-                        <span class="text-purple-500">&#9898;</span>
+                    <span class="text-purple-500">&#9898;</span>
                     {% endif %}
                 </div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {% if profile.age %}{{ profile.age }} {% trans "years" %} &middot; {% endif %}
-                    {% trans "Top Matches" %}
+                    {% if profile.age %}{{ profile.age }} {% trans "years" %} &middot;
+                    {% endif %} {% trans "Top Matches" %}
                 </p>
             </div>
         </div>
@@ -51,64 +74,102 @@
 
     {% if not has_traits %}
     <!-- Empty state: no traits configured -->
-    <div class="section-card text-center py-12">
-        <div class="text-5xl mb-4">💫</div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{% trans "No personality traits set" %}</h3>
-        <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "This member has not yet set their personality preferences. Matches will appear once they configure their sought qualities." %}</p>
+    <div class="section-card py-12 text-center">
+        <div class="mb-4 text-5xl">💫</div>
+        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            {% trans "No personality traits set" %}
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+            {% trans "This member has not yet set their personality preferences. Matches
+            will appear once they configure their sought qualities." %}
+        </p>
     </div>
 
     {% elif not matches %}
     <!-- Empty state: traits set but no matches -->
-    <div class="section-card text-center py-12">
-        <div class="text-5xl mb-4">🔍</div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{% trans "No matches yet" %}</h3>
-        <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "No compatible matches found for this member at this time." %}</p>
+    <div class="section-card py-12 text-center">
+        <div class="mb-4 text-5xl">🔍</div>
+        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            {% trans "No matches yet" %}
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+            {% trans "No compatible matches found for this member at this time." %}
+        </p>
     </div>
 
     {% else %}
     <!-- Match cards -->
     <div class="grid gap-3">
         {% for match in matches %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <div
+            class="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+        >
             <div class="flex items-center gap-4">
                 <!-- Photo (coaches see unblurred) -->
-                <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                <div
+                    class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                >
                     {% if match.profile|has_photo:'photo_1' %}
-                        <img src="{% profile_photo_url match.profile 'photo_1' %}"
-                             alt="" class="w-full h-full object-cover" loading="lazy">
+                    <img
+                        src="{% profile_photo_url match.profile 'photo_1' %}"
+                        alt=""
+                        class="h-full w-full object-cover"
+                        loading="lazy"
+                    />
                     {% else %}
-                        <div class="w-full h-full bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-700 dark:to-pink-700 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        </div>
+                    <div
+                        class="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-700 dark:to-pink-700"
+                    >
+                        <svg
+                            class="h-6 w-6 text-white/60"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                        </svg>
+                    </div>
                     {% endif %}
                 </div>
 
                 <!-- Name and age -->
-                <div class="flex-1 min-w-0">
-                    <a href="{% url 'crush_lu:coach_member_overview' match.user.id %}"
-                       class="text-base font-semibold text-gray-900 dark:text-white hover:text-crush-purple dark:hover:text-purple-400 truncate block no-underline">
+                <div class="min-w-0 flex-1">
+                    <a
+                        href="{% url 'crush_lu:coach_member_overview' match.user.id %}"
+                        class="hover:text-crush-purple block truncate text-base font-semibold text-gray-900 no-underline dark:text-white dark:hover:text-purple-400"
+                    >
                         {{ match.profile.display_name }}
                     </a>
-                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div
+                        class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
+                    >
                         {% if match.profile.gender == 'F' %}
-                            <span class="text-pink-500">&#9792;</span>
+                        <span class="text-pink-500">&#9792;</span>
                         {% elif match.profile.gender == 'M' %}
-                            <span class="text-blue-500">&#9794;</span>
+                        <span class="text-blue-500">&#9794;</span>
                         {% elif match.profile.gender %}
-                            <span class="text-purple-500">&#9898;</span>
-                        {% endif %}
-                        {% if match.profile.age %}
-                            <span>{{ match.profile.age }} {% trans "years" %}</span>
+                        <span class="text-purple-500">&#9898;</span>
+                        {% endif %} {% if match.profile.age %}
+                        <span>{{ match.profile.age }} {% trans "years" %}</span>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- Score badge -->
                 <div class="flex-shrink-0 text-right">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ match.display.color }} {{ match.display.bg_color }}">
+                    <span
+                        class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ match.display.color }} {{ match.display.bg_color }}"
+                    >
                         {{ match.display.label }}
                     </span>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ match.score_percent }}%</p>
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        {{ match.score_percent }}%
+                    </p>
                 </div>
             </div>
         </div>
@@ -117,26 +178,29 @@
 
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
-    <div class="flex justify-center gap-2 mt-8">
+    <div class="mt-8 flex justify-center gap-2">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}"
-           class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+        <a
+            href="?page={{ page_obj.previous_page_number }}"
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
             {% trans "Previous" %}
         </a>
         {% endif %}
         <span class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
-            {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages %}
-            Page {{ current }} of {{ total }}
-            {% endblocktrans %}
+            {% blocktrans with current=page_obj.number
+            total=page_obj.paginator.num_pages %} Page {{ current }} of {{ total }} {%
+            endblocktrans %}
         </span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}"
-           class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+        <a
+            href="?page={{ page_obj.next_page_number }}"
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
             {% trans "Next" %}
         </a>
         {% endif %}
     </div>
-    {% endif %}
-    {% endif %}
+    {% endif %} {% endif %}
 </div>
 {% endblock %}

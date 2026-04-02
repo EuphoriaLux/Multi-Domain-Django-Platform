@@ -6,24 +6,24 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0017_add_status_indexes'),
+        ("crush_lu", "0017_add_status_indexes"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='crushprofile',
-            name='needs_screening_call',
+            model_name="crushprofile",
+            name="needs_screening_call",
         ),
         migrations.RemoveField(
-            model_name='crushprofile',
-            name='screening_call_completed',
+            model_name="crushprofile",
+            name="screening_call_completed",
         ),
         migrations.RemoveField(
-            model_name='crushprofile',
-            name='screening_call_scheduled',
+            model_name="crushprofile",
+            name="screening_call_scheduled",
         ),
         migrations.RemoveField(
-            model_name='crushprofile',
-            name='screening_notes',
+            model_name="crushprofile",
+            name="screening_notes",
         ),
     ]

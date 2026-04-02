@@ -9,6 +9,7 @@ This module configures the azure-monitor-opentelemetry SDK to:
 IMPORTANT: This replaces Azure App Service auto-instrumentation.
 Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure.
 """
+
 import logging
 import os
 
@@ -16,18 +17,18 @@ logger = logging.getLogger(__name__)
 
 # Exceptions to suppress from telemetry (fully qualified class names)
 SUPPRESSED_EXCEPTIONS = {
-    'psycopg2.errors.UniqueViolation',
-    'django.db.utils.IntegrityError',
+    "psycopg2.errors.UniqueViolation",
+    "django.db.utils.IntegrityError",
 }
 
 # Specific error messages to suppress (substring match)
 SUPPRESSED_MESSAGES = {
-    'django_cache_pkey',  # Cache race condition
-    'duplicate key value violates unique constraint',
+    "django_cache_pkey",  # Cache race condition
+    "duplicate key value violates unique constraint",
 }
 
 
-def should_suppress_exception(exception_type: str, exception_message: str = '') -> bool:
+def should_suppress_exception(exception_type: str, exception_message: str = "") -> bool:
     """
     Check if an exception should be suppressed from telemetry.
 
@@ -41,7 +42,7 @@ def should_suppress_exception(exception_type: str, exception_message: str = '') 
     # Check if exception type is in suppressed list
     if exception_type in SUPPRESSED_EXCEPTIONS:
         # For IntegrityError, only suppress if it's a cache-related error
-        if 'IntegrityError' in exception_type:
+        if "IntegrityError" in exception_type:
             return any(msg in exception_message for msg in SUPPRESSED_MESSAGES)
         return True
 
@@ -62,18 +63,18 @@ def _span_has_only_suppressed_exceptions(span) -> bool:
 
     This ensures we don't drop spans with real errors mixed with cache errors.
     """
-    if not hasattr(span, 'events') or not span.events:
+    if not hasattr(span, "events") or not span.events:
         return False
 
-    exception_events = [e for e in span.events if e.name == 'exception']
+    exception_events = [e for e in span.events if e.name == "exception"]
     if not exception_events:
         return False
 
     # Check if ALL exceptions should be suppressed
     for event in exception_events:
         attrs = event.attributes or {}
-        exc_type = str(attrs.get('exception.type', ''))
-        exc_msg = str(attrs.get('exception.message', ''))
+        exc_type = str(attrs.get("exception.type", ""))
+        exc_msg = str(attrs.get("exception.message", ""))
 
         if not should_suppress_exception(exc_type, exc_msg):
             return False  # Found a real exception - don't suppress this span
@@ -95,24 +96,25 @@ class DependencyFilteringProcessor:
 
     # URLs to exclude from dependency tracking
     EXCLUDED_PATHS = {
-        '/static/',
-        '/media/',
-        '/healthz/',
-        '/favicon.ico',
-        '.css',
-        '.js',
-        '.png',
-        '.jpg',
-        '.jpeg',
-        '.gif',
-        '.svg',
-        '.woff',
-        '.woff2',
-        '.ttf',
+        "/static/",
+        "/media/",
+        "/healthz/",
+        "/favicon.ico",
+        ".css",
+        ".js",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".woff",
+        ".woff2",
+        ".ttf",
     }
 
     def __init__(self):
         from opentelemetry.trace import SpanContext, TraceFlags
+
         self._SpanContext = SpanContext
         self._TraceFlags = TraceFlags
 
@@ -127,9 +129,9 @@ class DependencyFilteringProcessor:
     def on_end(self, span):
         """Filter out low-value dependency spans."""
         # Check if this is an HTTP span
-        if hasattr(span, 'attributes') and span.attributes:
-            url = str(span.attributes.get('http.url', ''))
-            target = str(span.attributes.get('http.target', ''))
+        if hasattr(span, "attributes") and span.attributes:
+            url = str(span.attributes.get("http.url", ""))
+            target = str(span.attributes.get("http.target", ""))
 
             # Check if URL or target matches excluded patterns
             for excluded in self.EXCLUDED_PATHS:
@@ -163,6 +165,7 @@ class ExceptionFilteringProcessor:
 
     def __init__(self):
         from opentelemetry.trace import SpanContext, TraceFlags
+
         self._SpanContext = SpanContext
         self._TraceFlags = TraceFlags
 
@@ -190,7 +193,9 @@ class ExceptionFilteringProcessor:
                 self._TraceFlags(self._TraceFlags.DEFAULT),
                 span.context.trace_state,
             )
-            logger.debug(f"Filtered span {span.name} containing only suppressed exceptions")
+            logger.debug(
+                f"Filtered span {span.name} containing only suppressed exceptions"
+            )
 
     def shutdown(self):
         """Called when the SDK is shut down."""
@@ -224,7 +229,7 @@ def configure_azure_monitor_telemetry(environment="production"):
         ENABLE_LIVE_METRICS: Set to 'false' to disable Live Metrics (default: true)
         TELEMETRY_SAMPLING_RATE: Sampling rate 0.0-1.0 (default: 0.1 = 10%)
     """
-    connection_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+    connection_string = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
     if not connection_string:
         logger.info(
@@ -234,11 +239,13 @@ def configure_azure_monitor_telemetry(environment="production"):
         return False
 
     # Allow disabling Live Metrics to avoid timeout issues during deployment
-    enable_live_metrics = os.environ.get('ENABLE_LIVE_METRICS', 'true').lower() != 'false'
+    enable_live_metrics = (
+        os.environ.get("ENABLE_LIVE_METRICS", "true").lower() != "false"
+    )
 
     # Sampling rate: 0.1 = 10% (keep 10% of traces, drop 90%)
     # This can reduce costs by 90% while maintaining statistical visibility
-    sampling_rate = float(os.environ.get('TELEMETRY_SAMPLING_RATE', '0.05'))
+    sampling_rate = float(os.environ.get("TELEMETRY_SAMPLING_RATE", "0.05"))
 
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
@@ -335,13 +342,17 @@ class SuppressedExceptionFilter(logging.Filter):
             exc_type = record.exc_info[0]
             if exc_type:
                 exc_type_name = f"{exc_type.__module__}.{exc_type.__name__}"
-                exc_message = str(record.exc_info[1]) if record.exc_info[1] else ''
+                exc_message = str(record.exc_info[1]) if record.exc_info[1] else ""
 
                 if should_suppress_exception(exc_type_name, exc_message):
                     return False  # Suppress this log
 
         # Check message content
-        msg = str(record.getMessage()) if hasattr(record, 'getMessage') else str(record.msg)
+        msg = (
+            str(record.getMessage())
+            if hasattr(record, "getMessage")
+            else str(record.msg)
+        )
         if any(suppressed in msg for suppressed in SUPPRESSED_MESSAGES):
             return False  # Suppress this log
 

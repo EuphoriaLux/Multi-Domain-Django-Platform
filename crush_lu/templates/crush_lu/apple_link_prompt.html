@@ -1,27 +1,35 @@
-{% extends "crush_lu/base.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "Link Your Account" %}{% endblock %}
-{% block meta_robots %}noindex, nofollow{% endblock %}
-
-{% block content %}
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="max-w-lg w-full">
+{% extends "crush_lu/base.html" %} {% load i18n %} {% block title %}{% trans "Link Your
+Account" %}{% endblock %} {% block meta_robots %}noindex, nofollow{% endblock %} {%
+block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12">
+    <div class="w-full max-w-lg">
         <div class="card">
             <div class="card-body text-center">
                 <div class="mb-4">
-                    <svg class="w-12 h-12 mx-auto text-gray-800 dark:text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                    <svg
+                        class="mx-auto h-12 w-12 text-gray-800 dark:text-white"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+                        />
+                    </svg>
                 </div>
-                <h1 class="text-2xl font-bold mb-4">{% trans "Welcome to Crush.lu!" %}</h1>
+                <h1 class="mb-4 text-2xl font-bold">
+                    {% trans "Welcome to Crush.lu!" %}
+                </h1>
 
                 <p class="text-secondary mb-6">
-                    {% trans "You signed in with Apple using a private email address. If you already have a Crush.lu account, you can link it now to keep your existing profile and connections." %}
+                    {% trans "You signed in with Apple using a private email address. If
+                    you already have a Crush.lu account, you can link it now to keep
+                    your existing profile and connections." %}
                 </p>
 
                 <div class="space-y-3">
                     <form method="post">
                         {% csrf_token %}
-                        <input type="hidden" name="action" value="link_existing">
+                        <input type="hidden" name="action" value="link_existing" />
                         <button type="submit" class="btn-crush-primary w-full py-3">
                             {% trans "I have an existing account" %}
                         </button>
@@ -29,16 +37,22 @@
 
                     <form method="post">
                         {% csrf_token %}
-                        <input type="hidden" name="action" value="continue_new">
-                        <button type="submit" class="block w-full text-sm text-secondary hover:text-purple-600 dark:hover:text-purple-400 py-2">
+                        <input type="hidden" name="action" value="continue_new" />
+                        <button
+                            type="submit"
+                            class="text-secondary block w-full py-2 text-sm hover:text-purple-600 dark:hover:text-purple-400"
+                        >
                             {% trans "I'm new, continue to create my profile" %}
                         </button>
                     </form>
                 </div>
 
-                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p class="text-xs text-secondary">
-                        {% trans "If you choose to link an existing account, you will be logged out and asked to log in with your original method (email, Google, Facebook, or Microsoft). You can then connect Apple in your Account Settings." %}
+                <div class="mt-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+                    <p class="text-secondary text-xs">
+                        {% trans "If you choose to link an existing account, you will be
+                        logged out and asked to log in with your original method (email,
+                        Google, Facebook, or Microsoft). You can then connect Apple in
+                        your Account Settings." %}
                     </p>
                 </div>
             </div>

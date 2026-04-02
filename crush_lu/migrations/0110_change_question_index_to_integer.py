@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0109_quizquestion_correct_answer_quizround_is_bonus_and_more'),
+        ("crush_lu", "0109_quizquestion_correct_answer_quizround_is_bonus_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='quizevent',
-            name='current_question_index',
+            model_name="quizevent",
+            name="current_question_index",
             field=models.IntegerField(default=-1),
         ),
     ]

@@ -7,7 +7,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('power_up', '0002_ensure_finops_tables_exist'),
+        ("power_up", "0002_ensure_finops_tables_exist"),
     ]
 
     # Use SeparateDatabaseAndState to remove models from migration state
@@ -16,17 +16,17 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.DeleteModel(
-                    name='CostAggregation',
+                    name="CostAggregation",
                 ),
                 migrations.RemoveField(
-                    model_name='costrecord',
-                    name='cost_export',
+                    model_name="costrecord",
+                    name="cost_export",
                 ),
                 migrations.DeleteModel(
-                    name='CostExport',
+                    name="CostExport",
                 ),
                 migrations.DeleteModel(
-                    name='CostRecord',
+                    name="CostRecord",
                 ),
             ],
             # No database operations - tables remain for finops app

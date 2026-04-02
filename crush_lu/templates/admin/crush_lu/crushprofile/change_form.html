@@ -1,15 +1,17 @@
-{% extends "admin/change_form.html" %}
-{% load i18n admin_urls %}
-
-{% block object-tools-items %}
-    {{ block.super }}
-    {% if original %}
-    <li>
-        <a href="/admin/auth/user/{{ original.user.pk }}/change/"
-           class="viewsitelink"
-           style="background: linear-gradient(90deg, #9B59B6, #FF6B9D); border-radius: 4px; color: white; padding: 5px 10px;">
-            👤 View Django User Record
-        </a>
-    </li>
-    {% endif %}
-{% endblock %}
+{% extends "admin/change_form.html" %} {% load i18n admin_urls %} {% block
+object-tools-items %} {{ block.super }} {% if original %}
+<li>
+    <a
+        href="/admin/auth/user/{{ original.user.pk }}/change/"
+        class="viewsitelink"
+        style="
+            background: linear-gradient(90deg, #9b59b6, #ff6b9d);
+            border-radius: 4px;
+            color: white;
+            padding: 5px 10px;
+        "
+    >
+        👤 View Django User Record
+    </a>
+</li>
+{% endif %} {% endblock %}

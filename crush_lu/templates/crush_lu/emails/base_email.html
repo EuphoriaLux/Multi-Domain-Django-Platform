@@ -1,129 +1,162 @@
 {% load i18n %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Crush.lu{% endblock %}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            background-color: #9B59B6; /* Solid fallback for Outlook */
-            background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 600;
-            color: #ffffff; /* Explicit white for Outlook */
-        }
-        .content {
-            padding: 30px 20px;
-        }
-        .content h2 {
-            color: #9B59B6;
-            font-size: 22px;
-            margin-top: 0;
-        }
-        .content p {
-            margin: 15px 0;
-            color: #555;
-        }
-        .button {
-            display: inline-block;
-            padding: 12px 30px;
-            background-color: #9B59B6; /* Solid fallback for Outlook */
-            background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-            color: white !important;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: 600;
-            margin: 20px 0;
-        }
-        .button:hover {
-            opacity: 0.9;
-        }
-        .info-box {
-            background: #f8f9fa;
-            border-left: 4px solid #9B59B6;
-            padding: 15px;
-            margin: 20px 0;
-        }
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #777;
-        }
-        .footer a {
-            color: #9B59B6;
-            text-decoration: none;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        li {
-            margin: 8px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header" style="background-color: #9B59B6; color: white; padding: 30px 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 28px; font-weight: 600; color: #ffffff;">{% block header_title %}Crush.lu{% endblock %}</h1>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% block title %}Crush.lu{% endblock %}</title>
+        <style>
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                margin: 0;
+                padding: 0;
+                background-color: #f4f4f4;
+            }
+            .email-container {
+                max-width: 600px;
+                margin: 20px auto;
+                background: white;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                background-color: #9b59b6; /* Solid fallback for Outlook */
+                background: linear-gradient(135deg, #9b59b6, #ff6b9d);
+                color: white;
+                padding: 30px 20px;
+                text-align: center;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 600;
+                color: #ffffff; /* Explicit white for Outlook */
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .content h2 {
+                color: #9b59b6;
+                font-size: 22px;
+                margin-top: 0;
+            }
+            .content p {
+                margin: 15px 0;
+                color: #555;
+            }
+            .button {
+                display: inline-block;
+                padding: 12px 30px;
+                background-color: #9b59b6; /* Solid fallback for Outlook */
+                background: linear-gradient(135deg, #9b59b6, #ff6b9d);
+                color: white !important;
+                text-decoration: none;
+                border-radius: 5px;
+                font-weight: 600;
+                margin: 20px 0;
+            }
+            .button:hover {
+                opacity: 0.9;
+            }
+            .info-box {
+                background: #f8f9fa;
+                border-left: 4px solid #9b59b6;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            .footer {
+                background: #f8f9fa;
+                padding: 20px;
+                text-align: center;
+                font-size: 14px;
+                color: #777;
+            }
+            .footer a {
+                color: #9b59b6;
+                text-decoration: none;
+            }
+            ul {
+                padding-left: 20px;
+            }
+            li {
+                margin: 8px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div
+                class="header"
+                style="
+                    background-color: #9b59b6;
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                "
+            >
+                <h1
+                    style="margin: 0; font-size: 28px; font-weight: 600; color: #ffffff"
+                >
+                    {% block header_title %}Crush.lu{% endblock %}
+                </h1>
+            </div>
+            <div class="content">{% block content %} {% endblock %}</div>
+            <div class="footer">
+                <p>
+                    <strong>Crush.lu</strong> - {% trans "Privacy-First Dating in
+                    Luxembourg" %}<br />
+                    <a href="{{ home_url|default:'https://crush.lu' }}">crush.lu</a> |
+                    <a href="{{ about_url|default:'https://crush.lu/about/' }}"
+                        >{% trans "About" %}</a
+                    >
+                    |
+                    <a href="{{ events_url|default:'https://crush.lu/events/' }}"
+                        >{% trans "Events" %}</a
+                    >
+                </p>
+                {% if social_links %}
+                <p style="margin: 10px 0; font-size: 14px">
+                    {% for link in social_links %}
+                    <a
+                        href="{{ link.url }}"
+                        style="color: #9b59b6; text-decoration: none; margin: 0 6px"
+                        >{{ link.name }}</a
+                    >{% if not forloop.last %} |{% endif %} {% endfor %}
+                </p>
+                {% endif %}
+                <p style="font-size: 12px; color: #999">
+                    {% block footer_message %} {% trans "You're receiving this because
+                    you have an account on Crush.lu." %}<br />
+                    {% endblock %} {% trans "If you have questions, contact us at" %}
+                    support@crush.lu
+                </p>
+                {% block unsubscribe %} {% if unsubscribe_url %}
+                <p
+                    style="
+                        font-size: 11px;
+                        color: #aaa;
+                        margin-top: 15px;
+                        border-top: 1px solid #eee;
+                        padding-top: 15px;
+                    "
+                >
+                    <a href="{{ unsubscribe_url }}" style="color: #999"
+                        >{% trans "Unsubscribe" %}</a
+                    >
+                    |
+                    <a
+                        href="{{ settings_url|default:'https://crush.lu/account/settings/' }}"
+                        style="color: #999"
+                        >{% trans "Manage email preferences" %}</a
+                    >
+                </p>
+                {% endif %} {% endblock %}
+            </div>
         </div>
-        <div class="content">
-            {% block content %}
-            {% endblock %}
-        </div>
-        <div class="footer">
-            <p>
-                <strong>Crush.lu</strong> - {% trans "Privacy-First Dating in Luxembourg" %}<br>
-                <a href="{{ home_url|default:'https://crush.lu' }}">crush.lu</a> |
-                <a href="{{ about_url|default:'https://crush.lu/about/' }}">{% trans "About" %}</a> |
-                <a href="{{ events_url|default:'https://crush.lu/events/' }}">{% trans "Events" %}</a>
-            </p>
-            {% if social_links %}
-            <p style="margin: 10px 0; font-size: 14px;">
-                {% for link in social_links %}
-                <a href="{{ link.url }}" style="color: #9B59B6; text-decoration: none; margin: 0 6px;">{{ link.name }}</a>{% if not forloop.last %} |{% endif %}
-                {% endfor %}
-            </p>
-            {% endif %}
-            <p style="font-size: 12px; color: #999;">
-                {% block footer_message %}
-                {% trans "You're receiving this because you have an account on Crush.lu." %}<br>
-                {% endblock %}
-                {% trans "If you have questions, contact us at" %} support@crush.lu
-            </p>
-            {% block unsubscribe %}
-            {% if unsubscribe_url %}
-            <p style="font-size: 11px; color: #aaa; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-                <a href="{{ unsubscribe_url }}" style="color: #999;">{% trans "Unsubscribe" %}</a> |
-                <a href="{{ settings_url|default:'https://crush.lu/account/settings/' }}" style="color: #999;">{% trans "Manage email preferences" %}</a>
-            </p>
-            {% endif %}
-            {% endblock %}
-        </div>
-    </div>
-</body>
+    </body>
 </html>

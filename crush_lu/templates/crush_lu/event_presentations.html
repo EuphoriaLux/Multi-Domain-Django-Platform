@@ -1,10 +1,6 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Presentations" %} - {{ event.title }} - Crush.lu{% endblock %}
-
-{% block extra_css %}
+{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Presentations" %} - {{ event.title }} - Crush.lu{% endblock %} {% block extra_css
+%}
 <style>
     .presentation-container {
         max-width: 900px;
@@ -12,18 +8,22 @@
     }
 
     .presenter-card {
-        border: 3px solid #9B59B6;
+        border: 3px solid #9b59b6;
         border-radius: 20px;
         padding: 3rem;
         margin-bottom: 2rem;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05) 0%, rgba(255, 107, 157, 0.05) 100%);
+        background: linear-gradient(
+            135deg,
+            rgba(155, 89, 182, 0.05) 0%,
+            rgba(255, 107, 157, 0.05) 100%
+        );
         box-shadow: 0 8px 24px rgba(155, 89, 182, 0.2);
     }
 
     .presenter-name {
         font-size: 3rem;
         font-weight: bold;
-        color: #9B59B6;
+        color: #9b59b6;
         margin-bottom: 1rem;
         text-align: center;
     }
@@ -32,24 +32,29 @@
         font-size: 5rem;
         font-weight: bold;
         text-align: center;
-        color: #FF6B9D;
+        color: #ff6b9d;
         margin: 2rem 0;
-        font-family: 'Courier New', monospace;
+        font-family: "Courier New", monospace;
     }
 
     .presentation-timer.warning {
-        color: #FFA500;
+        color: #ffa500;
         animation: pulse 1s infinite;
     }
 
     .presentation-timer.danger {
-        color: #FF0000;
+        color: #ff0000;
         animation: pulse 0.5s infinite;
     }
 
     @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
     }
 
     .star-rating {
@@ -73,7 +78,7 @@
     .star-rating label:hover,
     .star-rating label:hover ~ label,
     .star-rating input[type="radio"]:checked ~ label {
-        color: #FFD700;
+        color: #ffd700;
         transform: scale(1.2);
     }
 
@@ -87,7 +92,7 @@
 
     .progress-bar {
         height: 100%;
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
         transition: width 0.5s ease;
         display: flex;
         align-items: center;
@@ -97,7 +102,7 @@
     }
 
     .presentation-style-banner {
-        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        background: linear-gradient(135deg, #ff6b9d 0%, #9b59b6 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 15px;
@@ -124,7 +129,7 @@
     }
 
     .presenting-indicator {
-        background: linear-gradient(135deg, #FF6B9D 0%, #9B59B6 100%);
+        background: linear-gradient(135deg, #ff6b9d 0%, #9b59b6 100%);
         color: white;
         padding: 1rem;
         border-radius: 10px;
@@ -136,291 +141,377 @@
     }
 
     @keyframes glow {
-        0%, 100% { box-shadow: 0 0 10px rgba(255, 107, 157, 0.5); }
-        50% { box-shadow: 0 0 20px rgba(155, 89, 182, 0.8); }
+        0%,
+        100% {
+            box-shadow: 0 0 10px rgba(255, 107, 157, 0.5);
+        }
+        50% {
+            box-shadow: 0 0 20px rgba(155, 89, 182, 0.8);
+        }
     }
 
     /* Dark Mode Support */
     html.dark .presenter-card {
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
-        border-color: #7C3AED;
+        background: linear-gradient(
+            135deg,
+            rgba(139, 92, 246, 0.15) 0%,
+            rgba(236, 72, 153, 0.15) 100%
+        );
+        border-color: #7c3aed;
         box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
     }
 
     html.dark .presenter-name {
-        color: #A78BFA;
+        color: #a78bfa;
     }
 
     html.dark .presentation-timer {
-        color: #F472B6;
+        color: #f472b6;
     }
 
     html.dark .star-rating label {
-        color: #4B5563;
+        color: #4b5563;
     }
 
     html.dark .star-rating label:hover,
     html.dark .star-rating label:hover ~ label,
     html.dark .star-rating input[type="radio"]:checked ~ label {
-        color: #FFD700;
+        color: #ffd700;
     }
 
     html.dark .progress-bar-container {
-        background: #1F2937;
+        background: #1f2937;
     }
 
     html.dark .next-presenter-card {
-        background: #1F2937;
+        background: #1f2937;
         border-color: #374151;
     }
 
     html.dark .rating-submitted {
         background: rgba(34, 197, 94, 0.15);
-        border-color: #22C55E;
-        color: #86EFAC;
+        border-color: #22c55e;
+        color: #86efac;
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="flex justify-center">
-    <div class="w-full max-w-4xl px-4 presentation-container">
-        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
+    <div class="presentation-container w-full max-w-4xl px-4">
+        <a
+            href="{% url 'crush_lu:event_detail' event.id %}"
+            class="mb-4 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans
+            "Back to Event" %}
         </a>
 
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+        <div
+            class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+        >
             <div class="p-8">
-                <div class="text-center mb-4">
-                    <h1 class="display-5 dark:text-white">{% trans "🎤 Presentation Round" %}</h1>
-                    <p class="text-lg text-gray-500 dark:text-gray-400">{{ event.title }}</p>
+                <div class="mb-4 text-center">
+                    <h1 class="display-5 dark:text-white">
+                        {% trans "🎤 Presentation Round" %}
+                    </h1>
+                    <p class="text-lg text-gray-500 dark:text-gray-400">
+                        {{ event.title }}
+                    </p>
                 </div>
 
                 <!-- Progress Bar -->
                 <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {{ completed_presentations|add:1 }}0%;">
-                        {% blocktrans with completed=completed_presentations total=total_presentations %}{{ completed }} / {{ total }} Completed{% endblocktrans %}
+                    <div
+                        class="progress-bar"
+                        style="width: {{ completed_presentations|add:1 }}0%;"
+                    >
+                        {% blocktrans with completed=completed_presentations
+                        total=total_presentations %}{{ completed }} / {{ total }}
+                        Completed{% endblocktrans %}
                     </div>
                 </div>
 
                 <!-- Presentation Style Banner -->
                 {% if winning_style %}
                 <div class="presentation-style-banner">
-                    <h4 class="mb-0">{% blocktrans with style=winning_style.display_name %}📋 Presentation Style: <strong>{{ style }}</strong>{% endblocktrans %}</h4>
+                    <h4 class="mb-0">
+                        {% blocktrans with style=winning_style.display_name %}📋
+                        Presentation Style: <strong>{{ style }}</strong>{% endblocktrans
+                        %}
+                    </h4>
                     <small>{{ winning_style.description }}</small>
+                </div>
+                {% endif %} {% if current_presentation %}
+                <!-- Current Presenter -->
+                {% if is_presenting %}
+                <div class="presenting-indicator">
+                    {% trans "🌟 You're Currently Presenting! 🌟" %}
                 </div>
                 {% endif %}
 
-                {% if current_presentation %}
-                    <!-- Current Presenter -->
-                    {% if is_presenting %}
-                    <div class="presenting-indicator">
-                        {% trans "🌟 You're Currently Presenting! 🌟" %}
+                <div class="presenter-card">
+                    <div class="presenter-name">
+                        {{ current_presentation.user.crushprofile.display_name }}
                     </div>
-                    {% endif %}
 
-                    <div class="presenter-card">
-                        <div class="presenter-name">
-                            {{ current_presentation.user.crushprofile.display_name }}
-                        </div>
+                    <!-- 90 Second Timer -->
+                    <div class="presentation-timer" id="timer">90</div>
 
-                        <!-- 90 Second Timer -->
-                        <div class="presentation-timer" id="timer">
-                            90
-                        </div>
+                    {% if not is_presenting %}
+                    <!-- Star Rating (only for non-presenters) -->
+                    <div class="text-center">
+                        <h4 class="mb-3 dark:text-white">
+                            {% trans "Rate this presentation" %}
+                        </h4>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            {% trans "Your rating is completely anonymous" %}
+                        </p>
 
-                        {% if not is_presenting %}
-                        <!-- Star Rating (only for non-presenters) -->
-                        <div class="text-center">
-                            <h4 class="mb-3 dark:text-white">{% trans "Rate this presentation" %}</h4>
-                            <p class="text-gray-500 dark:text-gray-400">{% trans "Your rating is completely anonymous" %}</p>
-
-                            {% if user_has_rated %}
-                            <div class="rating-submitted">
-                                {% trans "✓ You've rated this presenter. Thanks!" %}
-                            </div>
-                            {% else %}
-                            <form id="rating-form" data-presenter-id="{{ current_presentation.user.id }}">
-                                {% csrf_token %}
-                                <div class="star-rating">
-                                    <input type="radio" name="rating" value="5" id="star5">
-                                    <label for="star5">★</label>
-                                    <input type="radio" name="rating" value="4" id="star4">
-                                    <label for="star4">★</label>
-                                    <input type="radio" name="rating" value="3" id="star3">
-                                    <label for="star3">★</label>
-                                    <input type="radio" name="rating" value="2" id="star2">
-                                    <label for="star2">★</label>
-                                    <input type="radio" name="rating" value="1" id="star1">
-                                    <label for="star1">★</label>
-                                </div>
-                                <button type="submit" class="btn-crush-primary px-6 py-3 text-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed" disabled id="submit-rating-btn">
-                                    {% trans "Submit Rating" %}
-                                </button>
-                            </form>
-                            {% endif %}
+                        {% if user_has_rated %}
+                        <div class="rating-submitted">
+                            {% trans "✓ You've rated this presenter. Thanks!" %}
                         </div>
                         {% else %}
-                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 text-center">
-                            <strong>{% trans "💡 Tip:" %}</strong> {% trans "Take your time, be yourself, and have fun!" %}
-                        </div>
+                        <form
+                            id="rating-form"
+                            data-presenter-id="{{ current_presentation.user.id }}"
+                        >
+                            {% csrf_token %}
+                            <div class="star-rating">
+                                <input
+                                    type="radio"
+                                    name="rating"
+                                    value="5"
+                                    id="star5"
+                                />
+                                <label for="star5">★</label>
+                                <input
+                                    type="radio"
+                                    name="rating"
+                                    value="4"
+                                    id="star4"
+                                />
+                                <label for="star4">★</label>
+                                <input
+                                    type="radio"
+                                    name="rating"
+                                    value="3"
+                                    id="star3"
+                                />
+                                <label for="star3">★</label>
+                                <input
+                                    type="radio"
+                                    name="rating"
+                                    value="2"
+                                    id="star2"
+                                />
+                                <label for="star2">★</label>
+                                <input
+                                    type="radio"
+                                    name="rating"
+                                    value="1"
+                                    id="star1"
+                                />
+                                <label for="star1">★</label>
+                            </div>
+                            <button
+                                type="submit"
+                                class="btn-crush-primary mt-4 px-6 py-3 text-lg disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled
+                                id="submit-rating-btn"
+                            >
+                                {% trans "Submit Rating" %}
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
-
-                    {% if next_presentation %}
-                    <div class="next-presenter-card">
-                        <h5 class="text-gray-500 dark:text-gray-400">{% trans "👀 Up Next:" %}</h5>
-                        <p class="mb-0 dark:text-gray-300"><strong>{{ next_presentation.user.crushprofile.display_name }}</strong></p>
-                    </div>
-                    {% endif %}
-
-                {% else %}
-                    <!-- No current presenter -->
-                    {% if completed_presentations == total_presentations and total_presentations > 0 %}
-                    <!-- All presentations completed -->
-                    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-6 text-center">
-                        <h4 class="text-xl font-semibold mb-2">{% trans "🎉 All Presentations Completed!" %}</h4>
-                        <p class="mb-4">{% blocktrans with total=total_presentations %}Great job everyone! All {{ total }} presentations are done.{% endblocktrans %}</p>
-                        <a href="{% url 'crush_lu:my_presentation_scores' event.id %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg">
-                            {% trans "View Your Personal Scores" %}
-                        </a>
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm">{% trans "Your scores are completely private - only you can see them!" %}</p>
-                    </div>
                     {% else %}
-                    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-6 text-center">
-                        <h4 class="text-xl font-semibold mb-2">{% trans "Waiting for presentations to begin..." %}</h4>
-                        <p class="mb-0">{% trans "The coach will start the presentation round shortly." %}</p>
+                    <div
+                        class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                    >
+                        <strong>{% trans "💡 Tip:" %}</strong> {% trans "Take your time,
+                        be yourself, and have fun!" %}
                     </div>
                     {% endif %}
-                {% endif %}
+                </div>
+
+                {% if next_presentation %}
+                <div class="next-presenter-card">
+                    <h5 class="text-gray-500 dark:text-gray-400">
+                        {% trans "👀 Up Next:" %}
+                    </h5>
+                    <p class="mb-0 dark:text-gray-300">
+                        <strong
+                            >{{ next_presentation.user.crushprofile.display_name
+                            }}</strong
+                        >
+                    </p>
+                </div>
+                {% endif %} {% else %}
+                <!-- No current presenter -->
+                {% if completed_presentations == total_presentations and
+                total_presentations > 0 %}
+                <!-- All presentations completed -->
+                <div
+                    class="rounded-lg border border-green-200 bg-green-50 p-6 text-center text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300"
+                >
+                    <h4 class="mb-2 text-xl font-semibold">
+                        {% trans "🎉 All Presentations Completed!" %}
+                    </h4>
+                    <p class="mb-4">
+                        {% blocktrans with total=total_presentations %}Great job
+                        everyone! All {{ total }} presentations are done.{%
+                        endblocktrans %}
+                    </p>
+                    <a
+                        href="{% url 'crush_lu:my_presentation_scores' event.id %}"
+                        class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3 text-lg"
+                    >
+                        {% trans "View Your Personal Scores" %}
+                    </a>
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "Your scores are completely private - only you can see
+                        them!" %}
+                    </p>
+                </div>
+                {% else %}
+                <div
+                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                >
+                    <h4 class="mb-2 text-xl font-semibold">
+                        {% trans "Waiting for presentations to begin..." %}
+                    </h4>
+                    <p class="mb-0">
+                        {% trans "The coach will start the presentation round shortly."
+                        %}
+                    </p>
+                </div>
+                {% endif %} {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-// Store current presenter ID to detect changes
-let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
+    // Store current presenter ID to detect changes
+    let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Poll server every 3 seconds to check for presenter changes
-    const pollInterval = setInterval(async () => {
-        try {
-            const response = await fetch('{% url "get_current_presenter_api" event.id %}');
-            const data = await response.json();
+    document.addEventListener('DOMContentLoaded', () => {
+        // Poll server every 3 seconds to check for presenter changes
+        const pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch('{% url "get_current_presenter_api" event.id %}');
+                const data = await response.json();
 
-            if (data.has_presenter) {
-                // Check if presenter changed
-                if (currentPresenterId !== data.presenter_id) {
-                    console.log('Presenter changed! Reloading...');
+                if (data.has_presenter) {
+                    // Check if presenter changed
+                    if (currentPresenterId !== data.presenter_id) {
+                        console.log('Presenter changed! Reloading...');
+                        location.reload();
+                    }
+                } else if (data.all_completed) {
+                    // All presentations completed, reload to show completion message
+                    console.log('All presentations completed! Reloading...');
+                    location.reload();
+                } else if (currentPresenterId !== null) {
+                    // Presenter ended but next one hasn't started yet
+                    console.log('Waiting for next presenter...');
                     location.reload();
                 }
-            } else if (data.all_completed) {
-                // All presentations completed, reload to show completion message
-                console.log('All presentations completed! Reloading...');
-                location.reload();
-            } else if (currentPresenterId !== null) {
-                // Presenter ended but next one hasn't started yet
-                console.log('Waiting for next presenter...');
-                location.reload();
+            } catch (error) {
+                console.error('Error polling presenter status:', error);
             }
-        } catch (error) {
-            console.error('Error polling presenter status:', error);
-        }
-    }, 3000); // Poll every 3 seconds
+        }, 3000); // Poll every 3 seconds
 
-    {% if current_presentation %}
-    // Server-synced 90-second countdown timer
-    {% if current_presentation.started_at %}
-    // Calculate time remaining based on server start time
-    const startTime = new Date('{{ current_presentation.started_at.isoformat }}');
-    const now = new Date();
-    const elapsedSeconds = Math.floor((now - startTime) / 1000);
-    let timeRemaining = Math.max(0, 90 - elapsedSeconds);
-    {% else %}
-    // No start time yet, start from 90
-    let timeRemaining = 90;
-    {% endif %}
+        {% if current_presentation %}
+        // Server-synced 90-second countdown timer
+        {% if current_presentation.started_at %}
+        // Calculate time remaining based on server start time
+        const startTime = new Date('{{ current_presentation.started_at.isoformat }}');
+        const now = new Date();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        let timeRemaining = Math.max(0, 90 - elapsedSeconds);
+        {% else %}
+        // No start time yet, start from 90
+        let timeRemaining = 90;
+        {% endif %}
 
-    const timerDisplay = document.getElementById('timer');
-    timerDisplay.textContent = timeRemaining;
-
-    const timerInterval = setInterval(() => {
-        timeRemaining--;
-        if (timeRemaining < 0) timeRemaining = 0;
+        const timerDisplay = document.getElementById('timer');
         timerDisplay.textContent = timeRemaining;
 
-        // Change color based on time remaining
-        if (timeRemaining <= 10) {
-            timerDisplay.classList.add('danger');
-            timerDisplay.classList.remove('warning');
-        } else if (timeRemaining <= 30) {
-            timerDisplay.classList.add('warning');
-        }
+        const timerInterval = setInterval(() => {
+            timeRemaining--;
+            if (timeRemaining < 0) timeRemaining = 0;
+            timerDisplay.textContent = timeRemaining;
 
-        if (timeRemaining <= 0) {
-            clearInterval(timerInterval);
-            timerDisplay.textContent = 'TIME!';
-            // Auto-refresh to next presenter after 3 seconds
-            setTimeout(() => {
-                location.reload();
-            }, 3000);
-        }
-    }, 1000);
-
-    {% if not is_presenting and not user_has_rated %}
-    // Star rating functionality
-    const ratingForm = document.getElementById('rating-form');
-    const ratingInputs = document.querySelectorAll('input[name="rating"]');
-    const submitBtn = document.getElementById('submit-rating-btn');
-
-    ratingInputs.forEach(input => {
-        input.addEventListener('change', () => {
-            submitBtn.disabled = false;
-        });
-    });
-
-    ratingForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const selectedRating = document.querySelector('input[name="rating"]:checked');
-        if (!selectedRating) return;
-
-        const presenterId = ratingForm.dataset.presenterId;
-        const csrfToken = '{{ csrf_token }}';
-        const ratingUrl = `{% url 'crush_lu:submit_presentation_rating' event.id 0 %}`.replace('/0/', `/${presenterId}/`);
-
-        try {
-            const response = await fetch(ratingUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken
-                },
-                body: `rating=${selectedRating.value}`
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                // Replace form with success message
-                ratingForm.innerHTML = `
-                    <div class="rating-submitted">
-                        ✓ ${data.message}
-                    </div>
-                `;
-            } else {
-                alert(data.error || 'Failed to submit rating');
+            // Change color based on time remaining
+            if (timeRemaining <= 10) {
+                timerDisplay.classList.add('danger');
+                timerDisplay.classList.remove('warning');
+            } else if (timeRemaining <= 30) {
+                timerDisplay.classList.add('warning');
             }
-        } catch (error) {
-            console.error('Error submitting rating:', error);
-            alert('Failed to submit rating. Please try again.');
-        }
+
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                timerDisplay.textContent = 'TIME!';
+                // Auto-refresh to next presenter after 3 seconds
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            }
+        }, 1000);
+
+        {% if not is_presenting and not user_has_rated %}
+        // Star rating functionality
+        const ratingForm = document.getElementById('rating-form');
+        const ratingInputs = document.querySelectorAll('input[name="rating"]');
+        const submitBtn = document.getElementById('submit-rating-btn');
+
+        ratingInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                submitBtn.disabled = false;
+            });
+        });
+
+        ratingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const selectedRating = document.querySelector('input[name="rating"]:checked');
+            if (!selectedRating) return;
+
+            const presenterId = ratingForm.dataset.presenterId;
+            const csrfToken = '{{ csrf_token }}';
+            const ratingUrl = `{% url 'crush_lu:submit_presentation_rating' event.id 0 %}`.replace('/0/', `/${presenterId}/`);
+
+            try {
+                const response = await fetch(ratingUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: `rating=${selectedRating.value}`
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Replace form with success message
+                    ratingForm.innerHTML = `
+                        <div class="rating-submitted">
+                            ✓ ${data.message}
+                        </div>
+                    `;
+                } else {
+                    alert(data.error || 'Failed to submit rating');
+                }
+            } catch (error) {
+                console.error('Error submitting rating:', error);
+                alert('Failed to submit rating. Please try again.');
+            }
+        });
+        {% endif %}
+        {% endif %}
     });
-    {% endif %}
-    {% endif %}
-});
 </script>
 {% endblock %}

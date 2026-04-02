@@ -1,26 +1,26 @@
-{% extends "crush_lu/base.html" %}
-{% load static i18n %}
-
-{% block title %}{% trans "Your Special Journeys" %} - Crush.lu{% endblock %}
-
-{% block extra_css %}{% endblock %}
-
-{% block body_class %}journey-bg{% endblock %}
-
-{% block content %}
+{% extends "crush_lu/base.html" %} {% load static i18n %} {% block title %}{% trans
+"Your Special Journeys" %} - Crush.lu{% endblock %} {% block extra_css %}{% endblock %}
+{% block body_class %}journey-bg{% endblock %} {% block content %}
 <div class="journey-selector-container">
     <a href="{% url 'crush_lu:special_welcome' %}" class="journey-back-link">
-        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Welcome" %}
+        {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back
+        to Welcome" %}
     </a>
 
     <div class="journey-selector-header">
         <h1 class="journey-selector-title">{% trans "Your Special Journeys" %}</h1>
-        <p class="journey-selector-subtitle">{% blocktrans with name=special_experience.first_name %}Choose your adventure, {{ name }}{% endblocktrans %}</p>
+        <p class="journey-selector-subtitle">
+            {% blocktrans with name=special_experience.first_name %}Choose your
+            adventure, {{ name }}{% endblocktrans %}
+        </p>
     </div>
 
     <div class="journey-selector-grid">
         {% for item in journeys %}
-        <a href="{% url item.url %}" class="journey-selector-card {% if item.journey.journey_type == 'advent_calendar' %}advent{% elif item.journey.journey_type == 'wonderland' %}wonderland{% endif %} {% if item.is_completed %}completed{% endif %}">
+        <a
+            href="{% url item.url %}"
+            class="journey-selector-card {% if item.journey.journey_type == 'advent_calendar' %}advent{% elif item.journey.journey_type == 'wonderland' %}wonderland{% endif %} {% if item.is_completed %}completed{% endif %}"
+        >
             <span class="journey-selector-icon">{{ item.icon }}</span>
 
             <h2 class="journey-selector-card-title">{{ item.journey.journey_name }}</h2>
@@ -32,28 +32,34 @@
                     <span>{{ item.completion_percentage }}%</span>
                 </div>
                 <div class="journey-selector-progress-bar">
-                    <progress class="journey-selector-progress-meter {% if item.is_completed %}completed{% endif %}" value="{{ item.completion_percentage }}" max="100">
+                    <progress
+                        class="journey-selector-progress-meter {% if item.is_completed %}completed{% endif %}"
+                        value="{{ item.completion_percentage }}"
+                        max="100"
+                    >
                         {{ item.completion_percentage }}%
                     </progress>
                 </div>
             </div>
 
             {% if item.is_completed %}
-                <span class="journey-status-pill journey-status-completed">{% trans "Completed" %}</span>
+            <span class="journey-status-pill journey-status-completed"
+                >{% trans "Completed" %}</span
+            >
             {% elif item.completion_percentage > 0 %}
-                <span class="journey-status-pill journey-status-in-progress">{% trans "In Progress" %}</span>
+            <span class="journey-status-pill journey-status-in-progress"
+                >{% trans "In Progress" %}</span
+            >
             {% else %}
-                <span class="journey-status-pill journey-status-new">{% trans "New Adventure" %}</span>
+            <span class="journey-status-pill journey-status-new"
+                >{% trans "New Adventure" %}</span
+            >
             {% endif %}
 
             <span class="journey-enter-btn">
-                {% if item.is_completed %}
-                    {% trans "View Again" %}
-                {% elif item.completion_percentage > 0 %}
-                    {% trans "Continue" %}
-                {% else %}
-                    {% trans "Begin Journey" %}
-                {% endif %}
+                {% if item.is_completed %} {% trans "View Again" %} {% elif
+                item.completion_percentage > 0 %} {% trans "Continue" %} {% else %} {%
+                trans "Begin Journey" %} {% endif %}
             </span>
         </a>
         {% endfor %}

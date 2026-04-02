@@ -1,16 +1,14 @@
-{% extends "arborist/base.html" %}
-{% load i18n %}
-
-{% block content %}
+{% extends "arborist/base.html" %} {% load i18n %} {% block content %}
 <!-- Hero Section -->
-<section class="bg-green-800 text-white py-16">
+<section class="bg-green-800 py-16 text-white">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto">
-            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+        <div class="mx-auto max-w-4xl">
+            <h1 class="mb-4 text-4xl font-bold md:text-5xl">
                 {% trans "Fruit Tree Care" %}
             </h1>
             <p class="text-xl">
-                {% trans "Professional care for healthy and productive fruit trees in Luxembourg." %}
+                {% trans "Professional care for healthy and productive fruit trees in
+                Luxembourg." %}
             </p>
         </div>
     </div>
@@ -19,83 +17,119 @@
 <!-- Main Content -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto">
-            <h2 class="text-3xl font-bold mb-6 text-green-800">
+        <div class="mx-auto max-w-4xl">
+            <h2 class="mb-6 text-3xl font-bold text-green-800">
                 {% trans "My Services for Your Fruit Trees" %}
             </h2>
 
-            <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <div class="mb-12 grid gap-8 md:grid-cols-2">
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Formative Pruning" %}</h3>
+                    <h3 class="mb-3 text-xl font-semibold text-green-800">
+                        {% trans "Formative Pruning" %}
+                    </h3>
                     <p class="text-gray-600">
-                        {% trans "Formative pruning shapes young fruit trees into a stable crown structure. It lays the foundation for a healthy, productive tree." %}
+                        {% trans "Formative pruning shapes young fruit trees into a
+                        stable crown structure. It lays the foundation for a healthy,
+                        productive tree." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Maintenance Pruning" %}</h3>
+                    <h3 class="mb-3 text-xl font-semibold text-green-800">
+                        {% trans "Maintenance Pruning" %}
+                    </h3>
                     <p class="text-gray-600">
-                        {% trans "Regular maintenance pruning keeps your fruit tree in balance. Fruiting wood is renewed, and the crown stays light and vital." %}
+                        {% trans "Regular maintenance pruning keeps your fruit tree in
+                        balance. Fruiting wood is renewed, and the crown stays light and
+                        vital." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Rejuvenation Pruning" %}</h3>
+                    <h3 class="mb-3 text-xl font-semibold text-green-800">
+                        {% trans "Rejuvenation Pruning" %}
+                    </h3>
                     <p class="text-gray-600">
-                        {% trans "Old, neglected fruit trees can be given new life through proper rejuvenation pruning and bear fruit abundantly again." %}
+                        {% trans "Old, neglected fruit trees can be given new life
+                        through proper rejuvenation pruning and bear fruit abundantly
+                        again." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="text-xl font-semibold mb-3 text-green-800">{% trans "Summer Pruning" %}</h3>
+                    <h3 class="mb-3 text-xl font-semibold text-green-800">
+                        {% trans "Summer Pruning" %}
+                    </h3>
                     <p class="text-gray-600">
-                        {% trans "Summer pruning slows excessive growth and improves fruit quality. Especially important for stone fruit." %}
+                        {% trans "Summer pruning slows excessive growth and improves
+                        fruit quality. Especially important for stone fruit." %}
                     </p>
                 </div>
             </div>
 
             <!-- Benefits -->
-            <div class="bg-green-50 rounded-xl p-8 mb-12">
-                <h3 class="text-2xl font-bold mb-4 text-green-800">
+            <div class="mb-12 rounded-xl bg-green-50 p-8">
+                <h3 class="mb-4 text-2xl font-bold text-green-800">
                     {% trans "Benefits of Professional Fruit Tree Care" %}
                 </h3>
                 <ul class="space-y-3">
                     <li class="flex gap-3">
-                        <span class="text-green-600 font-bold">+</span>
-                        <span>{% trans "Higher yields through optimal crown structure" %}</span>
+                        <span class="font-bold text-green-600">+</span>
+                        <span
+                            >{% trans "Higher yields through optimal crown structure"
+                            %}</span
+                        >
                     </li>
                     <li class="flex gap-3">
-                        <span class="text-green-600 font-bold">+</span>
-                        <span>{% trans "Better fruit quality through more light and air" %}</span>
+                        <span class="font-bold text-green-600">+</span>
+                        <span
+                            >{% trans "Better fruit quality through more light and air"
+                            %}</span
+                        >
                     </li>
                     <li class="flex gap-3">
-                        <span class="text-green-600 font-bold">+</span>
-                        <span>{% trans "Fewer diseases through good ventilation" %}</span>
+                        <span class="font-bold text-green-600">+</span>
+                        <span
+                            >{% trans "Fewer diseases through good ventilation" %}</span
+                        >
                     </li>
                     <li class="flex gap-3">
-                        <span class="text-green-600 font-bold">+</span>
+                        <span class="font-bold text-green-600">+</span>
                         <span>{% trans "Longer lifespan for your fruit trees" %}</span>
                     </li>
                     <li class="flex gap-3">
-                        <span class="text-green-600 font-bold">+</span>
-                        <span>{% trans "Safe harvesting without overhanging branches" %}</span>
+                        <span class="font-bold text-green-600">+</span>
+                        <span
+                            >{% trans "Safe harvesting without overhanging branches"
+                            %}</span
+                        >
                     </li>
                 </ul>
             </div>
 
             <!-- Timing -->
             <div class="mb-12">
-                <h3 class="text-2xl font-bold mb-4 text-green-800">
+                <h3 class="mb-4 text-2xl font-bold text-green-800">
                     {% trans "The Right Time" %}
                 </h3>
-                <div class="grid md:grid-cols-2 gap-6">
+                <div class="grid gap-6 md:grid-cols-2">
                     <div class="border-l-4 border-green-600 pl-4">
-                        <h4 class="font-semibold text-lg">{% trans "Pome Fruit (Apple, Pear)" %}</h4>
-                        <p class="text-gray-600">{% trans "Winter pruning from November to March when the tree is dormant." %}</p>
+                        <h4 class="text-lg font-semibold">
+                            {% trans "Pome Fruit (Apple, Pear)" %}
+                        </h4>
+                        <p class="text-gray-600">
+                            {% trans "Winter pruning from November to March when the
+                            tree is dormant." %}
+                        </p>
                     </div>
                     <div class="border-l-4 border-green-600 pl-4">
-                        <h4 class="font-semibold text-lg">{% trans "Stone Fruit (Cherry, Plum)" %}</h4>
-                        <p class="text-gray-600">{% trans "Summer pruning after harvest for best wound healing." %}</p>
+                        <h4 class="text-lg font-semibold">
+                            {% trans "Stone Fruit (Cherry, Plum)" %}
+                        </h4>
+                        <p class="text-gray-600">
+                            {% trans "Summer pruning after harvest for best wound
+                            healing." %}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -104,15 +138,17 @@
 </section>
 
 <!-- CTA Section -->
-<section class="py-12 bg-green-800 text-white">
+<section class="bg-green-800 py-12 text-white">
     <div class="container mx-auto px-4 text-center">
-        <h2 class="text-2xl font-bold mb-4">
+        <h2 class="mb-4 text-2xl font-bold">
             {% trans "Interested in Professional Fruit Tree Care?" %}
         </h2>
-        <p class="mb-6">
-            {% trans "Contact me for a free consultation." %}
-        </p>
-        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+        <p class="mb-6">{% trans "Contact me for a free consultation." %}</p>
+        <a
+            href="{% url 'arborist:contact' %}"
+            class="btn"
+            style="background: #fff; color: #2d5016"
+        >
             {% trans "Get in Touch" %}
         </a>
     </div>

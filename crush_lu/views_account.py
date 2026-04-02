@@ -1,7 +1,6 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -10,7 +9,6 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from django.conf import settings
 import logging
 import uuid
 import json
@@ -22,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile,
-    CrushCoach,
     ProfileSubmission,
-    UserActivity,
     CoachPushSubscription,
     EventRegistration,
     EventConnection,
@@ -37,7 +33,6 @@ from .email_helpers import send_welcome_email
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
-    apply_referral_to_user,
 )
 
 
@@ -230,12 +225,11 @@ def delete_crushlu_profile_only(user):
     Sets permanent ban preventing future Crush.lu profile creation.
     """
     from crush_lu.storage import delete_user_storage
-    from crush_lu.models.profiles import UserDataConsent
 
     logger.info(f"Starting Crush.lu profile deletion for user {user.id}")
 
     # Delete profile photos from Azure Blob
-    if hasattr(user, 'crushprofile'):
+    if hasattr(user, "crushprofile"):
         profile = user.crushprofile
 
         # Delete profile photos from storage
@@ -264,9 +258,7 @@ def delete_crushlu_profile_only(user):
 
     # Delete ConnectionMessages
     ConnectionMessage.objects.filter(
-        Q(sender=user)
-        | Q(connection__requester=user)
-        | Q(connection__recipient=user)
+        Q(sender=user) | Q(connection__requester=user) | Q(connection__recipient=user)
     ).delete()
 
     # Delete EventConnections (both as requester and recipient)
@@ -276,14 +268,14 @@ def delete_crushlu_profile_only(user):
     CoachSession.objects.filter(user=user).delete()
 
     # Clear Crush.lu consent and set permanent ban
-    if hasattr(user, 'data_consent'):
+    if hasattr(user, "data_consent"):
         consent = user.data_consent
         consent.crushlu_consent_given = False
         consent.crushlu_consent_date = None
         consent.crushlu_consent_ip = None
         consent.crushlu_banned = True
         consent.crushlu_ban_date = timezone.now()
-        consent.crushlu_ban_reason = 'user_deletion'
+        consent.crushlu_ban_reason = "user_deletion"
         consent.save()
         logger.info(f"Set permanent Crush.lu ban for user {user.id}")
 
@@ -317,10 +309,10 @@ def delete_full_account(user):
     delete_crushlu_profile_only(user)
 
     # Anonymize User record (instead of deleting to preserve referential integrity)
-    user.email = f'deleted_{user.id}@deleted.crush.lu'
-    user.username = f'deleted_user_{user.id}'
-    user.first_name = ''
-    user.last_name = ''
+    user.email = f"deleted_{user.id}@deleted.crush.lu"
+    user.username = f"deleted_user_{user.id}"
+    user.first_name = ""
+    user.last_name = ""
     user.set_unusable_password()
     user.is_active = False
     user.save()
@@ -371,7 +363,7 @@ def account_settings(request):
     import json
     from allauth.socialaccount.models import SocialApp
     from django.contrib.sites.models import Site
-    from .models import EmailPreference, PushSubscription, CoachPushSubscription
+    from .models import EmailPreference, PushSubscription
     from .social_photos import get_all_social_photos
 
     # Helper function to determine device type from device name
@@ -408,7 +400,11 @@ def account_settings(request):
             )
         push_subscriptions_json = json.dumps(push_subscriptions, default=str)
     except Exception:
-        logger.warning("Failed to fetch push subscriptions for user %s", request.user.id, exc_info=True)
+        logger.warning(
+            "Failed to fetch push subscriptions for user %s",
+            request.user.id,
+            exc_info=True,
+        )
 
     # Check if user is a coach and get coach push subscriptions
     is_coach = False
@@ -439,7 +435,11 @@ def account_settings(request):
                 coach_push_subscriptions, default=str
             )
     except Exception:
-        logger.warning("Failed to fetch coach push subscriptions for user %s", request.user.id, exc_info=True)
+        logger.warning(
+            "Failed to fetch coach push subscriptions for user %s",
+            request.user.id,
+            exc_info=True,
+        )
 
     # Crush.lu only supports these social providers
     # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
@@ -500,8 +500,11 @@ def account_settings(request):
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Apple "Hide My Email" relay detection
-            "is_apple_relay_user": bool(request.user.email and request.user.email.endswith('@privaterelay.appleid.com')),
-            "show_apple_link_banner": request.GET.get('apple_link') == '1',
+            "is_apple_relay_user": bool(
+                request.user.email
+                and request.user.email.endswith("@privaterelay.appleid.com")
+            ),
+            "show_apple_link_banner": request.GET.get("apple_link") == "1",
             # Push notification preferences
             "push_subscriptions": push_subscriptions,
             "push_subscriptions_json": push_subscriptions_json,
@@ -717,7 +720,11 @@ def disconnect_social_account(request, social_account_id):
     # Delete the social account
     social_account.delete()
 
-    messages.success(request, _("%(provider_name)s account has been disconnected.") % {"provider_name": provider_name})
+    messages.success(
+        request,
+        _("%(provider_name)s account has been disconnected.")
+        % {"provider_name": provider_name},
+    )
     return redirect("crush_lu:account_settings")
 
 
@@ -731,24 +738,24 @@ def apple_relay_link_prompt(request):
     2. Continue as new user
     """
     # Clear the session flag so it doesn't show again
-    request.session.pop('apple_relay_needs_linking', None)
+    request.session.pop("apple_relay_needs_linking", None)
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        if action == 'link_existing':
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "link_existing":
             # Log out and redirect to login with ?next pointing to account settings
             logout(request)
-            login_url = reverse('crush_lu:login')
-            settings_url = reverse('crush_lu:account_settings')
-            return redirect(f'{login_url}?next={settings_url}%3Fapple_link%3D1')
+            login_url = reverse("crush_lu:login")
+            settings_url = reverse("crush_lu:account_settings")
+            return redirect(f"{login_url}?next={settings_url}%3Fapple_link%3D1")
         else:
             # Continue as new user
-            has_profile = hasattr(request.user, 'crushprofile')
+            has_profile = hasattr(request.user, "crushprofile")
             if has_profile:
-                return redirect('crush_lu:dashboard')
-            return redirect('crush_lu:create_profile')
+                return redirect("crush_lu:dashboard")
+            return redirect("crush_lu:create_profile")
 
-    return render(request, 'crush_lu/apple_link_prompt.html')
+    return render(request, "crush_lu/apple_link_prompt.html")
 
 
 @crush_login_required
@@ -758,34 +765,41 @@ def delete_crushlu_profile_view(request):
     Simplified view for deleting Crush.lu profile only (default action).
     Permanent deletion - user cannot rejoin Crush.lu with this account.
     """
-    if not hasattr(request.user, 'crushprofile'):
-        messages.info(request, _('You do not have a Crush.lu profile to delete.'))
-        return redirect('crush_lu:account_settings')
+    if not hasattr(request.user, "crushprofile"):
+        messages.info(request, _("You do not have a Crush.lu profile to delete."))
+        return redirect("crush_lu:account_settings")
 
-    if request.method == 'POST':
-        confirm_email = request.POST.get('confirm_email', '').strip()
+    if request.method == "POST":
+        confirm_email = request.POST.get("confirm_email", "").strip()
 
         if confirm_email != request.user.email:
-            messages.error(request, _('Email confirmation does not match'))
-            return redirect('crush_lu:delete_crushlu_profile')
+            messages.error(request, _("Email confirmation does not match"))
+            return redirect("crush_lu:delete_crushlu_profile")
 
         # Delete Crush.lu profile (sets permanent ban)
         try:
             delete_crushlu_profile_only(request.user)
             messages.success(
                 request,
-                _('Your Crush.lu profile has been permanently deleted. You cannot create a new profile with this account.')
+                _(
+                    "Your Crush.lu profile has been permanently deleted. You cannot create a new profile with this account."
+                ),
             )
-            return redirect('crush_lu:account_settings')
+            return redirect("crush_lu:account_settings")
         except Exception as e:
-            logger.exception(f"Error deleting Crush.lu profile for user {request.user.id}: {e}")
-            messages.error(request, _('An error occurred while deleting your profile. Please try again.'))
-            return redirect('crush_lu:delete_crushlu_profile')
+            logger.exception(
+                f"Error deleting Crush.lu profile for user {request.user.id}: {e}"
+            )
+            messages.error(
+                request,
+                _("An error occurred while deleting your profile. Please try again."),
+            )
+            return redirect("crush_lu:delete_crushlu_profile")
 
     context = {
-        'profile': request.user.crushprofile,
+        "profile": request.user.crushprofile,
     }
-    return render(request, 'crush_lu/delete_crushlu_profile_confirm.html', context)
+    return render(request, "crush_lu/delete_crushlu_profile_confirm.html", context)
 
 
 @crush_login_required
@@ -802,47 +816,59 @@ def gdpr_data_management(request):
     consent, created = UserDataConsent.objects.get_or_create(
         user=request.user,
         defaults={
-            'powerup_consent_given': True,
-            'powerup_consent_date': timezone.now(),
-        }
+            "powerup_consent_given": True,
+            "powerup_consent_date": timezone.now(),
+        },
     )
 
-    if request.method == 'POST':
-        deletion_type = request.POST.get('deletion_type')
-        confirm_email = request.POST.get('confirm_email', '').strip()
+    if request.method == "POST":
+        deletion_type = request.POST.get("deletion_type")
+        confirm_email = request.POST.get("confirm_email", "").strip()
 
         if confirm_email != request.user.email:
-            messages.error(request, _('Email confirmation does not match'))
-            return redirect('crush_lu:gdpr_data_management')
+            messages.error(request, _("Email confirmation does not match"))
+            return redirect("crush_lu:gdpr_data_management")
 
-        if deletion_type == 'crushlu_only':
+        if deletion_type == "crushlu_only":
             # Delete Crush.lu profile only
             try:
                 delete_crushlu_profile_only(request.user)
-                messages.success(request, _('Your Crush.lu profile has been deleted. Your PowerUp account remains active.'))
-                return redirect('crush_lu:account_settings')
+                messages.success(
+                    request,
+                    _(
+                        "Your Crush.lu profile has been deleted. Your PowerUp account remains active."
+                    ),
+                )
+                return redirect("crush_lu:account_settings")
             except Exception as e:
-                logger.exception(f"Error deleting Crush.lu profile for user {request.user.id}: {e}")
-                messages.error(request, _('An error occurred. Please try again.'))
-                return redirect('crush_lu:gdpr_data_management')
+                logger.exception(
+                    f"Error deleting Crush.lu profile for user {request.user.id}: {e}"
+                )
+                messages.error(request, _("An error occurred. Please try again."))
+                return redirect("crush_lu:gdpr_data_management")
 
-        elif deletion_type == 'full_account':
+        elif deletion_type == "full_account":
             # Delete entire PowerUp account
             try:
                 delete_full_account(request.user)
                 logout(request)
-                messages.success(request, _('Your account has been completely deleted from all platforms.'))
-                return redirect('crush_lu:home')
+                messages.success(
+                    request,
+                    _("Your account has been completely deleted from all platforms."),
+                )
+                return redirect("crush_lu:home")
             except Exception as e:
-                logger.exception(f"Error deleting full account for user {request.user.id}: {e}")
-                messages.error(request, _('An error occurred. Please try again.'))
-                return redirect('crush_lu:gdpr_data_management')
+                logger.exception(
+                    f"Error deleting full account for user {request.user.id}: {e}"
+                )
+                messages.error(request, _("An error occurred. Please try again."))
+                return redirect("crush_lu:gdpr_data_management")
 
     context = {
-        'consent': consent,
-        'has_crushlu_profile': hasattr(request.user, 'crushprofile'),
+        "consent": consent,
+        "has_crushlu_profile": hasattr(request.user, "crushprofile"),
     }
-    return render(request, 'crush_lu/gdpr_data_management.html', context)
+    return render(request, "crush_lu/gdpr_data_management.html", context)
 
 
 @crush_login_required
@@ -852,8 +878,10 @@ def delete_account(request):
     DEPRECATED: Legacy account deletion view.
     Redirects to new GDPR data management dashboard.
     """
-    messages.info(request, _('Account deletion has been moved to the data management page.'))
-    return redirect('crush_lu:gdpr_data_management')
+    messages.info(
+        request, _("Account deletion has been moved to the data management page.")
+    )
+    return redirect("crush_lu:gdpr_data_management")
 
 
 @login_required
@@ -870,22 +898,28 @@ def consent_confirm(request):
     from crush_lu.oauth_statekit import get_client_ip
 
     # Block banned users from re-consenting
-    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_banned:
-        return redirect('crush_lu:account_banned')
+    if (
+        hasattr(request.user, "data_consent")
+        and request.user.data_consent.crushlu_banned
+    ):
+        return redirect("crush_lu:account_banned")
 
     # Check if user already has consent (shouldn't happen, but be safe)
-    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_consent_given:
-        messages.info(request, _('You have already given consent.'))
-        return redirect('crush_lu:dashboard')
+    if (
+        hasattr(request.user, "data_consent")
+        and request.user.data_consent.crushlu_consent_given
+    ):
+        messages.info(request, _("You have already given consent."))
+        return redirect("crush_lu:dashboard")
 
-    if request.method == 'POST':
+    if request.method == "POST":
         # Get consent checkboxes
-        crushlu_consent = request.POST.get('crushlu_consent') == 'on'
-        marketing_consent = request.POST.get('marketing_consent') == 'on'
+        crushlu_consent = request.POST.get("crushlu_consent") == "on"
+        marketing_consent = request.POST.get("marketing_consent") == "on"
 
         if not crushlu_consent:
-            messages.error(request, _('You must consent to continue using Crush.lu.'))
-            return redirect('crush_lu:consent_confirm')
+            messages.error(request, _("You must consent to continue using Crush.lu."))
+            return redirect("crush_lu:consent_confirm")
 
         # Update or create consent record
         consent, created = UserDataConsent.objects.get_or_create(user=request.user)
@@ -897,12 +931,12 @@ def consent_confirm(request):
         consent.save()
 
         logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
-        messages.success(request, _('Thank you for confirming your consent!'))
-        return redirect('crush_lu:dashboard')
+        messages.success(request, _("Thank you for confirming your consent!"))
+        return redirect("crush_lu:dashboard")
 
     # GET request - show consent form
     context = {}
-    return render(request, 'crush_lu/consent_confirm.html', context)
+    return render(request, "crush_lu/consent_confirm.html", context)
 
 
 @login_required
@@ -913,27 +947,29 @@ def account_banned(request):
     reason = None
     ban_date = None
 
-    if hasattr(request.user, 'data_consent'):
+    if hasattr(request.user, "data_consent"):
         consent = request.user.data_consent
         if not consent.crushlu_banned:
-            return redirect('crush_lu:dashboard')
+            return redirect("crush_lu:dashboard")
         reason = consent.crushlu_ban_reason
         ban_date = consent.crushlu_ban_date
     else:
         # No consent record means not banned - redirect
-        return redirect('crush_lu:dashboard')
+        return redirect("crush_lu:dashboard")
 
     reason_display = {
-        'user_deletion': _('You deleted your Crush.lu profile.'),
-        'admin_action': _('Your account was suspended by an administrator.'),
-        'terms_violation': _('Your account was suspended due to a terms of service violation.'),
+        "user_deletion": _("You deleted your Crush.lu profile."),
+        "admin_action": _("Your account was suspended by an administrator."),
+        "terms_violation": _(
+            "Your account was suspended due to a terms of service violation."
+        ),
     }
 
     context = {
-        'ban_reason': reason_display.get(reason, _('Your account has been suspended.')),
-        'ban_date': ban_date,
+        "ban_reason": reason_display.get(reason, _("Your account has been suspended.")),
+        "ban_date": ban_date,
     }
-    return render(request, 'crush_lu/account_banned.html', context)
+    return render(request, "crush_lu/account_banned.html", context)
 
 
 # Onboarding
@@ -1051,13 +1087,19 @@ def export_user_data(request):
         data["profile"] = {
             "display_name": profile.display_name,
             "gender": profile.gender,
-            "date_of_birth": str(profile.date_of_birth) if profile.date_of_birth else None,
+            "date_of_birth": (
+                str(profile.date_of_birth) if profile.date_of_birth else None
+            ),
             "canton": profile.canton,
             "bio": profile.bio,
             "interests": profile.interests,
             "looking_for": profile.looking_for,
             "status": profile.status,
-            "created_at": profile.created_at.isoformat() if hasattr(profile, "created_at") and profile.created_at else None,
+            "created_at": (
+                profile.created_at.isoformat()
+                if hasattr(profile, "created_at") and profile.created_at
+                else None
+            ),
         }
 
     # Event registrations
@@ -1066,9 +1108,15 @@ def export_user_data(request):
         data["event_registrations"] = [
             {
                 "event": reg.event.title,
-                "event_date": reg.event.date_time.isoformat() if reg.event.date_time else None,
+                "event_date": (
+                    reg.event.date_time.isoformat() if reg.event.date_time else None
+                ),
                 "status": reg.status,
-                "registered_at": reg.created_at.isoformat() if hasattr(reg, "created_at") and reg.created_at else None,
+                "registered_at": (
+                    reg.created_at.isoformat()
+                    if hasattr(reg, "created_at") and reg.created_at
+                    else None
+                ),
             }
             for reg in registrations
         ]
@@ -1081,9 +1129,17 @@ def export_user_data(request):
         data["connections"] = [
             {
                 "event": conn.event.title if conn.event else None,
-                "connected_with": conn.recipient.email if conn.requester == user else conn.requester.email,
+                "connected_with": (
+                    conn.recipient.email
+                    if conn.requester == user
+                    else conn.requester.email
+                ),
                 "status": conn.status,
-                "created_at": conn.created_at.isoformat() if hasattr(conn, "created_at") and conn.created_at else None,
+                "created_at": (
+                    conn.created_at.isoformat()
+                    if hasattr(conn, "created_at") and conn.created_at
+                    else None
+                ),
             }
             for conn in connections
         ]
@@ -1094,7 +1150,11 @@ def export_user_data(request):
         data["messages_sent"] = [
             {
                 "content": msg.content,
-                "sent_at": msg.created_at.isoformat() if hasattr(msg, "created_at") and msg.created_at else None,
+                "sent_at": (
+                    msg.created_at.isoformat()
+                    if hasattr(msg, "created_at") and msg.created_at
+                    else None
+                ),
             }
             for msg in sent_messages
         ]
@@ -1104,10 +1164,22 @@ def export_user_data(request):
         consent = UserDataConsent.objects.get(user=user)
         data["consent"] = {
             "crushlu_consent_given": consent.crushlu_consent_given,
-            "crushlu_consent_date": consent.crushlu_consent_date.isoformat() if consent.crushlu_consent_date else None,
+            "crushlu_consent_date": (
+                consent.crushlu_consent_date.isoformat()
+                if consent.crushlu_consent_date
+                else None
+            ),
             "powerup_consent_given": consent.powerup_consent_given,
-            "powerup_consent_date": consent.powerup_consent_date.isoformat() if consent.powerup_consent_date else None,
-            "marketing_consent": consent.marketing_consent if hasattr(consent, "marketing_consent") else None,
+            "powerup_consent_date": (
+                consent.powerup_consent_date.isoformat()
+                if consent.powerup_consent_date
+                else None
+            ),
+            "marketing_consent": (
+                consent.marketing_consent
+                if hasattr(consent, "marketing_consent")
+                else None
+            ),
         }
     except UserDataConsent.DoesNotExist:
         pass
@@ -1116,5 +1188,7 @@ def export_user_data(request):
         json.dumps(data, indent=2, ensure_ascii=False),
         content_type="application/json",
     )
-    response["Content-Disposition"] = f'attachment; filename="crush_lu_data_{user.id}.json"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="crush_lu_data_{user.id}.json"'
+    )
     return response

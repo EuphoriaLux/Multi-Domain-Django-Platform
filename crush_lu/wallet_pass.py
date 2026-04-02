@@ -11,7 +11,9 @@ def build_wallet_pass_barcode_value(profile, request=None, base_url=None):
     Uses language-neutral URL so users get the site in their browser's preferred language.
     """
     referral_code = ReferralCode.get_or_create_for_profile(profile)
-    return build_referral_url(referral_code.code, base_url=base_url, language_neutral=True)
+    return build_referral_url(
+        referral_code.code, base_url=base_url, language_neutral=True
+    )
 
 
 def get_next_event_for_pass(profile):
@@ -107,7 +109,9 @@ def build_wallet_pass_data(profile, request=None, base_url=None):
     Returns:
         Dictionary with all pass data
     """
-    referral_url = build_wallet_pass_barcode_value(profile, request=request, base_url=base_url)
+    referral_url = build_wallet_pass_barcode_value(
+        profile, request=request, base_url=base_url
+    )
     next_event = get_next_event_for_pass(profile)
     tier_display = get_membership_tier_display(profile)
     photo_url = get_profile_photo_url(profile, request=request)
@@ -120,5 +124,7 @@ def build_wallet_pass_data(profile, request=None, base_url=None):
         "referral_url": referral_url,
         "next_event": next_event,
         "photo_url": photo_url,
-        "member_since": profile.created_at.strftime("%Y-%m-%d") if profile.created_at else None,
+        "member_since": (
+            profile.created_at.strftime("%Y-%m-%d") if profile.created_at else None
+        ),
     }

@@ -1,42 +1,60 @@
-{% extends "crush_lu/base.html" %}
-{% load i18n %}
-
-{% block title %}Login Error - Crush.lu{% endblock %}
-
-{% block content %}
+{% extends "crush_lu/base.html" %} {% load i18n %} {% block title %}Login Error -
+Crush.lu{% endblock %} {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-md">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+        <div
+            class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+        >
             <div class="p-8 text-center">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-16 h-16 text-yellow-500 mx-auto" %}
-                <h2 class="mt-4 text-2xl font-bold dark:text-white">{% trans "Third-Party Login Error" %}</h2>
-                <p class="text-gray-500 dark:text-gray-400 mb-6">
-                    {% trans "An error occurred while attempting to login via your third-party account." %}
+                {% include "shared/icons/exclamation-triangle.html" with class="w-16
+                h-16 text-yellow-500 mx-auto" %}
+                <h2 class="mt-4 text-2xl font-bold dark:text-white">
+                    {% trans "Third-Party Login Error" %}
+                </h2>
+                <p class="mb-6 text-gray-500 dark:text-gray-400">
+                    {% trans "An error occurred while attempting to login via your
+                    third-party account." %}
                 </p>
 
                 {% if auth_error %}
-                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 mb-6 text-left">
+                <div
+                    class="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-left text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                >
                     <strong>{% trans "Error details:" %}</strong>
                     <p class="mb-0">{{ auth_error }}</p>
                 </div>
                 {% endif %}
 
                 <div class="mt-4">
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
                         {% trans "This can happen if:" %}
                     </p>
-                    <ul class="text-left text-gray-500 dark:text-gray-400 text-sm list-disc list-inside space-y-1">
-                        <li>{% trans "You cancelled the login on the provider's site" %}</li>
-                        <li>{% trans "Your email is already registered with a different login method" %}</li>
+                    <ul
+                        class="list-inside list-disc space-y-1 text-left text-sm text-gray-500 dark:text-gray-400"
+                    >
+                        <li>
+                            {% trans "You cancelled the login on the provider's site" %}
+                        </li>
+                        <li>
+                            {% trans "Your email is already registered with a different
+                            login method" %}
+                        </li>
                         <li>{% trans "There was a temporary connection issue" %}</li>
                     </ul>
                 </div>
 
-                <div class="flex flex-col gap-3 mt-6">
-                    <a href="{% url 'crush_lu:login' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 py-3">
-                        {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}{% trans "Back to Login" %}
+                <div class="mt-6 flex flex-col gap-3">
+                    <a
+                        href="{% url 'crush_lu:login' %}"
+                        class="btn-crush-primary inline-flex items-center justify-center gap-2 py-3"
+                    >
+                        {% include "shared/icons/arrow-left.html" with class="w-4 h-4"
+                        %}{% trans "Back to Login" %}
                     </a>
-                    <a href="{% url 'crush_lu:signup' %}" class="inline-flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                    <a
+                        href="{% url 'crush_lu:signup' %}"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
                         {% trans "Create New Account" %}
                     </a>
                 </div>

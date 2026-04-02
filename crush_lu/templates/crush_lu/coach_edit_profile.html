@@ -1,103 +1,148 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Edit Coach Profile" %} - Crush.lu{% endblock %}
-
-{% block extra_js %}
+{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Edit Coach Profile" %} - Crush.lu{% endblock %} {% block extra_js %}
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="flex justify-center">
     <div class="w-full max-w-2xl">
         <div class="card">
             <div class="card-body p-8">
-                <h2 class="text-2xl font-bold text-center mb-4 dark:text-white">{% trans "Edit Coach Profile" %}</h2>
-                <p class="text-center text-gray-500 dark:text-gray-400 mb-6">
-                    {% trans "Update your coaching bio and specializations that users see when assigned to you." %}
+                <h2 class="mb-4 text-center text-2xl font-bold dark:text-white">
+                    {% trans "Edit Coach Profile" %}
+                </h2>
+                <p class="mb-6 text-center text-gray-500 dark:text-gray-400">
+                    {% trans "Update your coaching bio and specializations that users
+                    see when assigned to you." %}
                 </p>
 
                 <form method="post" enctype="multipart/form-data" novalidate>
-                    {% csrf_token %}
-
-                    {% if form.non_field_errors %}
-                        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
-                            {{ form.non_field_errors }}
-                        </div>
+                    {% csrf_token %} {% if form.non_field_errors %}
+                    <div
+                        class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300"
+                    >
+                        {{ form.non_field_errors }}
+                    </div>
                     {% endif %}
 
                     <!-- Coach Photo Section -->
                     <div class="mb-6">
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        <label
+                            class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200"
+                        >
                             {% trans "Coach Photo" %}
                         </label>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                            {% trans "This photo is shown to users when they're assigned to you as their coach." %}
+                        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "This photo is shown to users when they're assigned
+                            to you as their coach." %}
                         </p>
 
                         <div class="photo-upload-card photo-upload-card--bordered">
-                            <div class="photo-preview-container photo-preview-container--circular">
+                            <div
+                                class="photo-preview-container photo-preview-container--circular"
+                            >
                                 {% if coach.photo %}
-                                    <img src="{{ coach.photo.url }}" alt="{% trans 'Current photo' %}" class="photo-preview" id="photo-preview">
-                                    <span class="photo-badge">{% trans "Current" %}</span>
+                                <img
+                                    src="{{ coach.photo.url }}"
+                                    alt="{% trans 'Current photo' %}"
+                                    class="photo-preview"
+                                    id="photo-preview"
+                                />
+                                <span class="photo-badge">{% trans "Current" %}</span>
                                 {% else %}
-                                    <div class="photo-placeholder" id="photo-preview">
-                                        <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                        </svg>
-                                        <span class="text-gray-500 text-sm">{% trans "No photo" %}</span>
-                                    </div>
+                                <div class="photo-placeholder" id="photo-preview">
+                                    <svg
+                                        class="h-16 w-16 text-gray-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                        ></path>
+                                    </svg>
+                                    <span class="text-sm text-gray-500"
+                                        >{% trans "No photo" %}</span
+                                    >
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="photo-upload-input mt-3">
-                                {{ form.photo }}
-                                {% if form.photo.help_text %}
-                                    <small class="text-gray-500 block mt-1">{{ form.photo.help_text }}</small>
-                                {% endif %}
-                                {% if form.photo.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.photo.errors }}</div>
+                                {{ form.photo }} {% if form.photo.help_text %}
+                                <small class="mt-1 block text-gray-500"
+                                    >{{ form.photo.help_text }}</small
+                                >
+                                {% endif %} {% if form.photo.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.photo.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
 
-                    <hr class="my-6 border-gray-200 dark:border-gray-700">
+                    <hr class="my-6 border-gray-200 dark:border-gray-700" />
 
                     <!-- Phone Number -->
                     <div class="mb-6">
-                        <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        <label
+                            for="{{ form.phone_number.id_for_label }}"
+                            class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200"
+                        >
                             {% trans "Phone Number" %}
                         </label>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                            {% trans "Your direct phone number for WhatsApp and calls with users. Leave blank to use the site default number." %}
+                        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Your direct phone number for WhatsApp and calls
+                            with users. Leave blank to use the site default number." %}
                         </p>
-                        {{ form.phone_number }}
-                        {% if form.phone_number.errors %}
-                            <div class="text-red-500 text-sm mt-1">{{ form.phone_number.errors }}</div>
+                        {{ form.phone_number }} {% if form.phone_number.errors %}
+                        <div class="mt-1 text-sm text-red-500">
+                            {{ form.phone_number.errors }}
+                        </div>
                         {% endif %}
                     </div>
 
-                    <hr class="my-6 border-gray-200 dark:border-gray-700">
+                    <hr class="my-6 border-gray-200 dark:border-gray-700" />
 
                     <!-- Multilingual Bio & Specializations -->
                     <div x-data="languageTabs">
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                        <label
+                            class="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-200"
+                        >
                             {% trans "Coach Bio & Specializations" %}
                         </label>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                            {% trans "Provide your bio and specializations in each language. English is the default." %}
+                        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Provide your bio and specializations in each
+                            language. English is the default." %}
                         </p>
 
                         <!-- Language Tab Buttons -->
-                        <div class="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-700 p-1 mb-4">
-                            <button type="button" @click="setEnglish" x-bind:class="englishTabClass" class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all">
+                        <div
+                            class="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-700"
+                        >
+                            <button
+                                type="button"
+                                @click="setEnglish"
+                                x-bind:class="englishTabClass"
+                                class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all"
+                            >
                                 🇬🇧 English
                             </button>
-                            <button type="button" @click="setGerman" x-bind:class="germanTabClass" class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all">
+                            <button
+                                type="button"
+                                @click="setGerman"
+                                x-bind:class="germanTabClass"
+                                class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all"
+                            >
                                 🇩🇪 Deutsch
                             </button>
-                            <button type="button" @click="setFrench" x-bind:class="frenchTabClass" class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all">
+                            <button
+                                type="button"
+                                @click="setFrench"
+                                x-bind:class="frenchTabClass"
+                                class="flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all"
+                            >
                                 🇫🇷 Français
                             </button>
                         </div>
@@ -105,27 +150,38 @@
                         <!-- English Tab -->
                         <div x-show="isEnglish">
                             <div class="mb-4">
-                                <label for="{{ form.bio_en.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.bio_en.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Coach Bio" %} (English)
                                 </label>
-                                {{ form.bio_en }}
-                                {% if form.bio_en.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.bio_en.help_text }}</small>
-                                {% endif %}
-                                {% if form.bio_en.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.bio_en.errors }}</div>
+                                {{ form.bio_en }} {% if form.bio_en.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.bio_en.help_text }}</small
+                                >
+                                {% endif %} {% if form.bio_en.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.bio_en.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="mb-4">
-                                <label for="{{ form.specializations_en.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.specializations_en.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Specializations" %} (English)
                                 </label>
-                                {{ form.specializations_en }}
-                                {% if form.specializations_en.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.specializations_en.help_text }}</small>
-                                {% endif %}
-                                {% if form.specializations_en.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.specializations_en.errors }}</div>
+                                {{ form.specializations_en }} {% if
+                                form.specializations_en.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.specializations_en.help_text }}</small
+                                >
+                                {% endif %} {% if form.specializations_en.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.specializations_en.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
@@ -133,27 +189,38 @@
                         <!-- German Tab -->
                         <div x-show="isGerman">
                             <div class="mb-4">
-                                <label for="{{ form.bio_de.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.bio_de.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Coach Bio" %} (Deutsch)
                                 </label>
-                                {{ form.bio_de }}
-                                {% if form.bio_de.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.bio_de.help_text }}</small>
-                                {% endif %}
-                                {% if form.bio_de.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.bio_de.errors }}</div>
+                                {{ form.bio_de }} {% if form.bio_de.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.bio_de.help_text }}</small
+                                >
+                                {% endif %} {% if form.bio_de.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.bio_de.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="mb-4">
-                                <label for="{{ form.specializations_de.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.specializations_de.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Specializations" %} (Deutsch)
                                 </label>
-                                {{ form.specializations_de }}
-                                {% if form.specializations_de.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.specializations_de.help_text }}</small>
-                                {% endif %}
-                                {% if form.specializations_de.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.specializations_de.errors }}</div>
+                                {{ form.specializations_de }} {% if
+                                form.specializations_de.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.specializations_de.help_text }}</small
+                                >
+                                {% endif %} {% if form.specializations_de.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.specializations_de.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
@@ -161,86 +228,140 @@
                         <!-- French Tab -->
                         <div x-show="isFrench">
                             <div class="mb-4">
-                                <label for="{{ form.bio_fr.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.bio_fr.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Coach Bio" %} (Français)
                                 </label>
-                                {{ form.bio_fr }}
-                                {% if form.bio_fr.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.bio_fr.help_text }}</small>
-                                {% endif %}
-                                {% if form.bio_fr.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.bio_fr.errors }}</div>
+                                {{ form.bio_fr }} {% if form.bio_fr.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.bio_fr.help_text }}</small
+                                >
+                                {% endif %} {% if form.bio_fr.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.bio_fr.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="mb-4">
-                                <label for="{{ form.specializations_fr.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label
+                                    for="{{ form.specializations_fr.id_for_label }}"
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
                                     {% trans "Specializations" %} (Français)
                                 </label>
-                                {{ form.specializations_fr }}
-                                {% if form.specializations_fr.help_text %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ form.specializations_fr.help_text }}</small>
-                                {% endif %}
-                                {% if form.specializations_fr.errors %}
-                                    <div class="text-red-500 text-sm mt-1">{{ form.specializations_fr.errors }}</div>
+                                {{ form.specializations_fr }} {% if
+                                form.specializations_fr.help_text %}
+                                <small class="text-gray-500 dark:text-gray-400"
+                                    >{{ form.specializations_fr.help_text }}</small
+                                >
+                                {% endif %} {% if form.specializations_fr.errors %}
+                                <div class="mt-1 text-sm text-red-500">
+                                    {{ form.specializations_fr.errors }}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
 
                     <div class="mb-6">
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        <label
+                            class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200"
+                        >
                             {% trans "Spoken Languages" %}
                         </label>
-                        <div class="flex flex-wrap gap-4 mt-2">
+                        <div class="mt-2 flex flex-wrap gap-4">
                             {% for checkbox in form.spoken_languages %}
-                                <label class="form-check">
-                                    {{ checkbox.tag }}
-                                    <span class="form-check-label">{{ checkbox.choice_label }}</span>
-                                </label>
+                            <label class="form-check">
+                                {{ checkbox.tag }}
+                                <span class="form-check-label"
+                                    >{{ checkbox.choice_label }}</span
+                                >
+                            </label>
                             {% endfor %}
                         </div>
                         {% if form.spoken_languages.help_text %}
-                            <small class="text-gray-500">{{ form.spoken_languages.help_text }}</small>
-                        {% endif %}
-                        {% if form.spoken_languages.errors %}
-                            <div class="text-red-500 text-sm mt-1">{{ form.spoken_languages.errors }}</div>
+                        <small class="text-gray-500"
+                            >{{ form.spoken_languages.help_text }}</small
+                        >
+                        {% endif %} {% if form.spoken_languages.errors %}
+                        <div class="mt-1 text-sm text-red-500">
+                            {{ form.spoken_languages.errors }}
+                        </div>
                         {% endif %}
                     </div>
 
-                    <hr class="my-6 border-gray-200 dark:border-gray-700">
+                    <hr class="my-6 border-gray-200 dark:border-gray-700" />
 
                     <!-- Coach Stats (read-only) -->
-                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl p-6 mb-6">
-                        <h6 class="font-semibold mb-4 dark:text-white">{% trans "Your Coach Stats" %}</h6>
+                    <div
+                        class="mb-6 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 p-6 dark:from-purple-900/30 dark:to-pink-900/30"
+                    >
+                        <h6 class="mb-4 font-semibold dark:text-white">
+                            {% trans "Your Coach Stats" %}
+                        </h6>
                         <div class="grid grid-cols-2 gap-4 text-center">
                             <div>
-                                <strong class="text-xl dark:text-white">{{ coach.max_active_reviews }}</strong>
-                                <br><small class="text-gray-500 dark:text-gray-400">{% trans "Max Active Reviews" %}</small>
+                                <strong class="text-xl dark:text-white"
+                                    >{{ coach.max_active_reviews }}</strong
+                                >
+                                <br /><small class="text-gray-500 dark:text-gray-400"
+                                    >{% trans "Max Active Reviews" %}</small
+                                >
                             </div>
                             <div>
-                                <strong class="text-xl dark:text-white">{% if coach.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}</strong>
-                                <br><small class="text-gray-500 dark:text-gray-400">{% trans "Status" %}</small>
+                                <strong class="text-xl dark:text-white"
+                                    >{% if coach.is_active %}{% trans "Active" %}{% else
+                                    %}{% trans "Inactive" %}{% endif %}</strong
+                                >
+                                <br /><small class="text-gray-500 dark:text-gray-400"
+                                    >{% trans "Status" %}</small
+                                >
                             </div>
                         </div>
                     </div>
 
                     {% if has_dating_profile %}
-                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6 flex items-start gap-2">
-                            {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
-                            <span>{% trans "You also have a dating profile." %} <a href="{% url 'crush_lu:edit_profile' %}" class="font-medium underline hover:no-underline">{% trans "Edit your dating profile" %}</a></span>
-                        </div>
+                    <div
+                        class="mb-6 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                    >
+                        {% include "shared/icons/info.html" with class="w-5 h-5
+                        flex-shrink-0 mt-0.5" %}
+                        <span
+                            >{% trans "You also have a dating profile." %}
+                            <a
+                                href="{% url 'crush_lu:edit_profile' %}"
+                                class="font-medium underline hover:no-underline"
+                                >{% trans "Edit your dating profile" %}</a
+                            ></span
+                        >
+                    </div>
                     {% else %}
-                        <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg p-4 mb-6 flex items-start gap-2">
-                            {% include "shared/icons/user-plus.html" with class="w-5 h-5 flex-shrink-0 mt-0.5" %}
-                            <span>{% trans "Want to use Crush.lu for dating too?" %} <a href="{% url 'crush_lu:create_profile' %}" class="font-medium underline hover:no-underline">{% trans "Create a dating profile" %}</a></span>
-                        </div>
+                    <div
+                        class="mb-6 flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-gray-700 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-200"
+                    >
+                        {% include "shared/icons/user-plus.html" with class="w-5 h-5
+                        flex-shrink-0 mt-0.5" %}
+                        <span
+                            >{% trans "Want to use Crush.lu for dating too?" %}
+                            <a
+                                href="{% url 'crush_lu:create_profile' %}"
+                                class="font-medium underline hover:no-underline"
+                                >{% trans "Create a dating profile" %}</a
+                            ></span
+                        >
+                    </div>
                     {% endif %}
 
                     <div class="flex gap-3">
                         <button type="submit" class="btn-crush-primary flex-1 py-3">
                             {% trans "Save Changes" %}
                         </button>
-                        <a href="{% url 'crush_lu:coach_dashboard' %}" class="btn-crush-outline inline-flex items-center justify-center">
+                        <a
+                            href="{% url 'crush_lu:coach_dashboard' %}"
+                            class="btn-crush-outline inline-flex items-center justify-center"
+                        >
                             {% trans "Cancel" %}
                         </a>
                     </div>

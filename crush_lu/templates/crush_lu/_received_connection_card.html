@@ -1,61 +1,82 @@
 {% load i18n crush_media %}
-<div id="connection-{{ connection.id }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4" role="status" aria-live="polite">
+<div
+    id="connection-{{ connection.id }}"
+    class="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    role="status"
+    aria-live="polite"
+>
     <div class="flex items-center">
         <!-- Profile Photo -->
         <div class="mr-4">
             {% if connection.requester.crushprofile|has_photo:'photo_1' %}
-                <img src="{% profile_photo_url connection.requester.crushprofile 'photo_1' %}"
-                     alt="{{ connection.requester.crushprofile.display_name }}"
-                     class="w-14 h-14 rounded-full object-cover {% if connection.requester.crushprofile.blur_photos %}blur-lg{% endif %}"
-                     loading="lazy">
+            <img
+                src="{% profile_photo_url connection.requester.crushprofile 'photo_1' %}"
+                alt="{{ connection.requester.crushprofile.display_name }}"
+                class="{% if connection.requester.crushprofile.blur_photos %}blur-lg{% endif %} h-14 w-14 rounded-full object-cover"
+                loading="lazy"
+            />
             {% else %}
-                <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                    <span class="text-white text-lg font-semibold">{{ connection.requester.crushprofile.display_name|first }}</span>
-                </div>
+            <div
+                class="from-crush-purple to-crush-pink flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br"
+            >
+                <span class="text-lg font-semibold text-white"
+                    >{{ connection.requester.crushprofile.display_name|first }}</span
+                >
+            </div>
             {% endif %}
         </div>
 
         <!-- Info -->
         <div class="flex-grow">
-            <h5 class="font-semibold dark:text-white mb-1">{% blocktrans with name=connection.requester.crushprofile.display_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-1 flex items-center gap-1">
-                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                {% blocktrans with event_title=connection.event.title %}From {{ event_title }}{% endblocktrans %}
+            <h5 class="mb-1 font-semibold dark:text-white">
+                {% blocktrans with name=connection.requester.crushprofile.display_name
+                %}{{ name }} wants to connect{% endblocktrans %}
+            </h5>
+            <p
+                class="mb-1 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400"
+            >
+                {% include "shared/icons/calendar.html" with class="w-4 h-4" %} {%
+                blocktrans with event_title=connection.event.title %}From {{ event_title
+                }}{% endblocktrans %}
             </p>
             {% if connection.requester_note %}
-                <p class="text-sm dark:text-gray-300 flex items-center gap-1">
-                    {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
-                    "{{ connection.requester_note }}"
-                </p>
+            <p class="flex items-center gap-1 text-sm dark:text-gray-300">
+                {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4" %}
+                "{{ connection.requester_note }}"
+            </p>
             {% endif %}
         </div>
 
         <!-- Actions -->
         <div class="ml-4">
             <div class="flex gap-2">
-                <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'accept' %}"
-                        hx-target="#connection-{{ connection.id }}"
-                        hx-swap="outerHTML"
-                        class="inline-flex items-center gap-1 px-4 py-2.5 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
+                <button
+                    hx-post="{% url 'crush_lu:respond_connection' connection.id 'accept' %}"
+                    hx-target="#connection-{{ connection.id }}"
+                    hx-swap="outerHTML"
+                    class="inline-flex items-center gap-1 rounded-lg bg-green-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-600"
+                >
                     <span class="htmx-indicator">
-                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                        {% include "shared/icons/loading.html" with class="w-4 h-4
+                        animate-spin" %}
                     </span>
                     <span class="htmx-hide-on-request inline-flex items-center gap-1">
-                        {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
-                        {% trans "Accept" %}
+                        {% include "shared/icons/check-circle.html" with class="w-4 h-4"
+                        %} {% trans "Accept" %}
                     </span>
                 </button>
-                <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'decline' %}"
-                        hx-target="#connection-{{ connection.id }}"
-                        hx-swap="outerHTML"
-                        hx-confirm="{% trans 'Are you sure you want to decline this connection request?' %}"
-                        class="inline-flex items-center gap-1 px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <button
+                    hx-post="{% url 'crush_lu:respond_connection' connection.id 'decline' %}"
+                    hx-target="#connection-{{ connection.id }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="{% trans 'Are you sure you want to decline this connection request?' %}"
+                    class="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
                     <span class="htmx-indicator">
-                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                        {% include "shared/icons/loading.html" with class="w-4 h-4
+                        animate-spin" %}
                     </span>
-                    <span class="htmx-hide-on-request">
-                        {% trans "Decline" %}
-                    </span>
+                    <span class="htmx-hide-on-request"> {% trans "Decline" %} </span>
                 </button>
             </div>
         </div>

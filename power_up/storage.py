@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Conditional imports for Azure storage
 try:
     from storages.backends.azure_storage import AzureStorage
+
     AZURE_STORAGE_AVAILABLE = True
 except ImportError:
     AzureStorage = object  # Placeholder
@@ -32,7 +33,7 @@ except ImportError:
 
 def is_azurite_mode():
     """Check if we're running in Azurite (local emulator) mode."""
-    return getattr(settings, 'AZURITE_MODE', False)
+    return getattr(settings, "AZURITE_MODE", False)
 
 
 class PowerUpMediaStorage(AzureStorage):
@@ -50,22 +51,21 @@ class PowerUpMediaStorage(AzureStorage):
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings
-        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
+        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
 
         # Container name (configurable via environment)
-        container_name = os.getenv(
-            'AZURE_POWERUP_MEDIA_CONTAINER',
-            'powerup-media'
-        )
+        container_name = os.getenv("AZURE_POWERUP_MEDIA_CONTAINER", "powerup-media")
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+            self._azurite_host = getattr(
+                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
+            )
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -92,22 +92,21 @@ class FinOpsStorage(AzureStorage):
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings
-        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
-        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
+        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
+        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
 
         # Container name (configurable via environment)
-        container_name = os.getenv(
-            'AZURE_POWERUP_FINOPS_CONTAINER',
-            'powerup-finops'
-        )
+        container_name = os.getenv("AZURE_POWERUP_FINOPS_CONTAINER", "powerup-finops")
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
+            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
+            self._azurite_host = getattr(
+                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
+            )
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -118,6 +117,7 @@ class FinOpsStorage(AzureStorage):
 # =============================================================================
 # Upload Path Helpers for PowerUP Models
 # =============================================================================
+
 
 def _powerup_upload_path(subfolder: str, instance, filename: str) -> str:
     """
@@ -135,14 +135,14 @@ def _powerup_upload_path(subfolder: str, instance, filename: str) -> str:
     unique_filename = f"{uuid.uuid4().hex}{ext}"
 
     # Normalize subfolder (remove leading/trailing slashes)
-    subfolder = subfolder.strip('/')
+    subfolder = subfolder.strip("/")
 
     if subfolder:
         return f"{subfolder}/{unique_filename}"
     return unique_filename
 
 
-def powerup_upload_path(subfolder: str = ''):
+def powerup_upload_path(subfolder: str = ""):
     """
     Factory function to create PowerUP upload_to callables.
 
@@ -168,31 +168,40 @@ def powerup_upload_path(subfolder: str = ''):
 # Note: These are callable factories, not instances, to avoid Django settings
 # issues during module import. They will be instantiated when first accessed.
 
+
 def get_powerup_media_storage():
     """Get PowerUP media storage instance (lazy initialization)."""
     try:
         from django.core.files.storage.base import Storage
+
         storage = PowerUpMediaStorage()
         if not isinstance(storage, Storage):
             from django.core.files.storage import default_storage
+
             return default_storage
         return storage
     except Exception:
         from django.core.files.storage import default_storage
+
         return default_storage
+
 
 def get_finops_storage():
     """Get FinOps storage instance (lazy initialization)."""
     try:
         from django.core.files.storage.base import Storage
+
         storage = FinOpsStorage()
         if not isinstance(storage, Storage):
             from django.core.files.storage import default_storage
+
             return default_storage
         return storage
     except Exception:
         from django.core.files.storage import default_storage
+
         return default_storage
+
 
 # Aliases for backward compatibility and convenience
 powerup_media_storage = get_powerup_media_storage

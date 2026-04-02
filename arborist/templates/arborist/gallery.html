@@ -1,14 +1,9 @@
-{% extends "arborist/base.html" %}
-{% load i18n %}
-
-{% block content %}
+{% extends "arborist/base.html" %} {% load i18n %} {% block content %}
 <!-- Header -->
-<section class="bg-green-800 text-white py-16">
+<section class="bg-green-800 py-16 text-white">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl font-bold mb-4">
-                {% trans "Gallery" %}
-            </h1>
+        <div class="mx-auto max-w-4xl text-center">
+            <h1 class="mb-4 text-4xl font-bold">{% trans "Gallery" %}</h1>
             <p class="text-xl">
                 {% trans "Insights into my work as an arborist in Luxembourg." %}
             </p>
@@ -19,9 +14,11 @@
 <!-- Gallery Introduction -->
 <section class="py-12">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
+        <div class="mx-auto max-w-4xl text-center">
             <p class="text-lg text-gray-700">
-                {% trans "Here you will find examples of my tree care projects. The images show various work from fruit tree care to crown maintenance of large trees." %}
+                {% trans "Here you will find examples of my tree care projects. The
+                images show various work from fruit tree care to crown maintenance of
+                large trees." %}
             </p>
         </div>
     </div>
@@ -30,28 +27,34 @@
 <!-- Gallery Grid - Placeholder -->
 <section class="py-8">
     <div class="container mx-auto px-4">
-        <div class="max-w-6xl mx-auto">
+        <div class="mx-auto max-w-6xl">
             <!-- Category: Obstbaumpflege -->
             <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
+                <h2 class="mb-6 text-2xl font-bold text-green-800">
                     {% trans "Fruit Tree Care" %}
                 </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
+                <div class="grid gap-6 md:grid-cols-3">
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127822;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127822;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127822;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
@@ -60,25 +63,31 @@
 
             <!-- Category: Baumpflege -->
             <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
+                <h2 class="mb-6 text-2xl font-bold text-green-800">
                     {% trans "Tree Care" %}
                 </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
+                <div class="grid gap-6 md:grid-cols-3">
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127795;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127795;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#127795;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
@@ -87,25 +96,31 @@
 
             <!-- Category: Seilklettertechnik -->
             <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
+                <h2 class="mb-6 text-2xl font-bold text-green-800">
                     {% trans "Rope Climbing Technique" %}
                 </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
+                <div class="grid gap-6 md:grid-cols-3">
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#9875;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#9875;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
+                    <div
+                        class="flex aspect-square items-center justify-center rounded-xl bg-gray-100"
+                    >
+                        <div class="p-4 text-center text-gray-500">
+                            <div class="mb-2 text-4xl">&#9875;</div>
                             <p class="text-sm">{% trans "Photo coming soon" %}</p>
                         </div>
                     </div>
@@ -116,15 +131,16 @@
 </section>
 
 <!-- Coming Soon Notice -->
-<section class="py-12 bg-green-50">
+<section class="bg-green-50 py-12">
     <div class="container mx-auto px-4">
-        <div class="max-w-2xl mx-auto text-center">
-            <div class="text-4xl mb-4">&#128247;</div>
-            <h2 class="text-2xl font-bold mb-4 text-green-800">
+        <div class="mx-auto max-w-2xl text-center">
+            <div class="mb-4 text-4xl">&#128247;</div>
+            <h2 class="mb-4 text-2xl font-bold text-green-800">
                 {% trans "More photos coming soon!" %}
             </h2>
-            <p class="text-gray-700 mb-6">
-                {% trans "The gallery is regularly updated with new project photos. Interested in my work? Contact me for an on-site consultation." %}
+            <p class="mb-6 text-gray-700">
+                {% trans "The gallery is regularly updated with new project photos.
+                Interested in my work? Contact me for an on-site consultation." %}
             </p>
             <a href="{% url 'arborist:contact' %}" class="btn btn-primary">
                 {% trans "Get in Touch" %}

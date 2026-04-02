@@ -86,13 +86,19 @@ def event_checkin_api(request, registration_id, token):
     # Check if already attended
     if registration.status == "attended":
         display_name = _get_display_name(registration)
-        return JsonResponse({
-            "success": True,
-            "already_checked_in": True,
-            "attendee_name": display_name,
-            "checked_in_at": registration.checked_in_at.isoformat() if registration.checked_in_at else None,
-            "message": f"{display_name} was already checked in.",
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "already_checked_in": True,
+                "attendee_name": display_name,
+                "checked_in_at": (
+                    registration.checked_in_at.isoformat()
+                    if registration.checked_in_at
+                    else None
+                ),
+                "message": f"{display_name} was already checked in.",
+            }
+        )
 
     # Verify status is confirmed
     if registration.status != "confirmed":
@@ -124,19 +130,24 @@ def event_checkin_api(request, registration_id, token):
 
     # Mark as attended (with lock to prevent duplicate concurrent check-ins)
     with transaction.atomic():
-        registration = (
-            EventRegistration.objects.select_for_update()
-            .get(id=registration_id)
+        registration = EventRegistration.objects.select_for_update().get(
+            id=registration_id
         )
         if registration.status == "attended":
             display_name = _get_display_name(registration)
-            return JsonResponse({
-                "success": True,
-                "already_checked_in": True,
-                "attendee_name": display_name,
-                "checked_in_at": registration.checked_in_at.isoformat() if registration.checked_in_at else None,
-                "message": f"{display_name} was already checked in.",
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "already_checked_in": True,
+                    "attendee_name": display_name,
+                    "checked_in_at": (
+                        registration.checked_in_at.isoformat()
+                        if registration.checked_in_at
+                        else None
+                    ),
+                    "message": f"{display_name} was already checked in.",
+                }
+            )
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
@@ -150,13 +161,15 @@ def event_checkin_api(request, registration_id, token):
         registration.event_id,
     )
 
-    return JsonResponse({
-        "success": True,
-        "already_checked_in": False,
-        "attendee_name": display_name,
-        "checked_in_at": now.isoformat(),
-        "message": f"{display_name} has been checked in!",
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "already_checked_in": False,
+            "attendee_name": display_name,
+            "checked_in_at": now.isoformat(),
+            "message": f"{display_name} has been checked in!",
+        }
+    )
 
 
 def _get_display_name(registration):

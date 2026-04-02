@@ -3,6 +3,7 @@ Crush.lu PWA Device Registration API.
 
 Tracks PWA installations across user devices for admin analytics.
 """
+
 import json
 import logging
 
@@ -44,16 +45,12 @@ def register_pwa_installation(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse(
-            {"success": False, "error": "Invalid JSON"},
-            status=400
-        )
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
     fingerprint = data.get("deviceFingerprint", "")
     if not fingerprint:
         return JsonResponse(
-            {"success": False, "error": "deviceFingerprint required"},
-            status=400
+            {"success": False, "error": "deviceFingerprint required"}, status=400
         )
 
     # Validate os_type
@@ -79,13 +76,12 @@ def register_pwa_installation(request):
             "browser": data.get("browser", "")[:50],
             "user_agent": data.get("userAgent", "")[:500],
             "last_used_at": timezone.now(),
-        }
+        },
     )
 
     # Also update UserActivity.is_pwa_user for backwards compatibility
     activity, _ = UserActivity.objects.get_or_create(
-        user=request.user,
-        defaults={"last_seen": timezone.now()}
+        user=request.user, defaults={"last_seen": timezone.now()}
     )
     if not activity.is_pwa_user:
         activity.is_pwa_user = True
@@ -99,11 +95,13 @@ def register_pwa_installation(request):
         "PWA installation %s for user %s: %s",
         "created" if created else "updated",
         request.user.username,
-        installation.device_category
+        installation.device_category,
     )
 
-    return JsonResponse({
-        "success": True,
-        "message": "created" if created else "updated",
-        "deviceCategory": installation.device_category
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "created" if created else "updated",
+            "deviceCategory": installation.device_category,
+        }
+    )

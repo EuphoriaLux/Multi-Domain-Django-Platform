@@ -387,7 +387,12 @@ class TicketAdmin(admin.ModelAdmin):
         "tenant__company_name",
         "tenant__entity__group__name",
     ]
-    list_select_related = ["tenant__entity__group", "assigned_to", "assigned_expert", "requester"]
+    list_select_related = [
+        "tenant__entity__group",
+        "assigned_to",
+        "assigned_expert",
+        "requester",
+    ]
     readonly_fields = [
         "reference_number",
         "created_at",

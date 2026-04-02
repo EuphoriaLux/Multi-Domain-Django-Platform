@@ -32,7 +32,6 @@ from crush_lu.matching import (
 from crush_lu.models import CrushCoach, CrushProfile, MatchScore, Trait
 from crush_lu.models.profiles import UserDataConsent
 
-
 # =============================================================================
 # Model Tests
 # =============================================================================
@@ -67,7 +66,11 @@ class TraitModelTests(TestCase):
         """Each trait should have a valid category."""
         valid_categories = {"social", "emotional", "mindset", "relational", "energy"}
         for trait in Trait.objects.all():
-            self.assertIn(trait.category, valid_categories, f"Trait {trait.slug} has invalid category")
+            self.assertIn(
+                trait.category,
+                valid_categories,
+                f"Trait {trait.slug} has invalid category",
+            )
 
     def test_trait_str(self):
         patient = Trait.objects.get(slug="patient")
@@ -276,14 +279,18 @@ class QualityScoreTests(TestCase):
         self.user_a = User.objects.create_user("user_a", password="test")
         self.user_b = User.objects.create_user("user_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1990, 4, 5),
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1992, 7, 15),
         )
-        self.all_qualities = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
+        self.all_qualities = list(
+            Trait.objects.filter(trait_type="quality").order_by("sort_order")
+        )
 
     def test_perfect_match(self):
         """Both users seek exactly what the other has."""
@@ -358,11 +365,13 @@ class LanguageScoreTests(TestCase):
         self.user_a = User.objects.create_user("lang_a", password="test")
         self.user_b = User.objects.create_user("lang_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1990, 4, 5),
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1992, 7, 15),
         )
 
@@ -402,14 +411,18 @@ class AgeFitScoreTests(TestCase):
         self.user_a = User.objects.create_user("age_a", password="test")
         self.user_b = User.objects.create_user("age_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1996, 4, 5),
-            preferred_age_min=25, preferred_age_max=35,
+            preferred_age_min=25,
+            preferred_age_max=35,
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1996, 7, 15),
-            preferred_age_min=25, preferred_age_max=35,
+            preferred_age_min=25,
+            preferred_age_max=35,
         )
 
     def test_both_in_range_center(self):
@@ -445,16 +458,20 @@ class HardFilterTests(TestCase):
         self.user_a = User.objects.create_user("filter_a", password="test")
         self.user_b = User.objects.create_user("filter_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1990, 4, 5),
             event_languages=["en", "fr"],
-            preferred_age_min=25, preferred_age_max=40,
+            preferred_age_min=25,
+            preferred_age_max=40,
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1992, 7, 15),
             event_languages=["en", "de"],
-            preferred_age_min=25, preferred_age_max=40,
+            preferred_age_min=25,
+            preferred_age_max=40,
         )
         # Both profiles must have traits set to pass the completeness check
         all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
@@ -585,12 +602,14 @@ class CombinedScoreTests(TestCase):
         self.user_a = User.objects.create_user("user_a", password="test")
         self.user_b = User.objects.create_user("user_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1990, 4, 5),  # Aries, Horse
             astro_enabled=True,
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1992, 6, 10),  # Gemini, Monkey
             astro_enabled=True,
         )
@@ -686,14 +705,18 @@ class MatchScorePersistenceTests(TestCase):
         self.user_a = User.objects.create_user("user_a", password="test")
         self.user_b = User.objects.create_user("user_b", password="test")
         self.profile_a = CrushProfile.objects.create(
-            user=self.user_a, location="canton-luxembourg",
+            user=self.user_a,
+            location="canton-luxembourg",
             date_of_birth=date(1990, 4, 5),
-            is_approved=True, is_active=True,
+            is_approved=True,
+            is_active=True,
         )
         self.profile_b = CrushProfile.objects.create(
-            user=self.user_b, location="canton-luxembourg",
+            user=self.user_b,
+            location="canton-luxembourg",
             date_of_birth=date(1992, 6, 10),
-            is_approved=True, is_active=True,
+            is_approved=True,
+            is_active=True,
         )
 
         all_q = list(Trait.objects.filter(trait_type="quality").order_by("sort_order"))
@@ -767,7 +790,11 @@ class CrushPreferencesWithTraitsTests(TestCase):
 
     def test_save_sought_qualities(self):
         """Saving sought qualities through the preferences form should work."""
-        sought = list(Trait.objects.filter(trait_type="quality")[5:10].values_list("pk", flat=True))
+        sought = list(
+            Trait.objects.filter(trait_type="quality")[5:10].values_list(
+                "pk", flat=True
+            )
+        )
 
         response = self.client.post(
             reverse("crush_lu:crush_preferences"),
@@ -788,7 +815,9 @@ class CrushPreferencesWithTraitsTests(TestCase):
 
     def test_too_many_sought_traits_rejected(self):
         """Selecting more than 5 sought qualities should fail."""
-        sought = list(Trait.objects.filter(trait_type="quality")[:7].values_list("pk", flat=True))
+        sought = list(
+            Trait.objects.filter(trait_type="quality")[:7].values_list("pk", flat=True)
+        )
 
         response = self.client.post(
             reverse("crush_lu:crush_preferences"),
@@ -842,9 +871,7 @@ class CoachMemberMatchesViewTests(TestCase):
             email="coach@example.com",
             password="testpass123",
         )
-        self.coach = CrushCoach.objects.create(
-            user=self.coach_user, is_active=True
-        )
+        self.coach = CrushCoach.objects.create(user=self.coach_user, is_active=True)
 
         # Create member with profile
         self.member = User.objects.create_user(
@@ -907,8 +934,10 @@ class CoachMemberMatchesViewTests(TestCase):
         # Create another user with matching traits
         user_b = User.objects.create_user("user_b", password="test")
         profile_b = CrushProfile.objects.create(
-            user=user_b, location="canton-luxembourg",
-            is_approved=True, is_active=True,
+            user=user_b,
+            location="canton-luxembourg",
+            is_approved=True,
+            is_active=True,
             date_of_birth=date(1992, 6, 10),
         )
         profile_b.qualities.set(all_q[5:10])
@@ -953,9 +982,7 @@ class CoachMatchPairsViewTests(TestCase):
             email="paircoach@example.com",
             password="testpass123",
         )
-        self.coach = CrushCoach.objects.create(
-            user=self.coach_user, is_active=True
-        )
+        self.coach = CrushCoach.objects.create(user=self.coach_user, is_active=True)
 
         # Create two users with approved profiles
         self.user_a = User.objects.create_user(
@@ -1000,7 +1027,11 @@ class CoachMatchPairsViewTests(TestCase):
         )
 
         # Create a high match score (enforce user_a.pk < user_b.pk)
-        ua, ub = (self.user_a, self.user_b) if self.user_a.pk < self.user_b.pk else (self.user_b, self.user_a)
+        ua, ub = (
+            (self.user_a, self.user_b)
+            if self.user_a.pk < self.user_b.pk
+            else (self.user_b, self.user_a)
+        )
         MatchScore.objects.create(user_a=ua, user_b=ub, score_final=0.85)
 
         consent, _ = UserDataConsent.objects.get_or_create(user=self.coach_user)
@@ -1045,7 +1076,11 @@ class CoachMatchPairsViewTests(TestCase):
             date_of_birth=date(1990, 1, 1),
         )
         # Low score pair
-        ua, uc = (self.user_a, user_c) if self.user_a.pk < user_c.pk else (user_c, self.user_a)
+        ua, uc = (
+            (self.user_a, user_c)
+            if self.user_a.pk < user_c.pk
+            else (user_c, self.user_a)
+        )
         MatchScore.objects.create(user_a=ua, user_b=uc, score_final=0.30)
 
         response = self.client.get(

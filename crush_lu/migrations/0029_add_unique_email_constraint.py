@@ -8,14 +8,14 @@ def add_unique_email_index(apps, schema_editor):
     """Add unique index on email field (case-insensitive, excluding empty emails)"""
     vendor = connection.vendor
 
-    if vendor == 'postgresql':
+    if vendor == "postgresql":
         # PostgreSQL: Use partial unique index with LOWER() for case-insensitivity
         schema_editor.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS auth_user_email_unique
             ON auth_user (LOWER(email))
             WHERE email IS NOT NULL AND email != '';
         """)
-    elif vendor == 'sqlite':
+    elif vendor == "sqlite":
         # SQLite 3.8.0+ supports partial indexes with WHERE clause
         # Exclude empty/null emails to allow test users without emails
         schema_editor.execute("""
@@ -39,8 +39,8 @@ def remove_unique_email_index(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0028_add_is_popup_to_oauthstate'),
-        ('auth', '0012_alter_user_first_name_max_length'),
+        ("crush_lu", "0028_add_is_popup_to_oauthstate"),
+        ("auth", "0012_alter_user_first_name_max_length"),
     ]
 
     operations = [

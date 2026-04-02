@@ -8,12 +8,11 @@ Tests for:
 - Permissions-Policy headers
 - PII masking in logs
 """
-import pytest
-from django.test import Client, TestCase, override_settings
+
+from django.test import Client, TestCase
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
-from unittest.mock import patch, MagicMock
 
 User = get_user_model()
 
@@ -21,6 +20,7 @@ User = get_user_model()
 def _clear_site_cache():
     """Clear Django's Site cache."""
     from django.contrib.sites.models import SITE_CACHE
+
     SITE_CACHE.clear()
 
 
@@ -32,8 +32,7 @@ class SiteTestCase(TestCase):
         super().setUpClass()
         _clear_site_cache()
         Site.objects.get_or_create(
-            id=1,
-            defaults={'domain': 'testserver', 'name': 'Test'}
+            id=1, defaults={"domain": "testserver", "name": "Test"}
         )
         _clear_site_cache()
 
@@ -53,18 +52,24 @@ class TestRateLimiting(SiteTestCase):
 
     def test_login_rate_limit_allows_initial_requests(self):
         """Verify that initial login attempts are allowed."""
-        response = self.client.post('/login/', {
-            'login': 'test@example.com',
-            'password': 'wrongpassword',
-        })
+        response = self.client.post(
+            "/login/",
+            {
+                "login": "test@example.com",
+                "password": "wrongpassword",
+            },
+        )
         # Should not be rate limited (might be 200 with error or redirect)
         self.assertNotEqual(response.status_code, 429)
 
     def test_password_reset_rate_limit_allows_initial_requests(self):
         """Verify that initial password reset requests are allowed."""
-        response = self.client.post('/accounts/password/reset/', {
-            'email': 'test@example.com',
-        })
+        response = self.client.post(
+            "/accounts/password/reset/",
+            {
+                "email": "test@example.com",
+            },
+        )
         # Should not be rate limited
         self.assertNotEqual(response.status_code, 429)
 
@@ -78,21 +83,21 @@ class TestCSPHeaders(SiteTestCase):
 
     def test_csp_header_present_on_home_page(self):
         """Verify CSP header is present on public pages."""
-        response = self.client.get('/')
+        response = self.client.get("/")
         # In report-only mode
         self.assertTrue(
-            'Content-Security-Policy-Report-Only' in response or
-            'Content-Security-Policy' in response,
-            "CSP header should be present"
+            "Content-Security-Policy-Report-Only" in response
+            or "Content-Security-Policy" in response,
+            "CSP header should be present",
         )
 
     def test_csp_header_contains_required_directives(self):
         """Verify CSP header contains essential security directives."""
-        response = self.client.get('/')
+        response = self.client.get("/")
         csp = (
-            response.get('Content-Security-Policy-Report-Only') or
-            response.get('Content-Security-Policy') or
-            ''
+            response.get("Content-Security-Policy-Report-Only")
+            or response.get("Content-Security-Policy")
+            or ""
         )
         # Check for essential directives
         self.assertIn("default-src", csp)
@@ -101,16 +106,16 @@ class TestCSPHeaders(SiteTestCase):
 
     def test_csp_header_skipped_for_admin(self):
         """Verify CSP header is skipped for admin pages."""
-        response = self.client.get('/admin/login/')
+        response = self.client.get("/admin/login/")
         # CSP should not be present for admin
-        csp = response.get('Content-Security-Policy-Report-Only')
+        csp = response.get("Content-Security-Policy-Report-Only")
         # Admin pages might still have CSP from Django, but our middleware skips it
         # Just verify the page loads
         self.assertIn(response.status_code, [200, 302])
 
     def test_csp_header_skipped_for_healthz(self):
         """Verify CSP header is skipped for health check."""
-        response = self.client.get('/healthz/')
+        response = self.client.get("/healthz/")
         # Health check returns plain text, no CSP needed
         self.assertEqual(response.status_code, 200)
 
@@ -124,23 +129,29 @@ class TestPermissionsPolicy(SiteTestCase):
 
     def test_permissions_policy_header_present(self):
         """Verify Permissions-Policy header is present."""
-        response = self.client.get('/')
-        self.assertIn('Permissions-Policy', response)
+        response = self.client.get("/")
+        self.assertIn("Permissions-Policy", response)
 
     def test_permissions_policy_disables_dangerous_features(self):
         """Verify dangerous browser features are disabled."""
-        response = self.client.get('/')
-        pp = response.get('Permissions-Policy', '')
+        response = self.client.get("/")
+        pp = response.get("Permissions-Policy", "")
 
         # These features should be disabled
-        disabled_features = ['microphone', 'geolocation']
+        disabled_features = ["microphone", "geolocation"]
         for feature in disabled_features:
-            self.assertIn(f'{feature}=()', pp,
-                         f"{feature} should be disabled in Permissions-Policy")
+            self.assertIn(
+                f"{feature}=()",
+                pp,
+                f"{feature} should be disabled in Permissions-Policy",
+            )
 
         # Camera is allowed on same origin only (needed for QR check-in scanner)
-        self.assertIn('camera=(self)', pp,
-                     "camera should be allowed on same origin for QR check-in")
+        self.assertIn(
+            "camera=(self)",
+            pp,
+            "camera should be allowed on same origin for QR check-in",
+        )
 
 
 class TestPIIMasking(TestCase):
@@ -151,28 +162,28 @@ class TestPIIMasking(TestCase):
         from azureproject.logging_utils import mask_email
 
         # Test normal email
-        self.assertEqual(mask_email('john.doe@example.com'), 'j***e@e***.com')
+        self.assertEqual(mask_email("john.doe@example.com"), "j***e@e***.com")
 
         # Test short email
-        self.assertEqual(mask_email('a@b.io'), 'a***@b***.io')
+        self.assertEqual(mask_email("a@b.io"), "a***@b***.io")
 
         # Test empty/invalid
-        self.assertEqual(mask_email(''), '[empty]')
-        self.assertEqual(mask_email(None), '[empty]')
-        self.assertEqual(mask_email('invalid'), 'invalid')
+        self.assertEqual(mask_email(""), "[empty]")
+        self.assertEqual(mask_email(None), "[empty]")
+        self.assertEqual(mask_email("invalid"), "invalid")
 
     def test_mask_phone(self):
         """Test phone masking function."""
         from azureproject.logging_utils import mask_phone
 
         # Test with country code
-        masked = mask_phone('+352 621 123 456')
-        self.assertTrue(masked.startswith('+352'))
-        self.assertTrue(masked.endswith('56'))
-        self.assertIn('***', masked)
+        masked = mask_phone("+352 621 123 456")
+        self.assertTrue(masked.startswith("+352"))
+        self.assertTrue(masked.endswith("56"))
+        self.assertIn("***", masked)
 
         # Test empty
-        self.assertEqual(mask_phone(''), '[empty]')
+        self.assertEqual(mask_phone(""), "[empty]")
 
     def test_pii_masking_filter(self):
         """Test the logging filter masks emails."""
@@ -181,13 +192,13 @@ class TestPIIMasking(TestCase):
 
         # Create a log record with email
         record = logging.LogRecord(
-            name='test',
+            name="test",
             level=logging.INFO,
-            pathname='test.py',
+            pathname="test.py",
             lineno=1,
-            msg='User john@example.com logged in',
+            msg="User john@example.com logged in",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
 
         # Apply filter
@@ -195,8 +206,8 @@ class TestPIIMasking(TestCase):
         filter.filter(record)
 
         # Email should be masked
-        self.assertNotIn('john@example.com', record.msg)
-        self.assertIn('j***n@e***.com', record.msg)
+        self.assertNotIn("john@example.com", record.msg)
+        self.assertIn("j***n@e***.com", record.msg)
 
 
 class TestSessionSecurity(SiteTestCase):
@@ -206,9 +217,9 @@ class TestSessionSecurity(SiteTestCase):
         super().setUp()
         self.client = Client()
         self.user = User.objects.create_user(
-            username='testuser@example.com',
-            email='testuser@example.com',
-            password='testpass123'
+            username="testuser@example.com",
+            email="testuser@example.com",
+            password="testpass123",
         )
 
     def test_session_cookie_flags(self):
@@ -219,8 +230,8 @@ class TestSessionSecurity(SiteTestCase):
         # In production, these should be True
         # (In test environment, they might be False)
         # Just verify the settings exist
-        self.assertTrue(hasattr(settings, 'SESSION_COOKIE_HTTPONLY'))
-        self.assertTrue(hasattr(settings, 'SESSION_COOKIE_SAMESITE'))
+        self.assertTrue(hasattr(settings, "SESSION_COOKIE_HTTPONLY"))
+        self.assertTrue(hasattr(settings, "SESSION_COOKIE_SAMESITE"))
 
 
 class TestAPIErrorSanitization(TestCase):
@@ -230,10 +241,10 @@ class TestAPIErrorSanitization(TestCase):
         """Verify custom exception handler is configured."""
         from django.conf import settings
 
-        self.assertIn('EXCEPTION_HANDLER', settings.REST_FRAMEWORK)
+        self.assertIn("EXCEPTION_HANDLER", settings.REST_FRAMEWORK)
         self.assertEqual(
-            settings.REST_FRAMEWORK['EXCEPTION_HANDLER'],
-            'azureproject.api_exception_handler.custom_exception_handler'
+            settings.REST_FRAMEWORK["EXCEPTION_HANDLER"],
+            "azureproject.api_exception_handler.custom_exception_handler",
         )
 
     def test_validation_errors_preserved(self):
@@ -241,13 +252,13 @@ class TestAPIErrorSanitization(TestCase):
         from azureproject.api_exception_handler import custom_exception_handler
         from rest_framework.exceptions import ValidationError
 
-        exc = ValidationError({'field': 'This field is required'})
-        context = {'view': None, 'request': None}
+        exc = ValidationError({"field": "This field is required"})
+        context = {"view": None, "request": None}
 
         response = custom_exception_handler(exc, context)
 
         # Validation errors should be preserved
-        self.assertIn('field', response.data)
+        self.assertIn("field", response.data)
 
 
 class TestThrottleClasses(TestCase):
@@ -258,27 +269,27 @@ class TestThrottleClasses(TestCase):
         from crush_lu.throttling import LoginRateThrottle
 
         throttle = LoginRateThrottle()
-        self.assertEqual(throttle.scope, 'login')
+        self.assertEqual(throttle.scope, "login")
 
     def test_signup_throttle_class_exists(self):
         """Verify SignupRateThrottle is properly configured."""
         from crush_lu.throttling import SignupRateThrottle
 
         throttle = SignupRateThrottle()
-        self.assertEqual(throttle.scope, 'signup')
+        self.assertEqual(throttle.scope, "signup")
 
     def test_password_reset_throttle_class_exists(self):
         """Verify PasswordResetRateThrottle is properly configured."""
         from crush_lu.throttling import PasswordResetRateThrottle
 
         throttle = PasswordResetRateThrottle()
-        self.assertEqual(throttle.scope, 'password_reset')
+        self.assertEqual(throttle.scope, "password_reset")
 
     def test_throttle_rates_configured(self):
         """Verify throttle rates are in settings."""
         from django.conf import settings
 
-        rates = settings.REST_FRAMEWORK.get('DEFAULT_THROTTLE_RATES', {})
-        self.assertIn('login', rates)
-        self.assertIn('signup', rates)
-        self.assertIn('password_reset', rates)
+        rates = settings.REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})
+        self.assertIn("login", rates)
+        self.assertIn("signup", rates)
+        self.assertIn("password_reset", rates)

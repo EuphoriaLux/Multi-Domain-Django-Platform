@@ -15,9 +15,9 @@ How it works:
 3. If session lookup fails, we fall back to database lookup
 4. This allows OAuth to work even when sessions don't persist across browser contexts
 """
+
 import json
 import logging
-import traceback
 from typing import Any, Dict, Optional
 
 from django.utils import timezone
@@ -43,16 +43,16 @@ def ensure_patched():
 
 def get_client_ip(request) -> Optional[str]:
     """Extract client IP address from request (without port)."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0].strip()
+        ip = x_forwarded_for.split(",")[0].strip()
     else:
-        ip = request.META.get('REMOTE_ADDR')
+        ip = request.META.get("REMOTE_ADDR")
 
     # Remove port if present (e.g., "185.40.60.86:13580" -> "185.40.60.86")
-    if ip and ':' in ip and not ip.startswith('['):
+    if ip and ":" in ip and not ip.startswith("["):
         # IPv4 with port - split on last colon
-        ip = ip.rsplit(':', 1)[0]
+        ip = ip.rsplit(":", 1)[0]
 
     return ip
 
@@ -80,7 +80,9 @@ def patch_allauth_statekit():
     _original_unstash_state = statekit.unstash_state
     _original_unstash_last_state = statekit.unstash_last_state
 
-    def db_stash_state(request, state: Dict[str, Any], state_id: Optional[str] = None) -> str:
+    def db_stash_state(
+        request, state: Dict[str, Any], state_id: Optional[str] = None
+    ) -> str:
         """
         Enhanced stash_state that stores in both session AND database.
 
@@ -94,9 +96,9 @@ def patch_allauth_statekit():
         """
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
-        is_popup = request.GET.get('popup') == '1'
+        is_popup = request.GET.get("popup") == "1"
         if is_popup:
-            request.session['oauth_popup_mode'] = True
+            request.session["oauth_popup_mode"] = True
             logger.debug("[OAUTH] Popup mode detected and stored in session")
 
         # First, use original session-based storage (for compatibility)
@@ -112,16 +114,16 @@ def patch_allauth_statekit():
             from crush_lu.models import OAuthState
 
             # Get request metadata for security tracking
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            user_agent = request.META.get("HTTP_USER_AGENT", "")
             ip_address = get_client_ip(request)
 
             # Determine provider from state or request
-            provider = state.get('provider', '')
+            provider = state.get("provider", "")
             if not provider:
                 # Try to get from request path (e.g., /accounts/facebook/login/)
                 path = request.path
-                if '/accounts/' in path:
-                    parts = path.strip('/').split('/')
+                if "/accounts/" in path:
+                    parts = path.strip("/").split("/")
                     if len(parts) >= 2:
                         provider = parts[1]  # e.g., 'facebook'
 
@@ -133,11 +135,13 @@ def patch_allauth_statekit():
                 state_data=json.dumps(state),
                 expires_at=timezone.now() + timezone.timedelta(minutes=15),
                 provider=provider,
-                user_agent=user_agent[:500] if user_agent else '',
+                user_agent=user_agent[:500] if user_agent else "",
                 ip_address=ip_address,
                 is_popup=is_popup,
             )
-            logger.debug(f"[OAUTH] State {state_id[:8]}... stored in DB (provider={provider})")
+            logger.debug(
+                f"[OAUTH] State {state_id[:8]}... stored in DB (provider={provider})"
+            )
 
         except Exception as e:
             # Log error but don't fail - session storage is the primary mechanism
@@ -163,27 +167,36 @@ def patch_allauth_statekit():
             # Also clean up database record
             try:
                 from crush_lu.models import OAuthState
+
                 OAuthState.objects.filter(state_id=state_id).update(used=True)
             except Exception:
                 pass
             return state
 
         # Session lookup failed - try database (cross-browser case, e.g., Android PWA)
-        logger.info(f"[OAUTH] State {state_id[:8]}... not in session, trying database fallback")
+        logger.info(
+            f"[OAUTH] State {state_id[:8]}... not in session, trying database fallback"
+        )
         try:
             from crush_lu.models import OAuthState
 
             state = OAuthState.get_and_consume_state(state_id)
             if state:
-                logger.info(f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)")
+                logger.info(
+                    f"[OAUTH] State {state_id[:8]}... retrieved from database (cross-browser)"
+                )
                 return state
             else:
                 # State not found - this is an error condition
                 existing = OAuthState.objects.filter(state_id=state_id).first()
                 if existing:
-                    logger.warning(f"[OAUTH] State {state_id[:8]}... in DB but invalid (used={existing.used}, expired={timezone.now() > existing.expires_at})")
+                    logger.warning(
+                        f"[OAUTH] State {state_id[:8]}... in DB but invalid (used={existing.used}, expired={timezone.now() > existing.expires_at})"
+                    )
                 else:
-                    logger.warning(f"[OAUTH] State {state_id[:8]}... not found in session or database")
+                    logger.warning(
+                        f"[OAUTH] State {state_id[:8]}... not found in session or database"
+                    )
         except Exception as e:
             logger.error(f"[OAUTH] Database state lookup failed: {e}")
 
@@ -205,16 +218,20 @@ def patch_allauth_statekit():
             from crush_lu.models import OAuthState
 
             ip_address = get_client_ip(request)
-            recent_state = OAuthState.objects.filter(
-                used=False,
-                expires_at__gt=timezone.now(),
-                ip_address=ip_address,
-            ).order_by('-created_at').first()
+            recent_state = (
+                OAuthState.objects.filter(
+                    used=False,
+                    expires_at__gt=timezone.now(),
+                    ip_address=ip_address,
+                )
+                .order_by("-created_at")
+                .first()
+            )
 
             if recent_state:
                 state = OAuthState.get_and_consume_state(recent_state.state_id)
                 if state:
-                    logger.info(f"OAuth last state retrieved from database")
+                    logger.info("OAuth last state retrieved from database")
                     return state
         except Exception as e:
             logger.error(f"Failed to retrieve last OAuth state from database: {e}")
@@ -244,9 +261,12 @@ def cleanup_expired_states():
     """
     try:
         from crush_lu.models import OAuthState
+
         expired_count = OAuthState.cleanup_expired()
         used_count = OAuthState.cleanup_old_used(hours=24)
         if expired_count or used_count:
-            logger.info(f"Cleaned up {expired_count} expired and {used_count} old used OAuth states")
+            logger.info(
+                f"Cleaned up {expired_count} expired and {used_count} old used OAuth states"
+            )
     except Exception as e:
         logger.error(f"Failed to cleanup OAuth states: {e}")

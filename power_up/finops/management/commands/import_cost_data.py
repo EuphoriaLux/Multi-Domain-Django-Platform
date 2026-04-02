@@ -6,6 +6,7 @@ Usage:
     python manage.py import_cost_data --force             # Re-import all (ignore processed status)
     python manage.py import_cost_data --limit 5           # Process only first 5 exports
 """
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from power_up.finops.models import CostExport, CostRecord
@@ -15,65 +16,67 @@ import traceback
 
 
 class Command(BaseCommand):
-    help = 'Import Azure cost data from Blob Storage msexports container'
+    help = "Import Azure cost data from Blob Storage msexports container"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--subscription',
+            "--subscription",
             type=str,
-            help='Filter by subscription name (e.g., PartnerLed-power_up)',
+            help="Filter by subscription name (e.g., PartnerLed-power_up)",
         )
         parser.add_argument(
-            '--force',
-            action='store_true',
-            help='Re-import already processed exports',
+            "--force",
+            action="store_true",
+            help="Re-import already processed exports",
         )
         parser.add_argument(
-            '--limit',
+            "--limit",
             type=int,
-            help='Maximum number of exports to process',
+            help="Maximum number of exports to process",
         )
         parser.add_argument(
-            '--batch-size',
+            "--batch-size",
             type=int,
             default=1000,
-            help='Number of records to insert per batch (default: 1000)',
+            help="Number of records to insert per batch (default: 1000)",
         )
         parser.add_argument(
-            '--skip-aggregation',
-            action='store_true',
-            help='Skip automatic aggregation refresh after import',
+            "--skip-aggregation",
+            action="store_true",
+            help="Skip automatic aggregation refresh after import",
         )
 
     def handle(self, *args, **options):
-        subscription_filter = options.get('subscription')
-        force_reimport = options.get('force', False)
-        limit = options.get('limit')
-        batch_size = options.get('batch_size', 1000)
-        skip_aggregation = options.get('skip_aggregation', False)
+        subscription_filter = options.get("subscription")
+        force_reimport = options.get("force", False)
+        limit = options.get("limit")
+        batch_size = options.get("batch_size", 1000)
+        skip_aggregation = options.get("skip_aggregation", False)
 
-        self.stdout.write(self.style.SUCCESS('Starting Azure Cost Data Import'))
+        self.stdout.write(self.style.SUCCESS("Starting Azure Cost Data Import"))
         self.stdout.write(f'Subscription filter: {subscription_filter or "All"}')
-        self.stdout.write(f'Force re-import: {force_reimport}')
-        self.stdout.write(f'Batch size: {batch_size}')
-        self.stdout.write(f'Skip aggregation: {skip_aggregation}')
+        self.stdout.write(f"Force re-import: {force_reimport}")
+        self.stdout.write(f"Batch size: {batch_size}")
+        self.stdout.write(f"Skip aggregation: {skip_aggregation}")
 
         try:
             # Initialize Azure Blob reader
-            self.stdout.write('Connecting to Azure Blob Storage...')
+            self.stdout.write("Connecting to Azure Blob Storage...")
             blob_reader = AzureCostBlobReader()
 
             # List available cost exports
-            self.stdout.write('Scanning for cost export files...')
+            self.stdout.write("Scanning for cost export files...")
             exports = blob_reader.list_cost_exports(
                 subscription_filter=subscription_filter
             )
 
             if not exports:
-                self.stdout.write(self.style.WARNING('No cost export files found.'))
+                self.stdout.write(self.style.WARNING("No cost export files found."))
                 return
 
-            self.stdout.write(self.style.SUCCESS(f'Found {len(exports)} cost export file(s)'))
+            self.stdout.write(
+                self.style.SUCCESS(f"Found {len(exports)} cost export file(s)")
+            )
 
             # Filter exports intelligently (unless force)
             if not force_reimport:
@@ -81,25 +84,22 @@ class Command(BaseCommand):
                 updated_exports = []
 
                 for export in exports:
-                    blob_path = export['blob_path']
+                    blob_path = export["blob_path"]
 
                     # Check if we've processed this export before
                     try:
                         existing_export = CostExport.objects.get(
-                            blob_path=blob_path,
-                            import_status='completed'
+                            blob_path=blob_path, import_status="completed"
                         )
 
                         # Check if blob has been updated since last import
                         if existing_export.has_been_updated(
-                            blob_last_modified=export['last_modified'],
-                            blob_etag=export.get('etag')
+                            blob_last_modified=export["last_modified"],
+                            blob_etag=export.get("etag"),
                         ):
+                            self.stdout.write(f"  🔄 Detected update: {blob_path}")
                             self.stdout.write(
-                                f'  🔄 Detected update: {blob_path}'
-                            )
-                            self.stdout.write(
-                                f'     Last imported: {existing_export.blob_last_modified}, '
+                                f"     Last imported: {existing_export.blob_last_modified}, "
                                 f'Now: {export["last_modified"]}'
                             )
                             exports_to_import.append(export)
@@ -112,64 +112,75 @@ class Command(BaseCommand):
 
                 exports = exports_to_import
                 self.stdout.write(
-                    f'{len(exports)} export(s) to import '
-                    f'({len(updated_exports)} updated, {len(exports) - len(updated_exports)} new)'
+                    f"{len(exports)} export(s) to import "
+                    f"({len(updated_exports)} updated, {len(exports) - len(updated_exports)} new)"
                 )
 
             # Apply limit if specified
             if limit:
                 exports = exports[:limit]
-                self.stdout.write(f'Processing first {limit} export(s)')
+                self.stdout.write(f"Processing first {limit} export(s)")
 
             # Process each export
             total_records_imported = 0
             total_duplicates_skipped = 0
             for idx, export_meta in enumerate(exports, 1):
-                self.stdout.write(f'\n[{idx}/{len(exports)}] Processing: {export_meta["blob_path"]}')
+                self.stdout.write(
+                    f'\n[{idx}/{len(exports)}] Processing: {export_meta["blob_path"]}'
+                )
 
                 try:
-                    result = self.process_export(blob_reader, export_meta, batch_size, force_reimport)
-                    total_records_imported += result['records_imported']
-                    total_duplicates_skipped += result['duplicates_skipped']
-                    self.stdout.write(self.style.SUCCESS(
-                        f'  [OK] Imported {result["records_imported"]} records '
-                        f'({result["duplicates_skipped"]} duplicates skipped)'
-                    ))
+                    result = self.process_export(
+                        blob_reader, export_meta, batch_size, force_reimport
+                    )
+                    total_records_imported += result["records_imported"]
+                    total_duplicates_skipped += result["duplicates_skipped"]
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'  [OK] Imported {result["records_imported"]} records '
+                            f'({result["duplicates_skipped"]} duplicates skipped)'
+                        )
+                    )
                 except Exception as e:
-                    self.stdout.write(self.style.ERROR(f'  [ERROR] Failed: {str(e)}'))
+                    self.stdout.write(self.style.ERROR(f"  [ERROR] Failed: {str(e)}"))
                     self.stderr.write(traceback.format_exc())
                     continue
 
-            self.stdout.write(self.style.SUCCESS(
-                f'\n[OK] Import completed!'
-            ))
-            self.stdout.write(f'  Total records imported: {total_records_imported}')
-            self.stdout.write(f'  Total duplicates skipped: {total_duplicates_skipped}')
+            self.stdout.write(self.style.SUCCESS("\n[OK] Import completed!"))
+            self.stdout.write(f"  Total records imported: {total_records_imported}")
+            self.stdout.write(f"  Total duplicates skipped: {total_duplicates_skipped}")
 
             # Auto-refresh aggregations if records were imported
             if total_records_imported > 0 and not skip_aggregation:
-                self.stdout.write('\n[Refreshing cost aggregations...]')
+                self.stdout.write("\n[Refreshing cost aggregations...]")
                 try:
                     from power_up.finops.utils.aggregation import CostAggregator
-                    result = CostAggregator.refresh_all(days_back=60, currency='EUR')
-                    self.stdout.write(self.style.SUCCESS(
-                        f'  ✓ Daily aggregations: {result["daily_aggregations"]}'
-                    ))
-                    self.stdout.write(self.style.SUCCESS(
-                        f'  ✓ Monthly aggregations: {result["monthly_aggregations"]}'
-                    ))
-                    self.stdout.write(self.style.SUCCESS(
-                        f'  ✓ Period: {result["period"]}'
-                    ))
+
+                    result = CostAggregator.refresh_all(days_back=60, currency="EUR")
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'  ✓ Daily aggregations: {result["daily_aggregations"]}'
+                        )
+                    )
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'  ✓ Monthly aggregations: {result["monthly_aggregations"]}'
+                        )
+                    )
+                    self.stdout.write(
+                        self.style.SUCCESS(f'  ✓ Period: {result["period"]}')
+                    )
                 except Exception as e:
-                    self.stdout.write(self.style.WARNING(
-                        f'  ⚠ Aggregation refresh failed: {str(e)}'
-                    ))
+                    self.stdout.write(
+                        self.style.WARNING(f"  ⚠ Aggregation refresh failed: {str(e)}")
+                    )
 
         except Exception as e:
-            raise CommandError(f'Import failed: {str(e)}')
+            raise CommandError(f"Import failed: {str(e)}")
 
-    def process_export(self, blob_reader, export_meta, batch_size, force_reimport=False):
+    def process_export(
+        self, blob_reader, export_meta, batch_size, force_reimport=False
+    ):
         """
         Process a single cost export file with duplicate detection and update handling
 
@@ -186,26 +197,26 @@ class Command(BaseCommand):
                 'is_update': bool
             }
         """
-        blob_path = export_meta['blob_path']
-        subscription_name = export_meta['subscription_name']
-        date_range = export_meta['date_range']
+        blob_path = export_meta["blob_path"]
+        subscription_name = export_meta["subscription_name"]
+        date_range = export_meta["date_range"]
 
         # Parse date range
         start_date, end_date = blob_reader.parse_date_range(date_range)
         if not start_date or not end_date:
-            raise ValueError(f'Invalid date range: {date_range}')
+            raise ValueError(f"Invalid date range: {date_range}")
 
         # Check if we already have exports for this billing period (update detection)
         # IMPORTANT: Multi-part exports (part_0, part_1, etc.) are ADDITIVE, not replacements
         # Only consider it an update if the export GUID changed (not just part number)
-        import re
+
         current_export_guid = self._extract_export_guid(blob_path)
 
         existing_exports = CostExport.objects.filter(
             subscription_name=subscription_name,
             billing_period_start=start_date,
             billing_period_end=end_date,
-            import_status='completed'
+            import_status="completed",
         ).exclude(blob_path=blob_path)
 
         # Filter to only exports with DIFFERENT export GUIDs (true updates, not multi-part)
@@ -222,37 +233,41 @@ class Command(BaseCommand):
         if is_update or force_reimport:
             # This is an update or forced re-import - handle old data
             if exports_to_supersede:
-                self.stdout.write(f'  -> Detected update for existing period (different export GUID), handling old data...')
+                self.stdout.write(
+                    "  -> Detected update for existing period (different export GUID), handling old data..."
+                )
                 for old_export in exports_to_supersede:
                     old_record_count = old_export.records.count()
                     # Delete old cost records
                     old_export.records.all().delete()
                     # Mark old export as superseded
-                    old_export.import_status = 'superseded'
-                    old_export.error_message = f'Superseded by {blob_path}'
+                    old_export.import_status = "superseded"
+                    old_export.error_message = f"Superseded by {blob_path}"
                     old_export.save()
-                    self.stdout.write(f'  -> Removed {old_record_count} old records from superseded export')
+                    self.stdout.write(
+                        f"  -> Removed {old_record_count} old records from superseded export"
+                    )
 
         # Create or get CostExport record
         cost_export, created = CostExport.objects.get_or_create(
             blob_path=blob_path,
             defaults={
-                'subscription_name': subscription_name,
-                'billing_period_start': start_date,
-                'billing_period_end': end_date,
-                'file_size_bytes': export_meta['size'],
-                'import_status': 'pending',
-                'blob_last_modified': export_meta.get('last_modified'),
-                'blob_etag': export_meta.get('etag'),
-            }
+                "subscription_name": subscription_name,
+                "billing_period_start": start_date,
+                "billing_period_end": end_date,
+                "file_size_bytes": export_meta["size"],
+                "import_status": "pending",
+                "blob_last_modified": export_meta.get("last_modified"),
+                "blob_etag": export_meta.get("etag"),
+            },
         )
 
         # Mark as processing and update blob metadata
-        cost_export.import_status = 'processing'
+        cost_export.import_status = "processing"
         cost_export.update_blob_metadata(
-            blob_last_modified=export_meta.get('last_modified'),
-            blob_etag=export_meta.get('etag'),
-            file_size=export_meta['size']
+            blob_last_modified=export_meta.get("last_modified"),
+            blob_etag=export_meta.get("etag"),
+            file_size=export_meta["size"],
         )
 
         # Track subscription ID (will be extracted from first valid record)
@@ -272,7 +287,9 @@ class Command(BaseCommand):
                 # We check in batches to avoid loading millions of hashes
                 pass  # Will check per-batch below
 
-            for batch in blob_reader.stream_csv_records(blob_path, batch_size=batch_size):
+            for batch in blob_reader.stream_csv_records(
+                blob_path, batch_size=batch_size
+            ):
                 # Parse batch
                 parsed_records = []
                 batch_hashes = []
@@ -282,19 +299,23 @@ class Command(BaseCommand):
                         parsed = parser.parse_cost_record(row, calculate_hash=True)
 
                         # Extract subscription ID from first valid record
-                        if not subscription_id_found and parsed.get('sub_account_id'):
-                            subscription_id_found = parsed['sub_account_id']
+                        if not subscription_id_found and parsed.get("sub_account_id"):
+                            subscription_id_found = parsed["sub_account_id"]
 
                         # Validate
                         is_valid, error_msg = parser.validate_record(parsed)
                         if not is_valid:
-                            self.stderr.write(f'  Warning: Skipping invalid record - {error_msg}')
+                            self.stderr.write(
+                                f"  Warning: Skipping invalid record - {error_msg}"
+                            )
                             continue
 
                         parsed_records.append(parsed)
-                        batch_hashes.append(parsed['record_hash'])
+                        batch_hashes.append(parsed["record_hash"])
                     except Exception as e:
-                        self.stderr.write(f'  Warning: Failed to parse record - {str(e)}')
+                        self.stderr.write(
+                            f"  Warning: Failed to parse record - {str(e)}"
+                        )
                         continue
 
                 # Check for existing hashes in database (batch query)
@@ -302,13 +323,13 @@ class Command(BaseCommand):
                     existing_in_db = set(
                         CostRecord.objects.filter(
                             record_hash__in=batch_hashes
-                        ).values_list('record_hash', flat=True)
+                        ).values_list("record_hash", flat=True)
                     )
 
                     # Filter out duplicates
                     unique_records = []
                     for record in parsed_records:
-                        if record['record_hash'] in existing_in_db:
+                        if record["record_hash"] in existing_in_db:
                             duplicates_skipped += 1
                         else:
                             unique_records.append(record)
@@ -325,12 +346,14 @@ class Command(BaseCommand):
                                 CostRecord.objects.bulk_create(
                                     cost_records,
                                     batch_size=batch_size,
-                                    ignore_conflicts=True  # Skip duplicates at DB level
+                                    ignore_conflicts=True,  # Skip duplicates at DB level
                                 )
                                 records_imported += len(cost_records)
-                            except Exception as e:
+                            except Exception:
                                 # If bulk_create fails, try individual inserts (slower but more resilient)
-                                self.stdout.write(f'  Warning: Bulk insert failed, trying individual inserts...')
+                                self.stdout.write(
+                                    "  Warning: Bulk insert failed, trying individual inserts..."
+                                )
                                 for record_obj in cost_records:
                                     try:
                                         record_obj.save()
@@ -341,8 +364,8 @@ class Command(BaseCommand):
                     # Progress indicator
                     if records_imported % (batch_size * 10) == 0:
                         self.stdout.write(
-                            f'  ... {records_imported} records imported ({duplicates_skipped} duplicates)',
-                            ending=''
+                            f"  ... {records_imported} records imported ({duplicates_skipped} duplicates)",
+                            ending="",
                         )
                         self.stdout.flush()
 
@@ -350,7 +373,9 @@ class Command(BaseCommand):
             if subscription_id_found:
                 cost_export.subscription_id = subscription_id_found
                 cost_export.save()
-                self.stdout.write(f'  -> Extracted subscription ID: {subscription_id_found}')
+                self.stdout.write(
+                    f"  -> Extracted subscription ID: {subscription_id_found}"
+                )
 
             # Mark as completed
             cost_export.mark_completed(records_imported)
@@ -359,14 +384,16 @@ class Command(BaseCommand):
             if records_imported == 0 and not cost_export.subscription_id:
                 cost_export.needs_subscription_id = True
                 cost_export.save()
-                self.stdout.write(self.style.WARNING(
-                    '  ⚠ No records imported. Please add subscription ID via the import dashboard.'
-                ))
+                self.stdout.write(
+                    self.style.WARNING(
+                        "  ⚠ No records imported. Please add subscription ID via the import dashboard."
+                    )
+                )
 
             return {
-                'records_imported': records_imported,
-                'duplicates_skipped': duplicates_skipped,
-                'is_update': is_update
+                "records_imported": records_imported,
+                "duplicates_skipped": duplicates_skipped,
+                "is_update": is_update,
             }
 
         except Exception as e:
@@ -396,6 +423,9 @@ class Command(BaseCommand):
             Output: "7946d592-03d8-4ce0-bfca-af3abfa49d71"
         """
         import re
+
         # Match GUID pattern (8-4-4-4-12 hex characters)
-        match = re.search(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', blob_path)
+        match = re.search(
+            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", blob_path
+        )
         return match.group(1) if match else None

@@ -11,7 +11,6 @@ import logging
 from django.conf import settings
 from django.core.signing import Signer
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 
 from .decorators import crush_login_required
 from .models import EventRegistration, MeetupEvent
@@ -66,7 +65,9 @@ def event_ticket(request, event_id):
     )
 
     # Check if already checked in
-    already_checked_in = registration.status == "attended" or registration.checked_in_at is not None
+    already_checked_in = (
+        registration.status == "attended" or registration.checked_in_at is not None
+    )
 
     # Get display name (privacy-aware)
     try:

@@ -48,8 +48,8 @@ class HasSessionOrIsAuthenticated(BasePermission):
             return True
 
         # Check if this is a browser request
-        referer = request.META.get('HTTP_REFERER', '')
-        accept = request.META.get('HTTP_ACCEPT', '')
+        referer = request.META.get("HTTP_REFERER", "")
+        accept = request.META.get("HTTP_ACCEPT", "")
 
         # If request came from our own site (referer check)
         host = request.get_host()
@@ -57,7 +57,7 @@ class HasSessionOrIsAuthenticated(BasePermission):
             return True
 
         # If this is a browser (accepts HTML)
-        if 'text/html' in accept:
+        if "text/html" in accept:
             return True
 
         # For AJAX requests from browsers, check for session

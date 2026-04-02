@@ -7,13 +7,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0021_update_photo_upload_path'),
+        ("crush_lu", "0021_update_photo_upload_path"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='crushcoach',
-            name='photo',
-            field=models.ImageField(blank=True, help_text='Coach profile photo shown to users', null=True, upload_to=crush_lu.models.profiles.coach_photo_path),
+            model_name="crushcoach",
+            name="photo",
+            field=models.ImageField(
+                blank=True,
+                help_text="Coach profile photo shown to users",
+                null=True,
+                upload_to=crush_lu.models.profiles.coach_photo_path,
+            ),
         ),
     ]

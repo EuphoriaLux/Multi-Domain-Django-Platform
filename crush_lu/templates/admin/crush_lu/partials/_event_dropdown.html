@@ -2,8 +2,8 @@
 <option value="">-- Select an Event --</option>
 {% for event in events %}
 <option value="{{ event.id }}">
-    {{ event.title }} ({{ event.date_time|date:"M d, Y" }})
-    {% if event.is_cancelled %}[CANCELLED]{% endif %}
+    {{ event.title }} ({{ event.date_time|date:"M d, Y" }}) {% if event.is_cancelled
+    %}[CANCELLED]{% endif %}
 </option>
 {% empty %}
 <option value="">No events available</option>

@@ -1,10 +1,5 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "PWA Debug" %} - Crush.lu{% endblock %}
-
-{% block extra_css %}
+{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "PWA Debug" %} - Crush.lu{% endblock %} {% block extra_css %}
 <style>
     .debug-container {
         max-width: 800px;
@@ -13,7 +8,7 @@
     }
 
     .debug-header {
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
         color: white;
         padding: 2rem;
         border-radius: 12px;
@@ -35,11 +30,11 @@
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .debug-section h2 {
-        color: #9B59B6;
+        color: #9b59b6;
         font-size: 1.25rem;
         margin: 0 0 1rem;
         display: flex;
@@ -136,14 +131,16 @@
     }
 
     .btn-action {
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
         color: white;
         border: none;
         padding: 0.5rem 1rem;
         border-radius: 20px;
         font-weight: 500;
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition:
+            transform 0.2s,
+            box-shadow 0.2s;
     }
 
     .btn-action:hover {
@@ -191,9 +188,7 @@
         color: #dcdcaa;
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="debug-container">
     <div class="debug-header">
         <h1>{% trans "PWA Debug Panel" %}</h1>
@@ -205,7 +200,9 @@
         <h2>{% trans "Service Worker" %}</h2>
         <div class="debug-row">
             <span class="debug-label">{% trans "Status" %}</span>
-            <span id="sw-status" class="status-badge status-none">{% trans "Checking..." %}</span>
+            <span id="sw-status" class="status-badge status-none"
+                >{% trans "Checking..." %}</span
+            >
         </div>
         <div class="debug-row">
             <span class="debug-label">{% trans "Expected Version" %}</span>
@@ -222,9 +219,15 @@
         <div class="debug-row">
             <span class="debug-label">{% trans "Actions" %}</span>
             <div class="action-buttons">
-                <button class="btn-action" onclick="checkForUpdate()">{% trans "Check for Update" %}</button>
-                <button class="btn-action" onclick="forceSkipWaiting()">{% trans "Force Activate Waiting" %}</button>
-                <button class="btn-action btn-danger" onclick="unregisterSW()">{% trans "Unregister SW" %}</button>
+                <button class="btn-action" onclick="checkForUpdate()">
+                    {% trans "Check for Update" %}
+                </button>
+                <button class="btn-action" onclick="forceSkipWaiting()">
+                    {% trans "Force Activate Waiting" %}
+                </button>
+                <button class="btn-action btn-danger" onclick="unregisterSW()">
+                    {% trans "Unregister SW" %}
+                </button>
             </div>
         </div>
     </div>
@@ -234,7 +237,9 @@
         <h2>{% trans "Network Status" %}</h2>
         <div class="debug-row">
             <span class="debug-label">{% trans "Online" %}</span>
-            <span id="network-status" class="status-badge status-none">{% trans "Checking..." %}</span>
+            <span id="network-status" class="status-badge status-none"
+                >{% trans "Checking..." %}</span
+            >
         </div>
         <div class="debug-row">
             <span class="debug-label">{% trans "Connection Type" %}</span>
@@ -273,11 +278,15 @@
         <ul id="cache-list" class="cache-list">
             <li class="cache-item">{% trans "Loading..." %}</li>
         </ul>
-        <div class="debug-row" style="margin-top: 1rem;">
+        <div class="debug-row" style="margin-top: 1rem">
             <span class="debug-label">{% trans "Actions" %}</span>
             <div class="action-buttons">
-                <button class="btn-action" onclick="refreshCacheList()">{% trans "Refresh List" %}</button>
-                <button class="btn-action btn-danger" onclick="clearAllCaches()">{% trans "Clear All Caches" %}</button>
+                <button class="btn-action" onclick="refreshCacheList()">
+                    {% trans "Refresh List" %}
+                </button>
+                <button class="btn-action btn-danger" onclick="clearAllCaches()">
+                    {% trans "Clear All Caches" %}
+                </button>
             </div>
         </div>
     </div>
@@ -286,9 +295,11 @@
     <div class="debug-section">
         <h2>{% trans "Service Worker Log" %}</h2>
         <div id="sw-log">{% trans "Waiting for service worker messages..." %}</div>
-        <div class="debug-row" style="margin-top: 1rem;">
+        <div class="debug-row" style="margin-top: 1rem">
             <span class="debug-label">{% trans "Actions" %}</span>
-            <button class="btn-action" onclick="clearLog()">{% trans "Clear Log" %}</button>
+            <button class="btn-action" onclick="clearLog()">
+                {% trans "Clear Log" %}
+            </button>
         </div>
     </div>
 
@@ -297,7 +308,12 @@
         <h2>{% trans "System Info" %}</h2>
         <div class="debug-row">
             <span class="debug-label">{% trans "User Agent" %}</span>
-            <span id="user-agent" class="debug-value" style="font-size: 0.75rem; word-break: break-all;">-</span>
+            <span
+                id="user-agent"
+                class="debug-value"
+                style="font-size: 0.75rem; word-break: break-all"
+                >-</span
+            >
         </div>
         <div class="debug-row">
             <span class="debug-label">{% trans "Platform" %}</span>
@@ -309,12 +325,10 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
     // Initialize debug panel
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener("DOMContentLoaded", async function () {
         updateSWStatus();
         updateNetworkStatus();
         updateDisplayMode();
@@ -323,84 +337,87 @@
         setupLogListener();
 
         // Auto-refresh network status
-        window.addEventListener('online', updateNetworkStatus);
-        window.addEventListener('offline', updateNetworkStatus);
+        window.addEventListener("online", updateNetworkStatus);
+        window.addEventListener("offline", updateNetworkStatus);
     });
 
     // Service Worker Status
     async function updateSWStatus() {
-        const statusEl = document.getElementById('sw-status');
-        const scopeEl = document.getElementById('sw-scope');
-        const scriptEl = document.getElementById('sw-script');
+        const statusEl = document.getElementById("sw-status");
+        const scopeEl = document.getElementById("sw-scope");
+        const scriptEl = document.getElementById("sw-script");
 
-        if (!('serviceWorker' in navigator)) {
-            statusEl.textContent = 'Not Supported';
-            statusEl.className = 'status-badge status-none';
+        if (!("serviceWorker" in navigator)) {
+            statusEl.textContent = "Not Supported";
+            statusEl.className = "status-badge status-none";
             return;
         }
 
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             if (!registration) {
-                statusEl.textContent = 'Not Registered';
-                statusEl.className = 'status-badge status-none';
+                statusEl.textContent = "Not Registered";
+                statusEl.className = "status-badge status-none";
                 return;
             }
 
             scopeEl.textContent = registration.scope;
-            scriptEl.textContent = registration.active?.scriptURL || '-';
+            scriptEl.textContent = registration.active?.scriptURL || "-";
 
             if (registration.waiting) {
-                statusEl.textContent = 'Waiting (update available)';
-                statusEl.className = 'status-badge status-waiting';
+                statusEl.textContent = "Waiting (update available)";
+                statusEl.className = "status-badge status-waiting";
             } else if (registration.installing) {
-                statusEl.textContent = 'Installing...';
-                statusEl.className = 'status-badge status-installing';
+                statusEl.textContent = "Installing...";
+                statusEl.className = "status-badge status-installing";
             } else if (registration.active) {
-                statusEl.textContent = 'Active';
-                statusEl.className = 'status-badge status-active';
+                statusEl.textContent = "Active";
+                statusEl.className = "status-badge status-active";
             } else {
-                statusEl.textContent = 'Unknown';
-                statusEl.className = 'status-badge status-none';
+                statusEl.textContent = "Unknown";
+                statusEl.className = "status-badge status-none";
             }
         } catch (error) {
-            statusEl.textContent = 'Error: ' + error.message;
-            statusEl.className = 'status-badge status-none';
+            statusEl.textContent = "Error: " + error.message;
+            statusEl.className = "status-badge status-none";
         }
     }
 
     // Network Status
     function updateNetworkStatus() {
-        const statusEl = document.getElementById('network-status');
-        const typeEl = document.getElementById('connection-type');
-        const effectiveEl = document.getElementById('effective-type');
+        const statusEl = document.getElementById("network-status");
+        const typeEl = document.getElementById("connection-type");
+        const effectiveEl = document.getElementById("effective-type");
 
         if (navigator.onLine) {
-            statusEl.textContent = 'Online';
-            statusEl.className = 'status-badge status-online';
+            statusEl.textContent = "Online";
+            statusEl.className = "status-badge status-online";
         } else {
-            statusEl.textContent = 'Offline';
-            statusEl.className = 'status-badge status-offline';
+            statusEl.textContent = "Offline";
+            statusEl.className = "status-badge status-offline";
         }
 
-        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const conn =
+            navigator.connection ||
+            navigator.mozConnection ||
+            navigator.webkitConnection;
         if (conn) {
-            typeEl.textContent = conn.type || 'Unknown';
-            effectiveEl.textContent = conn.effectiveType || 'Unknown';
+            typeEl.textContent = conn.type || "Unknown";
+            effectiveEl.textContent = conn.effectiveType || "Unknown";
         } else {
-            typeEl.textContent = 'Not Available';
-            effectiveEl.textContent = 'Not Available';
+            typeEl.textContent = "Not Available";
+            effectiveEl.textContent = "Not Available";
         }
     }
 
     // Display Mode
     function updateDisplayMode() {
-        const modeEl = document.getElementById('display-mode');
-        const standaloneEl = document.getElementById('is-standalone');
-        const installedEl = document.getElementById('pwa-installed');
+        const modeEl = document.getElementById("display-mode");
+        const standaloneEl = document.getElementById("is-standalone");
+        const installedEl = document.getElementById("pwa-installed");
 
-        const modes = ['standalone', 'fullscreen', 'minimal-ui', 'browser'];
-        let currentMode = 'browser';
+        const modes = ["standalone", "fullscreen", "minimal-ui", "browser"];
+        let currentMode = "browser";
 
         for (const mode of modes) {
             if (window.matchMedia(`(display-mode: ${mode})`).matches) {
@@ -411,22 +428,27 @@
 
         modeEl.textContent = currentMode;
 
-        const isStandalone = currentMode === 'standalone' || currentMode === 'fullscreen' || navigator.standalone;
-        standaloneEl.textContent = isStandalone ? 'Yes' : 'No';
-        standaloneEl.className = 'status-badge ' + (isStandalone ? 'status-online' : 'status-none');
+        const isStandalone =
+            currentMode === "standalone" ||
+            currentMode === "fullscreen" ||
+            navigator.standalone;
+        standaloneEl.textContent = isStandalone ? "Yes" : "No";
+        standaloneEl.className =
+            "status-badge " + (isStandalone ? "status-online" : "status-none");
 
         // Check if CrushPWA is available
         const isPWA = window.CrushPWA?.isStandalone || isStandalone;
-        installedEl.textContent = isPWA ? 'Yes' : 'No';
-        installedEl.className = 'status-badge ' + (isPWA ? 'status-online' : 'status-none');
+        installedEl.textContent = isPWA ? "Yes" : "No";
+        installedEl.className =
+            "status-badge " + (isPWA ? "status-online" : "status-none");
     }
 
     // Cache Storage
     async function refreshCacheList() {
-        const listEl = document.getElementById('cache-list');
-        const countEl = document.getElementById('cache-count');
+        const listEl = document.getElementById("cache-list");
+        const countEl = document.getElementById("cache-count");
 
-        if (!('caches' in window)) {
+        if (!("caches" in window)) {
             listEl.innerHTML = '<li class="cache-item">Cache API not supported</li>';
             return;
         }
@@ -440,7 +462,7 @@
                 return;
             }
 
-            let html = '';
+            let html = "";
             for (const name of cacheNames) {
                 const cache = await caches.open(name);
                 const keys = await cache.keys();
@@ -457,96 +479,97 @@
 
     // System Info
     function updateSystemInfo() {
-        document.getElementById('user-agent').textContent = navigator.userAgent;
-        document.getElementById('platform').textContent = navigator.platform || 'Unknown';
+        document.getElementById("user-agent").textContent = navigator.userAgent;
+        document.getElementById("platform").textContent =
+            navigator.platform || "Unknown";
 
-        const perf = performance.getEntriesByType('navigation')[0];
+        const perf = performance.getEntriesByType("navigation")[0];
         if (perf) {
             const loadTime = Math.round(perf.loadEventEnd - perf.startTime);
-            document.getElementById('load-time').textContent = loadTime + 'ms';
+            document.getElementById("load-time").textContent = loadTime + "ms";
         }
     }
 
     // Log Listener
     function setupLogListener() {
         if (navigator.serviceWorker) {
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                addLog('SW Message: ' + JSON.stringify(event.data));
+            navigator.serviceWorker.addEventListener("message", (event) => {
+                addLog("SW Message: " + JSON.stringify(event.data));
             });
         }
     }
 
     function addLog(message) {
-        const logEl = document.getElementById('sw-log');
+        const logEl = document.getElementById("sw-log");
         const time = new Date().toLocaleTimeString();
         logEl.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> <span class="log-message">${message}</span></div>`;
         logEl.scrollTop = logEl.scrollHeight;
     }
 
     function clearLog() {
-        document.getElementById('sw-log').innerHTML = 'Log cleared.';
+        document.getElementById("sw-log").innerHTML = "Log cleared.";
     }
 
     // Actions
     async function checkForUpdate() {
-        addLog('Checking for updates...');
+        addLog("Checking for updates...");
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             if (registration) {
                 await registration.update();
-                addLog('Update check complete.');
+                addLog("Update check complete.");
                 setTimeout(updateSWStatus, 1000);
             }
         } catch (error) {
-            addLog('Update check failed: ' + error.message);
+            addLog("Update check failed: " + error.message);
         }
     }
 
     async function forceSkipWaiting() {
-        addLog('Forcing skip waiting...');
+        addLog("Forcing skip waiting...");
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             if (registration?.waiting) {
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                addLog('Skip waiting message sent.');
+                registration.waiting.postMessage({ type: "SKIP_WAITING" });
+                addLog("Skip waiting message sent.");
             } else {
-                addLog('No waiting worker found.');
+                addLog("No waiting worker found.");
             }
         } catch (error) {
-            addLog('Skip waiting failed: ' + error.message);
+            addLog("Skip waiting failed: " + error.message);
         }
     }
 
     async function unregisterSW() {
-        if (!confirm('Are you sure you want to unregister the service worker?')) return;
+        if (!confirm("Are you sure you want to unregister the service worker?")) return;
 
-        addLog('Unregistering service worker...');
+        addLog("Unregistering service worker...");
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             if (registration) {
                 await registration.unregister();
-                addLog('Service worker unregistered.');
+                addLog("Service worker unregistered.");
                 updateSWStatus();
             }
         } catch (error) {
-            addLog('Unregister failed: ' + error.message);
+            addLog("Unregister failed: " + error.message);
         }
     }
 
     async function clearAllCaches() {
-        if (!confirm('Are you sure you want to clear all caches?')) return;
+        if (!confirm("Are you sure you want to clear all caches?")) return;
 
-        addLog('Clearing all caches...');
+        addLog("Clearing all caches...");
         try {
             const cacheNames = await caches.keys();
             for (const name of cacheNames) {
                 await caches.delete(name);
-                addLog('Deleted cache: ' + name);
+                addLog("Deleted cache: " + name);
             }
-            addLog('All caches cleared.');
+            addLog("All caches cleared.");
             refreshCacheList();
         } catch (error) {
-            addLog('Clear caches failed: ' + error.message);
+            addLog("Clear caches failed: " + error.message);
         }
     }
 </script>

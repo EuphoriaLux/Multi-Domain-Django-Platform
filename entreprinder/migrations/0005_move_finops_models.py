@@ -23,7 +23,10 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ('entreprinder', '0004_pixelcanvas_costaggregation_costexport_pixelhistory_and_more'),
+        (
+            "entreprinder",
+            "0004_pixelcanvas_costaggregation_costexport_pixelhistory_and_more",
+        ),
     ]
 
     operations = [
@@ -31,29 +34,27 @@ class Migration(migrations.Migration):
         # (table finops_hub_costaggregation stays, now managed by power_up.finops)
         migrations.SeparateDatabaseAndState(
             state_operations=[
-                migrations.DeleteModel(name='CostAggregation'),
+                migrations.DeleteModel(name="CostAggregation"),
             ],
             database_operations=[],  # No database changes
         ),
-
         # Remove CostRecord from entreprinder's Django state
         # (table finops_hub_costrecord stays, now managed by power_up.finops)
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.RemoveField(
-                    model_name='costrecord',
-                    name='cost_export',
+                    model_name="costrecord",
+                    name="cost_export",
                 ),
-                migrations.DeleteModel(name='CostRecord'),
+                migrations.DeleteModel(name="CostRecord"),
             ],
             database_operations=[],  # No database changes
         ),
-
         # Remove CostExport from entreprinder's Django state
         # (table finops_hub_costexport stays, now managed by power_up.finops)
         migrations.SeparateDatabaseAndState(
             state_operations=[
-                migrations.DeleteModel(name='CostExport'),
+                migrations.DeleteModel(name="CostExport"),
             ],
             database_operations=[],  # No database changes
         ),

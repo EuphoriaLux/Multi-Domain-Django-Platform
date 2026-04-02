@@ -247,7 +247,9 @@ class PowerUpPlatformDataTestCase(TestCase):
         for platform in PLATFORMS:
             for field in required_fields:
                 self.assertIn(
-                    field, platform, f"Platform {platform.get('name', '?')} missing {field}"
+                    field,
+                    platform,
+                    f"Platform {platform.get('name', '?')} missing {field}",
                 )
 
     def test_platforms_have_valid_urls(self):

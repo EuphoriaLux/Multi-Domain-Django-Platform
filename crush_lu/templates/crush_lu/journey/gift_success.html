@@ -1,24 +1,29 @@
-{% extends "crush_lu/journey/gift_base.html" %}
-{% load static i18n %}
-
-{% block title %}{% trans "Gift Created!" %} - Crush.lu{% endblock %}
-
-{% block gift_content %}
-<div class="gift-card" x-data="giftShare"
-     data-gift-url="{{ gift.get_qr_url }}"
-     data-gift-code="{{ gift.gift_code }}"
-     data-recipient="{{ gift.recipient_name }}">
-
+{% extends "crush_lu/journey/gift_base.html" %} {% load static i18n %} {% block title
+%}{% trans "Gift Created!" %} - Crush.lu{% endblock %} {% block gift_content %}
+<div
+    class="gift-card"
+    x-data="giftShare"
+    data-gift-url="{{ gift.get_qr_url }}"
+    data-gift-code="{{ gift.gift_code }}"
+    data-recipient="{{ gift.recipient_name }}"
+>
     <div class="success-icon">
         <span>🎁</span>
     </div>
 
     <h1 class="gift-title">{% trans "Your Gift is Ready!" %}</h1>
-    <p class="gift-subtitle">{% trans "Share this magical journey with" %} <strong>{{ gift.recipient_name }}</strong></p>
+    <p class="gift-subtitle">
+        {% trans "Share this magical journey with" %}
+        <strong>{{ gift.recipient_name }}</strong>
+    </p>
 
     {% if gift.qr_code_image %}
     <div class="qr-container">
-        <img src="{{ gift.qr_code_image.url }}" alt="{% trans 'Gift QR Code' %}" id="qr-image">
+        <img
+            src="{{ gift.qr_code_image.url }}"
+            alt="{% trans 'Gift QR Code' %}"
+            id="qr-image"
+        />
     </div>
     {% endif %}
 
@@ -32,21 +37,34 @@
         <h3>{% trans "Share Your Gift" %}</h3>
 
         <!-- Copy Link -->
-        <button type="button" class="share-btn share-btn-copy" x-bind:data-copied="copied" @click="copyLink">
+        <button
+            type="button"
+            class="share-btn share-btn-copy"
+            x-bind:data-copied="copied"
+            @click="copyLink"
+        >
             <span class="share-icon">📋</span>
             <span x-text="copyButtonText">{% trans "Copy Link" %}</span>
         </button>
 
         <!-- Download QR -->
         {% if gift.qr_code_image %}
-        <a href="{{ gift.qr_code_image.url }}" download="{{ gift.gift_code }}.png" class="share-btn share-btn-download">
+        <a
+            href="{{ gift.qr_code_image.url }}"
+            download="{{ gift.gift_code }}.png"
+            class="share-btn share-btn-download"
+        >
             <span class="share-icon">📥</span>
             <span>{% trans "Download QR" %}</span>
         </a>
         {% endif %}
 
         <!-- WhatsApp Share -->
-        <button type="button" class="share-btn share-btn-whatsapp" @click="shareWhatsApp">
+        <button
+            type="button"
+            class="share-btn share-btn-whatsapp"
+            @click="shareWhatsApp"
+        >
             <span class="share-icon">💬</span>
             <span>{% trans "WhatsApp" %}</span>
         </button>
@@ -58,9 +76,12 @@
         </button>
 
         <!-- Native Share (mobile only) -->
-        <button type="button" class="share-btn share-btn-native"
-                x-show="showNativeShare"
-                @click="shareNative">
+        <button
+            type="button"
+            class="share-btn share-btn-native"
+            x-show="showNativeShare"
+            @click="shareNative"
+        >
             <span class="share-icon">🔗</span>
             <span>{% trans "More Options..." %}</span>
         </button>
@@ -81,7 +102,8 @@
     </div>
 
     <p class="hint-text">
-        {% trans "When they scan the QR code or click the link, they'll see your personalized message and can begin their Wonderland journey!" %}
+        {% trans "When they scan the QR code or click the link, they'll see your
+        personalized message and can begin their Wonderland journey!" %}
     </p>
 </div>
 {% endblock %}

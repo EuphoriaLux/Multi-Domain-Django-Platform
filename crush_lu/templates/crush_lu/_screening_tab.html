@@ -1,234 +1,390 @@
 {% load i18n %}
 
 <div id="screening-call-section-content">
-    {% if submission.review_call_completed %}
-        {# Completed state - show summary #}
-        <div class="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 dark:border-green-700 rounded-xl p-6 mb-6">
-            <div class="flex items-center gap-3 mb-4">
-                {% include "shared/icons/check-circle.html" with class="w-8 h-8 text-green-600 dark:text-green-400" %}
-                <h3 class="text-xl font-bold text-green-900 dark:text-green-300">{% trans "Screening Call Completed" %}</h3>
-            </div>
-            <p class="text-sm text-green-800 dark:text-green-300">
-                <strong>{% trans "Completed:" %}</strong> {{ submission.review_call_date|date:"M d, Y g:i A" }}
+    {% if submission.review_call_completed %} {# Completed state - show summary #}
+    <div
+        class="mb-6 rounded-xl border-2 border-green-500 bg-green-50 p-6 dark:border-green-700 dark:bg-green-900/30"
+    >
+        <div class="mb-4 flex items-center gap-3">
+            {% include "shared/icons/check-circle.html" with class="w-8 h-8
+            text-green-600 dark:text-green-400" %}
+            <h3 class="text-xl font-bold text-green-900 dark:text-green-300">
+                {% trans "Screening Call Completed" %}
+            </h3>
+        </div>
+        <p class="text-sm text-green-800 dark:text-green-300">
+            <strong>{% trans "Completed:" %}</strong> {{
+            submission.review_call_date|date:"M d, Y g:i A" }}
+        </p>
+
+        {% if submission.review_call_checklist %}
+        <div
+            class="mt-6 rounded-lg border border-green-200 bg-white p-5 dark:border-green-700 dark:bg-gray-800"
+        >
+            <p class="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {% trans "Checklist Summary:" %}
             </p>
-
-            {% if submission.review_call_checklist %}
-                <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg p-5 border border-green-200 dark:border-green-700">
-                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">{% trans "Checklist Summary:" %}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.introduction_complete %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.introduction_complete %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Introduction" %}</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.language_confirmed %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.language_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Language" %}</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.residence_confirmed %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.residence_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Residence" %}</span>
-                        </div>
-                        {% if submission.review_call_checklist.expectations_discussed is not None %}
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.expectations_discussed %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.expectations_discussed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Expectations" %}</span>
-                        </div>
-                        {% endif %}
-                        {% if submission.review_call_checklist.dating_preference_asked is not None %}
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.dating_preference_asked %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.dating_preference_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Dating Preference" %}</span>
-                        </div>
-                        {% endif %}
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.crush_meaning_asked %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.crush_meaning_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Crush Meaning" %}</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if submission.review_call_checklist.questions_answered %}
-                                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                            {% else %}
-                                {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300 dark:text-gray-600" %}
-                            {% endif %}
-                            <span class="{% if submission.review_call_checklist.questions_answered %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}">{% trans "Questions" %}</span>
-                        </div>
-                    </div>
-
-                    {% if submission.review_call_checklist.dating_preference_value %}
-                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <p class="text-sm">
-                                <strong class="text-gray-900 dark:text-gray-100">{% trans "Dating Preference:" %}</strong>
-                                {% if submission.review_call_checklist.dating_preference_value == 'opposite_gender' %}
-                                    {% trans "Opposite gender" %}
-                                {% elif submission.review_call_checklist.dating_preference_value == 'same_gender' %}
-                                    {% trans "Same gender" %}
-                                {% elif submission.review_call_checklist.dating_preference_value == 'both' %}
-                                    {% trans "Both" %}
-                                {% endif %}
-                            </p>
-                        </div>
-                    {% endif %}
-
-                    {% if submission.review_call_checklist.residence_notes or submission.review_call_checklist.expectations_notes or submission.review_call_checklist.crush_meaning_notes or submission.review_call_checklist.questions_notes %}
-                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                            {% if submission.review_call_checklist.residence_notes %}
-                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Residence Notes:" %}</strong> {{ submission.review_call_checklist.residence_notes }}</p>
-                            {% endif %}
-                            {% if submission.review_call_checklist.expectations_notes %}
-                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Expectations Notes:" %}</strong> {{ submission.review_call_checklist.expectations_notes }}</p>
-                            {% endif %}
-                            {% if submission.review_call_checklist.crush_meaning_notes %}
-                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Crush Meaning:" %}</strong> {{ submission.review_call_checklist.crush_meaning_notes }}</p>
-                            {% endif %}
-                            {% if submission.review_call_checklist.questions_notes %}
-                                <p class="text-sm"><strong class="text-gray-900 dark:text-gray-100">{% trans "Questions Asked:" %}</strong> {{ submission.review_call_checklist.questions_notes }}</p>
-                            {% endif %}
-                        </div>
-                    {% endif %}
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.introduction_complete %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.introduction_complete %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Introduction" %}</span
+                    >
                 </div>
-            {% endif %}
-
-            {% if submission.review_call_notes %}
-                <div class="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700">
-                    <p class="text-sm">
-                        <strong class="text-gray-900 dark:text-gray-100">{% trans "Final Notes:" %}</strong><br>
-                        <span class="text-gray-700 dark:text-gray-200">{{ submission.review_call_notes }}</span>
-                    </p>
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.language_confirmed %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.language_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Language" %}</span
+                    >
                 </div>
-            {% endif %}
-
-            {% if submission.call_attempts.exists %}
-                <div class="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700">
-                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{% trans "Call Attempt History:" %}</p>
-                    <div class="space-y-2">
-                        {% for attempt in submission.call_attempts.all|slice:":5" %}
-                            <div class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-100 dark:border-gray-700">
-                                {% if attempt.result == 'failed' %}
-                                    <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
-                                {% elif attempt.result == 'sms_sent' %}
-                                    <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
-                                {% else %}
-                                    <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
-                                {% endif %}
-                                <div class="flex-1">
-                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
-                                    {% if attempt.result == 'failed' %}
-                                        <p class="text-gray-700 dark:text-gray-200">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
-                                    {% elif attempt.result == 'sms_sent' %}
-                                        <p class="text-blue-700 dark:text-blue-300">{% trans "SMS template sent" %}</p>
-                                    {% else %}
-                                        <p class="text-green-700 dark:text-green-300">{% trans "Call completed successfully" %}</p>
-                                    {% endif %}
-                                    {% if attempt.notes %}
-                                        <p class="text-gray-500 dark:text-gray-400 italic mt-1">{{ attempt.notes|truncatewords:15 }}</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.residence_confirmed %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.residence_confirmed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Residence" %}</span
+                    >
                 </div>
-            {% endif %}
-        </div>
-
-        <div class="text-center">
-            <p class="text-gray-600 dark:text-gray-300">{% trans "You can now proceed to the Decision tab to complete the review." %}</p>
-        </div>
-
-        {# Review Guidelines - Inline #}
-        {% include 'crush_lu/_review_guidelines.html' %}
-
-    {% else %}
-        {# Not completed - show interactive checklist #}
-        <div class="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-6 mb-6">
-            <div class="flex items-center gap-3">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-yellow-600 dark:text-yellow-400" %}
-                <div>
-                    <h3 class="text-xl font-bold text-yellow-900 dark:text-yellow-300">{% trans "Screening Call Required" %}</h3>
-                    <p class="text-sm text-yellow-800 dark:text-yellow-300 mt-1">{% trans "Complete all required steps before approval" %}</p>
+                {% if submission.review_call_checklist.expectations_discussed is not
+                None %}
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.expectations_discussed %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.expectations_discussed %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Expectations" %}</span
+                    >
+                </div>
+                {% endif %} {% if
+                submission.review_call_checklist.dating_preference_asked is not None %}
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.dating_preference_asked %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.dating_preference_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Dating Preference" %}</span
+                    >
+                </div>
+                {% endif %}
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.crush_meaning_asked %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.crush_meaning_asked %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Crush Meaning" %}</span
+                    >
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                    {% if submission.review_call_checklist.questions_answered %} {%
+                    include "shared/icons/check-circle.html" with class="w-5 h-5
+                    text-green-500" %} {% else %} {% include
+                    "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-300
+                    dark:text-gray-600" %} {% endif %}
+                    <span
+                        class="{% if submission.review_call_checklist.questions_answered %}text-gray-900 dark:text-gray-100{% else %}text-gray-400 dark:text-gray-500{% endif %}"
+                        >{% trans "Questions" %}</span
+                    >
                 </div>
             </div>
-        </div>
 
-        <div x-data="screeningCallGuideline">
-            {# Initial data for pre-population #}
-            <div data-checklist-initial='{{ submission.review_call_checklist|default:"{}" | escapejs }}' class="hidden"></div>
-
-            {# Contact info card #}
-            <div class="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border border-purple-200 dark:border-purple-700 rounded-xl p-5">
-                <p class="text-sm flex items-center gap-2 mb-3">
-                    {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
-                    <strong class="text-gray-900 dark:text-gray-100">{% trans "Phone:" %}</strong>
-                    <span class="text-lg font-mono text-gray-900 dark:text-gray-100">{{ profile.phone_number }}</span>
+            {% if submission.review_call_checklist.dating_preference_value %}
+            <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <p class="text-sm">
+                    <strong class="text-gray-900 dark:text-gray-100"
+                        >{% trans "Dating Preference:" %}</strong
+                    >
+                    {% if submission.review_call_checklist.dating_preference_value ==
+                    'opposite_gender' %} {% trans "Opposite gender" %} {% elif
+                    submission.review_call_checklist.dating_preference_value ==
+                    'same_gender' %} {% trans "Same gender" %} {% elif
+                    submission.review_call_checklist.dating_preference_value == 'both'
+                    %} {% trans "Both" %} {% endif %}
                 </p>
-                <p class="text-sm flex items-center gap-2">
-                    {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
-                    <strong class="text-gray-900 dark:text-gray-100">{% trans "Name:" %}</strong>
-                    <span class="text-gray-900 dark:text-gray-100">{{ profile.user.first_name }} {{ profile.user.last_name }}</span>
+            </div>
+            {% endif %} {% if submission.review_call_checklist.residence_notes or
+            submission.review_call_checklist.expectations_notes or
+            submission.review_call_checklist.crush_meaning_notes or
+            submission.review_call_checklist.questions_notes %}
+            <div
+                class="mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700"
+            >
+                {% if submission.review_call_checklist.residence_notes %}
+                <p class="text-sm">
+                    <strong class="text-gray-900 dark:text-gray-100"
+                        >{% trans "Residence Notes:" %}</strong
+                    >
+                    {{ submission.review_call_checklist.residence_notes }}
                 </p>
-                {% if profile.phone_number and profile.phone_verified and sms_template_encoded %}
-                    <div class="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">{% trans "Can't reach them? Send an SMS template:" %}</p>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <a href="sms:{{ profile.phone_number }}?body={{ sms_template_encoded }}"
-                               class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-                                {% trans "Open SMS App" %}
-                            </a>
-                            <button hx-post="{% url 'crush_lu:coach_log_sms_sent' submission.id %}"
-                                    hx-target="#screening-call-section-content"
-                                    hx-swap="innerHTML"
-                                    class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg transition-colors border border-gray-300 dark:border-gray-600">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                {% trans "Log SMS Sent" %}
-                            </button>
-                        </div>
-                    </div>
+                {% endif %} {% if submission.review_call_checklist.expectations_notes %}
+                <p class="text-sm">
+                    <strong class="text-gray-900 dark:text-gray-100"
+                        >{% trans "Expectations Notes:" %}</strong
+                    >
+                    {{ submission.review_call_checklist.expectations_notes }}
+                </p>
+                {% endif %} {% if submission.review_call_checklist.crush_meaning_notes
+                %}
+                <p class="text-sm">
+                    <strong class="text-gray-900 dark:text-gray-100"
+                        >{% trans "Crush Meaning:" %}</strong
+                    >
+                    {{ submission.review_call_checklist.crush_meaning_notes }}
+                </p>
+                {% endif %} {% if submission.review_call_checklist.questions_notes %}
+                <p class="text-sm">
+                    <strong class="text-gray-900 dark:text-gray-100"
+                        >{% trans "Questions Asked:" %}</strong
+                    >
+                    {{ submission.review_call_checklist.questions_notes }}
+                </p>
                 {% endif %}
             </div>
-
-            {# Progress bar #}
-            <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                <div class="flex justify-between items-center text-sm text-gray-600 dark:text-gray-300 mb-2">
-                    <span class="font-semibold">{% trans "Progress" %}</span>
-                    <span class="font-bold text-purple-600 dark:text-purple-400"><span x-text="completedCount"></span>/5 {% trans "completed" %}</span>
-                </div>
-                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                    <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-300" x-bind:style="progressWidth"></div>
-                </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2" x-text="progressText"></p>
-            </div>
-
-            {# Accordion sections - lines 177-677 from _screening_call_section.html #}
-            <div class="space-y-3">
-                {% include 'crush_lu/_screening_call_section.html' %}
-            </div>
-
-            {# Review Guidelines - Inline #}
-            {% include 'crush_lu/_review_guidelines.html' %}
+            {% endif %}
         </div>
+        {% endif %} {% if submission.review_call_notes %}
+        <div
+            class="mt-4 rounded-lg border border-green-200 bg-white p-4 dark:border-green-700 dark:bg-gray-800"
+        >
+            <p class="text-sm">
+                <strong class="text-gray-900 dark:text-gray-100"
+                    >{% trans "Final Notes:" %}</strong
+                ><br />
+                <span class="text-gray-700 dark:text-gray-200"
+                    >{{ submission.review_call_notes }}</span
+                >
+            </p>
+        </div>
+        {% endif %} {% if submission.call_attempts.exists %}
+        <div
+            class="mt-4 rounded-lg border border-green-200 bg-white p-4 dark:border-green-700 dark:bg-gray-800"
+        >
+            <p class="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {% trans "Call Attempt History:" %}
+            </p>
+            <div class="space-y-2">
+                {% for attempt in submission.call_attempts.all|slice:":5" %}
+                <div
+                    class="flex items-start gap-2 rounded border border-gray-100 bg-gray-50 p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                >
+                    {% if attempt.result == 'failed' %}
+                    <span class="text-red-500"
+                        >{% include "shared/icons/x-circle.html" with class="w-4 h-4
+                        flex-shrink-0" %}</span
+                    >
+                    {% elif attempt.result == 'sms_sent' %}
+                    <span class="text-blue-500"
+                        ><svg
+                            class="h-4 w-4 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                            /></svg
+                    ></span>
+                    {% else %}
+                    <span class="text-green-500"
+                        >{% include "shared/icons/check-circle.html" with class="w-4 h-4
+                        flex-shrink-0" %}</span
+                    >
+                    {% endif %}
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-900 dark:text-gray-100">
+                            {{ attempt.attempt_date|date:"M d, Y g:i A" }}
+                        </p>
+                        {% if attempt.result == 'failed' %}
+                        <p class="text-gray-700 dark:text-gray-200">
+                            {% trans "Failed:" %} {{ attempt.get_failure_reason_display
+                            }}
+                        </p>
+                        {% elif attempt.result == 'sms_sent' %}
+                        <p class="text-blue-700 dark:text-blue-300">
+                            {% trans "SMS template sent" %}
+                        </p>
+                        {% else %}
+                        <p class="text-green-700 dark:text-green-300">
+                            {% trans "Call completed successfully" %}
+                        </p>
+                        {% endif %} {% if attempt.notes %}
+                        <p class="mt-1 text-gray-500 italic dark:text-gray-400">
+                            {{ attempt.notes|truncatewords:15 }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="text-center">
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "You can now proceed to the Decision tab to complete the review."
+            %}
+        </p>
+    </div>
+
+    {# Review Guidelines - Inline #} {% include 'crush_lu/_review_guidelines.html' %} {%
+    else %} {# Not completed - show interactive checklist #}
+    <div
+        class="mb-6 rounded-xl border-2 border-yellow-400 bg-yellow-50 p-6 dark:border-yellow-600 dark:bg-yellow-900/30"
+    >
+        <div class="flex items-center gap-3">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8
+            text-yellow-600 dark:text-yellow-400" %}
+            <div>
+                <h3 class="text-xl font-bold text-yellow-900 dark:text-yellow-300">
+                    {% trans "Screening Call Required" %}
+                </h3>
+                <p class="mt-1 text-sm text-yellow-800 dark:text-yellow-300">
+                    {% trans "Complete all required steps before approval" %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div x-data="screeningCallGuideline">
+        {# Initial data for pre-population #}
+        <div
+            data-checklist-initial='{{ submission.review_call_checklist|default:"{}" | escapejs }}'
+            class="hidden"
+        ></div>
+
+        {# Contact info card #}
+        <div
+            class="mb-6 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-5 dark:border-purple-700 dark:from-purple-900/30 dark:to-pink-900/30"
+        >
+            <p class="mb-3 flex items-center gap-2 text-sm">
+                {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600
+                dark:text-purple-400" %}
+                <strong class="text-gray-900 dark:text-gray-100"
+                    >{% trans "Phone:" %}</strong
+                >
+                <span class="font-mono text-lg text-gray-900 dark:text-gray-100"
+                    >{{ profile.phone_number }}</span
+                >
+            </p>
+            <p class="flex items-center gap-2 text-sm">
+                {% include "shared/icons/user.html" with class="w-5 h-5 text-purple-600
+                dark:text-purple-400" %}
+                <strong class="text-gray-900 dark:text-gray-100"
+                    >{% trans "Name:" %}</strong
+                >
+                <span class="text-gray-900 dark:text-gray-100"
+                    >{{ profile.user.first_name }} {{ profile.user.last_name }}</span
+                >
+            </p>
+            {% if profile.phone_number and profile.phone_verified and
+            sms_template_encoded %}
+            <div class="mt-4 border-t border-purple-200 pt-4 dark:border-purple-700">
+                <p class="mb-2 text-xs text-gray-600 dark:text-gray-400">
+                    {% trans "Can't reach them? Send an SMS template:" %}
+                </p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a
+                        href="sms:{{ profile.phone_number }}?body={{ sms_template_encoded }}"
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                            />
+                        </svg>
+                        {% trans "Open SMS App" %}
+                    </a>
+                    <button
+                        hx-post="{% url 'crush_lu:coach_log_sms_sent' submission.id %}"
+                        hx-target="#screening-call-section-content"
+                        hx-swap="innerHTML"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    >
+                        <svg
+                            class="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                        {% trans "Log SMS Sent" %}
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {# Progress bar #}
+        <div
+            class="mb-6 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"
+        >
+            <div
+                class="mb-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300"
+            >
+                <span class="font-semibold">{% trans "Progress" %}</span>
+                <span class="font-bold text-purple-600 dark:text-purple-400"
+                    ><span x-text="completedCount"></span>/5 {% trans "completed"
+                    %}</span
+                >
+            </div>
+            <div class="h-3 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                    class="h-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+                    x-bind:style="progressWidth"
+                ></div>
+            </div>
+            <p
+                class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+                x-text="progressText"
+            ></p>
+        </div>
+
+        {# Accordion sections - lines 177-677 from _screening_call_section.html #}
+        <div class="space-y-3">
+            {% include 'crush_lu/_screening_call_section.html' %}
+        </div>
+
+        {# Review Guidelines - Inline #} {% include 'crush_lu/_review_guidelines.html'
+        %}
+    </div>
     {% endif %}
 </div>

@@ -1,14 +1,9 @@
-{# Domain-aware logout template router #}
-{# Routes to appropriate logout template based on the request domain #}
-{% if 'delegations.lu' in request.get_host %}
-{% include "account/logout_delegation.html" %}
-{% elif 'crush.lu' in request.get_host or request.get_host == 'localhost' or '127.0.0.1' in request.get_host %}
-{% include "account/logout_crush.html" %}
-{% elif 'powerup.lu' in request.get_host or 'azurewebsites.net' in request.get_host %}
-{% include "account/logout_powerup.html" %}
-{% elif 'vinsdelux.com' in request.get_host %}
-{% include "account/logout_powerup.html" %}
-{% else %}
-{# Default fallback to PowerUP template #}
-{% include "account/logout_powerup.html" %}
-{% endif %}
+{# Domain-aware logout template router #} {# Routes to appropriate logout template based
+on the request domain #} {% if 'delegations.lu' in request.get_host %} {% include
+"account/logout_delegation.html" %} {% elif 'crush.lu' in request.get_host or
+request.get_host == 'localhost' or '127.0.0.1' in request.get_host %} {% include
+"account/logout_crush.html" %} {% elif 'powerup.lu' in request.get_host or
+'azurewebsites.net' in request.get_host %} {% include "account/logout_powerup.html" %}
+{% elif 'vinsdelux.com' in request.get_host %} {% include "account/logout_powerup.html"
+%} {% else %} {# Default fallback to PowerUP template #} {% include
+"account/logout_powerup.html" %} {% endif %}

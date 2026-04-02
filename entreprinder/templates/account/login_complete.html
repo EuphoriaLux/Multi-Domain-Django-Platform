@@ -1,32 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <title>Login Complete</title>
-    <script>
-        (function() {
-            // These are injected by the Django context
-            const accessToken = "{{ access_token|default_if_none:'' }}";
-            const refreshToken = "{{ refresh_token|default_if_none:'' }}";
+    <head>
+        <title>Login Complete</title>
+        <script>
+            (function () {
+                // These are injected by the Django context
+                const accessToken = "{{ access_token|default_if_none:'' }}";
+                const refreshToken = "{{ refresh_token|default_if_none:'' }}";
 
-            if (accessToken && refreshToken) {
-                // For demonstration, we send them to the Chrome extension
-                // with ID "bcmdjekoagpaefiimcjomakaacbalime"
-                window.opener.postMessage({
-                    access_token: accessToken,
-                    refresh_token: refreshToken
-                }, "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime");
+                if (accessToken && refreshToken) {
+                    // For demonstration, we send them to the Chrome extension
+                    // with ID "bcmdjekoagpaefiimcjomakaacbalime"
+                    window.opener.postMessage(
+                        {
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        },
+                        "chrome-extension://bcmdjekoagpaefiimcjomakaacbalime",
+                    );
 
-                // Close the popup or tab
-                window.close();
-            } else {
-                // If tokens are missing, show an error
-                alert("Authentication failed. No tokens received.");
-                window.close();
-            }
-        })();
-    </script>
-</head>
-<body>
-    <p>Logging you in...</p>
-</body>
+                    // Close the popup or tab
+                    window.close();
+                } else {
+                    // If tokens are missing, show an error
+                    alert("Authentication failed. No tokens received.");
+                    window.close();
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <p>Logging you in...</p>
+    </body>
 </html>

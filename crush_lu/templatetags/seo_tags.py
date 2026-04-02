@@ -20,7 +20,7 @@ from django.utils.translation import get_language
 register = template.Library()
 
 # Language prefix pattern (matches /en/, /de/, /fr/, etc.)
-LANGUAGE_PREFIX_PATTERN = re.compile(r'^/([a-z]{2})/')
+LANGUAGE_PREFIX_PATTERN = re.compile(r"^/([a-z]{2})/")
 
 
 def strip_language_prefix(path):
@@ -49,7 +49,7 @@ def get_path_without_language(request):
     Returns the path that can be prefixed with any language code.
     """
     if not request:
-        return '/'
+        return "/"
     return strip_language_prefix(request.path)
 
 
@@ -71,16 +71,16 @@ def hreflang_tags(context):
         <link rel="alternate" hreflang="fr" href="https://crush.lu/fr/about/">
         <link rel="alternate" hreflang="x-default" href="https://crush.lu/en/about/">
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return ''
+        return ""
 
     # Get path without language prefix
     base_path = get_path_without_language(request)
 
     # Build hreflang tags for each language
     tags = []
-    domain = 'https://crush.lu'
+    domain = "https://crush.lu"
 
     for lang_code, lang_name in settings.LANGUAGES:
         url = f"{domain}/{lang_code}{base_path}"
@@ -90,7 +90,7 @@ def hreflang_tags(context):
     default_url = f"{domain}/en{base_path}"
     tags.append(f'<link rel="alternate" hreflang="x-default" href="{default_url}">')
 
-    return mark_safe('\n    '.join(tags))
+    return mark_safe("\n    ".join(tags))
 
 
 @register.simple_tag(takes_context=True)
@@ -111,11 +111,11 @@ def canonical_url(context):
     Output for /de/events/:
         https://crush.lu/de/events/
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return 'https://crush.lu/'
+        return "https://crush.lu/"
 
-    domain = 'https://crush.lu'
+    domain = "https://crush.lu"
 
     # Self-referencing: canonical points to current URL with language prefix
     # request.path already includes language prefix after i18n_patterns
@@ -134,9 +134,9 @@ def localized_url(context, lang_code):
         <a href="{% localized_url 'de' %}">Deutsch</a>
         <a href="{% localized_url 'fr' %}">Francais</a>
     """
-    request = context.get('request')
+    request = context.get("request")
     if not request:
-        return f'/{lang_code}/'
+        return f"/{lang_code}/"
 
     # Get path without current language prefix
     base_path = get_path_without_language(request)
@@ -159,10 +159,10 @@ def og_locale():
     Output for German: de_DE
     Output for French: fr_FR
     """
-    lang = get_language() or 'en'
+    lang = get_language() or "en"
     locale_map = {
-        'en': 'en_US',
-        'de': 'de_DE',
-        'fr': 'fr_FR',
+        "en": "en_US",
+        "de": "de_DE",
+        "fr": "fr_FR",
     }
-    return locale_map.get(lang, 'en_US')
+    return locale_map.get(lang, "en_US")

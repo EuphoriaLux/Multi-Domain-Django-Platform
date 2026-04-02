@@ -18,36 +18,36 @@ def home(request):
     # Static journey steps - hardcoded for performance
     client_journey_steps = [
         {
-            'step': '01',
-            'title': 'Plot Selection',
-            'description': 'Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.',
+            "step": "01",
+            "title": "Plot Selection",
+            "description": "Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell.",
         },
         {
-            'step': '02',
-            'title': 'Personalize Your Wine',
-            'description': 'Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.',
+            "step": "02",
+            "title": "Personalize Your Wine",
+            "description": "Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques.",
         },
         {
-            'step': '03',
-            'title': 'Follow the Production',
-            'description': 'Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.',
+            "step": "03",
+            "title": "Follow the Production",
+            "description": "Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports.",
         },
         {
-            'step': '04',
-            'title': 'Receive and Taste',
-            'description': 'Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.',
+            "step": "04",
+            "title": "Receive and Taste",
+            "description": "Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones.",
         },
         {
-            'step': '05',
-            'title': 'Create Your Legacy',
-            'description': 'Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.',
-        }
+            "step": "05",
+            "title": "Create Your Legacy",
+            "description": "Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future.",
+        },
     ]
 
     context = {
-        'client_journey_steps': client_journey_steps,
+        "client_journey_steps": client_journey_steps,
     }
-    return render(request, 'vinsdelux/index.html', context)
+    return render(request, "vinsdelux/index.html", context)
 
 
 # ===== ARCHIVED CODE =====

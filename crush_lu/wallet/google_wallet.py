@@ -88,7 +88,9 @@ def build_google_wallet_jwt(profile, request=None):
     # Get logo URL
     logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
     if not logo_url:
-        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        logo_url = (
+            "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        )
 
     # Get hero/promo image URL (for bottom promotional banner like Buffalo Grill)
     hero_url = getattr(settings, "WALLET_GOOGLE_HERO_URL", None)
@@ -96,7 +98,9 @@ def build_google_wallet_jwt(profile, request=None):
         hero_url = "https://crush.lu/static/crush_lu/images/wallet-promo-banner.png"
 
     # Extract referral code for display
-    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    referral_code = (
+        pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    )
 
     # Build text modules - similar to Buffalo Grill's layout
     # First row: "Mes offres en cours" equivalent + Points counter
@@ -115,17 +119,21 @@ def build_google_wallet_jwt(profile, request=None):
 
     # Second row: Next event info (like "Voir au verso")
     if pass_data["next_event"]:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Next Event",
-            "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Next Event",
+                "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
+            }
+        )
     else:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Upcoming Events",
-            "body": "Browse events on crush.lu 💜",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Upcoming Events",
+                "body": "Browse events on crush.lu 💜",
+            }
+        )
 
     # Build the generic object
     generic_object = {
@@ -160,9 +168,7 @@ def build_google_wallet_jwt(profile, request=None):
             "value": pass_data["referral_url"],
             "alternateText": "Share me to earn points! 🤳",
         },
-        "cardTitle": {
-            "defaultValue": {"language": "en-US", "value": "Crush.lu"}
-        },
+        "cardTitle": {"defaultValue": {"language": "en-US", "value": "Crush.lu"}},
         # Crush.lu brand color (purple like Buffalo Grill's red)
         "hexBackgroundColor": "#9B59B6",
     }
@@ -181,7 +187,10 @@ def build_google_wallet_jwt(profile, request=None):
         generic_object["heroImage"] = {
             "sourceUri": {"uri": hero_url},
             "contentDescription": {
-                "defaultValue": {"language": "en-US", "value": "Invite friends, earn rewards!"}
+                "defaultValue": {
+                    "language": "en-US",
+                    "value": "Invite friends, earn rewards!",
+                }
             },
         }
 
@@ -189,29 +198,37 @@ def build_google_wallet_jwt(profile, request=None):
     generic_object["infoModuleData"] = {
         "showLastUpdateTime": True,
         "labelValueRows": [
+            {"columns": [{"label": "🔗 Your Referral Code", "value": referral_code}]},
             {
                 "columns": [
-                    {"label": "🔗 Your Referral Code", "value": referral_code}
+                    {
+                        "label": "🎁 How to Earn",
+                        "value": "Invite friends → +100 pts per signup!",
+                    }
                 ]
             },
             {
                 "columns": [
-                    {"label": "🎁 How to Earn", "value": "Invite friends → +100 pts per signup!"}
+                    {
+                        "label": "🏆 Tier Levels",
+                        "value": "🥉 200 | 🥈 500 | 🥇 1000 pts",
+                    }
                 ]
             },
             {
                 "columns": [
-                    {"label": "🏆 Tier Levels", "value": "🥉 200 | 🥈 500 | 🥇 1000 pts"}
+                    {
+                        "label": "💰 Redeem Points",
+                        "value": "Event discounts & exclusive perks!",
+                    }
                 ]
             },
             {
                 "columns": [
-                    {"label": "💰 Redeem Points", "value": "Event discounts & exclusive perks!"}
-                ]
-            },
-            {
-                "columns": [
-                    {"label": "🗓️ Member Since", "value": pass_data["member_since"] or "Welcome!"}
+                    {
+                        "label": "🗓️ Member Since",
+                        "value": pass_data["member_since"] or "Welcome!",
+                    }
                 ]
             },
         ],
@@ -252,9 +269,7 @@ def build_google_wallet_jwt(profile, request=None):
         "typ": "savetowallet",
         "iat": issued_at,
         "exp": issued_at + 3600,
-        "payload": {
-            "genericObjects": [generic_object]
-        },
+        "payload": {"genericObjects": [generic_object]},
     }
 
     header = {"alg": "RS256", "typ": "JWT"}
@@ -263,8 +278,12 @@ def build_google_wallet_jwt(profile, request=None):
 
     signing_input = b".".join(
         [
-            _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8")),
-            _base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")),
+            _base64url_encode(
+                json.dumps(header, separators=(",", ":")).encode("utf-8")
+            ),
+            _base64url_encode(
+                json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            ),
         ]
     )
 

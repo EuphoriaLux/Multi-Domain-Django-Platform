@@ -1,26 +1,28 @@
-{% extends "crush_lu/base.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "Confirm Your Consent" %}{% endblock %}
-
-{% block content %}
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
-    <div class="max-w-2xl w-full">
-        <div class="card border-2 border-crush-purple">
+{% extends "crush_lu/base.html" %} {% load i18n %} {% block title %}{% trans "Confirm
+Your Consent" %}{% endblock %} {% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12">
+    <div class="w-full max-w-2xl">
+        <div class="card border-crush-purple border-2">
             <div class="card-body">
                 <!-- Header -->
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold mb-4">{% trans "Welcome Back!" %}</h1>
-                    <p class="text-lg text-secondary">
-                        {% trans "We've updated our consent system. Please confirm your agreement to continue using Crush.lu." %}
+                <div class="mb-8 text-center">
+                    <h1 class="mb-4 text-3xl font-bold">{% trans "Welcome Back!" %}</h1>
+                    <p class="text-secondary text-lg">
+                        {% trans "We've updated our consent system. Please confirm your
+                        agreement to continue using Crush.lu." %}
                     </p>
                 </div>
 
                 <!-- Explanation -->
-                <div class="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                    <h2 class="font-semibold mb-2">{% trans "Why am I seeing this?" %}</h2>
-                    <p class="text-sm text-secondary">
-                        {% trans "You signed up before we implemented explicit consent tracking. To comply with GDPR and ensure transparency, we need you to confirm that you agree to our Terms of Service and Privacy Policy." %}
+                <div class="mb-6 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+                    <h2 class="mb-2 font-semibold">
+                        {% trans "Why am I seeing this?" %}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {% trans "You signed up before we implemented explicit consent
+                        tracking. To comply with GDPR and ensure transparency, we need
+                        you to confirm that you agree to our Terms of Service and
+                        Privacy Policy." %}
                     </p>
                 </div>
 
@@ -29,51 +31,85 @@
                     {% csrf_token %}
 
                     <!-- Required Consent -->
-                    <div class="border-2 border-purple-200 dark:border-purple-800 rounded-lg p-4">
-                        <label class="flex items-start cursor-pointer">
+                    <div
+                        class="rounded-lg border-2 border-purple-200 p-4 dark:border-purple-800"
+                    >
+                        <label class="flex cursor-pointer items-start">
                             <input
                                 type="checkbox"
                                 name="crushlu_consent"
                                 id="id_crushlu_consent"
                                 required
-                                class="mt-1 mr-3 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
-                            >
+                                class="mt-1 mr-3 h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600"
+                            />
                             <span class="text-sm">
-                                <strong class="block mb-1">{% trans "Required: Crush.lu Terms & Privacy" %}</strong>
+                                <strong class="mb-1 block"
+                                    >{% trans "Required: Crush.lu Terms & Privacy"
+                                    %}</strong
+                                >
                                 {% trans "I agree to the" %}
-                                <a href="{% url 'crush_lu:terms_of_service' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Terms of Service" %}</a>
+                                <a
+                                    href="{% url 'crush_lu:terms_of_service' %}"
+                                    target="_blank"
+                                    class="text-crush-purple hover:underline"
+                                    >{% trans "Terms of Service" %}</a
+                                >
                                 {% trans "and" %}
-                                <a href="{% url 'crush_lu:privacy_policy' %}" target="_blank" class="text-crush-purple hover:underline">{% trans "Privacy Policy" %}</a>
+                                <a
+                                    href="{% url 'crush_lu:privacy_policy' %}"
+                                    target="_blank"
+                                    class="text-crush-purple hover:underline"
+                                    >{% trans "Privacy Policy" %}</a
+                                >
                             </span>
                         </label>
                     </div>
 
                     <!-- Optional Marketing Consent -->
-                    <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                        <label class="flex items-start cursor-pointer">
+                    <div
+                        class="rounded-lg border border-gray-300 p-4 dark:border-gray-600"
+                    >
+                        <label class="flex cursor-pointer items-start">
                             <input
                                 type="checkbox"
                                 name="marketing_consent"
                                 id="id_marketing_consent"
-                                class="mt-1 mr-3 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded"
-                            >
+                                class="mt-1 mr-3 h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600"
+                            />
                             <span class="text-sm">
-                                <strong class="block mb-1">{% trans "Optional: Marketing Communications" %}</strong>
+                                <strong class="mb-1 block"
+                                    >{% trans "Optional: Marketing Communications"
+                                    %}</strong
+                                >
                                 <span class="text-secondary">
-                                    {% trans "I consent to receive marketing emails about new features, events, and promotions." %}
+                                    {% trans "I consent to receive marketing emails
+                                    about new features, events, and promotions." %}
                                 </span>
                             </span>
                         </label>
                     </div>
 
                     <!-- What This Means -->
-                    <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <h3 class="font-semibold mb-2 text-sm">{% trans "What this means:" %}</h3>
-                        <ul class="text-xs text-secondary space-y-1">
-                            <li>✓ {% trans "Your account and profile remain active" %}</li>
-                            <li>✓ {% trans "You can continue using all Crush.lu features" %}</li>
-                            <li>✓ {% trans "You can withdraw consent anytime in Account Settings" %}</li>
-                            <li>✓ {% trans "Your data is handled according to our Privacy Policy" %}</li>
+                    <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+                        <h3 class="mb-2 text-sm font-semibold">
+                            {% trans "What this means:" %}
+                        </h3>
+                        <ul class="text-secondary space-y-1 text-xs">
+                            <li>
+                                ✓ {% trans "Your account and profile remain active" %}
+                            </li>
+                            <li>
+                                ✓ {% trans "You can continue using all Crush.lu
+                                features" %}
+                            </li>
+                            <li>
+                                ✓ {% trans "You can withdraw consent anytime in Account
+                                Settings" %}
+                            </li>
+                            <li>
+                                ✓ {% trans "Your data is handled according to our
+                                Privacy Policy" %}
+                            </li>
                         </ul>
                     </div>
 
@@ -88,12 +124,12 @@
 
                 <!-- Decline Option -->
                 <div class="mt-6 text-center">
-                    <p class="text-sm text-secondary mb-2">
+                    <p class="text-secondary mb-2 text-sm">
                         {% trans "Don't want to continue?" %}
                     </p>
                     <a
                         href="{% url 'crush_lu:delete_crushlu_profile' %}"
-                        class="text-sm text-red-600 dark:text-red-400 hover:underline"
+                        class="text-sm text-red-600 hover:underline dark:text-red-400"
                     >
                         {% trans "Delete my Crush.lu profile" %}
                     </a>
@@ -102,10 +138,14 @@
         </div>
 
         <!-- Contact Support -->
-        <div class="text-center mt-6 text-sm text-secondary">
+        <div class="text-secondary mt-6 text-center text-sm">
             <p>
                 {% trans "Questions?" %}
-                <a href="mailto:hello@crush.lu" class="text-crush-purple hover:underline">{% trans "Contact us" %}</a>
+                <a
+                    href="mailto:hello@crush.lu"
+                    class="text-crush-purple hover:underline"
+                    >{% trans "Contact us" %}</a
+                >
             </p>
         </div>
     </div>

@@ -6,6 +6,7 @@ Handles sending emails for:
 2. External guest invitations (EventInvitation creation)
 3. Coach approval notifications (EventInvitation approval)
 """
+
 import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -34,35 +35,34 @@ def send_existing_user_invitation_email(event, user, request=None):
         # Build i18n-aware URLs
         if request:
             event_url = get_user_language_url(
-                user, 'crush_lu:event_detail', request,
-                kwargs={'event_id': event.id}
+                user, "crush_lu:event_detail", request, kwargs={"event_id": event.id}
             )
-            dashboard_url = get_user_language_url(user, 'crush_lu:dashboard', request)
+            dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available (e.g., management commands)
             # Use user's preferred language for URLs
-            lang = get_user_preferred_language(user=user, default='en')
+            lang = get_user_preferred_language(user=user, default="en")
             event_url = build_absolute_url(
-                'crush_lu:event_detail', lang=lang, kwargs={'event_id': event.id}
+                "crush_lu:event_detail", lang=lang, kwargs={"event_id": event.id}
             )
-            dashboard_url = build_absolute_url('crush_lu:dashboard', lang=lang)
+            dashboard_url = build_absolute_url("crush_lu:dashboard", lang=lang)
             base_urls = {}
 
         # Get user's preferred language
         from django.utils import translation
         from django.utils.translation import gettext as _
 
-        lang = get_user_preferred_language(user=user, default='en')
+        lang = get_user_preferred_language(user=user, default="en")
 
         # Prepare context for email template
         context = {
-            'user': user,
-            'event': event,
-            'event_url': event_url,
-            'dashboard_url': dashboard_url,
-            'LANGUAGE_CODE': lang,
-            'social_links': get_social_links(),
+            "user": user,
+            "event": event,
+            "event_url": event_url,
+            "dashboard_url": dashboard_url,
+            "LANGUAGE_CODE": lang,
+            "social_links": get_social_links(),
             **base_urls,
         }
 
@@ -70,8 +70,7 @@ def send_existing_user_invitation_email(event, user, request=None):
         with translation.override(lang):
             subject = _("You're Invited to {title}!").format(title=event.title)
             html_message = render_to_string(
-                'crush_lu/emails/existing_user_invitation.html',
-                context
+                "crush_lu/emails/existing_user_invitation.html", context
             )
             plain_message = strip_tags(html_message)
 
@@ -80,12 +79,14 @@ def send_existing_user_invitation_email(event, user, request=None):
             message=plain_message,
             recipient_list=[user.email],
             request=request,
-            domain='crush.lu',
+            domain="crush.lu",
             html_message=html_message,
             fail_silently=False,
         )
 
-        logger.info(f"Sent invitation email to existing user {user.email} for event {event.title}")
+        logger.info(
+            f"Sent invitation email to existing user {user.email} for event {event.title}"
+        )
         return result > 0
 
     except Exception as e:
@@ -109,44 +110,48 @@ def send_external_guest_invitation_email(event_invitation, request=None):
         # Note: For external guests, we use English (default) since they don't have a profile yet
         # The invitation landing page is inside i18n_patterns
         if request:
-            protocol = 'https' if request.is_secure() else 'http'
+            protocol = "https" if request.is_secure() else "http"
             domain = request.get_host()
             # Use English for external guests (they can change language on the page)
-            with override('en'):
-                url_path = reverse('crush_lu:invitation_landing', kwargs={'code': event_invitation.invitation_code})
+            with override("en"):
+                url_path = reverse(
+                    "crush_lu:invitation_landing",
+                    kwargs={"code": event_invitation.invitation_code},
+                )
             invitation_url = f"{protocol}://{domain}{url_path}"
         else:
             # Fallback when request is not available
             # Use English for external guests (they can change language on the page)
             invitation_url = build_absolute_url(
-                'crush_lu:invitation_landing',
-                lang='en',
-                kwargs={'code': event_invitation.invitation_code}
+                "crush_lu:invitation_landing",
+                lang="en",
+                kwargs={"code": event_invitation.invitation_code},
             )
 
         # External guests use English by default (they can change language on the page)
         from django.utils import translation
         from django.utils.translation import gettext as _
 
-        lang = 'en'
+        lang = "en"
 
         # Prepare context for email template
         context = {
-            'invitation': event_invitation,
-            'guest_first_name': event_invitation.guest_first_name,
-            'event': event_invitation.event,
-            'invitation_url': invitation_url,
-            'invited_by': event_invitation.invited_by,
-            'LANGUAGE_CODE': lang,
-            'social_links': get_social_links(),
+            "invitation": event_invitation,
+            "guest_first_name": event_invitation.guest_first_name,
+            "event": event_invitation.event,
+            "invitation_url": invitation_url,
+            "invited_by": event_invitation.invited_by,
+            "LANGUAGE_CODE": lang,
+            "social_links": get_social_links(),
         }
 
         # Render email in English for external guests
         with translation.override(lang):
-            subject = _("You're Invited to {title} on Crush.lu").format(title=event_invitation.event.title)
+            subject = _("You're Invited to {title} on Crush.lu").format(
+                title=event_invitation.event.title
+            )
             html_message = render_to_string(
-                'crush_lu/emails/external_guest_invitation.html',
-                context
+                "crush_lu/emails/external_guest_invitation.html", context
             )
             plain_message = strip_tags(html_message)
 
@@ -155,16 +160,20 @@ def send_external_guest_invitation_email(event_invitation, request=None):
             message=plain_message,
             recipient_list=[event_invitation.guest_email],
             request=request,
-            domain='crush.lu',
+            domain="crush.lu",
             html_message=html_message,
             fail_silently=False,
         )
 
-        logger.info(f"Sent external guest invitation to {event_invitation.guest_email} for event {event_invitation.event.title}")
+        logger.info(
+            f"Sent external guest invitation to {event_invitation.guest_email} for event {event_invitation.event.title}"
+        )
         return result > 0
 
     except Exception as e:
-        logger.error(f"Failed to send external guest invitation to {event_invitation.guest_email}: {str(e)}")
+        logger.error(
+            f"Failed to send external guest invitation to {event_invitation.guest_email}: {str(e)}"
+        )
         return False
 
 
@@ -180,7 +189,9 @@ def send_invitation_approval_email(event_invitation, request=None):
         bool: True if email sent successfully, False otherwise
     """
     if not event_invitation.created_user:
-        logger.warning(f"Cannot send approval email - no user account created yet for {event_invitation.guest_email}")
+        logger.warning(
+            f"Cannot send approval email - no user account created yet for {event_invitation.guest_email}"
+        )
         return False
 
     user = event_invitation.created_user
@@ -190,45 +201,45 @@ def send_invitation_approval_email(event_invitation, request=None):
         # Build i18n-aware URLs
         if request:
             event_url = get_user_language_url(
-                user, 'crush_lu:event_detail', request,
-                kwargs={'event_id': event.id}
+                user, "crush_lu:event_detail", request, kwargs={"event_id": event.id}
             )
-            dashboard_url = get_user_language_url(user, 'crush_lu:dashboard', request)
+            dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available
             # Use user's preferred language for URLs
-            lang = get_user_preferred_language(user=user, default='en')
+            lang = get_user_preferred_language(user=user, default="en")
             event_url = build_absolute_url(
-                'crush_lu:event_detail', lang=lang, kwargs={'event_id': event.id}
+                "crush_lu:event_detail", lang=lang, kwargs={"event_id": event.id}
             )
-            dashboard_url = build_absolute_url('crush_lu:dashboard', lang=lang)
+            dashboard_url = build_absolute_url("crush_lu:dashboard", lang=lang)
             base_urls = {}
 
         # Get user's preferred language
         from django.utils import translation
         from django.utils.translation import gettext as _
 
-        lang = get_user_preferred_language(user=user, default='en')
+        lang = get_user_preferred_language(user=user, default="en")
 
         # Prepare context for email template
         context = {
-            'invitation': event_invitation,
-            'user': user,
-            'event': event,
-            'event_url': event_url,
-            'dashboard_url': dashboard_url,
-            'LANGUAGE_CODE': lang,
-            'social_links': get_social_links(),
+            "invitation": event_invitation,
+            "user": user,
+            "event": event,
+            "event_url": event_url,
+            "dashboard_url": dashboard_url,
+            "LANGUAGE_CODE": lang,
+            "social_links": get_social_links(),
             **base_urls,
         }
 
         # Render email in user's preferred language
         with translation.override(lang):
-            subject = _("Your Invitation to {title} Has Been Approved!").format(title=event.title)
+            subject = _("Your Invitation to {title} Has Been Approved!").format(
+                title=event.title
+            )
             html_message = render_to_string(
-                'crush_lu/emails/invitation_approved.html',
-                context
+                "crush_lu/emails/invitation_approved.html", context
             )
             plain_message = strip_tags(html_message)
 
@@ -237,7 +248,7 @@ def send_invitation_approval_email(event_invitation, request=None):
             message=plain_message,
             recipient_list=[user.email],
             request=request,
-            domain='crush.lu',
+            domain="crush.lu",
             html_message=html_message,
             fail_silently=False,
         )
@@ -262,7 +273,9 @@ def send_invitation_rejection_email(event_invitation, request=None):
         bool: True if email sent successfully, False otherwise
     """
     if not event_invitation.created_user:
-        logger.warning(f"Cannot send rejection email - no user account created yet for {event_invitation.guest_email}")
+        logger.warning(
+            f"Cannot send rejection email - no user account created yet for {event_invitation.guest_email}"
+        )
         return False
 
     user = event_invitation.created_user
@@ -271,39 +284,41 @@ def send_invitation_rejection_email(event_invitation, request=None):
     try:
         # Build i18n-aware URLs
         if request:
-            events_url = get_user_language_url(user, 'crush_lu:event_list', request)
+            events_url = get_user_language_url(user, "crush_lu:event_list", request)
             base_urls = get_email_base_urls(user, request)
         else:
             # Fallback for when request is not available
             # Use user's preferred language for URLs
-            lang = get_user_preferred_language(user=user, default='en')
-            events_url = build_absolute_url('crush_lu:event_list', lang=lang)
+            lang = get_user_preferred_language(user=user, default="en")
+            events_url = build_absolute_url("crush_lu:event_list", lang=lang)
             base_urls = {}
 
         # Get user's preferred language
         from django.utils import translation
         from django.utils.translation import gettext as _
 
-        lang = get_user_preferred_language(user=user, default='en')
+        lang = get_user_preferred_language(user=user, default="en")
 
         # Prepare context for email template
         context = {
-            'invitation': event_invitation,
-            'user': user,
-            'event': event,
-            'feedback': event_invitation.approval_notes or _("No specific feedback provided."),
-            'events_url': events_url,  # Used by template for "Browse Other Events" button
-            'LANGUAGE_CODE': lang,
-            'social_links': get_social_links(),
+            "invitation": event_invitation,
+            "user": user,
+            "event": event,
+            "feedback": event_invitation.approval_notes
+            or _("No specific feedback provided."),
+            "events_url": events_url,  # Used by template for "Browse Other Events" button
+            "LANGUAGE_CODE": lang,
+            "social_links": get_social_links(),
             **base_urls,
         }
 
         # Render email in user's preferred language
         with translation.override(lang):
-            subject = _("Update on Your Invitation to {title}").format(title=event.title)
+            subject = _("Update on Your Invitation to {title}").format(
+                title=event.title
+            )
             html_message = render_to_string(
-                'crush_lu/emails/invitation_rejected.html',
-                context
+                "crush_lu/emails/invitation_rejected.html", context
             )
             plain_message = strip_tags(html_message)
 
@@ -312,7 +327,7 @@ def send_invitation_rejection_email(event_invitation, request=None):
             message=plain_message,
             recipient_list=[user.email],
             request=request,
-            domain='crush.lu',
+            domain="crush.lu",
             html_message=html_message,
             fail_silently=False,
         )

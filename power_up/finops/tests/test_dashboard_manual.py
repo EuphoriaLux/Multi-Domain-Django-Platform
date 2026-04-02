@@ -2,7 +2,7 @@
 Manual Playwright test for FinOps dashboard
 Run with local development server on powerup.localhost:8000
 """
-import pytest
+
 from playwright.sync_api import sync_playwright
 import time
 
@@ -56,7 +56,7 @@ def test_finops_dashboard_manually():
                 ".text-red-600:has-text('Error')",
                 "text='Server Error'",
                 "text='500'",
-                "text='404'"
+                "text='404'",
             ]
 
             has_errors = False
@@ -94,7 +94,7 @@ def test_finops_dashboard_manually():
                     else:
                         print(f"   ✗ {name}: Not visible")
                         all_present = False
-                except Exception as e:
+                except Exception:
                     print(f"   ✗ {name}: Not found")
                     all_present = False
 
@@ -102,7 +102,9 @@ def test_finops_dashboard_manually():
             print("\n4. Checking filter values...")
 
             try:
-                charge_type_value = page.locator("select[name='charge_type']").input_value()
+                charge_type_value = page.locator(
+                    "select[name='charge_type']"
+                ).input_value()
                 print(f"   ✓ Charge Type: {charge_type_value}")
             except:
                 print("   ✗ Could not read charge_type value")
@@ -126,9 +128,11 @@ def test_finops_dashboard_manually():
             print("\n6. Performance test...")
             start_time = time.time()
             page.reload()
-            page.wait_for_load_state('networkidle', timeout=10000)
+            page.wait_for_load_state("networkidle", timeout=10000)
             load_time = time.time() - start_time
-            print(f"   {'✓' if load_time < 3 else '⚠'} Page load time: {load_time:.2f}s")
+            print(
+                f"   {'✓' if load_time < 3 else '⚠'} Page load time: {load_time:.2f}s"
+            )
 
             # Edge cases
             print("\n7. Testing edge cases...")
@@ -142,7 +146,10 @@ def test_finops_dashboard_manually():
             for test_name, query_params in edge_case_urls:
                 try:
                     print(f"\n   Testing: {test_name}")
-                    page.goto(f"http://powerup.localhost:8000/finops/{query_params}", timeout=10000)
+                    page.goto(
+                        f"http://powerup.localhost:8000/finops/{query_params}",
+                        timeout=10000,
+                    )
                     time.sleep(1)
 
                     page_title = page.title()

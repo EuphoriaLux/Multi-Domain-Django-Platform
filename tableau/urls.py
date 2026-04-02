@@ -4,6 +4,7 @@ URL patterns for Tableau AI Art e-commerce site.
 
 Simple URL structure for the landing site.
 """
+
 from django.urls import path
 
 from . import views

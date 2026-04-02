@@ -1,17 +1,10 @@
-{% extends "arborist/base.html" %}
-{% load i18n %}
-
-{% block content %}
+{% extends "arborist/base.html" %} {% load i18n %} {% block content %}
 <!-- Header -->
-<section class="bg-green-800 text-white py-16">
+<section class="bg-green-800 py-16 text-white">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl font-bold mb-4">
-                {% trans "Contact" %}
-            </h1>
-            <p class="text-xl">
-                {% trans "Get in touch for a free consultation." %}
-            </p>
+        <div class="mx-auto max-w-4xl text-center">
+            <h1 class="mb-4 text-4xl font-bold">{% trans "Contact" %}</h1>
+            <p class="text-xl">{% trans "Get in touch for a free consultation." %}</p>
         </div>
     </div>
 </section>
@@ -19,38 +12,60 @@
 <!-- Contact Options -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto">
-            <div class="grid md:grid-cols-3 gap-8 mb-12">
+        <div class="mx-auto max-w-4xl">
+            <div class="mb-12 grid gap-8 md:grid-cols-3">
                 <!-- Phone -->
                 <div class="card text-center">
-                    <div class="text-4xl mb-4">&#128222;</div>
-                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Phone" %}</h3>
-                    <p class="text-gray-600 mb-4">{% trans "Call me directly" %}</p>
-                    <a href="tel:+352621981363" class="text-green-600 font-semibold hover:underline">
+                    <div class="mb-4 text-4xl">&#128222;</div>
+                    <h3 class="mb-2 text-xl font-semibold text-green-800">
+                        {% trans "Phone" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">{% trans "Call me directly" %}</p>
+                    <a
+                        href="tel:+352621981363"
+                        class="font-semibold text-green-600 hover:underline"
+                    >
                         +352 621 981 363
                     </a>
                 </div>
 
                 <!-- WhatsApp -->
                 <div class="card text-center">
-                    <div class="text-4xl mb-4">&#128172;</div>
-                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "WhatsApp" %}</h3>
-                    <p class="text-gray-600 mb-4">{% trans "Message me on WhatsApp" %}</p>
-                    <a href="https://wa.me/352621981363?text=Hallo%2C%20ich%20interessiere%20mich%20f%C3%BCr%20Ihre%20Baumpflege-Dienste."
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="inline-block bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                       style="background: #16a34a; color: #fff; padding: 0.5rem 1rem; border-radius: 0.5rem; display: inline-block;">
+                    <div class="mb-4 text-4xl">&#128172;</div>
+                    <h3 class="mb-2 text-xl font-semibold text-green-800">
+                        {% trans "WhatsApp" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">
+                        {% trans "Message me on WhatsApp" %}
+                    </p>
+                    <a
+                        href="https://wa.me/352621981363?text=Hallo%2C%20ich%20interessiere%20mich%20f%C3%BCr%20Ihre%20Baumpflege-Dienste."
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-block rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+                        style="
+                            background: #16a34a;
+                            color: #fff;
+                            padding: 0.5rem 1rem;
+                            border-radius: 0.5rem;
+                            display: inline-block;
+                        "
+                    >
                         {% trans "Open WhatsApp" %}
                     </a>
                 </div>
 
                 <!-- Email -->
                 <div class="card text-center">
-                    <div class="text-4xl mb-4">&#9993;</div>
-                    <h3 class="text-xl font-semibold mb-2 text-green-800">{% trans "Email" %}</h3>
-                    <p class="text-gray-600 mb-4">{% trans "Send me an email" %}</p>
-                    <a href="mailto:info@arborist.lu" class="text-green-600 font-semibold hover:underline">
+                    <div class="mb-4 text-4xl">&#9993;</div>
+                    <h3 class="mb-2 text-xl font-semibold text-green-800">
+                        {% trans "Email" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">{% trans "Send me an email" %}</p>
+                    <a
+                        href="mailto:info@arborist.lu"
+                        class="font-semibold text-green-600 hover:underline"
+                    >
                         info@arborist.lu
                     </a>
                 </div>
@@ -58,7 +73,7 @@
 
             <!-- Contact Form -->
             <div class="card">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
+                <h2 class="mb-6 text-2xl font-bold text-green-800">
                     {% trans "Send Inquiry" %}
                 </h2>
 
@@ -66,7 +81,9 @@
                 {% if messages %}
                 <div class="mb-6">
                     {% for message in messages %}
-                    <div class="p-4 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% else %}bg-red-100 text-red-800 border border-red-200{% endif %}">
+                    <div
+                        class="{% if message.tags == 'success' %}bg-green-100 border-green-200{% else %}bg-red-100 border-red-200{% endif %} rounded-lg border p-4 text-green-800 text-red-800"
+                    >
                         {{ message }}
                     </div>
                     {% endfor %}
@@ -75,58 +92,135 @@
 
                 <form action="" method="post" class="space-y-6">
                     {% csrf_token %}
-                    <div class="grid md:grid-cols-2 gap-6">
+                    <div class="grid gap-6 md:grid-cols-2">
                         <div>
-                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                            <label
+                                for="name"
+                                class="mb-1 block text-sm font-medium text-gray-700"
+                            >
                                 {% trans "Name" %} *
                             </label>
-                            <input type="text" id="name" name="name" required
-                                   style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
+                            <input
+                                type="text"
+                                id="name"
+                                name="name"
+                                required
+                                style="
+                                    border: 1px solid #d1d5db;
+                                    padding: 0.5rem 1rem;
+                                    border-radius: 0.5rem;
+                                    width: 100%;
+                                "
+                            />
                         </div>
                         <div>
-                            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                            <label
+                                for="phone"
+                                class="mb-1 block text-sm font-medium text-gray-700"
+                            >
                                 {% trans "Phone" %}
                             </label>
-                            <input type="tel" id="phone" name="phone"
-                                   style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
+                            <input
+                                type="tel"
+                                id="phone"
+                                name="phone"
+                                style="
+                                    border: 1px solid #d1d5db;
+                                    padding: 0.5rem 1rem;
+                                    border-radius: 0.5rem;
+                                    width: 100%;
+                                "
+                            />
                         </div>
                     </div>
                     <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                            for="email"
+                            class="mb-1 block text-sm font-medium text-gray-700"
+                        >
                             {% trans "Email" %} *
                         </label>
-                        <input type="email" id="email" name="email" required
-                               style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%;">
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            required
+                            style="
+                                border: 1px solid #d1d5db;
+                                padding: 0.5rem 1rem;
+                                border-radius: 0.5rem;
+                                width: 100%;
+                            "
+                        />
                     </div>
                     <div>
-                        <label for="service" class="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                            for="service"
+                            class="mb-1 block text-sm font-medium text-gray-700"
+                        >
                             {% trans "Interested in" %}
                         </label>
-                        <select id="service" name="service"
-                                style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%; background: #fff;">
+                        <select
+                            id="service"
+                            name="service"
+                            style="
+                                border: 1px solid #d1d5db;
+                                padding: 0.5rem 1rem;
+                                border-radius: 0.5rem;
+                                width: 100%;
+                                background: #fff;
+                            "
+                        >
                             <option value="">{% trans "Please select" %}</option>
-                            <option value="obstbaumpflege">{% trans "Fruit Tree Care" %}</option>
+                            <option value="obstbaumpflege">
+                                {% trans "Fruit Tree Care" %}
+                            </option>
                             <option value="baumpflege">{% trans "Tree Care" %}</option>
-                            <option value="baumkontrolle">{% trans "Tree Inspection" %}</option>
-                            <option value="oekologie">{% trans "Ecological Measures" %}</option>
-                            <option value="beratung">{% trans "General Consultation" %}</option>
+                            <option value="baumkontrolle">
+                                {% trans "Tree Inspection" %}
+                            </option>
+                            <option value="oekologie">
+                                {% trans "Ecological Measures" %}
+                            </option>
+                            <option value="beratung">
+                                {% trans "General Consultation" %}
+                            </option>
                         </select>
                     </div>
                     <div>
-                        <label for="message" class="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                            for="message"
+                            class="mb-1 block text-sm font-medium text-gray-700"
+                        >
                             {% trans "Your Message" %} *
                         </label>
-                        <textarea id="message" name="message" rows="5" required
-                                  placeholder="{% trans 'Briefly describe your request...' %}"
-                                  style="border: 1px solid #d1d5db; padding: 0.5rem 1rem; border-radius: 0.5rem; width: 100%; resize: vertical;"></textarea>
+                        <textarea
+                            id="message"
+                            name="message"
+                            rows="5"
+                            required
+                            placeholder="{% trans 'Briefly describe your request...' %}"
+                            style="
+                                border: 1px solid #d1d5db;
+                                padding: 0.5rem 1rem;
+                                border-radius: 0.5rem;
+                                width: 100%;
+                                resize: vertical;
+                            "
+                        ></textarea>
                     </div>
                     <div>
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            style="width: 100%"
+                        >
                             {% trans "Send Message" %}
                         </button>
                     </div>
                     <p class="text-sm text-gray-500">
-                        {% trans "* Required fields. I will get back to you as soon as possible." %}
+                        {% trans "* Required fields. I will get back to you as soon as
+                        possible." %}
                     </p>
                 </form>
             </div>
@@ -135,15 +229,17 @@
 </section>
 
 <!-- Service Area Info -->
-<section class="py-16 bg-gray-50">
+<section class="bg-gray-50 py-16">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto">
-            <h2 class="text-2xl font-bold mb-6 text-green-800 text-center">
+        <div class="mx-auto max-w-4xl">
+            <h2 class="mb-6 text-center text-2xl font-bold text-green-800">
                 {% trans "Service Area & Availability" %}
             </h2>
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="bg-white rounded-xl p-6">
-                    <h3 class="font-semibold mb-4 text-green-800">{% trans "Service Areas" %}</h3>
+            <div class="grid gap-8 md:grid-cols-2">
+                <div class="rounded-xl bg-white p-6">
+                    <h3 class="mb-4 font-semibold text-green-800">
+                        {% trans "Service Areas" %}
+                    </h3>
                     <ul class="space-y-2 text-gray-600">
                         <li>&#8594; {% trans "Luxembourg City and surroundings" %}</li>
                         <li>&#8594; {% trans "Echternach and Mullerthal Region" %}</li>
@@ -151,8 +247,10 @@
                         <li>&#8594; {% trans "North (Ettelbruck, Diekirch)" %}</li>
                     </ul>
                 </div>
-                <div class="bg-white rounded-xl p-6">
-                    <h3 class="font-semibold mb-4 text-green-800">{% trans "Availability" %}</h3>
+                <div class="rounded-xl bg-white p-6">
+                    <h3 class="mb-4 font-semibold text-green-800">
+                        {% trans "Availability" %}
+                    </h3>
                     <ul class="space-y-2 text-gray-600">
                         <li>&#128197; {% trans "Monday - Friday: 8:00 - 18:00" %}</li>
                         <li>&#128197; {% trans "Saturday: By appointment" %}</li>

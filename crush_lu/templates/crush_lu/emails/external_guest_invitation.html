@@ -1,187 +1,231 @@
 {% load i18n %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "You're Invited to Crush.lu" %}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #9B59B6; /* Solid fallback for Outlook */
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            border-radius: 16px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(155, 89, 182, 0.2);
-        }
-        .inner-content {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-        }
-        h1 {
-            color: #9B59B6;
-            font-size: 28px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .subtitle {
-            color: #666;
-            font-size: 16px;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .event-details {
-            background: #f8f9fa;
-            border-left: 4px solid #9B59B6;
-            padding: 20px;
-            margin: 25px 0;
-            border-radius: 8px;
-        }
-        .event-details h2 {
-            color: #9B59B6;
-            margin-top: 0;
-            font-size: 22px;
-        }
-        .detail-row {
-            display: flex;
-            margin: 10px 0;
-            align-items: flex-start;
-        }
-        .detail-icon {
-            margin-right: 10px;
-            font-size: 18px;
-        }
-        .cta-button {
-            display: inline-block;
-            background-color: #9B59B6; /* Solid fallback for Outlook */
-            background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
-            color: white !important;
-            padding: 15px 40px;
-            text-decoration: none;
-            border-radius: 30px;
-            font-weight: bold;
-            text-align: center;
-            margin: 20px auto;
-            display: block;
-            width: fit-content;
-            box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
-        }
-        .info-box {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-        }
-        .footer {
-            text-align: center;
-            color: #999;
-            font-size: 13px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .private-badge {
-            background: #FF6B9D;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            display: inline-block;
-            margin-bottom: 15px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container" style="background-color: #9B59B6; padding: 40px;">
-        <div class="inner-content">
-            <h1 style="color: #9B59B6;">💌 {% trans "You're Invited!" %}</h1>
-            <p class="subtitle">{% trans "Someone special wants you to join them on Crush.lu" %}</p>
-
-            <p>{% blocktrans with first_name=guest_first_name %}Hi {{ first_name }},{% endblocktrans %}</p>
-
-            <p>{% trans "You've received a special invitation to join an exclusive event on Crush.lu, Luxembourg's privacy-first dating platform:" %}</p>
-
-            <div class="event-details">
-                <span class="private-badge">✨ {% trans "EXCLUSIVE INVITATION" %}</span>
-                <h2>{{ event.title }}</h2>
-
-                <div class="detail-row">
-                    <span class="detail-icon">📅</span>
-                    <div>
-                        <strong>{% trans "When:" %}</strong> {{ event.date_time|date:"l, F j, Y" }} {% trans "at" %} {{ event.date_time|time:"g:i A" }}
-                    </div>
-                </div>
-
-                <div class="detail-row">
-                    <span class="detail-icon">📍</span>
-                    <div>
-                        <strong>{% trans "Where:" %}</strong> {{ event.location }}
-                        {% if event.address %}
-                        <br><span style="color: #666;">{{ event.address }}</span>
-                        {% endif %}
-                    </div>
-                </div>
-
-                {% if event.description %}
-                <div class="detail-row">
-                    <span class="detail-icon">ℹ️</span>
-                    <div>
-                        <strong>{% trans "About:" %}</strong><br>{{ event.description|truncatewords:30 }}
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if event.registration_fee > 0 %}
-                <div class="detail-row">
-                    <span class="detail-icon">💰</span>
-                    <div>
-                        <strong>{% trans "Fee:" %}</strong> €{{ event.registration_fee }}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="info-box">
-                <strong>ℹ️ {% trans "What happens next?" %}</strong><br>
-                {% trans "1. Click the button below to accept your invitation" %}<br>
-                {% trans "2. Create your Crush.lu account (quick & easy!)" %}<br>
-                {% trans "3. Your profile will be reviewed by our team" %}<br>
-                {% trans "4. Once approved, you can register for the event" %}
-            </div>
-
-            <a href="{{ invitation_url }}" class="cta-button" style="background-color: #9B59B6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 30px; font-weight: bold; display: inline-block;">
-                {% trans "Accept Invitation & Create Account" %}
-            </a>
-
-            <p style="text-align: center; color: #666; font-size: 14px; margin-top: 25px;">
-                {% trans "Your unique invitation link:" %}<br>
-                <a href="{{ invitation_url }}" style="color: #9B59B6; word-break: break-all;">{{ invitation_url }}</a>
-            </p>
-
-            <div class="footer">
-                <p><strong>{% trans "About Crush.lu" %}</strong></p>
-                <p>{% trans "Crush.lu is Luxembourg's privacy-first dating platform focused on real connections through in-person events. We prioritize quality over quantity, with human-reviewed profiles and exclusive events." %}</p>
-
-                <p style="margin-top: 20px;">
-                    {% trans "Questions? Just reply to this email!" %}
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% trans "You're Invited to Crush.lu" %}</title>
+        <style>
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f8f9fa;
+            }
+            .container {
+                background-color: #9b59b6; /* Solid fallback for Outlook */
+                background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
+                border-radius: 16px;
+                padding: 40px;
+                box-shadow: 0 10px 30px rgba(155, 89, 182, 0.2);
+            }
+            .inner-content {
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+            }
+            h1 {
+                color: #9b59b6;
+                font-size: 28px;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 16px;
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .event-details {
+                background: #f8f9fa;
+                border-left: 4px solid #9b59b6;
+                padding: 20px;
+                margin: 25px 0;
+                border-radius: 8px;
+            }
+            .event-details h2 {
+                color: #9b59b6;
+                margin-top: 0;
+                font-size: 22px;
+            }
+            .detail-row {
+                display: flex;
+                margin: 10px 0;
+                align-items: flex-start;
+            }
+            .detail-icon {
+                margin-right: 10px;
+                font-size: 18px;
+            }
+            .cta-button {
+                display: inline-block;
+                background-color: #9b59b6; /* Solid fallback for Outlook */
+                background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
+                color: white !important;
+                padding: 15px 40px;
+                text-decoration: none;
+                border-radius: 30px;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px auto;
+                display: block;
+                width: fit-content;
+                box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
+            }
+            .info-box {
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 8px;
+            }
+            .footer {
+                text-align: center;
+                color: #999;
+                font-size: 13px;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+            }
+            .private-badge {
+                background: #ff6b9d;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: bold;
+                display: inline-block;
+                margin-bottom: 15px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container" style="background-color: #9b59b6; padding: 40px">
+            <div class="inner-content">
+                <h1 style="color: #9b59b6">💌 {% trans "You're Invited!" %}</h1>
+                <p class="subtitle">
+                    {% trans "Someone special wants you to join them on Crush.lu" %}
                 </p>
 
-                <p style="margin-top: 15px;">
-                    © {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-First Dating in Luxembourg" %}
+                <p>
+                    {% blocktrans with first_name=guest_first_name %}Hi {{ first_name
+                    }},{% endblocktrans %}
                 </p>
+
+                <p>
+                    {% trans "You've received a special invitation to join an exclusive
+                    event on Crush.lu, Luxembourg's privacy-first dating platform:" %}
+                </p>
+
+                <div class="event-details">
+                    <span class="private-badge"
+                        >✨ {% trans "EXCLUSIVE INVITATION" %}</span
+                    >
+                    <h2>{{ event.title }}</h2>
+
+                    <div class="detail-row">
+                        <span class="detail-icon">📅</span>
+                        <div>
+                            <strong>{% trans "When:" %}</strong> {{
+                            event.date_time|date:"l, F j, Y" }} {% trans "at" %} {{
+                            event.date_time|time:"g:i A" }}
+                        </div>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="detail-icon">📍</span>
+                        <div>
+                            <strong>{% trans "Where:" %}</strong> {{ event.location }}
+                            {% if event.address %} <br /><span style="color: #666"
+                                >{{ event.address }}</span
+                            >
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if event.description %}
+                    <div class="detail-row">
+                        <span class="detail-icon">ℹ️</span>
+                        <div>
+                            <strong>{% trans "About:" %}</strong><br />{{
+                            event.description|truncatewords:30 }}
+                        </div>
+                    </div>
+                    {% endif %} {% if event.registration_fee > 0 %}
+                    <div class="detail-row">
+                        <span class="detail-icon">💰</span>
+                        <div>
+                            <strong>{% trans "Fee:" %}</strong> €{{
+                            event.registration_fee }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="info-box">
+                    <strong>ℹ️ {% trans "What happens next?" %}</strong><br />
+                    {% trans "1. Click the button below to accept your invitation" %}<br />
+                    {% trans "2. Create your Crush.lu account (quick & easy!)" %}<br />
+                    {% trans "3. Your profile will be reviewed by our team" %}<br />
+                    {% trans "4. Once approved, you can register for the event" %}
+                </div>
+
+                <a
+                    href="{{ invitation_url }}"
+                    class="cta-button"
+                    style="
+                        background-color: #9b59b6;
+                        color: white;
+                        padding: 15px 40px;
+                        text-decoration: none;
+                        border-radius: 30px;
+                        font-weight: bold;
+                        display: inline-block;
+                    "
+                >
+                    {% trans "Accept Invitation & Create Account" %}
+                </a>
+
+                <p
+                    style="
+                        text-align: center;
+                        color: #666;
+                        font-size: 14px;
+                        margin-top: 25px;
+                    "
+                >
+                    {% trans "Your unique invitation link:" %}<br />
+                    <a
+                        href="{{ invitation_url }}"
+                        style="color: #9b59b6; word-break: break-all"
+                        >{{ invitation_url }}</a
+                    >
+                </p>
+
+                <div class="footer">
+                    <p><strong>{% trans "About Crush.lu" %}</strong></p>
+                    <p>
+                        {% trans "Crush.lu is Luxembourg's privacy-first dating platform
+                        focused on real connections through in-person events. We
+                        prioritize quality over quantity, with human-reviewed profiles
+                        and exclusive events." %}
+                    </p>
+
+                    <p style="margin-top: 20px">
+                        {% trans "Questions? Just reply to this email!" %}
+                    </p>
+
+                    <p style="margin-top: 15px">
+                        © {{ "now"|date:"Y" }} Crush.lu - {% trans "Privacy-First Dating
+                        in Luxembourg" %}
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
-</body>
+    </body>
 </html>

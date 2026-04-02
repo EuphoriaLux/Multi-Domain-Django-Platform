@@ -1,52 +1,66 @@
-{% extends "crush_lu/base.html" %}
-{% load static i18n %}
-
-{% block title %}{% trans "Email Preferences" %} - Crush.lu{% endblock %}
-
-{% block content %}
-<div class="max-w-xl mx-auto py-8 px-4">
+{% extends "crush_lu/base.html" %} {% load static i18n %} {% block title %}{% trans
+"Email Preferences" %} - Crush.lu{% endblock %} {% block content %}
+<div class="mx-auto max-w-xl px-4 py-8">
     {% if error %}
     <!-- Invalid token error -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="text-center py-12 px-6">
-            {% include "shared/icons/exclamation-circle.html" with class="w-16 h-16 text-red-500 mx-auto mb-4" %}
-            <h2 class="text-2xl font-bold dark:text-white mb-3">{% trans "Invalid Unsubscribe Link" %}</h2>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="px-6 py-12 text-center">
+            {% include "shared/icons/exclamation-circle.html" with class="w-16 h-16
+            text-red-500 mx-auto mb-4" %}
+            <h2 class="mb-3 text-2xl font-bold dark:text-white">
+                {% trans "Invalid Unsubscribe Link" %}
+            </h2>
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
                 {% trans "This unsubscribe link is invalid or has expired." %}
             </p>
-            <p class="text-gray-600 dark:text-gray-300 mb-6">
+            <p class="mb-6 text-gray-600 dark:text-gray-300">
                 {% trans "If you need to manage your email preferences, please" %}
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "log in to your account" %}</a>
+                <a
+                    href="{% url 'crush_lu:login' %}"
+                    class="text-purple-600 hover:underline dark:text-purple-400"
+                    >{% trans "log in to your account" %}</a
+                >
                 {% trans "and visit your account settings." %}
             </p>
-            <a href="{% url 'crush_lu:home' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
-                {% include "shared/icons/home.html" with class="w-4 h-4" %}
-                {% trans "Go to Homepage" %}
+            <a
+                href="{% url 'crush_lu:home' %}"
+                class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3"
+            >
+                {% include "shared/icons/home.html" with class="w-4 h-4" %} {% trans "Go
+                to Homepage" %}
             </a>
         </div>
     </div>
 
     {% elif success %}
     <!-- Success message -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="text-center py-12 px-6">
-            {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto mb-4" %}
-            <h2 class="text-2xl font-bold dark:text-white mb-3">{% trans "Preferences Updated!" %}</h2>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="px-6 py-12 text-center">
+            {% include "shared/icons/check-circle.html" with class="w-16 h-16
+            text-green-500 mx-auto mb-4" %}
+            <h2 class="mb-3 text-2xl font-bold dark:text-white">
+                {% trans "Preferences Updated!" %}
+            </h2>
 
             {% if email_prefs.unsubscribed_all %}
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
                 {% trans "You have been unsubscribed from all Crush.lu emails." %}
             </p>
-            <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4 inline-flex items-center gap-2">
-                {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0" %}
-                {% trans "Changed your mind? You can re-subscribe below." %}
+            <div
+                class="mb-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            >
+                {% include "shared/icons/info.html" with class="w-5 h-5 flex-shrink-0"
+                %} {% trans "Changed your mind? You can re-subscribe below." %}
             </div>
             <form method="post" class="mt-4">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="resubscribe">
-                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg font-medium transition-colors">
-                    {% include "shared/icons/bell.html" with class="w-4 h-4" %}
-                    {% trans "Re-subscribe to Emails" %}
+                <input type="hidden" name="action" value="resubscribe" />
+                <button
+                    type="submit"
+                    class="inline-flex items-center gap-2 rounded-lg border border-purple-500 px-4 py-2 font-medium text-purple-600 transition-colors hover:bg-purple-50 dark:border-purple-400 dark:text-purple-300 dark:hover:bg-purple-900/30"
+                >
+                    {% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans
+                    "Re-subscribe to Emails" %}
                 </button>
             </form>
             {% else %}
@@ -55,10 +69,14 @@
             </p>
             {% endif %}
 
-            <hr class="my-6 border-gray-200 dark:border-gray-700">
+            <hr class="my-6 border-gray-200 dark:border-gray-700" />
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 {% trans "Want more control?" %}
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Log in" %}</a>
+                <a
+                    href="{% url 'crush_lu:login' %}"
+                    class="text-purple-600 hover:underline dark:text-purple-400"
+                    >{% trans "Log in" %}</a
+                >
                 {% trans "to manage all your notification settings." %}
             </p>
         </div>
@@ -66,121 +84,145 @@
 
     {% else %}
     <!-- Unsubscribe options -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
-            <h4 class="font-semibold dark:text-white flex items-center gap-2">
-                {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
-                {% trans "Email Preferences" %}
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h4 class="flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/envelope.html" with class="w-5 h-5" %} {% trans
+                "Email Preferences" %}
             </h4>
         </div>
         <div class="p-6">
-            <p class="text-gray-500 dark:text-gray-400 mb-4">
-                {% if user.first_name %}{% blocktrans with name=user.first_name %}Hi {{ name }}!{% endblocktrans %}{% else %}{% trans "Hi!" %}{% endif %} {% trans "Choose how you'd like to manage your email preferences:" %}
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% if user.first_name %}{% blocktrans with name=user.first_name %}Hi {{
+                name }}!{% endblocktrans %}{% else %}{% trans "Hi!" %}{% endif %} {%
+                trans "Choose how you'd like to manage your email preferences:" %}
             </p>
 
             {% if email_prefs.unsubscribed_all %}
-            <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 rounded-lg p-4 mb-4 flex items-center gap-2">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 flex-shrink-0" %}
-                {% trans "You are currently unsubscribed from all emails." %}
+            <div
+                class="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+            >
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5
+                flex-shrink-0" %} {% trans "You are currently unsubscribed from all
+                emails." %}
             </div>
 
             <form method="post" class="mb-4">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="resubscribe">
-                <button type="submit" class="btn-crush-primary w-full py-3 inline-flex items-center justify-center gap-2">
-                    {% include "shared/icons/bell.html" with class="w-4 h-4" %}
-                    {% trans "Re-subscribe to Emails" %}
+                <input type="hidden" name="action" value="resubscribe" />
+                <button
+                    type="submit"
+                    class="btn-crush-primary inline-flex w-full items-center justify-center gap-2 py-3"
+                >
+                    {% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans
+                    "Re-subscribe to Emails" %}
                 </button>
             </form>
 
             {% else %}
             <!-- Current subscription status -->
             <div class="mb-6">
-                <h6 class="text-gray-500 dark:text-gray-400 text-sm font-medium mb-3">{% trans "Your current email subscriptions:" %}</h6>
+                <h6 class="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {% trans "Your current email subscriptions:" %}
+                </h6>
                 <ul class="space-y-2">
                     <li class="flex items-center gap-2 dark:text-gray-300">
-                        {% if email_prefs.email_profile_updates %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                        {% else %}
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
-                        {% endif %}
-                        {% trans "Profile Updates" %}
+                        {% if email_prefs.email_profile_updates %} {% include
+                        "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-green-500" %} {% else %} {% include
+                        "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400"
+                        %} {% endif %} {% trans "Profile Updates" %}
                     </li>
                     <li class="flex items-center gap-2 dark:text-gray-300">
-                        {% if email_prefs.email_event_reminders %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                        {% else %}
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
-                        {% endif %}
-                        {% trans "Event Reminders" %}
+                        {% if email_prefs.email_event_reminders %} {% include
+                        "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-green-500" %} {% else %} {% include
+                        "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400"
+                        %} {% endif %} {% trans "Event Reminders" %}
                     </li>
                     <li class="flex items-center gap-2 dark:text-gray-300">
-                        {% if email_prefs.email_new_connections %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                        {% else %}
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
-                        {% endif %}
-                        {% trans "New Connections" %}
+                        {% if email_prefs.email_new_connections %} {% include
+                        "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-green-500" %} {% else %} {% include
+                        "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400"
+                        %} {% endif %} {% trans "New Connections" %}
                     </li>
                     <li class="flex items-center gap-2 dark:text-gray-300">
-                        {% if email_prefs.email_new_messages %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                        {% else %}
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
-                        {% endif %}
-                        {% trans "New Messages" %}
+                        {% if email_prefs.email_new_messages %} {% include
+                        "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-green-500" %} {% else %} {% include
+                        "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400"
+                        %} {% endif %} {% trans "New Messages" %}
                     </li>
                     <li class="flex items-center gap-2 dark:text-gray-300">
-                        {% if email_prefs.email_marketing %}
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-500" %}
-                        {% else %}
-                        {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400" %}
-                        {% endif %}
-                        {% trans "Marketing & Promotions" %}
+                        {% if email_prefs.email_marketing %} {% include
+                        "shared/icons/check-circle.html" with class="w-5 h-5
+                        text-green-500" %} {% else %} {% include
+                        "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-400"
+                        %} {% endif %} {% trans "Marketing & Promotions" %}
                     </li>
                 </ul>
             </div>
 
-            <hr class="my-4 border-gray-200 dark:border-gray-700">
+            <hr class="my-4 border-gray-200 dark:border-gray-700" />
 
             <!-- Unsubscribe options -->
-            <h6 class="text-gray-500 dark:text-gray-400 text-sm font-medium mb-3">{% trans "Quick unsubscribe options:" %}</h6>
+            <h6 class="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+                {% trans "Quick unsubscribe options:" %}
+            </h6>
 
             {% if email_prefs.email_marketing %}
             <form method="post" class="mb-3">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="unsubscribe_marketing">
-                <button type="submit" class="w-full py-3 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
-                    {% include "shared/icons/megaphone.html" with class="w-4 h-4" %}
-                    {% trans "Unsubscribe from Marketing Only" %}
+                <input type="hidden" name="action" value="unsubscribe_marketing" />
+                <button
+                    type="submit"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                    {% include "shared/icons/megaphone.html" with class="w-4 h-4" %} {%
+                    trans "Unsubscribe from Marketing Only" %}
                 </button>
-                <small class="text-gray-500 dark:text-gray-400 block mt-1">
-                    {% trans "You'll still receive important account and event notifications." %}
+                <small class="mt-1 block text-gray-500 dark:text-gray-400">
+                    {% trans "You'll still receive important account and event
+                    notifications." %}
                 </small>
             </form>
             {% endif %}
 
             <form method="post" class="mb-4">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="unsubscribe_all">
-                <button type="submit" class="w-full py-3 px-4 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2">
-                    {% include "shared/icons/envelope-x.html" with class="w-4 h-4" %}
-                    {% trans "Unsubscribe from ALL Emails" %}
+                <input type="hidden" name="action" value="unsubscribe_all" />
+                <button
+                    type="submit"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-3 font-medium text-white transition-colors hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700"
+                >
+                    {% include "shared/icons/envelope-x.html" with class="w-4 h-4" %} {%
+                    trans "Unsubscribe from ALL Emails" %}
                 </button>
-                <small class="text-gray-500 dark:text-gray-400 block mt-1">
+                <small class="mt-1 block text-gray-500 dark:text-gray-400">
                     {% trans "You won't receive any emails from Crush.lu." %}
                 </small>
             </form>
             {% endif %}
 
-            <hr class="my-4 border-gray-200 dark:border-gray-700">
+            <hr class="my-4 border-gray-200 dark:border-gray-700" />
 
-            <p class="text-sm text-gray-500 dark:text-gray-400 text-center flex items-center justify-center gap-1">
-                {% include "shared/icons/cog.html" with class="w-4 h-4" %}
-                {% trans "For more detailed control," %}
-                <a href="{% url 'crush_lu:login' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "log in" %}</a>
+            <p
+                class="flex items-center justify-center gap-1 text-center text-sm text-gray-500 dark:text-gray-400"
+            >
+                {% include "shared/icons/cog.html" with class="w-4 h-4" %} {% trans "For
+                more detailed control," %}
+                <a
+                    href="{% url 'crush_lu:login' %}"
+                    class="text-purple-600 hover:underline dark:text-purple-400"
+                    >{% trans "log in" %}</a
+                >
                 {% trans "and visit your" %}
-                <a href="{% url 'crush_lu:account_settings' %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "account settings" %}</a>.
+                <a
+                    href="{% url 'crush_lu:account_settings' %}"
+                    class="text-purple-600 hover:underline dark:text-purple-400"
+                    >{% trans "account settings" %}</a
+                >.
             </p>
         </div>
     </div>

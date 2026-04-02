@@ -1,6 +1,7 @@
 """
 Custom runserver command that displays all available local domains.
 """
+
 from django.contrib.staticfiles.management.commands.runserver import (
     Command as RunserverCommand,
 )
@@ -17,9 +18,7 @@ class Command(RunserverCommand):
         current_config = DOMAINS[DEV_DEFAULT]
         self.stdout.write(
             self.style.SUCCESS(
-                f"\n{'='*70}\n"
-                f"Multi-Domain Django Platform\n"
-                f"{'='*70}\n"
+                f"\n{'='*70}\n" f"Multi-Domain Django Platform\n" f"{'='*70}\n"
             )
         )
 
@@ -31,10 +30,7 @@ class Command(RunserverCommand):
 
         # Display all available local domains
         self.stdout.write(
-            self.style.SUCCESS(
-                f"\nAvailable local domains:\n"
-                f"{'-'*70}\n"
-            )
+            self.style.SUCCESS(f"\nAvailable local domains:\n" f"{'-'*70}\n")
         )
 
         # localhost/127.0.0.1 routes to default
@@ -45,13 +41,11 @@ class Command(RunserverCommand):
 
         # Show all *.localhost domains
         self.stdout.write(
-            self.style.SUCCESS(
-                f"\nUse *.localhost domains to test other platforms:\n"
-            )
+            self.style.SUCCESS("\nUse *.localhost domains to test other platforms:\n")
         )
 
         for local_domain, real_domain in sorted(DEV_DOMAIN_MAPPINGS.items()):
-            platform_name = DOMAINS[real_domain]['name']
+            platform_name = DOMAINS[real_domain]["name"]
             highlight = " (current)" if real_domain == DEV_DEFAULT else ""
             self.stdout.write(
                 f"  http://{local_domain}:8000/ -> {platform_name}{highlight}\n"
@@ -59,21 +53,14 @@ class Command(RunserverCommand):
 
         # Show how to change default
         self.stdout.write(
-            self.style.SUCCESS(
-                f"\nTo change the default domain:\n"
-                f"{'-'*70}\n"
-            )
+            self.style.SUCCESS(f"\nTo change the default domain:\n" f"{'-'*70}\n")
         )
         self.stdout.write(
-            f"  Edit azureproject/domains.py and set:\n"
-            f"  DEV_DEFAULT = 'vinsdelux.com'  # or any other domain\n"
+            "  Edit azureproject/domains.py and set:\n"
+            "  DEV_DEFAULT = 'vinsdelux.com'  # or any other domain\n"
         )
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"\n{'='*70}\n"
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"\n{'='*70}\n"))
 
         # Call parent implementation to start the server
         return super().inner_run(*args, **options)

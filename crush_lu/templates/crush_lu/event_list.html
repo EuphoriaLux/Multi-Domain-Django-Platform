@@ -1,86 +1,88 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Speed Dating Luxembourg - Singles Events & Meetups 2026 | Crush.lu" %}{% endblock %}
-
-{% block og_title %}{% trans "Speed Dating & Singles Events in Luxembourg | Crush.lu" %}{% endblock %}
-{% block og_description %}{% trans "Join speed dating nights, social mixers, and singles meetups in Luxembourg. Real events, real people, real connections. Book your spot at Crush.lu." %}{% endblock %}
-
-{% block twitter_title %}{% trans "Speed Dating & Singles Events in Luxembourg | Crush.lu" %}{% endblock %}
-{% block twitter_description %}{% trans "Join speed dating nights, social mixers, and singles meetups in Luxembourg. Real events, real people, real connections." %}{% endblock %}
-
-{% block meta_description %}{% trans "Speed dating events in Luxembourg for singles. Join Crush.lu for coach-curated speed dating nights, social mixers, and themed meetups. Book your next event now." %}{% endblock %}
-{% block meta_keywords %}{% trans "speed dating luxembourg, dating events luxembourg, singles events luxembourg, single party luxembourg, meetup luxembourg, soiree celibataire luxembourg" %}{% endblock %}
-
-{% block structured_data %}
-{{ block.super }}
+{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Speed Dating Luxembourg - Singles Events & Meetups 2026 | Crush.lu" %}{% endblock
+%} {% block og_title %}{% trans "Speed Dating & Singles Events in Luxembourg | Crush.lu"
+%}{% endblock %} {% block og_description %}{% trans "Join speed dating nights, social
+mixers, and singles meetups in Luxembourg. Real events, real people, real connections.
+Book your spot at Crush.lu." %}{% endblock %} {% block twitter_title %}{% trans "Speed
+Dating & Singles Events in Luxembourg | Crush.lu" %}{% endblock %} {% block
+twitter_description %}{% trans "Join speed dating nights, social mixers, and singles
+meetups in Luxembourg. Real events, real people, real connections." %}{% endblock %} {%
+block meta_description %}{% trans "Speed dating events in Luxembourg for singles. Join
+Crush.lu for coach-curated speed dating nights, social mixers, and themed meetups. Book
+your next event now." %}{% endblock %} {% block meta_keywords %}{% trans "speed dating
+luxembourg, dating events luxembourg, singles events luxembourg, single party
+luxembourg, meetup luxembourg, soiree celibataire luxembourg" %}{% endblock %} {% block
+structured_data %} {{ block.super }}
 
 <!-- Breadcrumb Schema -->
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-        {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "{% trans "Home" %}",
-            "item": "https://crush.lu/"
-        },
-        {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "{% trans "Events" %}",
-            "item": "https://crush.lu{% url 'crush_lu:event_list' %}"
-        }
-    ]
-}
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "{% trans "Home" %}",
+                "item": "https://crush.lu/"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "{% trans "Events" %}",
+                "item": "https://crush.lu{% url 'crush_lu:event_list' %}"
+            }
+        ]
+    }
 </script>
 
 <!-- ItemList Schema for Event Collection (built in Python for valid JSON) -->
 <script type="application/ld+json">
-{{ event_list_jsonld|safe }}
+    {{ event_list_jsonld|safe }}
 </script>
-{% endblock %}
-
-{% block extra_css %}
+{% endblock %} {% block extra_css %}
 <!-- Styles are in static/crush_lu/css/pages/events.css -->
-{% endblock %}
-
-{% load analytics %}
-{% block content %}
-{# Track event list view with count in Application Insights #}
-{% appinsights_event "events_page_viewed" event_count=upcoming_event_list|length %}
-{% ga4_event "view_item_list" item_list_id="events" item_list_name="Upcoming Events" %}
-
-{% if unpublished_count > 0 %}
-<div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 mb-6 flex items-center gap-2">
+{% endblock %} {% load analytics %} {% block content %} {# Track event list view with
+count in Application Insights #} {% appinsights_event "events_page_viewed"
+event_count=upcoming_event_list|length %} {% ga4_event "view_item_list"
+item_list_id="events" item_list_name="Upcoming Events" %} {% if unpublished_count > 0 %}
+<div
+    class="mb-6 flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+>
     {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
     <div>
         {% blocktrans count counter=unpublished_count %}
-        <strong>Coach Notice:</strong> There is {{ counter }} unpublished event that won't show here.
-        {% plural %}
-        <strong>Coach Notice:</strong> There are {{ counter }} unpublished events that won't show here.
-        {% endblocktrans %}
-        <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="underline font-semibold hover:text-yellow-900 dark:hover:text-yellow-200">{% blocktrans count counter=unpublished_count %}Go to Admin to publish it{% plural %}Go to Admin to publish them{% endblocktrans %}</a>.
+        <strong>Coach Notice:</strong> There is {{ counter }} unpublished event that
+        won't show here. {% plural %} <strong>Coach Notice:</strong> There are {{
+        counter }} unpublished events that won't show here. {% endblocktrans %}
+        <a
+            href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}"
+            class="font-semibold underline hover:text-yellow-900 dark:hover:text-yellow-200"
+            >{% blocktrans count counter=unpublished_count %}Go to Admin to publish it{%
+            plural %}Go to Admin to publish them{% endblocktrans %}</a
+        >.
     </div>
 </div>
-{% endif %}
-
-{% if active_polls %}
-    {% include "crush_lu/includes/_event_poll_banner.html" %}
-{% endif %}
+{% endif %} {% if active_polls %} {% include "crush_lu/includes/_event_poll_banner.html"
+%} {% endif %}
 
 <div x-data="eventTabs">
     {# Tab navigation #}
-    <div class="flex items-center gap-2 mb-6 flex-wrap">
-        <h2 class="text-2xl font-bold dark:text-white mr-4">{% trans "Events" %}</h2>
-        <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1">
-            <button @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap">
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+        <h2 class="mr-4 text-2xl font-bold dark:text-white">{% trans "Events" %}</h2>
+        <div class="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+            <button
+                @click="showUpcoming"
+                x-bind:class="upcomingTabClass"
+                class="rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-all duration-200"
+            >
                 {% trans "Upcoming" %}
             </button>
-            <button @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap">
+            <button
+                @click="showPast"
+                x-bind:class="pastTabClass"
+                class="rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-all duration-200"
+            >
                 {% trans "Past Events" %}
             </button>
         </div>
@@ -88,15 +90,22 @@
 
     {# Upcoming events tab #}
     <div x-show="isUpcoming">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for event in upcoming_event_list %}
-                {% include "crush_lu/includes/event_card.html" with event=event is_past=False %}
-            {% empty %}
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {% for event in upcoming_event_list %} {% include
+            "crush_lu/includes/event_card.html" with event=event is_past=False %} {%
+            empty %}
             <div class="col-span-full">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-                    <div class="text-center py-12 px-6">
-                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No events scheduled yet" %}</h4>
-                        <p class="text-gray-500 dark:text-gray-400">{% trans "Check back soon for upcoming meetups and speed dating events!" %}</p>
+                <div
+                    class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+                >
+                    <div class="px-6 py-12 text-center">
+                        <h4 class="mb-2 text-xl font-semibold dark:text-white">
+                            {% trans "No events scheduled yet" %}
+                        </h4>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            {% trans "Check back soon for upcoming meetups and speed
+                            dating events!" %}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -105,16 +114,23 @@
     </div>
 
     {# Past events tab #}
-    <div x-show="isPast" style="display: none;">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for event, user_attended in past_events_with_attendance %}
-                {% include "crush_lu/includes/event_card.html" with event=event is_past=True user_attended=user_attended %}
-            {% empty %}
+    <div x-show="isPast" style="display: none">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {% for event, user_attended in past_events_with_attendance %} {% include
+            "crush_lu/includes/event_card.html" with event=event is_past=True
+            user_attended=user_attended %} {% empty %}
             <div class="col-span-full">
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-                    <div class="text-center py-12 px-6">
-                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No past events yet" %}</h4>
-                        <p class="text-gray-500 dark:text-gray-400">{% trans "Past events will appear here after they've taken place." %}</p>
+                <div
+                    class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+                >
+                    <div class="px-6 py-12 text-center">
+                        <h4 class="mb-2 text-xl font-semibold dark:text-white">
+                            {% trans "No past events yet" %}
+                        </h4>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            {% trans "Past events will appear here after they've taken
+                            place." %}
+                        </p>
                     </div>
                 </div>
             </div>

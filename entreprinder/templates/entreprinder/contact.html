@@ -1,32 +1,40 @@
-{% extends "base.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "Contact Entreprinder" %}{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% load i18n %} {% block title %}{% trans "Contact
+Entreprinder" %}{% endblock %} {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
         <h1 class="mb-4">{% trans "Contact Us" %}</h1>
-        <p class="lead">{% trans "We'd love to hear from you! Get in touch with the Entreprinder team." %}</p>
+        <p class="lead">
+            {% trans "We'd love to hear from you! Get in touch with the Entreprinder
+            team." %}
+        </p>
 
         <form class="mt-5">
             <div class="mb-3">
                 <label for="name" class="form-label">{% trans "Name" %}</label>
-                <input type="text" class="form-control" id="name" required>
+                <input type="text" class="form-control" id="name" required />
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">{% trans "Email address" %}</label>
-                <input type="email" class="form-control" id="email" required>
+                <label for="email" class="form-label"
+                    >{% trans "Email address" %}</label
+                >
+                <input type="email" class="form-control" id="email" required />
             </div>
             <div class="mb-3">
                 <label for="subject" class="form-label">{% trans "Subject" %}</label>
-                <input type="text" class="form-control" id="subject" required>
+                <input type="text" class="form-control" id="subject" required />
             </div>
             <div class="mb-3">
                 <label for="message" class="form-label">{% trans "Message" %}</label>
-                <textarea class="form-control" id="message" rows="5" required></textarea>
+                <textarea
+                    class="form-control"
+                    id="message"
+                    rows="5"
+                    required
+                ></textarea>
             </div>
-            <button type="submit" class="btn btn-primary">{% trans "Send Message" %}</button>
+            <button type="submit" class="btn btn-primary">
+                {% trans "Send Message" %}
+            </button>
         </form>
 
         <div class="mt-5">

@@ -9,8 +9,9 @@ Comprehensive tests for connection system including:
 
 Run with: pytest crush_lu/tests/test_connections.py -v
 """
+
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -25,51 +26,49 @@ class ConnectionRequestTests(TestCase):
         from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
 
         self.user1 = User.objects.create_user(
-            username='user1@example.com',
-            email='user1@example.com',
-            password='testpass123',
-            first_name='John',
-            last_name='Doe'
+            username="user1@example.com",
+            email="user1@example.com",
+            password="testpass123",
+            first_name="John",
+            last_name="Doe",
         )
 
         self.user2 = User.objects.create_user(
-            username='user2@example.com',
-            email='user2@example.com',
-            password='testpass123',
-            first_name='Jane',
-            last_name='Smith'
+            username="user2@example.com",
+            email="user2@example.com",
+            password="testpass123",
+            first_name="Jane",
+            last_name="Smith",
         )
 
         # Create profiles
-        for user, gender in [(self.user1, 'M'), (self.user2, 'F')]:
+        for user, gender in [(self.user1, "M"), (self.user2, "F")]:
             CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
                 gender=gender,
-                location='Luxembourg',
+                location="Luxembourg",
                 is_approved=True,
-                is_active=True
+                is_active=True,
             )
 
         # Create a past event where they met
         self.event = MeetupEvent.objects.create(
-            title='Connection Test Event',
-            description='Event where they met',
-            event_type='mixer',
+            title="Connection Test Event",
+            description="Event where they met",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(hours=2),  # Past event
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
         # Both attended the event
         for user in [self.user1, self.user2]:
             EventRegistration.objects.create(
-                event=self.event,
-                user=user,
-                status='attended'
+                event=self.event, user=user, status="attended"
             )
 
     def test_connection_request_creates_pending_status(self):
@@ -77,12 +76,10 @@ class ConnectionRequestTests(TestCase):
         from crush_lu.models import EventConnection
 
         connection = EventConnection.objects.create(
-            event=self.event,
-            requester=self.user1,
-            recipient=self.user2
+            event=self.event, requester=self.user1, recipient=self.user2
         )
 
-        self.assertEqual(connection.status, 'pending')
+        self.assertEqual(connection.status, "pending")
 
     def test_accepted_connection_status(self):
         """Test connection can be accepted."""
@@ -93,16 +90,16 @@ class ConnectionRequestTests(TestCase):
             event=self.event,
             requester=self.user1,
             recipient=self.user2,
-            status='pending'
+            status="pending",
         )
 
         # User2 accepts
-        connection.status = 'accepted'
+        connection.status = "accepted"
         connection.responded_at = timezone.now()
         connection.save()
 
         connection.refresh_from_db()
-        self.assertEqual(connection.status, 'accepted')
+        self.assertEqual(connection.status, "accepted")
         self.assertIsNotNone(connection.responded_at)
 
     def test_declined_connection_status(self):
@@ -113,16 +110,16 @@ class ConnectionRequestTests(TestCase):
             event=self.event,
             requester=self.user1,
             recipient=self.user2,
-            status='pending'
+            status="pending",
         )
 
         # User2 declines
-        connection.status = 'declined'
+        connection.status = "declined"
         connection.responded_at = timezone.now()
         connection.save()
 
         connection.refresh_from_db()
-        self.assertEqual(connection.status, 'declined')
+        self.assertEqual(connection.status, "declined")
 
     def test_duplicate_connection_prevented(self):
         """Test duplicate connection request is prevented."""
@@ -130,17 +127,13 @@ class ConnectionRequestTests(TestCase):
         from django.db import IntegrityError
 
         EventConnection.objects.create(
-            event=self.event,
-            requester=self.user1,
-            recipient=self.user2
+            event=self.event, requester=self.user1, recipient=self.user2
         )
 
         # Attempting to create duplicate should fail due to unique_together
         with self.assertRaises(IntegrityError):
             EventConnection.objects.create(
-                event=self.event,
-                requester=self.user1,
-                recipient=self.user2
+                event=self.event, requester=self.user1, recipient=self.user2
             )
 
     def test_is_mutual_property(self):
@@ -149,9 +142,7 @@ class ConnectionRequestTests(TestCase):
 
         # User1 requests connection to User2
         connection1 = EventConnection.objects.create(
-            event=self.event,
-            requester=self.user1,
-            recipient=self.user2
+            event=self.event, requester=self.user1, recipient=self.user2
         )
 
         # Initially not mutual
@@ -159,9 +150,7 @@ class ConnectionRequestTests(TestCase):
 
         # User2 also requests connection to User1
         EventConnection.objects.create(
-            event=self.event,
-            requester=self.user2,
-            recipient=self.user1
+            event=self.event, requester=self.user2, recipient=self.user1
         )
 
         # Now should be mutual
@@ -176,40 +165,40 @@ class ConnectionMessagingTests(TestCase):
         from crush_lu.models import MeetupEvent, EventConnection, CrushProfile
 
         self.user1 = User.objects.create_user(
-            username='sender@example.com',
-            email='sender@example.com',
-            password='testpass123',
-            first_name='Sender',
-            last_name='User'
+            username="sender@example.com",
+            email="sender@example.com",
+            password="testpass123",
+            first_name="Sender",
+            last_name="User",
         )
 
         self.user2 = User.objects.create_user(
-            username='receiver@example.com',
-            email='receiver@example.com',
-            password='testpass123',
-            first_name='Receiver',
-            last_name='User'
+            username="receiver@example.com",
+            email="receiver@example.com",
+            password="testpass123",
+            first_name="Receiver",
+            last_name="User",
         )
 
-        for user, gender in [(self.user1, 'M'), (self.user2, 'F')]:
+        for user, gender in [(self.user1, "M"), (self.user2, "F")]:
             CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
                 gender=gender,
-                location='Luxembourg',
-                is_approved=True
+                location="Luxembourg",
+                is_approved=True,
             )
 
         self.event = MeetupEvent.objects.create(
-            title='Messaging Test Event',
-            description='Event for messaging test',
-            event_type='mixer',
+            title="Messaging Test Event",
+            description="Event for messaging test",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(days=1),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
         # Create accepted connection
@@ -217,8 +206,8 @@ class ConnectionMessagingTests(TestCase):
             event=self.event,
             requester=self.user1,
             recipient=self.user2,
-            status='accepted',
-            responded_at=timezone.now()
+            status="accepted",
+            responded_at=timezone.now(),
         )
 
     def test_message_between_connected_users(self):
@@ -228,7 +217,7 @@ class ConnectionMessagingTests(TestCase):
         message = ConnectionMessage.objects.create(
             connection=self.connection,
             sender=self.user1,
-            message='Hello! Nice meeting you at the event.'
+            message="Hello! Nice meeting you at the event.",
         )
 
         self.assertIsNotNone(message)
@@ -240,9 +229,7 @@ class ConnectionMessagingTests(TestCase):
         from crush_lu.models import ConnectionMessage
 
         message = ConnectionMessage.objects.create(
-            connection=self.connection,
-            sender=self.user1,
-            message='Hello!'
+            connection=self.connection, sender=self.user1, message="Hello!"
         )
 
         self.assertIsNone(message.read_at)
@@ -258,20 +245,16 @@ class ConnectionMessagingTests(TestCase):
         from crush_lu.models import ConnectionMessage
 
         msg1 = ConnectionMessage.objects.create(
-            connection=self.connection,
-            sender=self.user1,
-            message='First message'
+            connection=self.connection, sender=self.user1, message="First message"
         )
 
         msg2 = ConnectionMessage.objects.create(
-            connection=self.connection,
-            sender=self.user2,
-            message='Second message'
+            connection=self.connection, sender=self.user2, message="Second message"
         )
 
         messages = ConnectionMessage.objects.filter(
             connection=self.connection
-        ).order_by('sent_at')
+        ).order_by("sent_at")
 
         self.assertEqual(list(messages), [msg1, msg2])
 
@@ -284,77 +267,77 @@ class ConnectionPrivacyTests(TestCase):
         from crush_lu.models import MeetupEvent, EventConnection, CrushProfile
 
         self.user_private = User.objects.create_user(
-            username='private@example.com',
-            email='private@example.com',
-            password='testpass123',
-            first_name='Private',
-            last_name='User'
+            username="private@example.com",
+            email="private@example.com",
+            password="testpass123",
+            first_name="Private",
+            last_name="User",
         )
 
         self.user_public = User.objects.create_user(
-            username='public@example.com',
-            email='public@example.com',
-            password='testpass123',
-            first_name='Public',
-            last_name='Person'
+            username="public@example.com",
+            email="public@example.com",
+            password="testpass123",
+            first_name="Public",
+            last_name="Person",
         )
 
         # Private user with privacy settings
         self.profile_private = CrushProfile.objects.create(
             user=self.user_private,
             date_of_birth=date(1995, 5, 15),
-            gender='F',
-            location='Luxembourg',
+            gender="F",
+            location="Luxembourg",
             is_approved=True,
             show_full_name=False,  # Privacy enabled
             show_exact_age=False,
-            blur_photos=True
+            blur_photos=True,
         )
 
         # Public user without privacy restrictions
         self.profile_public = CrushProfile.objects.create(
             user=self.user_public,
             date_of_birth=date(1993, 3, 20),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
             show_full_name=True,
             show_exact_age=True,
-            blur_photos=False
+            blur_photos=False,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Privacy Test Event',
-            description='Testing privacy',
-            event_type='mixer',
+            title="Privacy Test Event",
+            description="Testing privacy",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(days=1),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
         self.connection = EventConnection.objects.create(
             event=self.event,
             requester=self.user_private,
             recipient=self.user_public,
-            status='accepted',
-            responded_at=timezone.now()
+            status="accepted",
+            responded_at=timezone.now(),
         )
 
     def test_private_user_display_name(self):
         """Test private user shows first name only."""
-        self.assertEqual(self.profile_private.display_name, 'Private')
+        self.assertEqual(self.profile_private.display_name, "Private")
 
     def test_public_user_display_name(self):
         """Test public user shows full name."""
-        self.assertEqual(self.profile_public.display_name, 'Public Person')
+        self.assertEqual(self.profile_public.display_name, "Public Person")
 
     def test_private_user_age_range(self):
         """Test private user shows age range."""
         # Age range instead of exact age
-        self.assertIn('-', self.profile_private.age_range)
+        self.assertIn("-", self.profile_private.age_range)
 
     def test_blur_photos_setting(self):
         """Test blur_photos setting is respected."""
@@ -370,40 +353,38 @@ class AttendeeListTests(TestCase):
         from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
 
         self.event = MeetupEvent.objects.create(
-            title='Attendee List Test',
-            description='Testing attendee list',
-            event_type='mixer',
+            title="Attendee List Test",
+            description="Testing attendee list",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(days=1),  # Past event
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
         # Create multiple attendees
         self.attendees = []
         for i in range(5):
             user = User.objects.create_user(
-                username=f'attendee{i}@example.com',
-                email=f'attendee{i}@example.com',
-                password='testpass123',
-                first_name=f'Attendee{i}',
-                last_name='User'
+                username=f"attendee{i}@example.com",
+                email=f"attendee{i}@example.com",
+                password="testpass123",
+                first_name=f"Attendee{i}",
+                last_name="User",
             )
 
             CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
-                gender='M' if i % 2 == 0 else 'F',
-                location='Luxembourg',
-                is_approved=True
+                gender="M" if i % 2 == 0 else "F",
+                location="Luxembourg",
+                is_approved=True,
             )
 
             EventRegistration.objects.create(
-                event=self.event,
-                user=user,
-                status='attended'
+                event=self.event, user=user, status="attended"
             )
 
             self.attendees.append(user)
@@ -413,10 +394,7 @@ class AttendeeListTests(TestCase):
         from crush_lu.models import EventRegistration
 
         # Get attended registrations
-        attended = EventRegistration.objects.filter(
-            event=self.event,
-            status='attended'
-        )
+        attended = EventRegistration.objects.filter(event=self.event, status="attended")
 
         self.assertEqual(attended.count(), 5)
 
@@ -426,22 +404,17 @@ class AttendeeListTests(TestCase):
 
         # Create a user who cancelled
         cancelled_user = User.objects.create_user(
-            username='cancelled@example.com',
-            email='cancelled@example.com',
-            password='testpass123'
+            username="cancelled@example.com",
+            email="cancelled@example.com",
+            password="testpass123",
         )
 
         EventRegistration.objects.create(
-            event=self.event,
-            user=cancelled_user,
-            status='cancelled'
+            event=self.event, user=cancelled_user, status="cancelled"
         )
 
         # Should not appear in attended list
-        attended = EventRegistration.objects.filter(
-            event=self.event,
-            status='attended'
-        )
+        attended = EventRegistration.objects.filter(event=self.event, status="attended")
 
         self.assertEqual(attended.count(), 5)  # Still 5
 
@@ -454,40 +427,40 @@ class ConnectionNotificationTests(TestCase):
         from crush_lu.models import MeetupEvent, CrushProfile
 
         self.user1 = User.objects.create_user(
-            username='notif1@example.com',
-            email='notif1@example.com',
-            password='testpass123',
-            first_name='Notif1',
-            last_name='User'
+            username="notif1@example.com",
+            email="notif1@example.com",
+            password="testpass123",
+            first_name="Notif1",
+            last_name="User",
         )
 
         self.user2 = User.objects.create_user(
-            username='notif2@example.com',
-            email='notif2@example.com',
-            password='testpass123',
-            first_name='Notif2',
-            last_name='User'
+            username="notif2@example.com",
+            email="notif2@example.com",
+            password="testpass123",
+            first_name="Notif2",
+            last_name="User",
         )
 
-        for user, gender in [(self.user1, 'M'), (self.user2, 'F')]:
+        for user, gender in [(self.user1, "M"), (self.user2, "F")]:
             CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
                 gender=gender,
-                location='Luxembourg',
-                is_approved=True
+                location="Luxembourg",
+                is_approved=True,
             )
 
         self.event = MeetupEvent.objects.create(
-            title='Notification Test Event',
-            description='For notification testing',
-            event_type='mixer',
+            title="Notification Test Event",
+            description="For notification testing",
+            event_type="mixer",
             date_time=timezone.now() - timedelta(days=1),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=3),
-            is_published=True
+            is_published=True,
         )
 
     def test_unread_message_count(self):
@@ -498,8 +471,8 @@ class ConnectionNotificationTests(TestCase):
             event=self.event,
             requester=self.user1,
             recipient=self.user2,
-            status='accepted',
-            responded_at=timezone.now()
+            status="accepted",
+            responded_at=timezone.now(),
         )
 
         # Create unread messages (read_at is None)
@@ -507,14 +480,17 @@ class ConnectionNotificationTests(TestCase):
             ConnectionMessage.objects.create(
                 connection=connection,
                 sender=self.user1,
-                message=f'Message {i}'
+                message=f"Message {i}",
                 # read_at defaults to None (unread)
             )
 
         # Count unread messages for user2 (receiver)
-        unread_count = ConnectionMessage.objects.filter(
-            connection=connection,
-            read_at__isnull=True
-        ).exclude(sender=self.user2).count()
+        unread_count = (
+            ConnectionMessage.objects.filter(
+                connection=connection, read_at__isnull=True
+            )
+            .exclude(sender=self.user2)
+            .count()
+        )
 
         self.assertEqual(unread_count, 3)

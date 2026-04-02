@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
-from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from datetime import timedelta
 import json
@@ -44,9 +43,12 @@ def _promote_from_waitlist(event, cancelled_user=None):
 
     Returns the promoted EventRegistration, or None.
     """
-    waitlisted = EventRegistration.objects.select_for_update().filter(
-        event=event, status="waitlist"
-    ).select_related("user__crushprofile").order_by("registered_at")
+    waitlisted = (
+        EventRegistration.objects.select_for_update()
+        .filter(event=event, status="waitlist")
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
 
     if not waitlisted.exists():
         return None
@@ -77,10 +79,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
                     getattr(candidate.user, "crushprofile", None), "gender", None
                 )
                 if cand_gender in pool_codes:
-                    if (
-                        not event.is_full
-                        and not event.is_gender_pool_full(cand_gender)
-                    ):
+                    if not event.is_full and not event.is_gender_pool_full(cand_gender):
                         candidate.status = "confirmed"
                         candidate.save()
                         return candidate
@@ -214,14 +213,12 @@ def event_list(request):
 
         # Description fallback for events with empty descriptions
         if not description:
-            description = f"Dating event in Luxembourg organized by Crush.lu"
+            description = "Dating event in Luxembourg organized by Crush.lu"
 
         # Map event languages for inLanguage
         lang_map = {"en": "en", "de": "de", "fr": "fr"}
         event_languages = [
-            lang_map[lang]
-            for lang in (event.languages or [])
-            if lang in lang_map
+            lang_map[lang] for lang in (event.languages or []) if lang in lang_map
         ]
 
         event_item = {
@@ -231,9 +228,11 @@ def event_list(request):
             "startDate": event.date_time.isoformat(),
             "endDate": event.end_time.isoformat(),
             "image": image_url,
-            "eventStatus": "https://schema.org/EventCancelled"
-            if event.is_cancelled
-            else "https://schema.org/EventScheduled",
+            "eventStatus": (
+                "https://schema.org/EventCancelled"
+                if event.is_cancelled
+                else "https://schema.org/EventScheduled"
+            ),
             "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
             "location": location_data,
             "organizer": {
@@ -257,7 +256,9 @@ def event_list(request):
             },
         }
         if event_languages:
-            event_item["inLanguage"] = event_languages if len(event_languages) > 1 else event_languages[0]
+            event_item["inLanguage"] = (
+                event_languages if len(event_languages) > 1 else event_languages[0]
+            )
 
         if performers:
             event_item["performer"] = performers
@@ -306,9 +307,11 @@ def event_detail(request, event_id):
     # Check if user is registered
     registration = None
     if request.user.is_authenticated:
-        registration = EventRegistration.objects.filter(
-            event=event, user=request.user
-        ).exclude(status="cancelled").first()
+        registration = (
+            EventRegistration.objects.filter(event=event, user=request.user)
+            .exclude(status="cancelled")
+            .first()
+        )
 
     # For private events, verify access
     if event.is_private_invitation and not registration:
@@ -393,9 +396,11 @@ def event_detail(request, event_id):
         "description": event.description,
         "startDate": event.date_time.isoformat(),
         "endDate": event.end_time.isoformat(),
-        "eventStatus": "https://schema.org/EventCancelled"
-        if event.is_cancelled
-        else "https://schema.org/EventScheduled",
+        "eventStatus": (
+            "https://schema.org/EventCancelled"
+            if event.is_cancelled
+            else "https://schema.org/EventScheduled"
+        ),
         "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
         "location": location_data,
         "organizer": {
@@ -408,19 +413,25 @@ def event_detail(request, event_id):
             "url": f"https://crush.lu{event_url}",
             "price": format(event.registration_fee, ".2f"),
             "priceCurrency": "EUR",
-            "availability": "https://schema.org/SoldOut"
-            if event.is_full
-            else "https://schema.org/InStock"
-            if event.is_registration_open
-            else "https://schema.org/OutOfStock",
+            "availability": (
+                "https://schema.org/SoldOut"
+                if event.is_full
+                else (
+                    "https://schema.org/InStock"
+                    if event.is_registration_open
+                    else "https://schema.org/OutOfStock"
+                )
+            ),
             "validFrom": event.created_at.isoformat(),
         },
         "maximumAttendeeCapacity": event.max_participants,
         "remainingAttendeeCapacity": event.spots_remaining,
         "typicalAgeRange": f"{event.min_age}-{event.max_age}",
-        "image": event.image.url
-        if event.image
-        else "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
+        "image": (
+            event.image.url
+            if event.image
+            else "https://crush.lu/static/crush_lu/crush_social_preview.jpg"
+        ),
         "audience": {
             "@type": "PeopleAudience",
             "suggestedMinAge": event.min_age,
@@ -428,7 +439,9 @@ def event_detail(request, event_id):
         },
     }
     if event_languages:
-        event_jsonld_data["inLanguage"] = event_languages if len(event_languages) > 1 else event_languages[0]
+        event_jsonld_data["inLanguage"] = (
+            event_languages if len(event_languages) > 1 else event_languages[0]
+        )
     if performers:
         event_jsonld_data["performer"] = performers
     event_jsonld = json.dumps(event_jsonld_data, ensure_ascii=False)
@@ -524,9 +537,7 @@ def event_calendar_download(request, event_id):
 
     dtstart = start_utc.strftime("%Y%m%dT%H%M%SZ")
     dtend = end_utc.strftime("%Y%m%dT%H%M%SZ")
-    dtstamp = (
-        timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    )
+    dtstamp = timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     if request.user.is_authenticated and hasattr(request.user, "crushprofile"):
         location = f"{event.location}, {event.address}"
@@ -538,9 +549,7 @@ def event_calendar_download(request, event_id):
     )
 
     uid = f"event-{event.id}@crush.lu"
-    description = _ical_escape(
-        f"{event.description}\n\nRegister: {event_url}"
-    )
+    description = _ical_escape(f"{event.description}\n\nRegister: {event_url}")
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -565,9 +574,7 @@ def event_calendar_download(request, event_id):
 
     ics_content = "\r\n".join(lines) + "\r\n"
 
-    response = HttpResponse(
-        ics_content, content_type="text/calendar; charset=utf-8"
-    )
+    response = HttpResponse(ics_content, content_type="text/calendar; charset=utf-8")
     filename = f"crush-event-{event.id}.ics"
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     response["Cache-Control"] = "no-cache"
@@ -576,7 +583,7 @@ def event_calendar_download(request, event_id):
 
 
 @crush_login_required
-@ratelimit(key='user', rate='5/h', method='POST')
+@ratelimit(key="user", rate="5/h", method="POST")
 def event_register(request, event_id):
     """Register for an event - bypasses approval for invited guests"""
     event = get_object_or_404(MeetupEvent, id=event_id)
@@ -639,7 +646,9 @@ def event_register(request, event_id):
             except CrushProfile.DoesNotExist:
                 messages.error(
                     request,
-                    _("This event requires a Crush profile. Please create one to register.")
+                    _(
+                        "This event requires a Crush profile. Please create one to register."
+                    ),
                 )
                 return redirect("crush_lu:create_profile")
         elif event.profile_requirement == "unverified":
@@ -656,7 +665,9 @@ def event_register(request, event_id):
             except CrushProfile.DoesNotExist:
                 messages.error(
                     request,
-                    _("This event requires a Crush profile. Please create one to register.")
+                    _(
+                        "This event requires a Crush profile. Please create one to register."
+                    ),
                 )
                 return redirect("crush_lu:create_profile")
         elif event.profile_requirement == "profile_exists":
@@ -673,7 +684,9 @@ def event_register(request, event_id):
             except CrushProfile.DoesNotExist:
                 messages.error(
                     request,
-                    _("This event requires a Crush profile. Please create one to register.")
+                    _(
+                        "This event requires a Crush profile. Please create one to register."
+                    ),
                 )
                 return redirect("crush_lu:create_profile")
         else:
@@ -685,7 +698,9 @@ def event_register(request, event_id):
     if profile is None and (event.min_age > 18 or event.max_age < 99):
         messages.error(
             request,
-            _("This event has age restrictions. Please create a profile to verify your age.")
+            _(
+                "This event has age restrictions. Please create a profile to verify your age."
+            ),
         )
         return redirect("crush_lu:create_profile")
 
@@ -696,7 +711,11 @@ def event_register(request, event_id):
             messages.error(request, error_msg)
             return redirect("crush_lu:event_detail", event_id=event_id)
 
-    if EventRegistration.objects.filter(event=event, user=request.user).exclude(status='cancelled').exists():
+    if (
+        EventRegistration.objects.filter(event=event, user=request.user)
+        .exclude(status="cancelled")
+        .exists()
+    ):
         messages.warning(request, _("You are already registered for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -728,7 +747,9 @@ def event_register(request, event_id):
 
                 # Re-check registration deadline under lock to prevent race condition
                 if not locked_event.is_registration_accepting:
-                    messages.error(request, _("Registration is not available for this event."))
+                    messages.error(
+                        request, _("Registration is not available for this event.")
+                    )
                     return redirect("crush_lu:event_detail", event_id=event_id)
 
                 # If the user submitted a gender, persist it to their profile
@@ -743,14 +764,18 @@ def event_register(request, event_id):
                         profile.save(update_fields=["gender"])
 
                 cancelled_registration = EventRegistration.objects.filter(
-                    event=locked_event, user=request.user, status='cancelled'
+                    event=locked_event, user=request.user, status="cancelled"
                 ).first()
 
                 if cancelled_registration:
                     registration = cancelled_registration
-                    registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
-                    registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
-                    registration.guest_name = form.cleaned_data.get('guest_name', '')
+                    registration.dietary_restrictions = form.cleaned_data.get(
+                        "dietary_restrictions", ""
+                    )
+                    registration.bringing_guest = form.cleaned_data.get(
+                        "bringing_guest", False
+                    )
+                    registration.guest_name = form.cleaned_data.get("guest_name", "")
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -782,7 +807,9 @@ def event_register(request, event_id):
                         )
                 else:
                     registration.status = "confirmed"
-                    messages.success(request, _("Successfully registered for the event!"))
+                    messages.success(
+                        request, _("Successfully registered for the event!")
+                    )
 
                 registration.save()
 
@@ -853,7 +880,9 @@ def event_cancel(request, event_id):
             messages.success(request, _("Your registration has been cancelled."))
 
             try:
-                send_event_cancellation_confirmation(request.user, locked_event, request)
+                send_event_cancellation_confirmation(
+                    request.user, locked_event, request
+                )
             except Exception as e:
                 logger.error(f"Failed to send event cancellation email: {e}")
 

@@ -1,9 +1,5 @@
-{% extends 'crush_lu/advent/advent_base.html' %}
-{% load static i18n %}
-
-{% block title %}{% trans "Advent Calendar - Coming Soon" %}{% endblock %}
-
-{% block advent_content %}
+{% extends 'crush_lu/advent/advent_base.html' %} {% load static i18n %} {% block title
+%}{% trans "Advent Calendar - Coming Soon" %}{% endblock %} {% block advent_content %}
 <div class="advent-header">
     <h1>{{ calendar.calendar_title }}</h1>
     <p class="subtitle">{{ message }}</p>
@@ -13,21 +9,22 @@
     <div class="container">
         <div class="locked-message text-center text-white dark:text-gray-100">
             <div class="locked-icon mb-4">
-                <span style="font-size: 5rem;">🎄</span>
+                <span style="font-size: 5rem">🎄</span>
             </div>
 
             <h2 class="mb-4">{% trans "Your Advent Calendar Awaits!" %}</h2>
 
             <p class="lead mb-4">
-                {% blocktrans with year=calendar.year %}The magic begins on <strong>December 1st, {{ year }}</strong>{% endblocktrans %}
+                {% blocktrans with year=calendar.year %}The magic begins on
+                <strong>December 1st, {{ year }}</strong>{% endblocktrans %}
             </p>
 
             <div class="countdown-preview mb-4">
-                <div class="grid grid-cols-6 md:grid-cols-12 gap-2 justify-items-center">
+                <div
+                    class="grid grid-cols-6 justify-items-center gap-2 md:grid-cols-12"
+                >
                     {% for day in "123456789101112131415161718192021222324"|make_list %}
-                        <div class="preview-door">
-                            {{ forloop.counter }}
-                        </div>
+                    <div class="preview-door">{{ forloop.counter }}</div>
                     {% endfor %}
                 </div>
             </div>
@@ -36,8 +33,12 @@
                 {% trans "24 doors filled with surprises, just for you." %}
             </p>
 
-            <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 px-6 py-3 border border-white dark:border-gray-600 text-white dark:text-gray-200 hover:bg-white/10 dark:hover:bg-white/5 font-medium rounded-lg transition-colors mt-4">
-                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Home" %}
+            <a
+                href="{% url 'crush_lu:home' %}"
+                class="mt-4 inline-flex items-center gap-2 rounded-lg border border-white px-6 py-3 font-medium text-white transition-colors hover:bg-white/10 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-white/5"
+            >
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {%
+                trans "Back to Home" %}
             </a>
         </div>
     </div>
@@ -55,26 +56,39 @@
     }
 
     @keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
     }
 
     .preview-door {
         aspect-ratio: 1;
-        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.1),
+            rgba(255, 255, 255, 0.05)
+        );
         border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 0.8rem;
-        color: rgba(255,255,255,0.5);
-        border: 1px solid rgba(255,255,255,0.1);
+        color: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     html.dark .preview-door {
-        background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-        border-color: rgba(255,255,255,0.05);
-        color: rgba(255,255,255,0.3);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.05),
+            rgba(255, 255, 255, 0.02)
+        );
+        border-color: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.3);
     }
 </style>
 {% endblock %}

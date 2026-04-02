@@ -9,20 +9,29 @@
 
 .adoption-plans-section {
     padding: var(--vdl-space-3xl) 0;
-    background: linear-gradient(165deg, var(--vdl-cream) 0%, var(--vdl-pearl) 50%, var(--vdl-mist) 100%);
+    background: linear-gradient(
+        165deg,
+        var(--vdl-cream) 0%,
+        var(--vdl-pearl) 50%,
+        var(--vdl-mist) 100%
+    );
     position: relative;
     overflow: hidden;
 }
 
 .adoption-plans-section::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     background-image:
-        radial-gradient(circle at 20% 30%, var(--vdl-burgundy-alpha-05) 0%, transparent 40%),
+        radial-gradient(
+            circle at 20% 30%,
+            var(--vdl-burgundy-alpha-05) 0%,
+            transparent 40%
+        ),
         radial-gradient(circle at 80% 70%, var(--vdl-gold-alpha-10) 0%, transparent 40%);
     pointer-events: none;
 }
@@ -57,7 +66,7 @@
 
 .adoption-plans-header h1::after,
 .adoption-plans-header h2::after {
-    content: '';
+    content: "";
     position: absolute;
     bottom: -10px;
     left: 50%;
@@ -122,13 +131,18 @@
 }
 
 .adoption-plan-card.featured::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 6px;
-    background: linear-gradient(90deg, var(--vdl-gold), var(--vdl-gold-light), var(--vdl-gold));
+    background: linear-gradient(
+        90deg,
+        var(--vdl-gold),
+        var(--vdl-gold-light),
+        var(--vdl-gold)
+    );
 }
 
 .featured-badge {
@@ -148,7 +162,11 @@
 /* Card Header */
 .adoption-plan-card .card-header,
 .plan-header {
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
     padding: var(--vdl-space-xl);
     text-align: center;
@@ -246,7 +264,7 @@
 }
 
 .plan-features li::before {
-    content: '✓';
+    content: "✓";
     color: var(--vdl-gold);
     font-weight: 700;
     flex-shrink: 0;
@@ -261,7 +279,11 @@
     display: block;
     width: 100%;
     padding: var(--vdl-space-lg);
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
     border: none;
     border-radius: var(--vdl-radius-md);
@@ -325,7 +347,11 @@
     width: 70px;
     height: 70px;
     margin: 0 auto var(--vdl-space-lg);
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     border-radius: 50%;
     display: flex;
     align-items: center;

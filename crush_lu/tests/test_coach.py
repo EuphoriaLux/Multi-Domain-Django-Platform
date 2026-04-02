@@ -9,7 +9,8 @@ Comprehensive tests for coach functionality including:
 
 Run with: pytest crush_lu/tests/test_coach.py -v
 """
-from datetime import date, timedelta
+
+from datetime import date
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -19,7 +20,7 @@ from django.utils import timezone
 User = get_user_model()
 
 CRUSH_LU_URL_SETTINGS = {
-    'ROOT_URLCONF': 'azureproject.urls_crush',
+    "ROOT_URLCONF": "azureproject.urls_crush",
 }
 
 
@@ -30,8 +31,7 @@ class SiteTestMixin:
     def setUpClass(cls):
         super().setUpClass()
         Site.objects.get_or_create(
-            id=1,
-            defaults={'domain': 'testserver', 'name': 'Test Server'}
+            id=1, defaults={"domain": "testserver", "name": "Test Server"}
         )
 
 
@@ -48,11 +48,11 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
 
         # Create coach user
         self.coach_user = User.objects.create_user(
-            username='coach@example.com',
-            email='coach@example.com',
-            password='coachpass123',
-            first_name='Coach',
-            last_name='Marie'
+            username="coach@example.com",
+            email="coach@example.com",
+            password="coachpass123",
+            first_name="Coach",
+            last_name="Marie",
         )
 
         # Grant consent (created by signal, update it)
@@ -62,19 +62,19 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
-            bio='Experienced dating coach',
-            specializations='General coaching',
+            bio="Experienced dating coach",
+            specializations="General coaching",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
         # Create regular user
         self.regular_user = User.objects.create_user(
-            username='regular@example.com',
-            email='regular@example.com',
-            password='testpass123',
-            first_name='Regular',
-            last_name='User'
+            username="regular@example.com",
+            email="regular@example.com",
+            password="testpass123",
+            first_name="Regular",
+            last_name="User",
         )
 
         # Grant consent for regular user too
@@ -85,24 +85,24 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
         CrushProfile.objects.create(
             user=self.regular_user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
     def test_coach_can_access_dashboard(self):
         """Test coach can access coach dashboard."""
-        self.client.login(username='coach@example.com', password='coachpass123')
+        self.client.login(username="coach@example.com", password="coachpass123")
 
-        response = self.client.get(reverse('crush_lu:coach_dashboard'))
+        response = self.client.get(reverse("crush_lu:coach_dashboard"))
 
         self.assertEqual(response.status_code, 200)
 
     def test_non_coach_cannot_access_dashboard(self):
         """Test regular user cannot access coach dashboard."""
-        self.client.login(username='regular@example.com', password='testpass123')
+        self.client.login(username="regular@example.com", password="testpass123")
 
-        response = self.client.get(reverse('crush_lu:coach_dashboard'))
+        response = self.client.get(reverse("crush_lu:coach_dashboard"))
 
         # Should redirect or show 403
         self.assertIn(response.status_code, [302, 403])
@@ -118,20 +118,20 @@ class CoachDashboardTests(SiteTestMixin, TestCase):
         self.coach.is_active = False
         self.coach.save()
 
-        self.client.login(username='coach@example.com', password='coachpass123')
+        self.client.login(username="coach@example.com", password="coachpass123")
 
-        response = self.client.get(reverse('crush_lu:coach_dashboard'))
+        response = self.client.get(reverse("crush_lu:coach_dashboard"))
 
         # Inactive coaches are redirected to user dashboard with error message
         self.assertEqual(response.status_code, 302)
-        self.assertIn('dashboard', response.url)
+        self.assertIn("dashboard", response.url)
 
     def test_unauthenticated_redirects_to_login(self):
         """Test unauthenticated user is redirected to login."""
-        response = self.client.get(reverse('crush_lu:coach_dashboard'))
+        response = self.client.get(reverse("crush_lu:coach_dashboard"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('login', response.url)
+        self.assertIn("login", response.url)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -146,58 +146,53 @@ class ProfileReviewWorkflowTests(SiteTestMixin, TestCase):
 
         # Create coach
         self.coach_user = User.objects.create_user(
-            username='reviewer@example.com',
-            email='reviewer@example.com',
-            password='coachpass123',
-            first_name='Reviewer',
-            last_name='Coach'
+            username="reviewer@example.com",
+            email="reviewer@example.com",
+            password="coachpass123",
+            first_name="Reviewer",
+            last_name="Coach",
         )
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
-            bio='Profile reviewer',
+            bio="Profile reviewer",
             is_active=True,
-            max_active_reviews=5
+            max_active_reviews=5,
         )
 
         # Create user needing review
         self.pending_user = User.objects.create_user(
-            username='pending@example.com',
-            email='pending@example.com',
-            password='testpass123',
-            first_name='Pending',
-            last_name='User'
+            username="pending@example.com",
+            email="pending@example.com",
+            password="testpass123",
+            first_name="Pending",
+            last_name="User",
         )
 
         self.pending_profile = CrushProfile.objects.create(
             user=self.pending_user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            bio='Test bio for approval',
-            is_approved=False
+            gender="M",
+            location="Luxembourg",
+            bio="Test bio for approval",
+            is_approved=False,
         )
 
         self.submission = ProfileSubmission.objects.create(
-            profile=self.pending_profile,
-            coach=self.coach,
-            status='pending'
+            profile=self.pending_profile, coach=self.coach, status="pending"
         )
 
     def test_coach_can_view_pending_submissions(self):
         """Test coach can view pending submissions."""
         from crush_lu.models import ProfileSubmission
 
-        pending = ProfileSubmission.objects.filter(
-            coach=self.coach,
-            status='pending'
-        )
+        pending = ProfileSubmission.objects.filter(coach=self.coach, status="pending")
 
         self.assertEqual(pending.count(), 1)
 
     def test_coach_approves_profile(self):
         """Test coach can approve a profile."""
-        self.submission.status = 'approved'
+        self.submission.status = "approved"
         self.submission.save()
 
         # Update profile
@@ -207,26 +202,26 @@ class ProfileReviewWorkflowTests(SiteTestMixin, TestCase):
 
         self.pending_profile.refresh_from_db()
         self.assertTrue(self.pending_profile.is_approved)
-        self.assertEqual(self.submission.status, 'approved')
+        self.assertEqual(self.submission.status, "approved")
 
     def test_coach_rejects_profile(self):
         """Test coach can reject a profile."""
-        self.submission.status = 'rejected'
-        self.submission.feedback_to_user = 'Profile does not meet guidelines'
+        self.submission.status = "rejected"
+        self.submission.feedback_to_user = "Profile does not meet guidelines"
         self.submission.save()
 
         self.submission.refresh_from_db()
-        self.assertEqual(self.submission.status, 'rejected')
+        self.assertEqual(self.submission.status, "rejected")
         self.assertIsNotNone(self.submission.feedback_to_user)
 
     def test_coach_requests_revision(self):
         """Test coach can request revision."""
-        self.submission.status = 'revision'
-        self.submission.feedback_to_user = 'Please update your bio'
+        self.submission.status = "revision"
+        self.submission.feedback_to_user = "Please update your bio"
         self.submission.save()
 
         self.submission.refresh_from_db()
-        self.assertEqual(self.submission.status, 'revision')
+        self.assertEqual(self.submission.status, "revision")
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -239,52 +234,50 @@ class CoachWorkloadTests(SiteTestMixin, TestCase):
 
         # Coach with low workload
         self.coach_low = User.objects.create_user(
-            username='coach_low@example.com',
-            email='coach_low@example.com',
-            password='coachpass123'
+            username="coach_low@example.com",
+            email="coach_low@example.com",
+            password="coachpass123",
         )
 
         self.coach_low_obj = CrushCoach.objects.create(
             user=self.coach_low,
-            bio='Low workload coach',
+            bio="Low workload coach",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
         # Coach at max capacity
         self.coach_full = User.objects.create_user(
-            username='coach_full@example.com',
-            email='coach_full@example.com',
-            password='coachpass123'
+            username="coach_full@example.com",
+            email="coach_full@example.com",
+            password="coachpass123",
         )
 
         self.coach_full_obj = CrushCoach.objects.create(
             user=self.coach_full,
-            bio='Full workload coach',
+            bio="Full workload coach",
             is_active=True,
-            max_active_reviews=2  # Low limit
+            max_active_reviews=2,  # Low limit
         )
 
         # Assign submissions to full coach
         for i in range(2):
             user = User.objects.create_user(
-                username=f'assigned{i}@example.com',
-                email=f'assigned{i}@example.com',
-                password='testpass123'
+                username=f"assigned{i}@example.com",
+                email=f"assigned{i}@example.com",
+                password="testpass123",
             )
 
             profile = CrushProfile.objects.create(
                 user=user,
                 date_of_birth=date(1995, 5, 15),
-                gender='M',
-                location='Luxembourg',
-                is_approved=False
+                gender="M",
+                location="Luxembourg",
+                is_approved=False,
             )
 
             ProfileSubmission.objects.create(
-                profile=profile,
-                coach=self.coach_full_obj,
-                status='pending'
+                profile=profile, coach=self.coach_full_obj, status="pending"
             )
 
     def test_coach_current_workload(self):
@@ -292,8 +285,7 @@ class CoachWorkloadTests(SiteTestMixin, TestCase):
         from crush_lu.models import ProfileSubmission
 
         workload = ProfileSubmission.objects.filter(
-            coach=self.coach_full_obj,
-            status='pending'
+            coach=self.coach_full_obj, status="pending"
         ).count()
 
         self.assertEqual(workload, 2)
@@ -319,16 +311,13 @@ class CoachAutoAssignmentTests(SiteTestMixin, TestCase):
         self.coaches = []
         for i in range(3):
             user = User.objects.create_user(
-                username=f'autocoach{i}@example.com',
-                email=f'autocoach{i}@example.com',
-                password='coachpass123'
+                username=f"autocoach{i}@example.com",
+                email=f"autocoach{i}@example.com",
+                password="coachpass123",
             )
 
             coach = CrushCoach.objects.create(
-                user=user,
-                bio=f'Auto Coach {i}',
-                is_active=True,
-                max_active_reviews=10
+                user=user, bio=f"Auto Coach {i}", is_active=True, max_active_reviews=10
             )
             self.coaches.append(coach)
 
@@ -338,24 +327,21 @@ class CoachAutoAssignmentTests(SiteTestMixin, TestCase):
 
         # Create new user needing review
         user = User.objects.create_user(
-            username='newuser@example.com',
-            email='newuser@example.com',
-            password='testpass123'
+            username="newuser@example.com",
+            email="newuser@example.com",
+            password="testpass123",
         )
 
         profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=False
+            gender="M",
+            location="Luxembourg",
+            is_approved=False,
         )
 
         # Create submission and auto-assign
-        submission = ProfileSubmission.objects.create(
-            profile=profile,
-            status='pending'
-        )
+        submission = ProfileSubmission.objects.create(profile=profile, status="pending")
 
         # Use the assign_coach method
         assigned = submission.assign_coach()
@@ -374,34 +360,34 @@ class CoachSessionTests(SiteTestMixin, TestCase):
         from crush_lu.models import CrushCoach, CrushProfile
 
         self.coach_user = User.objects.create_user(
-            username='sessioncoach@example.com',
-            email='sessioncoach@example.com',
-            password='coachpass123',
-            first_name='Session',
-            last_name='Coach'
+            username="sessioncoach@example.com",
+            email="sessioncoach@example.com",
+            password="coachpass123",
+            first_name="Session",
+            last_name="Coach",
         )
 
         self.coach = CrushCoach.objects.create(
             user=self.coach_user,
-            bio='Session tracking coach',
+            bio="Session tracking coach",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
         self.user = User.objects.create_user(
-            username='sessionuser@example.com',
-            email='sessionuser@example.com',
-            password='testpass123',
-            first_name='Session',
-            last_name='User'
+            username="sessionuser@example.com",
+            email="sessionuser@example.com",
+            password="testpass123",
+            first_name="Session",
+            last_name="User",
         )
 
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
     def test_create_coach_session(self):
@@ -411,8 +397,8 @@ class CoachSessionTests(SiteTestMixin, TestCase):
         session = CoachSession.objects.create(
             coach=self.coach,
             user=self.user,
-            session_type='feedback',
-            notes='Reviewed profile changes'
+            session_type="feedback",
+            notes="Reviewed profile changes",
         )
 
         self.assertIsNotNone(session)
@@ -428,14 +414,11 @@ class CoachSessionTests(SiteTestMixin, TestCase):
             CoachSession.objects.create(
                 coach=self.coach,
                 user=self.user,
-                session_type='followup',
-                notes=f'Follow-up session {i}'
+                session_type="followup",
+                notes=f"Follow-up session {i}",
             )
 
-        sessions = CoachSession.objects.filter(
-            coach=self.coach,
-            user=self.user
-        )
+        sessions = CoachSession.objects.filter(coach=self.coach, user=self.user)
 
         self.assertEqual(sessions.count(), 3)
 
@@ -450,32 +433,32 @@ class CoachSpecializationTests(SiteTestMixin, TestCase):
 
         # Young professionals specialist
         self.coach_young = User.objects.create_user(
-            username='coachy@example.com',
-            email='coachy@example.com',
-            password='coachpass123'
+            username="coachy@example.com",
+            email="coachy@example.com",
+            password="coachpass123",
         )
 
         self.coach_young_obj = CrushCoach.objects.create(
             user=self.coach_young,
-            bio='Young professionals coach',
-            specializations='Young professionals (25-35)',
+            bio="Young professionals coach",
+            specializations="Young professionals (25-35)",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
         # Senior specialist
         self.coach_senior = User.objects.create_user(
-            username='coachs@example.com',
-            email='coachs@example.com',
-            password='coachpass123'
+            username="coachs@example.com",
+            email="coachs@example.com",
+            password="coachpass123",
         )
 
         self.coach_senior_obj = CrushCoach.objects.create(
             user=self.coach_senior,
-            bio='Senior professionals coach',
-            specializations='35+ professionals',
+            bio="Senior professionals coach",
+            specializations="35+ professionals",
             is_active=True,
-            max_active_reviews=10
+            max_active_reviews=10,
         )
 
     def test_coach_specializations_exist(self):
@@ -487,9 +470,7 @@ class CoachSpecializationTests(SiteTestMixin, TestCase):
         """Test filtering coaches by specialization."""
         from crush_lu.models import CrushCoach
 
-        young_coaches = CrushCoach.objects.filter(
-            specializations__icontains='Young'
-        )
+        young_coaches = CrushCoach.objects.filter(specializations__icontains="Young")
 
         self.assertEqual(young_coaches.count(), 1)
         self.assertEqual(young_coaches.first(), self.coach_young_obj)

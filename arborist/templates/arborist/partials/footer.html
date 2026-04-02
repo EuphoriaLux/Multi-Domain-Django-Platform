@@ -17,30 +17,50 @@
         color: #fff;
     }
     .arborist-footer-social.whatsapp:hover {
-        color: #25D366;
+        color: #25d366;
     }
 </style>
 
-<footer class="bg-gray-900 text-white" style="background: #111827; color: #fff;">
+<footer class="bg-gray-900 text-white" style="background: #111827; color: #fff">
     <div class="container mx-auto px-4 py-12">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+        <div
+            style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 2rem;
+            "
+        >
             <!-- Brand -->
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
+                <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem">
                     &#127795; {% trans "Arborist" %}
                 </div>
-                <p style="color: #9ca3af; max-width: 20rem; margin-bottom: 1rem;">
-                    {% trans "Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climber." %}
+                <p style="color: #9ca3af; max-width: 20rem; margin-bottom: 1rem">
+                    {% trans "Tom Aakrann - Professional tree care in Luxembourg.
+                    FLL-certified tree inspector, SKT-B rope climber." %}
                 </p>
-                <div style="display: flex; gap: 1rem;">
-                    <a href="https://wa.me/352621981363" target="_blank" rel="noopener noreferrer"
-                       class="arborist-footer-social whatsapp" title="WhatsApp">
+                <div style="display: flex; gap: 1rem">
+                    <a
+                        href="https://wa.me/352621981363"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="arborist-footer-social whatsapp"
+                        title="WhatsApp"
+                    >
                         &#128172;
                     </a>
-                    <a href="mailto:info@arborist.lu" class="arborist-footer-social" title="E-Mail">
+                    <a
+                        href="mailto:info@arborist.lu"
+                        class="arborist-footer-social"
+                        title="E-Mail"
+                    >
                         &#9993;
                     </a>
-                    <a href="tel:+352621981363" class="arborist-footer-social" title="{% trans 'Phone' %}">
+                    <a
+                        href="tel:+352621981363"
+                        class="arborist-footer-social"
+                        title="{% trans 'Phone' %}"
+                    >
                         &#128222;
                     </a>
                 </div>
@@ -48,32 +68,56 @@
 
             <!-- Services -->
             <div>
-                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                <h3
+                    style="
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: #d1d5db;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        margin-bottom: 1rem;
+                    "
+                >
                     {% trans "Services" %}
                 </h3>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:obstbaumpflege' %}" class="arborist-footer-link">
+                <ul style="list-style: none; padding: 0; margin: 0">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:obstbaumpflege' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Fruit Tree Care" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:baumpflege' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:baumpflege' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Tree Care" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:baumkontrolle' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:baumkontrolle' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Tree Inspection" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:oekologie' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:oekologie' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Ecology" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:technik' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:technik' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Techniques" %}
                         </a>
                     </li>
@@ -82,27 +126,45 @@
 
             <!-- Information -->
             <div>
-                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                <h3
+                    style="
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: #d1d5db;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        margin-bottom: 1rem;
+                    "
+                >
                     {% trans "Information" %}
                 </h3>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:about' %}" class="arborist-footer-link">
+                <ul style="list-style: none; padding: 0; margin: 0">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:about' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "About Me" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:gallery' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:gallery' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Gallery" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
+                    <li style="margin-bottom: 0.75rem">
                         <a href="{% url 'arborist:faq' %}" class="arborist-footer-link">
                             {% trans "FAQ" %}
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
-                        <a href="{% url 'arborist:contact' %}" class="arborist-footer-link">
+                    <li style="margin-bottom: 0.75rem">
+                        <a
+                            href="{% url 'arborist:contact' %}"
+                            class="arborist-footer-link"
+                        >
                             {% trans "Contact" %}
                         </a>
                     </li>
@@ -111,24 +173,33 @@
 
             <!-- Contact -->
             <div>
-                <h3 style="font-size: 0.875rem; font-weight: 600; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">
+                <h3
+                    style="
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                        color: #d1d5db;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        margin-bottom: 1rem;
+                    "
+                >
                     {% trans "Contact" %}
                 </h3>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                <ul style="list-style: none; padding: 0; margin: 0">
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af">
                         &#128205; {% trans "Luxembourg" %}
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
+                    <li style="margin-bottom: 0.75rem">
                         <a href="mailto:info@arborist.lu" class="arborist-footer-link">
                             &#9993; info@arborist.lu
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem;">
+                    <li style="margin-bottom: 0.75rem">
                         <a href="tel:+352621981363" class="arborist-footer-link">
                             &#128222; +352 621 981 363
                         </a>
                     </li>
-                    <li style="margin-bottom: 0.75rem; color: #9ca3af;">
+                    <li style="margin-bottom: 0.75rem; color: #9ca3af">
                         &#127760; {% trans "DE | FR | LU" %}
                     </li>
                 </ul>
@@ -136,13 +207,23 @@
         </div>
 
         <!-- Bottom bar -->
-        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #374151;">
-            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem;">
-                <p style="color: #9ca3af; font-size: 0.875rem;">
-                    &copy; {% now "Y" %} {% trans "Arborist Tom Aakrann" %}. {% trans "All rights reserved." %}
+        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #374151">
+            <div
+                style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 1rem;
+                "
+            >
+                <p style="color: #9ca3af; font-size: 0.875rem">
+                    &copy; {% now "Y" %} {% trans "Arborist Tom Aakrann" %}. {% trans
+                    "All rights reserved." %}
                 </p>
-                <p style="color: #6b7280; font-size: 0.875rem;">
-                    {% trans "Professional Tree Care in Luxembourg" %} &#127473;&#127482;
+                <p style="color: #6b7280; font-size: 0.875rem">
+                    {% trans "Professional Tree Care in Luxembourg" %}
+                    &#127473;&#127482;
                 </p>
             </div>
         </div>

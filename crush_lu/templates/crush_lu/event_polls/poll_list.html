@@ -1,36 +1,60 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Event Polls" %} | Crush.lu{% endblock %}
-
-{% block content %}
+{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
+trans "Event Polls" %} | Crush.lu{% endblock %} {% block content %}
 <div class="section-container">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">{% trans "Event Polls" %}</h1>
-        <p class="text-gray-600 dark:text-gray-400 mb-8 text-sm sm:text-base">{% trans "Help us plan the next events by sharing your preferences!" %}</p>
+    <div class="mx-auto max-w-4xl px-4 sm:px-6">
+        <h1 class="mb-2 text-2xl font-bold text-gray-900 sm:text-3xl dark:text-white">
+            {% trans "Event Polls" %}
+        </h1>
+        <p class="mb-8 text-sm text-gray-600 sm:text-base dark:text-gray-400">
+            {% trans "Help us plan the next events by sharing your preferences!" %}
+        </p>
 
         {% if active_polls %}
-        <h2 class="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Active Polls" %}</h2>
-        <div class="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2 mb-12">
+        <h2
+            class="mb-4 text-lg font-semibold text-gray-800 sm:text-xl dark:text-gray-200"
+        >
+            {% trans "Active Polls" %}
+        </h2>
+        <div class="mb-12 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
             {% for poll in active_polls %}
-            <a href="{% url 'crush_lu:poll_detail' poll.id %}" class="poll-card block group">
+            <a
+                href="{% url 'crush_lu:poll_detail' poll.id %}"
+                class="poll-card group block"
+            >
                 {% if poll.image %}
-                <img src="{{ poll.image.url }}" alt="{{ poll.title }}" class="w-full h-40 sm:h-48 object-cover">
+                <img
+                    src="{{ poll.image.url }}"
+                    alt="{{ poll.title }}"
+                    class="h-40 w-full object-cover sm:h-48"
+                />
                 {% endif %}
                 <div class="p-5 sm:p-6">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-crush-purple dark:group-hover:text-violet-400 transition-colors">{{ poll.title }}</h3>
+                    <h3
+                        class="group-hover:text-crush-purple mb-2 text-base font-semibold text-gray-900 transition-colors sm:text-lg dark:text-white dark:group-hover:text-violet-400"
+                    >
+                        {{ poll.title }}
+                    </h3>
                     {% if poll.description %}
-                    <p class="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mb-3 line-clamp-2">{{ poll.description|truncatewords:30 }}</p>
+                    <p
+                        class="mb-3 line-clamp-2 text-xs text-gray-600 sm:text-sm dark:text-gray-400"
+                    >
+                        {{ poll.description|truncatewords:30 }}
+                    </p>
                     {% endif %}
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-crush-purple dark:text-violet-400 font-medium">{{ poll.total_votes }} {% trans "votes" %}</span>
+                        <span class="text-crush-purple font-medium dark:text-violet-400"
+                            >{{ poll.total_votes }} {% trans "votes" %}</span
+                        >
                         {% if poll.id in user_voted_poll_ids %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        <span
+                            class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-200"
+                        >
                             {% trans "Voted" %}
                         </span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        <span
+                            class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                        >
                             {% trans "Vote now" %}
                         </span>
                         {% endif %}
@@ -39,21 +63,38 @@
             </a>
             {% endfor %}
         </div>
-        {% endif %}
-
-        {% if closed_polls %}
-        <h2 class="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">{% trans "Recently Closed" %}</h2>
-        <div class="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2">
+        {% endif %} {% if closed_polls %}
+        <h2
+            class="mb-4 text-lg font-semibold text-gray-800 sm:text-xl dark:text-gray-200"
+        >
+            {% trans "Recently Closed" %}
+        </h2>
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
             {% for poll in closed_polls %}
-            <a href="{% url 'crush_lu:poll_detail' poll.id %}" class="poll-card block opacity-75 hover:opacity-100 transition-opacity">
+            <a
+                href="{% url 'crush_lu:poll_detail' poll.id %}"
+                class="poll-card block opacity-75 transition-opacity hover:opacity-100"
+            >
                 {% if poll.image %}
-                <img src="{{ poll.image.url }}" alt="{{ poll.title }}" class="w-full h-40 sm:h-48 object-cover">
+                <img
+                    src="{{ poll.image.url }}"
+                    alt="{{ poll.title }}"
+                    class="h-40 w-full object-cover sm:h-48"
+                />
                 {% endif %}
                 <div class="p-5 sm:p-6">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ poll.title }}</h3>
+                    <h3
+                        class="mb-2 text-base font-semibold text-gray-900 sm:text-lg dark:text-white"
+                    >
+                        {{ poll.title }}
+                    </h3>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-500 dark:text-gray-400">{{ poll.total_votes }} {% trans "votes" %}</span>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        <span class="text-gray-500 dark:text-gray-400"
+                            >{{ poll.total_votes }} {% trans "votes" %}</span
+                        >
+                        <span
+                            class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                        >
                             {% trans "Closed" %}
                         </span>
                     </div>
@@ -61,11 +102,11 @@
             </a>
             {% endfor %}
         </div>
-        {% endif %}
-
-        {% if not active_polls and not closed_polls %}
-        <div class="text-center py-16">
-            <p class="text-gray-500 dark:text-gray-400 text-lg">{% trans "No polls available right now. Check back soon!" %}</p>
+        {% endif %} {% if not active_polls and not closed_polls %}
+        <div class="py-16 text-center">
+            <p class="text-lg text-gray-500 dark:text-gray-400">
+                {% trans "No polls available right now. Check back soon!" %}
+            </p>
         </div>
         {% endif %}
     </div>

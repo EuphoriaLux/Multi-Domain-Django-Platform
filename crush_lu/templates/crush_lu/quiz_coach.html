@@ -1,55 +1,78 @@
-{% extends "crush_lu/base.html" %}
-{% load static i18n %}
-
-{% block title %}{% trans "Quiz Control" %} - {{ event.title }}{% endblock %}
-
-{% block content %}
-<div class="min-h-screen bg-crush-dark pt-4 pb-8">
-    <div class="mx-auto max-w-2xl px-4"
-         x-data="quizHost"
-         data-quiz-id="{{ quiz.id }}"
-         data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
-         data-table-count="{{ tables.count }}"
-         data-table-members="{{ table_members_json }}">
-
+{% extends "crush_lu/base.html" %} {% load static i18n %} {% block title %}{% trans
+"Quiz Control" %} - {{ event.title }}{% endblock %} {% block content %}
+<div class="bg-crush-dark min-h-screen pt-4 pb-8">
+    <div
+        class="mx-auto max-w-2xl px-4"
+        x-data="quizHost"
+        data-quiz-id="{{ quiz.id }}"
+        data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
+        data-table-count="{{ tables.count }}"
+        data-table-members="{{ table_members_json }}"
+    >
         {# --- Header --- #}
         <div class="mb-6">
             <h1 class="text-2xl font-bold text-white">{% trans "Quiz Host Panel" %}</h1>
             <p class="mt-1 text-gray-400">{{ event.title }}</p>
             <div class="mt-2 flex items-center gap-2">
-                <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium" x-bind:class="statusBadgeClass">
-                    <span class="h-2 w-2 rounded-full" x-bind:class="statusDotClass"></span>
+                <span
+                    class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
+                    x-bind:class="statusBadgeClass"
+                >
+                    <span
+                        class="h-2 w-2 rounded-full"
+                        x-bind:class="statusDotClass"
+                    ></span>
                     <span x-text="statusText"></span>
                 </span>
-                <span x-show="hasBonusRound" class="inline-flex items-center rounded-full bg-amber-900/50 px-3 py-1 text-xs font-medium text-amber-300">
+                <span
+                    x-show="hasBonusRound"
+                    class="inline-flex items-center rounded-full bg-amber-900/50 px-3 py-1 text-xs font-medium text-amber-300"
+                >
                     <span x-text="isBonusLabel"></span>
                 </span>
-                <span x-show="isConnected" class="text-xs text-green-400">{% trans "WebSocket connected" %}</span>
-                <span x-show="isDisconnected" class="text-xs text-red-400">{% trans "Disconnected" %}</span>
+                <span x-show="isConnected" class="text-xs text-green-400"
+                    >{% trans "WebSocket connected" %}</span
+                >
+                <span x-show="isDisconnected" class="text-xs text-red-400"
+                    >{% trans "Disconnected" %}</span
+                >
             </div>
         </div>
 
         {# --- Error / feedback banner --- #}
-        <div x-show="hasError"
-             x-cloak
-             class="mb-4 rounded-lg border border-amber-600 bg-amber-900/40 px-4 py-3 text-sm text-amber-300">
+        <div
+            x-show="hasError"
+            x-cloak
+            class="mb-4 rounded-lg border border-amber-600 bg-amber-900/40 px-4 py-3 text-sm text-amber-300"
+        >
             <span x-text="errorMessage"></span>
         </div>
 
         {# --- Round selector --- #}
         <div class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
+            <h2
+                class="mb-3 text-sm font-semibold tracking-wider text-gray-400 uppercase"
+            >
+                {% trans "Rounds" %}
+            </h2>
             <div class="space-y-2">
                 {% for round in rounds %}
-                <button x-on:click="selectRoundFromEl"
-                        data-round-id="{{ round.id }}"
-                        class="quiz-round-btn w-full rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 p-3 text-left transition-all">
+                <button
+                    x-on:click="selectRoundFromEl"
+                    data-round-id="{{ round.id }}"
+                    class="quiz-round-btn w-full rounded-lg bg-slate-700 p-3 text-left text-gray-300 transition-all hover:bg-slate-600"
+                >
                     <div class="flex items-center justify-between">
                         <span class="font-medium">
-                            {{ round.title }}
-                            {% if round.is_bonus %}<span class="ml-1 text-xs text-amber-400">BONUS x2</span>{% endif %}
+                            {{ round.title }} {% if round.is_bonus %}<span
+                                class="ml-1 text-xs text-amber-400"
+                                >BONUS x2</span
+                            >{% endif %}
                         </span>
-                        <span class="text-sm text-gray-400">{{ round.questions.count }} {% trans "questions" %} &middot; {{ round.time_per_question }}s</span>
+                        <span class="text-sm text-gray-400"
+                            >{{ round.questions.count }} {% trans "questions" %}
+                            &middot; {{ round.time_per_question }}s</span
+                        >
                     </div>
                 </button>
                 {% endfor %}
@@ -58,61 +81,110 @@
 
         {# --- Table Overview (who sits where) --- #}
         <div x-show="showQuizNight" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                <svg class="mr-1 inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <h2
+                class="mb-3 text-sm font-semibold tracking-wider text-gray-400 uppercase"
+            >
+                <svg
+                    class="mr-1 inline-block h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                 </svg>
                 {% trans "Table Setup" %}
             </h2>
-            <div x-ref="tableoverview" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
+            <div
+                x-ref="tableoverview"
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            ></div>
             <div class="mt-3 flex items-center justify-between">
-                <button x-on:click="regenerateTables"
-                        x-bind:disabled="isRegenerating"
-                        class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all disabled:opacity-50">
+                <button
+                    x-on:click="regenerateTables"
+                    x-bind:disabled="isRegenerating"
+                    class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-gray-300 transition-all hover:bg-slate-600 disabled:opacity-50"
+                >
                     <span x-show="isRegenerating">{% trans "Regenerating..." %}</span>
-                    <span x-show="isNotRegenerating">{% trans "Regenerate Tables" %}</span>
+                    <span x-show="isNotRegenerating"
+                        >{% trans "Regenerate Tables" %}</span
+                    >
                 </button>
                 {% if quiz.tables_generated_at %}
                 <span class="text-xs text-gray-500">
-                    {% trans "Last generated:" %} {{ quiz.tables_generated_at|date:"d M H:i" }}
+                    {% trans "Last generated:" %} {{ quiz.tables_generated_at|date:"d M
+                    H:i" }}
                 </span>
                 {% endif %}
             </div>
         </div>
 
         {# --- Current question info --- #}
-        <div x-show="hasCurrentQuestion" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+        <div
+            x-show="hasCurrentQuestion"
+            class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg"
+        >
             <div class="flex items-center justify-between text-sm text-gray-400">
                 <span x-text="questionProgress"></span>
                 <span x-text="currentRoundTitle"></span>
             </div>
-            <p class="mt-2 text-lg font-medium text-white" x-text="currentQuestionText"></p>
+            <p
+                class="mt-2 text-lg font-medium text-white"
+                x-text="currentQuestionText"
+            ></p>
 
             {# Correct answer reference for host #}
-            <div x-show="hasCorrectAnswer" class="mt-3 rounded-lg bg-green-900/30 border border-green-700 p-3">
-                <p class="text-xs font-semibold uppercase tracking-wider text-green-400 mb-1">{% trans "Correct Answer" %}</p>
-                <p class="text-sm text-green-300 font-medium" x-text="correctAnswerText"></p>
+            <div
+                x-show="hasCorrectAnswer"
+                class="mt-3 rounded-lg border border-green-700 bg-green-900/30 p-3"
+            >
+                <p
+                    class="mb-1 text-xs font-semibold tracking-wider text-green-400 uppercase"
+                >
+                    {% trans "Correct Answer" %}
+                </p>
+                <p
+                    class="text-sm font-medium text-green-300"
+                    x-text="correctAnswerText"
+                ></p>
             </div>
         </div>
 
         {# --- Table Scoring Grid (Quiz Night) --- #}
-        <div x-show="showScoringGrid" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
-            <p class="mb-3 text-xs text-gray-500">{% trans "Click table to mark correct, click again for incorrect" %}</p>
+        <div
+            x-show="showScoringGrid"
+            class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg"
+        >
+            <h2
+                class="mb-3 text-sm font-semibold tracking-wider text-gray-400 uppercase"
+            >
+                {% trans "Score Tables" %}
+            </h2>
+            <p class="mb-3 text-xs text-gray-500">
+                {% trans "Click table to mark correct, click again for incorrect" %}
+            </p>
 
             <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
                 {% for table in tables %}
                 <div data-table-id="{{ table.id }}" class="text-center">
                     {# Correct button #}
-                    <button x-on:click="scoreTableCorrectFromEl"
-                            data-table-id="{{ table.id }}"
-                            class="quiz-table-btn w-full rounded-xl bg-slate-700 text-gray-300 hover:bg-slate-600 p-4 font-bold transition-all text-lg">
+                    <button
+                        x-on:click="scoreTableCorrectFromEl"
+                        data-table-id="{{ table.id }}"
+                        class="quiz-table-btn w-full rounded-xl bg-slate-700 p-4 text-lg font-bold text-gray-300 transition-all hover:bg-slate-600"
+                    >
                         T{{ table.table_number }}
                     </button>
                     {# Wrong button (small, below) #}
-                    <button x-on:click="scoreTableWrongFromEl"
-                            data-table-id="{{ table.id }}"
-                            class="mt-1 w-full rounded-lg bg-red-900/30 px-2 py-1 text-xs text-red-400 hover:bg-red-900/60 transition-all">
+                    <button
+                        x-on:click="scoreTableWrongFromEl"
+                        data-table-id="{{ table.id }}"
+                        class="mt-1 w-full rounded-lg bg-red-900/30 px-2 py-1 text-xs text-red-400 transition-all hover:bg-red-900/60"
+                    >
                         ✗
                     </button>
                 </div>
@@ -121,84 +193,185 @@
 
             {# Convenience buttons #}
             <div class="mt-4 flex gap-3">
-                <button x-on:click="scoreAllCorrect"
-                        class="flex-1 rounded-lg bg-green-700 py-2 text-sm font-medium text-white hover:bg-green-600 transition-all">
+                <button
+                    x-on:click="scoreAllCorrect"
+                    class="flex-1 rounded-lg bg-green-700 py-2 text-sm font-medium text-white transition-all hover:bg-green-600"
+                >
                     {% trans "Score All Correct" %}
                 </button>
-                <button x-on:click="clearScoring"
-                        class="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all">
+                <button
+                    x-on:click="clearScoring"
+                    class="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-gray-300 transition-all hover:bg-slate-600"
+                >
                     {% trans "Clear" %}
                 </button>
             </div>
         </div>
 
         {# --- Quiz finished banner --- #}
-        <div x-show="isFinished" class="mb-6 rounded-xl bg-green-900/40 border border-green-600 p-4 shadow-lg">
-            <p class="text-center text-lg font-bold text-green-300">{% trans "Quiz Complete!" %}</p>
-            <p class="mt-1 text-center text-sm text-green-400">{% trans "This quiz has ended. Final results are shown below." %}</p>
+        <div
+            x-show="isFinished"
+            class="mb-6 rounded-xl border border-green-600 bg-green-900/40 p-4 shadow-lg"
+        >
+            <p class="text-center text-lg font-bold text-green-300">
+                {% trans "Quiz Complete!" %}
+            </p>
+            <p class="mt-1 text-center text-sm text-green-400">
+                {% trans "This quiz has ended. Final results are shown below." %}
+            </p>
         </div>
 
         {# --- Round complete banner --- #}
-        <div x-show="isRoundComplete" class="mb-6 rounded-xl bg-amber-900/40 border border-amber-600 p-4 shadow-lg">
-            <p class="text-center text-lg font-bold text-amber-300">{% trans "Round Complete!" %}</p>
-            <p class="mt-1 text-center text-sm text-amber-400">{% trans "Score any remaining tables, then rotate or select the next round." %}</p>
+        <div
+            x-show="isRoundComplete"
+            class="mb-6 rounded-xl border border-amber-600 bg-amber-900/40 p-4 shadow-lg"
+        >
+            <p class="text-center text-lg font-bold text-amber-300">
+                {% trans "Round Complete!" %}
+            </p>
+            <p class="mt-1 text-center text-sm text-amber-400">
+                {% trans "Score any remaining tables, then rotate or select the next
+                round." %}
+            </p>
         </div>
 
         {# --- Host controls --- #}
         <div class="grid grid-cols-2 gap-4">
             {# Next Question — hidden when round is done #}
-            <button x-on:click="nextQuestion"
-                    x-show="showNextQuestion"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+            <button
+                x-on:click="nextQuestion"
+                x-show="showNextQuestion"
+                class="from-crush-purple to-crush-pink flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-4 font-semibold text-white shadow-lg transition-all hover:opacity-90"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                    />
                 </svg>
                 {% trans "Next Question" %}
             </button>
 
             {# Rotate Tables — only after a round finishes #}
-            <button x-on:click="triggerRotate"
-                    x-show="canRotate"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500 animate-pulse">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            <button
+                x-on:click="triggerRotate"
+                x-show="canRotate"
+                class="flex animate-pulse items-center justify-center gap-2 rounded-xl bg-amber-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-amber-500"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                 </svg>
                 {% trans "Rotate Tables" %}
             </button>
 
-            <button x-on:click="showLeaderboard"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-slate-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-slate-600">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            <button
+                x-on:click="showLeaderboard"
+                class="flex items-center justify-center gap-2 rounded-xl bg-slate-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-slate-600"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
                 </svg>
                 {% trans "Leaderboard" %}
             </button>
 
-            <button x-on:click="startQuiz"
-                    x-show="canStart"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-green-500">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <button
+                x-on:click="startQuiz"
+                x-show="canStart"
+                class="flex items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-green-500"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                 </svg>
                 {% trans "Start Quiz" %}
             </button>
 
-            <button x-on:click="pauseQuiz"
-                    x-show="canPause"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-yellow-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-yellow-600">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <button
+                x-on:click="pauseQuiz"
+                x-show="canPause"
+                class="flex items-center justify-center gap-2 rounded-xl bg-yellow-700 py-4 font-semibold text-white shadow-lg transition-all hover:bg-yellow-600"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                 </svg>
                 {% trans "Pause" %}
             </button>
 
-            <button x-on:click="endQuiz"
-                    x-show="canEnd"
-                    class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-red-500">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+            <button
+                x-on:click="endQuiz"
+                x-show="canEnd"
+                class="flex items-center justify-center gap-2 rounded-xl bg-red-600 py-4 font-semibold text-white shadow-lg transition-all hover:bg-red-500"
+            >
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                    />
                 </svg>
                 {% trans "End Quiz" %}
             </button>
@@ -206,19 +379,18 @@
 
         {# --- Live leaderboard preview --- #}
         <div x-show="hasLeaderboard" class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
+            <h2
+                class="mb-3 text-sm font-semibold tracking-wider text-gray-400 uppercase"
+            >
+                {% trans "Current Standings" %}
+            </h2>
             {# Rendered via JS for CSP compliance #}
             <div x-ref="tableboard" class="space-y-2"></div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block pre_alpine_js %}
-{% if debug %}
-    {% now "U" as ts %}
-    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
+{% endblock %} {% block pre_alpine_js %} {% if debug %} {% now "U" as ts %}
+<script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
 {% else %}
-    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
-{% endif %}
-{% endblock %}
+<script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
+{% endif %} {% endblock %}

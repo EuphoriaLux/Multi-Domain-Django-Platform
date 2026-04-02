@@ -11,7 +11,16 @@ import json
 from datetime import date, datetime, timedelta
 
 from django.core.management.base import BaseCommand
-from django.db.models import Avg, Count, F, FloatField, ExpressionWrapper, Exists, OuterRef, Q
+from django.db.models import (
+    Avg,
+    Count,
+    F,
+    FloatField,
+    ExpressionWrapper,
+    Exists,
+    OuterRef,
+    Q,
+)
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, ProfileSubmission
@@ -19,7 +28,12 @@ from crush_lu.models.connections import EventConnection, ConnectionMessage
 from crush_lu.models.crush_spark import CrushSpark
 from crush_lu.models.events import MeetupEvent, EventRegistration
 from crush_lu.models.journey import JourneyProgress, ChapterProgress
-from crush_lu.models.profiles import CallAttempt, CrushCoach, UserActivity, PWADeviceInstallation
+from crush_lu.models.profiles import (
+    CallAttempt,
+    CrushCoach,
+    UserActivity,
+    PWADeviceInstallation,
+)
 from crush_lu.models.referrals import ReferralAttribution, ReferralCode
 
 
@@ -55,16 +69,28 @@ class Command(BaseCommand):
             "--since", type=str, help="Start date (YYYY-MM-DD), filter by created_at"
         )
         parser.add_argument(
-            "--until", type=str, help="End date (YYYY-MM-DD, exclusive), filter by created_at"
+            "--until",
+            type=str,
+            help="End date (YYYY-MM-DD, exclusive), filter by created_at",
         )
         parser.add_argument(
-            "--monthly", action="store_true", help="Show monthly breakdown from --since to --until"
+            "--monthly",
+            action="store_true",
+            help="Show monthly breakdown from --since to --until",
         )
 
     def handle(self, *args, **options):
         output_json = options["json"]
-        since = datetime.strptime(options["since"], "%Y-%m-%d").date() if options["since"] else None
-        until = datetime.strptime(options["until"], "%Y-%m-%d").date() if options["until"] else None
+        since = (
+            datetime.strptime(options["since"], "%Y-%m-%d").date()
+            if options["since"]
+            else None
+        )
+        until = (
+            datetime.strptime(options["until"], "%Y-%m-%d").date()
+            if options["until"]
+            else None
+        )
 
         if options["monthly"]:
             if not since:
@@ -95,13 +121,19 @@ class Command(BaseCommand):
         # ── 1. Gender Split ──────────────────────────────────────────
         gender_labels = dict(CrushProfile.GENDER_CHOICES)
         gender_all = dict(
-            all_profiles.values_list("gender").annotate(c=Count("id")).values_list("gender", "c")
+            all_profiles.values_list("gender")
+            .annotate(c=Count("id"))
+            .values_list("gender", "c")
         )
         gender_approved = dict(
-            approved.values_list("gender").annotate(c=Count("id")).values_list("gender", "c")
+            approved.values_list("gender")
+            .annotate(c=Count("id"))
+            .values_list("gender", "c")
         )
         gender_not_approved = dict(
-            not_approved.values_list("gender").annotate(c=Count("id")).values_list("gender", "c")
+            not_approved.values_list("gender")
+            .annotate(c=Count("id"))
+            .values_list("gender", "c")
         )
 
         gender_rows = []
@@ -110,14 +142,26 @@ class Command(BaseCommand):
             appr = gender_approved.get(code, 0)
             pend = gender_not_approved.get(code, 0)
             gender_rows.append(
-                {"gender": code, "label": str(label), "total": total, "approved": appr, "not_approved": pend}
+                {
+                    "gender": code,
+                    "label": str(label),
+                    "total": total,
+                    "approved": appr,
+                    "not_approved": pend,
+                }
             )
         # Add row for blank/null gender
         blank_total = all_profiles.filter(Q(gender="") | Q(gender__isnull=True)).count()
         if blank_total:
             blank_appr = approved.filter(Q(gender="") | Q(gender__isnull=True)).count()
             gender_rows.append(
-                {"gender": "", "label": "(not set)", "total": blank_total, "approved": blank_appr, "not_approved": blank_total - blank_appr}
+                {
+                    "gender": "",
+                    "label": "(not set)",
+                    "total": blank_total,
+                    "approved": blank_appr,
+                    "not_approved": blank_total - blank_appr,
+                }
             )
 
         grand_total = sum(r["total"] for r in gender_rows)
@@ -125,7 +169,9 @@ class Command(BaseCommand):
 
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 1. GENDER SPLIT ==="))
-            self.stdout.write(f"{'Gender':<20} {'Total':>6} {'Approved':>9} {'Not Appr.':>10} {'% of Total':>11}")
+            self.stdout.write(
+                f"{'Gender':<20} {'Total':>6} {'Approved':>9} {'Not Appr.':>10} {'% of Total':>11}"
+            )
             self.stdout.write("-" * 58)
             for r in gender_rows:
                 pct = f"{r['total'] / grand_total * 100:.1f}%" if grand_total else "0%"
@@ -153,17 +199,27 @@ class Command(BaseCommand):
 
         age_rows = []
         for label, min_age, max_age in brackets:
-            age_rows.append({
-                "bracket": label, "total": 0,
-                "male": 0, "female": 0, "other": 0,
-                "approved": 0, "not_approved": 0,
-            })
+            age_rows.append(
+                {
+                    "bracket": label,
+                    "total": 0,
+                    "male": 0,
+                    "female": 0,
+                    "other": 0,
+                    "approved": 0,
+                    "not_approved": 0,
+                }
+            )
 
         no_dob_count = all_profiles.filter(date_of_birth__isnull=True).count()
         under_18 = 0
 
         for dob, gender, is_appr in profiles_with_dob:
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            age = (
+                today.year
+                - dob.year
+                - ((today.month, today.day) < (dob.month, dob.day))
+            )
             if age < 18:
                 under_18 += 1
                 continue
@@ -220,15 +276,26 @@ class Command(BaseCommand):
         )
 
         # "Complete" profile: has photo + bio + preferences + submitted
-        complete_count = all_profiles.filter(
-            completion_status="submitted",
-        ).exclude(photo_1="").exclude(photo_1__isnull=True).exclude(
-            bio=""
-        ).exclude(bio__isnull=True).count()
+        complete_count = (
+            all_profiles.filter(
+                completion_status="submitted",
+            )
+            .exclude(photo_1="")
+            .exclude(photo_1__isnull=True)
+            .exclude(bio="")
+            .exclude(bio__isnull=True)
+            .count()
+        )
 
-        has_photo = all_profiles.exclude(photo_1="").exclude(photo_1__isnull=True).count()
+        has_photo = (
+            all_profiles.exclude(photo_1="").exclude(photo_1__isnull=True).count()
+        )
         has_bio = all_profiles.exclude(bio="").exclude(bio__isnull=True).count()
-        has_prefs = all_profiles.exclude(preferred_genders=[]).exclude(preferred_genders__isnull=True).count()
+        has_prefs = (
+            all_profiles.exclude(preferred_genders=[])
+            .exclude(preferred_genders__isnull=True)
+            .count()
+        )
 
         # Review pipeline
         sub_qs = ProfileSubmission.objects.filter(profile__in=all_profiles)
@@ -237,9 +304,7 @@ class Command(BaseCommand):
             .annotate(c=Count("id"))
             .values_list("status", "c")
         )
-        never_submitted = all_profiles.filter(
-            profilesubmission__isnull=True
-        ).count()
+        never_submitted = all_profiles.filter(profilesubmission__isnull=True).count()
 
         data["profile_completion"] = {
             "total_profiles": total_profiles,
@@ -256,22 +321,51 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 3. PROFILE COMPLETION ==="))
             self.stdout.write(f"\nTotal profiles: {total_profiles}")
-            self.stdout.write(f"\n  Completion funnel:")
-            funnel_order = ["not_started", "step1", "step2", "step3", "step4", "submitted"]
+            self.stdout.write("\n  Completion funnel:")
+            funnel_order = [
+                "not_started",
+                "step1",
+                "step2",
+                "step3",
+                "step4",
+                "submitted",
+            ]
             for step in funnel_order:
                 c = status_counts.get(step, 0)
                 pct = f"{c / total_profiles * 100:.1f}%" if total_profiles else "0%"
                 self.stdout.write(f"    {step:<15} {c:>5}  ({pct})")
 
-            self.stdout.write(f"\n  Profile fields filled:")
-            self.stdout.write(f"    Has photo:       {has_photo:>5}  ({has_photo / total_profiles * 100:.1f}%)" if total_profiles else "")
-            self.stdout.write(f"    Has bio:         {has_bio:>5}  ({has_bio / total_profiles * 100:.1f}%)" if total_profiles else "")
-            self.stdout.write(f"    Has preferences: {has_prefs:>5}  ({has_prefs / total_profiles * 100:.1f}%)" if total_profiles else "")
-            self.stdout.write(f"    COMPLETE*:       {complete_count:>5}  ({complete_count / total_profiles * 100:.1f}%)" if total_profiles else "")
-            self.stdout.write(f"    * Complete = submitted + photo + bio")
+            self.stdout.write("\n  Profile fields filled:")
+            self.stdout.write(
+                f"    Has photo:       {has_photo:>5}  ({has_photo / total_profiles * 100:.1f}%)"
+                if total_profiles
+                else ""
+            )
+            self.stdout.write(
+                f"    Has bio:         {has_bio:>5}  ({has_bio / total_profiles * 100:.1f}%)"
+                if total_profiles
+                else ""
+            )
+            self.stdout.write(
+                f"    Has preferences: {has_prefs:>5}  ({has_prefs / total_profiles * 100:.1f}%)"
+                if total_profiles
+                else ""
+            )
+            self.stdout.write(
+                f"    COMPLETE*:       {complete_count:>5}  ({complete_count / total_profiles * 100:.1f}%)"
+                if total_profiles
+                else ""
+            )
+            self.stdout.write("    * Complete = submitted + photo + bio")
 
-            self.stdout.write(f"\n  Review pipeline (ProfileSubmission):")
-            for status in ["pending", "approved", "rejected", "revision", "recontact_coach"]:
+            self.stdout.write("\n  Review pipeline (ProfileSubmission):")
+            for status in [
+                "pending",
+                "approved",
+                "rejected",
+                "revision",
+                "recontact_coach",
+            ]:
                 c = submission_counts.get(status, 0)
                 self.stdout.write(f"    {status:<18} {c:>5}")
             self.stdout.write(f"    {'never submitted':<18} {never_submitted:>5}")
@@ -284,7 +378,9 @@ class Command(BaseCommand):
             .annotate(count=Count("id"))
             .order_by("-count")[:15]
         )
-        no_location = all_profiles.filter(Q(location="") | Q(location__isnull=True)).count()
+        no_location = all_profiles.filter(
+            Q(location="") | Q(location__isnull=True)
+        ).count()
         distinct_locations = (
             all_profiles.exclude(location="")
             .exclude(location__isnull=True)
@@ -301,7 +397,11 @@ class Command(BaseCommand):
         }
 
         if not output_json:
-            self.stdout.write(self.style.SUCCESS("\n=== 4. LOCATION DISTRIBUTION (proxy for nationality) ==="))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "\n=== 4. LOCATION DISTRIBUTION (proxy for nationality) ==="
+                )
+            )
             self.stdout.write(
                 "NOTE: Nationality is not tracked. This shows location (city/region).\n"
             )
@@ -354,19 +454,25 @@ class Command(BaseCommand):
         }
 
         if not output_json:
-            self.stdout.write(self.style.SUCCESS("\n=== 5. REFERRAL DATA (proxy for traffic sources) ==="))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "\n=== 5. REFERRAL DATA (proxy for traffic sources) ==="
+                )
+            )
             self.stdout.write(
                 "NOTE: UTM tracking is not implemented. Only referral code data available.\n"
                 "For traffic sources, use Google Analytics.\n"
             )
-            self.stdout.write(f"  Referral codes created: {total_codes} (active: {active_codes})")
+            self.stdout.write(
+                f"  Referral codes created: {total_codes} (active: {active_codes})"
+            )
             self.stdout.write(f"  Total referral clicks:  {total_attributions}")
             self.stdout.write(f"  Converted:              {converted}")
             self.stdout.write(f"  Pending:                {pending_referrals}")
             self.stdout.write(f"  Conversion rate:        {conv_rate}")
 
             if top_referrers:
-                self.stdout.write(f"\n  Top referrers (by conversions):")
+                self.stdout.write("\n  Top referrers (by conversions):")
                 for ref in top_referrers:
                     self.stdout.write(
                         f"    {ref['referrer__user__email']:<35} {ref['conversions']:>3} conversions"
@@ -383,29 +489,39 @@ class Command(BaseCommand):
         cancelled_events = events_qs.filter(is_cancelled=True).count()
         active_events = events_qs.filter(is_cancelled=False)
         by_type = dict(
-            active_events.values_list("event_type").annotate(c=Count("id")).values_list("event_type", "c")
+            active_events.values_list("event_type")
+            .annotate(c=Count("id"))
+            .values_list("event_type", "c")
         )
 
         reg_qs = EventRegistration.objects.filter(event__in=active_events)
         total_registrations = reg_qs.count()
         reg_by_status = dict(
-            reg_qs.values_list("status").annotate(c=Count("id")).values_list("status", "c")
+            reg_qs.values_list("status")
+            .annotate(c=Count("id"))
+            .values_list("status", "c")
         )
-        confirmed_attended = reg_by_status.get("confirmed", 0) + reg_by_status.get("attended", 0)
+        confirmed_attended = reg_by_status.get("confirmed", 0) + reg_by_status.get(
+            "attended", 0
+        )
         attended = reg_by_status.get("attended", 0)
         no_show = reg_by_status.get("no_show", 0)
         paid_reg = reg_qs.filter(payment_confirmed=True).count()
 
         # Avg fill rate
-        fill_data = active_events.filter(max_participants__gt=0).annotate(
-            confirmed_count=Count(
-                "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+        fill_data = (
+            active_events.filter(max_participants__gt=0)
+            .annotate(
+                confirmed_count=Count(
+                    "eventregistration",
+                    filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                )
             )
-        ).annotate(
-            fill_pct=ExpressionWrapper(
-                F("confirmed_count") * 100.0 / F("max_participants"),
-                output_field=FloatField(),
+            .annotate(
+                fill_pct=ExpressionWrapper(
+                    F("confirmed_count") * 100.0 / F("max_participants"),
+                    output_field=FloatField(),
+                )
             )
         )
         avg_fill = fill_data.aggregate(avg=Avg("fill_pct"))["avg"]
@@ -425,9 +541,11 @@ class Command(BaseCommand):
 
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 6. EVENT ACTIVITY ==="))
-            self.stdout.write(f"  Events published:      {total_events}  (cancelled: {cancelled_events})")
+            self.stdout.write(
+                f"  Events published:      {total_events}  (cancelled: {cancelled_events})"
+            )
             if by_type:
-                self.stdout.write(f"  By type:")
+                self.stdout.write("  By type:")
                 for etype, cnt in sorted(by_type.items(), key=lambda x: -x[1]):
                     self.stdout.write(f"    {etype:<20} {cnt:>5}")
             self.stdout.write(f"\n  Total registrations:   {total_registrations}")
@@ -446,19 +564,26 @@ class Command(BaseCommand):
 
         total_connections = conn_qs.count()
         conn_by_status = dict(
-            conn_qs.values_list("status").annotate(c=Count("id")).values_list("status", "c")
+            conn_qs.values_list("status")
+            .annotate(c=Count("id"))
+            .values_list("status", "c")
         )
 
         # Mutual connections using the custom manager
-        mutual_count = conn_qs.annotate(
-            is_mutual_annotated=Exists(
-                EventConnection.objects.filter(
-                    requester=OuterRef("recipient"),
-                    recipient=OuterRef("requester"),
-                    event=OuterRef("event"),
+        mutual_count = (
+            conn_qs.annotate(
+                is_mutual_annotated=Exists(
+                    EventConnection.objects.filter(
+                        requester=OuterRef("recipient"),
+                        recipient=OuterRef("requester"),
+                        event=OuterRef("event"),
+                    )
                 )
             )
-        ).filter(is_mutual_annotated=True).count() // 2
+            .filter(is_mutual_annotated=True)
+            .count()
+            // 2
+        )
 
         shared_count = conn_by_status.get("shared", 0)
 
@@ -479,11 +604,20 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 7. CONNECTIONS & MATCHING ==="))
             self.stdout.write(f"  Total connection requests: {total_connections}")
-            for status_key in ["pending", "accepted", "declined", "coach_reviewing", "coach_approved", "shared"]:
+            for status_key in [
+                "pending",
+                "accepted",
+                "declined",
+                "coach_reviewing",
+                "coach_approved",
+                "shared",
+            ]:
                 c = conn_by_status.get(status_key, 0)
                 self.stdout.write(f"    {status_key:<20} {c:>5}")
             self.stdout.write(f"  Mutual matches:            {mutual_count}")
-            self.stdout.write(f"\n  Messages sent:             {total_messages}  (coach: {coach_messages})")
+            self.stdout.write(
+                f"\n  Messages sent:             {total_messages}  (coach: {coach_messages})"
+            )
 
         # ── 8. Crush Sparks ──────────────────────────────────────────
         spark_qs = CrushSpark.objects.all()
@@ -494,13 +628,23 @@ class Command(BaseCommand):
 
         total_sparks = spark_qs.count()
         spark_by_status = dict(
-            spark_qs.values_list("status").annotate(c=Count("id")).values_list("status", "c")
+            spark_qs.values_list("status")
+            .annotate(c=Count("id"))
+            .values_list("status", "c")
         )
-        spark_delivered = spark_by_status.get("delivered", 0) + spark_by_status.get("completed", 0)
+        spark_delivered = spark_by_status.get("delivered", 0) + spark_by_status.get(
+            "completed", 0
+        )
         spark_completed = spark_by_status.get("completed", 0)
         spark_revealed = spark_qs.filter(is_sender_revealed=True).count()
-        spark_cancelled = spark_by_status.get("cancelled", 0) + spark_by_status.get("expired", 0)
-        spark_completion_rate = f"{spark_completed / spark_delivered * 100:.1f}%" if spark_delivered else "N/A"
+        spark_cancelled = spark_by_status.get("cancelled", 0) + spark_by_status.get(
+            "expired", 0
+        )
+        spark_completion_rate = (
+            f"{spark_completed / spark_delivered * 100:.1f}%"
+            if spark_delivered
+            else "N/A"
+        )
 
         data["sparks"] = {
             "total": total_sparks,
@@ -515,7 +659,17 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 8. CRUSH SPARKS ==="))
             self.stdout.write(f"  Total sparks created:  {total_sparks}")
-            for s_status in ["requested", "pending_review", "coach_approved", "coach_assigned", "journey_created", "delivered", "completed", "cancelled", "expired"]:
+            for s_status in [
+                "requested",
+                "pending_review",
+                "coach_approved",
+                "coach_assigned",
+                "journey_created",
+                "delivered",
+                "completed",
+                "cancelled",
+                "expired",
+            ]:
                 c = spark_by_status.get(s_status, 0)
                 if c:
                     self.stdout.write(f"    {s_status:<20} {c:>5}")
@@ -533,10 +687,14 @@ class Command(BaseCommand):
         reminders_sent = ua_qs.filter(reminders_sent_count__gt=0).count()
 
         pwa_by_os = list(
-            PWADeviceInstallation.objects.values("os_type").annotate(c=Count("id")).order_by("-c")
+            PWADeviceInstallation.objects.values("os_type")
+            .annotate(c=Count("id"))
+            .order_by("-c")
         )
         pwa_by_form = list(
-            PWADeviceInstallation.objects.values("form_factor").annotate(c=Count("id")).order_by("-c")
+            PWADeviceInstallation.objects.values("form_factor")
+            .annotate(c=Count("id"))
+            .order_by("-c")
         )
         total_pwa_installs = PWADeviceInstallation.objects.count()
 
@@ -554,12 +712,20 @@ class Command(BaseCommand):
         }
 
         if not output_json:
-            self.stdout.write(self.style.SUCCESS("\n=== 9. USER ENGAGEMENT & RETENTION ==="))
-            self.stdout.write("  NOTE: Retention metrics are snapshots (not date-filtered).\n")
+            self.stdout.write(
+                self.style.SUCCESS("\n=== 9. USER ENGAGEMENT & RETENTION ===")
+            )
+            self.stdout.write(
+                "  NOTE: Retention metrics are snapshots (not date-filtered).\n"
+            )
             self.stdout.write(f"  Users tracked:         {total_tracked}")
             pct_7 = f"({active_7d / total_tracked * 100:.1f}%)" if total_tracked else ""
-            pct_30 = f"({active_30d / total_tracked * 100:.1f}%)" if total_tracked else ""
-            pct_pwa = f"({pwa_users / total_tracked * 100:.1f}%)" if total_tracked else ""
+            pct_30 = (
+                f"({active_30d / total_tracked * 100:.1f}%)" if total_tracked else ""
+            )
+            pct_pwa = (
+                f"({pwa_users / total_tracked * 100:.1f}%)" if total_tracked else ""
+            )
             self.stdout.write(f"  Active last 7 days:    {active_7d:>5}  {pct_7}")
             self.stdout.write(f"  Active last 30 days:   {active_30d:>5}  {pct_30}")
             self.stdout.write(f"  PWA users:             {pwa_users:>5}  {pct_pwa}")
@@ -567,11 +733,11 @@ class Command(BaseCommand):
             self.stdout.write(f"  Users sent reminders:  {reminders_sent}")
             self.stdout.write(f"\n  PWA Installations:     {total_pwa_installs}")
             if pwa_by_os:
-                self.stdout.write(f"    By OS:")
+                self.stdout.write("    By OS:")
                 for row in pwa_by_os:
                     self.stdout.write(f"      {row['os_type']:<15} {row['c']:>5}")
             if pwa_by_form:
-                self.stdout.write(f"    By form factor:")
+                self.stdout.write("    By form factor:")
                 for row in pwa_by_form:
                     self.stdout.write(f"      {row['form_factor']:<15} {row['c']:>5}")
 
@@ -603,10 +769,14 @@ class Command(BaseCommand):
 
         total_calls = call_qs.count()
         call_results = dict(
-            call_qs.values_list("result").annotate(c=Count("id")).values_list("result", "c")
+            call_qs.values_list("result")
+            .annotate(c=Count("id"))
+            .values_list("result", "c")
         )
         success_calls = call_results.get("success", 0)
-        call_success_rate = f"{success_calls / total_calls * 100:.1f}%" if total_calls else "N/A"
+        call_success_rate = (
+            f"{success_calls / total_calls * 100:.1f}%" if total_calls else "N/A"
+        )
 
         data["coach_operations"] = {
             "active_coaches": active_coaches,
@@ -622,11 +792,15 @@ class Command(BaseCommand):
 
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 10. COACH OPERATIONS ==="))
-            self.stdout.write(f"  Active coaches:        {active_coaches} / {total_coaches}")
-            self.stdout.write(f"\n  Reviews (in period):")
+            self.stdout.write(
+                f"  Active coaches:        {active_coaches} / {total_coaches}"
+            )
+            self.stdout.write("\n  Reviews (in period):")
             self.stdout.write(f"    Submitted:           {total_submitted:>5}")
             self.stdout.write(f"    Reviewed:            {total_reviewed:>5}")
-            self.stdout.write(f"    Avg review time:     {_fmt_timedelta(avg_review_td)}")
+            self.stdout.write(
+                f"    Avg review time:     {_fmt_timedelta(avg_review_td)}"
+            )
             self.stdout.write(f"    Screening calls:     {calls_with_review:>5}")
             self.stdout.write(f"\n  Call attempts:         {total_calls}")
             for result_key in ["success", "failed", "sms_sent", "event_invite_sms"]:
@@ -637,10 +811,14 @@ class Command(BaseCommand):
 
         # ── 11. Membership Tiers ─────────────────────────────────────
         tier_counts = dict(
-            all_profiles.values_list("membership_tier").annotate(c=Count("id")).values_list("membership_tier", "c")
+            all_profiles.values_list("membership_tier")
+            .annotate(c=Count("id"))
+            .values_list("membership_tier", "c")
         )
         tier_approved = dict(
-            approved.values_list("membership_tier").annotate(c=Count("id")).values_list("membership_tier", "c")
+            approved.values_list("membership_tier")
+            .annotate(c=Count("id"))
+            .values_list("membership_tier", "c")
         )
         phone_verified = all_profiles.filter(phone_verified=True).count()
 
@@ -652,7 +830,9 @@ class Command(BaseCommand):
 
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 11. MEMBERSHIP TIERS ==="))
-            self.stdout.write(f"{'Tier':<15} {'Total':>6} {'Approved':>9} {'% of Total':>11}")
+            self.stdout.write(
+                f"{'Tier':<15} {'Total':>6} {'Approved':>9} {'% of Total':>11}"
+            )
             self.stdout.write("-" * 43)
             profile_total = all_profiles.count() or 1
             for tier in ["basic", "bronze", "silver", "gold"]:
@@ -661,7 +841,11 @@ class Command(BaseCommand):
                 pct = f"{t / profile_total * 100:.1f}%"
                 self.stdout.write(f"  {tier:<13} {t:>6} {a:>9} {pct:>11}")
             self.stdout.write("-" * 43)
-            pv_pct = f"({phone_verified / profile_total * 100:.1f}%)" if profile_total else ""
+            pv_pct = (
+                f"({phone_verified / profile_total * 100:.1f}%)"
+                if profile_total
+                else ""
+            )
             self.stdout.write(f"  Phone verified: {phone_verified}  {pv_pct}")
 
         # ── 12. Journey Engagement ───────────────────────────────────
@@ -673,19 +857,27 @@ class Command(BaseCommand):
 
         journeys_started = jp_qs.count()
         journeys_completed = jp_qs.filter(is_completed=True).count()
-        journey_completion_rate = f"{journeys_completed / journeys_started * 100:.1f}%" if journeys_started else "N/A"
+        journey_completion_rate = (
+            f"{journeys_completed / journeys_started * 100:.1f}%"
+            if journeys_started
+            else "N/A"
+        )
 
         completed_jp = jp_qs.filter(is_completed=True)
         avg_points = completed_jp.aggregate(avg=Avg("total_points"))["avg"] or 0
         avg_time_s = completed_jp.aggregate(avg=Avg("total_time_seconds"))["avg"]
-        avg_time_str = _fmt_timedelta(timedelta(seconds=int(avg_time_s))) if avg_time_s else "N/A"
+        avg_time_str = (
+            _fmt_timedelta(timedelta(seconds=int(avg_time_s))) if avg_time_s else "N/A"
+        )
 
         final_yes = jp_qs.filter(final_response="yes").count()
         final_thinking = jp_qs.filter(final_response="thinking").count()
 
         # Chapter drop-off funnel
         chapter_funnel = list(
-            ChapterProgress.objects.filter(journey_progress__in=jp_qs, is_completed=True)
+            ChapterProgress.objects.filter(
+                journey_progress__in=jp_qs, is_completed=True
+            )
             .values("chapter__chapter_number")
             .annotate(c=Count("id"))
             .order_by("chapter__chapter_number")
@@ -705,17 +897,21 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 12. JOURNEY ENGAGEMENT ==="))
             self.stdout.write(f"  Journeys started:      {journeys_started}")
-            self.stdout.write(f"  Journeys completed:    {journeys_completed}  ({journey_completion_rate})")
+            self.stdout.write(
+                f"  Journeys completed:    {journeys_completed}  ({journey_completion_rate})"
+            )
             self.stdout.write(f"  Avg points (completed):{avg_points:.0f}")
             self.stdout.write(f"  Avg time (completed):  {avg_time_str}")
             if final_yes or final_thinking:
-                self.stdout.write(f"\n  Final response:")
+                self.stdout.write("\n  Final response:")
                 self.stdout.write(f"    Yes, let's go:       {final_yes:>5}")
                 self.stdout.write(f"    Need to think:       {final_thinking:>5}")
             if chapter_funnel:
-                self.stdout.write(f"\n  Chapter completion funnel:")
+                self.stdout.write("\n  Chapter completion funnel:")
                 for ch in chapter_funnel:
-                    self.stdout.write(f"    Ch {ch['chapter__chapter_number']:>2}:  {ch['c']:>5} completed")
+                    self.stdout.write(
+                        f"    Ch {ch['chapter__chapter_number']:>2}:  {ch['c']:>5} completed"
+                    )
 
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== DONE ===\n"))
@@ -723,7 +919,10 @@ class Command(BaseCommand):
         # ── JSON output ──────────────────────────────────────────────
         if output_json:
             if since or until:
-                data["_filter"] = {"since": str(since) if since else None, "until": str(until) if until else None}
+                data["_filter"] = {
+                    "since": str(since) if since else None,
+                    "until": str(until) if until else None,
+                }
             self.stdout.write(json.dumps(data, indent=2, default=str))
 
     # ── Monthly breakdown ────────────────────────────────────────────
@@ -748,7 +947,9 @@ class Command(BaseCommand):
             female = profiles.filter(gender="F").count()
             no_gender = profiles.filter(Q(gender="") | Q(gender__isnull=True)).count()
             submitted = profiles.filter(completion_status="submitted").count()
-            has_photo = profiles.exclude(photo_1="").exclude(photo_1__isnull=True).count()
+            has_photo = (
+                profiles.exclude(photo_1="").exclude(photo_1__isnull=True).count()
+            )
             has_bio = profiles.exclude(bio="").exclude(bio__isnull=True).count()
 
             ref_clicks = ReferralAttribution.objects.filter(
@@ -768,44 +969,58 @@ class Command(BaseCommand):
             # ── Engagement metrics ──
             # Events
             month_events = MeetupEvent.objects.filter(
-                is_published=True, is_cancelled=False,
-                date_time__date__gte=month_start, date_time__date__lt=month_end,
+                is_published=True,
+                is_cancelled=False,
+                date_time__date__gte=month_start,
+                date_time__date__lt=month_end,
             )
             events_count = month_events.count()
             attended_count = EventRegistration.objects.filter(
-                event__in=month_events, status="attended",
+                event__in=month_events,
+                status="attended",
             ).count()
             paid_count = EventRegistration.objects.filter(
-                event__in=month_events, payment_confirmed=True,
+                event__in=month_events,
+                payment_confirmed=True,
             ).count()
 
             # Connections
             month_conn = EventConnection.objects.filter(
-                requested_at__date__gte=month_start, requested_at__date__lt=month_end,
+                requested_at__date__gte=month_start,
+                requested_at__date__lt=month_end,
             )
             conn_count = month_conn.count()
-            mutual_count = month_conn.annotate(
-                is_mutual_annotated=Exists(
-                    EventConnection.objects.filter(
-                        requester=OuterRef("recipient"),
-                        recipient=OuterRef("requester"),
-                        event=OuterRef("event"),
+            mutual_count = (
+                month_conn.annotate(
+                    is_mutual_annotated=Exists(
+                        EventConnection.objects.filter(
+                            requester=OuterRef("recipient"),
+                            recipient=OuterRef("requester"),
+                            event=OuterRef("event"),
+                        )
                     )
                 )
-            ).filter(is_mutual_annotated=True).count() // 2
+                .filter(is_mutual_annotated=True)
+                .count()
+                // 2
+            )
             shared_count = month_conn.filter(status="shared").count()
 
             # Sparks
             sparks_count = CrushSpark.objects.filter(
-                created_at__date__gte=month_start, created_at__date__lt=month_end,
+                created_at__date__gte=month_start,
+                created_at__date__lt=month_end,
             ).count()
             sparks_done = CrushSpark.objects.filter(
-                created_at__date__gte=month_start, created_at__date__lt=month_end,
+                created_at__date__gte=month_start,
+                created_at__date__lt=month_end,
                 status="completed",
             ).count()
 
             # Active users (snapshot at month end, capped at now)
-            month_end_dt = timezone.make_aware(datetime.combine(month_end, datetime.min.time()))
+            month_end_dt = timezone.make_aware(
+                datetime.combine(month_end, datetime.min.time())
+            )
             capped_end = min(month_end_dt, timezone.now())
             active_7d = UserActivity.objects.filter(
                 last_seen__gte=capped_end - timedelta(days=7),
@@ -814,18 +1029,22 @@ class Command(BaseCommand):
 
             # Coach
             reviewed_count = ProfileSubmission.objects.filter(
-                reviewed_at__date__gte=month_start, reviewed_at__date__lt=month_end,
+                reviewed_at__date__gte=month_start,
+                reviewed_at__date__lt=month_end,
             ).count()
             calls_count = CallAttempt.objects.filter(
-                attempt_date__date__gte=month_start, attempt_date__date__lt=month_end,
+                attempt_date__date__gte=month_start,
+                attempt_date__date__lt=month_end,
             ).count()
 
             # Journeys
             journeys_started = JourneyProgress.objects.filter(
-                started_at__date__gte=month_start, started_at__date__lt=month_end,
+                started_at__date__gte=month_start,
+                started_at__date__lt=month_end,
             ).count()
             journeys_done = JourneyProgress.objects.filter(
-                completed_at__date__gte=month_start, completed_at__date__lt=month_end,
+                completed_at__date__gte=month_start,
+                completed_at__date__lt=month_end,
             ).count()
 
             row = {
@@ -865,11 +1084,24 @@ class Command(BaseCommand):
             row["cumulative_total"] = cumulative
 
         if output_json:
-            self.stdout.write(json.dumps({"monthly": monthly_data, "period": {"since": str(since), "until": str(until)}}, indent=2, default=str))
+            self.stdout.write(
+                json.dumps(
+                    {
+                        "monthly": monthly_data,
+                        "period": {"since": str(since), "until": str(until)},
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
             return
 
         # ── Table A: Profile & Acquisition ───────────────────────────
-        self.stdout.write(self.style.SUCCESS(f"\n=== MONTHLY BREAKDOWN - PROFILES ({since} -> {until}) ===\n"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\n=== MONTHLY BREAKDOWN - PROFILES ({since} -> {until}) ===\n"
+            )
+        )
         self.stdout.write(
             f"{'Month':<10} {'New':>5} {'Appr':>5} {'M':>4} {'F':>4} {'N/A':>4} "
             f"{'Subm':>5} {'Photo':>6} {'Bio':>5} "
@@ -887,7 +1119,19 @@ class Command(BaseCommand):
             )
 
         self.stdout.write("-" * 90)
-        prof_keys = ["new_profiles", "approved", "male", "female", "no_gender", "submitted", "has_photo", "has_bio", "referral_clicks", "referral_converted", "referral_codes_created"]
+        prof_keys = [
+            "new_profiles",
+            "approved",
+            "male",
+            "female",
+            "no_gender",
+            "submitted",
+            "has_photo",
+            "has_bio",
+            "referral_clicks",
+            "referral_converted",
+            "referral_codes_created",
+        ]
         totals = {k: sum(r[k] for r in monthly_data) for k in prof_keys}
         self.stdout.write(
             f"{'TOTAL':<10} {totals['new_profiles']:>5} {totals['approved']:>5} "
@@ -898,7 +1142,11 @@ class Command(BaseCommand):
         )
 
         # ── Table B: Engagement ──────────────────────────────────────
-        self.stdout.write(self.style.SUCCESS(f"\n=== MONTHLY BREAKDOWN - ENGAGEMENT ({since} -> {until}) ===\n"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\n=== MONTHLY BREAKDOWN - ENGAGEMENT ({since} -> {until}) ===\n"
+            )
+        )
         self.stdout.write(
             f"{'Month':<10} {'Evts':>5} {'Attnd':>6} {'Paid':>5} "
             f"{'Conn':>5} {'Mutu':>5} {'Shrd':>5} "
@@ -918,7 +1166,20 @@ class Command(BaseCommand):
             )
 
         self.stdout.write("-" * 90)
-        eng_keys = ["events", "attended", "paid_reg", "connections", "mutual", "shared", "sparks", "sparks_done", "reviewed", "calls", "journeys", "j_done"]
+        eng_keys = [
+            "events",
+            "attended",
+            "paid_reg",
+            "connections",
+            "mutual",
+            "shared",
+            "sparks",
+            "sparks_done",
+            "reviewed",
+            "calls",
+            "journeys",
+            "j_done",
+        ]
         eng_totals = {k: sum(r[k] for r in monthly_data) for k in eng_keys}
         self.stdout.write(
             f"{'TOTAL':<10} {eng_totals['events']:>5} {eng_totals['attended']:>6} {eng_totals['paid_reg']:>5} "

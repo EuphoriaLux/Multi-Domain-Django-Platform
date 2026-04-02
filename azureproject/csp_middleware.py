@@ -24,34 +24,36 @@ class PermissionsPolicyMiddleware:
     Deprecated/non-standard features cause console warnings.
     """
 
-    PERMISSIONS_POLICY = ", ".join([
-        "accelerometer=()",
-        "autoplay=()",
-        "camera=(self)",  # Needed for QR check-in scanner
-        "display-capture=()",
-        "encrypted-media=()",
-        "fullscreen=(self)",  # Allow fullscreen on same origin
-        "gamepad=()",
-        "geolocation=()",  # Not used - disable for privacy
-        "gyroscope=()",
-        "hid=()",
-        "identity-credentials-get=()",
-        "idle-detection=()",
-        "local-fonts=()",
-        "magnetometer=()",
-        "microphone=()",  # Not used - disable for privacy
-        "midi=()",
-        "otp-credentials=()",
-        "payment=()",
-        "picture-in-picture=()",
-        "publickey-credentials-create=()",
-        "publickey-credentials-get=()",
-        "screen-wake-lock=()",
-        "serial=()",
-        "usb=()",
-        "web-share=(self)",  # Allow Web Share API on same origin
-        "xr-spatial-tracking=()",
-    ])
+    PERMISSIONS_POLICY = ", ".join(
+        [
+            "accelerometer=()",
+            "autoplay=()",
+            "camera=(self)",  # Needed for QR check-in scanner
+            "display-capture=()",
+            "encrypted-media=()",
+            "fullscreen=(self)",  # Allow fullscreen on same origin
+            "gamepad=()",
+            "geolocation=()",  # Not used - disable for privacy
+            "gyroscope=()",
+            "hid=()",
+            "identity-credentials-get=()",
+            "idle-detection=()",
+            "local-fonts=()",
+            "magnetometer=()",
+            "microphone=()",  # Not used - disable for privacy
+            "midi=()",
+            "otp-credentials=()",
+            "payment=()",
+            "picture-in-picture=()",
+            "publickey-credentials-create=()",
+            "publickey-credentials-get=()",
+            "screen-wake-lock=()",
+            "serial=()",
+            "usb=()",
+            "web-share=(self)",  # Allow Web Share API on same origin
+            "xr-spatial-tracking=()",
+        ]
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response

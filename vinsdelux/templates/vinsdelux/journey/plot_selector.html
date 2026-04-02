@@ -1,10 +1,6 @@
-{% extends "vinsdelux/base.html" %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{% trans "Select Your Vineyard Plot" %} - VinsDelux{% endblock %}
-
-{% block extra_css %}
+{% extends "vinsdelux/base.html" %} {% load static %} {% load i18n %} {% block title
+%}{% trans "Select Your Vineyard Plot" %} - VinsDelux{% endblock %} {% block extra_css
+%}
 <style>
     /* Enhanced Plot Selector Styles */
     .plot-selector-container {
@@ -38,7 +34,7 @@
         background: white;
         padding: 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         margin-bottom: 2rem;
     }
 
@@ -179,7 +175,7 @@
         margin-bottom: 2rem;
         padding: 0 5px;
     }
-    
+
     @media (min-width: 1400px) {
         .plots-grid {
             grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
@@ -190,7 +186,7 @@
         background: white;
         border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         transition: all 0.3s ease;
         cursor: pointer;
         position: relative;
@@ -201,7 +197,7 @@
 
     .plot-card:hover {
         transform: translateY(-8px);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
     }
 
     .plot-card.selected {
@@ -213,7 +209,7 @@
         position: relative;
         height: 120px;
         overflow: hidden;
-        background: linear-gradient(135deg, #8BC34A, #689F38);
+        background: linear-gradient(135deg, #8bc34a, #689f38);
     }
 
     .plot-image {
@@ -221,33 +217,33 @@
         height: 100%;
         object-fit: cover;
     }
-    
+
     /* Styles for JavaScript-generated cards */
     .plot-cards-container .plot-card {
         background: white;
         border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         transition: all 0.3s;
     }
-    
+
     .plot-cards-container .plot-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     }
-    
+
     .card-image {
         position: relative;
         height: 120px;
         overflow: hidden;
     }
-    
+
     .card-image img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
-    
+
     .card-badge {
         position: absolute;
         top: 8px;
@@ -258,17 +254,17 @@
         font-size: 0.7rem;
         font-weight: 600;
     }
-    
+
     .card-content {
         padding: 0.75rem;
     }
-    
+
     .card-content h3 {
         font-size: 0.95rem;
         margin-bottom: 0.375rem;
         color: #2c3e50;
     }
-    
+
     .card-content .plot-description {
         font-size: 0.75rem;
         color: #666;
@@ -279,14 +275,14 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
-    
+
     .plot-features {
         display: grid;
         grid-template-columns: 1fr;
         gap: 0.2rem;
         margin-bottom: 0.5rem;
     }
-    
+
     .feature-item {
         display: flex;
         align-items: center;
@@ -294,20 +290,20 @@
         font-size: 0.7rem;
         color: #555;
     }
-    
+
     .feature-item i {
         width: 12px;
         color: #722f37;
         font-size: 0.7rem;
     }
-    
+
     .plot-highlights {
         display: flex;
         flex-wrap: wrap;
         gap: 0.25rem;
         margin-bottom: 0.5rem;
     }
-    
+
     .highlight-tag {
         background: #e8f5e9;
         color: #2e7d32;
@@ -315,7 +311,7 @@
         border-radius: 10px;
         font-size: 0.65rem;
     }
-    
+
     .plot-footer {
         display: flex;
         justify-content: space-between;
@@ -323,13 +319,13 @@
         padding-top: 0.5rem;
         border-top: 1px solid #eee;
     }
-    
+
     .plot-price {
         font-size: 0.9rem;
         font-weight: 600;
         color: #722f37;
     }
-    
+
     .btn-select-plot {
         padding: 5px 10px;
         background: linear-gradient(135deg, #d4af37, #f4e49c);
@@ -341,7 +337,7 @@
         transition: all 0.3s;
         color: #2d1810;
     }
-    
+
     .btn-select-plot:hover {
         transform: translateY(-1px);
         box-shadow: 0 3px 8px rgba(212, 175, 55, 0.3);
@@ -524,7 +520,7 @@
         position: relative;
         min-height: 600px;
     }
-    
+
     .vineyard-map {
         position: relative;
         background: #f4f0e8;
@@ -532,41 +528,41 @@
         padding: 2rem;
         margin-bottom: 2rem;
     }
-    
+
     .vineyard-map.hidden {
         display: none;
     }
-    
+
     .map-canvas {
         width: 100%;
         height: 500px;
         border-radius: 8px;
         transition: transform 0.3s ease;
     }
-    
+
     /* Map Markers */
     .plot-marker {
         position: absolute;
         z-index: 10;
     }
-    
+
     .marker-pin {
         font-size: 24px;
         color: #d4af37;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         transition: all 0.3s;
     }
-    
+
     .plot-marker:hover .marker-pin {
         color: #722f37;
         transform: scale(1.2);
     }
-    
+
     .plot-marker.selected .marker-pin {
         color: #722f37;
         transform: scale(1.3);
     }
-    
+
     .marker-label {
         position: absolute;
         top: 25px;
@@ -579,11 +575,11 @@
         white-space: nowrap;
         display: none;
     }
-    
+
     .plot-marker:hover .marker-label {
         display: block;
     }
-    
+
     .marker-tooltip {
         position: absolute;
         bottom: 35px;
@@ -592,43 +588,43 @@
         background: white;
         padding: 10px;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         min-width: 150px;
         display: none;
         z-index: 100;
     }
-    
+
     .plot-marker:hover .marker-tooltip {
         display: block;
     }
-    
+
     .marker-tooltip h4 {
         margin: 0 0 5px 0;
         font-size: 12px;
         color: #722f37;
     }
-    
+
     .marker-tooltip p {
         margin: 0;
         font-size: 11px;
         color: #666;
     }
-    
+
     .marker-tooltip .price {
         color: #d4af37;
         font-weight: bold;
     }
-    
+
     .cards-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 2rem;
     }
-    
+
     .cards-grid.hidden {
         display: none;
     }
-    
+
     /* Plot Details Panel - Improved Sidebar */
     .plot-details-panel {
         position: fixed;
@@ -636,7 +632,7 @@
         top: 80px;
         background: white;
         border-radius: 16px 0 0 16px;
-        box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15);
         width: 420px;
         height: calc(100vh - 100px);
         overflow-y: auto;
@@ -644,11 +640,11 @@
         z-index: 1000;
         transition: right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
-    
+
     .plot-details-panel.active {
         right: 0;
     }
-    
+
     .close-panel-btn {
         position: absolute;
         top: 15px;
@@ -667,20 +663,20 @@
         font-size: 20px;
         z-index: 11;
     }
-    
+
     .close-panel-btn:hover {
         background: #722f37;
         border-color: #722f37;
         color: white;
         transform: rotate(90deg);
     }
-    
+
     /* View Toggle Buttons */
     .view-toggle {
         display: flex;
         gap: 0.5rem;
     }
-    
+
     .view-btn {
         padding: 8px 16px;
         background: white;
@@ -690,68 +686,68 @@
         transition: all 0.3s;
         font-size: 14px;
     }
-    
+
     .view-btn:hover {
         background: #f8f9fa;
     }
-    
+
     .view-btn.active {
         background: #722f37;
         color: white;
         border-color: #722f37;
     }
-    
+
     .plot-details-panel h3 {
         color: #722f37;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
         border-bottom: 2px solid #e9ecef;
     }
-    
+
     .detail-row {
         display: flex;
         justify-content: space-between;
         margin-bottom: 1rem;
         padding: 0.5rem 0;
     }
-    
+
     .detail-row .label {
         font-weight: 600;
         color: #6c757d;
     }
-    
+
     .detail-row span:last-child {
         color: #2c3e50;
         font-weight: 500;
     }
-    
+
     .features-section {
         margin-top: 1.5rem;
         padding-top: 1.5rem;
         border-top: 1px solid #e9ecef;
     }
-    
+
     .features-section h4 {
         color: #722f37;
         font-size: 1rem;
         margin-bottom: 1rem;
     }
-    
+
     .features-section ul {
         list-style: none;
         padding: 0;
     }
-    
+
     .features-section li {
         padding: 0.5rem 0;
         color: #2c3e50;
     }
-    
+
     .features-section li i {
         color: #4caf50;
         margin-right: 0.5rem;
     }
-    
+
     .btn-confirm {
         width: 100%;
         margin-top: 1.5rem;
@@ -764,44 +760,44 @@
         cursor: pointer;
         transition: all 0.3s ease;
     }
-    
+
     .btn-confirm:hover:not(:disabled) {
         background: #5a242a;
     }
-    
+
     .btn-confirm:disabled {
         background: #6c757d;
         cursor: not-allowed;
         opacity: 0.6;
     }
-    
+
     .btn-confirm.active {
         background: #4caf50;
     }
-    
+
     /* Map Markers */
     .plot-marker {
         position: absolute;
         cursor: pointer;
     }
-    
+
     .marker-pin {
         font-size: 2rem;
         color: #722f37;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
         transition: all 0.3s ease;
     }
-    
+
     .plot-marker:hover .marker-pin {
         transform: scale(1.2);
         color: #d4af37;
     }
-    
+
     .plot-marker.selected .marker-pin {
         color: #d4af37;
         transform: scale(1.3);
     }
-    
+
     .marker-label {
         position: absolute;
         top: 100%;
@@ -812,10 +808,10 @@
         border-radius: 4px;
         font-size: 0.75rem;
         white-space: nowrap;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         margin-top: 0.25rem;
     }
-    
+
     .marker-tooltip {
         position: absolute;
         bottom: 100%;
@@ -824,33 +820,33 @@
         background: white;
         padding: 1rem;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         min-width: 200px;
         display: none;
         margin-bottom: 0.5rem;
     }
-    
+
     .plot-marker:hover .marker-tooltip {
         display: block;
     }
-    
+
     .marker-tooltip h4 {
         margin: 0 0 0.5rem 0;
         color: #722f37;
         font-size: 1rem;
     }
-    
+
     .marker-tooltip p {
         margin: 0.25rem 0;
         color: #6c757d;
         font-size: 0.875rem;
     }
-    
+
     .marker-tooltip .price {
         color: #2c3e50;
         font-weight: 600;
     }
-    
+
     /* Enhanced Plot Card Styles */
     .plot-card .plot-highlights {
         display: flex;
@@ -858,7 +854,7 @@
         gap: 0.5rem;
         margin: 1rem 0;
     }
-    
+
     .highlight-tag {
         background: #e8f5e9;
         color: #2e7d32;
@@ -867,7 +863,7 @@
         font-size: 0.75rem;
         font-weight: 500;
     }
-    
+
     .plot-card .btn-select-plot {
         background: #722f37;
         color: white;
@@ -877,16 +873,16 @@
         cursor: pointer;
         transition: all 0.3s ease;
     }
-    
+
     .plot-card .btn-select-plot:hover {
         background: #5a242a;
     }
-    
+
     .plot-card.selected .btn-select-plot {
         background: #d4af37;
         color: #2c3e50;
     }
-    
+
     /* Notification */
     @keyframes slideIn {
         from {
@@ -898,13 +894,13 @@
             opacity: 1;
         }
     }
-    
+
     /* Map View */
     .map-view-container {
         background: white;
         border-radius: 12px;
         padding: 2rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
         margin-bottom: 3rem;
         display: none;
     }
@@ -958,7 +954,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.7);
+        background: rgba(0, 0, 0, 0.7);
         z-index: 1000;
         align-items: center;
         justify-content: center;
@@ -1022,8 +1018,12 @@
     }
 
     @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     /* No Results */
@@ -1064,20 +1064,20 @@
         background: white;
         margin-bottom: 15px;
     }
-    
+
     .coffret-option:hover {
         border-color: #d4af37;
         background: #fdfaf3;
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
     }
-    
+
     .coffret-option.selected {
         border-color: #d4af37;
         background: linear-gradient(135deg, #fdfaf3 0%, #fff9e6 100%);
         box-shadow: 0 4px 16px rgba(212, 175, 55, 0.2);
     }
-    
+
     .wine-type-badge {
         display: inline-flex;
         align-items: center;
@@ -1090,7 +1090,7 @@
         margin: 5px;
         box-shadow: 0 2px 8px rgba(114, 47, 55, 0.2);
     }
-    
+
     .adoption-feature {
         display: flex;
         align-items: center;
@@ -1098,11 +1098,11 @@
         padding: 12px 0;
         border-bottom: 1px solid #f0f0f0;
     }
-    
+
     .adoption-feature:last-child {
         border-bottom: none;
     }
-    
+
     .adoption-feature i {
         width: 24px;
         height: 24px;
@@ -1113,7 +1113,7 @@
         border-radius: 50%;
         color: #4caf50;
     }
-    
+
     /* Responsive Design */
     @media (max-width: 768px) {
         .filter-row {
@@ -1139,37 +1139,43 @@
         }
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="plot-selector-container">
     <div class="container">
         <!-- Header -->
         <div class="selector-header">
             <h1>{% trans "Select Your Adoption Plan" %}</h1>
-            <p>{% trans "Choose from our exclusive collection of vineyard adoption plans. Each plan offers a unique terroir, producer story, and wine experience tailored to your preferences." %}</p>
-            
+            <p>
+                {% trans "Choose from our exclusive collection of vineyard adoption
+                plans. Each plan offers a unique terroir, producer story, and wine
+                experience tailored to your preferences." %}
+            </p>
+
             <!-- Show selected producer/plots if coming from enhanced selector -->
-            <div id="selection-summary" class="alert alert-success mt-3" style="display: none;">
+            <div
+                id="selection-summary"
+                class="alert alert-success mt-3"
+                style="display: none"
+            >
                 <i class="fas fa-check-circle"></i>
                 <strong>Selection Confirmed!</strong>
                 <span id="selection-details"></span>
             </div>
         </div>
-        
+
         <script>
             // Check if user is coming from plot selection
-            document.addEventListener('DOMContentLoaded', function() {
-                const selectionData = sessionStorage.getItem('selected_producer_plots');
+            document.addEventListener("DOMContentLoaded", function () {
+                const selectionData = sessionStorage.getItem("selected_producer_plots");
                 if (selectionData) {
                     const data = JSON.parse(selectionData);
-                    const summaryDiv = document.getElementById('selection-summary');
-                    const detailsSpan = document.getElementById('selection-details');
-                    
+                    const summaryDiv = document.getElementById("selection-summary");
+                    const detailsSpan = document.getElementById("selection-details");
+
                     if (data.producer && data.plots) {
                         detailsSpan.textContent = ` You've selected ${data.plots.length} plot(s) from ${data.producer.name}. Now choose an adoption plan that matches your selection.`;
-                        summaryDiv.style.display = 'block';
-                        
+                        summaryDiv.style.display = "block";
+
                         // Optionally clear the data after showing
                         // sessionStorage.removeItem('selected_producer_plots');
                     }
@@ -1183,16 +1189,20 @@
                 <div class="filter-group search-box">
                     <label for="search-input">{% trans "Search" %}</label>
                     <i class="fas fa-search"></i>
-                    <input type="text" id="search-input" placeholder="{% trans 'Search by name, producer, or region...' %}">
+                    <input
+                        type="text"
+                        id="search-input"
+                        placeholder="{% trans 'Search by name, producer, or region...' %}"
+                    />
                 </div>
-                
+
                 <div class="filter-group">
                     <label for="region-filter">{% trans "Region" %}</label>
                     <select id="region-filter">
                         <option value="">{% trans "All Regions" %}</option>
                     </select>
                 </div>
-                
+
                 <div class="filter-group">
                     <label for="category-filter">{% trans "Wine Type" %}</label>
                     <select id="category-filter">
@@ -1200,10 +1210,12 @@
                         <option value="Red Wine">{% trans "Red Wine" %}</option>
                         <option value="White Wine">{% trans "White Wine" %}</option>
                         <option value="Rosé">{% trans "Rosé" %}</option>
-                        <option value="Sparkling Wine">{% trans "Sparkling Wine" %}</option>
+                        <option value="Sparkling Wine">
+                            {% trans "Sparkling Wine" %}
+                        </option>
                     </select>
                 </div>
-                
+
                 <div class="filter-group">
                     <label for="price-filter">{% trans "Price Range" %}</label>
                     <select id="price-filter">
@@ -1215,23 +1227,23 @@
                     </select>
                 </div>
             </div>
-            
+
             <!-- Feature Filters -->
             <div class="feature-filters">
                 <label class="feature-toggle" data-feature="visit">
-                    <input type="checkbox" id="filter-visit">
+                    <input type="checkbox" id="filter-visit" />
                     <i class="fas fa-map-marked-alt"></i>
                     <span>{% trans "Vineyard Visit" %}</span>
                 </label>
-                
+
                 <label class="feature-toggle" data-feature="medallion">
-                    <input type="checkbox" id="filter-medallion">
+                    <input type="checkbox" id="filter-medallion" />
                     <i class="fas fa-medal"></i>
                     <span>{% trans "Personalized Medallion" %}</span>
                 </label>
-                
+
                 <label class="feature-toggle" data-feature="club">
-                    <input type="checkbox" id="filter-club">
+                    <input type="checkbox" id="filter-club" />
                     <i class="fas fa-users"></i>
                     <span>{% trans "Club Membership" %}</span>
                 </label>
@@ -1241,9 +1253,10 @@
         <!-- Results Summary -->
         <div class="results-summary">
             <div class="result-count">
-                {% trans "Showing" %} <strong id="result-count">0</strong> {% trans "adoption plans" %}
+                {% trans "Showing" %} <strong id="result-count">0</strong> {% trans
+                "adoption plans" %}
             </div>
-            
+
             <div class="view-toggle">
                 <button class="view-btn active" id="grid-view-btn" data-view="grid">
                     <i class="fas fa-th"></i> {% trans "Grid" %}
@@ -1261,7 +1274,7 @@
         </div>
 
         <!-- Map View Container (Hidden by default) -->
-        <div class="map-wrapper" id="map-view" style="display: none;">
+        <div class="map-wrapper" id="map-view" style="display: none">
             <div class="vineyard-map" id="vineyard-map">
                 <div class="map-overlay-controls">
                     <button class="map-control-btn map-zoom-in" title="Zoom In">
@@ -1277,38 +1290,69 @@
                         <i class="fas fa-expand"></i>
                     </button>
                 </div>
-                
+
                 <!-- Map Canvas for Current Implementation -->
-                <canvas class="map-canvas" id="map-canvas" width="1200" height="600"></canvas>
-                <div id="map-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
-                
+                <canvas
+                    class="map-canvas"
+                    id="map-canvas"
+                    width="1200"
+                    height="600"
+                ></canvas>
+                <div
+                    id="map-markers"
+                    style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        pointer-events: auto;
+                    "
+                ></div>
+
                 <!-- Map Placeholder for Future API Integration -->
-                <div class="map-placeholder" id="map-api-placeholder" style="display: none;">
+                <div
+                    class="map-placeholder"
+                    id="map-api-placeholder"
+                    style="display: none"
+                >
                     <div class="map-message">
                         <i class="fas fa-map-marked-alt"></i>
                         <h4>{% trans "Interactive Map Coming Soon" %}</h4>
-                        <p>{% trans "We're integrating advanced mapping features to help you explore vineyard locations in detail." %}</p>
+                        <p>
+                            {% trans "We're integrating advanced mapping features to
+                            help you explore vineyard locations in detail." %}
+                        </p>
                     </div>
                 </div>
-                
+
                 <!-- Map Legend -->
                 <div class="map-legend">
                     <h5>{% trans "Legend" %}</h5>
                     <div class="legend-item">
-                        <span class="legend-marker" style="background: #d4af37;">
-                            <i class="fas fa-map-marker-alt" style="color: white; font-size: 10px;"></i>
+                        <span class="legend-marker" style="background: #d4af37">
+                            <i
+                                class="fas fa-map-marker-alt"
+                                style="color: white; font-size: 10px"
+                            ></i>
                         </span>
                         <span>{% trans "Available Plot" %}</span>
                     </div>
                     <div class="legend-item">
-                        <span class="legend-marker" style="background: #722f37;">
-                            <i class="fas fa-map-marker-alt" style="color: white; font-size: 10px;"></i>
+                        <span class="legend-marker" style="background: #722f37">
+                            <i
+                                class="fas fa-map-marker-alt"
+                                style="color: white; font-size: 10px"
+                            ></i>
                         </span>
                         <span>{% trans "Selected Plot" %}</span>
                     </div>
                     <div class="legend-item">
-                        <span class="legend-marker" style="background: #e9ecef;">
-                            <i class="fas fa-map-marker-alt" style="color: #6c757d; font-size: 10px;"></i>
+                        <span class="legend-marker" style="background: #e9ecef">
+                            <i
+                                class="fas fa-map-marker-alt"
+                                style="color: #6c757d; font-size: 10px"
+                            ></i>
                         </span>
                         <span>{% trans "Unavailable" %}</span>
                     </div>
@@ -1317,23 +1361,42 @@
         </div>
 
         <!-- Plot Cards Grid -->
-        <div class="plots-grid" id="plots-grid" style="display: grid;">
+        <div class="plots-grid" id="plots-grid" style="display: grid">
             <!-- Cards will be dynamically generated here -->
         </div>
 
         <!-- Plot Details Panel -->
         <div class="plot-details-panel" id="plot-details">
             <div class="plot-details-header">
-                <h3 style="margin: 0; color: white;">{% trans "Adoption Plan Details" %}</h3>
-                <button class="close-panel-btn" id="close-details-panel" aria-label="Close" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: white;">
+                <h3 style="margin: 0; color: white">
+                    {% trans "Adoption Plan Details" %}
+                </h3>
+                <button
+                    class="close-panel-btn"
+                    id="close-details-panel"
+                    aria-label="Close"
+                    style="
+                        background: rgba(255, 255, 255, 0.1);
+                        border-color: rgba(255, 255, 255, 0.2);
+                        color: white;
+                    "
+                >
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="details-content">
                 <!-- Producer Information -->
-                <div class="producer-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
-                    <h4 style="color: #722f37; margin-bottom: 15px;">
-                        <i class="fas fa-user-tie"></i> {% trans "Producer Information" %}
+                <div
+                    class="producer-section"
+                    style="
+                        margin-bottom: 25px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #e9ecef;
+                    "
+                >
+                    <h4 style="color: #722f37; margin-bottom: 15px">
+                        <i class="fas fa-user-tie"></i> {% trans "Producer Information"
+                        %}
                     </h4>
                     <div class="detail-row">
                         <span class="label">{% trans "Producer:" %}</span>
@@ -1356,31 +1419,46 @@
                         <span id="plot-soil">-</span>
                     </div>
                 </div>
-                
+
                 <!-- Wine Information -->
-                <div class="wine-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
-                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                <div
+                    class="wine-section"
+                    style="
+                        margin-bottom: 25px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #e9ecef;
+                    "
+                >
+                    <h4 style="color: #722f37; margin-bottom: 15px">
                         <i class="fas fa-wine-bottle"></i> {% trans "Wine Production" %}
                     </h4>
                     <div id="wine-types-container">
                         <!-- Wine types will be dynamically inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Coffret Options -->
-                <div class="coffret-section" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid #e9ecef;">
-                    <h4 style="color: #722f37; margin-bottom: 15px;">
+                <div
+                    class="coffret-section"
+                    style="
+                        margin-bottom: 25px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #e9ecef;
+                    "
+                >
+                    <h4 style="color: #722f37; margin-bottom: 15px">
                         <i class="fas fa-box"></i> {% trans "Wine Coffret Selection" %}
                     </h4>
                     <div id="coffret-options">
                         <!-- Coffret options will be dynamically inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Adoption Plan Details -->
-                <div class="adoption-section" style="margin-bottom: 25px;">
-                    <h4 style="color: #722f37; margin-bottom: 15px;">
-                        <i class="fas fa-certificate"></i> {% trans "Adoption Benefits" %}
+                <div class="adoption-section" style="margin-bottom: 25px">
+                    <h4 style="color: #722f37; margin-bottom: 15px">
+                        <i class="fas fa-certificate"></i> {% trans "Adoption Benefits"
+                        %}
                     </h4>
                     <div class="detail-row">
                         <span class="label">{% trans "Duration:" %}</span>
@@ -1392,19 +1470,40 @@
                     </div>
                     <div class="detail-row">
                         <span class="label">{% trans "Price:" %}</span>
-                        <span id="plot-price" style="font-size: 1.25rem; font-weight: 700; color: #722f37;">-</span>
+                        <span
+                            id="plot-price"
+                            style="font-size: 1.25rem; font-weight: 700; color: #722f37"
+                            >-</span
+                        >
                     </div>
-                    <div class="features-section" style="margin-top: 15px;">
-                        <h5 style="font-size: 0.9rem; margin-bottom: 10px;">{% trans "Included Features:" %}</h5>
-                        <ul id="plot-features-list" style="list-style: none; padding: 0;">
+                    <div class="features-section" style="margin-top: 15px">
+                        <h5 style="font-size: 0.9rem; margin-bottom: 10px">
+                            {% trans "Included Features:" %}
+                        </h5>
+                        <ul
+                            id="plot-features-list"
+                            style="list-style: none; padding: 0"
+                        >
                             <!-- Features will be dynamically inserted here -->
                         </ul>
                     </div>
                 </div>
-                
-                <div style="padding: 20px 0; position: sticky; bottom: 0; background: white;">
-                    <button class="btn btn-primary btn-confirm" id="confirm-selection" disabled>
-                        <i class="fas fa-check-circle"></i> {% trans "Confirm Selection" %}
+
+                <div
+                    style="
+                        padding: 20px 0;
+                        position: sticky;
+                        bottom: 0;
+                        background: white;
+                    "
+                >
+                    <button
+                        class="btn btn-primary btn-confirm"
+                        id="confirm-selection"
+                        disabled
+                    >
+                        <i class="fas fa-check-circle"></i> {% trans "Confirm Selection"
+                        %}
                     </button>
                 </div>
             </div>
@@ -1426,224 +1525,252 @@
         <div id="modal-body"></div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script src="{% static 'vinsdelux/js/vinsdelux-plot-selector-standalone.js' %}"></script>
 <script>
-// Enhanced Plot Selector with Database Integration
-class PlotSelector {
-    constructor() {
-        this.adoptionPlans = [];
-        this.filteredPlans = [];
-        this.selectedPlan = null;
-        this.currentView = 'grid';
-        this.filters = {
-            search: '',
-            region: '',
-            category: '',
-            price: '',
-            includes_visit: false,
-            includes_medallion: false,
-            includes_club: false
-        };
-        
-        this.init();
-    }
-    
-    async init() {
-        await this.loadAdoptionPlans();
-        this.setupEventListeners();
-        this.renderPlans();
-    }
-    
-    async loadAdoptionPlans() {
-        const spinner = document.getElementById('loading-spinner');
-        spinner.classList.add('active');
-        
-        try {
-            const response = await fetch('/vinsdelux/api/adoption-plans/');
-            const data = await response.json();
-            
-            this.adoptionPlans = data.adoption_plans;
-            this.filteredPlans = [...this.adoptionPlans];
-            
-            // Populate filter options
-            if (data.filters) {
-                this.populateRegionFilter(data.filters.regions);
-            }
-            
-            // Update result count
-            document.getElementById('result-count').textContent = this.filteredPlans.length;
-            
-        } catch (error) {
-            console.error('Failed to load adoption plans:', error);
-            this.showNoResults();
-        } finally {
-            spinner.classList.remove('active');
+    // Enhanced Plot Selector with Database Integration
+    class PlotSelector {
+        constructor() {
+            this.adoptionPlans = [];
+            this.filteredPlans = [];
+            this.selectedPlan = null;
+            this.currentView = "grid";
+            this.filters = {
+                search: "",
+                region: "",
+                category: "",
+                price: "",
+                includes_visit: false,
+                includes_medallion: false,
+                includes_club: false,
+            };
+
+            this.init();
         }
-    }
-    
-    populateRegionFilter(regions) {
-        const select = document.getElementById('region-filter');
-        select.innerHTML = '<option value="">{% trans "All Regions" %}</option>';
-        
-        regions.forEach(region => {
-            const option = document.createElement('option');
-            option.value = region;
-            option.textContent = region;
-            select.appendChild(option);
-        });
-    }
-    
-    setupEventListeners() {
-        // Search
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            this.filters.search = e.target.value;
-            this.applyFilters();
-        });
-        
-        // Filters
-        document.getElementById('region-filter').addEventListener('change', (e) => {
-            this.filters.region = e.target.value;
-            this.applyFilters();
-        });
-        
-        document.getElementById('category-filter').addEventListener('change', (e) => {
-            this.filters.category = e.target.value;
-            this.applyFilters();
-        });
-        
-        document.getElementById('price-filter').addEventListener('change', (e) => {
-            this.filters.price = e.target.value;
-            this.applyFilters();
-        });
-        
-        // Feature toggles
-        document.querySelectorAll('.feature-toggle').forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
-                const feature = toggle.dataset.feature;
-                const input = toggle.querySelector('input');
-                input.checked = !input.checked;
-                toggle.classList.toggle('active', input.checked);
-                
-                if (feature === 'visit') this.filters.includes_visit = input.checked;
-                if (feature === 'medallion') this.filters.includes_medallion = input.checked;
-                if (feature === 'club') this.filters.includes_club = input.checked;
-                
+
+        async init() {
+            await this.loadAdoptionPlans();
+            this.setupEventListeners();
+            this.renderPlans();
+        }
+
+        async loadAdoptionPlans() {
+            const spinner = document.getElementById("loading-spinner");
+            spinner.classList.add("active");
+
+            try {
+                const response = await fetch("/vinsdelux/api/adoption-plans/");
+                const data = await response.json();
+
+                this.adoptionPlans = data.adoption_plans;
+                this.filteredPlans = [...this.adoptionPlans];
+
+                // Populate filter options
+                if (data.filters) {
+                    this.populateRegionFilter(data.filters.regions);
+                }
+
+                // Update result count
+                document.getElementById("result-count").textContent =
+                    this.filteredPlans.length;
+            } catch (error) {
+                console.error("Failed to load adoption plans:", error);
+                this.showNoResults();
+            } finally {
+                spinner.classList.remove("active");
+            }
+        }
+
+        populateRegionFilter(regions) {
+            const select = document.getElementById("region-filter");
+            select.innerHTML = '<option value="">{% trans "All Regions" %}</option>';
+
+            regions.forEach((region) => {
+                const option = document.createElement("option");
+                option.value = region;
+                option.textContent = region;
+                select.appendChild(option);
+            });
+        }
+
+        setupEventListeners() {
+            // Search
+            document.getElementById("search-input").addEventListener("input", (e) => {
+                this.filters.search = e.target.value;
                 this.applyFilters();
             });
-        });
-        
-        // View toggle
-        document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const view = btn.dataset.view;
-                this.switchView(view);
+
+            // Filters
+            document.getElementById("region-filter").addEventListener("change", (e) => {
+                this.filters.region = e.target.value;
+                this.applyFilters();
             });
-        });
-    }
-    
-    applyFilters() {
-        this.filteredPlans = this.adoptionPlans.filter(plan => {
-            // Search filter
-            if (this.filters.search) {
-                const searchLower = this.filters.search.toLowerCase();
-                const matchesSearch = 
-                    plan.name.toLowerCase().includes(searchLower) ||
-                    (plan.description && plan.description.toLowerCase().includes(searchLower)) ||
-                    (plan.producer.name && plan.producer.name.toLowerCase().includes(searchLower)) ||
-                    (plan.producer.region && plan.producer.region.toLowerCase().includes(searchLower));
-                
-                if (!matchesSearch) return false;
-            }
-            
-            // Region filter
-            if (this.filters.region && plan.producer.region !== this.filters.region) {
-                return false;
-            }
-            
-            // Category filter
-            if (this.filters.category && plan.category !== this.filters.category) {
-                return false;
-            }
-            
-            // Price filter
-            if (this.filters.price) {
-                const price = plan.price;
-                switch(this.filters.price) {
-                    case '0-500':
-                        if (price > 500) return false;
-                        break;
-                    case '500-1000':
-                        if (price < 500 || price > 1000) return false;
-                        break;
-                    case '1000-2000':
-                        if (price < 1000 || price > 2000) return false;
-                        break;
-                    case '2000+':
-                        if (price < 2000) return false;
-                        break;
+
+            document
+                .getElementById("category-filter")
+                .addEventListener("change", (e) => {
+                    this.filters.category = e.target.value;
+                    this.applyFilters();
+                });
+
+            document.getElementById("price-filter").addEventListener("change", (e) => {
+                this.filters.price = e.target.value;
+                this.applyFilters();
+            });
+
+            // Feature toggles
+            document.querySelectorAll(".feature-toggle").forEach((toggle) => {
+                toggle.addEventListener("click", (e) => {
+                    const feature = toggle.dataset.feature;
+                    const input = toggle.querySelector("input");
+                    input.checked = !input.checked;
+                    toggle.classList.toggle("active", input.checked);
+
+                    if (feature === "visit")
+                        this.filters.includes_visit = input.checked;
+                    if (feature === "medallion")
+                        this.filters.includes_medallion = input.checked;
+                    if (feature === "club") this.filters.includes_club = input.checked;
+
+                    this.applyFilters();
+                });
+            });
+
+            // View toggle
+            document.querySelectorAll(".view-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const view = btn.dataset.view;
+                    this.switchView(view);
+                });
+            });
+        }
+
+        applyFilters() {
+            this.filteredPlans = this.adoptionPlans.filter((plan) => {
+                // Search filter
+                if (this.filters.search) {
+                    const searchLower = this.filters.search.toLowerCase();
+                    const matchesSearch =
+                        plan.name.toLowerCase().includes(searchLower) ||
+                        (plan.description &&
+                            plan.description.toLowerCase().includes(searchLower)) ||
+                        (plan.producer.name &&
+                            plan.producer.name.toLowerCase().includes(searchLower)) ||
+                        (plan.producer.region &&
+                            plan.producer.region.toLowerCase().includes(searchLower));
+
+                    if (!matchesSearch) return false;
                 }
+
+                // Region filter
+                if (
+                    this.filters.region &&
+                    plan.producer.region !== this.filters.region
+                ) {
+                    return false;
+                }
+
+                // Category filter
+                if (this.filters.category && plan.category !== this.filters.category) {
+                    return false;
+                }
+
+                // Price filter
+                if (this.filters.price) {
+                    const price = plan.price;
+                    switch (this.filters.price) {
+                        case "0-500":
+                            if (price > 500) return false;
+                            break;
+                        case "500-1000":
+                            if (price < 500 || price > 1000) return false;
+                            break;
+                        case "1000-2000":
+                            if (price < 1000 || price > 2000) return false;
+                            break;
+                        case "2000+":
+                            if (price < 2000) return false;
+                            break;
+                    }
+                }
+
+                // Feature filters
+                if (this.filters.includes_visit && !plan.features.includes_visit)
+                    return false;
+                if (
+                    this.filters.includes_medallion &&
+                    !plan.features.includes_medallion
+                )
+                    return false;
+                if (
+                    this.filters.includes_club &&
+                    !plan.features.includes_club_membership
+                )
+                    return false;
+
+                return true;
+            });
+
+            // Update result count
+            document.getElementById("result-count").textContent =
+                this.filteredPlans.length;
+
+            // Re-render
+            this.renderPlans();
+        }
+
+        renderPlans() {
+            const grid = document.getElementById("plots-grid");
+            const noResults = document.getElementById("no-results");
+
+            if (!grid) {
+                console.error("Could not find plots-grid container");
+                return;
             }
-            
-            // Feature filters
-            if (this.filters.includes_visit && !plan.features.includes_visit) return false;
-            if (this.filters.includes_medallion && !plan.features.includes_medallion) return false;
-            if (this.filters.includes_club && !plan.features.includes_club_membership) return false;
-            
-            return true;
-        });
-        
-        // Update result count
-        document.getElementById('result-count').textContent = this.filteredPlans.length;
-        
-        // Re-render
-        this.renderPlans();
-    }
-    
-    renderPlans() {
-        const grid = document.getElementById('plots-grid');
-        const noResults = document.getElementById('no-results');
-        
-        if (!grid) {
-            console.error('Could not find plots-grid container');
-            return;
+
+            if (this.filteredPlans.length === 0) {
+                grid.innerHTML = "";
+                grid.style.display = "none";
+                noResults.classList.add("active");
+                return;
+            }
+
+            noResults.classList.remove("active");
+            grid.style.display = "grid"; // Ensure grid display is set
+            grid.innerHTML = "";
+
+            this.filteredPlans.forEach((plan) => {
+                const card = this.createPlanCard(plan);
+                grid.appendChild(card);
+            });
         }
-        
-        if (this.filteredPlans.length === 0) {
-            grid.innerHTML = '';
-            grid.style.display = 'none';
-            noResults.classList.add('active');
-            return;
-        }
-        
-        noResults.classList.remove('active');
-        grid.style.display = 'grid';  // Ensure grid display is set
-        grid.innerHTML = '';
-        
-        this.filteredPlans.forEach(plan => {
-            const card = this.createPlanCard(plan);
-            grid.appendChild(card);
-        });
-    }
-    
-    createPlanCard(plan) {
-        const card = document.createElement('div');
-        card.className = `plot-card ${this.selectedPlan === plan.id ? 'selected' : ''}`;
-        card.dataset.planId = plan.id;
-        
-        // Build features HTML
-        const features = [];
-        if (plan.features.includes_visit) features.push('<span class="feature-tag"><i class="fas fa-map-marked-alt"></i> Vineyard Visit</span>');
-        if (plan.features.includes_medallion) features.push('<span class="feature-tag"><i class="fas fa-medal"></i> Medallion</span>');
-        if (plan.features.includes_club_membership) features.push('<span class="feature-tag"><i class="fas fa-users"></i> Club Member</span>');
-        
-        card.innerHTML = `
+
+        createPlanCard(plan) {
+            const card = document.createElement("div");
+            card.className = `plot-card ${this.selectedPlan === plan.id ? "selected" : ""}`;
+            card.dataset.planId = plan.id;
+
+            // Build features HTML
+            const features = [];
+            if (plan.features.includes_visit)
+                features.push(
+                    '<span class="feature-tag"><i class="fas fa-map-marked-alt"></i> Vineyard Visit</span>',
+                );
+            if (plan.features.includes_medallion)
+                features.push(
+                    '<span class="feature-tag"><i class="fas fa-medal"></i> Medallion</span>',
+                );
+            if (plan.features.includes_club_membership)
+                features.push(
+                    '<span class="feature-tag"><i class="fas fa-users"></i> Club Member</span>',
+                );
+
+            card.innerHTML = `
             <div class="plot-image-container">
-                ${plan.image_url ? 
-                    `<img src="${plan.image_url}" alt="${plan.name}" class="plot-image" onerror="this.src='/static/vinsdelux/images/journey/step_01.png'">` :
-                    `<div class="plot-image" style="background: linear-gradient(135deg, #8BC34A, #689F38); display: flex; align-items: center; justify-content: center;">
+                ${
+                    plan.image_url
+                        ? `<img src="${plan.image_url}" alt="${plan.name}" class="plot-image" onerror="this.src='/static/vinsdelux/images/journey/step_01.png'">`
+                        : `<div class="plot-image" style="background: linear-gradient(135deg, #8BC34A, #689F38); display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-wine-bottle" style="font-size: 4rem; color: white; opacity: 0.8;"></i>
                     </div>`
                 }
@@ -1657,10 +1784,10 @@ class PlotSelector {
                 <h3 class="plot-title">${plan.name}</h3>
                 <div class="plot-region">
                     <i class="fas fa-map-marker-alt"></i>
-                    ${plan.producer.region || 'France'}
+                    ${plan.producer.region || "France"}
                 </div>
                 
-                <p class="plot-description">${plan.description || 'Experience exceptional wine adoption with exclusive benefits.'}</p>
+                <p class="plot-description">${plan.description || "Experience exceptional wine adoption with exclusive benefits."}</p>
                 
                 <div class="plot-details">
                     <div class="detail-item">
@@ -1671,22 +1798,34 @@ class PlotSelector {
                         <i class="fas fa-wine-bottle"></i>
                         <span>${plan.coffrets_per_year} coffrets/year</span>
                     </div>
-                    ${plan.coffret && plan.coffret.name ? `
+                    ${
+                        plan.coffret && plan.coffret.name
+                            ? `
                     <div class="detail-item">
                         <i class="fas fa-box"></i>
                         <span>${plan.coffret.name}</span>
-                    </div>` : ''}
-                    ${plan.category ? `
+                    </div>`
+                            : ""
+                    }
+                    ${
+                        plan.category
+                            ? `
                     <div class="detail-item">
                         <i class="fas fa-tag"></i>
                         <span>${plan.category}</span>
-                    </div>` : ''}
+                    </div>`
+                            : ""
+                    }
                 </div>
                 
-                ${features.length > 0 ? `
+                ${
+                    features.length > 0
+                        ? `
                 <div class="plot-features">
-                    ${features.join('')}
-                </div>` : ''}
+                    ${features.join("")}
+                </div>`
+                        : ""
+                }
                 
                 <div class="plot-footer">
                     <div class="plot-price">
@@ -1697,64 +1836,70 @@ class PlotSelector {
                         <button class="btn-view-details" onclick="plotSelector.showPlanDetail(${plan.id})">
                             <i class="fas fa-eye"></i> Details
                         </button>
-                        <button class="btn-select ${this.selectedPlan === plan.id ? 'selected' : ''}" 
+                        <button class="btn-select ${this.selectedPlan === plan.id ? "selected" : ""}" 
                                 onclick="plotSelector.selectPlan(${plan.id})">
-                            ${this.selectedPlan === plan.id ? '✓ Selected' : 'Select'}
+                            ${this.selectedPlan === plan.id ? "✓ Selected" : "Select"}
                         </button>
                     </div>
                 </div>
             </div>
         `;
-        
-        return card;
-    }
-    
-    selectPlan(planId) {
-        this.selectedPlan = planId;
-        
-        // Update all cards
-        document.querySelectorAll('.plot-card').forEach(card => {
-            const cardId = parseInt(card.dataset.planId);
-            card.classList.toggle('selected', cardId === planId);
-            
-            const selectBtn = card.querySelector('.btn-select');
-            if (selectBtn) {
-                selectBtn.classList.toggle('selected', cardId === planId);
-                selectBtn.textContent = cardId === planId ? '✓ Selected' : 'Select';
+
+            return card;
+        }
+
+        selectPlan(planId) {
+            this.selectedPlan = planId;
+
+            // Update all cards
+            document.querySelectorAll(".plot-card").forEach((card) => {
+                const cardId = parseInt(card.dataset.planId);
+                card.classList.toggle("selected", cardId === planId);
+
+                const selectBtn = card.querySelector(".btn-select");
+                if (selectBtn) {
+                    selectBtn.classList.toggle("selected", cardId === planId);
+                    selectBtn.textContent = cardId === planId ? "✓ Selected" : "Select";
+                }
+            });
+
+            // Save selection
+            const plan = this.adoptionPlans.find((p) => p.id === planId);
+            if (plan) {
+                localStorage.setItem("selected_adoption_plan", JSON.stringify(plan));
+
+                // Trigger custom event
+                const event = new CustomEvent("adoptionPlanSelected", { detail: plan });
+                window.dispatchEvent(event);
             }
-        });
-        
-        // Save selection
-        const plan = this.adoptionPlans.find(p => p.id === planId);
-        if (plan) {
-            localStorage.setItem('selected_adoption_plan', JSON.stringify(plan));
-            
-            // Trigger custom event
-            const event = new CustomEvent('adoptionPlanSelected', { detail: plan });
-            window.dispatchEvent(event);
         }
-    }
-    
-    showPlanDetail(planId) {
-        const plan = this.adoptionPlans.find(p => p.id === planId);
-        if (!plan) return;
-        
-        const modal = document.getElementById('plot-detail-modal');
-        const modalBody = document.getElementById('modal-body');
-        
-        // Build features list
-        const features = [];
-        if (plan.features.includes_visit) {
-            features.push(`<li><i class="fas fa-map-marked-alt"></i> <strong>Vineyard Visit Included</strong>${plan.visit_details ? `: ${plan.visit_details}` : ''}</li>`);
-        }
-        if (plan.features.includes_medallion) {
-            features.push('<li><i class="fas fa-medal"></i> <strong>Personalized Medallion</strong></li>');
-        }
-        if (plan.features.includes_club_membership) {
-            features.push('<li><i class="fas fa-users"></i> <strong>Exclusive Club Membership</strong></li>');
-        }
-        
-        modalBody.innerHTML = `
+
+        showPlanDetail(planId) {
+            const plan = this.adoptionPlans.find((p) => p.id === planId);
+            if (!plan) return;
+
+            const modal = document.getElementById("plot-detail-modal");
+            const modalBody = document.getElementById("modal-body");
+
+            // Build features list
+            const features = [];
+            if (plan.features.includes_visit) {
+                features.push(
+                    `<li><i class="fas fa-map-marked-alt"></i> <strong>Vineyard Visit Included</strong>${plan.visit_details ? `: ${plan.visit_details}` : ""}</li>`,
+                );
+            }
+            if (plan.features.includes_medallion) {
+                features.push(
+                    '<li><i class="fas fa-medal"></i> <strong>Personalized Medallion</strong></li>',
+                );
+            }
+            if (plan.features.includes_club_membership) {
+                features.push(
+                    '<li><i class="fas fa-users"></i> <strong>Exclusive Club Membership</strong></li>',
+                );
+            }
+
+            modalBody.innerHTML = `
             <div style="padding: 2rem;">
                 <h2 style="margin-bottom: 1rem; color: #2c3e50;">${plan.name}</h2>
                 
@@ -1762,41 +1907,49 @@ class PlotSelector {
                     <div>
                         <h3 style="color: #722f37; margin-bottom: 1rem;">Producer Information</h3>
                         <p><strong>Name:</strong> ${plan.producer.name}</p>
-                        <p><strong>Region:</strong> ${plan.producer.region || 'France'}</p>
+                        <p><strong>Region:</strong> ${plan.producer.region || "France"}</p>
                     </div>
                     
                     <div>
                         <h3 style="color: #722f37; margin-bottom: 1rem;">Plan Details</h3>
                         <p><strong>Duration:</strong> ${plan.duration_months} months</p>
                         <p><strong>Coffrets per year:</strong> ${plan.coffrets_per_year}</p>
-                        ${plan.coffret && plan.coffret.name ? `<p><strong>Coffret:</strong> ${plan.coffret.name}</p>` : ''}
-                        ${plan.category ? `<p><strong>Wine Type:</strong> ${plan.category}</p>` : ''}
+                        ${plan.coffret && plan.coffret.name ? `<p><strong>Coffret:</strong> ${plan.coffret.name}</p>` : ""}
+                        ${plan.category ? `<p><strong>Wine Type:</strong> ${plan.category}</p>` : ""}
                     </div>
                 </div>
                 
                 <div style="margin-bottom: 2rem;">
                     <h3 style="color: #722f37; margin-bottom: 1rem;">Description</h3>
-                    <p style="line-height: 1.6;">${plan.full_description || plan.description || 'Experience exceptional wine adoption with exclusive benefits tailored to your preferences.'}</p>
+                    <p style="line-height: 1.6;">${plan.full_description || plan.description || "Experience exceptional wine adoption with exclusive benefits tailored to your preferences."}</p>
                 </div>
                 
-                ${features.length > 0 ? `
+                ${
+                    features.length > 0
+                        ? `
                 <div style="margin-bottom: 2rem;">
                     <h3 style="color: #722f37; margin-bottom: 1rem;">Included Features</h3>
                     <ul style="list-style: none; padding: 0;">
-                        ${features.join('')}
+                        ${features.join("")}
                     </ul>
-                </div>` : ''}
+                </div>`
+                        : ""
+                }
                 
-                ${plan.welcome_kit ? `
+                ${
+                    plan.welcome_kit
+                        ? `
                 <div style="margin-bottom: 2rem;">
                     <h3 style="color: #722f37; margin-bottom: 1rem;">Welcome Kit</h3>
                     <p>${plan.welcome_kit}</p>
-                </div>` : ''}
+                </div>`
+                        : ""
+                }
                 
                 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
                     <h3 style="color: #722f37; margin-bottom: 1rem;">Investment</h3>
                     <p style="font-size: 2rem; font-weight: bold; color: #2c3e50; margin: 0;">€${plan.price}</p>
-                    ${plan.avant_premiere_price ? `<p style="margin-top: 0.5rem;">Avant-Première Option: €${plan.avant_premiere_price}</p>` : ''}
+                    ${plan.avant_premiere_price ? `<p style="margin-top: 0.5rem;">Avant-Première Option: €${plan.avant_premiere_price}</p>` : ""}
                 </div>
                 
                 <div style="display: flex; gap: 1rem; justify-content: center;">
@@ -1810,62 +1963,62 @@ class PlotSelector {
                 </div>
             </div>
         `;
-        
-        modal.classList.add('active');
-    }
-    
-    switchView(view) {
-        this.currentView = view;
-        
-        // Update buttons
-        document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === view);
-        });
-        
-        // Toggle views
-        const plotsGrid = document.getElementById('plots-grid');
-        const mapView = document.getElementById('map-view');
-        
-        if (view === 'grid') {
-            plotsGrid.style.display = 'grid';  // Use 'grid' instead of 'block'
-            if (mapView) mapView.style.display = 'none';
-        } else if (view === 'map') {
-            plotsGrid.style.display = 'none';
-            if (mapView) {
-                mapView.style.display = 'block';
-                this.initMapView();
+
+            modal.classList.add("active");
+        }
+
+        switchView(view) {
+            this.currentView = view;
+
+            // Update buttons
+            document.querySelectorAll(".view-btn").forEach((btn) => {
+                btn.classList.toggle("active", btn.dataset.view === view);
+            });
+
+            // Toggle views
+            const plotsGrid = document.getElementById("plots-grid");
+            const mapView = document.getElementById("map-view");
+
+            if (view === "grid") {
+                plotsGrid.style.display = "grid"; // Use 'grid' instead of 'block'
+                if (mapView) mapView.style.display = "none";
+            } else if (view === "map") {
+                plotsGrid.style.display = "none";
+                if (mapView) {
+                    mapView.style.display = "block";
+                    this.initMapView();
+                }
             }
         }
-    }
-    
-    initMapView() {
-        // Initialize map view if needed
-        // This could integrate with the canvas-based map from the previous implementation
-    }
-    
-    showNoResults() {
-        document.getElementById('plots-grid').innerHTML = '';
-        document.getElementById('no-results').classList.add('active');
-    }
-}
 
-// Comment out the original PlotSelector initialization
-// as we're using the StandalonePlotSelector from the external file
-// let plotSelector;
-// document.addEventListener('DOMContentLoaded', () => {
-//     plotSelector = new PlotSelector();
-// });
+        initMapView() {
+            // Initialize map view if needed
+            // This could integrate with the canvas-based map from the previous implementation
+        }
 
-// Helper functions
-function closePlotDetail() {
-    document.getElementById('plot-detail-modal').classList.remove('active');
-}
-
-// Close modal on outside click
-document.getElementById('plot-detail-modal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) {
-        closePlotDetail();
+        showNoResults() {
+            document.getElementById("plots-grid").innerHTML = "";
+            document.getElementById("no-results").classList.add("active");
+        }
     }
-});
+
+    // Comment out the original PlotSelector initialization
+    // as we're using the StandalonePlotSelector from the external file
+    // let plotSelector;
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     plotSelector = new PlotSelector();
+    // });
+
+    // Helper functions
+    function closePlotDetail() {
+        document.getElementById("plot-detail-modal").classList.remove("active");
+    }
+
+    // Close modal on outside click
+    document.getElementById("plot-detail-modal").addEventListener("click", (e) => {
+        if (e.target === e.currentTarget) {
+            closePlotDetail();
+        }
+    });
 </script>
 {% endblock %}

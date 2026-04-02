@@ -1,24 +1,31 @@
-{% extends "base.html" %}
-{% load static %}
-{% load crispy_forms_tags %}
-
-{% block extra_css %}
-{# Swipe styles are in entreprinder.css, but load component CSS for completeness #}
-<link rel="stylesheet" href="{% static 'entreprinder/css/components/swipe.css' %}">
-{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% load static %} {% load crispy_forms_tags %} {% block
+extra_css %} {# Swipe styles are in entreprinder.css, but load component CSS for
+completeness #}
+<link rel="stylesheet" href="{% static 'entreprinder/css/components/swipe.css' %}" />
+{% endblock %} {% block content %}
 <div class="container mt-5">
     <div id="swipe-container">
         <div id="swipeCard" class="swipe-card card">
             <div class="swipe-overlay like">👍</div>
             <div class="swipe-overlay dislike">👎</div>
             {% if profile.linkedin_photo_url %}
-                <img src="{{ profile.linkedin_photo_url }}" class="card-img-top" alt="{{ profile.user.get_full_name }}'s LinkedIn profile picture">
+            <img
+                src="{{ profile.linkedin_photo_url }}"
+                class="card-img-top"
+                alt="{{ profile.user.get_full_name }}'s LinkedIn profile picture"
+            />
             {% elif profile.profile_picture %}
-                <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{{ profile.user.get_full_name }}'s profile picture">
+            <img
+                src="{{ profile.profile_picture.url }}"
+                class="card-img-top"
+                alt="{{ profile.user.get_full_name }}'s profile picture"
+            />
             {% else %}
-                <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}" class="card-img-top" alt="Default profile picture">
+            <img
+                src="{{ POWERUP_DEFAULT_PROFILE_URL }}"
+                class="card-img-top"
+                alt="Default profile picture"
+            />
             {% endif %}
             <div class="card-body">
                 <h4 class="card-title mb-3">{{ profile.user.get_full_name }}</h4>
@@ -26,7 +33,7 @@
                     <p><strong>Company:</strong> {{ profile.company }}</p>
                     <p><strong>Industry:</strong> {{ profile.industry }}</p>
                     {% if profile.location %}
-                        <p><strong>Location:</strong> {{ profile.location }}</p>
+                    <p><strong>Location:</strong> {{ profile.location }}</p>
                     {% endif %}
                 </div>
                 <p class="bio">{{ profile.bio|truncatewords:30 }}</p>
@@ -39,25 +46,23 @@
         <button id="like-btn" class="btn btn-success">👍 Like</button>
     </div>
 
-    <form id="swipe-form" method="post" style="display: none;">
-        {% csrf_token %}
-        {{ form.entrepreneur_id }}
-        {{ form.action }}
+    <form id="swipe-form" method="post" style="display: none">
+        {% csrf_token %} {{ form.entrepreneur_id }} {{ form.action }}
     </form>
 </div>
 
 <div id="matchPopup" class="match-popup">
     <h2>It's a Match!</h2>
-    <img id="matchProfilePicture" src="" alt="Match Profile Picture">
+    <img id="matchProfilePicture" src="" alt="Match Profile Picture" />
     <p>You matched with <span id="matchName"></span>!</p>
     <button onclick="closeMatchPopup()">Continue Swiping</button>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"
-        integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g=="
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"></script>
+{% endblock %} {% block extra_js %}
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"
+    integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
 <script src="{% static 'entreprinder/js/swipe.js' %}"></script>
 {% endblock %}

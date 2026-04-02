@@ -1,7 +1,4 @@
-{% extends 'crush_lu/base.html' %}
-{% load static %}
-
-{% block extra_css %}
+{% extends 'crush_lu/base.html' %} {% load static %} {% block extra_css %}
 <style>
     /* ============================================================================
        ADVENT CALENDAR THEME - Winter/Christmas Styling
@@ -31,7 +28,9 @@
         top: -50px;
         color: white;
         font-size: 1.2rem;
-        animation: fall linear infinite, sway ease-in-out infinite;
+        animation:
+            fall linear infinite,
+            sway ease-in-out infinite;
         opacity: 0.8;
         text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     }
@@ -46,7 +45,8 @@
     }
 
     @keyframes sway {
-        0%, 100% {
+        0%,
+        100% {
             margin-left: 0;
         }
         25% {
@@ -181,7 +181,7 @@
     }
 
     .bonus-content::before {
-        content: '🎁 ';
+        content: "🎁 ";
     }
 
     /* Back button */
@@ -222,49 +222,47 @@
         }
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="advent-container">
     <!-- Snowflakes animation -->
     <div class="snowflakes" id="snowflakes"></div>
 
     {% block advent_content %}{% endblock %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
     // Generate snowflakes
-    (function() {
-        const snowflakesContainer = document.getElementById('snowflakes');
+    (function () {
+        const snowflakesContainer = document.getElementById("snowflakes");
         if (!snowflakesContainer) return;
 
-        const snowflakeSymbols = ['❄', '❅', '❆', '✻', '✼', '•'];
+        const snowflakeSymbols = ["❄", "❅", "❆", "✻", "✼", "•"];
 
         for (let i = 0; i < 60; i++) {
-            const snowflake = document.createElement('span');
-            snowflake.className = 'snowflake';
-            snowflake.textContent = snowflakeSymbols[Math.floor(Math.random() * snowflakeSymbols.length)];
+            const snowflake = document.createElement("span");
+            snowflake.className = "snowflake";
+            snowflake.textContent =
+                snowflakeSymbols[Math.floor(Math.random() * snowflakeSymbols.length)];
 
             // Random horizontal position
-            snowflake.style.left = Math.random() * 100 + '%';
+            snowflake.style.left = Math.random() * 100 + "%";
 
             // Random fall duration (8-18 seconds)
             const fallDuration = Math.random() * 10 + 8;
             // Random sway duration (3-6 seconds)
             const swayDuration = Math.random() * 3 + 3;
 
-            snowflake.style.animationDuration = fallDuration + 's, ' + swayDuration + 's';
+            snowflake.style.animationDuration =
+                fallDuration + "s, " + swayDuration + "s";
 
             // Stagger start times so snowflakes don't all appear at once
             // Use negative delay so some start mid-fall
             const delay = Math.random() * fallDuration;
-            snowflake.style.animationDelay = '-' + delay + 's, 0s';
+            snowflake.style.animationDelay = "-" + delay + "s, 0s";
 
             // Random size
             const size = Math.random() * 1.2 + 0.6;
-            snowflake.style.fontSize = size + 'rem';
+            snowflake.style.fontSize = size + "rem";
 
             // Random opacity for depth effect
             snowflake.style.opacity = Math.random() * 0.5 + 0.4;

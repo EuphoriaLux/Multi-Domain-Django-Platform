@@ -7,13 +7,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0111_quizevent_num_tables_and_generated'),
+        ("crush_lu", "0111_quizevent_num_tables_and_generated"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='crushcoach',
-            name='phone_number',
-            field=models.CharField(blank=True, help_text="Coach's direct phone number for WhatsApp and calls", max_length=20, validators=[django.core.validators.RegexValidator(message='Enter a valid phone number (e.g., +352 621 123 456).', regex='^\\+?[\\d\\s\\-().]{7,20}$')]),
+            model_name="crushcoach",
+            name="phone_number",
+            field=models.CharField(
+                blank=True,
+                help_text="Coach's direct phone number for WhatsApp and calls",
+                max_length=20,
+                validators=[
+                    django.core.validators.RegexValidator(
+                        message="Enter a valid phone number (e.g., +352 621 123 456).",
+                        regex="^\\+?[\\d\\s\\-().]{7,20}$",
+                    )
+                ],
+            ),
         ),
     ]

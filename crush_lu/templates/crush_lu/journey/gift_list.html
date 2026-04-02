@@ -1,12 +1,10 @@
-{% extends "crush_lu/journey/gift_base.html" %}
-{% load static i18n %}
-
-{% block title %}{% trans "Your Sent Gifts" %} - Crush.lu{% endblock %}
-
-{% block gift_content %}
+{% extends "crush_lu/journey/gift_base.html" %} {% load static i18n %} {% block title
+%}{% trans "Your Sent Gifts" %} - Crush.lu{% endblock %} {% block gift_content %}
 <div class="gift-card">
     <h1 class="gift-title">{% trans "Your Sent Gifts" %}</h1>
-    <p class="gift-subtitle">{% trans "Track the journeys you've created for others" %}</p>
+    <p class="gift-subtitle">
+        {% trans "Track the journeys you've created for others" %}
+    </p>
 
     {% if gifts %}
     <div class="gifts-list">
@@ -21,27 +19,44 @@
                 </div>
                 <div>
                     {% if gift.status == 'pending' %}
-                    <span class="status-badge status-pending">{% trans "Pending" %}</span>
+                    <span class="status-badge status-pending"
+                        >{% trans "Pending" %}</span
+                    >
                     {% elif gift.status == 'claimed' %}
-                    <span class="status-badge status-claimed">{% trans "Claimed" %}</span>
+                    <span class="status-badge status-claimed"
+                        >{% trans "Claimed" %}</span
+                    >
                     {% elif gift.status == 'completed' %}
-                    <span class="status-badge status-completed">{% trans "Completed" %}</span>
+                    <span class="status-badge status-completed"
+                        >{% trans "Completed" %}</span
+                    >
                     {% elif gift.status == 'expired' %}
-                    <span class="status-badge status-expired">{% trans "Expired" %}</span>
+                    <span class="status-badge status-expired"
+                        >{% trans "Expired" %}</span
+                    >
                     {% endif %}
                 </div>
             </div>
 
             <div class="gift-item-dates">
-                <p>{% trans "Created:" %} {{ gift.created_at|date:"SHORT_DATE_FORMAT" }}</p>
+                <p>
+                    {% trans "Created:" %} {{ gift.created_at|date:"SHORT_DATE_FORMAT"
+                    }}
+                </p>
                 {% if gift.claimed_at %}
-                <p>{% trans "Claimed:" %} {{ gift.claimed_at|date:"SHORT_DATE_FORMAT" }}</p>
+                <p>
+                    {% trans "Claimed:" %} {{ gift.claimed_at|date:"SHORT_DATE_FORMAT"
+                    }}
+                </p>
                 {% endif %}
             </div>
 
             {% if gift.status == 'pending' %}
             <div class="gift-item-actions">
-                <a href="{% url 'crush_lu:gift_success' gift_code=gift.gift_code %}" class="btn-gift btn-gift-secondary">
+                <a
+                    href="{% url 'crush_lu:gift_success' gift_code=gift.gift_code %}"
+                    class="btn-gift btn-gift-secondary"
+                >
                     {% trans "View QR Code" %}
                 </a>
             </div>
@@ -56,9 +71,7 @@
             {% trans "Create Your First Gift" %}
         </a>
     </div>
-    {% endif %}
-
-    {% if gifts %}
+    {% endif %} {% if gifts %}
     <div class="list-footer">
         <a href="{% url 'crush_lu:gift_create' %}" class="btn-gift btn-gift-primary">
             {% trans "Create Another Gift" %}

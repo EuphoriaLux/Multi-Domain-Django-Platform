@@ -3,8 +3,7 @@ Allauth adapters for Delegations.lu.
 
 Customizes Microsoft authentication behavior for delegations.lu domain.
 """
-from django.shortcuts import redirect
-from django.contrib import messages
+
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 import logging
@@ -22,8 +21,8 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
         """Check if current request is from delegations.lu domain"""
         if not request:
             return False
-        host = request.get_host().split(':')[0].lower()
-        return host in ['delegations.lu', 'localhost', '127.0.0.1']
+        host = request.get_host().split(":")[0].lower()
+        return host in ["delegations.lu", "localhost", "127.0.0.1"]
 
     def is_auto_signup_allowed(self, request, sociallogin):
         """
@@ -34,7 +33,7 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
             return super().is_auto_signup_allowed(request, sociallogin)
 
         # Always allow auto-signup for Microsoft on delegation domain
-        if sociallogin.account.provider == 'microsoft':
+        if sociallogin.account.provider == "microsoft":
             return True
 
         return super().is_auto_signup_allowed(request, sociallogin)
@@ -45,15 +44,17 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         user = super().populate_user(request, sociallogin, data)
 
-        if sociallogin.account.provider == 'microsoft':
+        if sociallogin.account.provider == "microsoft":
             extra_data = sociallogin.account.extra_data
 
             # Microsoft provides these in extra_data
-            user.first_name = extra_data.get('givenName', '') or data.get('first_name', '')
-            user.last_name = extra_data.get('surname', '') or data.get('last_name', '')
+            user.first_name = extra_data.get("givenName", "") or data.get(
+                "first_name", ""
+            )
+            user.last_name = extra_data.get("surname", "") or data.get("last_name", "")
 
             # Email from Microsoft
-            email = extra_data.get('mail') or extra_data.get('userPrincipalName')
+            email = extra_data.get("mail") or extra_data.get("userPrincipalName")
             if email:
                 user.email = email
 
@@ -62,7 +63,7 @@ class DelegationSocialAccountAdapter(DefaultSocialAccountAdapter):
     def get_signup_redirect_url(self, request):
         """Redirect to dashboard after signup on delegation domain"""
         if self._is_delegation_domain(request):
-            return '/dashboard/'
+            return "/dashboard/"
         return super().get_signup_redirect_url(request)
 
 
@@ -76,8 +77,8 @@ class DelegationAccountAdapter(DefaultAccountAdapter):
         """Check if current request is from delegations.lu domain"""
         if not request:
             return False
-        host = request.get_host().split(':')[0].lower()
-        return host in ['delegations.lu', 'localhost', '127.0.0.1']
+        host = request.get_host().split(":")[0].lower()
+        return host in ["delegations.lu", "localhost", "127.0.0.1"]
 
     def get_login_redirect_url(self, request):
         """
@@ -92,18 +93,18 @@ class DelegationAccountAdapter(DefaultAccountAdapter):
         try:
             profile = request.user.delegation_profile
             if profile.is_approved:
-                return '/dashboard/'
-            elif profile.status == 'pending':
-                return '/pending-approval/'
-            elif profile.status == 'no_company':
-                return '/no-company/'
-            elif profile.status == 'rejected':
-                return '/access-denied/'
+                return "/dashboard/"
+            elif profile.status == "pending":
+                return "/pending-approval/"
+            elif profile.status == "no_company":
+                return "/no-company/"
+            elif profile.status == "rejected":
+                return "/access-denied/"
         except DelegationProfile.DoesNotExist:
             pass
 
         # No profile yet - will be created by signal, go to dashboard
-        return '/dashboard/'
+        return "/dashboard/"
 
     def is_open_for_signup(self, request):
         """
@@ -118,5 +119,5 @@ class DelegationAccountAdapter(DefaultAccountAdapter):
     def get_logout_redirect_url(self, request):
         """Redirect to home page after logout"""
         if self._is_delegation_domain(request):
-            return '/'
+            return "/"
         return super().get_logout_redirect_url(request)

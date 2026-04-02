@@ -11,9 +11,9 @@
    ========================================================================== */
 :root {
     /* Brand Colors */
-    --crush-purple: #9B59B6;
-    --crush-pink: #FF6B9D;
-    --crush-gradient: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    --crush-purple: #9b59b6;
+    --crush-pink: #ff6b9d;
+    --crush-gradient: linear-gradient(135deg, #9b59b6, #ff6b9d);
 
     /* Status Colors */
     --status-success: #28a745;
@@ -135,13 +135,13 @@
 }
 
 .action-center::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     right: 0;
     width: 200px;
     height: 200px;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
     pointer-events: none;
 }
 
@@ -162,7 +162,7 @@
 }
 
 .action-center-toggle {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
     padding: var(--spacing-xs) var(--spacing-sm);
@@ -172,7 +172,7 @@
 }
 
 .action-center-toggle:hover {
-    background: rgba(255,255,255,0.3);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .action-center-grid {
@@ -182,7 +182,7 @@
 }
 
 .action-item {
-    background: rgba(255,255,255,0.15);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
     text-decoration: none;
@@ -193,7 +193,7 @@
 }
 
 .action-item:hover {
-    background: rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.25);
     transform: translateY(-2px);
     color: white;
 }
@@ -336,8 +336,14 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ==========================================================================
@@ -428,12 +434,24 @@
     box-shadow: 0 4px 12px var(--card-shadow);
 }
 
-.metric-card.purple { border-left-color: var(--crush-purple); }
-.metric-card.pink { border-left-color: var(--crush-pink); }
-.metric-card.green { border-left-color: var(--status-success); }
-.metric-card.blue { border-left-color: var(--status-info); }
-.metric-card.orange { border-left-color: var(--status-warning); }
-.metric-card.red { border-left-color: var(--status-danger); }
+.metric-card.purple {
+    border-left-color: var(--crush-purple);
+}
+.metric-card.pink {
+    border-left-color: var(--crush-pink);
+}
+.metric-card.green {
+    border-left-color: var(--status-success);
+}
+.metric-card.blue {
+    border-left-color: var(--status-info);
+}
+.metric-card.orange {
+    border-left-color: var(--status-warning);
+}
+.metric-card.red {
+    border-left-color: var(--status-danger);
+}
 
 .metric-icon {
     font-size: 40px;
@@ -772,7 +790,7 @@ a.metric-card:hover {
 }
 
 .model-group-toggle {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
     width: 24px;
@@ -869,12 +887,24 @@ a.metric-card:hover {
 }
 
 /* Funnel step colors */
-.funnel-step.not-started { border-left-color: var(--status-danger); }
-.funnel-step.step1 { border-left-color: var(--status-warning); }
-.funnel-step.step2 { border-left-color: var(--status-info); }
-.funnel-step.step3 { border-left-color: #6f42c1; }
-.funnel-step.completed { border-left-color: #fd7e14; }
-.funnel-step.submitted { border-left-color: var(--status-success); }
+.funnel-step.not-started {
+    border-left-color: var(--status-danger);
+}
+.funnel-step.step1 {
+    border-left-color: var(--status-warning);
+}
+.funnel-step.step2 {
+    border-left-color: var(--status-info);
+}
+.funnel-step.step3 {
+    border-left-color: #6f42c1;
+}
+.funnel-step.completed {
+    border-left-color: #fd7e14;
+}
+.funnel-step.submitted {
+    border-left-color: var(--status-success);
+}
 
 /* ==========================================================================
    Chart Containers

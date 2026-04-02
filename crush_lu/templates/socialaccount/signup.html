@@ -1,12 +1,8 @@
-{# Domain-aware social account signup template router #}
-{# Routes to appropriate signup template based on the request domain #}
-{% if 'crush.lu' in request.get_host or request.get_host == 'localhost' or '127.0.0.1' in request.get_host %}
-{% include "socialaccount/signup_crush.html" %}
-{% elif 'powerup.lu' in request.get_host or 'azurewebsites.net' in request.get_host %}
-{% include "socialaccount/signup_powerup.html" %}
-{% elif 'vinsdelux.com' in request.get_host %}
-{% include "socialaccount/signup_powerup.html" %}
-{% else %}
-{# Default fallback to PowerUP template #}
-{% include "socialaccount/signup_powerup.html" %}
-{% endif %}
+{# Domain-aware social account signup template router #} {# Routes to appropriate signup
+template based on the request domain #} {% if 'crush.lu' in request.get_host or
+request.get_host == 'localhost' or '127.0.0.1' in request.get_host %} {% include
+"socialaccount/signup_crush.html" %} {% elif 'powerup.lu' in request.get_host or
+'azurewebsites.net' in request.get_host %} {% include
+"socialaccount/signup_powerup.html" %} {% elif 'vinsdelux.com' in request.get_host %} {%
+include "socialaccount/signup_powerup.html" %} {% else %} {# Default fallback to PowerUP
+template #} {% include "socialaccount/signup_powerup.html" %} {% endif %}

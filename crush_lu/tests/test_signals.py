@@ -6,7 +6,7 @@ Tests signal handlers for:
 - Coach staff status management
 - Event registration capacity enforcement
 """
-import pytest
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -14,7 +14,6 @@ from datetime import timedelta
 
 from crush_lu.models import (
     MeetupEvent,
-    EventActivityOption,
     EventRegistration,
     CrushCoach,
 )
@@ -25,28 +24,32 @@ User = get_user_model()
 class TestSetupEventVoting(TestCase):
     """Test the setup_event_voting signal handler."""
 
-    def _create_event(self, title='Test Event', enable_voting=True):
+    def _create_event(self, title="Test Event", enable_voting=True):
         return MeetupEvent.objects.create(
-            title=title, description='A test',
-            event_type='speed_dating',
+            title=title,
+            description="A test",
+            event_type="speed_dating",
             enable_activity_voting=enable_voting,
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg', address='123 Test St',
+            location="Luxembourg",
+            address="123 Test St",
             max_participants=20,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_voting_event_gets_global_options(self):
         """A voting-enabled event should auto-populate GlobalActivityOption if missing."""
         event = self._create_event()
         from crush_lu.models import GlobalActivityOption
+
         self.assertEqual(GlobalActivityOption.objects.filter(is_active=True).count(), 6)
 
     def test_voting_event_gets_voting_session(self):
         """A voting-enabled event should auto-create an EventVotingSession."""
         event = self._create_event()
         from crush_lu.models import EventVotingSession
+
         self.assertTrue(EventVotingSession.objects.filter(event=event).exists())
         session = EventVotingSession.objects.get(event=event)
         self.assertTrue(session.is_active)
@@ -55,23 +58,30 @@ class TestSetupEventVoting(TestCase):
         """The auto-created voting session should start 15 min after event, last 30 min."""
         event = self._create_event()
         from crush_lu.models import EventVotingSession
+
         session = EventVotingSession.objects.get(event=event)
-        self.assertEqual(session.voting_start_time, event.date_time + timedelta(minutes=15))
-        self.assertEqual(session.voting_end_time, event.date_time + timedelta(minutes=45))
+        self.assertEqual(
+            session.voting_start_time, event.date_time + timedelta(minutes=15)
+        )
+        self.assertEqual(
+            session.voting_end_time, event.date_time + timedelta(minutes=45)
+        )
 
     def test_non_voting_event_no_session(self):
         """An event without activity voting should NOT get a voting session."""
-        event = self._create_event('No Voting', enable_voting=False)
+        event = self._create_event("No Voting", enable_voting=False)
         from crush_lu.models import EventVotingSession
+
         self.assertFalse(EventVotingSession.objects.filter(event=event).exists())
 
     def test_saving_existing_event_does_not_create_duplicate_session(self):
         """Saving an existing event should NOT create duplicate voting sessions."""
-        event = self._create_event('Dupe Test')
+        event = self._create_event("Dupe Test")
         from crush_lu.models import EventVotingSession
+
         self.assertEqual(EventVotingSession.objects.filter(event=event).count(), 1)
 
-        event.title = 'Updated Title'
+        event.title = "Updated Title"
         event.save()
         self.assertEqual(EventVotingSession.objects.filter(event=event).count(), 1)
 
@@ -82,15 +92,18 @@ class TestCoachStaffStatusSignal(TestCase):
     def test_active_coach_gets_staff_status(self):
         """Creating an active coach should grant is_staff=True."""
         user = User.objects.create_user(
-            username='newcoach@test.com', email='newcoach@test.com',
-            password='testpass123'
+            username="newcoach@test.com",
+            email="newcoach@test.com",
+            password="testpass123",
         )
         self.assertFalse(user.is_staff)
 
         CrushCoach.objects.create(
-            user=user, bio='Test coach',
-            specializations='General', is_active=True,
-            max_active_reviews=10
+            user=user,
+            bio="Test coach",
+            specializations="General",
+            is_active=True,
+            max_active_reviews=10,
         )
 
         user.refresh_from_db()
@@ -99,14 +112,17 @@ class TestCoachStaffStatusSignal(TestCase):
     def test_inactive_coach_loses_staff_status(self):
         """Deactivating a coach should revoke is_staff=True."""
         user = User.objects.create_user(
-            username='deactivate@test.com', email='deactivate@test.com',
-            password='testpass123'
+            username="deactivate@test.com",
+            email="deactivate@test.com",
+            password="testpass123",
         )
 
         coach = CrushCoach.objects.create(
-            user=user, bio='Test coach',
-            specializations='General', is_active=True,
-            max_active_reviews=10
+            user=user,
+            bio="Test coach",
+            specializations="General",
+            is_active=True,
+            max_active_reviews=10,
         )
 
         user.refresh_from_db()
@@ -121,14 +137,17 @@ class TestCoachStaffStatusSignal(TestCase):
     def test_superuser_not_affected_by_coach_deactivation(self):
         """Superuser's staff status should not be modified by coach signals."""
         user = User.objects.create_superuser(
-            username='supercoach@test.com', email='supercoach@test.com',
-            password='testpass123'
+            username="supercoach@test.com",
+            email="supercoach@test.com",
+            password="testpass123",
         )
 
         coach = CrushCoach.objects.create(
-            user=user, bio='Super coach',
-            specializations='All', is_active=True,
-            max_active_reviews=10
+            user=user,
+            bio="Super coach",
+            specializations="All",
+            is_active=True,
+            max_active_reviews=10,
         )
 
         coach.is_active = False
@@ -140,14 +159,17 @@ class TestCoachStaffStatusSignal(TestCase):
     def test_coach_staff_status_idempotent(self):
         """Saving an already-active coach should not cause errors."""
         user = User.objects.create_user(
-            username='idempotent@test.com', email='idempotent@test.com',
-            password='testpass123'
+            username="idempotent@test.com",
+            email="idempotent@test.com",
+            password="testpass123",
         )
 
         coach = CrushCoach.objects.create(
-            user=user, bio='Coach',
-            specializations='General', is_active=True,
-            max_active_reviews=10
+            user=user,
+            bio="Coach",
+            specializations="General",
+            is_active=True,
+            max_active_reviews=10,
         )
 
         user.refresh_from_db()
@@ -165,23 +187,24 @@ class TestEventCapacity(TestCase):
     def test_event_full_detection(self):
         """When an event is full, is_full should be True."""
         event = MeetupEvent.objects.create(
-            title='Small Event', description='Only 2 spots',
-            event_type='mixer',
+            title="Small Event",
+            description="Only 2 spots",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg', address='123 Test St',
+            location="Luxembourg",
+            address="123 Test St",
             max_participants=2,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
         for i in range(2):
             user = User.objects.create_user(
-                username=f'fill{i}@test.com', email=f'fill{i}@test.com',
-                password='testpass123'
+                username=f"fill{i}@test.com",
+                email=f"fill{i}@test.com",
+                password="testpass123",
             )
-            EventRegistration.objects.create(
-                event=event, user=user, status='confirmed'
-            )
+            EventRegistration.objects.create(event=event, user=user, status="confirmed")
 
         self.assertTrue(event.is_full)
         self.assertFalse(event.is_registration_open)
@@ -189,26 +212,30 @@ class TestEventCapacity(TestCase):
     def test_capacity_count_excludes_cancelled(self):
         """Cancelled registrations should not count toward capacity."""
         event = MeetupEvent.objects.create(
-            title='Cancel Test', description='Test cancelled',
-            event_type='mixer',
+            title="Cancel Test",
+            description="Test cancelled",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg', address='123 Test St',
+            location="Luxembourg",
+            address="123 Test St",
             max_participants=2,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
         user1 = User.objects.create_user(
-            username='cancel1@test.com', email='cancel1@test.com',
-            password='testpass123'
+            username="cancel1@test.com",
+            email="cancel1@test.com",
+            password="testpass123",
         )
         user2 = User.objects.create_user(
-            username='cancel2@test.com', email='cancel2@test.com',
-            password='testpass123'
+            username="cancel2@test.com",
+            email="cancel2@test.com",
+            password="testpass123",
         )
 
-        EventRegistration.objects.create(event=event, user=user1, status='confirmed')
-        EventRegistration.objects.create(event=event, user=user2, status='cancelled')
+        EventRegistration.objects.create(event=event, user=user1, status="confirmed")
+        EventRegistration.objects.create(event=event, user=user2, status="cancelled")
 
         self.assertEqual(event.get_confirmed_count(), 1)
         self.assertFalse(event.is_full)
@@ -216,26 +243,26 @@ class TestEventCapacity(TestCase):
     def test_waitlist_count_tracked_separately(self):
         """Waitlist registrations should be counted separately."""
         event = MeetupEvent.objects.create(
-            title='Waitlist Test', description='Test',
-            event_type='mixer',
+            title="Waitlist Test",
+            description="Test",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg', address='123 Test St',
+            location="Luxembourg",
+            address="123 Test St",
             max_participants=1,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
         user1 = User.objects.create_user(
-            username='wl1@test.com', email='wl1@test.com',
-            password='testpass123'
+            username="wl1@test.com", email="wl1@test.com", password="testpass123"
         )
         user2 = User.objects.create_user(
-            username='wl2@test.com', email='wl2@test.com',
-            password='testpass123'
+            username="wl2@test.com", email="wl2@test.com", password="testpass123"
         )
 
-        EventRegistration.objects.create(event=event, user=user1, status='confirmed')
-        EventRegistration.objects.create(event=event, user=user2, status='waitlist')
+        EventRegistration.objects.create(event=event, user=user1, status="confirmed")
+        EventRegistration.objects.create(event=event, user=user2, status="waitlist")
 
         self.assertEqual(event.get_confirmed_count(), 1)
         self.assertEqual(event.get_waitlist_count(), 1)

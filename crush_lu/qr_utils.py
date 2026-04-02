@@ -8,13 +8,14 @@ Each QR code encodes a unique URL that triggers the QR scan endpoint.
 import uuid
 import io
 import base64
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from pathlib import Path
 
 # QR code generation imports
 try:
     import qrcode
     from qrcode.constants import ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_H
+
     HAS_QRCODE = True
 except ImportError:
     HAS_QRCODE = False
@@ -28,6 +29,7 @@ try:
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
+
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
@@ -37,9 +39,9 @@ def check_dependencies():
     """Check if required dependencies are installed."""
     missing = []
     if not HAS_QRCODE:
-        missing.append('qrcode')
+        missing.append("qrcode")
     if not HAS_REPORTLAB:
-        missing.append('reportlab')
+        missing.append("reportlab")
     return missing
 
 
@@ -47,7 +49,7 @@ def generate_qr_code_image(
     url: str,
     box_size: int = 10,
     border: int = 4,
-    error_correction: int = ERROR_CORRECT_M
+    error_correction: int = ERROR_CORRECT_M,
 ) -> Optional[bytes]:
     """
     Generate a QR code image as PNG bytes.
@@ -77,7 +79,7 @@ def generate_qr_code_image(
 
     # Convert to bytes
     img_buffer = io.BytesIO()
-    img.save(img_buffer, format='PNG')
+    img.save(img_buffer, format="PNG")
     img_buffer.seek(0)
 
     return img_buffer.getvalue()
@@ -90,7 +92,7 @@ def generate_qr_code_base64(url: str, **kwargs) -> str:
     Useful for embedding in HTML without saving to disk.
     """
     png_bytes = generate_qr_code_image(url, **kwargs)
-    b64 = base64.b64encode(png_bytes).decode('utf-8')
+    b64 = base64.b64encode(png_bytes).decode("utf-8")
     return f"data:image/png;base64,{b64}"
 
 
@@ -120,10 +122,10 @@ def generate_tokens_for_user(user, calendar, save: bool = True) -> List:
     Returns:
         List of QRCodeToken instances
     """
-    from .models import QRCodeToken, AdventDoor
+    from .models import QRCodeToken
 
     tokens = []
-    doors = calendar.doors.all().order_by('door_number')
+    doors = calendar.doors.all().order_by("door_number")
 
     for door in doors:
         # Check if token already exists
@@ -133,11 +135,7 @@ def generate_tokens_for_user(user, calendar, save: bool = True) -> List:
             continue
 
         # Create new token
-        token = QRCodeToken(
-            door=door,
-            user=user,
-            token=uuid.uuid4()
-        )
+        token = QRCodeToken(door=door, user=user, token=uuid.uuid4())
         if save:
             token.save()
         tokens.append(token)
@@ -148,7 +146,7 @@ def generate_tokens_for_user(user, calendar, save: bool = True) -> List:
 def generate_printable_qr_sheet(
     tokens: List,
     output_path: Optional[str] = None,
-    title: str = "Advent Calendar QR Codes"
+    title: str = "Advent Calendar QR Codes",
 ) -> Optional[bytes]:
     """
     Generate a printable PDF sheet with QR codes for all 24 doors.
@@ -219,9 +217,7 @@ def generate_printable_qr_sheet(
 
 
 def generate_individual_qr_cards(
-    tokens: List,
-    output_dir: str,
-    include_instructions: bool = True
+    tokens: List, output_dir: str, include_instructions: bool = True
 ) -> List[str]:
     """
     Generate individual QR code image files for each door.
@@ -241,6 +237,7 @@ def generate_individual_qr_cards(
 
     try:
         from PIL import Image, ImageDraw, ImageFont
+
         HAS_PIL = True
     except ImportError:
         HAS_PIL = False
@@ -270,7 +267,7 @@ def generate_individual_qr_cards(
             card_width = qr_size
             card_height = qr_size + 80  # Extra space for text
 
-            card = Image.new('RGB', (card_width, card_height), 'white')
+            card = Image.new("RGB", (card_width, card_height), "white")
             card.paste(qr_img, (0, 0))
 
             # Add text
@@ -290,7 +287,7 @@ def generate_individual_qr_cards(
                 ((card_width - text_width) / 2, qr_size + 10),
                 door_text,
                 fill="black",
-                font=font
+                font=font,
             )
 
             # Instruction
@@ -301,7 +298,7 @@ def generate_individual_qr_cards(
                 ((card_width - instr_width) / 2, qr_size + 40),
                 instruction,
                 fill="gray",
-                font=small_font
+                font=small_font,
             )
 
             # Save
@@ -311,7 +308,7 @@ def generate_individual_qr_cards(
             # Simple QR code without text
             qr_bytes = generate_qr_code_image(url)
             file_path = output_path / f"door_{token.door.door_number:02d}.png"
-            with open(file_path, 'wb') as f:
+            with open(file_path, "wb") as f:
                 f.write(qr_bytes)
 
         generated_files.append(str(file_path))
@@ -331,12 +328,12 @@ def get_qr_stats(calendar) -> dict:
     tokens = QRCodeToken.objects.filter(door__calendar=calendar)
 
     return {
-        'total_tokens': tokens.count(),
-        'used_tokens': tokens.filter(is_used=True).count(),
-        'unused_tokens': tokens.filter(is_used=False).count(),
-        'expired_tokens': sum(1 for t in tokens if t.expires_at and not t.is_valid()),
-        'tokens_per_door': {
+        "total_tokens": tokens.count(),
+        "used_tokens": tokens.filter(is_used=True).count(),
+        "unused_tokens": tokens.filter(is_used=False).count(),
+        "expired_tokens": sum(1 for t in tokens if t.expires_at and not t.is_valid()),
+        "tokens_per_door": {
             door.door_number: tokens.filter(door=door).count()
             for door in calendar.doors.all()
-        }
+        },
     }

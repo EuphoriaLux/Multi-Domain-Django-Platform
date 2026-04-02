@@ -9,11 +9,11 @@ Original functionality is preserved in git history.
 from django.urls import path
 from . import views
 
-app_name = 'vinsdelux'
+app_name = "vinsdelux"
 
 urlpatterns = [
     # Homepage - simple portfolio showcase
-    path('', views.home, name='home'),
+    path("", views.home, name="home"),
 ]
 
 # ===== ARCHIVED URL PATTERNS =====

@@ -6,6 +6,7 @@ In production, we want to:
 - Return generic error messages to clients (prevent information disclosure)
 - Preserve specific validation errors (they're expected/safe)
 """
+
 import logging
 from django.conf import settings
 from rest_framework.views import exception_handler
@@ -39,7 +40,7 @@ def custom_exception_handler(exc, context):
         # Unhandled exception - log and return 500
         logger.error(
             f"[API-ERROR] Unhandled exception: {type(exc).__name__}: {exc}",
-            exc_info=True
+            exc_info=True,
         )
         return None  # Let Django handle it
 
@@ -60,20 +61,20 @@ def custom_exception_handler(exc, context):
     # For other API exceptions in production, sanitize the message
     if not settings.DEBUG:
         # Log the actual error for debugging
-        view = context.get('view')
-        request = context.get('request')
+        view = context.get("view")
+        request = context.get("request")
         logger.error(
             f"[API-ERROR] {type(exc).__name__} in {view.__class__.__name__ if view else 'unknown'}: "
             f"path={request.path if request else 'unknown'}, "
             f"user={request.user if request else 'unknown'}, "
             f"error={exc}",
-            exc_info=True
+            exc_info=True,
         )
 
         # Return sanitized response
         response.data = {
-            'detail': 'An error occurred processing your request.',
-            'error_code': type(exc).__name__
+            "detail": "An error occurred processing your request.",
+            "error_code": type(exc).__name__,
         }
 
     return response

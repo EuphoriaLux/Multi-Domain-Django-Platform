@@ -1,17 +1,19 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "Complete Your Profile" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "Hey" %} {{ user.first_name|default:user.username }}! {% endblock %}
-
-{% block content %}
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "Complete Your Profile" %} - Crush.lu{% endblock %} {% block header_title %}{%
+trans "Hey" %} {{ user.first_name|default:user.username }}! {% endblock %} {% block
+content %}
 <h2>{% trans "Your profile is waiting for you" %}</h2>
 
-<p>{% trans "You started creating your Crush.lu profile yesterday, and we noticed you haven't finished yet." %}</p>
+<p>
+    {% trans "You started creating your Crush.lu profile yesterday, and we noticed you
+    haven't finished yet." %}
+</p>
 
 {% if completion_status == 'not_started' %}
-<p>{% trans "You're just a few steps away from meeting amazing people in Luxembourg! It only takes about 5 minutes to complete your profile." %}</p>
+<p>
+    {% trans "You're just a few steps away from meeting amazing people in Luxembourg! It
+    only takes about 5 minutes to complete your profile." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "What you'll add:" %}</strong>
@@ -24,7 +26,10 @@
 </div>
 
 {% elif completion_status == 'step1' %}
-<p>{% trans "Great start! You've completed the basics. Now let's add a bio and your interests so people can get to know you better." %}</p>
+<p>
+    {% trans "Great start! You've completed the basics. Now let's add a bio and your
+    interests so people can get to know you better." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Next up:" %}</strong>
@@ -36,40 +41,56 @@
 </div>
 
 {% elif completion_status == 'step2' %}
-<p>{% trans "You're almost there! Just add some photos and your profile will be ready for review." %}</p>
+<p>
+    {% trans "You're almost there! Just add some photos and your profile will be ready
+    for review." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Did you know?" %}</strong>
-    <p style="margin: 0;">{% trans "Profiles with 2-3 photos get 3x more connections at our events!" %}</p>
+    <p style="margin: 0">
+        {% trans "Profiles with 2-3 photos get 3x more connections at our events!" %}
+    </p>
 </div>
 
 {% elif completion_status == 'step3' %}
-<p>{% trans "Great progress! Your photos look awesome. Now pick a coach who'll guide you through the experience." %}</p>
+<p>
+    {% trans "Great progress! Your photos look awesome. Now pick a coach who'll guide
+    you through the experience." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Next up:" %}</strong>
-    <p style="margin: 0;">{% trans "Choose a coach who'll personally review your profile and help you get the most out of Crush.lu events." %}</p>
+    <p style="margin: 0">
+        {% trans "Choose a coach who'll personally review your profile and help you get
+        the most out of Crush.lu events." %}
+    </p>
 </div>
 
 {% elif completion_status == 'step4' %}
-<p>{% trans "You're one click away! Just review and submit your profile for coach approval." %}</p>
+<p>
+    {% trans "You're one click away! Just review and submit your profile for coach
+    approval." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Almost done:" %}</strong>
-    <p style="margin: 0;">{% trans "Review your profile and hit submit. Your coach will review it personally!" %}</p>
+    <p style="margin: 0">
+        {% trans "Review your profile and hit submit. Your coach will review it
+        personally!" %}
+    </p>
 </div>
 
 {% endif %}
 
-<p style="text-align: center;">
+<p style="text-align: center">
     <a href="{{ profile_url }}" class="button">{% trans "Complete My Profile" %}</a>
 </p>
 
-<p style="font-size: 14px; color: #777;">
-    {% trans "Once your profile is complete, our team will review it and you'll be ready to join events and meet new people!" %}
+<p style="font-size: 14px; color: #777">
+    {% trans "Once your profile is complete, our team will review it and you'll be ready
+    to join events and meet new people!" %}
 </p>
-{% endblock %}
-
-{% block footer_message %}
-{% trans "You're receiving this reminder because you started creating a profile on Crush.lu." %}<br>
+{% endblock %} {% block footer_message %} {% trans "You're receiving this reminder
+because you started creating a profile on Crush.lu." %}<br />
 {% endblock %}

@@ -33,7 +33,9 @@ if DOTENV_PATH.exists():
         load_dotenv(dotenv_path=DOTENV_PATH)
     except Exception:
         # dotenv is optional; ignore if it's not installed or fails
-        logging.getLogger(__name__).debug("python-dotenv not available or failed to load .env")
+        logging.getLogger(__name__).debug(
+            "python-dotenv not available or failed to load .env"
+        )
 
 
 def _env_bool(name, default=False):
@@ -336,7 +338,9 @@ WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv(
 WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
 WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
-WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool("WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True)
+WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool(
+    "WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True
+)
 
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
@@ -473,7 +477,8 @@ if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     EMAIL_HOST_USER = None  # Not needed for console backend
     import sys
-    if sys.stdout.encoding and 'utf' in sys.stdout.encoding.lower():
+
+    if sys.stdout.encoding and "utf" in sys.stdout.encoding.lower():
         print("📧 Email Backend: Console - Emails will print in terminal")
     else:
         print("[EMAIL] Backend: Console - Emails will print in terminal")
@@ -702,9 +707,15 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
     MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"
 
     # Platform-specific base URLs (using dedicated containers)
-    CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
-    VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
-    POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+    CRUSH_MEDIA_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+    )
+    VINSDELUX_MEDIA_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
+    )
+    POWERUP_MEDIA_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+    )
 
     # Override content image URLs with platform-specific paths (if not explicitly set in env)
     if "SOCIAL_PREVIEW_IMAGE_URL" not in os.environ:
@@ -714,7 +725,9 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
     if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
         VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
     if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:
-        VINSDELUX_VINEYARD_DEFAULTS_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/"
+        VINSDELUX_VINEYARD_DEFAULTS_URL = (
+            f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/"
+        )
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
         POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png"
 
@@ -826,7 +839,7 @@ SECURE_CSP_REPORT_ONLY = {
         CSP.SELF,
         CSP.NONCE,
         CSP.UNSAFE_INLINE,  # TODO: Remove once HTMX/Alpine.js handlers use nonce-based scripts.
-                            # unsafe-inline negates nonce protection in script-src for CSP3 browsers.
+        # unsafe-inline negates nonce protection in script-src for CSP3 browsers.
         # CDN sources
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",

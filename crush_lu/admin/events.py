@@ -17,7 +17,6 @@ from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin
 
 from crush_lu.models import (
-    MeetupEvent,
     EventRegistration,
     EventInvitation,
     EventVotingSession,
@@ -32,7 +31,7 @@ from .quiz import QuizEventInline
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
     extra = 0
-    autocomplete_fields = ['user']
+    autocomplete_fields = ["user"]
     fields = ("user", "status", "payment_confirmed", "registered_at")
     readonly_fields = ("registered_at",)
     can_delete = False
@@ -75,7 +74,7 @@ class EventVotingSessionInline(admin.StackedInline):
 class PresentationQueueInline(admin.TabularInline):
     model = PresentationQueue
     extra = 0
-    autocomplete_fields = ['user']
+    autocomplete_fields = ["user"]
     fields = (
         "user",
         "presentation_order",
@@ -94,7 +93,7 @@ class PresentationQueueInline(admin.TabularInline):
 class SpeedDatingPairInline(admin.TabularInline):
     model = SpeedDatingPair
     extra = 0
-    autocomplete_fields = ['user1', 'user2']
+    autocomplete_fields = ["user1", "user2"]
     fields = (
         "round_number",
         "user1",
@@ -573,10 +572,22 @@ class MeetupEventAdmin(TranslationAdmin):
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):
-    list_display = ("get_user_display", "event", "status", "payment_confirmed", "registered_at")
+    list_display = (
+        "get_user_display",
+        "event",
+        "status",
+        "payment_confirmed",
+        "registered_at",
+    )
     list_filter = ("status", "payment_confirmed", "registered_at")
-    search_fields = ("user__username", "user__first_name", "user__last_name", "user__email", "event__title")
-    autocomplete_fields = ['user', 'event']
+    search_fields = (
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+        "user__email",
+        "event__title",
+    )
+    autocomplete_fields = ["user", "event"]
     readonly_fields = ("registered_at", "updated_at")
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
@@ -600,10 +611,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     def get_user_display(self, obj):
         full_name = obj.user.get_full_name()
         if full_name:
-            return format_html('{} <span style="color: #888; font-size: 11px;">({})</span>', full_name, obj.user.username)
+            return format_html(
+                '{} <span style="color: #888; font-size: 11px;">({})</span>',
+                full_name,
+                obj.user.username,
+            )
         return obj.user.username
-    get_user_display.short_description = _('User')
-    get_user_display.admin_order_field = 'user__first_name'
+
+    get_user_display.short_description = _("User")
+    get_user_display.admin_order_field = "user__first_name"
 
     @admin.action(description=_("📋 Export selected registrations to CSV"))
     def export_registrations_csv(self, request, queryset):
@@ -674,7 +690,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     def confirm_registrations(self, request, queryset):
         """Confirm selected registrations"""
         updated = queryset.update(status="confirmed")
-        django_messages.success(request, _("Confirmed %(count)s registration(s).") % {"count": updated})
+        django_messages.success(
+            request, _("Confirmed %(count)s registration(s).") % {"count": updated}
+        )
 
     @admin.action(description=_("⏳ Move to waitlist"))
     def move_to_waitlist(self, request, queryset):

@@ -1,72 +1,67 @@
-{% extends 'crush_lu/base.html' %}
-{% load static i18n %}
-
-{% block title %}{% trans "Become a Crush Coach - Help Singles Connect in Luxembourg" %}{% endblock %}
-
-{% block og_title %}{% trans "Become a Crush Coach - Join Our Team" %}{% endblock %}
-{% block og_description %}{% trans "Help Luxembourg singles find meaningful connections. Become a Crush Coach — review profiles, host events, and make a real difference. Flexible, remote, and rewarding." %}{% endblock %}
-
-{% block meta_description %}{% trans "Join the Crush.lu coaching team. Review profiles, facilitate connections, and help singles in Luxembourg meet in person. Flexible hours, remote work, full training provided." %}{% endblock %}
-{% block meta_keywords %}{% trans "crush coach, volunteer dating coach, luxembourg singles, coach recruitment, crush.lu team, dating event host" %}{% endblock %}
-
-{% block structured_data %}
-{{ block.super }}
+{% extends 'crush_lu/base.html' %} {% load static i18n %} {% block title %}{% trans
+"Become a Crush Coach - Help Singles Connect in Luxembourg" %}{% endblock %} {% block
+og_title %}{% trans "Become a Crush Coach - Join Our Team" %}{% endblock %} {% block
+og_description %}{% trans "Help Luxembourg singles find meaningful connections. Become a
+Crush Coach — review profiles, host events, and make a real difference. Flexible,
+remote, and rewarding." %}{% endblock %} {% block meta_description %}{% trans "Join the
+Crush.lu coaching team. Review profiles, facilitate connections, and help singles in
+Luxembourg meet in person. Flexible hours, remote work, full training provided." %}{%
+endblock %} {% block meta_keywords %}{% trans "crush coach, volunteer dating coach,
+luxembourg singles, coach recruitment, crush.lu team, dating event host" %}{% endblock
+%} {% block structured_data %} {{ block.super }}
 
 <!-- Breadcrumb Schema -->
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-        {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "{% trans "Home" %}",
-            "item": "https://crush.lu/"
-        },
-        {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "{% trans "Become a Crush Coach" %}",
-            "item": "https://crush.lu{% url 'crush_lu:crush_coach' %}"
-        }
-    ]
-}
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "{% trans "Home" %}",
+                "item": "https://crush.lu/"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "{% trans "Become a Crush Coach" %}",
+                "item": "https://crush.lu{% url 'crush_lu:crush_coach' %}"
+            }
+        ]
+    }
 </script>
 
 <!-- JobPosting Schema -->
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@type": "JobPosting",
-    "title": "{% trans "Crush Coach" %}",
-    "description": "{% trans "Help Luxembourg singles find meaningful connections. Review profiles, conduct screening calls, manage event check-ins, and facilitate post-event connections." %}",
-    "hiringOrganization": {
-        "@type": "Organization",
-        "name": "Crush.lu",
-        "sameAs": "https://crush.lu"
-    },
-    "jobLocation": {
-        "@type": "Place",
-        "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Luxembourg",
-            "addressCountry": "LU"
+    {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "title": "{% trans "Crush Coach" %}",
+        "description": "{% trans "Help Luxembourg singles find meaningful connections. Review profiles, conduct screening calls, manage event check-ins, and facilitate post-event connections." %}",
+        "hiringOrganization": {
+            "@type": "Organization",
+            "name": "Crush.lu",
+            "sameAs": "https://crush.lu"
+        },
+        "jobLocation": {
+            "@type": "Place",
+            "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Luxembourg",
+                "addressCountry": "LU"
+            }
+        },
+        "employmentType": "VOLUNTEER",
+        "jobLocationType": "TELECOMMUTE",
+        "applicantLocationRequirements": {
+            "@type": "Country",
+            "name": "Luxembourg"
         }
-    },
-    "employmentType": "VOLUNTEER",
-    "jobLocationType": "TELECOMMUTE",
-    "applicantLocationRequirements": {
-        "@type": "Country",
-        "name": "Luxembourg"
     }
-}
 </script>
-{% endblock %}
-
-{% block body_class %}page-crush-coach{% endblock %}
-
-{% block extra_css %}
+{% endblock %} {% block body_class %}page-crush-coach{% endblock %} {% block extra_css
+%}
 <style>
     /* =============================================
        CRUSH COACH - Mobile-First Styles
@@ -80,7 +75,7 @@
 
     /* Hero Section */
     .crush-coach-hero {
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
         color: white;
         padding: 2.5rem 1rem;
         text-align: center;
@@ -95,11 +90,11 @@
     }
 
     html.dark .crush-coach-hero {
-        background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+        background: linear-gradient(135deg, #581c87 0%, #9f1239 100%);
     }
 
     .crush-coach-hero::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -149,7 +144,7 @@
 
     .hero-btn-primary {
         background: white;
-        color: #9B59B6;
+        color: #9b59b6;
     }
 
     .hero-btn-primary:hover {
@@ -197,7 +192,7 @@
     .coach-stat-value {
         font-size: clamp(0.85rem, 2vw, 1.1rem);
         font-weight: 700;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -222,7 +217,7 @@
     .section-header h2 {
         font-size: clamp(1.75rem, 4vw, 2.5rem);
         font-weight: 700;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -261,7 +256,7 @@
         width: 60px;
         height: 60px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
         color: white;
         display: flex;
         align-items: center;
@@ -274,7 +269,7 @@
     .why-card h3 {
         font-size: clamp(1.15rem, 2.5vw, 1.35rem);
         margin-bottom: 0.5rem;
-        color: #2C3E50;
+        color: #2c3e50;
         font-weight: 600;
     }
 
@@ -314,7 +309,11 @@
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
+        background: linear-gradient(
+            135deg,
+            rgba(155, 89, 182, 0.1),
+            rgba(255, 107, 157, 0.1)
+        );
         display: flex;
         align-items: center;
         justify-content: center;
@@ -322,13 +321,17 @@
     }
 
     html.dark .responsibility-icon {
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2));
+        background: linear-gradient(
+            135deg,
+            rgba(139, 92, 246, 0.2),
+            rgba(236, 72, 153, 0.2)
+        );
     }
 
     .responsibility-card h4 {
         font-size: clamp(1rem, 2vw, 1.1rem);
         font-weight: 600;
-        color: #2C3E50;
+        color: #2c3e50;
         margin-bottom: 0.25rem;
     }
 
@@ -348,7 +351,11 @@
 
     /* Who Section */
     .who-section {
-        background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+        background: linear-gradient(
+            135deg,
+            rgba(155, 89, 182, 0.05),
+            rgba(255, 107, 157, 0.05)
+        );
         border-radius: 20px;
         padding: 2rem 1rem;
         margin: 2rem 0;
@@ -356,7 +363,11 @@
     }
 
     html.dark .who-section {
-        background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+        background: linear-gradient(
+            135deg,
+            rgba(88, 28, 135, 0.15),
+            rgba(159, 18, 57, 0.15)
+        );
         border-color: rgba(139, 92, 246, 0.15);
     }
 
@@ -380,13 +391,13 @@
     }
 
     .checklist li::before {
-        content: '✓';
+        content: "✓";
         position: absolute;
         left: 0;
         top: 0.6rem;
         width: 24px;
         height: 24px;
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
         color: white;
         border-radius: 50%;
         display: flex;
@@ -411,11 +422,11 @@
     .reassurance-quote {
         font-size: clamp(1.1rem, 2.5vw, 1.3rem);
         font-weight: 600;
-        color: #9B59B6;
+        color: #9b59b6;
         font-style: italic;
         margin-bottom: 1rem;
         padding-left: 1rem;
-        border-left: 3px solid #9B59B6;
+        border-left: 3px solid #9b59b6;
     }
 
     html.dark .reassurance-quote {
@@ -451,7 +462,7 @@
     .coach-cta-section {
         text-align: center;
         padding: 3rem 1rem;
-        background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+        background: linear-gradient(135deg, #9b59b6 0%, #ff6b9d 100%);
         color: white;
         width: 100vw;
         position: relative;
@@ -465,11 +476,11 @@
     }
 
     html.dark .coach-cta-section {
-        background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+        background: linear-gradient(135deg, #581c87 0%, #9f1239 100%);
     }
 
     .coach-cta-section::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -533,7 +544,7 @@
         gap: 0.5rem;
         padding: 1rem 2.5rem;
         background: white;
-        color: #9B59B6;
+        color: #9b59b6;
         border-radius: 9999px;
         font-weight: 700;
         font-size: 1.1rem;
@@ -676,14 +687,25 @@
             animation: float 3s ease-in-out infinite;
         }
 
-        .why-card:nth-child(1) .why-card-icon { animation-delay: 0s; }
-        .why-card:nth-child(2) .why-card-icon { animation-delay: 0.2s; }
-        .why-card:nth-child(3) .why-card-icon { animation-delay: 0.4s; }
+        .why-card:nth-child(1) .why-card-icon {
+            animation-delay: 0s;
+        }
+        .why-card:nth-child(2) .why-card-icon {
+            animation-delay: 0.2s;
+        }
+        .why-card:nth-child(3) .why-card-icon {
+            animation-delay: 0.4s;
+        }
     }
 
     @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
     }
 
     /* =============================================
@@ -692,7 +714,9 @@
     .fade-in {
         opacity: 0;
         transform: translateY(20px);
-        transition: opacity 0.6s ease, transform 0.6s ease;
+        transition:
+            opacity 0.6s ease,
+            transform 0.6s ease;
     }
 
     .fade-in.visible {
@@ -707,203 +731,282 @@
         }
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="crush-coach-page">
+    <!-- Hero Section -->
+    <div class="crush-coach-hero">
+        <h1>{% trans "Become a Crush Coach" %}</h1>
+        <p>
+            {% trans "Help Luxembourg singles find meaningful connections. Guide them
+            from first profile to first date and make a real difference in people's
+            lives." %}
+        </p>
+        <div class="hero-buttons">
+            <a href="#apply" class="hero-btn hero-btn-primary"
+                >{% trans "Contact Us" %}</a
+            >
+            <a href="#what-you-do" class="hero-btn hero-btn-secondary"
+                >{% trans "Learn More" %}</a
+            >
+        </div>
+    </div>
 
-<!-- Hero Section -->
-<div class="crush-coach-hero">
-    <h1>{% trans "Become a Crush Coach" %}</h1>
-    <p>{% trans "Help Luxembourg singles find meaningful connections. Guide them from first profile to first date and make a real difference in people's lives." %}</p>
-    <div class="hero-buttons">
-        <a href="#apply" class="hero-btn hero-btn-primary">{% trans "Contact Us" %}</a>
-        <a href="#what-you-do" class="hero-btn hero-btn-secondary">{% trans "Learn More" %}</a>
+    <!-- Stats Bar -->
+    <div class="coach-stats-section fade-in">
+        <div class="coach-stat-card">
+            <div class="coach-stat-icon">&#9201;</div>
+            <div class="coach-stat-value">{% trans "24-48h" %}</div>
+            <div class="coach-stat-label">{% trans "Profile Review" %}</div>
+        </div>
+        <div class="coach-stat-card">
+            <div class="coach-stat-icon">&#127760;</div>
+            <div class="coach-stat-value">{% trans "3 Languages" %}</div>
+            <div class="coach-stat-label">{% trans "EN / DE / FR" %}</div>
+        </div>
+        <div class="coach-stat-card">
+            <div class="coach-stat-icon">&#128197;</div>
+            <div class="coach-stat-value">{% trans "Flexible Hours" %}</div>
+            <div class="coach-stat-label">{% trans "Work on Your Schedule" %}</div>
+        </div>
     </div>
-</div>
 
-<!-- Stats Bar -->
-<div class="coach-stats-section fade-in">
-    <div class="coach-stat-card">
-        <div class="coach-stat-icon">&#9201;</div>
-        <div class="coach-stat-value">{% trans "24-48h" %}</div>
-        <div class="coach-stat-label">{% trans "Profile Review" %}</div>
+    <!-- Why Become a Coach -->
+    <div class="fade-in mb-6 md:mb-10">
+        <div class="section-header">
+            <h2>{% trans "Why Become a Coach?" %}</h2>
+            <p>
+                {% trans "Coaching is more than a role — it's a chance to shape
+                Luxembourg's dating culture." %}
+            </p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+            <div class="why-card">
+                <div class="why-card-icon">&#10084;&#65039;</div>
+                <h3>{% trans "Make a Real Difference" %}</h3>
+                <p>
+                    {% trans "You'll be the first person to welcome new members. Your
+                    feedback helps them put their best foot forward and find real
+                    connections." %}
+                </p>
+            </div>
+            <div class="why-card">
+                <div class="why-card-icon">&#127968;</div>
+                <h3>{% trans "Flexible & Remote" %}</h3>
+                <p>
+                    {% trans "Work from anywhere, on your own schedule. Most tasks take
+                    just a few minutes review a profile over coffee, answer a question
+                    between meetings." %}
+                </p>
+            </div>
+            <div class="why-card">
+                <div class="why-card-icon">&#127793;</div>
+                <h3>{% trans "Grow Your Skills" %}</h3>
+                <p>
+                    {% trans "Develop your listening, coaching, and communication
+                    skills. Get early access to new features and be part of shaping the
+                    platform." %}
+                </p>
+            </div>
+        </div>
     </div>
-    <div class="coach-stat-card">
-        <div class="coach-stat-icon">&#127760;</div>
-        <div class="coach-stat-value">{% trans "3 Languages" %}</div>
-        <div class="coach-stat-label">{% trans "EN / DE / FR" %}</div>
-    </div>
-    <div class="coach-stat-card">
-        <div class="coach-stat-icon">&#128197;</div>
-        <div class="coach-stat-value">{% trans "Flexible Hours" %}</div>
-        <div class="coach-stat-label">{% trans "Work on Your Schedule" %}</div>
-    </div>
-</div>
 
-<!-- Why Become a Coach -->
-<div class="mb-6 md:mb-10 fade-in">
-    <div class="section-header">
-        <h2>{% trans "Why Become a Coach?" %}</h2>
-        <p>{% trans "Coaching is more than a role — it's a chance to shape Luxembourg's dating culture." %}</p>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <div class="why-card">
-            <div class="why-card-icon">&#10084;&#65039;</div>
-            <h3>{% trans "Make a Real Difference" %}</h3>
-            <p>{% trans "You'll be the first person to welcome new members. Your feedback helps them put their best foot forward and find real connections." %}</p>
+    <!-- What You'll Do -->
+    <div id="what-you-do" class="fade-in mb-6 md:mb-10">
+        <div class="section-header">
+            <h2>{% trans "What You'll Do" %}</h2>
+            <p>
+                {% trans "A mix of tasks that keep things interesting — no two days are
+                the same." %}
+            </p>
         </div>
-        <div class="why-card">
-            <div class="why-card-icon">&#127968;</div>
-            <h3>{% trans "Flexible & Remote" %}</h3>
-            <p>{% trans "Work from anywhere, on your own schedule. Most tasks take just a few minutes review a profile over coffee, answer a question between meetings." %}</p>
-        </div>
-        <div class="why-card">
-            <div class="why-card-icon">&#127793;</div>
-            <h3>{% trans "Grow Your Skills" %}</h3>
-            <p>{% trans "Develop your listening, coaching, and communication skills. Get early access to new features and be part of shaping the platform." %}</p>
-        </div>
-    </div>
-</div>
-
-<!-- What You'll Do -->
-<div id="what-you-do" class="mb-6 md:mb-10 fade-in">
-    <div class="section-header">
-        <h2>{% trans "What You'll Do" %}</h2>
-        <p>{% trans "A mix of tasks that keep things interesting — no two days are the same." %}</p>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#128221;</div>
-            <div>
-                <h4>{% trans "Review New Profiles" %}</h4>
-                <p>{% trans "Check profiles for completeness and authenticity. Provide constructive feedback to help members shine." %}</p>
-            </div>
-        </div>
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#128222;</div>
-            <div>
-                <h4>{% trans "Conduct Screening Calls" %}</h4>
-                <p>{% trans "Brief welcome calls to verify identity, explain the platform, and set expectations." %}</p>
-            </div>
-        </div>
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#128274;</div>
-            <div>
-                <h4>{% trans "Manage Event Check-ins" %}</h4>
-                <p>{% trans "Use our QR code system to check attendees in at events quickly and smoothly." %}</p>
-            </div>
-        </div>
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#128149;</div>
-            <div>
-                <h4>{% trans "Facilitate Connections" %}</h4>
-                <p>{% trans "Help mutual matches connect after events. Review connection requests and mediate introductions." %}</p>
-            </div>
-        </div>
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#127775;</div>
-            <div>
-                <h4>{% trans "Guide Member Journeys" %}</h4>
-                <p>{% trans "Support members through interactive experiences, challenges, and seasonal campaigns." %}</p>
-            </div>
-        </div>
-        <div class="responsibility-card">
-            <div class="responsibility-icon">&#128172;</div>
-            <div>
-                <h4>{% trans "Ongoing Member Support" %}</h4>
-                <p>{% trans "Answer questions, address concerns, and ensure every member feels welcome and supported." %}</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Who We're Looking For -->
-<div class="who-section fade-in">
-    <div class="section-header">
-        <h2>{% trans "Who We're Looking For" %}</h2>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-            <ul class="checklist">
-                <li>{% trans "Empathetic and non-judgmental — you enjoy helping people" %}</li>
-                <li>{% trans "Multilingual — comfortable in at least 2 of EN, DE, FR" %}</li>
-                <li>{% trans "Reliable — you follow through on commitments" %}</li>
-                <li>{% trans "Connected to Luxembourg — you live in or know the community" %}</li>
-            </ul>
-        </div>
-        <div>
-            <div class="reassurance-block">
-                <div class="reassurance-quote">
-                    {% trans "No experience required — we'll train you on everything you need to know." %}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5">
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#128221;</div>
+                <div>
+                    <h4>{% trans "Review New Profiles" %}</h4>
+                    <p>
+                        {% trans "Check profiles for completeness and authenticity.
+                        Provide constructive feedback to help members shine." %}
+                    </p>
                 </div>
-                <ul class="commitment-list">
-                    <li><span class="commitment-icon">&#9200;</span> {% trans "2-4 hours per week" %}</li>
-                    <li><span class="commitment-icon">&#128187;</span> {% trans "Fully remote (events are optional)" %}</li>
-                    <li><span class="commitment-icon">&#127873;</span> {% trans "Volunteer role with perks" %}</li>
-                    <li><span class="commitment-icon">&#127891;</span> {% trans "Full onboarding and training provided" %}</li>
+            </div>
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#128222;</div>
+                <div>
+                    <h4>{% trans "Conduct Screening Calls" %}</h4>
+                    <p>
+                        {% trans "Brief welcome calls to verify identity, explain the
+                        platform, and set expectations." %}
+                    </p>
+                </div>
+            </div>
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#128274;</div>
+                <div>
+                    <h4>{% trans "Manage Event Check-ins" %}</h4>
+                    <p>
+                        {% trans "Use our QR code system to check attendees in at events
+                        quickly and smoothly." %}
+                    </p>
+                </div>
+            </div>
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#128149;</div>
+                <div>
+                    <h4>{% trans "Facilitate Connections" %}</h4>
+                    <p>
+                        {% trans "Help mutual matches connect after events. Review
+                        connection requests and mediate introductions." %}
+                    </p>
+                </div>
+            </div>
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#127775;</div>
+                <div>
+                    <h4>{% trans "Guide Member Journeys" %}</h4>
+                    <p>
+                        {% trans "Support members through interactive experiences,
+                        challenges, and seasonal campaigns." %}
+                    </p>
+                </div>
+            </div>
+            <div class="responsibility-card">
+                <div class="responsibility-icon">&#128172;</div>
+                <div>
+                    <h4>{% trans "Ongoing Member Support" %}</h4>
+                    <p>
+                        {% trans "Answer questions, address concerns, and ensure every
+                        member feels welcome and supported." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Who We're Looking For -->
+    <div class="who-section fade-in">
+        <div class="section-header">
+            <h2>{% trans "Who We're Looking For" %}</h2>
+        </div>
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+                <ul class="checklist">
+                    <li>
+                        {% trans "Empathetic and non-judgmental — you enjoy helping
+                        people" %}
+                    </li>
+                    <li>
+                        {% trans "Multilingual — comfortable in at least 2 of EN, DE,
+                        FR" %}
+                    </li>
+                    <li>{% trans "Reliable — you follow through on commitments" %}</li>
+                    <li>
+                        {% trans "Connected to Luxembourg — you live in or know the
+                        community" %}
+                    </li>
                 </ul>
             </div>
+            <div>
+                <div class="reassurance-block">
+                    <div class="reassurance-quote">
+                        {% trans "No experience required — we'll train you on everything
+                        you need to know." %}
+                    </div>
+                    <ul class="commitment-list">
+                        <li>
+                            <span class="commitment-icon">&#9200;</span> {% trans "2-4
+                            hours per week" %}
+                        </li>
+                        <li>
+                            <span class="commitment-icon">&#128187;</span> {% trans
+                            "Fully remote (events are optional)" %}
+                        </li>
+                        <li>
+                            <span class="commitment-icon">&#127873;</span> {% trans
+                            "Volunteer role with perks" %}
+                        </li>
+                        <li>
+                            <span class="commitment-icon">&#127891;</span> {% trans
+                            "Full onboarding and training provided" %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div id="apply" class="coach-cta-section fade-in">
+        <h2>{% trans "Ready to Make a Difference?" %}</h2>
+        <p class="cta-tagline">
+            {% trans "We're all about real human connection and that starts with your
+            voice!" %}
+        </p>
+        <hr class="cta-divider" />
+        <p class="cta-detail">
+            {% trans "No hiding behind emails. Pick up the phone, call us, and convince
+            us why you'd make an amazing coach. If you can charm us, imagine what you'll
+            do for our members." %}
+        </p>
+        <div
+            style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1rem;
+                justify-content: center;
+                position: relative;
+                z-index: 1;
+            "
+        >
+            <a href="tel:+352621893207" class="cta-apply-btn">
+                &#128222; Wesley — +352 621 893 207
+            </a>
+            <a href="tel:+352691930706" class="cta-apply-btn">
+                &#128222; Tom — +352 691 930 706
+            </a>
+        </div>
+        <div class="cta-response">
+            {% trans "We're happy to answer any questions about coaching." %}
         </div>
     </div>
 </div>
-
-<!-- CTA Section -->
-<div id="apply" class="coach-cta-section fade-in">
-    <h2>{% trans "Ready to Make a Difference?" %}</h2>
-    <p class="cta-tagline">{% trans "We're all about real human connection and that starts with your voice!" %}</p>
-    <hr class="cta-divider">
-    <p class="cta-detail">{% trans "No hiding behind emails. Pick up the phone, call us, and convince us why you'd make an amazing coach. If you can charm us, imagine what you'll do for our members." %}</p>
-    <div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;position:relative;z-index:1;">
-        <a href="tel:+352621893207" class="cta-apply-btn">
-            &#128222; Wesley — +352 621 893 207
-        </a>
-        <a href="tel:+352691930706" class="cta-apply-btn">
-            &#128222; Tom — +352 691 930 706
-        </a>
-    </div>
-    <div class="cta-response">{% trans "We're happy to answer any questions about coaching." %}</div>
-</div>
-
-</div><!-- /.crush-coach-page -->
-{% endblock %}
-
-{% block extra_js %}
+<!-- /.crush-coach-page -->
+{% endblock %} {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
     // Intersection Observer for scroll animations
     var observerOptions = {
         threshold: 0.05,
-        rootMargin: '50px 0px 50px 0px'
+        rootMargin: "50px 0px 50px 0px",
     };
 
-    var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
             if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
+                entry.target.classList.add("visible");
                 observer.unobserve(entry.target);
             }
         });
     }, observerOptions);
 
-    document.querySelectorAll('.fade-in').forEach(function(el) {
+    document.querySelectorAll(".fade-in").forEach(function (el) {
         observer.observe(el);
     });
 
     // Fallback: Make all elements visible after 1 second
-    setTimeout(function() {
-        document.querySelectorAll('.fade-in:not(.visible)').forEach(function(el) {
-            el.classList.add('visible');
+    setTimeout(function () {
+        document.querySelectorAll(".fade-in:not(.visible)").forEach(function (el) {
+            el.classList.add("visible");
         });
     }, 1000);
 
     // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
-        anchor.addEventListener('click', function(e) {
-            var targetId = this.getAttribute('href');
+    document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+        anchor.addEventListener("click", function (e) {
+            var targetId = this.getAttribute("href");
             var target = document.querySelector(targetId);
             if (target) {
                 e.preventDefault();
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
             }
         });
     });

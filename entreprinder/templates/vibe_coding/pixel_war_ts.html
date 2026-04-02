@@ -1,13 +1,10 @@
-{% extends "base.html" %}
-{% load static %}
-{% load i18n %}
-{% load vite_tags %}
-
-{% block title %}{{ page_title }} - TypeScript Version{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'entreprinder/css/pages/pixel_war.css' %}">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+{% extends "base.html" %} {% load static %} {% load i18n %} {% load vite_tags %} {%
+block title %}{{ page_title }} - TypeScript Version{% endblock %} {% block extra_css %}
+<link rel="stylesheet" href="{% static 'entreprinder/css/pages/pixel_war.css' %}" />
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+/>
 <style>
     /* Override base template container constraints for Pixel Wars */
     main.container {
@@ -15,7 +12,7 @@
         padding: 0 !important;
         margin-top: 0 !important;
     }
-    
+
     @media (min-width: 1024px) {
         main.container {
             width: 100vw !important;
@@ -35,7 +32,7 @@
         font-size: 12px;
         font-weight: bold;
         z-index: 1000;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
 
     .touch-mode-btn-ts {
@@ -50,7 +47,7 @@
         font-size: 14px;
         font-weight: bold;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         transition: all 0.3s ease;
         display: flex;
         align-items: center;
@@ -60,7 +57,7 @@
 
     .touch-mode-btn-ts:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
     }
 
     .touch-mode-btn-ts.precision {
@@ -71,7 +68,7 @@
         position: fixed;
         top: 50px;
         right: 10px;
-        background: rgba(0,0,0,0.8);
+        background: rgba(0, 0, 0, 0.8);
         color: white;
         padding: 10px;
         border-radius: 5px;
@@ -90,7 +87,7 @@
         position: fixed;
         top: 10px;
         left: 10px;
-        background: rgba(0,0,0,0.7);
+        background: rgba(0, 0, 0, 0.7);
         color: white;
         padding: 5px 10px;
         border-radius: 5px;
@@ -99,22 +96,22 @@
         z-index: 1000;
     }
 
-    .perf-indicator.good { color: #4caf50; }
-    .perf-indicator.warning { color: #ff9800; }
-    .perf-indicator.bad { color: #f44336; }
+    .perf-indicator.good {
+        color: #4caf50;
+    }
+    .perf-indicator.warning {
+        color: #ff9800;
+    }
+    .perf-indicator.bad {
+        color: #f44336;
+    }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <!-- Version Badge -->
-<div class="version-badge">
-    TypeScript 🚀
-</div>
+<div class="version-badge">TypeScript 🚀</div>
 
 <!-- Performance Indicator -->
-<div class="perf-indicator" id="perfIndicator">
-    FPS: --
-</div>
+<div class="perf-indicator" id="perfIndicator">FPS: --</div>
 
 <!-- Debug Panel -->
 <div class="debug-panel" id="debugPanel">
@@ -125,30 +122,60 @@
 <div class="pixel-war-container">
     <header class="pixel-war-header">
         <h1>🎨 Lux Pixel War</h1>
-        <p class="subtitle">{% trans "TypeScript Edition - Enhanced Mobile Navigation!" %}</p>
+        <p class="subtitle">
+            {% trans "TypeScript Edition - Enhanced Mobile Navigation!" %}
+        </p>
     </header>
 
     <div class="mobile-container">
         <!-- Mobile Top Controls Bar (Hidden on Desktop) -->
-        <div class="mobile-controls-bar" id="mobileTopControls" style="display: none;">
+        <div class="mobile-controls-bar" id="mobileTopControls" style="display: none">
             <div class="controls-row">
-                <button id="mobileMenuToggle" class="menu-toggle-btn" aria-label="Toggle menu">
+                <button
+                    id="mobileMenuToggle"
+                    class="menu-toggle-btn"
+                    aria-label="Toggle menu"
+                >
                     <span class="menu-icon">☰</span>
                 </button>
                 <div class="quick-color-selector">
-                    <button class="quick-color" data-color="#FF0000" style="background: #FF0000"></button>
-                    <button class="quick-color" data-color="#00FF00" style="background: #00FF00"></button>
-                    <button class="quick-color" data-color="#0000FF" style="background: #0000FF"></button>
-                    <button class="quick-color" data-color="#FFFF00" style="background: #FFFF00"></button>
-                    <button class="quick-color" data-color="#000000" style="background: #000000"></button>
-                    <button class="quick-color" data-color="#FFFFFF" style="background: #FFFFFF; border: 1px solid #ccc;"></button>
+                    <button
+                        class="quick-color"
+                        data-color="#FF0000"
+                        style="background: #ff0000"
+                    ></button>
+                    <button
+                        class="quick-color"
+                        data-color="#00FF00"
+                        style="background: #00ff00"
+                    ></button>
+                    <button
+                        class="quick-color"
+                        data-color="#0000FF"
+                        style="background: #0000ff"
+                    ></button>
+                    <button
+                        class="quick-color"
+                        data-color="#FFFF00"
+                        style="background: #ffff00"
+                    ></button>
+                    <button
+                        class="quick-color"
+                        data-color="#000000"
+                        style="background: #000000"
+                    ></button>
+                    <button
+                        class="quick-color"
+                        data-color="#FFFFFF"
+                        style="background: #ffffff; border: 1px solid #ccc"
+                    ></button>
                 </div>
                 <div class="status-indicator">
                     <span id="mobilePixelsRemaining" class="pixels-counter">0</span>
                 </div>
             </div>
         </div>
-        
+
         <!-- Controls Sidebar (Desktop) / Slide Menu (Mobile) -->
         <div class="controls-sidebar" id="controlsSidebar">
             <!-- Color Selection -->
@@ -156,26 +183,111 @@
                 <h3>{% trans "Choose Color" %}</h3>
                 <div class="color-palette">
                     <div class="color-grid">
-                        <button class="color-btn" data-color="#FF0000" style="background-color: #FF0000" aria-label="Red"></button>
-                        <button class="color-btn" data-color="#FFA500" style="background-color: #FFA500" aria-label="Orange"></button>
-                        <button class="color-btn" data-color="#FFFF00" style="background-color: #FFFF00" aria-label="Yellow"></button>
-                        <button class="color-btn" data-color="#00FF00" style="background-color: #00FF00" aria-label="Green"></button>
-                        <button class="color-btn" data-color="#00FFFF" style="background-color: #00FFFF" aria-label="Cyan"></button>
-                        <button class="color-btn" data-color="#0000FF" style="background-color: #0000FF" aria-label="Blue"></button>
-                        <button class="color-btn" data-color="#FF00FF" style="background-color: #FF00FF" aria-label="Magenta"></button>
-                        <button class="color-btn" data-color="#800080" style="background-color: #800080" aria-label="Purple"></button>
-                        <button class="color-btn" data-color="#FFC0CB" style="background-color: #FFC0CB" aria-label="Pink"></button>
-                        <button class="color-btn" data-color="#A52A2A" style="background-color: #A52A2A" aria-label="Brown"></button>
-                        <button class="color-btn" data-color="#808080" style="background-color: #808080" aria-label="Gray"></button>
-                        <button class="color-btn" data-color="#90EE90" style="background-color: #90EE90" aria-label="Light Green"></button>
-                        <button class="color-btn" data-color="#FFD700" style="background-color: #FFD700" aria-label="Gold"></button>
-                        <button class="color-btn" data-color="#4169E1" style="background-color: #4169E1" aria-label="Royal Blue"></button>
-                        <button class="color-btn" data-color="#FFFFFF" style="background-color: #FFFFFF" aria-label="White"></button>
-                        <button class="color-btn" data-color="#000000" style="background-color: #000000" aria-label="Black"></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FF0000"
+                            style="background-color: #ff0000"
+                            aria-label="Red"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FFA500"
+                            style="background-color: #ffa500"
+                            aria-label="Orange"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FFFF00"
+                            style="background-color: #ffff00"
+                            aria-label="Yellow"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#00FF00"
+                            style="background-color: #00ff00"
+                            aria-label="Green"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#00FFFF"
+                            style="background-color: #00ffff"
+                            aria-label="Cyan"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#0000FF"
+                            style="background-color: #0000ff"
+                            aria-label="Blue"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FF00FF"
+                            style="background-color: #ff00ff"
+                            aria-label="Magenta"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#800080"
+                            style="background-color: #800080"
+                            aria-label="Purple"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FFC0CB"
+                            style="background-color: #ffc0cb"
+                            aria-label="Pink"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#A52A2A"
+                            style="background-color: #a52a2a"
+                            aria-label="Brown"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#808080"
+                            style="background-color: #808080"
+                            aria-label="Gray"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#90EE90"
+                            style="background-color: #90ee90"
+                            aria-label="Light Green"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FFD700"
+                            style="background-color: #ffd700"
+                            aria-label="Gold"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#4169E1"
+                            style="background-color: #4169e1"
+                            aria-label="Royal Blue"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#FFFFFF"
+                            style="background-color: #ffffff"
+                            aria-label="White"
+                        ></button>
+                        <button
+                            class="color-btn"
+                            data-color="#000000"
+                            style="background-color: #000000"
+                            aria-label="Black"
+                        ></button>
                     </div>
                     <div class="custom-color">
                         <label for="colorPicker">{% trans "Custom:" %}</label>
-                        <input type="color" id="colorPicker" value="#000000" aria-label="Custom color picker">
+                        <input
+                            type="color"
+                            id="colorPicker"
+                            value="#000000"
+                            aria-label="Custom color picker"
+                        />
                     </div>
                 </div>
             </div>
@@ -186,7 +298,9 @@
                     <h3>{% trans "Canvas Info" %}</h3>
                     <p>
                         <span>{% trans "Size:" %}</span>
-                        <span id="canvasSize">{{ canvas.width }} × {{ canvas.height }}</span>
+                        <span id="canvasSize"
+                            >{{ canvas.width }} × {{ canvas.height }}</span
+                        >
                     </p>
                     <p>
                         <span>{% trans "Version:" %}</span>
@@ -195,11 +309,12 @@
                     <p>
                         <span>{% trans "Status:" %}</span>
                         <span id="status" class="status-active">
-                            {% if canvas.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}
+                            {% if canvas.is_active %}{% trans "Active" %}{% else %}{%
+                            trans "Inactive" %}{% endif %}
                         </span>
                     </p>
                 </div>
-                
+
                 <div class="info-card">
                     <h3>{% trans "Controls" %}</h3>
                     <div class="control-help">
@@ -230,42 +345,78 @@
                     <!-- Desktop Controls -->
                     <div class="desktop-canvas-controls">
                         <div class="zoom-controls">
-                            <button id="zoomIn" class="zoom-btn desktop-only" aria-label="Zoom in">➕</button>
-                            <button id="zoomOut" class="zoom-btn desktop-only" aria-label="Zoom out">➖</button>
-                            <button id="zoomReset" class="zoom-btn desktop-only" aria-label="Reset zoom">🔄</button>
+                            <button
+                                id="zoomIn"
+                                class="zoom-btn desktop-only"
+                                aria-label="Zoom in"
+                            >
+                                ➕
+                            </button>
+                            <button
+                                id="zoomOut"
+                                class="zoom-btn desktop-only"
+                                aria-label="Zoom out"
+                            >
+                                ➖
+                            </button>
+                            <button
+                                id="zoomReset"
+                                class="zoom-btn desktop-only"
+                                aria-label="Reset zoom"
+                            >
+                                🔄
+                            </button>
                         </div>
                     </div>
                     <div class="canvas-container" id="canvasContainer">
-                        <canvas id="pixelCanvas" 
-                                width="1000" 
-                                height="1000" 
-                                data-canvas-id="{{ canvas.id }}"
-                                data-grid-width="{{ canvas.width }}"
-                                data-grid-height="{{ canvas.height }}"
-                                role="img"
-                                aria-label="Pixel canvas grid">
+                        <canvas
+                            id="pixelCanvas"
+                            width="1000"
+                            height="1000"
+                            data-canvas-id="{{ canvas.id }}"
+                            data-grid-width="{{ canvas.width }}"
+                            data-grid-height="{{ canvas.height }}"
+                            role="img"
+                            aria-label="Pixel canvas grid"
+                        >
                         </canvas>
                     </div>
-                    
+
                     <!-- Mobile Canvas Controls (Hidden on Desktop) -->
-                    <div class="mobile-canvas-controls" style="display: none;">
+                    <div class="mobile-canvas-controls" style="display: none">
                         <div class="zoom-control-bar">
-                            <button id="zoomOutMobile" class="zoom-btn" aria-label="Zoom out">
+                            <button
+                                id="zoomOutMobile"
+                                class="zoom-btn"
+                                aria-label="Zoom out"
+                            >
                                 <span>−</span>
                             </button>
                             <div class="zoom-indicator">
                                 <span id="zoomLevel">100%</span>
                             </div>
-                            <button id="zoomInMobile" class="zoom-btn" aria-label="Zoom in">
+                            <button
+                                id="zoomInMobile"
+                                class="zoom-btn"
+                                aria-label="Zoom in"
+                            >
                                 <span>+</span>
                             </button>
                         </div>
-                        
+
                         <div class="canvas-tools">
-                            <button id="centerViewBtn" class="tool-btn" aria-label="Center view">
+                            <button
+                                id="centerViewBtn"
+                                class="tool-btn"
+                                aria-label="Center view"
+                            >
                                 <span class="tool-icon">⊙</span>
                             </button>
-                            <button id="fitToGridBtn" class="tool-btn" aria-label="Fit to grid">
+                            <button
+                                id="fitToGridBtn"
+                                class="tool-btn"
+                                aria-label="Fit to grid"
+                            >
                                 <span class="tool-icon">⛶</span>
                             </button>
                         </div>
@@ -279,9 +430,7 @@
 <!-- Notification Toast -->
 <div id="notification" class="notification" role="alert" aria-live="assertive"></div>
 
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <script>
     const CANVAS_CONFIG = {
         id: {{ canvas.id }},
@@ -298,45 +447,56 @@
     };
 </script>
 
-{% comment %} Load TypeScript Pixel War implementation {% endcomment %}
-{% vite_asset 'pixel-war-ts-app' %}
+{% comment %} Load TypeScript Pixel War implementation {% endcomment %} {% vite_asset
+'pixel-war-ts-app' %}
 
 <script>
     // Setup responsive controls after page loads
-    (function() {
-        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-        
+    (function () {
+        var isMobile =
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+                navigator.userAgent,
+            ) || window.innerWidth < 768;
+
         function setupControls() {
             if (isMobile) {
                 // Show mobile controls
-                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls').forEach(function(el) {
-                    if (el) el.style.display = '';
-                });
+                document
+                    .querySelectorAll(".mobile-controls-bar, .mobile-canvas-controls")
+                    .forEach(function (el) {
+                        if (el) el.style.display = "";
+                    });
                 // Hide desktop controls
-                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
-                    if (el) el.style.display = 'none';
-                });
+                document
+                    .querySelectorAll(".desktop-canvas-controls")
+                    .forEach(function (el) {
+                        if (el) el.style.display = "none";
+                    });
             } else {
                 // Hide mobile controls on desktop
-                document.querySelectorAll('.mobile-controls-bar, .mobile-canvas-controls').forEach(function(el) {
-                    if (el) el.style.display = 'none';
-                });
+                document
+                    .querySelectorAll(".mobile-controls-bar, .mobile-canvas-controls")
+                    .forEach(function (el) {
+                        if (el) el.style.display = "none";
+                    });
                 // Show desktop controls
-                document.querySelectorAll('.desktop-canvas-controls').forEach(function(el) {
-                    if (el) el.style.display = '';
-                });
+                document
+                    .querySelectorAll(".desktop-canvas-controls")
+                    .forEach(function (el) {
+                        if (el) el.style.display = "";
+                    });
             }
         }
-        
+
         // Setup controls when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setupControls);
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", setupControls);
         } else {
             setupControls();
         }
-        
+
         // Handle responsive changes
-        window.addEventListener('resize', function() {
+        window.addEventListener("resize", function () {
             var newIsMobile = window.innerWidth < 768;
             if (newIsMobile !== isMobile) {
                 location.reload(); // Reload to switch between mobile/desktop layout
@@ -345,42 +505,42 @@
     })();
 
     // Debug and performance monitoring
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener("DOMContentLoaded", function () {
         // Performance indicator
-        const perfIndicator = document.getElementById('perfIndicator');
-        const debugPanel = document.getElementById('debugPanel');
-        const debugContent = document.getElementById('debugContent');
-        
+        const perfIndicator = document.getElementById("perfIndicator");
+        const debugPanel = document.getElementById("debugPanel");
+        const debugContent = document.getElementById("debugContent");
+
         // Update performance display
         function updatePerformance() {
             if (window.pixelWarTS) {
                 const metrics = window.pixelWarTS.getPerformanceMetrics();
                 perfIndicator.textContent = `FPS: ${metrics.fps}`;
-                
+
                 // Color code performance
-                perfIndicator.className = 'perf-indicator';
+                perfIndicator.className = "perf-indicator";
                 if (metrics.fps >= 55) {
-                    perfIndicator.classList.add('good');
+                    perfIndicator.classList.add("good");
                 } else if (metrics.fps >= 30) {
-                    perfIndicator.classList.add('warning');
+                    perfIndicator.classList.add("warning");
                 } else {
-                    perfIndicator.classList.add('bad');
+                    perfIndicator.classList.add("bad");
                 }
             }
         }
-        
+
         setInterval(updatePerformance, 1000);
-        
+
         // Debug panel toggle (press 'D' key)
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'd' || e.key === 'D') {
-                debugPanel.classList.toggle('visible');
-                if (debugPanel.classList.contains('visible')) {
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "d" || e.key === "D") {
+                debugPanel.classList.toggle("visible");
+                if (debugPanel.classList.contains("visible")) {
                     updateDebugInfo();
                 }
             }
         });
-        
+
         function updateDebugInfo() {
             if (window.pixelWarTS) {
                 const debugInfo = window.pixelWarTS.getDebugInfo();
@@ -401,39 +561,39 @@
                 `;
             }
         }
-        
+
         // Mobile controls integration
-        const centerViewBtn = document.getElementById('centerViewBtn');
-        const fitToGridBtn = document.getElementById('fitToGridBtn');
-        const zoomInMobile = document.getElementById('zoomInMobile');
-        const zoomOutMobile = document.getElementById('zoomOutMobile');
-        
+        const centerViewBtn = document.getElementById("centerViewBtn");
+        const fitToGridBtn = document.getElementById("fitToGridBtn");
+        const zoomInMobile = document.getElementById("zoomInMobile");
+        const zoomOutMobile = document.getElementById("zoomOutMobile");
+
         if (centerViewBtn) {
-            centerViewBtn.addEventListener('click', function() {
+            centerViewBtn.addEventListener("click", function () {
                 if (window.pixelWarTS) {
                     window.pixelWarTS.resetView();
                 }
             });
         }
-        
+
         if (fitToGridBtn) {
-            fitToGridBtn.addEventListener('click', function() {
+            fitToGridBtn.addEventListener("click", function () {
                 if (window.pixelWarTS) {
                     window.pixelWarTS.fitToGrid();
                 }
             });
         }
-        
+
         if (zoomInMobile) {
-            zoomInMobile.addEventListener('click', function() {
+            zoomInMobile.addEventListener("click", function () {
                 if (window.pixelWarTS) {
                     window.pixelWarTS.adjustZoom(0.2);
                 }
             });
         }
-        
+
         if (zoomOutMobile) {
-            zoomOutMobile.addEventListener('click', function() {
+            zoomOutMobile.addEventListener("click", function () {
                 if (window.pixelWarTS) {
                     window.pixelWarTS.adjustZoom(-0.2);
                 }

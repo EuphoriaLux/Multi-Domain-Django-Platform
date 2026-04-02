@@ -1,9 +1,5 @@
-{% extends "crush_lu/journey/journey_base.html" %}
-{% load static i18n %}
-
-{% block extra_journey_css %}{% endblock %}
-
-{% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
+extra_journey_css %}{% endblock %} {% block journey_content %}
 <!-- Floating Hearts Background -->
 <div id="hearts-container" class="journey-hearts" aria-hidden="true">
     <div class="heart-bg heart-bg-1">&#128149;</div>
@@ -24,7 +20,7 @@
 </div>
 
 <!-- Journey Header -->
-<header class="text-center my-10 relative z-10 journey-animate-fade-in">
+<header class="journey-animate-fade-in relative z-10 my-10 text-center">
     <h1 class="journey-title-xl mb-4">{{ journey.journey_name }}</h1>
     <p class="journey-subtitle">
         <span aria-hidden="true">&#10024;</span>
@@ -34,13 +30,28 @@
 </header>
 
 <!-- Progress Bar -->
-<div class="journey-progress-bar max-w-xl mx-auto my-8 journey-animate-fade-in" role="progressbar" aria-valuenow="{{ completion_percentage }}" aria-valuemin="0" aria-valuemax="100" aria-label="{% trans 'Journey progress' %}">
-    <progress class="journey-progress-meter" value="{{ completion_percentage }}" max="100">{{ completion_percentage }}%</progress>
+<div
+    class="journey-progress-bar journey-animate-fade-in mx-auto my-8 max-w-xl"
+    role="progressbar"
+    aria-valuenow="{{ completion_percentage }}"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-label="{% trans 'Journey progress' %}"
+>
+    <progress
+        class="journey-progress-meter"
+        value="{{ completion_percentage }}"
+        max="100"
+    >
+        {{ completion_percentage }}%
+    </progress>
     <span class="journey-progress-label">{{ completion_percentage }}%</span>
 </div>
 
 <!-- Stats -->
-<div class="flex flex-wrap justify-center gap-6 md:gap-8 max-w-3xl mx-auto my-10 journey-animate-fade-in">
+<div
+    class="journey-animate-fade-in mx-auto my-10 flex max-w-3xl flex-wrap justify-center gap-6 md:gap-8"
+>
     <div class="journey-stat-card">
         <div class="journey-stat-value">{{ journey_progress.current_chapter }}</div>
         <div class="journey-stat-label">{% trans "Current Chapter" %}</div>
@@ -58,20 +69,25 @@
 <!-- Chapter Path -->
 <nav class="journey-chapter-path" aria-label="{% trans 'Journey chapters' %}">
     {% for chapter_item in chapters %}
-    <article class="journey-chapter-node journey-animate-fade-in
-        {% if chapter_item.is_completed %}journey-chapter-completed chapter-completed{% elif chapter_item.is_current %}journey-chapter-current chapter-current{% elif chapter_item.is_unlocked %}journey-chapter-unlocked chapter-unlocked{% else %}journey-chapter-locked chapter-locked{% endif %}">
-
+    <article
+        class="journey-chapter-node journey-animate-fade-in {% if chapter_item.is_completed %}journey-chapter-completed chapter-completed{% elif chapter_item.is_current %}journey-chapter-current chapter-current{% elif chapter_item.is_unlocked %}journey-chapter-unlocked chapter-unlocked{% else %}journey-chapter-locked chapter-locked{% endif %}"
+    >
         <div class="journey-chapter-icon-wrapper">
             <div class="journey-chapter-icon">
                 {% if chapter_item.is_locked %}
-                    <div class="journey-romantic-lock" aria-label="{% trans 'Locked' %}">
-                        <div class="journey-lock-shackle"></div>
-                        <div class="journey-lock-body">
-                            <div class="journey-lock-heart" aria-hidden="true">&#128148;</div>
+                <div class="journey-romantic-lock" aria-label="{% trans 'Locked' %}">
+                    <div class="journey-lock-shackle"></div>
+                    <div class="journey-lock-body">
+                        <div class="journey-lock-heart" aria-hidden="true">
+                            &#128148;
                         </div>
                     </div>
+                </div>
                 {% else %}
-                    <span aria-label="{% blocktrans with num=chapter_item.chapter.chapter_number %}Chapter {{ num }}{% endblocktrans %}">{{ chapter_item.chapter.chapter_number }}</span>
+                <span
+                    aria-label="{% blocktrans with num=chapter_item.chapter.chapter_number %}Chapter {{ num }}{% endblocktrans %}"
+                    >{{ chapter_item.chapter.chapter_number }}</span
+                >
                 {% endif %}
             </div>
             {% if chapter_item.is_completed %}
@@ -82,43 +98,55 @@
         </div>
 
         <div class="journey-chapter-info">
-            <h3 class="text-xl md:text-2xl font-bold text-white mb-3">{{ chapter_item.chapter.title }}</h3>
-            <p class="journey-subtitle text-base mb-4">
+            <h3 class="mb-3 text-xl font-bold text-white md:text-2xl">
+                {{ chapter_item.chapter.title }}
+            </h3>
+            <p class="journey-subtitle mb-4 text-base">
                 <span aria-hidden="true">&#128171;</span>
                 {{ chapter_item.chapter.theme }}
             </p>
             <div class="flex flex-wrap items-center gap-3">
-                <span class="journey-difficulty journey-difficulty-{{ chapter_item.chapter.difficulty }}">
+                <span
+                    class="journey-difficulty journey-difficulty-{{ chapter_item.chapter.difficulty }}"
+                >
                     {{ chapter_item.chapter.get_difficulty_display }}
                 </span>
-                <span class="text-white/70 text-sm">
+                <span class="text-sm text-white/70">
                     <span aria-hidden="true">&#9201;</span>
                     ~{{ chapter_item.chapter.estimated_duration }} min
                 </span>
             </div>
 
             {% if chapter_item.is_completed %}
-                <p class="mt-4 text-journey-success font-semibold flex items-center gap-2">
-                    {% include "shared/icons/trophy.html" with class="w-5 h-5" %}
-                    {% blocktrans with points=chapter_item.points_earned %}{{ points }} points earned{% endblocktrans %}
-                </p>
-                <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
-                   class="journey-btn-primary mt-5">
-                    {% trans "Revisit Chapter" %} <span aria-hidden="true">&#128149;</span>
-                </a>
+            <p class="text-journey-success mt-4 flex items-center gap-2 font-semibold">
+                {% include "shared/icons/trophy.html" with class="w-5 h-5" %} {%
+                blocktrans with points=chapter_item.points_earned %}{{ points }} points
+                earned{% endblocktrans %}
+            </p>
+            <a
+                href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
+                class="journey-btn-primary mt-5"
+            >
+                {% trans "Revisit Chapter" %} <span aria-hidden="true">&#128149;</span>
+            </a>
             {% elif chapter_item.is_unlocked %}
-                <a href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
-                   class="journey-btn-primary mt-5">
-                    {% if chapter_item.is_current %}
-                        {% trans "Continue Journey" %} <span aria-hidden="true">&#128150;</span>
-                    {% else %}
-                        {% trans "Start Chapter" %} <span aria-hidden="true">&#10024;</span>
-                    {% endif %}
-                </a>
+            <a
+                href="{% url 'crush_lu:chapter_view' chapter_item.chapter.chapter_number %}"
+                class="journey-btn-primary mt-5"
+            >
+                {% if chapter_item.is_current %} {% trans "Continue Journey" %}
+                <span aria-hidden="true">&#128150;</span> {% else %} {% trans "Start
+                Chapter" %} <span aria-hidden="true">&#10024;</span>
+                {% endif %}
+            </a>
             {% else %}
-                <button class="journey-btn-secondary mt-5 opacity-50 cursor-not-allowed" disabled aria-disabled="true">
-                    <span aria-hidden="true">&#128274;</span> {% trans "Locked" %}
-                </button>
+            <button
+                class="journey-btn-secondary mt-5 cursor-not-allowed opacity-50"
+                disabled
+                aria-disabled="true"
+            >
+                <span aria-hidden="true">&#128274;</span> {% trans "Locked" %}
+            </button>
             {% endif %}
         </div>
     </article>
@@ -127,34 +155,40 @@
 
 <!-- Completion Message -->
 {% if journey_progress.is_completed %}
-<section class="text-center my-12 journey-animate-fade-in" aria-labelledby="completion-heading">
+<section
+    class="journey-animate-fade-in my-12 text-center"
+    aria-labelledby="completion-heading"
+>
     <h2 id="completion-heading" class="journey-title-xl mb-8">
         <span aria-hidden="true">&#127881;</span>
         {% trans "Journey Complete!" %}
         <span aria-hidden="true">&#127881;</span>
     </h2>
-    <p class="text-xl text-white/90 mb-10">
-        {% blocktrans with chapters=journey.total_chapters %}You've conquered all {{ chapters }} chapters!{% endblocktrans %}
+    <p class="mb-10 text-xl text-white/90">
+        {% blocktrans with chapters=journey.total_chapters %}You've conquered all {{
+        chapters }} chapters!{% endblocktrans %}
     </p>
-    <a href="{% url 'crush_lu:certificate_view' %}" class="journey-btn-primary text-lg px-10 py-4">
-        {% include "shared/icons/trophy.html" with class="w-6 h-6" %}
-        {% trans "View Your Certificate" %}
+    <a
+        href="{% url 'crush_lu:certificate_view' %}"
+        class="journey-btn-primary px-10 py-4 text-lg"
+    >
+        {% include "shared/icons/trophy.html" with class="w-6 h-6" %} {% trans "View
+        Your Certificate" %}
     </a>
 </section>
-{% endif %}
-
-{% endblock %}
-
-{% block extra_journey_js %}
+{% endif %} {% endblock %} {% block extra_journey_js %}
 <script nonce="{{ csp_nonce }}">
     // Smooth scroll to current chapter on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        const currentChapter = document.querySelector('.chapter-current');
-        if (currentChapter && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            setTimeout(function() {
+    document.addEventListener("DOMContentLoaded", function () {
+        const currentChapter = document.querySelector(".chapter-current");
+        if (
+            currentChapter &&
+            !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+            setTimeout(function () {
                 currentChapter.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
+                    behavior: "smooth",
+                    block: "center",
                 });
             }, 800);
         }

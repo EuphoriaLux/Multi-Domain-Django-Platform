@@ -1,47 +1,84 @@
-{% load static %}
-{% load i18n %}
+{% load static %} {% load i18n %}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     {% for option in options %}
     <div class="poll-option poll-option-card">
         {% if option.static_image %}
         <div class="poll-option-image-wrapper">
-            <img src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}" alt="{{ option.name }}" class="poll-option-image">
+            <img
+                src="{% static 'crush_lu/images/event-polls/' %}{{ option.static_image }}"
+                alt="{{ option.name }}"
+                class="poll-option-image"
+            />
             {% if option.id in user_votes %}
             <div class="poll-option-check poll-option-check-active">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                <svg
+                    class="h-5 w-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="3"
+                        d="M5 13l4 4L19 7"
+                    ></path>
                 </svg>
             </div>
             {% endif %}
         </div>
         {% elif option.image %}
         <div class="poll-option-image-wrapper">
-            <img src="{{ option.image.url }}" alt="{{ option.name }}" class="poll-option-image">
+            <img
+                src="{{ option.image.url }}"
+                alt="{{ option.name }}"
+                class="poll-option-image"
+            />
             {% if option.id in user_votes %}
             <div class="poll-option-check poll-option-check-active">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                <svg
+                    class="h-5 w-5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="3"
+                        d="M5 13l4 4L19 7"
+                    ></path>
                 </svg>
             </div>
             {% endif %}
         </div>
         {% endif %}
         <div class="poll-option-body">
-            <div class="flex items-center justify-between mb-2">
+            <div class="mb-2 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     {% if option.icon %}
                     <span class="text-xl">{{ option.icon }}</span>
                     {% endif %}
-                    <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
+                    <h3
+                        class="text-sm font-semibold text-gray-900 sm:text-base dark:text-white"
+                    >
+                        {{ option.name }}
+                    </h3>
                 </div>
-                <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap ml-2">
-                    {{ option.vote_count }}{% if total_votes %} ({% widthratio option.vote_count total_votes 100 %}%){% endif %}
+                <span
+                    class="ml-2 text-xs font-semibold whitespace-nowrap text-gray-700 sm:text-sm dark:text-gray-300"
+                >
+                    {{ option.vote_count }}{% if total_votes %} ({% widthratio
+                    option.vote_count total_votes 100 %}%){% endif %}
                 </span>
             </div>
-            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+            <div class="h-3 w-full rounded-full bg-gray-200 dark:bg-gray-700">
                 {% if total_votes %}
-                <div class="poll-results-bar" style="width: {% widthratio option.vote_count total_votes 100 %}%"></div>
+                <div
+                    class="poll-results-bar"
+                    style="width: {% widthratio option.vote_count total_votes 100 %}%"
+                ></div>
                 {% else %}
                 <div class="poll-results-bar" style="width: 0%"></div>
                 {% endif %}
@@ -52,7 +89,7 @@
 </div>
 
 {% if has_voted %}
-<p class="text-center text-sm text-green-600 dark:text-green-400 mt-6">
+<p class="mt-6 text-center text-sm text-green-600 dark:text-green-400">
     {% trans "Your vote has been recorded. Thank you!" %}
 </p>
 {% endif %}

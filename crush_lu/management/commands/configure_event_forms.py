@@ -1,6 +1,7 @@
 """
 Management command to configure existing events with new registration form settings.
 """
+
 from django.core.management.base import BaseCommand
 from crush_lu.models import MeetupEvent
 

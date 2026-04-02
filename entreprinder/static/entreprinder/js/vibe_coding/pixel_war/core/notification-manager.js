@@ -1,7 +1,7 @@
 /**
  * NotificationManager - Handles all notification display and management
  * Extracted from pixel_war_refactored.js (lines 1082-1221)
- * 
+ *
  * Provides toast-style notifications with different types and animations.
  * Supports auto-dismiss and double-click to dismiss functionality.
  */
@@ -11,11 +11,11 @@ class NotificationManager {
     }
 
     createContainer() {
-        const existing = document.getElementById('notification-container');
+        const existing = document.getElementById("notification-container");
         if (existing) return existing;
-        
-        const container = document.createElement('div');
-        container.id = 'notification-container';
+
+        const container = document.createElement("div");
+        container.id = "notification-container";
         container.style.cssText = `
             position: fixed;
             top: 20px;
@@ -29,8 +29,8 @@ class NotificationManager {
         return container;
     }
 
-    show(message, type = 'info', duration = 10000) {
-        const notification = document.createElement('div');
+    show(message, type = "info", duration = 10000) {
+        const notification = document.createElement("div");
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notification.style.cssText = `
@@ -49,11 +49,11 @@ class NotificationManager {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             border-left: 4px solid rgba(255,255,255,0.3);
         `;
-        
+
         // Add CSS animations to document if not already present
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
+        if (!document.getElementById("notification-styles")) {
+            const style = document.createElement("style");
+            style.id = "notification-styles";
             style.textContent = `
                 @keyframes notificationSlideIn {
                     from {
@@ -81,22 +81,22 @@ class NotificationManager {
 
         // Set background color based on type
         const colors = {
-            success: '#4caf50',
-            error: '#f44336',
-            warning: '#ff9800',
-            info: '#2196f3'
+            success: "#4caf50",
+            error: "#f44336",
+            warning: "#ff9800",
+            info: "#2196f3",
         };
         notification.style.backgroundColor = colors[type] || colors.info;
 
         // Double-click to dismiss (prevent accidental dismissal)
         let clickCount = 0;
-        notification.addEventListener('click', () => {
+        notification.addEventListener("click", () => {
             clickCount++;
             if (clickCount === 1) {
-                setTimeout(() => clickCount = 0, 1000); // Reset after 1 second
+                setTimeout(() => (clickCount = 0), 1000); // Reset after 1 second
                 // Show dismiss hint
                 const originalText = notification.textContent;
-                notification.textContent = 'Click again to dismiss - ' + originalText;
+                notification.textContent = "Click again to dismiss - " + originalText;
                 setTimeout(() => {
                     if (notification.parentElement) {
                         notification.textContent = originalText;
@@ -108,11 +108,11 @@ class NotificationManager {
         });
 
         this.container.appendChild(notification);
-        
+
         // Trigger slide-in animation after element is in DOM
         requestAnimationFrame(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
+            notification.style.opacity = "1";
+            notification.style.transform = "translateX(0)";
         });
 
         // Auto-remove after duration
@@ -121,23 +121,23 @@ class NotificationManager {
                 this.remove(notification);
             }
         }, duration);
-        
+
         // Store timer for potential early cancellation
         notification.dataset.autoRemoveTimer = autoRemoveTimer;
     }
 
     remove(notification) {
         if (!notification.parentElement) return; // Already removed
-        
+
         // Cancel auto-remove timer if manually removing
         if (notification.dataset.autoRemoveTimer) {
             clearTimeout(parseInt(notification.dataset.autoRemoveTimer));
         }
-        
+
         // Animate out
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100%)';
-        
+        notification.style.opacity = "0";
+        notification.style.transform = "translateX(100%)";
+
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();

@@ -1,22 +1,33 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "New Profile Review" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "New Profile Review Assignment" %}{% endblock %}
-
-{% block content %}
-<h2>{% blocktrans with first_name=coach.user.first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "New Profile Review" %} - Crush.lu{% endblock %} {% block header_title %}{% trans
+"New Profile Review Assignment" %}{% endblock %} {% block content %}
+<h2>
+    {% blocktrans with first_name=coach.user.first_name %}Hey {{ first_name }}!{%
+    endblocktrans %}
+</h2>
 
 <p>{% trans "You've been assigned a new profile to review:" %}</p>
 
 <div class="info-box">
     <strong>{% trans "Profile Details:" %}</strong>
-    <ul style="margin: 10px 0;">
-        <li><strong>{% trans "Name:" %}</strong> {{ submission.profile.user.get_full_name }}</li>
-        <li><strong>{% trans "Age:" %}</strong> {% if submission.profile.age %}{% blocktrans with age=submission.profile.age %}{{ age }} years old{% endblocktrans %}{% else %}{% trans "Not provided" %}{% endif %}</li>
-        <li><strong>{% trans "Location:" %}</strong> {{ submission.profile.location|default:_("Not provided") }}</li>
-        <li><strong>{% trans "Submitted:" %}</strong> {{ submission.created_at|date:"F j, Y g:i A" }}</li>
+    <ul style="margin: 10px 0">
+        <li>
+            <strong>{% trans "Name:" %}</strong> {{
+            submission.profile.user.get_full_name }}
+        </li>
+        <li>
+            <strong>{% trans "Age:" %}</strong> {% if submission.profile.age %}{%
+            blocktrans with age=submission.profile.age %}{{ age }} years old{%
+            endblocktrans %}{% else %}{% trans "Not provided" %}{% endif %}
+        </li>
+        <li>
+            <strong>{% trans "Location:" %}</strong> {{
+            submission.profile.location|default:_("Not provided") }}
+        </li>
+        <li>
+            <strong>{% trans "Submitted:" %}</strong> {{ submission.created_at|date:"F
+            j, Y g:i A" }}
+        </li>
     </ul>
 </div>
 
@@ -31,10 +42,13 @@
     <li>{% trans "✓ Completed all required fields" %}</li>
 </ul>
 
-<p>{% trans "Please review within 24-48 hours to ensure a great experience for new members." %}</p>
+<p>
+    {% trans "Please review within 24-48 hours to ensure a great experience for new
+    members." %}
+</p>
 
 <p>
-    {% trans "Thanks for your help!" %}<br>
+    {% trans "Thanks for your help!" %}<br />
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

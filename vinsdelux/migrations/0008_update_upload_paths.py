@@ -8,43 +8,92 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vinsdelux', '0007_vdlplot_vdlplotreservation'),
+        ("vinsdelux", "0007_vdlplot_vdlplotreservation"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='homepagecontent',
-            name='hero_background_image',
-            field=models.ImageField(help_text='Background image for the homepage hero section', upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('shared', 'homepage'), **{})),
+            model_name="homepagecontent",
+            name="hero_background_image",
+            field=models.ImageField(
+                help_text="Background image for the homepage hero section",
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path, *("shared", "homepage"), **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdladoptionplanimage',
-            name='image',
-            field=models.ImageField(help_text='Image for the adoption plan', upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'adoption_plans'), **{})),
+            model_name="vdladoptionplanimage",
+            name="image",
+            field=models.ImageField(
+                help_text="Image for the adoption plan",
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("vinsdelux", "adoption_plans"),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdlblogpost',
-            name='featured_image',
-            field=models.ImageField(blank=True, null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'blog'), **{})),
+            model_name="vdlblogpost",
+            name="featured_image",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path, *("vinsdelux", "blog"), **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdlcategory',
-            name='image',
-            field=models.ImageField(blank=True, null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'categories'), **{})),
+            model_name="vdlcategory",
+            name="image",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("vinsdelux", "categories"),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdlproducer',
-            name='logo',
-            field=models.ImageField(blank=True, null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'producers/logos'), **{})),
+            model_name="vdlproducer",
+            name="logo",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("vinsdelux", "producers/logos"),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdlproducer',
-            name='producer_photo',
-            field=models.ImageField(blank=True, help_text='Photo of the producer', null=True, upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'producers/photos'), **{})),
+            model_name="vdlproducer",
+            name="producer_photo",
+            field=models.ImageField(
+                blank=True,
+                help_text="Photo of the producer",
+                null=True,
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("vinsdelux", "producers/photos"),
+                    **{}
+                ),
+            ),
         ),
         migrations.AlterField(
-            model_name='vdlproductimage',
-            name='image',
-            field=models.ImageField(upload_to=functools.partial(crush_lu.storage._domain_upload_path, *('vinsdelux', 'products/gallery'), **{})),
+            model_name="vdlproductimage",
+            name="image",
+            field=models.ImageField(
+                upload_to=functools.partial(
+                    crush_lu.storage._domain_upload_path,
+                    *("vinsdelux", "products/gallery"),
+                    **{}
+                )
+            ),
         ),
     ]

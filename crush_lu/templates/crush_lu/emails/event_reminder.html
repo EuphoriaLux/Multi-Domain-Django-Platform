@@ -1,23 +1,29 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "Event Reminder" %} - Crush.lu{% endblock %} {% block header_title %}{% trans
+"Event Reminder" %} 📅{% endblock %} {% block content %}
+<h2>
+    {% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }}!{%
+    endblocktrans %}
+</h2>
 
-{% block title %}{% trans "Event Reminder" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "Event Reminder" %} 📅{% endblock %}
-
-{% block content %}
-<h2>{% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
-
-<p><strong>{% trans "Reminder:" %}</strong> {% blocktrans with title=event.title count days=days_until_event %}You're registered for <strong>{{ title }}</strong> happening in {{ days }} day!{% plural %}You're registered for <strong>{{ title }}</strong> happening in {{ days }} days!{% endblocktrans %}</p>
+<p>
+    <strong>{% trans "Reminder:" %}</strong> {% blocktrans with title=event.title count
+    days=days_until_event %}You're registered for <strong>{{ title }}</strong> happening
+    in {{ days }} day!{% plural %}You're registered for
+    <strong>{{ title }}</strong> happening in {{ days }} days!{% endblocktrans %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Event Details:" %}</strong>
-    <ul style="margin: 10px 0;">
-        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
+    <ul style="margin: 10px 0">
+        <li>
+            <strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}
+        </li>
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
-        <li><strong>{% trans "Location:" %}</strong><br>
-            {{ event.location }}<br>
-            {{ event.address }}<br>
+        <li>
+            <strong>{% trans "Location:" %}</strong><br />
+            {{ event.location }}<br />
+            {{ event.address }}<br />
             {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}
         </li>
     </ul>
@@ -30,13 +36,14 @@
     <strong>{% trans "Your Registration Details:" %}</strong>
 
     {% if registration.dietary_restrictions %}
-    <p><strong>{% trans "Dietary Restrictions:" %}</strong><br>
-    {{ registration.dietary_restrictions }}</p>
-    {% endif %}
-
-    {% if registration.bringing_guest %}
-    <p><strong>{% trans "Guest:" %}</strong><br>
-    {{ registration.guest_name }}
+    <p>
+        <strong>{% trans "Dietary Restrictions:" %}</strong><br />
+        {{ registration.dietary_restrictions }}
+    </p>
+    {% endif %} {% if registration.bringing_guest %}
+    <p>
+        <strong>{% trans "Guest:" %}</strong><br />
+        {{ registration.guest_name }}
     </p>
     {% endif %}
 </div>
@@ -61,10 +68,16 @@
     <li>{% trans "Have fun and make connections!" %}</li>
 </ul>
 
-<p>{% trans "Can't make it? Please" %} <a href="{{ cancel_url }}" style="color: #9B59B6;">{% trans "cancel your registration" %}</a> {% trans "so someone on the waitlist can attend." %}</p>
+<p>
+    {% trans "Can't make it? Please" %}
+    <a href="{{ cancel_url }}" style="color: #9b59b6"
+        >{% trans "cancel your registration" %}</a
+    >
+    {% trans "so someone on the waitlist can attend." %}
+</p>
 
 <p>
-    {% trans "See you soon!" %}<br>
+    {% trans "See you soon!" %}<br />
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

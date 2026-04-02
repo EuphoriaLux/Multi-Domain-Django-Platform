@@ -7,33 +7,66 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0100_crushconnectwaitlist'),
+        ("crush_lu", "0100_crushconnectwaitlist"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='callattempt',
-            name='event',
-            field=models.ForeignKey(blank=True, help_text='Related event (for event invite SMS)', null=True, on_delete=django.db.models.deletion.SET_NULL, to='crush_lu.meetupevent'),
+            model_name="callattempt",
+            name="event",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Related event (for event invite SMS)",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="crush_lu.meetupevent",
+            ),
         ),
         migrations.AddField(
-            model_name='crushsiteconfig',
-            name='sms_event_invite_template_de',
-            field=models.CharField(blank=True, default='Hi {first_name}! Hier ist {coach_name} von Crush.lu. Wir haben ein Event fuer dich: {event_title} am {event_date}. Melde dich an und werde vor Ort verifiziert! {event_url}', help_text='Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}', max_length=320, verbose_name='Event invite SMS template (German)'),
+            model_name="crushsiteconfig",
+            name="sms_event_invite_template_de",
+            field=models.CharField(
+                blank=True,
+                default="Hi {first_name}! Hier ist {coach_name} von Crush.lu. Wir haben ein Event fuer dich: {event_title} am {event_date}. Melde dich an und werde vor Ort verifiziert! {event_url}",
+                help_text="Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}",
+                max_length=320,
+                verbose_name="Event invite SMS template (German)",
+            ),
         ),
         migrations.AddField(
-            model_name='crushsiteconfig',
-            name='sms_event_invite_template_en',
-            field=models.CharField(blank=True, default='Hi {first_name}! {coach_name} from Crush.lu here. We have an event for you: {event_title} on {event_date}. Sign up & get verified on the spot! {event_url}', help_text='Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}', max_length=320, verbose_name='Event invite SMS template (English)'),
+            model_name="crushsiteconfig",
+            name="sms_event_invite_template_en",
+            field=models.CharField(
+                blank=True,
+                default="Hi {first_name}! {coach_name} from Crush.lu here. We have an event for you: {event_title} on {event_date}. Sign up & get verified on the spot! {event_url}",
+                help_text="Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}",
+                max_length=320,
+                verbose_name="Event invite SMS template (English)",
+            ),
         ),
         migrations.AddField(
-            model_name='crushsiteconfig',
-            name='sms_event_invite_template_fr',
-            field=models.CharField(blank=True, default="Salut {first_name} ! C'est {coach_name} de Crush.lu. On a un evenement pour toi : {event_title} le {event_date}. Inscris-toi et fais-toi verifier sur place ! {event_url}", help_text='Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}', max_length=320, verbose_name='Event invite SMS template (French)'),
+            model_name="crushsiteconfig",
+            name="sms_event_invite_template_fr",
+            field=models.CharField(
+                blank=True,
+                default="Salut {first_name} ! C'est {coach_name} de Crush.lu. On a un evenement pour toi : {event_title} le {event_date}. Inscris-toi et fais-toi verifier sur place ! {event_url}",
+                help_text="Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}",
+                max_length=320,
+                verbose_name="Event invite SMS template (French)",
+            ),
         ),
         migrations.AlterField(
-            model_name='callattempt',
-            name='result',
-            field=models.CharField(choices=[('success', 'Call Completed'), ('failed', 'Call Failed'), ('sms_sent', 'SMS Sent'), ('event_invite_sms', 'Event Invite SMS')], help_text='Whether the call succeeded or failed', max_length=20),
+            model_name="callattempt",
+            name="result",
+            field=models.CharField(
+                choices=[
+                    ("success", "Call Completed"),
+                    ("failed", "Call Failed"),
+                    ("sms_sent", "SMS Sent"),
+                    ("event_invite_sms", "Event Invite SMS"),
+                ],
+                help_text="Whether the call succeeded or failed",
+                max_length=20,
+            ),
         ),
     ]

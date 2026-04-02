@@ -1,66 +1,90 @@
-{% extends 'crush_lu/base.html' %}
-{% load i18n static %}
-
-{% block title %}{% trans "Coach Dashboard" %} - Crush.lu{% endblock %}
-
-{% block content %}
+{% extends 'crush_lu/base.html' %} {% load i18n static %} {% block title %}{% trans
+"Coach Dashboard" %} - Crush.lu{% endblock %} {% block content %}
 <div class="mb-6">
     <h2 class="text-2xl font-bold dark:text-white">{% trans "Coach Dashboard" %}</h2>
-    <p class="text-lg text-gray-500 dark:text-gray-400">{% blocktrans with name=coach.user.get_full_name %}Welcome, Coach {{ name }}!{% endblocktrans %}</p>
+    <p class="text-lg text-gray-500 dark:text-gray-400">
+        {% blocktrans with name=coach.user.get_full_name %}Welcome, Coach {{ name }}!{%
+        endblocktrans %}
+    </p>
 </div>
 
 {# ======== Row 1: Summary Stat Cards ======== #}
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div
+        class="rounded-xl bg-white text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-5">
-            <h3 class="text-3xl font-bold text-crush-purple">{{ total_approved }}</h3>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Approved Profiles" %}</p>
-        </div>
-    </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
-        <div class="p-5">
-            <h3 class="text-3xl font-bold text-amber-500">{{ pending_reviews }}</h3>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">
-                <a href="{% url 'crush_lu:coach_profiles' %}" class="hover:text-crush-purple transition-colors">{% trans "Pending Reviews" %}</a>
+            <h3 class="text-crush-purple text-3xl font-bold">{{ total_approved }}</h3>
+            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Approved Profiles" %}
             </p>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+    <div
+        class="rounded-xl bg-white text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-5">
-            <h3 class="text-3xl font-bold text-green-600 dark:text-green-400">{{ your_total_reviews }}</h3>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Your Total Reviews" %}</p>
+            <h3 class="text-3xl font-bold text-amber-500">{{ pending_reviews }}</h3>
+            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
+                <a
+                    href="{% url 'crush_lu:coach_profiles' %}"
+                    class="hover:text-crush-purple transition-colors"
+                    >{% trans "Pending Reviews" %}</a
+                >
+            </p>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
+    <div
+        class="rounded-xl bg-white text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-5">
-            <h3 class="text-3xl font-bold text-pink-500">{{ pending_connections_count }}</h3>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% trans "Connections Pending" %}</p>
+            <h3 class="text-3xl font-bold text-green-600 dark:text-green-400">
+                {{ your_total_reviews }}
+            </h3>
+            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Your Total Reviews" %}
+            </p>
+        </div>
+    </div>
+    <div
+        class="rounded-xl bg-white text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <div class="p-5">
+            <h3 class="text-3xl font-bold text-pink-500">
+                {{ pending_connections_count }}
+            </h3>
+            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Connections Pending" %}
+            </p>
         </div>
     </div>
 </div>
 
 {# ======== Row 2: Demographics ======== #}
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+<div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
     {# Gender Breakdown #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Gender Breakdown" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Gender Breakdown" %}
+            </h5>
         </div>
         <div class="p-6">
             {# Stacked horizontal bar #}
-            <div class="flex h-8 rounded-full overflow-hidden mb-4">
-                {% for bar in gender_bars %}
-                    {% if bar.pct > 0 %}
-                    <div class="{{ bar.color }}" style="width: {{ bar.pct }}%"></div>
-                    {% endif %}
-                {% endfor %}
+            <div class="mb-4 flex h-8 overflow-hidden rounded-full">
+                {% for bar in gender_bars %} {% if bar.pct > 0 %}
+                <div class="{{ bar.color }}" style="width: {{ bar.pct }}%"></div>
+                {% endif %} {% endfor %}
             </div>
             {# Legend #}
             <div class="flex flex-wrap gap-4">
                 {% for bar in gender_bars %}
                 <div class="flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full {{ bar.color }}"></span>
-                    <span class="text-sm text-gray-600 dark:text-gray-300">{{ bar.label }}: <strong>{{ bar.count }}</strong> ({{ bar.pct }}%)</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-300"
+                        >{{ bar.label }}: <strong>{{ bar.count }}</strong> ({{ bar.pct
+                        }}%)</span
+                    >
                 </div>
                 {% endfor %}
             </div>
@@ -68,122 +92,206 @@
     </div>
 
     {# Age Distribution #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Age Distribution" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Age Distribution" %}
+            </h5>
         </div>
         <div class="p-6">
-            <div class="flex items-end gap-2 h-40">
+            <div class="flex h-40 items-end gap-2">
                 {% for bucket in age_buckets %}
-                <div class="flex-1 flex flex-col items-center justify-end h-full">
-                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">{{ bucket.count }}</span>
-                    <div class="w-full flex flex-col justify-end rounded-t overflow-hidden" style="height: {{ bucket.pct }}%">
+                <div class="flex h-full flex-1 flex-col items-center justify-end">
+                    <span
+                        class="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                        >{{ bucket.count }}</span
+                    >
+                    <div
+                        class="flex w-full flex-col justify-end overflow-hidden rounded-t"
+                        style="height: {{ bucket.pct }}%"
+                    >
                         {% if bucket.count_other > 0 %}
-                        <div class="w-full bg-purple-500/80 dark:bg-purple-500/60" style="height: {{ bucket.pct_other }}%"></div>
-                        {% endif %}
-                        {% if bucket.count_m > 0 %}
-                        <div class="w-full bg-blue-500/80 dark:bg-blue-500/60" style="height: {{ bucket.pct_m }}%"></div>
-                        {% endif %}
-                        {% if bucket.count_f > 0 %}
-                        <div class="w-full bg-pink-500/80 dark:bg-pink-500/60" style="height: {{ bucket.pct_f }}%"></div>
+                        <div
+                            class="w-full bg-purple-500/80 dark:bg-purple-500/60"
+                            style="height: {{ bucket.pct_other }}%"
+                        ></div>
+                        {% endif %} {% if bucket.count_m > 0 %}
+                        <div
+                            class="w-full bg-blue-500/80 dark:bg-blue-500/60"
+                            style="height: {{ bucket.pct_m }}%"
+                        ></div>
+                        {% endif %} {% if bucket.count_f > 0 %}
+                        <div
+                            class="w-full bg-pink-500/80 dark:bg-pink-500/60"
+                            style="height: {{ bucket.pct_f }}%"
+                        ></div>
                         {% endif %}
                     </div>
-                    <span class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ bucket.label }}</span>
-                    <div class="flex items-center gap-0.5 mt-0.5">
-                        <span class="text-[10px] font-semibold text-pink-600 dark:text-pink-400">{{ bucket.count_f }}</span>
-                        <span class="text-[10px] text-gray-300 dark:text-gray-600">/</span>
-                        <span class="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{{ bucket.count_m }}</span>
+                    <span class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+                        >{{ bucket.label }}</span
+                    >
+                    <div class="mt-0.5 flex items-center gap-0.5">
+                        <span
+                            class="text-[10px] font-semibold text-pink-600 dark:text-pink-400"
+                            >{{ bucket.count_f }}</span
+                        >
+                        <span class="text-[10px] text-gray-300 dark:text-gray-600"
+                            >/</span
+                        >
+                        <span
+                            class="text-[10px] font-semibold text-blue-600 dark:text-blue-400"
+                            >{{ bucket.count_m }}</span
+                        >
                         {% if bucket.count_other > 0 %}
-                        <span class="text-[10px] text-gray-300 dark:text-gray-600">/</span>
-                        <span class="text-[10px] font-semibold text-purple-600 dark:text-purple-400">{{ bucket.count_other }}</span>
+                        <span class="text-[10px] text-gray-300 dark:text-gray-600"
+                            >/</span
+                        >
+                        <span
+                            class="text-[10px] font-semibold text-purple-600 dark:text-purple-400"
+                            >{{ bucket.count_other }}</span
+                        >
                         {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {# Legend #}
-            <div class="flex justify-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <div
+                class="mt-3 flex justify-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-700"
+            >
                 <div class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-full bg-pink-500"></span>
-                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Women" %}</span>
+                    <span class="h-3 w-3 rounded-full bg-pink-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300"
+                        >{% trans "Women" %}</span
+                    >
                 </div>
                 <div class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Men" %}</span>
+                    <span class="h-3 w-3 rounded-full bg-blue-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300"
+                        >{% trans "Men" %}</span
+                    >
                 </div>
                 <div class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-                    <span class="text-xs text-gray-600 dark:text-gray-300">{% trans "Other" %}</span>
+                    <span class="h-3 w-3 rounded-full bg-purple-500"></span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300"
+                        >{% trans "Other" %}</span
+                    >
                 </div>
             </div>
         </div>
     </div>
 
     {# Language Distribution #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Event Languages" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Event Languages" %}
+            </h5>
         </div>
         <div class="p-6">
             {% if language_stats %}
             <div class="space-y-3">
                 {% for lang in language_stats %}
                 <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ lang.label }}</span>
-                        <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ lang.count }} ({{ lang.pct }}%)</span>
+                    <div class="mb-1 flex items-center justify-between">
+                        <span class="text-sm text-gray-700 dark:text-gray-300"
+                            >{{ lang.label }}</span
+                        >
+                        <span
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-300"
+                            >{{ lang.count }} ({{ lang.pct }}%)</span
+                        >
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-crush-purple/70 dark:bg-crush-purple/50 rounded-full h-2.5 transition-all" style="width: {{ lang.pct }}%"></div>
+                    <div class="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                        <div
+                            class="bg-crush-purple/70 dark:bg-crush-purple/50 h-2.5 rounded-full transition-all"
+                            style="width: {{ lang.pct }}%"
+                        ></div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-sm text-gray-400 dark:text-gray-500">{% trans "No data yet" %}</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500">
+                {% trans "No data yet" %}
+            </p>
             {% endif %}
         </div>
     </div>
 </div>
 
 {# ======== Row 2.5a: Language Cross-Analysis ======== #}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     {# Gender x Language #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Gender x Event Language" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Gender x Event Language" %}
+            </h5>
         </div>
-        <div class="p-6 overflow-x-auto">
+        <div class="overflow-x-auto p-6">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-200 dark:border-gray-700">
-                        <th class="text-left py-2 pr-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{% trans "Gender" %}</th>
+                        <th
+                            class="py-2 pr-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
+                        >
+                            {% trans "Gender" %}
+                        </th>
                         {% for label in lang_labels %}
-                        <th class="py-2 px-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">{{ label }}</th>
+                        <th
+                            class="px-2 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ label }}
+                        </th>
                         {% endfor %}
-                        <th class="py-2 pl-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{% trans "Total" %}</th>
+                        <th
+                            class="py-2 pl-2 text-center text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
+                        >
+                            {% trans "Total" %}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in gender_lang_matrix %}
-                    {% if row.total > 0 %}
+                    {% for row in gender_lang_matrix %} {% if row.total > 0 %}
                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                        <td class="py-2 pr-3 font-medium text-gray-700 dark:text-gray-300">{{ row.label }}</td>
+                        <td
+                            class="py-2 pr-3 font-medium text-gray-700 dark:text-gray-300"
+                        >
+                            {{ row.label }}
+                        </td>
                         {% for cell in row.cells %}
-                        <td class="py-2 px-2 text-center {% if cell == 0 %}text-gray-300 dark:text-gray-600{% elif cell >= 3 %}font-semibold text-gray-800 dark:text-gray-100 bg-crush-purple/5 dark:bg-crush-purple/10{% else %}text-gray-600 dark:text-gray-300{% endif %}">{{ cell }}</td>
+                        <td
+                            class="{% if cell == 0 %}text-gray-300 dark:text-gray-600{% elif cell >= 3 %}font-semibold bg-crush-purple/5 dark:bg-crush-purple/10{% else %}text-gray-600 dark:text-gray-300{% endif %} px-2 py-2 text-center text-gray-800 dark:text-gray-100"
+                        >
+                            {{ cell }}
+                        </td>
                         {% endfor %}
-                        <td class="py-2 pl-2 text-center font-semibold text-gray-800 dark:text-gray-100">{{ row.total }}</td>
+                        <td
+                            class="py-2 pl-2 text-center font-semibold text-gray-800 dark:text-gray-100"
+                        >
+                            {{ row.total }}
+                        </td>
                     </tr>
-                    {% endif %}
-                    {% endfor %}
+                    {% endif %} {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
-                        <td class="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">{% trans "Total" %}</td>
+                        <td
+                            class="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {% trans "Total" %}
+                        </td>
                         {% for col_total in gender_lang_col_totals %}
-                        <td class="py-2 px-2 text-center font-semibold text-gray-500 dark:text-gray-400">{{ col_total }}</td>
+                        <td
+                            class="px-2 py-2 text-center font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ col_total }}
+                        </td>
                         {% endfor %}
-                        <td class="py-2 pl-2 text-center font-semibold text-gray-500 dark:text-gray-400"></td>
+                        <td
+                            class="py-2 pl-2 text-center font-semibold text-gray-500 dark:text-gray-400"
+                        ></td>
                     </tr>
                 </tfoot>
             </table>
@@ -191,41 +299,75 @@
     </div>
 
     {# Age x Language #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Age x Event Language" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Age x Event Language" %}
+            </h5>
         </div>
-        <div class="p-6 overflow-x-auto">
+        <div class="overflow-x-auto p-6">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-gray-200 dark:border-gray-700">
-                        <th class="text-left py-2 pr-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{% trans "Age" %}</th>
+                        <th
+                            class="py-2 pr-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
+                        >
+                            {% trans "Age" %}
+                        </th>
                         {% for label in lang_labels %}
-                        <th class="py-2 px-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">{{ label }}</th>
+                        <th
+                            class="px-2 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ label }}
+                        </th>
                         {% endfor %}
-                        <th class="py-2 pl-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{% trans "Total" %}</th>
+                        <th
+                            class="py-2 pl-2 text-center text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
+                        >
+                            {% trans "Total" %}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in age_lang_matrix %}
-                    {% if row.total > 0 %}
+                    {% for row in age_lang_matrix %} {% if row.total > 0 %}
                     <tr class="border-b border-gray-100 dark:border-gray-700/50">
-                        <td class="py-2 pr-3 font-medium text-gray-700 dark:text-gray-300">{{ row.label }}</td>
+                        <td
+                            class="py-2 pr-3 font-medium text-gray-700 dark:text-gray-300"
+                        >
+                            {{ row.label }}
+                        </td>
                         {% for cell in row.cells %}
-                        <td class="py-2 px-2 text-center {% if cell == 0 %}text-gray-300 dark:text-gray-600{% elif cell >= 3 %}font-semibold text-gray-800 dark:text-gray-100 bg-crush-purple/5 dark:bg-crush-purple/10{% else %}text-gray-600 dark:text-gray-300{% endif %}">{{ cell }}</td>
+                        <td
+                            class="{% if cell == 0 %}text-gray-300 dark:text-gray-600{% elif cell >= 3 %}font-semibold bg-crush-purple/5 dark:bg-crush-purple/10{% else %}text-gray-600 dark:text-gray-300{% endif %} px-2 py-2 text-center text-gray-800 dark:text-gray-100"
+                        >
+                            {{ cell }}
+                        </td>
                         {% endfor %}
-                        <td class="py-2 pl-2 text-center font-semibold text-gray-800 dark:text-gray-100">{{ row.total }}</td>
+                        <td
+                            class="py-2 pl-2 text-center font-semibold text-gray-800 dark:text-gray-100"
+                        >
+                            {{ row.total }}
+                        </td>
                     </tr>
-                    {% endif %}
-                    {% endfor %}
+                    {% endif %} {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
-                        <td class="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">{% trans "Total" %}</td>
+                        <td
+                            class="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {% trans "Total" %}
+                        </td>
                         {% for col_total in age_lang_col_totals %}
-                        <td class="py-2 px-2 text-center font-semibold text-gray-500 dark:text-gray-400">{{ col_total }}</td>
+                        <td
+                            class="px-2 py-2 text-center font-semibold text-gray-500 dark:text-gray-400"
+                        >
+                            {{ col_total }}
+                        </td>
                         {% endfor %}
-                        <td class="py-2 pl-2 text-center font-semibold text-gray-500 dark:text-gray-400"></td>
+                        <td
+                            class="py-2 pl-2 text-center font-semibold text-gray-500 dark:text-gray-400"
+                        ></td>
                     </tr>
                 </tfoot>
             </table>
@@ -234,45 +376,65 @@
 </div>
 
 {# ======== Row 2.5: Ideal Crush Preferences ======== #}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     {# Adoption Overview + Unconfigured Profiles #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Ideal Crush Preferences" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Ideal Crush Preferences" %}
+            </h5>
         </div>
         <div class="p-6">
             {# Adoption stat #}
-            <div class="flex items-baseline gap-2 mb-3">
-                <span class="text-3xl font-bold text-crush-purple">{{ pref_stats.adoption_rate }}%</span>
+            <div class="mb-3 flex items-baseline gap-2">
+                <span class="text-crush-purple text-3xl font-bold"
+                    >{{ pref_stats.adoption_rate }}%</span
+                >
                 <span class="text-sm text-gray-500 dark:text-gray-400">
-                    {% blocktrans with configured=pref_stats.configured_count total=pref_stats.total_approved %}{{ configured }} of {{ total }} profiles{% endblocktrans %}
+                    {% blocktrans with configured=pref_stats.configured_count
+                    total=pref_stats.total_approved %}{{ configured }} of {{ total }}
+                    profiles{% endblocktrans %}
                 </span>
             </div>
             {# Progress bar #}
-            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4">
-                <div class="bg-crush-purple rounded-full h-3 transition-all" style="width: {{ pref_stats.adoption_rate }}%"></div>
+            <div class="mb-4 h-3 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                    class="bg-crush-purple h-3 rounded-full transition-all"
+                    style="width: {{ pref_stats.adoption_rate }}%"
+                ></div>
             </div>
 
-            {# Unconfigured profiles list #}
-            {% if pref_stats.unconfigured_profiles %}
-            <div class="border-t border-gray-100 dark:border-gray-700 pt-4"
-                 data-count="{{ pref_stats.unconfigured_profiles|length }}"
-                 data-text-show-all="{% trans 'Show all' %}"
-                 data-text-show-less="{% trans 'Show less' %}">
-                <h6 class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3">
-                    {% blocktrans with count=pref_stats.unconfigured_profiles|length %}Profiles without preferences ({{ count }}){% endblocktrans %}
+            {# Unconfigured profiles list #} {% if pref_stats.unconfigured_profiles %}
+            <div
+                class="border-t border-gray-100 pt-4 dark:border-gray-700"
+                data-count="{{ pref_stats.unconfigured_profiles|length }}"
+                data-text-show-all="{% trans 'Show all' %}"
+                data-text-show-less="{% trans 'Show less' %}"
+            >
+                <h6 class="mb-3 text-sm font-semibold text-gray-600 dark:text-gray-300">
+                    {% blocktrans with count=pref_stats.unconfigured_profiles|length
+                    %}Profiles without preferences ({{ count }}){% endblocktrans %}
                 </h6>
                 <ul class="space-y-2" x-data="callbackList">
                     {% for profile in pref_stats.unconfigured_profiles %}
-                    <li class="{% if forloop.counter > 3 %}hidden-profile{% endif %}"
-                        {% if forloop.counter > 3 %}x-show="isExpanded"{% endif %}>
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ profile.display_name }}</span>
+                    <li
+                        class="{% if forloop.counter > 3 %}hidden-profile{% endif %}"
+                        {%
+                        if
+                        forloop.counter
+                    >
+                        3 %}x-show="isExpanded"{% endif %}>
+                        <span class="text-sm text-gray-700 dark:text-gray-300"
+                            >{{ profile.display_name }}</span
+                        >
                     </li>
-                    {% endfor %}
-                    {% if pref_stats.unconfigured_profiles|length > 3 %}
+                    {% endfor %} {% if pref_stats.unconfigured_profiles|length > 3 %}
                     <li class="pt-1">
-                        <button @click="toggle" class="text-sm text-crush-purple hover:text-crush-pink font-medium transition-colors"
-                                x-text="toggleLabel"></button>
+                        <button
+                            @click="toggle"
+                            class="text-crush-purple hover:text-crush-pink text-sm font-medium transition-colors"
+                            x-text="toggleLabel"
+                        ></button>
                     </li>
                     {% endif %}
                 </ul>
@@ -282,63 +444,94 @@
     </div>
 
     {# Preference Breakdown #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Preference Breakdown" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Preference Breakdown" %}
+            </h5>
         </div>
-        <div class="p-6 space-y-0">
+        <div class="space-y-0 p-6">
             {# Gender Preferences #}
             <div class="pb-4">
-                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "Gender Preferences" %}</h6>
+                <h6
+                    class="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                >
+                    {% trans "Gender Preferences" %}
+                </h6>
                 {% if pref_stats.gender_pref_stats %}
-                <div class="flex h-6 rounded-full overflow-hidden mb-2">
-                    {% for g in pref_stats.gender_pref_stats %}
-                        {% if g.pct > 0 %}
-                        <div class="{% if g.code == 'F' %}bg-pink-500{% elif g.code == 'M' %}bg-blue-500{% elif g.code == 'NB' %}bg-purple-500{% else %}bg-gray-400{% endif %}" style="width: {{ g.pct }}%"></div>
-                        {% endif %}
-                    {% endfor %}
+                <div class="mb-2 flex h-6 overflow-hidden rounded-full">
+                    {% for g in pref_stats.gender_pref_stats %} {% if g.pct > 0 %}
+                    <div
+                        class="{% if g.code == 'F' %}bg-pink-500{% elif g.code == 'M' %}bg-blue-500{% elif g.code == 'NB' %}bg-purple-500{% else %}bg-gray-400{% endif %}"
+                        style="width: {{ g.pct }}%"
+                    ></div>
+                    {% endif %} {% endfor %}
                 </div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                     {% for g in pref_stats.gender_pref_stats %}
-                    <span class="text-xs text-gray-600 dark:text-gray-300">{{ g.label }}: <strong>{{ g.count }}</strong> ({{ g.pct }}%)</span>
+                    <span class="text-xs text-gray-600 dark:text-gray-300"
+                        >{{ g.label }}: <strong>{{ g.count }}</strong> ({{ g.pct
+                        }}%)</span
+                    >
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-gray-400 dark:text-gray-500">{% trans "No data yet" %}</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500">
+                    {% trans "No data yet" %}
+                </p>
                 {% endif %}
             </div>
 
             {# Age Range Preferences #}
-            <div class="border-t border-gray-100 dark:border-gray-700 py-4">
-                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "Age Range Preferences" %}</h6>
+            <div class="border-t border-gray-100 py-4 dark:border-gray-700">
+                <h6
+                    class="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                >
+                    {% trans "Age Range Preferences" %}
+                </h6>
                 {% if pref_stats.avg_age_min and pref_stats.avg_age_max %}
-                <p class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
-                    {% blocktrans with min=pref_stats.avg_age_min max=pref_stats.avg_age_max %}Avg: {{ min }} – {{ max }}{% endblocktrans %}
+                <p class="mb-2 text-lg font-bold text-gray-800 dark:text-gray-100">
+                    {% blocktrans with min=pref_stats.avg_age_min
+                    max=pref_stats.avg_age_max %}Avg: {{ min }} – {{ max }}{%
+                    endblocktrans %}
                 </p>
                 {% endif %}
                 <div class="space-y-1">
                     {% for bucket in pref_stats.age_distribution %}
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-500 dark:text-gray-400 w-12">{{ bucket.label }}</span>
-                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div class="bg-crush-purple/70 dark:bg-crush-purple/50 rounded-full h-2" style="width: {{ bucket.pct }}%"></div>
+                        <span class="w-12 text-xs text-gray-500 dark:text-gray-400"
+                            >{{ bucket.label }}</span
+                        >
+                        <div
+                            class="h-2 flex-1 rounded-full bg-gray-200 dark:bg-gray-700"
+                        >
+                            <div
+                                class="bg-crush-purple/70 dark:bg-crush-purple/50 h-2 rounded-full"
+                                style="width: {{ bucket.pct }}%"
+                            ></div>
                         </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{{ bucket.count }}</span>
+                        <span
+                            class="w-8 text-right text-xs text-gray-500 dark:text-gray-400"
+                            >{{ bucket.count }}</span
+                        >
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
             {# First Step Preference #}
-            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
-                <h6 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{% trans "First Step Preference" %}</h6>
+            <div class="border-t border-gray-100 pt-4 dark:border-gray-700">
+                <h6
+                    class="mb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                >
+                    {% trans "First Step Preference" %}
+                </h6>
                 {% if pref_stats.first_step_stats %}
                 <div class="flex flex-wrap gap-2">
                     {% for fs in pref_stats.first_step_stats %}
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full
-                        {% if fs.key == 'i_initiate' %}bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300
-                        {% elif fs.key == 'they_initiate' %}bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300
-                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300{% endif %}">
+                    <span
+                        class="{% if fs.key == 'i_initiate' %}bg-green-100 {% elif fs.key == 'they_initiate' %}bg-blue-100 {% else %}bg-gray-100 dark:text-gray-300{% endif %} inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-blue-800 text-gray-700 text-green-800 dark:bg-blue-900/30 dark:bg-gray-700 dark:bg-green-900/30 dark:text-blue-300 dark:text-green-300"
+                    >
                         {{ fs.label }}
                         <strong>{{ fs.count }}</strong>
                         <span class="opacity-70">({{ fs.pct }}%)</span>
@@ -346,7 +539,9 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-gray-400 dark:text-gray-500">{% trans "No data yet" %}</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500">
+                    {% trans "No data yet" %}
+                </p>
                 {% endif %}
             </div>
         </div>
@@ -354,11 +549,13 @@
 </div>
 
 {# ======== Row 3: Tier Distribution + Coach Stats ======== #}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<div class="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
     {# Membership Tier Distribution #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Membership Tiers" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Membership Tiers" %}
+            </h5>
         </div>
         <div class="p-6">
             <div class="grid grid-cols-2 gap-3">
@@ -373,27 +570,49 @@
     </div>
 
     {# Your Coach Stats #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Your Coach Stats" %}</h5>
+    <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+            <h5 class="mb-0 font-semibold dark:text-white">
+                {% trans "Your Coach Stats" %}
+            </h5>
         </div>
         <div class="p-6">
             <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-300">{% trans "Approved" %}</span>
-                    <span class="inline-flex items-center px-2.5 py-1 text-sm font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{{ coach_stats.total_approved }}</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 dark:text-gray-300"
+                        >{% trans "Approved" %}</span
+                    >
+                    <span
+                        class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-sm font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        >{{ coach_stats.total_approved }}</span
+                    >
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-300">{% trans "Rejected" %}</span>
-                    <span class="inline-flex items-center px-2.5 py-1 text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">{{ coach_stats.total_rejected }}</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 dark:text-gray-300"
+                        >{% trans "Rejected" %}</span
+                    >
+                    <span
+                        class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-sm font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        >{{ coach_stats.total_rejected }}</span
+                    >
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-300">{% trans "Revision Requested" %}</span>
-                    <span class="inline-flex items-center px-2.5 py-1 text-sm font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{{ coach_stats.total_revision }}</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 dark:text-gray-300"
+                        >{% trans "Revision Requested" %}</span
+                    >
+                    <span
+                        class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-sm font-semibold text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                        >{{ coach_stats.total_revision }}</span
+                    >
                 </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600 dark:text-gray-300">{% trans "Recontact" %}</span>
-                    <span class="inline-flex items-center px-2.5 py-1 text-sm font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full">{{ coach_stats.total_recontact }}</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 dark:text-gray-300"
+                        >{% trans "Recontact" %}</span
+                    >
+                    <span
+                        class="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-1 text-sm font-semibold text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+                        >{{ coach_stats.total_recontact }}</span
+                    >
                 </div>
             </div>
         </div>
@@ -401,105 +620,183 @@
 </div>
 
 {# ======== Row 4: Quick Actions ======== #}
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-pink-500">
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div
+        class="h-full rounded-xl border-l-4 border-pink-500 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                {% include "shared/icons/heart.html" with class="w-5 h-5" %}
-                {% trans "Connections" %}
-                {% if pending_connections_count %}
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 rounded-full">{{ pending_connections_count }}</span>
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans
+                "Connections" %} {% if pending_connections_count %}
+                <span
+                    class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-pink-100 px-2 text-xs font-semibold text-pink-800 dark:bg-pink-900/30 dark:text-pink-300"
+                    >{{ pending_connections_count }}</span
+                >
                 {% endif %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Review and approve post-event connections between members." %}</p>
-            <a href="{% url 'crush_lu:coach_connections' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "Review and approve post-event connections between members." %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_connections' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "Manage Connections" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-crush-pink">
+    <div
+        class="border-crush-pink h-full rounded-xl border-l-4 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                {% include "shared/icons/calendar.html" with class="w-5 h-5" %}
-                {% trans "Event Management" %}
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/calendar.html" with class="w-5 h-5" %} {% trans
+                "Event Management" %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "View upcoming events, track registrations, and see who signed up." %}</p>
-            <a href="{% url 'crush_lu:coach_event_list' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "View upcoming events, track registrations, and see who signed
+                up." %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_event_list' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "Manage Events" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-amber-500">
+    <div
+        class="h-full rounded-xl border-l-4 border-amber-500 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-5 h-5">
-                {% trans "Crush Sparks" %}
-                {% if pending_sparks_count %}
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{{ pending_sparks_count }}</span>
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                <img
+                    src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}"
+                    alt=""
+                    class="h-5 w-5"
+                />
+                {% trans "Crush Sparks" %} {% if pending_sparks_count %}
+                <span
+                    class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                    >{{ pending_sparks_count }}</span
+                >
                 {% endif %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Review and approve Crush Sparks sent between event attendees." %}</p>
-            <a href="{% url 'crush_lu:coach_spark_list' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "Review and approve Crush Sparks sent between event attendees."
+                %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_spark_list' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "Review Sparks" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-crush-purple">
+    <div
+        class="border-crush-purple h-full rounded-xl border-l-4 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}
-                {% trans "Journey Management" %}
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} {% trans
+                "Journey Management" %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Manage active Wonderland Journey experiences and view user progress." %}</p>
-            <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "Manage active Wonderland Journey experiences and view user
+                progress." %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_journey_dashboard' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "Manage Journeys" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-teal-500">
+    <div
+        class="h-full rounded-xl border-l-4 border-teal-500 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                {% include "shared/icons/users.html" with class="w-5 h-5" %}
-                {% trans "Team Stats" %}
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/users.html" with class="w-5 h-5" %} {% trans
+                "Team Stats" %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "View team workload, performance metrics, and claim unassigned profiles." %}</p>
-            <a href="{% url 'crush_lu:coach_team_stats' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "View team workload, performance metrics, and claim unassigned
+                profiles." %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_team_stats' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "View Team Stats" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-green-500">
+    <div
+        class="h-full rounded-xl border-l-4 border-green-500 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                {% trans "My Members" %}
-                {% if approved_members_count %}
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{{ approved_members_count }}</span>
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                </svg>
+                {% trans "My Members" %} {% if approved_members_count %}
+                <span
+                    class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-green-100 px-2 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                    >{{ approved_members_count }}</span
+                >
                 {% endif %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Browse your approved members and find their best matches." %}</p>
-            <a href="{% url 'crush_lu:coach_members' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "Browse your approved members and find their best matches." %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_members' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "View Members" %}</span>
             </a>
         </div>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 h-full border-l-4 border-indigo-500">
+    <div
+        class="h-full rounded-xl border-l-4 border-indigo-500 bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <div class="p-6">
-            <h5 class="font-semibold mb-2 flex items-center gap-2 dark:text-white">
-                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
-                {% trans "Match Pairs" %}
-                {% if match_pairs_count %}
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{{ match_pairs_count }}</span>
+            <h5 class="mb-2 flex items-center gap-2 font-semibold dark:text-white">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5" %} {% trans
+                "Match Pairs" %} {% if match_pairs_count %}
+                <span
+                    class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-indigo-100 px-2 text-xs font-semibold text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
+                    >{{ match_pairs_count }}</span
+                >
                 {% endif %}
             </h5>
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Browse high-scoring match pairs across all approved members." %}</p>
-            <a href="{% url 'crush_lu:coach_match_pairs' %}" class="btn-crush-primary inline-flex items-center gap-1 text-sm px-3 py-1.5">
+            <p class="mb-4 text-gray-500 dark:text-gray-400">
+                {% trans "Browse high-scoring match pairs across all approved members."
+                %}
+            </p>
+            <a
+                href="{% url 'crush_lu:coach_match_pairs' %}"
+                class="btn-crush-primary inline-flex items-center gap-1 px-3 py-1.5 text-sm"
+            >
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
                 <span>{% trans "View Match Pairs" %}</span>
             </a>

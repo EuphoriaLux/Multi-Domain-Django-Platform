@@ -1,9 +1,5 @@
-{% extends "crush_lu/journey/journey_base.html" %}
-{% load static i18n %}
-
-{% block extra_journey_css %}{% endblock %}
-
-{% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
+extra_journey_css %}{% endblock %} {% block journey_content %}
 <div class="journey-container-narrow journey-animate-fade-in">
     {% include "crush_lu/journey/partials/challenge_header.html" %}
 
@@ -23,15 +19,17 @@
     >
         <!-- Challenge Type Badge -->
         <div class="journey-badge mb-6">
-            {% include "shared/icons/list-bullet.html" with class="w-5 h-5" %}
-            {% trans "Multiple Choice" %}
+            {% include "shared/icons/list-bullet.html" with class="w-5 h-5" %} {% trans
+            "Multiple Choice" %}
         </div>
 
         <!-- Points Display -->
-        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div
+            class="journey-points-display"
+            aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}"
+        >
             <span aria-hidden="true">&#128142;</span>
-            {{ challenge.points_awarded }}
-            {% trans "Points" %}
+            {{ challenge.points_awarded }} {% trans "Points" %}
         </div>
 
         <!-- Question -->
@@ -41,12 +39,19 @@
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already answered this question and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
-        {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
-        {% else %}
+        {% with completion_message=_("You already answered this question and earned
+        <strong
+            >")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong
+        >."|safe %} {% include "crush_lu/journey/partials/already_completed.html" %} {%
+        endwith %} {% else %}
         <!-- Options -->
-        <div x-show="isNotSuccess" x-cloak class="space-y-4 my-8" role="radiogroup" aria-label="{% trans 'Answer options' %}">
+        <div
+            x-show="isNotSuccess"
+            x-cloak
+            class="my-8 space-y-4"
+            role="radiogroup"
+            aria-label="{% trans 'Answer options' %}"
+        >
             {% for key, value in localized_options.items %}
             <div
                 class="option-card journey-mc-option-card"

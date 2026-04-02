@@ -6,23 +6,38 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0057_add_review_call_checklist'),
+        ("crush_lu", "0057_add_review_call_checklist"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='journeygift',
-            name='claim_attempts',
-            field=models.IntegerField(default=0, help_text='Number of claim attempts made'),
+            model_name="journeygift",
+            name="claim_attempts",
+            field=models.IntegerField(
+                default=0, help_text="Number of claim attempts made"
+            ),
         ),
         migrations.AddField(
-            model_name='journeygift',
-            name='claim_error_message',
-            field=models.TextField(blank=True, help_text='Error message if claim failed'),
+            model_name="journeygift",
+            name="claim_error_message",
+            field=models.TextField(
+                blank=True, help_text="Error message if claim failed"
+            ),
         ),
         migrations.AlterField(
-            model_name='journeygift',
-            name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('claimed', 'Claimed'), ('completed', 'Completed'), ('expired', 'Expired'), ('claim_failed', 'Claim Failed')], default='pending', help_text='Current status of the gift', max_length=20),
+            model_name="journeygift",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("pending", "Pending"),
+                    ("claimed", "Claimed"),
+                    ("completed", "Completed"),
+                    ("expired", "Expired"),
+                    ("claim_failed", "Claim Failed"),
+                ],
+                default="pending",
+                help_text="Current status of the gift",
+                max_length=20,
+            ),
         ),
     ]

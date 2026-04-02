@@ -10,10 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .models import (
-    CrushCoach,
     MeetupEvent,
     EventRegistration,
-    EventActivityOption,
     EventActivityVote,
     EventVotingSession,
     PresentationQueue,
@@ -86,7 +84,9 @@ def event_voting_lobby(request, event_id):
     ).count()
 
     # Determine voting phase
-    voting_ended = not voting_session.is_voting_open and voting_session.time_until_start <= 0
+    voting_ended = (
+        not voting_session.is_voting_open and voting_session.time_until_start <= 0
+    )
 
     context = {
         "event": event,
@@ -126,7 +126,9 @@ def event_activity_vote(request, event_id):
     if user_registration.status == "confirmed":
         messages.warning(
             request,
-            _("You need to check in at the event before you can vote. Please find your coach to get checked in!"),
+            _(
+                "You need to check in at the event before you can vote. Please find your coach to get checked in!"
+            ),
         )
         return redirect("crush_lu:event_voting_lobby", event_id=event_id)
 
@@ -274,7 +276,9 @@ def event_voting_results(request, event_id):
         if user_registration.status == "confirmed":
             messages.warning(
                 request,
-                _("You need to check in at the event before you can view results. Please find your coach to get checked in!"),
+                _(
+                    "You need to check in at the event before you can view results. Please find your coach to get checked in!"
+                ),
             )
             return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -314,7 +318,6 @@ def event_voting_results(request, event_id):
 
     # Get vote counts for each GlobalActivityOption
     from .models import GlobalActivityOption
-    from django.db.models import Count
 
     # Get all active global options with their vote counts for THIS event
     activity_options_with_votes = []
@@ -367,10 +370,14 @@ def event_voting_results(request, event_id):
                 "voting_session": voting_session,
                 "activity_options": activity_options_with_votes,
                 "presentation_options": [
-                    o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+                    o
+                    for o in activity_options_with_votes
+                    if o.activity_type == "presentation_style"
                 ],
                 "twist_options": [
-                    o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+                    o
+                    for o in activity_options_with_votes
+                    if o.activity_type == "speed_dating_twist"
                 ],
                 "presentation_winner": voting_session.winning_presentation_style,
                 "twist_winner": voting_session.winning_speed_dating_twist,
@@ -399,8 +406,9 @@ def event_voting_results(request, event_id):
 
         # Get user IDs who have voted (at least one vote)
         voted_user_ids = set(
-            EventActivityVote.objects.filter(event=event)
-            .values_list("user_id", flat=True)
+            EventActivityVote.objects.filter(event=event).values_list(
+                "user_id", flat=True
+            )
         )
 
         # Build list of attended users who haven't voted yet
@@ -424,10 +432,14 @@ def event_voting_results(request, event_id):
         "voting_session": voting_session,
         "activity_options": activity_options_with_votes,
         "presentation_options": [
-            o for o in activity_options_with_votes if o.activity_type == "presentation_style"
+            o
+            for o in activity_options_with_votes
+            if o.activity_type == "presentation_style"
         ],
         "twist_options": [
-            o for o in activity_options_with_votes if o.activity_type == "speed_dating_twist"
+            o
+            for o in activity_options_with_votes
+            if o.activity_type == "speed_dating_twist"
         ],
         "presentation_winner": voting_session.winning_presentation_style,
         "twist_winner": voting_session.winning_speed_dating_twist,
@@ -465,7 +477,9 @@ def event_presentations(request, event_id):
     if user_registration.status == "confirmed":
         messages.warning(
             request,
-            _("You need to check in at the event before you can view presentations. Please find your coach to get checked in!"),
+            _(
+                "You need to check in at the event before you can view presentations. Please find your coach to get checked in!"
+            ),
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -544,7 +558,10 @@ def submit_presentation_rating(request, event_id, presenter_id):
 
     if user_registration.status == "confirmed":
         return JsonResponse(
-            {"success": False, "error": "You must check in at the event before you can rate."},
+            {
+                "success": False,
+                "error": "You must check in at the event before you can rate.",
+            },
             status=403,
         )
 
@@ -690,7 +707,9 @@ def my_presentation_scores(request, event_id):
     if user_registration.status == "confirmed":
         messages.warning(
             request,
-            _("You need to check in at the event before you can view scores. Please find your coach to get checked in!"),
+            _(
+                "You need to check in at the event before you can view scores. Please find your coach to get checked in!"
+            ),
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
@@ -739,7 +758,7 @@ def my_presentation_scores(request, event_id):
     }
 
     # Get user's rank among all participants
-    from django.db.models import Avg, Count
+    from django.db.models import Avg
 
     all_participants = PresentationQueue.objects.filter(event=event).values_list(
         "user_id", flat=True

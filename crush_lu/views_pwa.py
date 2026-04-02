@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 from .models import SpecialUserExperience
 from .decorators import crush_login_required
 
-
 # ============================================================================
 # Special User Experience View
 # ============================================================================

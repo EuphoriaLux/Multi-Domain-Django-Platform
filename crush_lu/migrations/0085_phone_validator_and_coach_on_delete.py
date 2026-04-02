@@ -8,18 +8,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0084_fix_activity_vote_fk_and_constraint'),
+        ("crush_lu", "0084_fix_activity_vote_fk_and_constraint"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='crushprofile',
-            name='phone_number',
-            field=models.CharField(blank=True, db_index=True, max_length=20, validators=[django.core.validators.RegexValidator(message='Enter a valid phone number (e.g., +352 621 123 456).', regex='^\\+?[\\d\\s\\-().]{7,20}$')]),
+            model_name="crushprofile",
+            name="phone_number",
+            field=models.CharField(
+                blank=True,
+                db_index=True,
+                max_length=20,
+                validators=[
+                    django.core.validators.RegexValidator(
+                        message="Enter a valid phone number (e.g., +352 621 123 456).",
+                        regex="^\\+?[\\d\\s\\-().]{7,20}$",
+                    )
+                ],
+            ),
         ),
         migrations.AlterField(
-            model_name='profilesubmission',
-            name='coach',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='crush_lu.crushcoach'),
+            model_name="profilesubmission",
+            name="coach",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="crush_lu.crushcoach",
+            ),
         ),
     ]

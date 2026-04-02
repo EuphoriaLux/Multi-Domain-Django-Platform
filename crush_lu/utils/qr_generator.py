@@ -10,7 +10,7 @@ import qrcode
 from django.core.files.base import ContentFile
 
 
-def generate_gift_qr_code(gift, domain='crush.lu'):
+def generate_gift_qr_code(gift, domain="crush.lu"):
     """
     Generate a styled QR code for a journey gift.
 
@@ -39,14 +39,14 @@ def generate_gift_qr_code(gift, domain='crush.lu'):
 
     # Save to bytes buffer
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     buffer.seek(0)
 
     # Return as Django ContentFile
-    return ContentFile(buffer.read(), name=f'{gift.gift_code}.png')
+    return ContentFile(buffer.read(), name=f"{gift.gift_code}.png")
 
 
-def save_gift_qr_code(gift, domain='crush.lu'):
+def save_gift_qr_code(gift, domain="crush.lu"):
     """
     Generate and save QR code to the gift's qr_code_image field.
 
@@ -58,5 +58,5 @@ def save_gift_qr_code(gift, domain='crush.lu'):
         The gift instance with the QR code saved
     """
     qr_content = generate_gift_qr_code(gift, domain)
-    gift.qr_code_image.save(f'{gift.gift_code}.png', qr_content, save=True)
+    gift.qr_code_image.save(f"{gift.gift_code}.png", qr_content, save=True)
     return gift

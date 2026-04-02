@@ -1,16 +1,19 @@
-{% load i18n %}
-{% if target_id %}
-<div id="{{ target_id }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 mb-4 overflow-hidden">
-    <div class="bg-red-500 text-white px-6 py-4">
-        <h6 class="font-semibold flex items-center gap-2">
-            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
-            {% trans "Error" %}
+{% load i18n %} {% if target_id %}
+<div
+    id="{{ target_id }}"
+    class="mb-4 overflow-hidden rounded-xl bg-white shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
+>
+    <div class="bg-red-500 px-6 py-4 text-white">
+        <h6 class="flex items-center gap-2 font-semibold">
+            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %} {%
+            trans "Error" %}
         </h6>
     </div>
     <div class="p-6">
         <div class="alert alert-danger" role="alert">
             <div class="flex items-center gap-2">
-                {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0" %}
+                {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5
+                flex-shrink-0" %}
                 <span>{{ message }}</span>
             </div>
         </div>
@@ -19,7 +22,8 @@
 {% else %}
 <div class="alert alert-danger" role="alert">
     <div class="flex items-center gap-2">
-        {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5 flex-shrink-0" %}
+        {% include "shared/icons/exclamation-circle.html" with class="w-5 h-5
+        flex-shrink-0" %}
         <span>{{ message }}</span>
     </div>
 </div>

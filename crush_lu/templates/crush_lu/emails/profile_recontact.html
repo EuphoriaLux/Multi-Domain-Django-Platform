@@ -1,43 +1,66 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
-
-{% block title %}{% trans "Missed Connection Call" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "Missed Connection Call" %}{% endblock %}
-
-{% block content %}
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "Missed Connection Call" %} - Crush.lu{% endblock %} {% block header_title %}{%
+trans "Missed Connection Call" %}{% endblock %} {% block content %}
 <h2>{% blocktrans %}Hey {{ first_name }}!{% endblocktrans %}</h2>
 
-<p>{% trans "Your Crush Coach tried to reach you for your profile screening call but couldn't connect." %}</p>
+<p>
+    {% trans "Your Crush Coach tried to reach you for your profile screening call but
+    couldn't connect." %}
+</p>
 
 <div class="info-box">
-    <p style="margin: 0 0 10px 0;"><strong>{% trans "What you need to do:" %}</strong></p>
-    <ul style="margin: 0; padding-left: 20px;">
+    <p style="margin: 0 0 10px 0">
+        <strong>{% trans "What you need to do:" %}</strong>
+    </p>
+    <ul style="margin: 0; padding-left: 20px">
         <li>{% trans "Contact your coach to schedule your screening call" %}</li>
         <li>{% trans "Coach:" %} {{ coach.user.get_full_name }}</li>
-        <li>{% trans "Email:" %} <a href="mailto:{{ coach.user.email }}" style="color: #9B59B6;">{{ coach.user.email }}</a></li>
+        <li>
+            {% trans "Email:" %}
+            <a href="mailto:{{ coach.user.email }}" style="color: #9b59b6"
+                >{{ coach.user.email }}</a
+            >
+        </li>
         {% if coach_phone_available %}
-        <li>{% trans "Phone:" %} <a href="tel:+{{ coach_contact_phone }}" style="color: #9B59B6;">+{{ coach_contact_phone }}</a></li>
+        <li>
+            {% trans "Phone:" %}
+            <a href="tel:+{{ coach_contact_phone }}" style="color: #9b59b6"
+                >+{{ coach_contact_phone }}</a
+            >
+        </li>
         {% endif %}
     </ul>
 </div>
 
 {% if coach_phone_available %}
-<a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}" class="button" style="background-color: #25D366; margin-bottom: 10px;">{% trans "WhatsApp Coach" %}</a>
-<br>
-<a href="tel:+{{ coach_contact_phone }}" class="button" style="margin-bottom: 10px;">{% trans "Call Coach" %}</a>
-<br>
+<a
+    href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}"
+    class="button"
+    style="background-color: #25d366; margin-bottom: 10px"
+    >{% trans "WhatsApp Coach" %}</a
+>
+<br />
+<a href="tel:+{{ coach_contact_phone }}" class="button" style="margin-bottom: 10px"
+    >{% trans "Call Coach" %}</a
+>
+<br />
 {% endif %}
-<a href="mailto:{{ coach.user.email }}" class="button" style="background-color: {% if coach_phone_available %}transparent; color: #9B59B6; border: 2px solid #9B59B6{% else %}#9B59B6{% endif %};">{% trans "Email Coach" %}</a>
-
-<p>{% trans "Once you complete the screening call, your profile can be approved and you'll be able to register for events!" %}</p>
+<a
+    href="mailto:{{ coach.user.email }}"
+    class="button"
+    style="background-color: {% if coach_phone_available %}transparent; color: #9B59B6; border: 2px solid #9B59B6{% else %}#9B59B6{% endif %};"
+    >{% trans "Email Coach" %}</a
+>
 
 <p>
-    {% trans "See you soon," %}<br>
+    {% trans "Once you complete the screening call, your profile can be approved and
+    you'll be able to register for events!" %}
+</p>
+
+<p>
+    {% trans "See you soon," %}<br />
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
-{% endblock %}
-
-{% block footer_message %}
-{% trans "You're receiving this because your coach tried to reach you for a screening call." %}<br>
+{% endblock %} {% block footer_message %} {% trans "You're receiving this because your
+coach tried to reach you for a screening call." %}<br />
 {% endblock %}

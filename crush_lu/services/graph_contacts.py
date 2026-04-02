@@ -697,11 +697,15 @@ class GraphContactsService:
 
         # Only sync phone-verified profiles (caller ID requires verified phone)
         # Exclude inactive/deleted users as a safety net
-        profiles = CrushProfile.objects.select_related("user").filter(
-            phone_verified=True,
-            phone_number__isnull=False,
-            user__is_active=True,
-        ).exclude(phone_number='')
+        profiles = (
+            CrushProfile.objects.select_related("user")
+            .filter(
+                phone_verified=True,
+                phone_number__isnull=False,
+                user__is_active=True,
+            )
+            .exclude(phone_number="")
+        )
         stats["total"] = profiles.count()
 
         for profile in profiles:

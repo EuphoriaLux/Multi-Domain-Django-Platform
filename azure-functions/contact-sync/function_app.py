@@ -36,7 +36,7 @@ app = func.FunctionApp()
     schedule="0 0 3 * * *",  # Daily at 3:00 AM UTC
     arg_name="timer",
     run_on_startup=False,
-    use_monitor=True
+    use_monitor=True,
 )
 def daily_contact_sync(timer: func.TimerRequest) -> None:
     """
@@ -55,9 +55,9 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
     logging.info(f"Starting daily Outlook contact sync at {utc_timestamp}")
 
     # Get configuration from environment
-    command_url = os.environ.get('DJANGO_MANAGEMENT_COMMAND_URL')
-    api_key = os.environ.get('ADMIN_API_KEY')
-    sync_enabled = os.environ.get('OUTLOOK_CONTACT_SYNC_ENABLED', '').lower() == 'true'
+    command_url = os.environ.get("DJANGO_MANAGEMENT_COMMAND_URL")
+    api_key = os.environ.get("ADMIN_API_KEY")
+    sync_enabled = os.environ.get("OUTLOOK_CONTACT_SYNC_ENABLED", "").lower() == "true"
 
     # Validation
     if not sync_enabled:
@@ -77,28 +77,26 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
         # The endpoint runs sync in a background thread and returns 202 immediately
         response = requests.post(
             command_url,
-            json={
-                'command': 'sync_contacts_to_outlook',
-                'args': [],
-                'options': {}
-            },
+            json={"command": "sync_contacts_to_outlook", "args": [], "options": {}},
             headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-                'Host': 'crush.lu'  # Route to Crush URL config via domain middleware
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "Host": "crush.lu",  # Route to Crush URL config via domain middleware
             },
-            timeout=60  # Short timeout - endpoint returns 202 immediately
+            timeout=60,  # Short timeout - endpoint returns 202 immediately
         )
 
         response.raise_for_status()
         result = response.json()
 
         if response.status_code == 202:
-            logging.info("Daily contact sync triggered successfully (running in background on server)")
-        elif result.get('success'):
+            logging.info(
+                "Daily contact sync triggered successfully (running in background on server)"
+            )
+        elif result.get("success"):
             logging.info("Daily contact sync request accepted")
         else:
-            error_msg = result.get('error', 'Unknown error')
+            error_msg = result.get("error", "Unknown error")
             logging.error(f"Daily contact sync failed: {error_msg}")
             raise RuntimeError(f"Sync endpoint returned error: {error_msg}")
 

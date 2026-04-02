@@ -27,10 +27,9 @@ def get_coach_or_error(request):
         coach = CrushCoach.objects.get(user=request.user, is_active=True)
         return coach, None
     except CrushCoach.DoesNotExist:
-        return None, JsonResponse({
-            'success': False,
-            'error': 'You are not an active coach'
-        }, status=403)
+        return None, JsonResponse(
+            {"success": False, "error": "You are not an active coach"}, status=403
+        )
 
 
 @crush_login_required
@@ -44,20 +43,16 @@ def get_vapid_public_key(request):
     if error:
         return error
 
-    if not hasattr(settings, 'VAPID_PUBLIC_KEY') or not settings.VAPID_PUBLIC_KEY:
-        return JsonResponse({
-            'success': False,
-            'error': 'Push notifications not configured'
-        }, status=500)
+    if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
+        return JsonResponse(
+            {"success": False, "error": "Push notifications not configured"}, status=500
+        )
 
-    return JsonResponse({
-        'success': True,
-        'publicKey': settings.VAPID_PUBLIC_KEY
-    })
+    return JsonResponse({"success": True, "publicKey": settings.VAPID_PUBLIC_KEY})
 
 
 @crush_login_required
-@ratelimit(key='user', rate='20/m', method='POST')
+@ratelimit(key="user", rate="20/m", method="POST")
 @csrf_exempt
 @require_http_methods(["POST"])
 def subscribe_push(request):
@@ -87,26 +82,21 @@ def subscribe_push(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON'
-        }, status=400)
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
     # Validate required fields
-    if 'endpoint' not in data or 'keys' not in data:
-        return JsonResponse({
-            'success': False,
-            'error': 'Missing endpoint or keys'
-        }, status=400)
+    if "endpoint" not in data or "keys" not in data:
+        return JsonResponse(
+            {"success": False, "error": "Missing endpoint or keys"}, status=400
+        )
 
-    keys = data['keys']
-    if 'p256dh' not in keys or 'auth' not in keys:
-        return JsonResponse({
-            'success': False,
-            'error': 'Missing p256dh or auth keys'
-        }, status=400)
+    keys = data["keys"]
+    if "p256dh" not in keys or "auth" not in keys:
+        return JsonResponse(
+            {"success": False, "error": "Missing p256dh or auth keys"}, status=400
+        )
 
-    fingerprint = data.get('deviceFingerprint', '')
+    fingerprint = data.get("deviceFingerprint", "")
     subscription = None
     created = False
 
@@ -114,17 +104,16 @@ def subscribe_push(request):
     # This handles the case where the endpoint changed (e.g., after logout/login)
     if fingerprint:
         existing_by_fingerprint = CoachPushSubscription.objects.filter(
-            coach=coach,
-            device_fingerprint=fingerprint
+            coach=coach, device_fingerprint=fingerprint
         ).first()
 
         if existing_by_fingerprint:
             # Same physical device, update endpoint and keys
-            existing_by_fingerprint.endpoint = data['endpoint']
-            existing_by_fingerprint.p256dh_key = keys['p256dh']
-            existing_by_fingerprint.auth_key = keys['auth']
-            existing_by_fingerprint.user_agent = data.get('userAgent', '')
-            existing_by_fingerprint.device_name = data.get('deviceName', '')
+            existing_by_fingerprint.endpoint = data["endpoint"]
+            existing_by_fingerprint.p256dh_key = keys["p256dh"]
+            existing_by_fingerprint.auth_key = keys["auth"]
+            existing_by_fingerprint.user_agent = data.get("userAgent", "")
+            existing_by_fingerprint.device_name = data.get("deviceName", "")
             existing_by_fingerprint.enabled = True
             existing_by_fingerprint.failure_count = 0
             existing_by_fingerprint.save()
@@ -133,40 +122,43 @@ def subscribe_push(request):
 
             # Clean up any stale subscriptions with the same endpoint from other fingerprints
             CoachPushSubscription.objects.filter(
-                coach=coach,
-                endpoint=data['endpoint']
+                coach=coach, endpoint=data["endpoint"]
             ).exclude(id=subscription.id).delete()
 
     # Strategy 2: Fall back to endpoint-based matching (backwards compatibility)
     if not subscription:
         subscription, created = CoachPushSubscription.objects.update_or_create(
             coach=coach,
-            endpoint=data['endpoint'],
+            endpoint=data["endpoint"],
             defaults={
-                'p256dh_key': keys['p256dh'],
-                'auth_key': keys['auth'],
-                'user_agent': data.get('userAgent', ''),
-                'device_name': data.get('deviceName', ''),
-                'device_fingerprint': fingerprint,
-                'enabled': True,
-                'failure_count': 0,
-            }
+                "p256dh_key": keys["p256dh"],
+                "auth_key": keys["auth"],
+                "user_agent": data.get("userAgent", ""),
+                "device_name": data.get("deviceName", ""),
+                "device_fingerprint": fingerprint,
+                "enabled": True,
+                "failure_count": 0,
+            },
         )
 
-    action = 'created' if created else 'updated'
+    action = "created" if created else "updated"
     fingerprint_info = f" (fingerprint: {fingerprint[:8]}...)" if fingerprint else ""
-    logger.info(f"Coach push subscription {action} for {coach.user.username}{fingerprint_info}")
+    logger.info(
+        f"Coach push subscription {action} for {coach.user.username}{fingerprint_info}"
+    )
 
-    return JsonResponse({
-        'success': True,
-        'message': f'Subscription {action} successfully',
-        'subscriptionId': subscription.id,
-        'fingerprint': fingerprint
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "message": f"Subscription {action} successfully",
+            "subscriptionId": subscription.id,
+            "fingerprint": fingerprint,
+        }
+    )
 
 
 @crush_login_required
-@ratelimit(key='user', rate='20/m', method='POST')
+@ratelimit(key="user", rate="20/m", method="POST")
 @csrf_exempt
 @require_http_methods(["POST"])
 def unsubscribe_push(request):
@@ -187,21 +179,14 @@ def unsubscribe_push(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON'
-        }, status=400)
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
-    if 'endpoint' not in data:
-        return JsonResponse({
-            'success': False,
-            'error': 'Missing endpoint'
-        }, status=400)
+    if "endpoint" not in data:
+        return JsonResponse({"success": False, "error": "Missing endpoint"}, status=400)
 
     # Delete subscription
     deleted_count, _ = CoachPushSubscription.objects.filter(
-        coach=coach,
-        endpoint=data['endpoint']
+        coach=coach, endpoint=data["endpoint"]
     ).delete()
 
     if deleted_count > 0:
@@ -209,31 +194,32 @@ def unsubscribe_push(request):
 
         # Check if user push subscription exists with same endpoint OR fingerprint
         # If so, tell frontend to keep the browser subscription active
-        fingerprint = data.get('deviceFingerprint', '')
+        fingerprint = data.get("deviceFingerprint", "")
 
         # Build query: match by endpoint OR by fingerprint (if provided)
-        query = Q(endpoint=data['endpoint'])
+        query = Q(endpoint=data["endpoint"])
         if fingerprint:
             query = query | Q(device_fingerprint=fingerprint)
 
-        keep_browser_subscription = PushSubscription.objects.filter(
-            user=request.user
-        ).filter(query).exists()
+        keep_browser_subscription = (
+            PushSubscription.objects.filter(user=request.user).filter(query).exists()
+        )
 
-        return JsonResponse({
-            'success': True,
-            'message': 'Subscription removed successfully',
-            'keep_browser_subscription': keep_browser_subscription
-        })
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Subscription removed successfully",
+                "keep_browser_subscription": keep_browser_subscription,
+            }
+        )
     else:
-        return JsonResponse({
-            'success': False,
-            'error': 'Subscription not found'
-        }, status=404)
+        return JsonResponse(
+            {"success": False, "error": "Subscription not found"}, status=404
+        )
 
 
 @crush_login_required
-@ratelimit(key='user', rate='20/m', method='POST')
+@ratelimit(key="user", rate="20/m", method="POST")
 @csrf_exempt
 @require_http_methods(["POST"])
 def delete_push_subscription(request):
@@ -253,36 +239,31 @@ def delete_push_subscription(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON'
-        }, status=400)
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
-    subscription_id = data.get('subscription_id')
+    subscription_id = data.get("subscription_id")
 
     if not subscription_id:
-        return JsonResponse({
-            'success': False,
-            'error': 'subscription_id required'
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": "subscription_id required"}, status=400
+        )
 
     # Delete subscription - must belong to current coach
     deleted_count, _ = CoachPushSubscription.objects.filter(
-        id=subscription_id,
-        coach=coach
+        id=subscription_id, coach=coach
     ).delete()
 
     if deleted_count > 0:
-        logger.info(f"Coach push subscription {subscription_id} deleted for {coach.user.username}")
-        return JsonResponse({
-            'success': True,
-            'message': 'Subscription deleted successfully'
-        })
+        logger.info(
+            f"Coach push subscription {subscription_id} deleted for {coach.user.username}"
+        )
+        return JsonResponse(
+            {"success": True, "message": "Subscription deleted successfully"}
+        )
     else:
-        return JsonResponse({
-            'success': False,
-            'error': 'Subscription not found'
-        }, status=404)
+        return JsonResponse(
+            {"success": False, "error": "Subscription not found"}, status=404
+        )
 
 
 @crush_login_required
@@ -297,29 +278,33 @@ def list_subscriptions(request):
 
     subscriptions = CoachPushSubscription.objects.filter(coach=coach)
 
-    return JsonResponse({
-        'success': True,
-        'subscriptions': [
-            {
-                'id': sub.id,
-                'deviceName': sub.device_name or 'Unknown Device',
-                'enabled': sub.enabled,
-                'createdAt': sub.created_at.isoformat(),
-                'lastUsedAt': sub.last_used_at.isoformat() if sub.last_used_at else None,
-                'preferences': {
-                    'newSubmissions': sub.notify_new_submissions,
-                    'screeningReminders': sub.notify_screening_reminders,
-                    'userResponses': sub.notify_user_responses,
-                    'systemAlerts': sub.notify_system_alerts,
+    return JsonResponse(
+        {
+            "success": True,
+            "subscriptions": [
+                {
+                    "id": sub.id,
+                    "deviceName": sub.device_name or "Unknown Device",
+                    "enabled": sub.enabled,
+                    "createdAt": sub.created_at.isoformat(),
+                    "lastUsedAt": (
+                        sub.last_used_at.isoformat() if sub.last_used_at else None
+                    ),
+                    "preferences": {
+                        "newSubmissions": sub.notify_new_submissions,
+                        "screeningReminders": sub.notify_screening_reminders,
+                        "userResponses": sub.notify_user_responses,
+                        "systemAlerts": sub.notify_system_alerts,
+                    },
                 }
-            }
-            for sub in subscriptions
-        ]
-    })
+                for sub in subscriptions
+            ],
+        }
+    )
 
 
 @crush_login_required
-@ratelimit(key='user', rate='20/m', method='POST')
+@ratelimit(key="user", rate="20/m", method="POST")
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_subscription_preferences(request):
@@ -344,51 +329,44 @@ def update_subscription_preferences(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON'
-        }, status=400)
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
-    subscription_id = data.get('subscriptionId')
-    preferences = data.get('preferences', {})
+    subscription_id = data.get("subscriptionId")
+    preferences = data.get("preferences", {})
 
     if not subscription_id:
-        return JsonResponse({
-            'success': False,
-            'error': 'Missing subscriptionId'
-        }, status=400)
+        return JsonResponse(
+            {"success": False, "error": "Missing subscriptionId"}, status=400
+        )
 
     try:
         subscription = CoachPushSubscription.objects.get(
-            id=subscription_id,
-            coach=coach
+            id=subscription_id, coach=coach
         )
     except CoachPushSubscription.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'Subscription not found'
-        }, status=404)
+        return JsonResponse(
+            {"success": False, "error": "Subscription not found"}, status=404
+        )
 
     # Update preferences
-    if 'newSubmissions' in preferences:
-        subscription.notify_new_submissions = preferences['newSubmissions']
-    if 'screeningReminders' in preferences:
-        subscription.notify_screening_reminders = preferences['screeningReminders']
-    if 'userResponses' in preferences:
-        subscription.notify_user_responses = preferences['userResponses']
-    if 'systemAlerts' in preferences:
-        subscription.notify_system_alerts = preferences['systemAlerts']
+    if "newSubmissions" in preferences:
+        subscription.notify_new_submissions = preferences["newSubmissions"]
+    if "screeningReminders" in preferences:
+        subscription.notify_screening_reminders = preferences["screeningReminders"]
+    if "userResponses" in preferences:
+        subscription.notify_user_responses = preferences["userResponses"]
+    if "systemAlerts" in preferences:
+        subscription.notify_system_alerts = preferences["systemAlerts"]
 
     subscription.save()
 
-    return JsonResponse({
-        'success': True,
-        'message': 'Preferences updated successfully'
-    })
+    return JsonResponse(
+        {"success": True, "message": "Preferences updated successfully"}
+    )
 
 
 @crush_login_required
-@ratelimit(key='user', rate='5/m', method='POST')
+@ratelimit(key="user", rate="5/m", method="POST")
 @csrf_exempt
 @require_http_methods(["POST"])
 def send_test_push(request):
@@ -401,15 +379,20 @@ def send_test_push(request):
 
     result = send_coach_test_notification(coach)
 
-    if result['success'] > 0:
-        return JsonResponse({
-            'success': True,
-            'message': f'Test notification sent to {result["success"]} device(s)',
-            'details': result
-        })
+    if result["success"] > 0:
+        return JsonResponse(
+            {
+                "success": True,
+                "message": f'Test notification sent to {result["success"]} device(s)',
+                "details": result,
+            }
+        )
     else:
-        return JsonResponse({
-            'success': False,
-            'error': 'No active subscriptions or notification failed',
-            'details': result
-        }, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "No active subscriptions or notification failed",
+                "details": result,
+            },
+            status=400,
+        )

@@ -1,12 +1,13 @@
-{% extends "base.html" %}
-{% load static %}
-{% load i18n %}
-
-{% block title %}{{ page_title }}{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'entreprinder/css/pages/pixel-war-react.css' %}">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+{% extends "base.html" %} {% load static %} {% load i18n %} {% block title %}{{
+page_title }}{% endblock %} {% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'entreprinder/css/pages/pixel-war-react.css' %}"
+/>
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+/>
 <style>
     /* Override base template container constraints for Pixel Wars */
     main.container {
@@ -14,7 +15,7 @@
         padding: 0 !important;
         margin-top: 0 !important;
     }
-    
+
     @media (min-width: 1024px) {
         main.container {
             width: 100vw !important;
@@ -22,9 +23,7 @@
         }
     }
 </style>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <!-- React Root Container -->
 <div id="pixel-war-react-root"></div>
 
@@ -43,51 +42,49 @@
 </noscript>
 
 <style>
-.pixel-war-fallback {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    text-align: center;
-    padding: 2rem;
-}
+    .pixel-war-fallback {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        padding: 2rem;
+    }
 
-.fallback-content h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
+    .fallback-content h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
 
-.fallback-content p {
-    font-size: 1.1rem;
-    margin: 0.5rem 0;
-    opacity: 0.9;
-}
+    .fallback-content p {
+        font-size: 1.1rem;
+        margin: 0.5rem 0;
+        opacity: 0.9;
+    }
 
-.fallback-link {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 12px 24px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    transition: all 0.2s ease;
-}
+    .fallback-link {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.2s ease;
+    }
 
-.fallback-link:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.5);
-    color: white;
-    text-decoration: none;
-}
+    .fallback-link:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        text-decoration: none;
+    }
 </style>
-{% endblock %}
-
-{% block extra_js %}
+{% endblock %} {% block extra_js %}
 <!-- CSRF Token for API requests -->
 {% csrf_token %}
 
@@ -109,14 +106,23 @@
 </script>
 
 <!-- React and ReactDOM (CDN for quick setup - in production, use bundled version) -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script
+    crossorigin
+    src="https://unpkg.com/react@18/umd/react.production.min.js"
+></script>
+<script
+    crossorigin
+    src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+></script>
 
 <!-- Babel for JSX transformation (development only - use build process in production) -->
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <!-- React Pixel War Component -->
-<script type="text/babel" src="{% static 'entreprinder/js/vibe_coding/react/pixel-wars-react.jsx' %}"></script>
+<script
+    type="text/babel"
+    src="{% static 'entreprinder/js/vibe_coding/react/pixel-wars-react.jsx' %}"
+></script>
 
 <!-- Error handling and initialization -->
 <script>
@@ -132,49 +138,69 @@
         }
 
         componentDidCatch(error, errorInfo) {
-            console.error('React Pixel War Error:', error, errorInfo);
+            console.error("React Pixel War Error:", error, errorInfo);
         }
 
         render() {
             if (this.state.hasError) {
-                return React.createElement('div', {
-                    className: 'react-error',
-                    style: {
-                        minHeight: '50vh',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        textAlign: 'center',
-                        padding: '2rem'
-                    }
-                }, [
-                    React.createElement('h2', { key: 'title' }, '⚠️ Something went wrong'),
-                    React.createElement('p', { key: 'message' }, 'The React app encountered an error.'),
-                    React.createElement('button', {
-                        key: 'retry',
-                        onClick: () => window.location.reload(),
+                return React.createElement(
+                    "div",
+                    {
+                        className: "react-error",
                         style: {
-                            padding: '12px 24px',
-                            background: 'rgba(255, 255, 255, 0.2)',
-                            color: 'white',
-                            border: '2px solid rgba(255, 255, 255, 0.3)',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            marginTop: '1rem'
-                        }
-                    }, 'Retry'),
-                    React.createElement('a', {
-                        key: 'fallback',
-                        href: '{% url "vibe_coding:pixel_war" %}',
-                        style: {
-                            color: 'rgba(255, 255, 255, 0.8)',
-                            textDecoration: 'underline',
-                            marginTop: '1rem'
-                        }
-                    }, 'Use standard version instead')
-                ]);
+                            minHeight: "50vh",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "white",
+                            textAlign: "center",
+                            padding: "2rem",
+                        },
+                    },
+                    [
+                        React.createElement(
+                            "h2",
+                            { key: "title" },
+                            "⚠️ Something went wrong",
+                        ),
+                        React.createElement(
+                            "p",
+                            { key: "message" },
+                            "The React app encountered an error.",
+                        ),
+                        React.createElement(
+                            "button",
+                            {
+                                key: "retry",
+                                onClick: () => window.location.reload(),
+                                style: {
+                                    padding: "12px 24px",
+                                    background: "rgba(255, 255, 255, 0.2)",
+                                    color: "white",
+                                    border: "2px solid rgba(255, 255, 255, 0.3)",
+                                    borderRadius: "8px",
+                                    cursor: "pointer",
+                                    marginTop: "1rem",
+                                },
+                            },
+                            "Retry",
+                        ),
+                        React.createElement(
+                            "a",
+                            {
+                                key: "fallback",
+                                href: '{% url "vibe_coding:pixel_war" %}',
+                                style: {
+                                    color: "rgba(255, 255, 255, 0.8)",
+                                    textDecoration: "underline",
+                                    marginTop: "1rem",
+                                },
+                            },
+                            "Use standard version instead",
+                        ),
+                    ],
+                );
             }
 
             return this.props.children;
@@ -183,25 +209,29 @@
 
     // Initialize React app with error boundary
     function initializeReactApp() {
-        const container = document.getElementById('pixel-war-react-root');
+        const container = document.getElementById("pixel-war-react-root");
         if (!container) {
-            console.error('React container not found');
+            console.error("React container not found");
             return;
         }
 
         try {
             const root = ReactDOM.createRoot(container);
-            
+
             // Create app with error boundary
-            const app = React.createElement(ErrorBoundary, null,
-                React.createElement(PixelWarApp, { canvasConfig: window.CANVAS_CONFIG })
+            const app = React.createElement(
+                ErrorBoundary,
+                null,
+                React.createElement(PixelWarApp, {
+                    canvasConfig: window.CANVAS_CONFIG,
+                }),
             );
-            
+
             root.render(app);
-            console.log('✅ React Pixel War initialized successfully');
+            console.log("✅ React Pixel War initialized successfully");
         } catch (error) {
-            console.error('❌ Failed to initialize React Pixel War:', error);
-            
+            console.error("❌ Failed to initialize React Pixel War:", error);
+
             // Fallback to error message
             container.innerHTML = `
                 <div style="min-height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 2rem;">
@@ -216,8 +246,8 @@
     }
 
     // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeReactApp);
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initializeReactApp);
     } else {
         initializeReactApp();
     }

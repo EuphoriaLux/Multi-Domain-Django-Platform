@@ -1,9 +1,5 @@
-{% extends "crush_lu/journey/journey_base.html" %}
-{% load static i18n %}
-
-{% block extra_journey_css %}{% endblock %}
-
-{% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
+extra_journey_css %}{% endblock %} {% block journey_content %}
 <div class="journey-container-content journey-animate-fade-in">
     {% include "crush_lu/journey/partials/challenge_header.html" %}
 
@@ -23,41 +19,59 @@
     >
         <!-- Challenge Type Badge -->
         <div class="journey-badge mb-6">
-            {% include "shared/icons/clock.html" with class="w-5 h-5" %}
-            {% trans "Timeline Challenge" %}
+            {% include "shared/icons/clock.html" with class="w-5 h-5" %} {% trans
+            "Timeline Challenge" %}
         </div>
 
         <!-- Points Display -->
-        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
+        <div
+            class="journey-points-display"
+            aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}"
+        >
             <span aria-hidden="true">&#128142;</span>
-            {{ challenge.points_awarded }}
-            {% trans "Points" %}
+            {{ challenge.points_awarded }} {% trans "Points" %}
         </div>
 
         <!-- Question -->
-        <p class="text-lg md:text-xl text-center my-6 leading-relaxed">
+        <p class="my-6 text-center text-lg leading-relaxed md:text-xl">
             {{ challenge.question }}
         </p>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already sorted this timeline correctly and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>."|safe %}
-        {% include "crush_lu/journey/partials/already_completed.html" %}
-        {% endwith %}
-        {% else %}
+        {% with completion_message=_("You already sorted this timeline correctly and
+        earned
+        <strong
+            >")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong
+        >."|safe %} {% include "crush_lu/journey/partials/already_completed.html" %} {%
+        endwith %} {% else %}
         <!-- Instructions -->
         <div x-show="isNotSuccess" x-cloak class="instruction-box">
             {% include "shared/icons/hand-raised.html" with class="w-5 h-5" %}
-            <span x-text="instructionText">{% trans "Drag and drop the events to arrange them in chronological order" %}</span>
+            <span x-text="instructionText"
+                >{% trans "Drag and drop the events to arrange them in chronological
+                order" %}</span
+            >
         </div>
 
         <!-- Timeline -->
         <div x-show="isNotSuccess" x-cloak class="timeline-container">
             <div class="timeline-line" aria-hidden="true"></div>
-            <ul class="timeline-items" id="timelineItems" role="list" aria-label="{% trans 'Sortable timeline events' %}">
+            <ul
+                class="timeline-items"
+                id="timelineItems"
+                role="list"
+                aria-label="{% trans 'Sortable timeline events' %}"
+            >
                 {% for event in localized_events %}
-                <li class="timeline-item" data-original-index="{{ forloop.counter0 }}" role="listitem">
-                    <div class="timeline-number" aria-hidden="true">{{ forloop.counter }}</div>
+                <li
+                    class="timeline-item"
+                    data-original-index="{{ forloop.counter0 }}"
+                    role="listitem"
+                >
+                    <div class="timeline-number" aria-hidden="true">
+                        {{ forloop.counter }}
+                    </div>
                     <div class="timeline-text">{{ event }}</div>
                     <div class="drag-handle" aria-hidden="true">&#8942;&#8942;</div>
                 </li>
@@ -73,7 +87,8 @@
             >
                 <span x-show="isNotSubmitting">{% trans "Submit Timeline" %}</span>
                 <span x-show="isSubmitting" x-cloak>{% trans "Checking..." %}</span>
-                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
+                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5"
+                %}
             </button>
         </div>
 

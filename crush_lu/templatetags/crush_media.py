@@ -25,12 +25,12 @@ def profile_photo_url(profile, photo_field):
         Secure URL to the photo
     """
     if not profile or not getattr(profile, photo_field, None):
-        return ''
+        return ""
 
-    return reverse('crush_lu:serve_profile_photo', kwargs={
-        'user_id': profile.user.id,
-        'photo_field': photo_field
-    })
+    return reverse(
+        "crush_lu:serve_profile_photo",
+        kwargs={"user_id": profile.user.id, "photo_field": photo_field},
+    )
 
 
 @register.filter
@@ -67,8 +67,8 @@ def split_interests(value):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-@register.inclusion_tag('crush_lu/components/profile_photo.html')
-def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo'):
+@register.inclusion_tag("crush_lu/components/profile_photo.html")
+def profile_photo(profile, photo_field, css_class="", alt_text="Profile photo"):
     """
     Render a profile photo with proper security and fallback
 
@@ -88,17 +88,17 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo'):
     photo = getattr(profile, photo_field, None) if profile else None
 
     if photo:
-        photo_url = reverse('crush_lu:serve_profile_photo', kwargs={
-            'user_id': profile.user.id,
-            'photo_field': photo_field
-        })
+        photo_url = reverse(
+            "crush_lu:serve_profile_photo",
+            kwargs={"user_id": profile.user.id, "photo_field": photo_field},
+        )
     else:
         photo_url = None
 
     return {
-        'photo_url': photo_url,
-        'has_photo': bool(photo),
-        'css_class': css_class,
-        'alt_text': alt_text,
-        'display_name': profile.display_name if profile else 'User'
+        "photo_url": photo_url,
+        "has_photo": bool(photo),
+        "css_class": css_class,
+        "alt_text": alt_text,
+        "display_name": profile.display_name if profile else "User",
     }

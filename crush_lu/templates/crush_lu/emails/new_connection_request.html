@@ -1,18 +1,24 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "New Connection Request" %} - Crush.lu{% endblock %} {% block header_title %}{%
+trans "Someone wants to connect!" %} 💕{% endblock %} {% block content %}
+<h2>
+    {% blocktrans with first_name=first_name %}Hi {{ first_name }}!{% endblocktrans %}
+</h2>
 
-{% block title %}{% trans "New Connection Request" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "Someone wants to connect!" %} 💕{% endblock %}
-
-{% block content %}
-<h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }}!{% endblocktrans %}</h2>
-
-<p><strong>{{ requester_name }}</strong> {% blocktrans with event=event_title %}wants to connect with you from the <strong>{{ event }}</strong> event!{% endblocktrans %}</p>
+<p>
+    <strong>{{ requester_name }}</strong> {% blocktrans with event=event_title %}wants
+    to connect with you from the <strong>{{ event }}</strong> event!{% endblocktrans %}
+</p>
 
 <div class="info-box">
-    <strong>{% blocktrans with name=requester_name %}About {{ name }}:{% endblocktrans %}</strong>
-    <p>{% blocktrans with event=event_title date=event_date %}You met at {{ event }} on {{ date }}. They'd like to continue the conversation!{% endblocktrans %}</p>
+    <strong
+        >{% blocktrans with name=requester_name %}About {{ name }}:{% endblocktrans
+        %}</strong
+    >
+    <p>
+        {% blocktrans with event=event_title date=event_date %}You met at {{ event }} on
+        {{ date }}. They'd like to continue the conversation!{% endblocktrans %}
+    </p>
 </div>
 
 <p><strong>{% trans "What happens next?" %}</strong></p>
@@ -22,21 +28,24 @@
     <li>{% trans "Take your time - there's no rush to respond" %}</li>
 </ul>
 
-<p style="text-align: center;">
-    <a href="{{ connections_url }}" class="button">{% trans "View Connection Request" %}</a>
+<p style="text-align: center">
+    <a href="{{ connections_url }}" class="button"
+        >{% trans "View Connection Request" %}</a
+    >
 </p>
 
 <div class="info-box">
     <strong>{% trans "Privacy Note:" %}</strong>
-    <p style="margin-bottom: 0;">{% trans "Your contact details remain private until you both agree to connect. Only mutual connections can message each other." %}</p>
+    <p style="margin-bottom: 0">
+        {% trans "Your contact details remain private until you both agree to connect.
+        Only mutual connections can message each other." %}
+    </p>
 </div>
 
 <p>
-    {% trans "Best," %}<br>
+    {% trans "Best," %}<br />
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
-{% endblock %}
-
-{% block footer_message %}
-{% trans "You're receiving this because someone from an event wants to connect with you." %}<br>
+{% endblock %} {% block footer_message %} {% trans "You're receiving this because
+someone from an event wants to connect with you." %}<br />
 {% endblock %}

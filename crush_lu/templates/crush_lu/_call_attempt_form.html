@@ -1,49 +1,70 @@
 {% load i18n %}
-<div class="border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 rounded-lg p-4">
-    <h6 class="font-semibold text-amber-900 dark:text-amber-300 mb-3 flex items-center gap-2">
-        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-        {% trans "Log Failed Call Attempt" %}
+<div
+    class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/30"
+>
+    <h6
+        class="mb-3 flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300"
+    >
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %} {%
+        trans "Log Failed Call Attempt" %}
     </h6>
 
-    <form hx-post="{% url 'crush_lu:coach_log_failed_call' submission.id %}"
-          hx-target="#screening-call-section"
-          hx-swap="outerHTML"
-          class="space-y-3">
+    <form
+        hx-post="{% url 'crush_lu:coach_log_failed_call' submission.id %}"
+        hx-target="#screening-call-section"
+        hx-swap="outerHTML"
+        class="space-y-3"
+    >
         {% csrf_token %}
 
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            <label
+                class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
                 {% trans "Reason" %} <span class="text-red-500">*</span>
             </label>
-            <select name="failure_reason" required
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+            <select
+                name="failure_reason"
+                required
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-amber-500 focus:ring-2 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            >
                 <option value="">{% trans "Select reason..." %}</option>
                 <option value="no_answer">{% trans "No answer" %}</option>
                 <option value="voicemail">{% trans "Voicemail left" %}</option>
                 <option value="wrong_number">{% trans "Wrong number" %}</option>
                 <option value="user_busy">{% trans "User busy" %}</option>
-                <option value="scheduled_callback">{% trans "Scheduled callback" %}</option>
+                <option value="scheduled_callback">
+                    {% trans "Scheduled callback" %}
+                </option>
             </select>
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            <label
+                class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
                 {% trans "Notes (optional)" %}
             </label>
-            <textarea name="notes"
-                      rows="2"
-                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      placeholder="{% trans 'e.g., Left voicemail asking to call back...' %}"></textarea>
+            <textarea
+                name="notes"
+                rows="2"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-amber-500 focus:ring-2 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="{% trans 'e.g., Left voicemail asking to call back...' %}"
+            ></textarea>
         </div>
 
         <div class="flex gap-2">
-            <button type="submit"
-                    class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+            <button
+                type="submit"
+                class="flex-1 rounded-lg bg-amber-600 px-4 py-2 font-medium text-white transition-colors hover:bg-amber-700"
+            >
                 {% trans "Log Failed Attempt" %}
             </button>
-            <button type="button"
-                    @click="toggleFailedCallForm"
-                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <button
+                type="button"
+                @click="toggleFailedCallForm"
+                class="rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
                 {% trans "Cancel" %}
             </button>
         </div>

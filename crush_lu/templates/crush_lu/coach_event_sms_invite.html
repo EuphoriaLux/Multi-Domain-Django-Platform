@@ -1,96 +1,154 @@
-{% extends 'crush_lu/base.html' %}
-{% load i18n %}
-
-{% block title %}{% trans "SMS Invite" %} - {{ event.title }} - Crush.lu{% endblock %}
-
-{% block content %}
+{% extends 'crush_lu/base.html' %} {% load i18n %} {% block title %}{% trans "SMS
+Invite" %} - {{ event.title }} - Crush.lu{% endblock %} {% block content %}
 <!-- Breadcrumb -->
 <div class="mb-6">
-    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
-        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+    <div class="mb-2 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <a
+            href="{% url 'crush_lu:coach_event_list' %}"
+            class="hover:text-crush-purple transition-colors"
+            >{% trans "Events" %}</a
+        >
         <span>/</span>
-        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
+        <a
+            href="{% url 'crush_lu:coach_event_detail' event.id %}"
+            class="hover:text-crush-purple transition-colors"
+            >{{ event.title|truncatechars:30 }}</a
+        >
         <span>/</span>
         <span class="text-gray-700 dark:text-gray-300">{% trans "SMS Invite" %}</span>
     </div>
 
     <!-- Event info banner -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-2xl font-bold dark:text-white">{% trans "SMS Invite" %}</h2>
-            <div class="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div
+                class="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400"
+            >
                 <span class="inline-flex items-center gap-1">
-                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                    {{ event.date_time|date:"D, M j, Y \a\t g:i A" }}
+                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %} {{
+                    event.date_time|date:"D, M j, Y \a\t g:i A" }}
                 </span>
-                <span class="inline-flex items-center px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-full">
+                <span
+                    class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                >
                     {{ profile_requirement_display }}
                 </span>
                 {% if has_age_filter %}
-                <span class="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded-full">
-                    {% blocktrans with min=min_age max=max_age %}Age {{ min }}-{{ max }}{% endblocktrans %}
+                <span
+                    class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                >
+                    {% blocktrans with min=min_age max=max_age %}Age {{ min }}-{{ max
+                    }}{% endblocktrans %}
                 </span>
-                {% endif %}
-                {% if has_language_filter %}
-                    {% for lang in event_languages_display %}
-                    <span class="inline-flex items-center px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded-full">
-                        {{ lang.flag }} {{ lang.name }}
-                    </span>
-                    {% endfor %}
-                {% endif %}
+                {% endif %} {% if has_language_filter %} {% for lang in
+                event_languages_display %}
+                <span
+                    class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                >
+                    {{ lang.flag }} {{ lang.name }}
+                </span>
+                {% endfor %} {% endif %}
             </div>
         </div>
-        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors self-start">
+        <a
+            href="{% url 'crush_lu:coach_event_detail' event.id %}"
+            class="inline-flex items-center gap-1 self-start rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
             &larr; {% trans "Back to Event" %}
         </a>
     </div>
 </div>
 
 <!-- Stats Row -->
-<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
         <p class="text-2xl font-bold dark:text-white">{{ total_eligible }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Total Eligible" %}</p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {% trans "Total Eligible" %}
+        </p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
-        <p class="text-2xl font-bold text-pink-600 dark:text-pink-400">{{ gender_counts.F }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Women" %}</p>
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <p class="text-2xl font-bold text-pink-600 dark:text-pink-400">
+            {{ gender_counts.F }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{% trans "Women" %}</p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
-        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ gender_counts.M }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Men" %}</p>
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {{ gender_counts.M }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{% trans "Men" %}</p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
-        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ gender_counts.other }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Other" %}</p>
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {{ gender_counts.other }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{% trans "Other" %}</p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
-        <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ already_sent_count }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Already Sent" %}</p>
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+            {{ already_sent_count }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {% trans "Already Sent" %}
+        </p>
     </div>
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
-        <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ already_registered_count }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Registered" %}</p>
+    <div
+        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+    >
+        <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+            {{ already_registered_count }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {% trans "Registered" %}
+        </p>
     </div>
 </div>
 
 {% if submitted_profiles or unsubmitted_profiles %}
 <!-- Gender Filter Bar -->
 <div x-data="smsInviteFilter" class="mb-6">
-    <div class="flex flex-wrap gap-2 mb-4">
-        <button @click="filterAll" x-bind:class="allButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+    <div class="mb-4 flex flex-wrap gap-2">
+        <button
+            @click="filterAll"
+            x-bind:class="allButtonClass"
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+        >
             {% trans "All" %}
             <span class="ml-1.5 text-xs">({{ total_eligible }})</span>
         </button>
-        <button @click="filterWomen" x-bind:class="womenButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+        <button
+            @click="filterWomen"
+            x-bind:class="womenButtonClass"
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+        >
             &#9792; {% trans "Women" %}
             <span class="ml-1.5 text-xs">({{ gender_counts.F }})</span>
         </button>
-        <button @click="filterMen" x-bind:class="menButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+        <button
+            @click="filterMen"
+            x-bind:class="menButtonClass"
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+        >
             &#9794; {% trans "Men" %}
             <span class="ml-1.5 text-xs">({{ gender_counts.M }})</span>
         </button>
-        <button @click="filterOther" x-bind:class="otherButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
+        <button
+            @click="filterOther"
+            x-bind:class="otherButtonClass"
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+        >
             &#9898; {% trans "Other" %}
             <span class="ml-1.5 text-xs">({{ gender_counts.other }})</span>
         </button>
@@ -99,15 +157,21 @@
     <!-- Section 1: Submitted Profiles (Pending Review) -->
     {% if submitted_profiles %}
     <div class="mb-8">
-        <div class="flex items-center gap-3 mb-3">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Submitted Profiles" %}</h3>
-            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{{ submitted_count }}</span>
+        <div class="mb-3 flex items-center gap-3">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {% trans "Submitted Profiles" %}
+            </h3>
+            <span
+                class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                >{{ submitted_count }}</span
+            >
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "These profiles have been submitted and are pending review." %}</p>
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {% trans "These profiles have been submitted and are pending review." %}
+        </p>
         <div class="space-y-3">
-            {% for p in submitted_profiles %}
-                {% include "crush_lu/_sms_invite_profile_row.html" %}
-            {% endfor %}
+            {% for p in submitted_profiles %} {% include
+            "crush_lu/_sms_invite_profile_row.html" %} {% endfor %}
         </div>
     </div>
     {% endif %}
@@ -115,34 +179,47 @@
     <!-- Section 2: Profile Pool -->
     {% if unsubmitted_profiles %}
     <div>
-        <div class="flex items-center gap-3 mb-3">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ pool_label }}</h3>
-            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{{ unsubmitted_count }}</span>
+        <div class="mb-3 flex items-center gap-3">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ pool_label }}
+            </h3>
+            <span
+                class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                >{{ unsubmitted_count }}</span
+            >
         </div>
         {% if profile_requirement == "approved" %}
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Approved profiles with verified phone numbers matching event criteria." %}</p>
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {% trans "Approved profiles with verified phone numbers matching event
+            criteria." %}
+        </p>
         {% elif profile_requirement == "unverified" %}
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "These users have a verified phone number but have not completed their profile yet. Sending an SMS invite may encourage them to finish." %}</p>
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {% trans "These users have a verified phone number but have not completed
+            their profile yet. Sending an SMS invite may encourage them to finish." %}
+        </p>
         {% else %}
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Profiles with verified phone numbers matching event criteria." %}</p>
+        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+            {% trans "Profiles with verified phone numbers matching event criteria." %}
+        </p>
         {% endif %}
         <div class="space-y-3">
-            {% for p in unsubmitted_profiles %}
-                {% include "crush_lu/_sms_invite_profile_row.html" %}
-            {% endfor %}
+            {% for p in unsubmitted_profiles %} {% include
+            "crush_lu/_sms_invite_profile_row.html" %} {% endfor %}
         </div>
     </div>
     {% endif %}
 </div>
 {% else %}
 <!-- Empty state -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
-    <div class="text-gray-400 dark:text-gray-500 mb-2">
+<div
+    class="rounded-xl bg-white p-8 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
+>
+    <div class="mb-2 text-gray-400 dark:text-gray-500">
         {% include "shared/icons/users.html" with class="w-10 h-10 mx-auto" %}
     </div>
     <p class="text-gray-500 dark:text-gray-400">
         {% trans "No eligible profiles with verified phone numbers." %}
     </p>
 </div>
-{% endif %}
-{% endblock %}
+{% endif %} {% endblock %}

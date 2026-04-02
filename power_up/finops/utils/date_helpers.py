@@ -13,7 +13,7 @@ from django.utils import timezone
 def resolve_date_range(
     request_params,
     queryset=None,
-    date_field='charge_period_start',
+    date_field="charge_period_start",
     default_days=30,
     use_month_filter=False,
 ):
@@ -40,34 +40,37 @@ def resolve_date_range(
     month_filter = None
 
     if use_month_filter:
-        month_filter = request_params.get('month')
+        month_filter = request_params.get("month")
 
     # Check for explicit start_date/end_date params (used by JS chart fetches)
-    explicit_start = request_params.get('start_date')
-    explicit_end = request_params.get('end_date')
+    explicit_start = request_params.get("start_date")
+    explicit_end = request_params.get("end_date")
     if explicit_start and explicit_end:
         try:
             from datetime import date as date_type
+
             start_date = date_type.fromisoformat(explicit_start)
             end_date = date_type.fromisoformat(explicit_end)
             days = (end_date - start_date).days + 1
             return {
-                'start_date': start_date,
-                'end_date': end_date,
-                'days': days,
-                'month_filter': month_filter,
+                "start_date": start_date,
+                "end_date": end_date,
+                "days": days,
+                "month_filter": month_filter,
             }
         except (ValueError, TypeError):
             pass  # Fall through to normal resolution
 
     if month_filter:
         try:
-            year, month = map(int, month_filter.split('-'))
+            year, month = map(int, month_filter.split("-"))
             start_date = timezone.datetime(year, month, 1).date()
             if month == 12:
                 end_date = timezone.datetime(year + 1, 1, 1).date() - timedelta(days=1)
             else:
-                end_date = timezone.datetime(year, month + 1, 1).date() - timedelta(days=1)
+                end_date = timezone.datetime(year, month + 1, 1).date() - timedelta(
+                    days=1
+                )
             days = (end_date - start_date).days + 1
         except (ValueError, AttributeError):
             end_date = timezone.now().date()
@@ -76,7 +79,7 @@ def resolve_date_range(
             month_filter = f"{end_date.year}-{end_date.month:02d}"
     else:
         try:
-            days = int(request_params.get('days', default_days))
+            days = int(request_params.get("days", default_days))
             days = max(1, min(3650, days))
         except (ValueError, TypeError):
             days = default_days
@@ -85,28 +88,26 @@ def resolve_date_range(
         start_date = end_date - timedelta(days=days)
 
         # Clamp to actual data bounds
-        use_trunc = date_field == 'charge_period_start'
+        use_trunc = date_field == "charge_period_start"
         if use_trunc:
             date_range = queryset.aggregate(
-                min_date=Min(TruncDate(date_field)),
-                max_date=Max(TruncDate(date_field))
+                min_date=Min(TruncDate(date_field)), max_date=Max(TruncDate(date_field))
             )
         else:
             date_range = queryset.aggregate(
-                min_date=Min(date_field),
-                max_date=Max(date_field)
+                min_date=Min(date_field), max_date=Max(date_field)
             )
 
-        if date_range['min_date'] and date_range['max_date']:
-            if start_date > date_range['max_date'] or end_date < date_range['min_date']:
-                end_date = date_range['max_date']
+        if date_range["min_date"] and date_range["max_date"]:
+            if start_date > date_range["max_date"] or end_date < date_range["min_date"]:
+                end_date = date_range["max_date"]
                 start_date = end_date - timedelta(days=days - 1)
-                if start_date < date_range['min_date']:
-                    start_date = date_range['min_date']
+                if start_date < date_range["min_date"]:
+                    start_date = date_range["min_date"]
 
     return {
-        'start_date': start_date,
-        'end_date': end_date,
-        'days': days,
-        'month_filter': month_filter,
+        "start_date": start_date,
+        "end_date": end_date,
+        "days": days,
+        "month_filter": month_filter,
     }

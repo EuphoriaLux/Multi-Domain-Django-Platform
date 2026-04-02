@@ -5,6 +5,7 @@ This module provides functions to update Google Wallet passes when user data cha
 (points, tier, event registrations, etc.) and to send push notifications via
 the messages array on pass objects.
 """
+
 import json
 import logging
 import time
@@ -12,7 +13,7 @@ import uuid
 
 import httpx
 from django.conf import settings
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from .google_wallet import _load_private_key, _base64url_encode
@@ -28,7 +29,9 @@ def _get_access_token():
     Generate an OAuth2 access token using service account credentials.
     Uses JWT bearer token flow for server-to-server authentication.
     """
-    service_account_email = getattr(settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None)
+    service_account_email = getattr(
+        settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None
+    )
     if not service_account_email:
         raise ValueError("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL not configured")
 
@@ -48,14 +51,22 @@ def _get_access_token():
     header = {"alg": "RS256", "typ": "JWT"}
 
     # Sign the JWT
-    signing_input = b".".join([
-        _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8")),
-        _base64url_encode(json.dumps(claims, separators=(",", ":")).encode("utf-8")),
-    ])
+    signing_input = b".".join(
+        [
+            _base64url_encode(
+                json.dumps(header, separators=(",", ":")).encode("utf-8")
+            ),
+            _base64url_encode(
+                json.dumps(claims, separators=(",", ":")).encode("utf-8")
+            ),
+        ]
+    )
 
     private_key = _load_private_key()
     signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
-    signed_jwt = b".".join([signing_input, _base64url_encode(signature)]).decode("utf-8")
+    signed_jwt = b".".join([signing_input, _base64url_encode(signature)]).decode(
+        "utf-8"
+    )
 
     # Exchange JWT for access token
     with httpx.Client(timeout=30.0) as client:
@@ -94,7 +105,9 @@ def _build_generic_object_payload(profile, object_id, class_id):
     # Get logo URL
     logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
     if not logo_url:
-        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        logo_url = (
+            "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
+        )
 
     # Get hero/promo image URL
     hero_url = getattr(settings, "WALLET_GOOGLE_HERO_URL", None)
@@ -102,7 +115,9 @@ def _build_generic_object_payload(profile, object_id, class_id):
         hero_url = "https://crush.lu/static/crush_lu/images/wallet-promo-banner.png"
 
     # Extract referral code
-    referral_code = pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    referral_code = (
+        pass_data["referral_url"].split("/")[-2] if pass_data["referral_url"] else ""
+    )
 
     # Build text modules - Buffalo Grill style
     text_modules = [
@@ -119,17 +134,21 @@ def _build_generic_object_payload(profile, object_id, class_id):
     ]
 
     if pass_data["next_event"]:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Next Event",
-            "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Next Event",
+                "body": f"{pass_data['next_event']['title']}\n{pass_data['next_event']['date']}",
+            }
+        )
     else:
-        text_modules.append({
-            "id": "next_event",
-            "header": "📅 Upcoming Events",
-            "body": "Browse events on crush.lu 💜",
-        })
+        text_modules.append(
+            {
+                "id": "next_event",
+                "header": "📅 Upcoming Events",
+                "body": "Browse events on crush.lu 💜",
+            }
+        )
 
     # Build the object
     generic_object = {
@@ -160,9 +179,7 @@ def _build_generic_object_payload(profile, object_id, class_id):
             "value": pass_data["referral_url"],
             "alternateText": "Share me to earn points! 🤳",
         },
-        "cardTitle": {
-            "defaultValue": {"language": "en-US", "value": "Crush.lu"}
-        },
+        "cardTitle": {"defaultValue": {"language": "en-US", "value": "Crush.lu"}},
         "hexBackgroundColor": "#9B59B6",
     }
 
@@ -178,7 +195,10 @@ def _build_generic_object_payload(profile, object_id, class_id):
         generic_object["heroImage"] = {
             "sourceUri": {"uri": hero_url},
             "contentDescription": {
-                "defaultValue": {"language": "en-US", "value": "Invite friends, earn rewards!"}
+                "defaultValue": {
+                    "language": "en-US",
+                    "value": "Invite friends, earn rewards!",
+                }
             },
         }
 
@@ -187,10 +207,38 @@ def _build_generic_object_payload(profile, object_id, class_id):
         "showLastUpdateTime": True,
         "labelValueRows": [
             {"columns": [{"label": "🔗 Your Referral Code", "value": referral_code}]},
-            {"columns": [{"label": "🎁 How to Earn", "value": "Invite friends → +100 pts per signup!"}]},
-            {"columns": [{"label": "🏆 Tier Levels", "value": "🥉 200 | 🥈 500 | 🥇 1000 pts"}]},
-            {"columns": [{"label": "💰 Redeem Points", "value": "Event discounts & exclusive perks!"}]},
-            {"columns": [{"label": "🗓️ Member Since", "value": pass_data["member_since"] or "Welcome!"}]},
+            {
+                "columns": [
+                    {
+                        "label": "🎁 How to Earn",
+                        "value": "Invite friends → +100 pts per signup!",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "🏆 Tier Levels",
+                        "value": "🥉 200 | 🥈 500 | 🥇 1000 pts",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "💰 Redeem Points",
+                        "value": "Event discounts & exclusive perks!",
+                    }
+                ]
+            },
+            {
+                "columns": [
+                    {
+                        "label": "🗓️ Member Since",
+                        "value": pass_data["member_since"] or "Welcome!",
+                    }
+                ]
+            },
         ],
     }
 
@@ -245,9 +293,7 @@ def update_google_wallet_pass(profile):
     try:
         access_token = _get_access_token()
         object_payload = _build_generic_object_payload(
-            profile,
-            profile.google_wallet_object_id,
-            class_id
+            profile, profile.google_wallet_object_id, class_id
         )
 
         # URL encode the object ID (it contains dots)
@@ -279,7 +325,10 @@ def update_google_wallet_pass(profile):
                     profile.user_id,
                     profile.google_wallet_object_id,
                 )
-                return {"success": False, "message": "Pass not found (may have been deleted)"}
+                return {
+                    "success": False,
+                    "message": "Pass not found (may have been deleted)",
+                }
 
             else:
                 logger.error(
@@ -287,10 +336,15 @@ def update_google_wallet_pass(profile):
                     response.status_code,
                     response.text,
                 )
-                return {"success": False, "message": f"API error: {response.status_code}"}
+                return {
+                    "success": False,
+                    "message": f"API error: {response.status_code}",
+                }
 
     except Exception as e:
-        logger.exception("Error updating Google Wallet pass for user %s: %s", profile.user_id, e)
+        logger.exception(
+            "Error updating Google Wallet pass for user %s: %s", profile.user_id, e
+        )
         return {"success": False, "message": str(e)}
 
 
@@ -306,9 +360,7 @@ def update_all_google_wallet_passes():
 
     profiles = CrushProfile.objects.exclude(
         google_wallet_object_id__isnull=True
-    ).exclude(
-        google_wallet_object_id=""
-    )
+    ).exclude(google_wallet_object_id="")
 
     results = {"updated": 0, "failed": 0, "skipped": 0}
 
@@ -388,7 +440,10 @@ def send_wallet_notification_to_user(profile, header, body):
                     profile.user_id,
                     profile.google_wallet_object_id,
                 )
-                return {"success": False, "message": "Pass not found (may have been deleted)"}
+                return {
+                    "success": False,
+                    "message": "Pass not found (may have been deleted)",
+                }
 
             else:
                 logger.error(
@@ -396,7 +451,10 @@ def send_wallet_notification_to_user(profile, header, body):
                     response.status_code,
                     response.text,
                 )
-                return {"success": False, "message": f"API error: {response.status_code}"}
+                return {
+                    "success": False,
+                    "message": f"API error: {response.status_code}",
+                }
 
     except Exception as e:
         logger.exception(
@@ -422,9 +480,7 @@ def send_wallet_notification(header, body, tier_filter=None):
 
     profiles = CrushProfile.objects.exclude(
         google_wallet_object_id__isnull=True
-    ).exclude(
-        google_wallet_object_id=""
-    )
+    ).exclude(google_wallet_object_id="")
 
     if tier_filter:
         profiles = profiles.filter(membership_tier=tier_filter)

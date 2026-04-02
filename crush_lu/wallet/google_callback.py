@@ -17,13 +17,12 @@ Documentation:
 https://developers.google.com/wallet/generic/use-cases/use-callbacks-for-saves-and-deletions
 """
 
-import hashlib
 import json
 import logging
 from functools import lru_cache
 
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -101,13 +100,13 @@ def _verify_callback_signature(signed_message):
 
         # Check for required fields in Google's signed message format
         # The actual payload is in 'signedMessage' which contains the callback data
-        if 'signedMessage' in message_data:
+        if "signedMessage" in message_data:
             # This is the full signed envelope
-            inner_message = json.loads(message_data['signedMessage'])
+            inner_message = json.loads(message_data["signedMessage"])
             return inner_message
 
         # Direct payload format (for testing/development)
-        if 'classId' in message_data or 'objectId' in message_data:
+        if "classId" in message_data or "objectId" in message_data:
             return message_data
 
         logger.warning("Unknown callback message format")
@@ -131,7 +130,9 @@ def _handle_pass_saved(class_id, object_id, nonce):
     """
     logger.info(
         "Google Wallet pass SAVED: class=%s, object=%s, nonce=%s",
-        class_id, object_id, nonce
+        class_id,
+        object_id,
+        nonce,
     )
 
     # Extract user ID from object_id if it follows our format
@@ -143,13 +144,13 @@ def _handle_pass_saved(class_id, object_id, nonce):
 
             # Update the profile to confirm the pass is saved
             from crush_lu.models import CrushProfile
+
             profile = CrushProfile.objects.filter(user_id=user_id).first()
             if profile:
                 # The google_wallet_object_id should already be set when JWT was generated
                 # This confirms the user actually saved it
                 logger.info(
-                    "Pass saved confirmed for user %s (object: %s)",
-                    user_id, object_id
+                    "Pass saved confirmed for user %s (object: %s)", user_id, object_id
                 )
                 # Could add analytics tracking here
                 # Could send a welcome notification
@@ -171,7 +172,9 @@ def _handle_pass_deleted(class_id, object_id, nonce):
     """
     logger.info(
         "Google Wallet pass DELETED: class=%s, object=%s, nonce=%s",
-        class_id, object_id, nonce
+        class_id,
+        object_id,
+        nonce,
     )
 
     # Extract user ID and clear the stored object ID
@@ -181,19 +184,16 @@ def _handle_pass_deleted(class_id, object_id, nonce):
             user_id = parts.split("-")[0]
 
             from crush_lu.models import CrushProfile
+
             profile = CrushProfile.objects.filter(
-                user_id=user_id,
-                google_wallet_object_id=object_id
+                user_id=user_id, google_wallet_object_id=object_id
             ).first()
 
             if profile:
                 # Clear the object ID since the user deleted the pass
                 profile.google_wallet_object_id = ""
                 profile.save(update_fields=["google_wallet_object_id"])
-                logger.info(
-                    "Cleared google_wallet_object_id for user %s",
-                    user_id
-                )
+                logger.info("Cleared google_wallet_object_id for user %s", user_id)
 
     except Exception as e:
         logger.exception("Error processing pass delete: %s", e)
@@ -252,7 +252,9 @@ def google_wallet_callback(request):
         # Log the callback
         logger.info(
             "Google Wallet callback received: event=%s, class=%s, object=%s",
-            event_type, class_id, object_id
+            event_type,
+            class_id,
+            object_id,
         )
 
         # Check for duplicate delivery using nonce

@@ -1,16 +1,9 @@
-{% comment %}
-Global Admin Navigation Component
-
-This template provides navigation between different platform admin panels.
-Only visible to superusers.
-
-Context variables (from admin_navigation context processor):
-- admin_platforms: List of platform navigation items with URLs
-- current_admin_platform: Key of the currently active platform
-- show_admin_navigation: Boolean indicating if nav should be shown
-{% endcomment %}
-
-{% if show_admin_navigation and admin_platforms %}
+{% comment %} Global Admin Navigation Component This template provides navigation
+between different platform admin panels. Only visible to superusers. Context variables
+(from admin_navigation context processor): - admin_platforms: List of platform
+navigation items with URLs - current_admin_platform: Key of the currently active
+platform - show_admin_navigation: Boolean indicating if nav should be shown {%
+endcomment %} {% if show_admin_navigation and admin_platforms %}
 <style>
     /* Platform Navigation Bar Styles */
     .platform-nav {
@@ -20,11 +13,11 @@ Context variables (from admin_navigation context processor):
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .platform-nav-label {
-        color: rgba(255,255,255,0.6);
+        color: rgba(255, 255, 255, 0.6);
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -43,8 +36,8 @@ Context variables (from admin_navigation context processor):
         align-items: center;
         gap: 6px;
         padding: 6px 14px;
-        background: rgba(255,255,255,0.08);
-        color: rgba(255,255,255,0.85) !important;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.85) !important;
         text-decoration: none !important;
         border-radius: 4px;
         font-size: 12px;
@@ -54,7 +47,7 @@ Context variables (from admin_navigation context processor):
     }
 
     .platform-nav-link:hover {
-        background: rgba(255,255,255,0.15);
+        background: rgba(255, 255, 255, 0.15);
         color: white !important;
         transform: translateY(-1px);
         text-decoration: none !important;
@@ -63,8 +56,8 @@ Context variables (from admin_navigation context processor):
     .platform-nav-link.current {
         background: var(--primary, #417690);
         color: white !important;
-        border-color: rgba(255,255,255,0.2);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .platform-nav-link.current:hover {
@@ -78,10 +71,10 @@ Context variables (from admin_navigation context processor):
 
     /* Platform-specific colors */
     .platform-nav-link[data-platform="crush"] {
-        --platform-color: #9B59B6;
+        --platform-color: #9b59b6;
     }
     .platform-nav-link[data-platform="crush"].current {
-        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
     }
 
     .platform-nav-link[data-platform="entreprinder"] {
@@ -92,10 +85,10 @@ Context variables (from admin_navigation context processor):
     }
 
     .platform-nav-link[data-platform="vinsdelux"] {
-        --platform-color: #722F37;
+        --platform-color: #722f37;
     }
     .platform-nav-link[data-platform="vinsdelux"].current {
-        background: linear-gradient(135deg, #722F37, #8B4513);
+        background: linear-gradient(135deg, #722f37, #8b4513);
     }
 
     .platform-nav-link[data-platform="power_up"] {
@@ -151,10 +144,12 @@ Context variables (from admin_navigation context processor):
     <span class="platform-nav-label">Platforms:</span>
     <div class="platform-nav-links">
         {% for platform in admin_platforms %}
-        <a href="{{ platform.url }}"
-           class="platform-nav-link{% if platform.is_current %} current{% endif %}"
-           data-platform="{{ platform.key }}"
-           title="{{ platform.description }}">
+        <a
+            href="{{ platform.url }}"
+            class="platform-nav-link{% if platform.is_current %} current{% endif %}"
+            data-platform="{{ platform.key }}"
+            title="{{ platform.description }}"
+        >
             <span class="platform-nav-icon">{{ platform.icon }}</span>
             <span>{{ platform.name }}</span>
         </a>

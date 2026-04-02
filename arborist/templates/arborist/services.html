@@ -1,16 +1,12 @@
-{% extends "arborist/base.html" %}
-{% load i18n %}
-
-{% block content %}
+{% extends "arborist/base.html" %} {% load i18n %} {% block content %}
 <!-- Header -->
-<section class="bg-green-800 text-white py-16">
+<section class="bg-green-800 py-16 text-white">
     <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl font-bold mb-4">
-                {% trans "Our Services" %}
-            </h1>
+        <div class="mx-auto max-w-4xl text-center">
+            <h1 class="mb-4 text-4xl font-bold">{% trans "Our Services" %}</h1>
             <p class="text-xl">
-                {% trans "Comprehensive tree care solutions for residential and commercial properties." %}
+                {% trans "Comprehensive tree care solutions for residential and
+                commercial properties." %}
             </p>
         </div>
     </div>
@@ -19,25 +15,29 @@
 <!-- Services Grid -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="max-w-6xl mx-auto">
-            <div class="grid md:grid-cols-2 gap-8">
+        <div class="mx-auto max-w-6xl">
+            <div class="grid gap-8 md:grid-cols-2">
                 <!-- Tree Pruning -->
                 <div class="card">
-                    <div class="text-4xl mb-4">✂️</div>
-                    <h3 class="text-2xl font-bold mb-4 text-green-800">{% trans "Tree Pruning" %}</h3>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Professional pruning services to maintain tree health, improve appearance, and ensure safety. Our certified arborists use proper techniques to promote healthy growth." %}
+                    <div class="mb-4 text-4xl">✂️</div>
+                    <h3 class="mb-4 text-2xl font-bold text-green-800">
+                        {% trans "Tree Pruning" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">
+                        {% trans "Professional pruning services to maintain tree health,
+                        improve appearance, and ensure safety. Our certified arborists
+                        use proper techniques to promote healthy growth." %}
                     </p>
-                    <ul class="text-gray-600 list-none">
-                        <li class="flex gap-2 mb-2">
+                    <ul class="list-none text-gray-600">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Crown thinning and shaping" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Dead wood removal" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Clearance pruning" %}
                         </li>
@@ -46,21 +46,25 @@
 
                 <!-- Tree Removal -->
                 <div class="card">
-                    <div class="text-4xl mb-4">🪓</div>
-                    <h3 class="text-2xl font-bold mb-4 text-green-800">{% trans "Tree Removal" %}</h3>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Safe and efficient removal of hazardous, dead, or unwanted trees. We handle complex removals in tight spaces with minimal impact to surrounding areas." %}
+                    <div class="mb-4 text-4xl">🪓</div>
+                    <h3 class="mb-4 text-2xl font-bold text-green-800">
+                        {% trans "Tree Removal" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">
+                        {% trans "Safe and efficient removal of hazardous, dead, or
+                        unwanted trees. We handle complex removals in tight spaces with
+                        minimal impact to surrounding areas." %}
                     </p>
-                    <ul class="text-gray-600 list-none">
-                        <li class="flex gap-2 mb-2">
+                    <ul class="list-none text-gray-600">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Hazardous tree removal" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Stump grinding" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Emergency services" %}
                         </li>
@@ -69,21 +73,25 @@
 
                 <!-- Health Assessment -->
                 <div class="card">
-                    <div class="text-4xl mb-4">🔍</div>
-                    <h3 class="text-2xl font-bold mb-4 text-green-800">{% trans "Health Assessment" %}</h3>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Comprehensive tree health evaluations to identify diseases, pests, and structural issues. We provide detailed reports and treatment recommendations." %}
+                    <div class="mb-4 text-4xl">🔍</div>
+                    <h3 class="mb-4 text-2xl font-bold text-green-800">
+                        {% trans "Health Assessment" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">
+                        {% trans "Comprehensive tree health evaluations to identify
+                        diseases, pests, and structural issues. We provide detailed
+                        reports and treatment recommendations." %}
                     </p>
-                    <ul class="text-gray-600 list-none">
-                        <li class="flex gap-2 mb-2">
+                    <ul class="list-none text-gray-600">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Disease diagnosis" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Pest identification" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Risk assessment" %}
                         </li>
@@ -92,21 +100,25 @@
 
                 <!-- Consultation -->
                 <div class="card">
-                    <div class="text-4xl mb-4">💡</div>
-                    <h3 class="text-2xl font-bold mb-4 text-green-800">{% trans "Consultation" %}</h3>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Expert advice on tree selection, planting, and long-term care. We help you make informed decisions about your landscape." %}
+                    <div class="mb-4 text-4xl">💡</div>
+                    <h3 class="mb-4 text-2xl font-bold text-green-800">
+                        {% trans "Consultation" %}
+                    </h3>
+                    <p class="mb-4 text-gray-600">
+                        {% trans "Expert advice on tree selection, planting, and
+                        long-term care. We help you make informed decisions about your
+                        landscape." %}
                     </p>
-                    <ul class="text-gray-600 list-none">
-                        <li class="flex gap-2 mb-2">
+                    <ul class="list-none text-gray-600">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Species selection" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Planting guidance" %}
                         </li>
-                        <li class="flex gap-2 mb-2">
+                        <li class="mb-2 flex gap-2">
                             <span class="text-green-600">•</span>
                             {% trans "Maintenance planning" %}
                         </li>
@@ -118,15 +130,17 @@
 </section>
 
 <!-- CTA -->
-<section class="py-16 bg-green-800 text-white">
+<section class="bg-green-800 py-16 text-white">
     <div class="container mx-auto px-4 text-center">
-        <h2 class="text-3xl font-bold mb-4">
-            {% trans "Need Our Services?" %}
-        </h2>
-        <p class="text-xl mb-8">
+        <h2 class="mb-4 text-3xl font-bold">{% trans "Need Our Services?" %}</h2>
+        <p class="mb-8 text-xl">
             {% trans "Contact us for a free quote on any of our services." %}
         </p>
-        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
+        <a
+            href="{% url 'arborist:contact' %}"
+            class="btn"
+            style="background: #fff; color: #2d5016"
+        >
             {% trans "Request a Quote" %}
         </a>
     </div>

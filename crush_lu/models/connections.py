@@ -10,18 +10,16 @@ class EventConnectionQuerySet(models.QuerySet):
 
     def for_user(self, user):
         """Connections where user is requester or recipient."""
-        return self.filter(
-            models.Q(requester=user) | models.Q(recipient=user)
-        )
+        return self.filter(models.Q(requester=user) | models.Q(recipient=user))
 
     def pending_for_user(self, user):
         """Pending connection requests received by user."""
-        return self.filter(recipient=user, status='pending')
+        return self.filter(recipient=user, status="pending")
 
     def active_for_user(self, user):
         """Active connections (accepted through shared) for user."""
         return self.for_user(user).filter(
-            status__in=['accepted', 'coach_reviewing', 'coach_approved', 'shared']
+            status__in=["accepted", "coach_reviewing", "coach_approved", "shared"]
         )
 
     def for_event(self, event, user):
@@ -49,14 +47,12 @@ class EventConnectionQuerySet(models.QuerySet):
         from django.db.models import Exists, OuterRef
 
         mutual_subquery = EventConnection.objects.filter(
-            requester=OuterRef('recipient'),
-            recipient=OuterRef('requester'),
-            event=OuterRef('event')
+            requester=OuterRef("recipient"),
+            recipient=OuterRef("requester"),
+            event=OuterRef("event"),
         )
 
-        return self.annotate(
-            is_mutual_annotated=Exists(mutual_subquery)
-        )
+        return self.annotate(is_mutual_annotated=Exists(mutual_subquery))
 
 
 class EventConnectionManager(models.Manager):
@@ -85,27 +81,31 @@ class EventConnection(models.Model):
     """Post-event connection requests between attendees"""
 
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('declined', 'Declined'),
-        ('coach_reviewing', 'Coach Reviewing'),
-        ('coach_approved', 'Coach Approved - Ready to Share'),
-        ('shared', 'Contact Info Shared'),
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("declined", "Declined"),
+        ("coach_reviewing", "Coach Reviewing"),
+        ("coach_approved", "Coach Approved - Ready to Share"),
+        ("shared", "Contact Info Shared"),
     ]
 
     # Who wants to connect
-    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests_sent')
+    requester = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="connection_requests_sent"
+    )
     # Who they want to connect with
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests_received')
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="connection_requests_received"
+    )
     # Which event brought them together
     event = models.ForeignKey(MeetupEvent, on_delete=models.CASCADE)
 
     # Connection details
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     requester_note = models.TextField(
         max_length=300,
         blank=True,
-        help_text=_("Optional note: What did you talk about? What interested you?")
+        help_text=_("Optional note: What did you talk about? What interested you?"),
     )
 
     # Coach facilitation
@@ -114,22 +114,21 @@ class EventConnection(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text=_("Coach who will facilitate this connection")
+        help_text=_("Coach who will facilitate this connection"),
     )
-    coach_notes = models.TextField(blank=True, help_text=_("Coach's guidance for the introduction"))
+    coach_notes = models.TextField(
+        blank=True, help_text=_("Coach's guidance for the introduction")
+    )
     coach_introduction = models.TextField(
-        blank=True,
-        help_text=_("Personalized introduction message from coach")
+        blank=True, help_text=_("Personalized introduction message from coach")
     )
 
     # Mutual consent tracking
     requester_consents_to_share = models.BooleanField(
-        default=False,
-        help_text=_("Requester agrees to share contact info")
+        default=False, help_text=_("Requester agrees to share contact info")
     )
     recipient_consents_to_share = models.BooleanField(
-        default=False,
-        help_text=_("Recipient agrees to share contact info")
+        default=False, help_text=_("Recipient agrees to share contact info")
     )
 
     # Timestamps
@@ -141,12 +140,18 @@ class EventConnection(models.Model):
     objects = EventConnectionManager()
 
     class Meta:
-        unique_together = ('requester', 'recipient', 'event')
-        ordering = ['-requested_at']
+        unique_together = ("requester", "recipient", "event")
+        ordering = ["-requested_at"]
         indexes = [
-            models.Index(fields=['event', 'status'], name='crush_lu_conn_event_status_idx'),
-            models.Index(fields=['requester', 'status'], name='crush_lu_conn_req_status_idx'),
-            models.Index(fields=['recipient', 'status'], name='crush_lu_conn_recip_status_idx'),
+            models.Index(
+                fields=["event", "status"], name="crush_lu_conn_event_status_idx"
+            ),
+            models.Index(
+                fields=["requester", "status"], name="crush_lu_conn_req_status_idx"
+            ),
+            models.Index(
+                fields=["recipient", "status"], name="crush_lu_conn_recip_status_idx"
+            ),
         ]
 
     def __str__(self):
@@ -174,22 +179,20 @@ class EventConnection(models.Model):
                     print("Mutual")
         """
         return EventConnection.objects.filter(
-            requester=self.recipient,
-            recipient=self.requester,
-            event=self.event
+            requester=self.recipient, recipient=self.requester, event=self.event
         ).exists()
 
     @classmethod
     def cross_gender_connection_count(cls, user, event):
         """Count cross-gender connection requests sent by user for this event."""
-        user_gender = getattr(getattr(user, 'crushprofile', None), 'gender', '')
-        connections = cls.objects.filter(
-            requester=user, event=event
-        ).select_related('recipient__crushprofile')
+        user_gender = getattr(getattr(user, "crushprofile", None), "gender", "")
+        connections = cls.objects.filter(requester=user, event=event).select_related(
+            "recipient__crushprofile"
+        )
         count = 0
         for conn in connections:
             rec_gender = getattr(
-                getattr(conn.recipient, 'crushprofile', None), 'gender', ''
+                getattr(conn.recipient, "crushprofile", None), "gender", ""
             )
             if user_gender != rec_gender or not user_gender or not rec_gender:
                 count += 1
@@ -198,8 +201,8 @@ class EventConnection(models.Model):
     @property
     def is_same_gender(self):
         """Check if both parties have the same gender (and it's specified)."""
-        req_profile = getattr(self.requester, 'crushprofile', None)
-        rec_profile = getattr(self.recipient, 'crushprofile', None)
+        req_profile = getattr(self.requester, "crushprofile", None)
+        rec_profile = getattr(self.recipient, "crushprofile", None)
         if not req_profile or not rec_profile:
             return False
         req_gender = req_profile.gender
@@ -214,7 +217,7 @@ class EventConnection(models.Model):
         return (
             self.requester_consents_to_share
             and self.recipient_consents_to_share
-            and self.status == 'coach_approved'
+            and self.status == "coach_approved"
         )
 
     def assign_coach(self):
@@ -223,13 +226,16 @@ class EventConnection(models.Model):
 
         Optimized to fetch all related data in a single query using select_related.
         """
-        requester_profile = CrushProfile.objects.select_related('user').get(user=self.requester)
+        requester_profile = CrushProfile.objects.select_related("user").get(
+            user=self.requester
+        )
 
         # Get the approved submission for the requester with coach pre-fetched
-        requester_submission = ProfileSubmission.objects.select_related('coach').filter(
-            profile=requester_profile,
-            status='approved'
-        ).first()
+        requester_submission = (
+            ProfileSubmission.objects.select_related("coach")
+            .filter(profile=requester_profile, status="approved")
+            .first()
+        )
 
         if requester_submission and requester_submission.coach:
             self.assigned_coach = requester_submission.coach
@@ -243,25 +249,25 @@ class EventConnection(models.Model):
 class ConnectionMessage(models.Model):
     """Coach-facilitated messages between connections"""
 
-    connection = models.ForeignKey(EventConnection, on_delete=models.CASCADE, related_name='messages')
+    connection = models.ForeignKey(
+        EventConnection, on_delete=models.CASCADE, related_name="messages"
+    )
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField(max_length=500)
 
     # Coach moderation
     is_coach_message = models.BooleanField(
-        default=False,
-        help_text=_("True if sent by the coach")
+        default=False, help_text=_("True if sent by the coach")
     )
     coach_approved = models.BooleanField(
-        default=True,
-        help_text=_("Coach can moderate messages if needed")
+        default=True, help_text=_("Coach can moderate messages if needed")
     )
 
     sent_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ['sent_at']
+        ordering = ["sent_at"]
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.sent_at}"

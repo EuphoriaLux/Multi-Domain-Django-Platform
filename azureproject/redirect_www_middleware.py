@@ -8,6 +8,7 @@ This module handles:
 - Azure internal IP handling for health checks
 - Staging subdomain (test.*) noindex headers
 """
+
 from django.http import HttpResponsePermanentRedirect
 
 from .domains import DOMAINS, PRODUCTION_DEFAULT
@@ -15,7 +16,7 @@ from .domains import DOMAINS, PRODUCTION_DEFAULT
 
 def is_staging_subdomain(host):
     """Check if the host is a staging test subdomain (test.*)."""
-    return host.startswith('test.')
+    return host.startswith("test.")
 
 
 class StagingNoIndexMiddleware:
@@ -30,6 +31,7 @@ class StagingNoIndexMiddleware:
     crashes, but Django's CommonMiddleware will return 400 for hosts not in
     ALLOWED_HOSTS.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -37,11 +39,11 @@ class StagingNoIndexMiddleware:
         response = self.get_response(request)
 
         # Get host directly from META
-        host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+        host = request.META.get("HTTP_HOST", "").split(":")[0].lower()
 
         # Add noindex header for staging subdomains
         if is_staging_subdomain(host):
-            response['X-Robots-Tag'] = 'noindex, nofollow'
+            response["X-Robots-Tag"] = "noindex, nofollow"
 
         return response
 
@@ -54,6 +56,7 @@ class AzureInternalIPMiddleware:
     to support OpenTelemetry middleware that runs before custom middleware.
     This middleware is kept for backwards compatibility.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -75,22 +78,23 @@ class RedirectWWWToRootDomainMiddleware:
 
     All redirects are HTTP 301 (permanent) for SEO purposes.
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         # Skip redirects for health check endpoint
-        if request.path in ['/healthz/', '/healthz']:
+        if request.path in ["/healthz/", "/healthz"]:
             return self.get_response(request)
 
         # Get host directly from META to avoid ALLOWED_HOSTS validation
-        host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+        host = request.META.get("HTTP_HOST", "").split(":")[0].lower()
 
         if not host:
             return self.get_response(request)
 
         # Skip redirects for Azure internal IPs (health checks, monitoring)
-        if host.startswith('169.254.') or host == 'localhost':
+        if host.startswith("169.254.") or host == "localhost":
             return self.get_response(request)
 
         # Skip redirects for staging subdomains (test.*)
@@ -99,15 +103,15 @@ class RedirectWWWToRootDomainMiddleware:
             return self.get_response(request)
 
         # Redirect Azure App Service hostname to production default
-        if host.endswith('.azurewebsites.net'):
-            new_url = f'https://{PRODUCTION_DEFAULT}{request.get_full_path()}'
+        if host.endswith(".azurewebsites.net"):
+            new_url = f"https://{PRODUCTION_DEFAULT}{request.get_full_path()}"
             return HttpResponsePermanentRedirect(new_url)
 
         # Redirect www. to non-www version (only for configured domains)
-        if host.startswith('www.'):
+        if host.startswith("www."):
             root_domain = host[4:]  # Remove 'www.'
             if root_domain in DOMAINS:
-                new_url = f'https://{root_domain}{request.get_full_path()}'
+                new_url = f"https://{root_domain}{request.get_full_path()}"
                 return HttpResponsePermanentRedirect(new_url)
 
         return self.get_response(request)

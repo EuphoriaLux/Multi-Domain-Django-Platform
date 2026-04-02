@@ -113,7 +113,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
 }
 
@@ -207,7 +211,11 @@
 }
 
 .grape-tag {
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
     padding: var(--vdl-space-xs) var(--vdl-space-md);
     border-radius: var(--vdl-radius-xl);
@@ -450,7 +458,11 @@
 .btn-proceed {
     width: 100%;
     padding: var(--vdl-space-lg);
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
     border: none;
     border-radius: var(--vdl-radius-md);

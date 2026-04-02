@@ -1,14 +1,14 @@
-{% extends "crush_lu/emails/base_email.html" %}
-{% load i18n %}
+{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
+trans "Profile Needs Updates" %} - Crush.lu{% endblock %} {% block header_title %}{%
+trans "Profile Review Feedback" %}{% endblock %} {% block content %}
+<h2>
+    {% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}
+</h2>
 
-{% block title %}{% trans "Profile Needs Updates" %} - Crush.lu{% endblock %}
-
-{% block header_title %}{% trans "Profile Review Feedback" %}{% endblock %}
-
-{% block content %}
-<h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
-
-<p>{% trans "Thanks for your interest in Crush.lu! Our team has reviewed your profile and we'd love to see a few updates before approval." %}</p>
+<p>
+    {% trans "Thanks for your interest in Crush.lu! Our team has reviewed your profile
+    and we'd love to see a few updates before approval." %}
+</p>
 
 <div class="info-box">
     <strong>{% trans "Feedback from your coach:" %}</strong>
@@ -24,12 +24,18 @@
 
 <a href="{{ edit_profile_url }}" class="button">{% trans "Update Profile" %}</a>
 
-<p>{% trans "Don't worry - most profiles need small tweaks to ensure the best experience for everyone. We're here to help create a community where everyone feels comfortable and respected." %}</p>
-
-<p>{% trans "If you have any questions about the feedback, feel free to reach out!" %}</p>
+<p>
+    {% trans "Don't worry - most profiles need small tweaks to ensure the best
+    experience for everyone. We're here to help create a community where everyone feels
+    comfortable and respected." %}
+</p>
 
 <p>
-    {% trans "Best," %}<br>
+    {% trans "If you have any questions about the feedback, feel free to reach out!" %}
+</p>
+
+<p>
+    {% trans "Best," %}<br />
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

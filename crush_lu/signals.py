@@ -16,13 +16,12 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
-from allauth.socialaccount.signals import pre_social_login, social_account_updated
+from allauth.socialaccount.signals import pre_social_login
 
 from .utils.image_processing import process_uploaded_image
 
 from .models import (
     MeetupEvent,
-    EventActivityOption,
     GlobalActivityOption,
     EventVotingSession,
     CrushProfile,
@@ -483,7 +482,9 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(
                 "Failed to send waitlist promotion email for user %s, event %s: %s",
-                reg.user.pk, instance.id, type(e).__name__
+                reg.user.pk,
+                instance.id,
+                type(e).__name__,
             )
 
     if promoted_registrations:
@@ -507,8 +508,11 @@ def setup_event_voting(sender, instance, created, **kwargs):
         # Step 1: Ensure GlobalActivityOption records exist
         if not GlobalActivityOption.objects.filter(is_active=True).exists():
             from django.core.management import call_command
+
             call_command("populate_global_activity_options")
-            logger.info("Auto-populated GlobalActivityOption records for event %s", instance.id)
+            logger.info(
+                "Auto-populated GlobalActivityOption records for event %s", instance.id
+            )
 
         # Step 2: Auto-create EventVotingSession if it doesn't exist
         if not EventVotingSession.objects.filter(event=instance).exists():
@@ -526,10 +530,14 @@ def setup_event_voting(sender, instance, created, **kwargs):
             )
             logger.info(
                 "Auto-created EventVotingSession for event %s (voting: %s to %s)",
-                instance.id, voting_start, voting_end,
+                instance.id,
+                voting_start,
+                voting_end,
             )
     except Exception as e:
-        logger.error("Failed to setup voting for event %s: %s", instance.id, type(e).__name__)
+        logger.error(
+            "Failed to setup voting for event %s: %s", instance.id, type(e).__name__
+        )
 
 
 def get_high_res_facebook_photo_url(facebook_id, access_token=None):
@@ -691,7 +699,7 @@ def _get_facebook_photo_url(extra_data, access_token=None):
     if facebook_id:
         photo_url = get_high_res_facebook_photo_url(facebook_id, access_token)
         if photo_url:
-            logger.info(f"Got high-res Facebook photo URL")
+            logger.info("Got high-res Facebook photo URL")
             return photo_url
 
     # Fallback to standard picture from extra_data
@@ -701,7 +709,7 @@ def _get_facebook_photo_url(extra_data, access_token=None):
         else:
             photo_url = extra_data["picture"]
         if photo_url:
-            logger.info(f"Using fallback Facebook photo URL")
+            logger.info("Using fallback Facebook photo URL")
 
     return photo_url
 
@@ -725,7 +733,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Facebook login processing for non-Crush domain")
+        logger.info("Skipping Facebook login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Facebook login
@@ -737,7 +745,6 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -745,7 +752,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Facebook provider on crush.lu")
+    logger.info("pre_social_login signal received for Facebook provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -788,6 +795,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 token = sociallogin.token if sociallogin.token else None
                 refresh_social_photo_cache(sociallogin.account, token)
             except Exception as e:
@@ -813,12 +821,12 @@ def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
     if not _is_crush_domain(request):
         return
 
-    email = sociallogin.account.extra_data.get('email', '')
-    if email.endswith('@privaterelay.appleid.com') and not sociallogin.is_existing:
-        request.session['apple_relay_needs_linking'] = True
+    email = sociallogin.account.extra_data.get("email", "")
+    if email.endswith("@privaterelay.appleid.com") and not sociallogin.is_existing:
+        request.session["apple_relay_needs_linking"] = True
         logger.info(
-            f"[APPLE-RELAY] New signup with Hide My Email detected, "
-            f"setting linking prompt flag"
+            "[APPLE-RELAY] New signup with Hide My Email detected, "
+            "setting linking prompt flag"
         )
 
 
@@ -881,11 +889,12 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
         # The view will detect empty profiles and start at step 1
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Facebook data in post_save")
+        logger.info("Updated CrushProfile from Facebook data in post_save")
 
         # Persist social photo to cache for token-expiry fallback
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Facebook photo cache for new user: {e}")
@@ -896,10 +905,16 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Facebook OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Facebook OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Facebook OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Facebook OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -1064,12 +1079,12 @@ def get_high_res_google_photo_url(extra_data):
     if "=s" in picture_url:
         # Replace size parameter with 720
         high_res_url = re.sub(r"=s\d+(-c)?", "=s720-c", picture_url)
-        logger.info(f"Enhanced Google photo URL to high-res")
+        logger.info("Enhanced Google photo URL to high-res")
         return high_res_url
     elif "?sz=" in picture_url:
         # Alternative size parameter format
         high_res_url = re.sub(r"\?sz=\d+", "?sz=720", picture_url)
-        logger.info(f"Enhanced Google photo URL to high-res (sz format)")
+        logger.info("Enhanced Google photo URL to high-res (sz format)")
         return high_res_url
 
     # Return original URL if no size parameter found
@@ -1145,7 +1160,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Google login processing for non-Crush domain")
+        logger.info("Skipping Google login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Google login
@@ -1157,7 +1172,6 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -1165,7 +1179,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Google provider on crush.lu")
+    logger.info("pre_social_login signal received for Google provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -1202,6 +1216,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 refresh_social_photo_cache(sociallogin.account)
             except Exception as e:
                 logger.warning(f"Failed to refresh Google photo cache: {e}")
@@ -1262,11 +1277,12 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
                     )
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Google data in post_save")
+        logger.info("Updated CrushProfile from Google data in post_save")
 
         # Persist social photo to cache for consistency
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Google photo cache for new user: {e}")
@@ -1277,10 +1293,16 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Google OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Google OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Google OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Google OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -1334,7 +1356,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Microsoft login processing for non-Crush domain")
+        logger.info("Skipping Microsoft login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Microsoft login
@@ -1346,7 +1368,6 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -1354,7 +1375,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Microsoft provider on crush.lu")
+    logger.info("pre_social_login signal received for Microsoft provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -1384,6 +1405,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 token = sociallogin.token if sociallogin.token else None
                 refresh_social_photo_cache(sociallogin.account, token)
             except Exception as e:
@@ -1434,11 +1456,12 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
             )
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Microsoft data in post_save")
+        logger.info("Updated CrushProfile from Microsoft data in post_save")
 
         # Persist social photo to cache for token-expiry fallback
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Microsoft photo cache for new user: {e}")
@@ -1449,10 +1472,16 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Microsoft OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Microsoft OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Microsoft OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Microsoft OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -1595,24 +1624,21 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         return
 
     try:
-        from .wallet.google_event_ticket_api import expire_event_ticket, complete_event_ticket
+        from .wallet.google_event_ticket_api import (
+            expire_event_ticket,
+            complete_event_ticket,
+        )
 
         if instance.status == "cancelled":
             result = expire_event_ticket(instance)
             if result["success"]:
-                logger.info(
-                    f"Expired event ticket for registration {instance.id}"
-                )
+                logger.info(f"Expired event ticket for registration {instance.id}")
         elif instance.status == "attended":
             result = complete_event_ticket(instance)
             if result["success"]:
-                logger.info(
-                    f"Completed event ticket for registration {instance.id}"
-                )
+                logger.info(f"Completed event ticket for registration {instance.id}")
     except Exception as e:
-        logger.error(
-            f"Error updating event ticket for registration {instance.id}: {e}"
-        )
+        logger.error(f"Error updating event ticket for registration {instance.id}: {e}")
 
 
 # =============================================================================

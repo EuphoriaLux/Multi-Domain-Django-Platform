@@ -44,7 +44,7 @@ def event_attendees(request, event_id):
 
     # Verify user attended this event (status must be 'attended')
     user_registration = get_object_or_404(
-        EventRegistration, event=event, user=request.user, status='attended'
+        EventRegistration, event=event, user=request.user, status="attended"
     )
 
     if not user_registration.can_make_connections:
@@ -75,7 +75,8 @@ def event_attendees(request, event_id):
     sent_sparks = {
         s.recipient_id: s
         for s in CrushSpark.objects.filter(
-            event=event, sender=request.user,
+            event=event,
+            sender=request.user,
         ).exclude(status=CrushSpark.Status.CANCELLED)
     }
 
@@ -94,14 +95,24 @@ def event_attendees(request, event_id):
 
         if attendee_user.id in sent_connections:
             conn = sent_connections[attendee_user.id]
-            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
+            if conn.status in (
+                "accepted",
+                "coach_reviewing",
+                "coach_approved",
+                "shared",
+            ):
                 connection_status = "mutual"
             else:
                 connection_status = "sent"
             connection_id = conn.id
         elif attendee_user.id in received_connections:
             conn = received_connections[attendee_user.id]
-            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
+            if conn.status in (
+                "accepted",
+                "coach_reviewing",
+                "coach_approved",
+                "shared",
+            ):
                 connection_status = "mutual"
             elif conn.status == "pending":
                 connection_status = "received"
@@ -120,8 +131,10 @@ def event_attendees(request, event_id):
         )
 
     # Cross-gender connection limit info
-    user_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
-    cross_gender_count = EventConnection.cross_gender_connection_count(request.user, event)
+    user_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
+    cross_gender_count = EventConnection.cross_gender_connection_count(
+        request.user, event
+    )
     if event.max_cross_gender_connections > 0:
         cross_gender_remaining = event.max_cross_gender_connections - cross_gender_count
     else:
@@ -174,7 +187,7 @@ def event_attendees(request, event_id):
 
 
 @crush_login_required
-@ratelimit(key='user', rate='10/h', method='POST')
+@ratelimit(key="user", rate="10/h", method="POST")
 def request_connection(request, event_id, user_id):
     """Request connection with another event attendee"""
     event = get_object_or_404(MeetupEvent, id=event_id)
@@ -220,15 +233,17 @@ def request_connection(request, event_id, user_id):
             return redirect("crush_lu:event_attendees", event_id=event_id)
 
         # Cross-gender connection limit check
-        req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
-        rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
+        req_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
+        rec_gender = getattr(getattr(recipient, "crushprofile", None), "gender", "")
         is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
         if is_cross_gender and event.max_cross_gender_connections > 0:
             count = EventConnection.cross_gender_connection_count(request.user, event)
             if count >= event.max_cross_gender_connections:
                 messages.error(
                     request,
-                    _("You have reached the maximum number of cross-gender connection requests for this event."),
+                    _(
+                        "You have reached the maximum number of cross-gender connection requests for this event."
+                    ),
                 )
                 return redirect("crush_lu:event_attendees", event_id=event_id)
 
@@ -297,7 +312,9 @@ def request_connection(request, event_id, user_id):
             else:
                 messages.success(
                     request,
-                    _("Mutual connection! 🎉 A coach will help facilitate your introduction."),
+                    _(
+                        "Mutual connection! 🎉 A coach will help facilitate your introduction."
+                    ),
                 )
         else:
             # Notify recipient about the connection request
@@ -324,7 +341,7 @@ def request_connection(request, event_id, user_id):
 
 @crush_login_required
 @require_http_methods(["GET", "POST"])
-@ratelimit(key='user', rate='10/h', method='POST')
+@ratelimit(key="user", rate="10/h", method="POST")
 def request_connection_inline(request, event_id, user_id):
     """HTMX: Inline connection request form and processing"""
     event = get_object_or_404(MeetupEvent, id=event_id)
@@ -383,8 +400,8 @@ def request_connection_inline(request, event_id, user_id):
             )
 
         # Cross-gender connection limit check
-        req_gender = getattr(getattr(request.user, 'crushprofile', None), 'gender', '')
-        rec_gender = getattr(getattr(recipient, 'crushprofile', None), 'gender', '')
+        req_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
+        rec_gender = getattr(getattr(recipient, "crushprofile", None), "gender", "")
         is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
         if is_cross_gender and event.max_cross_gender_connections > 0:
             count = EventConnection.cross_gender_connection_count(request.user, event)
@@ -392,7 +409,9 @@ def request_connection_inline(request, event_id, user_id):
                 return render(
                     request,
                     "crush_lu/_htmx_error.html",
-                    {"message": "You have reached the maximum number of cross-gender connection requests for this event."},
+                    {
+                        "message": "You have reached the maximum number of cross-gender connection requests for this event."
+                    },
                 )
 
         # Create connection request within atomic transaction for mutual detection
@@ -539,7 +558,7 @@ def connection_actions(request, event_id, user_id):
 
 
 @crush_login_required
-@ratelimit(key='user', rate='10/h', method='POST')
+@ratelimit(key="user", rate="10/h", method="POST")
 @require_http_methods(["GET", "POST"])
 def respond_connection(request, connection_id, action):
     """Accept or decline a connection request"""
@@ -552,13 +571,26 @@ def respond_connection(request, connection_id, action):
         if request.headers.get("HX-Request"):
             attendee = {
                 "user": connection.requester,
-                "connection_status": "mutual" if connection.status in ("accepted", "coach_reviewing", "coach_approved", "shared") else "declined",
+                "connection_status": (
+                    "mutual"
+                    if connection.status
+                    in ("accepted", "coach_reviewing", "coach_approved", "shared")
+                    else "declined"
+                ),
                 "connection_id": connection.id,
             }
             return render(
                 request,
                 "crush_lu/_attendee_connection_response.html",
-                {"attendee": attendee, "action": "accept" if connection.status in ("accepted", "coach_reviewing", "coach_approved", "shared") else "decline"},
+                {
+                    "attendee": attendee,
+                    "action": (
+                        "accept"
+                        if connection.status
+                        in ("accepted", "coach_reviewing", "coach_approved", "shared")
+                        else "decline"
+                    ),
+                },
             )
         return redirect("crush_lu:my_connections")
 
@@ -650,7 +682,9 @@ def respond_connection(request, connection_id, action):
         else:
             messages.success(
                 request,
-                _("Connection accepted! A coach will help facilitate your introduction."),
+                _(
+                    "Connection accepted! A coach will help facilitate your introduction."
+                ),
             )
     elif action == "decline":
         connection.status = "declined"
@@ -721,7 +755,7 @@ def my_connections(request):
 
 
 @crush_login_required
-@ratelimit(key='user', rate='20/h', method='POST')
+@ratelimit(key="user", rate="20/h", method="POST")
 def connection_detail(request, connection_id):
     """View connection details and provide consent"""
     connection = get_object_or_404(

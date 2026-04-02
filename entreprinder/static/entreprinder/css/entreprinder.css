@@ -27,12 +27,12 @@
 /* ==========================================
    CORE - Design Tokens & Variables
    ========================================== */
-@import url('core/variables.css');
+@import url("core/variables.css");
 
 /* ==========================================
    COMPONENTS - Reusable UI elements
    ========================================== */
-@import url('components/swipe.css');
+@import url("components/swipe.css");
 
 /* ==========================================
    BASE STYLES
@@ -40,7 +40,11 @@
 
 /* PowerUP specific navbar styling */
 .navbar-powerup {
-    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-blue) 0%,
+        var(--powerup-blue-dark) 100%
+    );
     box-shadow: var(--powerup-shadow-md);
 }
 
@@ -64,7 +68,11 @@
    ========================================== */
 
 .btn-powerup-primary {
-    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-blue) 0%,
+        var(--powerup-blue-dark) 100%
+    );
     color: var(--powerup-white);
     border: none;
     border-radius: var(--powerup-radius-lg);
@@ -95,7 +103,11 @@
 }
 
 .btn-powerup-accent {
-    background: linear-gradient(135deg, var(--powerup-orange) 0%, var(--powerup-orange-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-orange) 0%,
+        var(--powerup-orange-dark) 100%
+    );
     color: var(--powerup-white);
     border: none;
     border-radius: var(--powerup-radius-lg);
@@ -129,7 +141,11 @@
 }
 
 .card-powerup .card-header {
-    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-blue) 0%,
+        var(--powerup-blue-dark) 100%
+    );
     color: var(--powerup-white);
     border: none;
     padding: var(--powerup-space-lg);

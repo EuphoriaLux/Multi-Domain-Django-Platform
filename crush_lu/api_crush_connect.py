@@ -4,7 +4,6 @@ Crush Connect waitlist API endpoints.
 Language-neutral endpoints for AJAX join/status operations.
 """
 
-import json
 import logging
 
 from django.contrib.auth.decorators import login_required
@@ -24,18 +23,26 @@ def join_waitlist(request):
     total = CrushConnectWaitlist.objects.count()
 
     if created:
-        logger.info("User %s joined Crush Connect waitlist (position %d)", request.user.id, entry.waitlist_position)
-        return JsonResponse({
-            "status": "joined",
-            "position": entry.waitlist_position,
-            "total": total,
-        })
+        logger.info(
+            "User %s joined Crush Connect waitlist (position %d)",
+            request.user.id,
+            entry.waitlist_position,
+        )
+        return JsonResponse(
+            {
+                "status": "joined",
+                "position": entry.waitlist_position,
+                "total": total,
+            }
+        )
     else:
-        return JsonResponse({
-            "status": "already_joined",
-            "position": entry.waitlist_position,
-            "total": total,
-        })
+        return JsonResponse(
+            {
+                "status": "already_joined",
+                "position": entry.waitlist_position,
+                "total": total,
+            }
+        )
 
 
 @login_required
@@ -45,16 +52,20 @@ def waitlist_status(request):
     total = CrushConnectWaitlist.objects.count()
     try:
         entry = CrushConnectWaitlist.objects.get(user=request.user)
-        return JsonResponse({
-            "on_waitlist": True,
-            "position": entry.waitlist_position,
-            "total": total,
-            "is_eligible": entry.is_eligible,
-        })
+        return JsonResponse(
+            {
+                "on_waitlist": True,
+                "position": entry.waitlist_position,
+                "total": total,
+                "is_eligible": entry.is_eligible,
+            }
+        )
     except CrushConnectWaitlist.DoesNotExist:
-        return JsonResponse({
-            "on_waitlist": False,
-            "position": None,
-            "total": total,
-            "is_eligible": False,
-        })
+        return JsonResponse(
+            {
+                "on_waitlist": False,
+                "position": None,
+                "total": total,
+                "is_eligible": False,
+            }
+        )

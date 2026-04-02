@@ -6,6 +6,7 @@ someone they liked. A coach identifies and assigns the recipient, then the
 sender creates an anonymous Wonderland Journey. The sender's identity is only
 revealed when the recipient completes Chapter 6.
 """
+
 import os
 import uuid
 
@@ -15,7 +16,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
-from crush_lu.storage import crush_media_storage
 
 crush_photo_storage = get_crush_photo_storage
 
@@ -231,9 +231,7 @@ class CrushSpark(models.Model):
         ]
 
     def __str__(self):
-        recipient_str = (
-            self.recipient.username if self.recipient else "unassigned"
-        )
+        recipient_str = self.recipient.username if self.recipient else "unassigned"
         return (
             f"Spark: {self.sender.username} → {recipient_str} "
             f"({self.get_status_display()}) @ {self.event.title}"

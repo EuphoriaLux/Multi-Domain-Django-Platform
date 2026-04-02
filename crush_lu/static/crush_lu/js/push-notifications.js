@@ -3,11 +3,11 @@
  * Handles push notification subscription for PWA
  */
 
-(function() {
-    'use strict';
+(function () {
+    "use strict";
 
     // Check if push notifications are supported
-    const isPushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+    const isPushSupported = "serviceWorker" in navigator && "PushManager" in window;
 
     if (!isPushSupported) {
         return;
@@ -16,11 +16,11 @@
     // CSRF token helper
     function getCookie(name) {
         let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
+        if (document.cookie && document.cookie !== "") {
+            const cookies = document.cookie.split(";");
             for (let i = 0; i < cookies.length; i++) {
                 const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                if (cookie.substring(0, name.length + 1) === name + "=") {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
                 }
@@ -31,10 +31,8 @@
 
     // Convert base64 VAPID key to Uint8Array
     function urlBase64ToUint8Array(base64String) {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/\-/g, '+')
-            .replace(/_/g, '/');
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
 
         const rawData = window.atob(base64);
         const outputArray = new Uint8Array(rawData.length);
@@ -49,17 +47,17 @@
     function getDeviceName() {
         const ua = navigator.userAgent;
         if (/Android/i.test(ua)) {
-            return 'Android Chrome';
+            return "Android Chrome";
         } else if (/iPhone|iPad|iPod/i.test(ua)) {
-            return 'iPhone Safari';
+            return "iPhone Safari";
         } else if (/Windows/i.test(ua)) {
-            return 'Windows Desktop';
+            return "Windows Desktop";
         } else if (/Macintosh/i.test(ua)) {
-            return 'Mac Desktop';
+            return "Mac Desktop";
         } else if (/Linux/i.test(ua)) {
-            return 'Linux Desktop';
+            return "Linux Desktop";
         }
-        return 'Unknown Device';
+        return "Unknown Device";
     }
 
     /**
@@ -74,18 +72,18 @@
             screen.height,
             window.devicePixelRatio || 1,
             new Date().getTimezoneOffset(),
-            navigator.language || '',
-            navigator.platform || '',
+            navigator.language || "",
+            navigator.platform || "",
             navigator.hardwareConcurrency || 0,
             navigator.deviceMemory || 0,
-            ('ontouchstart' in window) ? 1 : 0,
+            "ontouchstart" in window ? 1 : 0,
             screen.colorDepth || 0,
             // Canvas fingerprint for additional uniqueness
-            getCanvasFingerprint()
+            getCanvasFingerprint(),
         ];
 
         // Create hash from components
-        var str = components.join('|');
+        var str = components.join("|");
         return simpleHash(str);
     }
 
@@ -95,21 +93,21 @@
      */
     function getCanvasFingerprint() {
         try {
-            var canvas = document.createElement('canvas');
+            var canvas = document.createElement("canvas");
             canvas.width = 200;
             canvas.height = 50;
-            var ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60';
+            var ctx = canvas.getContext("2d");
+            ctx.textBaseline = "top";
+            ctx.font = "14px Arial";
+            ctx.fillStyle = "#f60";
             ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = '#069';
-            ctx.fillText('Crush.lu PWA', 2, 15);
-            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-            ctx.fillText('Crush.lu PWA', 4, 17);
+            ctx.fillStyle = "#069";
+            ctx.fillText("Crush.lu PWA", 2, 15);
+            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+            ctx.fillText("Crush.lu PWA", 4, 17);
             return canvas.toDataURL().slice(-50);
         } catch (e) {
-            return 'no-canvas';
+            return "no-canvas";
         }
     }
 
@@ -120,11 +118,11 @@
     function simpleHash(str) {
         var hash = 5381;
         for (var i = 0; i < str.length; i++) {
-            hash = ((hash << 5) + hash) + str.charCodeAt(i);
-            hash = hash & hash;  // Convert to 32-bit integer
+            hash = (hash << 5) + hash + str.charCodeAt(i);
+            hash = hash & hash; // Convert to 32-bit integer
         }
         // Convert to hex and ensure positive, pad to 8 chars
-        return Math.abs(hash).toString(16).padStart(8, '0');
+        return Math.abs(hash).toString(16).padStart(8, "0");
     }
 
     /**
@@ -135,10 +133,10 @@
             // Step 1: Request notification permission
             const permission = await Notification.requestPermission();
 
-            if (permission !== 'granted') {
+            if (permission !== "granted") {
                 return {
                     success: false,
-                    error: gettext('Permission denied')
+                    error: gettext("Permission denied"),
                 };
             }
 
@@ -146,13 +144,13 @@
             const registration = await navigator.serviceWorker.ready;
 
             // Step 3: Get VAPID public key from server
-            const vapidResponse = await fetch('/api/push/vapid-public-key/');
+            const vapidResponse = await fetch("/api/push/vapid-public-key/");
             const vapidData = await vapidResponse.json();
 
             if (!vapidData.success) {
                 return {
                     success: false,
-                    error: vapidData.error
+                    error: vapidData.error,
                 };
             }
 
@@ -162,26 +160,36 @@
             // Step 4: Subscribe to push manager
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: convertedKey
+                applicationServerKey: convertedKey,
             });
 
             // Step 5: Send subscription to server
-            const response = await fetch('/api/push/subscribe/', {
-                method: 'POST',
+            const response = await fetch("/api/push/subscribe/", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken"),
                 },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
                     keys: {
-                        p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
-                        auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
+                        p256dh: btoa(
+                            String.fromCharCode.apply(
+                                null,
+                                new Uint8Array(subscription.getKey("p256dh")),
+                            ),
+                        ),
+                        auth: btoa(
+                            String.fromCharCode.apply(
+                                null,
+                                new Uint8Array(subscription.getKey("auth")),
+                            ),
+                        ),
                     },
                     userAgent: navigator.userAgent,
                     deviceName: getDeviceName(),
-                    deviceFingerprint: generateDeviceFingerprint()
-                })
+                    deviceFingerprint: generateDeviceFingerprint(),
+                }),
             });
 
             const data = await response.json();
@@ -189,29 +197,34 @@
             if (data.success) {
                 return {
                     success: true,
-                    subscription: subscription
+                    subscription: subscription,
                 };
             } else {
                 return {
                     success: false,
-                    error: data.error
+                    error: data.error,
                 };
             }
-
         } catch (error) {
             // Provide more helpful error messages for common issues
             var errorMessage = error.message;
-            if (error.name === 'AbortError') {
-                errorMessage = gettext('Push service error. This may be due to server misconfiguration or network issues. Please try again later.');
-            } else if (error.name === 'NotAllowedError') {
-                errorMessage = gettext('Push notifications are blocked. Please enable them in your browser settings.');
-            } else if (error.name === 'InvalidStateError') {
-                errorMessage = gettext('Push subscription already exists or is in an invalid state.');
+            if (error.name === "AbortError") {
+                errorMessage = gettext(
+                    "Push service error. This may be due to server misconfiguration or network issues. Please try again later.",
+                );
+            } else if (error.name === "NotAllowedError") {
+                errorMessage = gettext(
+                    "Push notifications are blocked. Please enable them in your browser settings.",
+                );
+            } else if (error.name === "InvalidStateError") {
+                errorMessage = gettext(
+                    "Push subscription already exists or is in an invalid state.",
+                );
             }
 
             return {
                 success: false,
-                error: errorMessage
+                error: errorMessage,
             };
         }
     }
@@ -231,16 +244,16 @@
 
             // Remove from server first to check if browser subscription should be kept
             // Include fingerprint so server can check for coach subscriptions with different endpoint
-            const response = await fetch('/api/push/unsubscribe/', {
-                method: 'POST',
+            const response = await fetch("/api/push/unsubscribe/", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken"),
                 },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
-                    deviceFingerprint: generateDeviceFingerprint()
-                })
+                    deviceFingerprint: generateDeviceFingerprint(),
+                }),
             });
 
             const data = await response.json();
@@ -255,13 +268,12 @@
 
             return {
                 success: false,
-                error: data.error || gettext('Failed to unsubscribe')
+                error: data.error || gettext("Failed to unsubscribe"),
             };
-
         } catch (error) {
             return {
                 success: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -271,7 +283,7 @@
      * Returns true if subscription exists and is active, false otherwise
      */
     async function checkSubscriptionHealth() {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
             return false;
         }
 
@@ -284,15 +296,15 @@
             }
 
             // Test if endpoint is still valid by comparing with server
-            const response = await fetch('/api/push/validate-subscription/', {
-                method: 'POST',
+            const response = await fetch("/api/push/validate-subscription/", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken"),
                 },
                 body: JSON.stringify({
-                    endpoint: subscription.endpoint
-                })
+                    endpoint: subscription.endpoint,
+                }),
             });
 
             if (!response.ok) {
@@ -301,9 +313,8 @@
 
             const data = await response.json();
             return data.valid === true;
-
         } catch (error) {
-            console.error('Error checking subscription health:', error);
+            console.error("Error checking subscription health:", error);
             return false;
         }
     }
@@ -325,7 +336,7 @@
 
             return true;
         } catch (error) {
-            console.error('Error refreshing subscription:', error);
+            console.error("Error refreshing subscription:", error);
             return false;
         }
     }
@@ -344,12 +355,12 @@
     }
 
     // Listen for service worker messages about subscription refresh
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'PUSH_SUBSCRIPTION_REFRESHED') {
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "PUSH_SUBSCRIPTION_REFRESHED") {
                 // Subscription was automatically refreshed by service worker
                 // Reload subscription list if on settings page
-                if (window.location.pathname.includes('/account/settings')) {
+                if (window.location.pathname.includes("/account/settings")) {
                     window.location.reload();
                 }
             }
@@ -361,7 +372,7 @@
         subscribe: subscribeToPush,
         unsubscribe: unsubscribeFromPush,
         checkHealth: checkSubscriptionHealth,
-        refresh: refreshPushSubscription
+        refresh: refreshPushSubscription,
     };
 
     /**
@@ -369,20 +380,19 @@
      */
     async function sendTestNotification() {
         try {
-            const response = await fetch('/api/push/test/', {
-                method: 'POST',
+            const response = await fetch("/api/push/test/", {
+                method: "POST",
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
+                    "X-CSRFToken": getCookie("csrftoken"),
+                },
             });
 
             const data = await response.json();
             return data;
-
         } catch (error) {
             return {
                 success: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -394,7 +404,6 @@
         isSubscribed: isSubscribed,
         sendTest: sendTestNotification,
         isSupported: isPushSupported,
-        getFingerprint: generateDeviceFingerprint
+        getFingerprint: generateDeviceFingerprint,
     };
-
 })();

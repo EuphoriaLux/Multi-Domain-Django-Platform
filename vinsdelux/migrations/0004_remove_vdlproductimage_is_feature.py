@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vinsdelux', '0003_remove_vdladoptionplan_created_at_and_more'),
+        ("vinsdelux", "0003_remove_vdladoptionplan_created_at_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='vdlproductimage',
-            name='is_feature',
+            model_name="vdlproductimage",
+            name="is_feature",
         ),
     ]

@@ -5,7 +5,7 @@ Usage:
     python manage.py validate_timeline_events
     python manage.py validate_timeline_events --fix-legacy  # Attempt to migrate legacy formats
 """
-import json
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from crush_lu.models import JourneyChallenge
@@ -17,22 +17,22 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--fix-legacy',
-            action='store_true',
-            help='Attempt to migrate legacy nested formats to clean structure'
+            "--fix-legacy",
+            action="store_true",
+            help="Attempt to migrate legacy nested formats to clean structure",
         )
         parser.add_argument(
-            '--journey-id',
+            "--journey-id",
             type=int,
-            help='Only check challenges for specific journey ID'
+            help="Only check challenges for specific journey ID",
         )
 
     def handle(self, *args, **options):
-        fix_legacy = options['fix_legacy']
-        journey_id = options.get('journey_id')
+        fix_legacy = options["fix_legacy"]
+        journey_id = options.get("journey_id")
 
         # Get all timeline challenges
-        challenges = JourneyChallenge.objects.filter(challenge_type='timeline_events')
+        challenges = JourneyChallenge.objects.filter(challenge_type="timeline_events")
         if journey_id:
             challenges = challenges.filter(chapter__journey_id=journey_id)
 
@@ -52,20 +52,22 @@ class Command(BaseCommand):
             challenge_issues = []
 
             for lang in supported_langs:
-                options = getattr(challenge, f'options_{lang}', None)
+                options = getattr(challenge, f"options_{lang}", None)
 
                 if not options:
                     challenge_issues.append(f"  [{lang}] No options found")
                     continue
 
                 if not isinstance(options, dict):
-                    challenge_issues.append(f"  [{lang}] Options is not a dict: {type(options)}")
+                    challenge_issues.append(
+                        f"  [{lang}] Options is not a dict: {type(options)}"
+                    )
                     errors_found.append((challenge_info, lang, "Invalid options type"))
                     continue
 
                 # Check structure type
-                has_clean = 'events' in options
-                has_nested = any(k.startswith('events_') for k in options.keys())
+                has_clean = "events" in options
+                has_nested = any(k.startswith("events_") for k in options.keys())
 
                 if has_clean and has_nested:
                     # Mixed structure
@@ -75,7 +77,7 @@ class Command(BaseCommand):
                     mixed_found.append((challenge_info, lang))
                 elif has_nested:
                     # Legacy structure
-                    nested_keys = [k for k in options.keys() if k.startswith('events_')]
+                    nested_keys = [k for k in options.keys() if k.startswith("events_")]
                     challenge_issues.append(
                         f"  [{lang}] LEGACY nested structure: {nested_keys}"
                     )
@@ -86,7 +88,7 @@ class Command(BaseCommand):
                         self._migrate_to_clean(challenge, lang, options, nested_keys[0])
                 elif has_clean:
                     # Clean structure
-                    events = options['events']
+                    events = options["events"]
                     if isinstance(events, list):
                         # Validate event objects
                         for idx, event in enumerate(events):
@@ -94,7 +96,9 @@ class Command(BaseCommand):
                                 challenge_issues.append(
                                     f"  [{lang}] Event {idx} is not a dict: {type(event)}"
                                 )
-                                errors_found.append((challenge_info, lang, f"Event {idx} invalid"))
+                                errors_found.append(
+                                    (challenge_info, lang, f"Event {idx} invalid")
+                                )
                         clean_found.append((challenge_info, lang))
                     else:
                         challenge_issues.append(
@@ -103,7 +107,9 @@ class Command(BaseCommand):
                         errors_found.append((challenge_info, lang, "Events not a list"))
                 else:
                     # No events found
-                    challenge_issues.append(f"  [{lang}] No 'events' or 'events_*' keys found")
+                    challenge_issues.append(
+                        f"  [{lang}] No 'events' or 'events_*' keys found"
+                    )
                     errors_found.append((challenge_info, lang, "No events found"))
 
             if challenge_issues:
@@ -122,20 +128,28 @@ class Command(BaseCommand):
 
         # Print details
         if clean_found:
-            self.stdout.write(self.style.SUCCESS(f"\n✓ {len(clean_found)} Clean Structures Found"))
-            if options.get('verbosity', 1) >= 2:
+            self.stdout.write(
+                self.style.SUCCESS(f"\n✓ {len(clean_found)} Clean Structures Found")
+            )
+            if options.get("verbosity", 1) >= 2:
                 for info, lang in clean_found:
                     self.stdout.write(f"  {info} [{lang}]")
 
         if legacy_found:
-            self.stdout.write(self.style.WARNING(f"\n⚠ {len(legacy_found)} Legacy Structures Found"))
+            self.stdout.write(
+                self.style.WARNING(f"\n⚠ {len(legacy_found)} Legacy Structures Found")
+            )
             for info, lang, keys in legacy_found:
                 self.stdout.write(f"  {info} [{lang}] - Keys: {keys}")
             if fix_legacy:
-                self.stdout.write(self.style.SUCCESS("\n  Attempted migration to clean structure"))
+                self.stdout.write(
+                    self.style.SUCCESS("\n  Attempted migration to clean structure")
+                )
 
         if mixed_found:
-            self.stdout.write(self.style.ERROR(f"\n✗ {len(mixed_found)} Mixed Structures Found"))
+            self.stdout.write(
+                self.style.ERROR(f"\n✗ {len(mixed_found)} Mixed Structures Found")
+            )
             for info, lang in mixed_found:
                 self.stdout.write(f"  {info} [{lang}]")
 
@@ -183,11 +197,11 @@ class Command(BaseCommand):
                 events = options[nested_key]
 
                 # Create new clean structure
-                new_options = {'events': events}
+                new_options = {"events": events}
 
                 # Update the language-specific field
-                setattr(challenge, f'options_{lang}', new_options)
-                challenge.save(update_fields=[f'options_{lang}'])
+                setattr(challenge, f"options_{lang}", new_options)
+                challenge.save(update_fields=[f"options_{lang}"])
 
                 self.stdout.write(
                     self.style.SUCCESS(
