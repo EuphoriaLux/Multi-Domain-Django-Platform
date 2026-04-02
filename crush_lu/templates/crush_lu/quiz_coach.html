@@ -38,18 +38,36 @@
 
         {# --- Round selector --- #}
         <div class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
+                <span class="quiz-round-progress-text text-xs text-gray-500"></span>
+            </div>
+            {# Progress bar #}
+            <div class="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-700">
+                <div class="quiz-round-progress-bar h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-500" style="width: 0%"></div>
+            </div>
             <div class="space-y-2">
                 {% for round in rounds %}
                 <button x-on:click="selectRoundFromEl"
                         data-round-id="{{ round.id }}"
-                        class="quiz-round-btn w-full rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 p-3 text-left transition-all">
-                    <div class="flex items-center justify-between">
-                        <span class="font-medium">
-                            {{ round.title }}
-                            {% if round.is_bonus %}<span class="ml-1 text-xs text-amber-400">BONUS x2</span>{% endif %}
-                        </span>
-                        <span class="text-sm text-gray-400">{{ round.questions.count }} {% trans "questions" %} &middot; {{ round.time_per_question }}s</span>
+                        class="quiz-round-btn group w-full rounded-lg bg-slate-700 text-gray-300 hover:bg-slate-600 p-3 text-left transition-all">
+                    <div class="flex items-center gap-3">
+                        {# Round number circle #}
+                        <div class="quiz-round-number flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-600 text-sm font-bold text-gray-400 transition-all">
+                            {{ forloop.counter }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium truncate">
+                                    {{ round.title }}
+                                    {% if round.is_bonus %}<span class="ml-1 text-xs text-amber-400">BONUS x2</span>{% endif %}
+                                </span>
+                                <span class="round-status-badge hidden"></span>
+                            </div>
+                            <div class="mt-0.5 text-xs text-gray-500">
+                                {{ round.questions.count }} {% trans "questions" %} &middot; {{ round.time_per_question }}s
+                            </div>
+                        </div>
                     </div>
                 </button>
                 {% endfor %}

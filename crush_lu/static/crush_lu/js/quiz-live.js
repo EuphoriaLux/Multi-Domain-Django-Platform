@@ -1180,6 +1180,12 @@ document.addEventListener("alpine:init", function () {
 
             selectRoundFromEl: function () {
                 var roundId = parseInt(this.$el.getAttribute("data-round-id"), 10);
+                // Prevent re-selecting completed rounds
+                for (var i = 0; i < this.rounds.length; i++) {
+                    if (this.rounds[i].id === roundId && this.rounds[i].status === "done") {
+                        return;
+                    }
+                }
                 this.selectedRoundId = roundId;
                 this.roundComplete = false;
                 this.currentQuestion = null;
@@ -1251,7 +1257,7 @@ document.addEventListener("alpine:init", function () {
                     }
                     var status = roundInfo ? roundInfo.status : "upcoming";
 
-                    // Reset classes
+                    // Reset classes on button
                     buttons[i].className = buttons[i].className
                         .replace(/bg-\S+/g, "")
                         .replace(/ring-\S+/g, "")
@@ -1259,6 +1265,7 @@ document.addEventListener("alpine:init", function () {
                         .replace(/hover:\S+/g, "")
                         .replace(/border-\S+/g, "")
                         .replace(/opacity-\S+/g, "")
+                        .replace(/cursor-\S+/g, "")
                         .replace(/\s+/g, " ")
                         .trim();
 
@@ -1266,7 +1273,7 @@ document.addEventListener("alpine:init", function () {
                     if (status === "current") {
                         cls = "bg-crush-purple/30 text-white ring-2 ring-crush-purple";
                     } else if (status === "done") {
-                        cls = "bg-green-900/30 text-green-300 ring-1 ring-green-700";
+                        cls = "bg-green-900/30 text-green-300 ring-1 ring-green-700 cursor-not-allowed opacity-50";
                     } else {
                         cls = "bg-slate-700 text-gray-300 hover:bg-slate-600";
                     }
@@ -1275,23 +1282,45 @@ document.addEventListener("alpine:init", function () {
                         buttons[i].classList.add(parts[k]);
                     }
 
+                    // Update round number circle styling
+                    var numCircle = buttons[i].querySelector(".quiz-round-number");
+                    if (numCircle) {
+                        numCircle.className = numCircle.className
+                            .replace(/bg-\S+/g, "")
+                            .replace(/text-\S+/g, "")
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        var numCls;
+                        if (status === "current") {
+                            numCls = "bg-crush-purple text-white";
+                        } else if (status === "done") {
+                            numCls = "bg-green-700 text-green-200";
+                        } else {
+                            numCls = "bg-slate-600 text-gray-400";
+                        }
+                        var numParts = numCls.split(" ");
+                        for (var m = 0; m < numParts.length; m++) {
+                            numCircle.classList.add(numParts[m]);
+                        }
+                    }
+
                     // Update or create status badge
                     var badge = buttons[i].querySelector(".round-status-badge");
                     if (!badge) {
                         badge = document.createElement("span");
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full";
-                        var rightSpan = buttons[i].querySelector(".text-gray-400");
-                        if (rightSpan && rightSpan.parentNode) {
-                            rightSpan.parentNode.insertBefore(badge, rightSpan);
+                        var flexRow = buttons[i].querySelector(".flex.items-center.justify-between");
+                        if (flexRow) {
+                            flexRow.appendChild(badge);
                         }
                     }
                     if (status === "current") {
-                        badge.textContent = "▶ NOW";
+                        badge.textContent = "\u25B6 NOW";
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-crush-purple text-white";
                     } else if (status === "done") {
-                        badge.textContent = "✓ DONE";
+                        badge.textContent = "\u2713 DONE";
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-green-700 text-green-200";
                     } else {
@@ -1299,11 +1328,33 @@ document.addEventListener("alpine:init", function () {
                         badge.className = "round-status-badge hidden";
                     }
                 }
+                // Update progress bar and counter
+                this._updateRoundProgress();
             },
 
             _updateRoundButtons: function () {
                 // Alias for backward compat — delegates to guided flow renderer
                 this._renderRoundButtons();
+            },
+
+            _updateRoundProgress: function () {
+                var root = this._root;
+                var total = this.rounds.length;
+                var done = 0;
+                for (var i = 0; i < this.rounds.length; i++) {
+                    if (this.rounds[i].status === "done") done++;
+                }
+                // Update progress text
+                var progressText = root.querySelector(".quiz-round-progress-text");
+                if (progressText) {
+                    progressText.textContent = done + " / " + total + " complete";
+                }
+                // Update progress bar width
+                var progressBar = root.querySelector(".quiz-round-progress-bar");
+                if (progressBar) {
+                    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                    progressBar.style.width = pct + "%";
+                }
             },
 
             // --- DOM rendering (CSP-safe replacement for x-for) ---
