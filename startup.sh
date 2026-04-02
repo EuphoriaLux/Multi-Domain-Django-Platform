@@ -66,6 +66,9 @@ else
     echo "⚠️ No virtual environment found, using system python"
 fi
 
+# Ensure antenv is activated for SSH sessions (persists across redeployments)
+grep -qxF 'source /antenv/bin/activate' /home/.bashrc 2>/dev/null || echo 'source /antenv/bin/activate' >> /home/.bashrc
+
 # Note: collectstatic is handled during CI/CD build (GitHub Actions workflow)
 # The antenv virtual environment and static files are pre-built and included in the deployment zip
 # Do NOT run collectstatic here — running it twice causes manifest conflicts
@@ -107,10 +110,10 @@ echo "✅ Migrations complete. Starting Gunicorn..."
 # Using UvicornWorker for ASGI support (HTTP + WebSocket via Django Channels)
 # Access logs sent to stderr for Azure Log Stream visibility (minimal format)
 # Application Insights also captures requests via OpenTelemetry for full telemetry
-# UVICORN_LOOP=asyncio disables uvloop — its run_in_executor breaks asgiref's
-# CurrentThreadExecutor, causing intermittent 500s (django/channels#1959)
-UVICORN_LOOP=asyncio gunicorn --workers 4 --timeout 120 \
-    -k uvicorn.workers.UvicornWorker \
+# Using AsyncioUvicornWorker to force asyncio event loop — uvloop's
+# run_in_executor breaks asgiref's CurrentThreadExecutor (django/channels#1959)
+gunicorn --workers 4 --timeout 120 \
+    -k azureproject.worker.AsyncioUvicornWorker \
     --access-logfile '-' --access-logformat '%(h)s %(m)s %(U)s %(s)s %(D)sms' \
     --error-logfile '-' --bind=0.0.0.0:8000 \
     azureproject.asgi:application
