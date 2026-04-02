@@ -182,6 +182,168 @@ class TestQuizEventModel:
         assert quiz_event.get_current_question() is None
 
 
+class TestGetRoundNumber:
+    """Test get_round_number with various sort_order configurations."""
+
+    def test_unique_sort_orders(self, quiz_event):
+        """Rounds with unique sort_orders get sequential round_numbers."""
+        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=1)
+        r2 = QuizRound.objects.create(quiz=quiz_event, title="R3", sort_order=2)
+        r3 = QuizRound.objects.create(quiz=quiz_event, title="R4", sort_order=3)
+
+        assert quiz_event.get_round_number(r0) == 0
+        assert quiz_event.get_round_number(r1) == 1
+        assert quiz_event.get_round_number(r2) == 2
+        assert quiz_event.get_round_number(r3) == 3
+
+    def test_duplicate_sort_orders(self, quiz_event):
+        """Rounds with all-zero sort_orders still get unique round_numbers via pk tiebreaker."""
+        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=0)
+        r2 = QuizRound.objects.create(quiz=quiz_event, title="R3", sort_order=0)
+        r3 = QuizRound.objects.create(quiz=quiz_event, title="R4", sort_order=0)
+
+        assert quiz_event.get_round_number(r0) == 0
+        assert quiz_event.get_round_number(r1) == 1
+        assert quiz_event.get_round_number(r2) == 2
+        assert quiz_event.get_round_number(r3) == 3
+
+    def test_gapped_sort_orders(self, quiz_event):
+        """Rounds with gapped sort_orders (0, 5, 10, 15) get sequential round_numbers."""
+        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=5)
+        r2 = QuizRound.objects.create(quiz=quiz_event, title="R3", sort_order=10)
+        r3 = QuizRound.objects.create(quiz=quiz_event, title="R4", sort_order=15)
+
+        assert quiz_event.get_round_number(r0) == 0
+        assert quiz_event.get_round_number(r1) == 1
+        assert quiz_event.get_round_number(r2) == 2
+        assert quiz_event.get_round_number(r3) == 3
+
+    def test_no_round_returns_zero(self, quiz_event):
+        assert quiz_event.get_round_number(None) == 0
+
+    def test_current_round_default(self, quiz_event):
+        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=0)
+        quiz_event.current_round = r1
+        quiz_event.save()
+        # Uses current_round when no arg passed
+        assert quiz_event.get_round_number() == 1
+
+
+class TestAdvanceRoundAndRotate:
+    """Test that advance_round_and_rotate progresses through all rounds correctly."""
+
+    def test_four_rounds_same_sort_order_no_premature_finish(self, quiz_event):
+        """With 4 rounds all at sort_order=0, rotating should progress through all 4."""
+        rounds = []
+        for i in range(4):
+            r = QuizRound.objects.create(
+                quiz=quiz_event, title=f"Round {i+1}", sort_order=0
+            )
+            for j in range(6):
+                QuizQuestion.objects.create(
+                    round=r,
+                    text=f"Q{j+1} of round {i+1}",
+                    question_type="multiple_choice",
+                    choices=[
+                        {"text": "A", "is_correct": True},
+                        {"text": "B", "is_correct": False},
+                    ],
+                    sort_order=j,
+                    points=10,
+                )
+            rounds.append(r)
+
+        # Start quiz at first round
+        quiz_event.current_round = rounds[0]
+        quiz_event.current_question_index = 5  # All questions done
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # Simulate 3 rotations (round 1→2, 2→3, 3→4)
+        for expected_idx in range(1, 4):
+            quiz_event.refresh_from_db()
+            current_sort = quiz_event.current_round.sort_order
+            current_pk = quiz_event.current_round.pk
+
+            # Find next round using the fixed logic
+            next_round = (
+                quiz_event.rounds.filter(sort_order__gt=current_sort)
+                .order_by("sort_order", "pk")
+                .first()
+            )
+            if not next_round:
+                next_round = (
+                    quiz_event.rounds.filter(
+                        sort_order=current_sort, pk__gt=current_pk
+                    )
+                    .order_by("pk")
+                    .first()
+                )
+
+            assert next_round is not None, (
+                f"Expected to find round {expected_idx+1}, "
+                f"but got None after round {expected_idx}"
+            )
+            assert next_round.pk == rounds[expected_idx].pk
+
+            quiz_event.current_round = next_round
+            quiz_event.current_question_index = -1
+            quiz_event.status = "active"
+            quiz_event.save()
+
+        # After round 4, no more rounds should exist
+        quiz_event.refresh_from_db()
+        current_sort = quiz_event.current_round.sort_order
+        current_pk = quiz_event.current_round.pk
+
+        next_round = (
+            quiz_event.rounds.filter(sort_order__gt=current_sort)
+            .order_by("sort_order", "pk")
+            .first()
+        )
+        if not next_round:
+            next_round = (
+                quiz_event.rounds.filter(
+                    sort_order=current_sort, pk__gt=current_pk
+                )
+                .order_by("pk")
+                .first()
+            )
+        assert next_round is None, "Should be finished after 4 rounds"
+
+    def test_four_rounds_unique_sort_orders(self, quiz_event):
+        """With proper sort_orders (0,1,2,3), rotation works correctly."""
+        rounds = []
+        for i in range(4):
+            r = QuizRound.objects.create(
+                quiz=quiz_event, title=f"Round {i+1}", sort_order=i
+            )
+            rounds.append(r)
+
+        quiz_event.current_round = rounds[0]
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        for expected_idx in range(1, 4):
+            quiz_event.refresh_from_db()
+            current_sort = quiz_event.current_round.sort_order
+
+            next_round = (
+                quiz_event.rounds.filter(sort_order__gt=current_sort)
+                .order_by("sort_order", "pk")
+                .first()
+            )
+            assert next_round is not None
+            assert next_round.pk == rounds[expected_idx].pk
+
+            quiz_event.current_round = next_round
+            quiz_event.save()
+
+
 class TestQuizRoundModel:
     def test_create_round(self, quiz_round):
         assert quiz_round.time_per_question == 30
