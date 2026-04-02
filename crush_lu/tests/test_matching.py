@@ -71,7 +71,13 @@ class TraitModelTests(TestCase):
 
     def test_trait_str(self):
         patient = Trait.objects.get(slug="patient")
-        self.assertIn("Patient", str(patient))
+        # __str__ returns translated label + trait_type; check slug-independent format
+        trait_str = str(patient)
+        self.assertIn("(", trait_str)  # format: "Label (Type)"
+        self.assertTrue(
+            patient.label_en in trait_str or patient.label_de in trait_str or patient.label_fr in trait_str,
+            f"Expected a translated label in '{trait_str}'",
+        )
 
 
 class MatchScoreModelTests(TestCase):

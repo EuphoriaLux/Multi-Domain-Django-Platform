@@ -190,6 +190,16 @@ class CrushLuAdminSite(admin.AdminSite):
             'eventpollvote': {'order': 8, 'icon': '📊', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
+            # GROUP: Quiz Night (Live quiz event management)
+            # ═══════════════════════════════════════════════════════════════════
+            'quizevent': {'order': 1, 'icon': '🧠', 'group': 'Quiz Night'},
+            'quizround': {'order': 2, 'icon': '🔄', 'group': 'Quiz Night'},
+            'quizquestion': {'order': 3, 'icon': '❓', 'group': 'Quiz Night'},
+            'quiztable': {'order': 4, 'icon': '🪑', 'group': 'Quiz Night'},
+            'tableroundscore': {'order': 5, 'icon': '📊', 'group': 'Quiz Night'},
+            'individualscore': {'order': 6, 'icon': '🏅', 'group': 'Quiz Night'},
+
+            # ═══════════════════════════════════════════════════════════════════
             # GROUP 3: Activity Voting (Event activity polls)
             # ═══════════════════════════════════════════════════════════════════
             'globalactivityoption': {'order': 1, 'icon': '🌐', 'group': 'Activity Voting'},
@@ -338,6 +348,7 @@ class CrushLuAdminSite(admin.AdminSite):
                     ('📈 Growth & Referrals', 'Growth & Referrals'),   # Referral tracking, marketing
 
                     # === EVENT-SPECIFIC (During Events Only) ===
+                    ('🧠 Quiz Night', 'Quiz Night'),                   # Live quiz management
                     ('🗳️ Activity Voting', 'Activity Voting'),         # Live event voting sessions
 
                     # === SEASONAL / OCCASIONAL ===

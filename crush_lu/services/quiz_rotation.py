@@ -56,8 +56,8 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
     warnings = []
 
     # Determine table count
-    if num_tables is None:
-        num_tables = len(men) // 2
+    if not num_tables:
+        num_tables = max(len(men) // 2, 2)
     else:
         num_tables = int(num_tables)
 
@@ -85,32 +85,30 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
         )
 
     # Handle women distribution
-    max_women = num_tables * 2
-    seated_women = women[:max_women]
-    unseated_women = women[max_women:]
-
-    if unseated_women:
+    if len(women) < num_tables:
         warnings.append(
-            f"{len(unseated_women)} rotator(s) could not be seated "
-            f"(max {max_women} for {num_tables} tables). "
-            f"Consider adding more tables."
-        )
-
-    if len(seated_women) < num_tables:
-        warnings.append(
-            f"Only {len(seated_women)} rotator(s) for {num_tables} tables. "
+            f"Only {len(women)} rotator(s) for {num_tables} tables. "
             f"Some tables will have no rotators in some rounds."
         )
 
     schedule = []
 
-    # Split women into rotation groups
+    # Split women into rotation groups (all women are seated)
     if num_tables == 2:
-        group_a = seated_women  # All women in one group
+        group_a = women[:4] if len(women) >= 4 else women
         group_b = []
+        group_c = women[4:]
     else:
-        group_a = seated_women[:num_tables]
-        group_b = seated_women[num_tables : num_tables * 2]
+        group_a = women[:num_tables]
+        group_b = women[num_tables : num_tables * 2]
+        group_c = women[num_tables * 2 :]  # spillover — everyone gets seated
+
+    if group_c:
+        warnings.append(
+            f"{len(group_c)} extra rotator(s) assigned to spillover group "
+            f"(groups A/B hold {len(group_a) + len(group_b)}, "
+            f"spillover distributed round-robin)."
+        )
 
     for round_num in range(num_rounds):
         for table_idx in range(num_tables):
@@ -169,6 +167,19 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
                             "rotation_group": "B",
                         }
                     )
+
+        # Group C (spillover): distribute round-robin across tables each round
+        for c_idx, extra_woman in enumerate(group_c):
+            target_table = (c_idx + round_num) % num_tables
+            schedule.append(
+                {
+                    "round_number": round_num,
+                    "table_number": target_table + 1,  # 1-indexed
+                    "user": extra_woman,
+                    "role": "rotator",
+                    "rotation_group": "C",
+                }
+            )
 
     return {
         "schedule": schedule,

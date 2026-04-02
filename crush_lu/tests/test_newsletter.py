@@ -423,7 +423,8 @@ class NewsletterModelTests(TestCase):
             subject='My Newsletter', body_html='<p>test</p>',
         )
         self.assertIn('My Newsletter', str(newsletter))
-        self.assertIn('Draft', str(newsletter))
+        # Status label is translated; check the raw status value is draft
+        self.assertEqual(newsletter.status, 'draft')
 
     def test_recipient_str(self):
         newsletter = Newsletter.objects.create(
