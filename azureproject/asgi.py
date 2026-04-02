@@ -20,7 +20,6 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azureproject.settings")
 django.setup()
 
-from asgiref.wsgi import WsgiToAsgi  # noqa: E402
 from channels.auth import AuthMiddlewareStack  # noqa: E402
 from channels.routing import URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
@@ -63,25 +62,89 @@ if settings.DEBUG:
             whitenoise_app.add_files(static_dir, prefix=settings.STATIC_URL)
 
 
+_STATIC_FILE_CHUNK_SIZE = 65536
+
+
 class StaticFilesASGI:
     """
-    ASGI middleware: intercept static file requests and serve them via
-    WhiteNoise (WSGI→ASGI bridge), bypassing Django's ASGIHandler.
-    Eliminates the StreamingHttpResponse sync-iterator warning.
+    ASGI middleware: intercept static file requests and serve them directly
+    via WhiteNoise's StaticFile objects, bypassing both Django's ASGIHandler
+    and the asgiref WsgiToAsgi bridge.
+
+    This avoids the CurrentThreadExecutor race condition that causes
+    "RuntimeError: CurrentThreadExecutor already quit or is broken"
+    under concurrent static file requests.
     """
 
     def __init__(self, app):
         self.app = app
         self.static_prefix = settings.STATIC_URL
-        self._static_asgi = WsgiToAsgi(whitenoise_app)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")
-            if path.startswith(self.static_prefix) and path in whitenoise_app.files:
-                await self._static_asgi(scope, receive, send)
-                return
+            if path.startswith(self.static_prefix):
+                static_file = (
+                    whitenoise_app.find_file(path)
+                    if whitenoise_app.autorefresh
+                    else whitenoise_app.files.get(path)
+                )
+                if static_file is not None:
+                    await self._serve_static(scope, static_file, send)
+                    return
         await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _serve_static(scope, static_file, send):
+        """Serve a WhiteNoise StaticFile/Redirect directly via ASGI."""
+        method = scope.get("method", "GET")
+
+        # Convert ASGI headers to the HTTP_* environ dict WhiteNoise expects.
+        request_headers = {}
+        for raw_name, raw_value in scope.get("headers", []):
+            name = raw_name.decode("latin-1").upper().replace("-", "_")
+            request_headers[f"HTTP_{name}"] = raw_value.decode("latin-1")
+
+        response = static_file.get_response(method, request_headers)
+        file_handle = response.file
+        try:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": response.status.value,
+                    "headers": [
+                        (k.encode("latin-1"), v.encode("latin-1"))
+                        for k, v in response.headers
+                    ],
+                }
+            )
+
+            if file_handle is None:
+                await send(
+                    {"type": "http.response.body", "body": b"", "more_body": False}
+                )
+            else:
+                while True:
+                    chunk = file_handle.read(_STATIC_FILE_CHUNK_SIZE)
+                    if not chunk:
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": b"",
+                                "more_body": False,
+                            }
+                        )
+                        break
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": chunk,
+                            "more_body": True,
+                        }
+                    )
+        finally:
+            if file_handle is not None:
+                file_handle.close()
 
 
 _http_app = StaticFilesASGI(django_asgi_app)
