@@ -18,16 +18,18 @@
 /* ==========================================
    CORE IMPORTS (Keep minimal essentials)
    ========================================== */
-@import url('core/variables.css');
-@import url('layout/base.css');
-@import url('components/buttons.css');
+@import url("core/variables.css");
+@import url("layout/base.css");
+@import url("components/buttons.css");
 
 /* ==========================================
    SIMPLE JOURNEY CARDS
    Lightweight cards with no 3D or animations
    ========================================== */
 .journey-card {
-    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    transition:
+        box-shadow 0.3s ease,
+        transform 0.2s ease;
 }
 
 .journey-card:hover {

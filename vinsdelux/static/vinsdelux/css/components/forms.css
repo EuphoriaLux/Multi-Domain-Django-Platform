@@ -50,7 +50,7 @@
 }
 
 .vdl-form-group .required::after {
-    content: ' *';
+    content: " *";
     color: var(--vdl-burgundy);
 }
 
@@ -178,7 +178,7 @@
 }
 
 .vdl-checkbox input:checked + .checkmark::after {
-    content: '';
+    content: "";
     width: 6px;
     height: 10px;
     border: solid white;
@@ -188,7 +188,7 @@
 }
 
 .vdl-radio input:checked + .checkmark::after {
-    content: '';
+    content: "";
     width: 10px;
     height: 10px;
     background: white;
@@ -296,7 +296,11 @@
 }
 
 .plot-details-header {
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     color: white;
     padding: var(--vdl-space-xl);
     display: flex;
@@ -382,7 +386,11 @@
 .grape-icon {
     width: 30px;
     height: 30px;
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-light) 100%
+    );
     border-radius: 50%;
 }
 
@@ -566,7 +574,7 @@
 
 .plot-loading::after,
 .spinner {
-    content: '';
+    content: "";
     width: 48px;
     height: 48px;
     border: 4px solid var(--vdl-pearl);

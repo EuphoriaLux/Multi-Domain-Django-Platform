@@ -28,13 +28,18 @@
 }
 
 .vdl-btn::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
     transition: left var(--vdl-transition-slow);
 }
 
@@ -48,13 +53,21 @@
 
 /* Primary - Burgundy gradient */
 .vdl-btn-primary {
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy) 0%,
+        var(--vdl-burgundy-dark) 100%
+    );
     color: var(--vdl-cream);
     box-shadow: var(--vdl-shadow-medium);
 }
 
 .vdl-btn-primary:hover {
-    background: linear-gradient(135deg, var(--vdl-burgundy-light) 0%, var(--vdl-burgundy) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--vdl-burgundy-light) 0%,
+        var(--vdl-burgundy) 100%
+    );
     box-shadow: var(--vdl-shadow-hard);
     transform: translateY(-2px);
 }
@@ -122,7 +135,7 @@
    ========================================== */
 
 .select-plan-btn {
-    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, #8B0000 100%);
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, #8b0000 100%);
     border: none;
     color: white;
     padding: 0.75rem 2rem;
@@ -134,7 +147,7 @@
 }
 
 .select-plan-btn:hover {
-    background: linear-gradient(135deg, #8B0000 0%, var(--vdl-burgundy) 100%);
+    background: linear-gradient(135deg, #8b0000 0%, var(--vdl-burgundy) 100%);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(114, 47, 55, 0.3);
 }
