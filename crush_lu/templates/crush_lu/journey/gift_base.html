@@ -1,11 +1,19 @@
-{% extends "crush_lu/base.html" %} {% load static i18n %} {% block body_class
-%}journey-bg{% endblock %} {% block content %}
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block body_class %}journey-bg{% endblock %}
+
+{% block content %}
 <div class="gift-container gift-animate-fade-in">
-    {% if messages %} {% for message in messages %}
+    {% if messages %}
+    {% for message in messages %}
     <div class="gift-message gift-message-{{ message.tags }}" role="alert">
         {{ message }}
     </div>
-    {% endfor %} {% endif %} {% block gift_content %}
+    {% endfor %}
+    {% endif %}
+
+    {% block gift_content %}
     <!-- Gift-specific content goes here -->
     {% endblock %}
 </div>

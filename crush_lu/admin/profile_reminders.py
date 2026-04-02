@@ -9,10 +9,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 from django.utils import timezone
 
-from crush_lu.email_helpers import (
-    get_users_needing_reminder,
-    send_profile_incomplete_reminder,
-)
+from crush_lu.email_helpers import get_users_needing_reminder, send_profile_incomplete_reminder
 from crush_lu.models import ProfileReminder
 
 
@@ -30,55 +27,57 @@ def profile_reminders_panel(request):
 
     # Get preview counts for each reminder type
     preview = {}
-    for reminder_type in ["24h", "72h", "7d"]:
+    for reminder_type in ['24h', '72h', '7d']:
         users = get_users_needing_reminder(reminder_type)
         preview[reminder_type] = {
-            "users": list(users.select_related("crushprofile")[:10]),
-            "count": users.count(),
+            'users': list(users.select_related('crushprofile')[:10]),
+            'count': users.count(),
         }
 
-    total_eligible = sum(p["count"] for p in preview.values())
+    total_eligible = sum(p['count'] for p in preview.values())
 
     # Handle form submission
-    if request.method == "POST":
-        reminder_type = request.POST.get("reminder_type", "all")
+    if request.method == 'POST':
+        reminder_type = request.POST.get('reminder_type', 'all')
         try:
-            limit = int(request.POST.get("limit", 100))
+            limit = int(request.POST.get('limit', 100))
             if limit < 1:
                 limit = 1
             elif limit > 500:
                 limit = 500
         except (ValueError, TypeError):
             limit = 100
-        dry_run = request.POST.get("dry_run") == "on"
+        dry_run = request.POST.get('dry_run') == 'on'
 
         # Execute reminders
         results = execute_reminders(reminder_type, limit, dry_run)
 
         # Refresh preview after sending
-        for rtype in ["24h", "72h", "7d"]:
+        for rtype in ['24h', '72h', '7d']:
             users = get_users_needing_reminder(rtype)
             preview[rtype] = {
-                "users": list(users.select_related("crushprofile")[:10]),
-                "count": users.count(),
+                'users': list(users.select_related('crushprofile')[:10]),
+                'count': users.count(),
             }
-        total_eligible = sum(p["count"] for p in preview.values())
+        total_eligible = sum(p['count'] for p in preview.values())
 
     # Get recent reminders for history section
-    recent_reminders = ProfileReminder.objects.select_related(
-        "user", "user__crushprofile"
-    ).order_by("-sent_at")[:20]
+    recent_reminders = (
+        ProfileReminder.objects
+        .select_related('user', 'user__crushprofile')
+        .order_by('-sent_at')[:20]
+    )
 
     context = {
-        "title": "Profile Reminder Panel",
-        "preview": preview,
-        "total_eligible": total_eligible,
-        "results": results,
-        "error": error,
-        "recent_reminders": recent_reminders,
+        'title': 'Profile Reminder Panel',
+        'preview': preview,
+        'total_eligible': total_eligible,
+        'results': results,
+        'error': error,
+        'recent_reminders': recent_reminders,
     }
 
-    return render(request, "admin/crush_lu/profile_reminders_panel.html", context)
+    return render(request, 'admin/crush_lu/profile_reminders_panel.html', context)
 
 
 def execute_reminders(reminder_type, limit, dry_run):
@@ -94,20 +93,20 @@ def execute_reminders(reminder_type, limit, dry_run):
         dict with execution results
     """
     # Determine which reminder types to process
-    if reminder_type == "all":
-        reminder_types = ["24h", "72h", "7d"]
+    if reminder_type == 'all':
+        reminder_types = ['24h', '72h', '7d']
     else:
         reminder_types = [reminder_type]
 
     results = {
-        "reminder_type": reminder_type,
-        "limit": limit,
-        "dry_run": dry_run,
-        "sent": 0,
-        "skipped": 0,
-        "failed": 0,
-        "details": [],
-        "executed_at": timezone.now(),
+        'reminder_type': reminder_type,
+        'limit': limit,
+        'dry_run': dry_run,
+        'sent': 0,
+        'skipped': 0,
+        'failed': 0,
+        'details': [],
+        'executed_at': timezone.now(),
     }
 
     emails_remaining = limit
@@ -125,39 +124,40 @@ def execute_reminders(reminder_type, limit, dry_run):
                 profile = user.crushprofile
                 status = profile.completion_status
             except Exception:
-                status = "unknown"
+                status = 'unknown'
 
             detail = {
-                "user_email": user.email,
-                "user_name": f"{user.first_name} {user.last_name}".strip()
-                or user.email,
-                "reminder_type": rtype,
-                "status": status,
-                "result": None,
+                'user_email': user.email,
+                'user_name': f"{user.first_name} {user.last_name}".strip() or user.email,
+                'reminder_type': rtype,
+                'status': status,
+                'result': None,
             }
 
             if dry_run:
-                detail["result"] = "would_send"
-                results["sent"] += 1
+                detail['result'] = 'would_send'
+                results['sent'] += 1
                 emails_remaining -= 1
             else:
                 try:
                     success = send_profile_incomplete_reminder(
-                        user=user, reminder_type=rtype, request=None
+                        user=user,
+                        reminder_type=rtype,
+                        request=None
                     )
 
                     if success:
-                        detail["result"] = "sent"
-                        results["sent"] += 1
+                        detail['result'] = 'sent'
+                        results['sent'] += 1
                         emails_remaining -= 1
                     else:
-                        detail["result"] = "skipped"
-                        results["skipped"] += 1
+                        detail['result'] = 'skipped'
+                        results['skipped'] += 1
                 except Exception as e:
-                    detail["result"] = "failed"
-                    detail["error"] = str(e)
-                    results["failed"] += 1
+                    detail['result'] = 'failed'
+                    detail['error'] = str(e)
+                    results['failed'] += 1
 
-            results["details"].append(detail)
+            results['details'].append(detail)
 
     return results

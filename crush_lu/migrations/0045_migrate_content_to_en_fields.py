@@ -9,11 +9,11 @@ def copy_content_to_en_fields(apps, schema_editor):
     modeltranslation reads from language-specific fields, so we need
     to populate them with existing data.
     """
-    SpecialUserExperience = apps.get_model("crush_lu", "SpecialUserExperience")
-    JourneyConfiguration = apps.get_model("crush_lu", "JourneyConfiguration")
-    JourneyChapter = apps.get_model("crush_lu", "JourneyChapter")
-    JourneyChallenge = apps.get_model("crush_lu", "JourneyChallenge")
-    JourneyReward = apps.get_model("crush_lu", "JourneyReward")
+    SpecialUserExperience = apps.get_model('crush_lu', 'SpecialUserExperience')
+    JourneyConfiguration = apps.get_model('crush_lu', 'JourneyConfiguration')
+    JourneyChapter = apps.get_model('crush_lu', 'JourneyChapter')
+    JourneyChallenge = apps.get_model('crush_lu', 'JourneyChallenge')
+    JourneyReward = apps.get_model('crush_lu', 'JourneyReward')
 
     # Migrate SpecialUserExperience
     for obj in SpecialUserExperience.objects.all():
@@ -55,20 +55,16 @@ def reverse_copy_en_to_original(apps, schema_editor):
     """
     Reverse migration: copy _en fields back to original fields.
     """
-    SpecialUserExperience = apps.get_model("crush_lu", "SpecialUserExperience")
-    JourneyConfiguration = apps.get_model("crush_lu", "JourneyConfiguration")
-    JourneyChapter = apps.get_model("crush_lu", "JourneyChapter")
-    JourneyChallenge = apps.get_model("crush_lu", "JourneyChallenge")
-    JourneyReward = apps.get_model("crush_lu", "JourneyReward")
+    SpecialUserExperience = apps.get_model('crush_lu', 'SpecialUserExperience')
+    JourneyConfiguration = apps.get_model('crush_lu', 'JourneyConfiguration')
+    JourneyChapter = apps.get_model('crush_lu', 'JourneyChapter')
+    JourneyChallenge = apps.get_model('crush_lu', 'JourneyChallenge')
+    JourneyReward = apps.get_model('crush_lu', 'JourneyReward')
 
     # Reverse SpecialUserExperience
     for obj in SpecialUserExperience.objects.all():
-        obj.custom_welcome_title = (
-            obj.custom_welcome_title_en or obj.custom_welcome_title
-        )
-        obj.custom_welcome_message = (
-            obj.custom_welcome_message_en or obj.custom_welcome_message
-        )
+        obj.custom_welcome_title = obj.custom_welcome_title_en or obj.custom_welcome_title
+        obj.custom_welcome_message = obj.custom_welcome_message_en or obj.custom_welcome_message
         obj.save()
 
     # Reverse JourneyConfiguration

@@ -118,8 +118,7 @@ input.iti__tel-input {
 }
 
 /* Maximum specificity - chain all possible classes */
-.iti.iti--allow-dropdown.iti--separate-dial-code.iti--show-selected-dial-code
-    input.iti__tel-input.form-control {
+.iti.iti--allow-dropdown.iti--separate-dial-code.iti--show-selected-dial-code input.iti__tel-input.form-control {
     padding-left: var(--intl-tel-input-padding) !important;
 }
 
@@ -302,9 +301,7 @@ input.iti__tel-input {
 /* Smooth transition for validation states */
 .iti input,
 .iti input.form-control {
-    transition:
-        border-color var(--transition-fast),
-        box-shadow var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 /* Focus state with validation colors */

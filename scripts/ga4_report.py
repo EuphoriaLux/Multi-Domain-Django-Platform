@@ -47,7 +47,6 @@ def get_credentials():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             from google.auth.transport.requests import Request
-
             creds.refresh(Request())
         else:
             if not CREDENTIALS_FILE.exists():
@@ -64,9 +63,7 @@ def get_credentials():
     return creds
 
 
-def run_report(
-    client, dimensions, metrics, start_date, end_date, limit=20, order_by=None
-):
+def run_report(client, dimensions, metrics, start_date, end_date, limit=20, order_by=None):
     """Run a GA4 report and return rows as list of dicts."""
     request = RunReportRequest(
         property=f"properties/{PROPERTY_ID}",
@@ -110,24 +107,15 @@ def print_table(title, headers, rows, col_widths=None):
         return
 
     if not col_widths:
-        col_widths = [
-            max(len(h), max((len(str(r.get(h, ""))) for r in rows), default=5)) + 2
-            for h in headers
-        ]
+        col_widths = [max(len(h), max((len(str(r.get(h, ""))) for r in rows), default=5)) + 2 for h in headers]
 
     print(f"\n=== {title} ===")
-    header_line = "".join(
-        h.ljust(w) if i == 0 else h.rjust(w)
-        for i, (h, w) in enumerate(zip(headers, col_widths))
-    )
+    header_line = "".join(h.ljust(w) if i == 0 else h.rjust(w) for i, (h, w) in enumerate(zip(headers, col_widths)))
     print(header_line)
     print("-" * sum(col_widths))
     for row in rows:
         vals = [str(row.get(h, "")) for h in headers]
-        line = "".join(
-            v.ljust(w) if i == 0 else v.rjust(w)
-            for i, (v, w) in enumerate(zip(vals, col_widths))
-        )
+        line = "".join(v.ljust(w) if i == 0 else v.rjust(w) for i, (v, w) in enumerate(zip(vals, col_widths)))
         print(line)
 
 
@@ -142,24 +130,15 @@ def format_bounce_rate(rows):
 
 def main():
     parser = argparse.ArgumentParser(description="GA4 Traffic Report for Crush.lu")
-    parser.add_argument(
-        "--start",
-        default="2026-01-01",
-        help="Start date YYYY-MM-DD (default: 2026-01-01)",
-    )
-    parser.add_argument(
-        "--days", type=int, help="Days to look back (overrides --start)"
-    )
-    parser.add_argument(
-        "--csv", action="store_true", help="Export to CSV files in scripts/exports/"
-    )
+    parser.add_argument("--start", default="2026-01-01", help="Start date YYYY-MM-DD (default: 2026-01-01)")
+    parser.add_argument("--days", type=int, help="Days to look back (overrides --start)")
+    parser.add_argument("--csv", action="store_true", help="Export to CSV files in scripts/exports/")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
     end_str = datetime.now().strftime("%Y-%m-%d")
     if args.days:
         from datetime import timedelta
-
         start_str = (datetime.now() - timedelta(days=args.days)).strftime("%Y-%m-%d")
     else:
         start_str = args.start
@@ -175,15 +154,8 @@ def main():
     totals = run_report(
         client,
         dimensions=[],
-        metrics=[
-            "totalUsers",
-            "sessions",
-            "newUsers",
-            "averageSessionDuration",
-            "screenPageViews",
-            "engagedSessions",
-            "engagementRate",
-        ],
+        metrics=["totalUsers", "sessions", "newUsers", "averageSessionDuration",
+                 "screenPageViews", "engagedSessions", "engagementRate"],
         start_date=start_str,
         end_date=end_str,
     )
@@ -191,9 +163,7 @@ def main():
         summary = totals[0]
         try:
             secs = float(summary.get("averageSessionDuration", 0))
-            summary["avgSessionDuration_formatted"] = (
-                f"{int(secs // 60)}m {int(secs % 60)}s"
-            )
+            summary["avgSessionDuration_formatted"] = f"{int(secs // 60)}m {int(secs % 60)}s"
         except ValueError:
             pass
         try:
@@ -206,29 +176,19 @@ def main():
     monthly = run_report(
         client,
         dimensions=["yearMonth"],
-        metrics=[
-            "totalUsers",
-            "sessions",
-            "newUsers",
-            "screenPageViews",
-            "averageSessionDuration",
-            "engagementRate",
-        ],
+        metrics=["totalUsers", "sessions", "newUsers", "screenPageViews",
+                 "averageSessionDuration", "engagementRate"],
         start_date=start_str,
         end_date=end_str,
         limit=24,
-        order_by=[
-            OrderBy(dimension=OrderBy.DimensionOrderBy(dimension_name="yearMonth"))
-        ],
+        order_by=[OrderBy(dimension=OrderBy.DimensionOrderBy(dimension_name="yearMonth"))],
     )
     for row in monthly:
         ym = row["yearMonth"]
         row["month"] = f"{ym[:4]}-{ym[4:]}"
         try:
             secs = float(row.get("averageSessionDuration", 0))
-            row["avgSessionDuration_formatted"] = (
-                f"{int(secs // 60)}m {int(secs % 60)}s"
-            )
+            row["avgSessionDuration_formatted"] = f"{int(secs // 60)}m {int(secs % 60)}s"
         except ValueError:
             pass
         try:
@@ -302,76 +262,44 @@ def main():
         print(f"\nExporting GA4 data ({start_str} to {end_str}) to CSV...")
 
         if data.get("summary"):
-            write_csv(
-                "ga4_summary.csv", list(data["summary"].keys()), [data["summary"]]
-            )
+            write_csv("ga4_summary.csv", list(data["summary"].keys()), [data["summary"]])
 
         if monthly:
-            write_csv(
-                "ga4_monthly_trend.csv",
-                [
-                    "month",
-                    "totalUsers",
-                    "sessions",
-                    "newUsers",
-                    "screenPageViews",
-                    "avgSessionDuration_formatted",
-                    "engagementRate",
-                ],
-                monthly,
-            )
+            write_csv("ga4_monthly_trend.csv",
+                       ["month", "totalUsers", "sessions", "newUsers", "screenPageViews",
+                        "avgSessionDuration_formatted", "engagementRate"],
+                       monthly)
 
         if acquisition:
-            write_csv(
-                "ga4_traffic_sources.csv",
-                [
-                    "sessionSource",
-                    "sessionMedium",
-                    "sessions",
-                    "totalUsers",
-                    "newUsers",
-                    "bounceRate",
-                    "engagementRate",
-                ],
-                acquisition,
-            )
+            write_csv("ga4_traffic_sources.csv",
+                       ["sessionSource", "sessionMedium", "sessions", "totalUsers", "newUsers",
+                        "bounceRate", "engagementRate"],
+                       acquisition)
 
         if landing_pages:
-            write_csv(
-                "ga4_landing_pages.csv",
-                [
-                    "landingPagePlusQueryString",
-                    "sessions",
-                    "totalUsers",
-                    "bounceRate",
-                    "engagementRate",
-                ],
-                landing_pages,
-            )
+            write_csv("ga4_landing_pages.csv",
+                       ["landingPagePlusQueryString", "sessions", "totalUsers", "bounceRate", "engagementRate"],
+                       landing_pages)
 
         if countries:
-            write_csv(
-                "ga4_countries.csv",
-                ["country", "totalUsers", "sessions", "newUsers"],
-                countries,
-            )
+            write_csv("ga4_countries.csv",
+                       ["country", "totalUsers", "sessions", "newUsers"],
+                       countries)
 
         if devices:
-            write_csv(
-                "ga4_devices.csv", ["deviceCategory", "totalUsers", "sessions"], devices
-            )
+            write_csv("ga4_devices.csv",
+                       ["deviceCategory", "totalUsers", "sessions"],
+                       devices)
 
         print("\nDone! CSV files saved to scripts/exports/")
         return
 
     # Pretty print (terminal)
-    print(
-        f"\nGA4 Report for crush.lu  |  {start_str} to {end_str}  |  Property {PROPERTY_ID}"
-    )
+    print(f"\nGA4 Report for crush.lu  |  {start_str} to {end_str}  |  Property {PROPERTY_ID}")
 
     if data.get("summary"):
         s = data["summary"]
-        print("\n--- Summary ---")
+        print(f"\n--- Summary ---")
         print(f"  Total Users:      {s.get('totalUsers', 'N/A')}")
         print(f"  Sessions:         {s.get('sessions', 'N/A')}")
         print(f"  New Users:        {s.get('newUsers', 'N/A')}")
@@ -382,28 +310,14 @@ def main():
     if monthly:
         print_table(
             "MONTHLY TREND",
-            [
-                "month",
-                "totalUsers",
-                "sessions",
-                "newUsers",
-                "screenPageViews",
-                "engagementRate",
-            ],
+            ["month", "totalUsers", "sessions", "newUsers", "screenPageViews", "engagementRate"],
             monthly,
         )
 
     if acquisition:
         print_table(
             "TRAFFIC ACQUISITION (source / medium)",
-            [
-                "sessionSource",
-                "sessionMedium",
-                "sessions",
-                "totalUsers",
-                "newUsers",
-                "bounceRate",
-            ],
+            ["sessionSource", "sessionMedium", "sessions", "totalUsers", "newUsers", "bounceRate"],
             acquisition,
         )
 

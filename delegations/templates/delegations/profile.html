@@ -1,5 +1,8 @@
-{% extends "delegations/base.html" %} {% block title %}Profile - Delegations.lu{%
-endblock %} {% block content %}
+{% extends "delegations/base.html" %}
+
+{% block title %}Profile - Delegations.lu{% endblock %}
+
+{% block content %}
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
@@ -8,25 +11,14 @@ endblock %} {% block content %}
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center">
                         {% if profile.profile_photo %}
-                        <img
-                            src="{{ profile.profile_photo.url }}"
-                            class="profile-photo-large me-4"
-                            alt="Profile"
-                        />
+                        <img src="{{ profile.profile_photo.url }}" class="profile-photo-large me-4" alt="Profile">
                         {% else %}
-                        <div
-                            class="profile-photo-large bg-light d-flex align-items-center justify-content-center rounded-circle me-4"
-                        >
-                            <i
-                                class="bi bi-person"
-                                style="font-size: 48px; color: #9b59b6"
-                            ></i>
+                        <div class="profile-photo-large me-4 bg-light d-flex align-items-center justify-content-center rounded-circle">
+                            <i class="bi bi-person" style="font-size: 48px; color: #9B59B6;"></i>
                         </div>
                         {% endif %}
                         <div>
-                            <h3 class="mb-1">
-                                {{ user.get_full_name|default:user.email }}
-                            </h3>
+                            <h3 class="mb-1">{{ user.get_full_name|default:user.email }}</h3>
                             <p class="text-muted mb-2">{{ user.email }}</p>
                             <span class="status-badge status-{{ profile.status }}">
                                 {{ profile.get_status_display }}
@@ -42,9 +34,7 @@ endblock %} {% block content %}
             <!-- Personal Information -->
             <div class="card mb-4">
                 <div class="card-header bg-white">
-                    <h6 class="mb-0">
-                        <i class="bi bi-person-badge me-2"></i>Personal Information
-                    </h6>
+                    <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Personal Information</h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -71,9 +61,7 @@ endblock %} {% block content %}
             <!-- Work Information -->
             <div class="card mb-4">
                 <div class="card-header bg-white">
-                    <h6 class="mb-0">
-                        <i class="bi bi-briefcase me-2"></i>Work Information
-                    </h6>
+                    <h6 class="mb-0"><i class="bi bi-briefcase me-2"></i>Work Information</h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -93,9 +81,7 @@ endblock %} {% block content %}
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Office Location</label>
-                            <p class="mb-0">
-                                {{ profile.office_location|default:"-" }}
-                            </p>
+                            <p class="mb-0">{{ profile.office_location|default:"-" }}</p>
                         </div>
                     </div>
                 </div>
@@ -105,14 +91,11 @@ endblock %} {% block content %}
             <div class="card mb-4">
                 <div class="card-header bg-white">
                     <h6 class="mb-0">
-                        <svg
-                            viewBox="0 0 21 21"
-                            style="width: 16px; height: 16px; margin-right: 8px"
-                        >
-                            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-                            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-                            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                        <svg viewBox="0 0 21 21" style="width: 16px; height: 16px; margin-right: 8px;">
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
                         </svg>
                         Microsoft Account
                     </h6>
@@ -122,26 +105,19 @@ endblock %} {% block content %}
                         <div class="col-12 mb-3">
                             <label class="text-muted small">Linked Account</label>
                             <p class="mb-0">
-                                <i
-                                    class="bi bi-check-circle-fill text-success me-1"
-                                ></i>
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
                                 Connected via Microsoft Entra ID
                             </p>
                         </div>
                         {% if profile.last_login_at %}
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Last Login</label>
-                            <p class="mb-0">
-                                {{ profile.last_login_at|date:"F j, Y, g:i a" }}
-                            </p>
+                            <p class="mb-0">{{ profile.last_login_at|date:"F j, Y, g:i a" }}</p>
                         </div>
                         {% endif %}
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Profile Approved</label>
-                            <p class="mb-0">
-                                {{ profile.approved_at|date:"F j,
-                                Y"|default:"Auto-approved" }}
-                            </p>
+                            <p class="mb-0">{{ profile.approved_at|date:"F j, Y"|default:"Auto-approved" }}</p>
                         </div>
                     </div>
                 </div>
@@ -149,10 +125,7 @@ endblock %} {% block content %}
 
             <!-- Actions -->
             <div class="d-flex justify-content-between">
-                <a
-                    href="{% url 'delegations:dashboard' %}"
-                    class="btn btn-outline-secondary"
-                >
+                <a href="{% url 'delegations:dashboard' %}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
                 </a>
                 <a href="{% url 'account_logout' %}" class="btn btn-outline-danger">

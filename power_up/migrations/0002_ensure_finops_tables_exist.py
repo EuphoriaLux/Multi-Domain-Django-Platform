@@ -12,7 +12,7 @@ def check_and_create_tables(apps, schema_editor):
     connection = schema_editor.connection
     vendor = connection.vendor
 
-    if vendor == "sqlite":
+    if vendor == 'sqlite':
         # SQLite - check using sqlite_master
         cursor = connection.cursor()
         cursor.execute("""
@@ -23,7 +23,7 @@ def check_and_create_tables(apps, schema_editor):
         existing_tables = {row[0] for row in cursor.fetchall()}
 
         # Create CostExport table if missing
-        if "finops_hub_costexport" not in existing_tables:
+        if 'finops_hub_costexport' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costexport" (
                     "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +45,7 @@ def check_and_create_tables(apps, schema_editor):
             """)
 
         # Create CostRecord table if missing
-        if "finops_hub_costrecord" not in existing_tables:
+        if 'finops_hub_costrecord' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costrecord" (
                     "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +90,7 @@ def check_and_create_tables(apps, schema_editor):
             """)
 
         # Create CostAggregation table if missing
-        if "finops_hub_costaggregation" not in existing_tables:
+        if 'finops_hub_costaggregation' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costaggregation" (
                     "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +113,7 @@ def check_and_create_tables(apps, schema_editor):
                 )
             """)
 
-    elif vendor == "postgresql":
+    elif vendor == 'postgresql':
         # PostgreSQL - check using information_schema
         cursor = connection.cursor()
         cursor.execute("""
@@ -125,7 +125,7 @@ def check_and_create_tables(apps, schema_editor):
         existing_tables = {row[0] for row in cursor.fetchall()}
 
         # Create CostExport table if missing
-        if "finops_hub_costexport" not in existing_tables:
+        if 'finops_hub_costexport' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costexport" (
                     "id" bigserial NOT NULL PRIMARY KEY,
@@ -146,36 +146,18 @@ def check_and_create_tables(apps, schema_editor):
                 )
             """)
             # Create indexes for CostExport
-            cursor.execute(
-                'CREATE INDEX "finops_hub__subscri_0dbb11_idx" ON "finops_hub_costexport" ("subscription_name", "billing_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__import__9d31f3_idx" ON "finops_hub_costexport" ("import_status", "import_completed_at")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_blob_path_idx" ON "finops_hub_costexport" ("blob_path")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_sub_name_idx" ON "finops_hub_costexport" ("subscription_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_sub_id_idx" ON "finops_hub_costexport" ("subscription_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_period_start_idx" ON "finops_hub_costexport" ("billing_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_status_idx" ON "finops_hub_costexport" ("import_status")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_needs_sub_idx" ON "finops_hub_costexport" ("needs_subscription_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_export_blob_mod_idx" ON "finops_hub_costexport" ("blob_last_modified")'
-            )
+            cursor.execute('CREATE INDEX "finops_hub__subscri_0dbb11_idx" ON "finops_hub_costexport" ("subscription_name", "billing_period_start")')
+            cursor.execute('CREATE INDEX "finops_hub__import__9d31f3_idx" ON "finops_hub_costexport" ("import_status", "import_completed_at")')
+            cursor.execute('CREATE INDEX "finops_export_blob_path_idx" ON "finops_hub_costexport" ("blob_path")')
+            cursor.execute('CREATE INDEX "finops_export_sub_name_idx" ON "finops_hub_costexport" ("subscription_name")')
+            cursor.execute('CREATE INDEX "finops_export_sub_id_idx" ON "finops_hub_costexport" ("subscription_id")')
+            cursor.execute('CREATE INDEX "finops_export_period_start_idx" ON "finops_hub_costexport" ("billing_period_start")')
+            cursor.execute('CREATE INDEX "finops_export_status_idx" ON "finops_hub_costexport" ("import_status")')
+            cursor.execute('CREATE INDEX "finops_export_needs_sub_idx" ON "finops_hub_costexport" ("needs_subscription_id")')
+            cursor.execute('CREATE INDEX "finops_export_blob_mod_idx" ON "finops_hub_costexport" ("blob_last_modified")')
 
         # Create CostRecord table if missing (depends on CostExport)
-        if "finops_hub_costrecord" not in existing_tables:
+        if 'finops_hub_costrecord' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costrecord" (
                     "id" bigserial NOT NULL PRIMARY KEY,
@@ -219,75 +201,31 @@ def check_and_create_tables(apps, schema_editor):
                 )
             """)
             # Create indexes for CostRecord
-            cursor.execute(
-                'CREATE INDEX "finops_hub__billing_8853b3_idx" ON "finops_hub_costrecord" ("billing_period_start", "sub_account_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__service_809822_idx" ON "finops_hub_costrecord" ("service_name", "billing_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__resourc_1be05a_idx" ON "finops_hub_costrecord" ("resource_group_name", "billing_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__charge__23fb00_idx" ON "finops_hub_costrecord" ("charge_period_start", "billed_cost")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__resourc_3481d2_idx" ON "finops_hub_costrecord" ("resource_name", "service_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_billed_cost_idx" ON "finops_hub_costrecord" ("billed_cost")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_currency_idx" ON "finops_hub_costrecord" ("billing_currency")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_period_start_idx" ON "finops_hub_costrecord" ("billing_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_charge_start_idx" ON "finops_hub_costrecord" ("charge_period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_account_id_idx" ON "finops_hub_costrecord" ("billing_account_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_sub_id_idx" ON "finops_hub_costrecord" ("sub_account_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_sub_name_idx" ON "finops_hub_costrecord" ("sub_account_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_resource_id_idx" ON "finops_hub_costrecord" USING hash ("resource_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_resource_name_idx" ON "finops_hub_costrecord" ("resource_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_resource_type_idx" ON "finops_hub_costrecord" ("resource_type")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_rg_name_idx" ON "finops_hub_costrecord" ("resource_group_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_service_idx" ON "finops_hub_costrecord" ("service_name")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_category_idx" ON "finops_hub_costrecord" ("service_category")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_region_idx" ON "finops_hub_costrecord" ("region_id")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_charge_cat_idx" ON "finops_hub_costrecord" ("charge_category")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_hash_idx" ON "finops_hub_costrecord" ("record_hash")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_record_export_idx" ON "finops_hub_costrecord" ("cost_export_id")'
-            )
+            cursor.execute('CREATE INDEX "finops_hub__billing_8853b3_idx" ON "finops_hub_costrecord" ("billing_period_start", "sub_account_name")')
+            cursor.execute('CREATE INDEX "finops_hub__service_809822_idx" ON "finops_hub_costrecord" ("service_name", "billing_period_start")')
+            cursor.execute('CREATE INDEX "finops_hub__resourc_1be05a_idx" ON "finops_hub_costrecord" ("resource_group_name", "billing_period_start")')
+            cursor.execute('CREATE INDEX "finops_hub__charge__23fb00_idx" ON "finops_hub_costrecord" ("charge_period_start", "billed_cost")')
+            cursor.execute('CREATE INDEX "finops_hub__resourc_3481d2_idx" ON "finops_hub_costrecord" ("resource_name", "service_name")')
+            cursor.execute('CREATE INDEX "finops_record_billed_cost_idx" ON "finops_hub_costrecord" ("billed_cost")')
+            cursor.execute('CREATE INDEX "finops_record_currency_idx" ON "finops_hub_costrecord" ("billing_currency")')
+            cursor.execute('CREATE INDEX "finops_record_period_start_idx" ON "finops_hub_costrecord" ("billing_period_start")')
+            cursor.execute('CREATE INDEX "finops_record_charge_start_idx" ON "finops_hub_costrecord" ("charge_period_start")')
+            cursor.execute('CREATE INDEX "finops_record_account_id_idx" ON "finops_hub_costrecord" ("billing_account_id")')
+            cursor.execute('CREATE INDEX "finops_record_sub_id_idx" ON "finops_hub_costrecord" ("sub_account_id")')
+            cursor.execute('CREATE INDEX "finops_record_sub_name_idx" ON "finops_hub_costrecord" ("sub_account_name")')
+            cursor.execute('CREATE INDEX "finops_record_resource_id_idx" ON "finops_hub_costrecord" USING hash ("resource_id")')
+            cursor.execute('CREATE INDEX "finops_record_resource_name_idx" ON "finops_hub_costrecord" ("resource_name")')
+            cursor.execute('CREATE INDEX "finops_record_resource_type_idx" ON "finops_hub_costrecord" ("resource_type")')
+            cursor.execute('CREATE INDEX "finops_record_rg_name_idx" ON "finops_hub_costrecord" ("resource_group_name")')
+            cursor.execute('CREATE INDEX "finops_record_service_idx" ON "finops_hub_costrecord" ("service_name")')
+            cursor.execute('CREATE INDEX "finops_record_category_idx" ON "finops_hub_costrecord" ("service_category")')
+            cursor.execute('CREATE INDEX "finops_record_region_idx" ON "finops_hub_costrecord" ("region_id")')
+            cursor.execute('CREATE INDEX "finops_record_charge_cat_idx" ON "finops_hub_costrecord" ("charge_category")')
+            cursor.execute('CREATE INDEX "finops_record_hash_idx" ON "finops_hub_costrecord" ("record_hash")')
+            cursor.execute('CREATE INDEX "finops_record_export_idx" ON "finops_hub_costrecord" ("cost_export_id")')
 
         # Create CostAggregation table if missing
-        if "finops_hub_costaggregation" not in existing_tables:
+        if 'finops_hub_costaggregation' not in existing_tables:
             cursor.execute("""
                 CREATE TABLE "finops_hub_costaggregation" (
                     "id" bigserial NOT NULL PRIMARY KEY,
@@ -310,24 +248,12 @@ def check_and_create_tables(apps, schema_editor):
                 )
             """)
             # Create indexes for CostAggregation
-            cursor.execute(
-                'CREATE INDEX "finops_hub__aggrega_5d9e9e_idx" ON "finops_hub_costaggregation" ("aggregation_type", "period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_hub__dimensi_8db775_idx" ON "finops_hub_costaggregation" ("dimension_type", "dimension_value", "period_start")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_agg_type_idx" ON "finops_hub_costaggregation" ("aggregation_type")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_agg_dim_type_idx" ON "finops_hub_costaggregation" ("dimension_type")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_agg_dim_value_idx" ON "finops_hub_costaggregation" ("dimension_value")'
-            )
-            cursor.execute(
-                'CREATE INDEX "finops_agg_period_idx" ON "finops_hub_costaggregation" ("period_start")'
-            )
+            cursor.execute('CREATE INDEX "finops_hub__aggrega_5d9e9e_idx" ON "finops_hub_costaggregation" ("aggregation_type", "period_start")')
+            cursor.execute('CREATE INDEX "finops_hub__dimensi_8db775_idx" ON "finops_hub_costaggregation" ("dimension_type", "dimension_value", "period_start")')
+            cursor.execute('CREATE INDEX "finops_agg_type_idx" ON "finops_hub_costaggregation" ("aggregation_type")')
+            cursor.execute('CREATE INDEX "finops_agg_dim_type_idx" ON "finops_hub_costaggregation" ("dimension_type")')
+            cursor.execute('CREATE INDEX "finops_agg_dim_value_idx" ON "finops_hub_costaggregation" ("dimension_value")')
+            cursor.execute('CREATE INDEX "finops_agg_period_idx" ON "finops_hub_costaggregation" ("period_start")')
 
 
 def no_op(apps, schema_editor):
@@ -345,7 +271,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ("power_up", "0001_initial"),
+        ('power_up', '0001_initial'),
     ]
 
     operations = [

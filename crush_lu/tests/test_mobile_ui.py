@@ -7,7 +7,6 @@ Tests mobile-specific UI issues including:
 
 Run with: pytest crush_lu/tests/test_mobile_ui.py -v -m playwright
 """
-
 import pytest
 from pathlib import Path
 
@@ -31,7 +30,9 @@ class TestMobileProfileCreation:
 
     MOBILE_VIEWPORT = {"width": 390, "height": 844}  # iPhone 12 Pro
 
-    def test_phone_number_field_mobile_layout(self, page, live_server, screenshot_dir):
+    def test_phone_number_field_mobile_layout(
+        self, page, live_server, screenshot_dir
+    ):
         """Test phone number field layout on mobile viewport."""
         # Set mobile viewport
         page.set_viewport_size(self.MOBILE_VIEWPORT)
@@ -43,13 +44,11 @@ class TestMobileProfileCreation:
         # Take full page screenshot
         page.screenshot(
             path=str(screenshot_dir / "mobile_profile_creation_full.png"),
-            full_page=True,
+            full_page=True
         )
 
         # Find phone number field
-        phone_field = page.locator(
-            'input[name="phone"], input[id*="phone"], input[type="tel"]'
-        )
+        phone_field = page.locator('input[name="phone"], input[id*="phone"], input[type="tel"]')
 
         if phone_field.count() > 0:
             phone_input = phone_field.first
@@ -59,7 +58,9 @@ class TestMobileProfileCreation:
             page.wait_for_timeout(500)
 
             # Take screenshot of phone field area
-            page.screenshot(path=str(screenshot_dir / "mobile_phone_field.png"))
+            page.screenshot(
+                path=str(screenshot_dir / "mobile_phone_field.png")
+            )
 
             # Get bounding box and check if it's within viewport
             box = phone_input.bounding_box()
@@ -69,16 +70,15 @@ class TestMobileProfileCreation:
                 print(f"Viewport width: {self.MOBILE_VIEWPORT['width']}")
 
                 # Check if field extends beyond viewport
-                field_right_edge = box["x"] + box["width"]
-                if field_right_edge > self.MOBILE_VIEWPORT["width"]:
-                    print("WARNING: Phone field extends beyond viewport!")
+                field_right_edge = box['x'] + box['width']
+                if field_right_edge > self.MOBILE_VIEWPORT['width']:
+                    print(f"WARNING: Phone field extends beyond viewport!")
                     print(f"Field right edge: {field_right_edge}px")
-                    print(
-                        f"Overflow: {field_right_edge - self.MOBILE_VIEWPORT['width']}px"
-                    )
+                    print(f"Overflow: {field_right_edge - self.MOBILE_VIEWPORT['width']}px")
 
             # Get computed styles
-            styles = phone_input.evaluate("""el => {
+            styles = phone_input.evaluate(
+                """el => {
                     const cs = window.getComputedStyle(el);
                     return {
                         width: cs.width,
@@ -87,11 +87,13 @@ class TestMobileProfileCreation:
                         boxSizing: cs.boxSizing,
                         display: cs.display
                     };
-                }""")
+                }"""
+            )
             print(f"\nPhone field styles: {styles}")
 
             # Check parent container
-            parent_styles = phone_input.evaluate("""el => {
+            parent_styles = phone_input.evaluate(
+                """el => {
                     const parent = el.parentElement;
                     const cs = window.getComputedStyle(parent);
                     return {
@@ -100,7 +102,8 @@ class TestMobileProfileCreation:
                         display: cs.display,
                         className: parent.className
                     };
-                }""")
+                }"""
+            )
             print(f"Parent container styles: {parent_styles}")
 
             # Test if field is usable (can focus and type)
@@ -132,7 +135,9 @@ class TestMobileLanguageSwitcher:
         page.wait_for_load_state("networkidle")
 
         # Take initial screenshot
-        page.screenshot(path=str(screenshot_dir / "mobile_home_english.png"))
+        page.screenshot(
+            path=str(screenshot_dir / "mobile_home_english.png")
+        )
 
         # Verify we're on English page
         assert "/en/" in page.url, f"Not on English page. URL: {page.url}"
@@ -165,7 +170,9 @@ class TestMobileLanguageSwitcher:
             page.wait_for_timeout(500)  # Wait for Alpine.js transition
 
             # Take screenshot with menu open
-            page.screenshot(path=str(screenshot_dir / "mobile_menu_open.png"))
+            page.screenshot(
+                path=str(screenshot_dir / "mobile_menu_open.png")
+            )
 
             # Look for language switcher in mobile menu
             language_switcher_selectors = [
@@ -206,9 +213,9 @@ class TestMobileLanguageSwitcher:
                 )
 
                 # Look for submit button or check if auto-submit
-                submit_btn = (
-                    page.locator("button[type='submit']").filter(has_text="OK").first
-                )
+                submit_btn = page.locator(
+                    "button[type='submit']"
+                ).filter(has_text="OK").first
 
                 if submit_btn.is_visible():
                     submit_btn.click()
@@ -222,15 +229,15 @@ class TestMobileLanguageSwitcher:
                 page.wait_for_timeout(1000)
 
                 # Take screenshot of German page
-                page.screenshot(path=str(screenshot_dir / "mobile_home_german.png"))
+                page.screenshot(
+                    path=str(screenshot_dir / "mobile_home_german.png")
+                )
 
                 # Verify URL changed to /de/
                 current_url = page.url
                 print(f"\nCurrent URL after language switch: {current_url}")
 
-                assert (
-                    "/de/" in current_url
-                ), f"URL did not change to German. Current: {current_url}"
+                assert "/de/" in current_url, f"URL did not change to German. Current: {current_url}"
 
                 # Verify page content changed (look for German text)
                 page_content = page.content()
@@ -243,9 +250,7 @@ class TestMobileLanguageSwitcher:
                     "Profil",
                 ]
 
-                has_german = any(
-                    indicator in page_content for indicator in german_indicators
-                )
+                has_german = any(indicator in page_content for indicator in german_indicators)
                 print(f"Page contains German text: {has_german}")
 
                 if not has_german:
@@ -273,9 +278,7 @@ class TestMobileLanguageSwitcher:
                     aria_label = btn.get_attribute("aria-label") or "no aria-label"
                     print(f"  Button {i}: {aria_label}")
 
-    def test_language_switcher_desktop_dropdown(
-        self, page, live_server, screenshot_dir
-    ):
+    def test_language_switcher_desktop_dropdown(self, page, live_server, screenshot_dir):
         """Test desktop language switcher dropdown (should also work on mobile)."""
         # Set mobile viewport
         page.set_viewport_size(self.MOBILE_VIEWPORT)

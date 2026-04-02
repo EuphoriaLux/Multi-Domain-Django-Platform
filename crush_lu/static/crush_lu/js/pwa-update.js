@@ -11,7 +11,7 @@ class PWAUpdater {
     }
 
     async init() {
-        if (!("serviceWorker" in navigator)) {
+        if (!('serviceWorker' in navigator)) {
             return;
         }
 
@@ -20,23 +20,20 @@ class PWAUpdater {
             this.registration = await navigator.serviceWorker.ready;
 
             // Listen for new service worker installations
-            this.registration.addEventListener("updatefound", () => {
+            this.registration.addEventListener('updatefound', () => {
                 const newWorker = this.registration.installing;
 
-                newWorker.addEventListener("statechange", () => {
+                newWorker.addEventListener('statechange', () => {
                     // Only show update banner if there's a controller (existing SW)
                     // and the new worker is installed (waiting to activate)
-                    if (
-                        newWorker.state === "installed" &&
-                        navigator.serviceWorker.controller
-                    ) {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                         this.showUpdateBanner();
                     }
                 });
             });
 
             // Listen for controller change (new SW activated)
-            navigator.serviceWorker.addEventListener("controllerchange", () => {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
                 window.location.reload();
             });
 
@@ -44,6 +41,7 @@ class PWAUpdater {
             if (this.registration.waiting) {
                 this.showUpdateBanner();
             }
+
         } catch (error) {
             // Silently fail
         }
@@ -55,39 +53,39 @@ class PWAUpdater {
             return;
         }
 
-        this.updateBanner = document.createElement("div");
-        this.updateBanner.className = "pwa-update-banner";
-        this.updateBanner.setAttribute("role", "alert");
-        this.updateBanner.setAttribute("aria-live", "polite");
+        this.updateBanner = document.createElement('div');
+        this.updateBanner.className = 'pwa-update-banner';
+        this.updateBanner.setAttribute('role', 'alert');
+        this.updateBanner.setAttribute('aria-live', 'polite');
 
-        const content = document.createElement("div");
-        content.className = "pwa-update-content";
+        const content = document.createElement('div');
+        content.className = 'pwa-update-content';
 
-        const icon = document.createElement("span");
-        icon.className = "pwa-update-icon";
-        icon.innerHTML = "&#x2728;";
+        const icon = document.createElement('span');
+        icon.className = 'pwa-update-icon';
+        icon.innerHTML = '&#x2728;';
 
-        const text = document.createElement("span");
-        text.className = "pwa-update-text";
-        text.textContent = "A new version of Crush.lu is available!";
+        const text = document.createElement('span');
+        text.className = 'pwa-update-text';
+        text.textContent = 'A new version of Crush.lu is available!';
 
         content.appendChild(icon);
         content.appendChild(text);
 
-        const actions = document.createElement("div");
-        actions.className = "pwa-update-actions";
+        const actions = document.createElement('div');
+        actions.className = 'pwa-update-actions';
 
-        const updateButton = document.createElement("button");
-        updateButton.type = "button";
-        updateButton.className = "pwa-update-btn pwa-update-btn-primary";
-        updateButton.textContent = "Update Now";
-        updateButton.addEventListener("click", () => this.update());
+        const updateButton = document.createElement('button');
+        updateButton.type = 'button';
+        updateButton.className = 'pwa-update-btn pwa-update-btn-primary';
+        updateButton.textContent = 'Update Now';
+        updateButton.addEventListener('click', () => this.update());
 
-        const laterButton = document.createElement("button");
-        laterButton.type = "button";
-        laterButton.className = "pwa-update-btn pwa-update-btn-secondary";
-        laterButton.textContent = "Later";
-        laterButton.addEventListener("click", () => this.dismiss());
+        const laterButton = document.createElement('button');
+        laterButton.type = 'button';
+        laterButton.className = 'pwa-update-btn pwa-update-btn-secondary';
+        laterButton.textContent = 'Later';
+        laterButton.addEventListener('click', () => this.dismiss());
 
         actions.appendChild(updateButton);
         actions.appendChild(laterButton);
@@ -103,17 +101,17 @@ class PWAUpdater {
 
         // Trigger animation
         requestAnimationFrame(() => {
-            this.updateBanner.classList.add("pwa-update-banner-visible");
+            this.updateBanner.classList.add('pwa-update-banner-visible');
         });
     }
 
     injectStyles() {
-        if (document.getElementById("pwa-update-styles")) {
+        if (document.getElementById('pwa-update-styles')) {
             return;
         }
 
-        const styles = document.createElement("style");
-        styles.id = "pwa-update-styles";
+        const styles = document.createElement('style');
+        styles.id = 'pwa-update-styles';
         styles.textContent = `
             .pwa-update-banner {
                 position: fixed;
@@ -211,7 +209,7 @@ class PWAUpdater {
     update() {
         if (this.registration && this.registration.waiting) {
             // Tell the waiting service worker to activate
-            this.registration.waiting.postMessage({ type: "SKIP_WAITING" });
+            this.registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
 
         // Remove the banner
@@ -220,7 +218,7 @@ class PWAUpdater {
 
     dismiss() {
         if (this.updateBanner) {
-            this.updateBanner.classList.remove("pwa-update-banner-visible");
+            this.updateBanner.classList.remove('pwa-update-banner-visible');
             setTimeout(() => {
                 this.updateBanner.remove();
                 this.updateBanner = null;

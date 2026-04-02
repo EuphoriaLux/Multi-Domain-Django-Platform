@@ -1,128 +1,122 @@
-{% extends 'crush_lu/base.html' %} {% load static i18n crush_media %} {% block title
-%}{% trans "My Connections" %}{% endblock %} {% block meta_robots %}noindex, nofollow{%
-endblock %} {% block content %}
-<div class="mx-auto max-w-4xl">
+{% extends 'crush_lu/base.html' %}
+{% load static i18n crush_media %}
+
+{% block title %}{% trans "My Connections" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
     <!-- Header -->
-    <div class="mb-8 text-center">
-        <h1 class="mb-3 text-3xl font-bold">{% trans "My Connections 💕" %}</h1>
-        <p class="text-lg text-gray-500 dark:text-gray-400">
-            {% trans "Track your connection requests and active connections" %}
-        </p>
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold mb-3">{% trans "My Connections 💕" %}</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">{% trans "Track your connection requests and active connections" %}</p>
     </div>
 
     <!-- Received Requests (Pending Action) -->
     {% if received_requests %}
-    <div class="mb-8">
-        <h3 class="mb-4 flex items-center gap-2 text-xl font-semibold">
-            {% include "shared/icons/inbox.html" with class="w-5 h-5" %}
-            <span>{% trans "Requests You've Received" %}</span>
-            <span class="badge badge-danger">{{ received_requests|length }}</span>
-        </h3>
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                {% include "shared/icons/inbox.html" with class="w-5 h-5" %}
+                <span>{% trans "Requests You've Received" %}</span>
+                <span class="badge badge-danger">{{ received_requests|length }}</span>
+            </h3>
 
-        <div class="space-y-4">
-            {% for connection in received_requests %} {% include
-            'crush_lu/_received_connection_card.html' %} {% endfor %}
+            <div class="space-y-4">
+                {% for connection in received_requests %}
+                    {% include 'crush_lu/_received_connection_card.html' %}
+                {% endfor %}
+            </div>
         </div>
-    </div>
     {% endif %}
 
     <!-- Active Connections -->
     {% if active_connections %}
-    <div class="mb-8">
-        <h3 class="mb-4 flex items-center gap-2 text-xl font-semibold">
-            {% include "shared/icons/users.html" with class="w-5 h-5" %}
-            <span>{% trans "Active Connections" %}</span>
-        </h3>
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                {% include "shared/icons/users.html" with class="w-5 h-5" %}
+                <span>{% trans "Active Connections" %}</span>
+            </h3>
 
-        <div class="space-y-4">
-            {% for connection in active_connections %} {% if connection.requester ==
-            request.user %} {% with other_user=connection.recipient %} {% include
-            'crush_lu/_connection_card.html' %} {% endwith %} {% else %} {% with
-            other_user=connection.requester %} {% include
-            'crush_lu/_connection_card.html' %} {% endwith %} {% endif %} {% endfor %}
+            <div class="space-y-4">
+                {% for connection in active_connections %}
+                    {% if connection.requester == request.user %}
+                        {% with other_user=connection.recipient %}
+                            {% include 'crush_lu/_connection_card.html' %}
+                        {% endwith %}
+                    {% else %}
+                        {% with other_user=connection.requester %}
+                            {% include 'crush_lu/_connection_card.html' %}
+                        {% endwith %}
+                    {% endif %}
+                {% endfor %}
+            </div>
         </div>
-    </div>
     {% endif %}
 
     <!-- Sent Requests -->
     {% if sent_requests %}
-    <div class="mb-8">
-        <h3 class="mb-4 flex items-center gap-2 text-xl font-semibold">
-            {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
-            <span>{% trans "Requests You've Sent" %}</span>
-        </h3>
+        <div class="mb-8">
+            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
+                <span>{% trans "Requests You've Sent" %}</span>
+            </h3>
 
-        <div class="space-y-4">
-            {% for connection in sent_requests %} {% if connection.status == 'pending'
-            %}
-            <div class="rounded-xl bg-white shadow-sm dark:bg-gray-800">
-                <div class="p-4">
-                    <div class="flex items-center">
-                        <!-- Profile Photo -->
-                        <div class="mr-4">
-                            {% if connection.recipient.crushprofile|has_photo:'photo_1'
-                            %}
-                            <img
-                                src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
-                                alt="{{ connection.recipient.crushprofile.display_name }}"
-                                class="{% if connection.recipient.crushprofile.blur_photos %}blur-lg{% endif %} h-14 w-14 rounded-full object-cover"
-                                loading="lazy"
-                            />
-                            {% else %}
-                            <div
-                                class="flex h-14 w-14 items-center justify-center rounded-full bg-gray-400 dark:bg-gray-600"
-                            >
-                                <span class="text-lg font-semibold text-white"
-                                    >{{
-                                    connection.recipient.crushprofile.display_name|first
-                                    }}</span
-                                >
+            <div class="space-y-4">
+                {% for connection in sent_requests %}
+                    {% if connection.status == 'pending' %}
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                            <div class="p-4">
+                                <div class="flex items-center">
+                                    <!-- Profile Photo -->
+                                    <div class="mr-4">
+                                        {% if connection.recipient.crushprofile|has_photo:'photo_1' %}
+                                            <img src="{% profile_photo_url connection.recipient.crushprofile 'photo_1' %}"
+                                                 alt="{{ connection.recipient.crushprofile.display_name }}"
+                                                 class="w-14 h-14 rounded-full object-cover {% if connection.recipient.crushprofile.blur_photos %}blur-lg{% endif %}"
+                                                 loading="lazy">
+                                        {% else %}
+                                            <div class="w-14 h-14 rounded-full bg-gray-400 dark:bg-gray-600 flex items-center justify-center">
+                                                <span class="text-white text-lg font-semibold">{{ connection.recipient.crushprofile.display_name|first }}</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Info -->
+                                    <div class="flex-grow">
+                                        <h5 class="font-semibold mb-1 dark:text-white">{{ connection.recipient.crushprofile.display_name }}</h5>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-0 flex items-center gap-1">
+                                            {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                                            {{ connection.event.title }}
+                                        </p>
+                                        <span class="badge badge-warning mt-2">
+                                            {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                                            {% trans "Waiting for response" %}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            {% endif %}
                         </div>
-
-                        <!-- Info -->
-                        <div class="flex-grow">
-                            <h5 class="mb-1 font-semibold dark:text-white">
-                                {{ connection.recipient.crushprofile.display_name }}
-                            </h5>
-                            <p
-                                class="mb-0 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400"
-                            >
-                                {% include "shared/icons/calendar.html" with class="w-4
-                                h-4" %} {{ connection.event.title }}
-                            </p>
-                            <span class="badge badge-warning mt-2">
-                                {% include "shared/icons/clock.html" with class="w-3
-                                h-3" %} {% trans "Waiting for response" %}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                    {% endif %}
+                {% endfor %}
             </div>
-            {% endif %} {% endfor %}
         </div>
-    </div>
     {% endif %}
 
     <!-- Empty State -->
     {% if not received_requests and not active_connections and not sent_requests %}
-    <div class="py-12 text-center">
-        <div class="mb-6">
-            <span class="text-8xl">💕</span>
+        <div class="text-center py-12">
+            <div class="mb-6">
+                <span class="text-8xl">💕</span>
+            </div>
+            <h3 class="text-2xl font-semibold mb-2">{% trans "No connections yet" %}</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">
+                {% trans "Attend an event and connect with people you meet!" %}
+            </p>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
+                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                {% trans "Browse Events" %}
+            </a>
         </div>
-        <h3 class="mb-2 text-2xl font-semibold">{% trans "No connections yet" %}</h3>
-        <p class="mb-6 text-gray-500 dark:text-gray-400">
-            {% trans "Attend an event and connect with people you meet!" %}
-        </p>
-        <a
-            href="{% url 'crush_lu:event_list' %}"
-            class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3"
-        >
-            {% include "shared/icons/calendar.html" with class="w-4 h-4" %} {% trans
-            "Browse Events" %}
-        </a>
-    </div>
     {% endif %}
 </div>
 {% endblock %}

@@ -32,6 +32,7 @@ from .models import (
     EventRegistration,
     CoachSession,
     EventConnection,
+    EventInvitation,
     CallAttempt,
     UserActivity,
     CrushSpark,
@@ -48,12 +49,17 @@ from .matching import (
 from .forms import (
     CrushCoachForm,
     ProfileReviewForm,
+    CoachSessionForm,
 )
-from .decorators import coach_required
+from .decorators import crush_login_required, coach_required
 from .notification_service import (
     notify_profile_approved,
     notify_profile_revision,
     notify_profile_rejected,
+)
+from .coach_notifications import (
+    notify_coach_new_submission,
+    notify_coach_user_revision,
 )
 
 
@@ -112,7 +118,9 @@ def coach_dashboard(request):
     ]:
         count = gender_counts[key]
         pct = round(count * 100 / gender_total) if gender_total else 0
-        gender_bars.append({"label": label, "count": count, "pct": pct, "color": color})
+        gender_bars.append(
+            {"label": label, "count": count, "pct": pct, "color": color}
+        )
 
     # Age distribution (with gender breakdown)
     today = date.today()
@@ -122,63 +130,19 @@ def coach_dashboard(request):
         )
     )
     age_buckets = [
-        {
-            "label": "18-24",
-            "min": 18,
-            "max": 24,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "25-30",
-            "min": 25,
-            "max": 30,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "31-35",
-            "min": 31,
-            "max": 35,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "36-40",
-            "min": 36,
-            "max": 40,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "41-50",
-            "min": 41,
-            "max": 50,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "50+",
-            "min": 51,
-            "max": 999,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
+        {"label": "18-24", "min": 18, "max": 24, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "25-30", "min": 25, "max": 30, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "31-35", "min": 31, "max": 35, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "36-40", "min": 36, "max": 40, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "41-50", "min": 41, "max": 50, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
+        {"label": "50+", "min": 51, "max": 999, "count": 0, "count_f": 0, "count_m": 0, "count_other": 0},
     ]
     for dob, gender in dob_gender_list:
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        age = (
+            today.year
+            - dob.year
+            - ((today.month, today.day) < (dob.month, dob.day))
+        )
         for bucket in age_buckets:
             if bucket["min"] <= age <= bucket["max"]:
                 bucket["count"] += 1
@@ -238,13 +202,9 @@ def coach_dashboard(request):
     ]:
         row = {"label": gender_label, "cells": [], "total": 0}
         if gender_code == "other":
-            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(
-                event_languages=[]
-            )
+            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(event_languages=[])
         else:
-            qs = approved_profiles.filter(gender=gender_code).exclude(
-                event_languages=[]
-            )
+            qs = approved_profiles.filter(gender=gender_code).exclude(event_languages=[])
         gender_lang_counts = {}
         for langs in qs.values_list("event_languages", flat=True):
             if isinstance(langs, list):
@@ -265,11 +225,9 @@ def coach_dashboard(request):
         {"label": bucket["label"], "cells": [0] * len(lang_codes), "total": 0}
         for bucket in age_buckets
     ]
-    for dob, _gender, langs in (
-        approved_profiles.exclude(date_of_birth__isnull=True)
-        .exclude(event_languages=[])
-        .values_list("date_of_birth", "gender", "event_languages")
-    ):
+    for dob, _gender, langs in approved_profiles.exclude(
+        date_of_birth__isnull=True
+    ).exclude(event_languages=[]).values_list("date_of_birth", "gender", "event_languages"):
         age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         if isinstance(langs, list):
             for idx, bucket in enumerate(age_buckets):
@@ -280,7 +238,8 @@ def coach_dashboard(request):
                             age_lang_matrix[idx]["total"] += 1
                     break
     age_lang_col_totals = [
-        sum(row["cells"][i] for row in age_lang_matrix) for i in range(len(lang_codes))
+        sum(row["cells"][i] for row in age_lang_matrix)
+        for i in range(len(lang_codes))
     ]
 
     # --- Row 2.5: Ideal Crush Preferences ---
@@ -289,7 +248,9 @@ def coach_dashboard(request):
     pref_stats = get_preference_stats(approved_profiles)
 
     # --- Row 3: Membership tier distribution ---
-    tier_data = approved_profiles.values("membership_tier").annotate(count=Count("id"))
+    tier_data = approved_profiles.values("membership_tier").annotate(
+        count=Count("id")
+    )
     tier_map = {item["membership_tier"]: item["count"] for item in tier_data}
     tier_cards = [
         {
@@ -344,14 +305,16 @@ def coach_dashboard(request):
     # (matches the deduplicated view on the match-pairs page)
     if my_user_ids:
         matched_ids = set()
-        for ms in MatchScore.objects.filter(
-            Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
-            score_final__gte=THRESHOLD_GOOD,
-            user_a__crushprofile__is_approved=True,
-            user_a__crushprofile__is_active=True,
-            user_b__crushprofile__is_approved=True,
-            user_b__crushprofile__is_active=True,
-        ).values_list("user_a_id", "user_b_id"):
+        for ms in (
+            MatchScore.objects.filter(
+                Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
+                score_final__gte=THRESHOLD_GOOD,
+                user_a__crushprofile__is_approved=True,
+                user_a__crushprofile__is_active=True,
+                user_b__crushprofile__is_approved=True,
+                user_b__crushprofile__is_active=True,
+            ).values_list("user_a_id", "user_b_id")
+        ):
             if ms[0] in my_user_ids:
                 matched_ids.add(ms[0])
             if ms[1] in my_user_ids:
@@ -587,6 +550,7 @@ def coach_members(request):
 
     # Annotate matching readiness for each profile
     profile_ids = [p.id for p in members]
+    from crush_lu.models import Trait
 
     # Batch-check M2M fields to avoid N+1
     from django.db.models import Count
@@ -696,6 +660,7 @@ def coach_mark_review_call_complete(request, submission_id):
 @coach_required
 def coach_log_failed_call(request, submission_id):
     """Log a failed call attempt - HTMX endpoint"""
+    from .models import CallAttempt
     from .forms import CallAttemptForm
 
     coach = request.coach
@@ -776,10 +741,7 @@ def coach_log_sms_sent(request, submission_id):
             config = CrushSiteConfig.get_config()
             lang = getattr(profile, "preferred_language", "en") or "en"
             template_field = f"sms_template_{lang}"
-            template = (
-                getattr(config, template_field, config.sms_template_en)
-                or config.sms_template_en
-            )
+            template = getattr(config, template_field, config.sms_template_en) or config.sms_template_en
             coach_name = coach.user.first_name or "Your coach"
             first_name = profile.user.first_name or ""
             sms_body = template.format(first_name=first_name, coach_name=coach_name)
@@ -806,9 +768,7 @@ def coach_review_profile(request, submission_id):
     if submission.status in ("approved", "rejected") and submission.reviewed_at:
         messages.info(
             request,
-            _(
-                "This profile has already been reviewed. No further changes are allowed."
-            ),
+            _("This profile has already been reviewed. No further changes are allowed."),
         )
         return redirect("crush_lu:coach_profiles")
 
@@ -934,10 +894,7 @@ def coach_review_profile(request, submission_id):
         config = CrushSiteConfig.get_config()
         lang = getattr(profile, "preferred_language", "en") or "en"
         template_field = f"sms_template_{lang}"
-        template = (
-            getattr(config, template_field, config.sms_template_en)
-            or config.sms_template_en
-        )
+        template = getattr(config, template_field, config.sms_template_en) or config.sms_template_en
         coach_name = coach.user.first_name or "Your coach"
         first_name = profile.user.first_name or ""
         sms_body = template.format(first_name=first_name, coach_name=coach_name)
@@ -959,6 +916,7 @@ def coach_preview_email(request, submission_id):
     import traceback
     from django.utils import translation
     from django.utils.translation import gettext as _
+    from django.http import HttpResponse
     from .utils.i18n import get_user_preferred_language
     from .email_helpers import (
         get_email_context_with_unsubscribe,
@@ -1479,11 +1437,9 @@ def coach_event_detail(request, event_id):
     user_ids = [r.user_id for r in registrations]
     latest_submissions = {}
     if user_ids:
-        for sub in (
-            ProfileSubmission.objects.filter(profile__user_id__in=user_ids)
-            .select_related("profile")
-            .order_by("-submitted_at")
-        ):
+        for sub in ProfileSubmission.objects.filter(
+            profile__user_id__in=user_ids
+        ).select_related("profile").order_by("-submitted_at"):
             if sub.profile.user_id not in latest_submissions:
                 latest_submissions[sub.profile.user_id] = sub
 
@@ -1596,9 +1552,7 @@ def coach_event_sms_invite(request, event_id):
     has_age_filter = event.min_age != 18 or event.max_age != 99
 
     age_q = Q(date_of_birth__gt=min_dob, date_of_birth__lte=max_dob)
-    age_q_lenient = age_q | Q(
-        date_of_birth__isnull=True
-    )  # include profiles missing DOB
+    age_q_lenient = age_q | Q(date_of_birth__isnull=True)  # include profiles missing DOB
 
     # Age filter through profile__ FK (for ProfileSubmission queries)
     sub_age_q = Q(
@@ -1655,8 +1609,9 @@ def coach_event_sms_invite(request, event_id):
         pool_label = _("Incomplete Profiles")
 
     elif event.profile_requirement == "approved":
-        profile_pool_qs = CrushProfile.objects.filter(phone_q, is_approved=True).filter(
-            age_q_lenient
+        profile_pool_qs = (
+            CrushProfile.objects.filter(phone_q, is_approved=True)
+            .filter(age_q_lenient)
         )
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
@@ -1846,7 +1801,10 @@ def coach_log_event_sms_sent(request, event_id, submission_id):
             result="event_invite_sms",
             coach=coach,
             event=event,
-            notes=_("Event invite SMS sent for: %(event)s") % {"event": event.title},
+            notes=_(
+                "Event invite SMS sent for: %(event)s"
+            )
+            % {"event": event.title},
         )
 
     return render(
@@ -1877,7 +1835,10 @@ def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
             result="event_invite_sms",
             coach=coach,
             event=event,
-            notes=_("Event invite SMS sent for: %(event)s") % {"event": event.title},
+            notes=_(
+                "Event invite SMS sent for: %(event)s"
+            )
+            % {"event": event.title},
         )
 
     return render(
@@ -2782,7 +2743,9 @@ def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
 
     # Build list of coaches with capacity
     available_coaches = [
-        cd for cd in coach_data if not cd["is_overloaded"] and cd["coach"].is_active
+        cd
+        for cd in coach_data
+        if not cd["is_overloaded"] and cd["coach"].is_active
     ]
 
     if not available_coaches:
@@ -2800,7 +2763,8 @@ def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
             if matching:
                 score += 10 * len(matching)
                 reason_parts.append(
-                    _gt("Language match: %(langs)s") % {"langs": ", ".join(matching)}
+                    _gt("Language match: %(langs)s")
+                    % {"langs": ", ".join(matching)}
                 )
 
         # Load headroom: prefer emptier coaches
@@ -2852,7 +2816,9 @@ def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
         for sub in overloaded_submissions:
             by_coach[sub.coach_id].append(sub)
 
-        coach_max_map = {cd["coach"].id: cd["max_active_reviews"] for cd in coach_data}
+        coach_max_map = {
+            cd["coach"].id: cd["max_active_reviews"] for cd in coach_data
+        }
 
         for coach_id, subs in by_coach.items():
             max_reviews = coach_max_map.get(coach_id, 10)
@@ -3020,9 +2986,10 @@ def coach_team_stats(request):
     # Compute suggestions and mark which ones the current coach can claim
     suggestions = _compute_reassignment_suggestions(coach_data, unassigned)
     for s in suggestions:
-        s["is_claimable"] = s["suggested_coach_id"] == coach.id or s[
-            "current_coach_name"
-        ] == str(_("Unassigned"))
+        s["is_claimable"] = (
+            s["suggested_coach_id"] == coach.id
+            or s["current_coach_name"] == str(_("Unassigned"))
+        )
 
     context = {
         "coach": coach,

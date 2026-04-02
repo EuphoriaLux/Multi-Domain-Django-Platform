@@ -16,7 +16,6 @@ Usage:
 
 Rates are configured in settings.py under REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']
 """
-
 from rest_framework.throttling import SimpleRateThrottle
 
 
@@ -26,14 +25,13 @@ class LoginRateThrottle(SimpleRateThrottle):
     Uses IP address as the cache key to prevent brute-force attacks.
     Default: 5 attempts per minute (configured in settings.py)
     """
-
-    scope = "login"
+    scope = 'login'
 
     def get_cache_key(self, request, view):
         # Use IP address for anonymous login attempts
         return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
+            'scope': self.scope,
+            'ident': self.get_ident(request)
         }
 
 
@@ -43,13 +41,12 @@ class SignupRateThrottle(SimpleRateThrottle):
     Stricter than login to prevent mass account creation.
     Default: 3 attempts per minute (configured in settings.py)
     """
-
-    scope = "signup"
+    scope = 'signup'
 
     def get_cache_key(self, request, view):
         return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
+            'scope': self.scope,
+            'ident': self.get_ident(request)
         }
 
 
@@ -59,13 +56,12 @@ class PhoneVerificationRateThrottle(SimpleRateThrottle):
     Prevents abuse of SMS sending functionality.
     Default: 3 attempts per minute (configured in settings.py)
     """
-
-    scope = "phone_verify"
+    scope = 'phone_verify'
 
     def get_cache_key(self, request, view):
         return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
+            'scope': self.scope,
+            'ident': self.get_ident(request)
         }
 
 
@@ -75,13 +71,12 @@ class PasswordResetRateThrottle(SimpleRateThrottle):
     Prevents email enumeration and spam via password reset emails.
     Default: 3 attempts per hour (configured in settings.py)
     """
-
-    scope = "password_reset"
+    scope = 'password_reset'
 
     def get_cache_key(self, request, view):
         return self.cache_format % {
-            "scope": self.scope,
-            "ident": self.get_ident(request),
+            'scope': self.scope,
+            'ident': self.get_ident(request)
         }
 
 
@@ -110,14 +105,12 @@ def ratelimit_view(throttle_classes):
                 if not throttle.allow_request(request, None):
                     wait = throttle.wait()
                     response = HttpResponse(
-                        f"Rate limit exceeded. Try again in {int(wait)} seconds.",
+                        f'Rate limit exceeded. Try again in {int(wait)} seconds.',
                         status=429,
-                        content_type="text/plain",
+                        content_type='text/plain'
                     )
-                    response["Retry-After"] = str(int(wait))
+                    response['Retry-After'] = str(int(wait))
                     return response
             return view_func(request, *args, **kwargs)
-
         return wrapped_view
-
     return decorator

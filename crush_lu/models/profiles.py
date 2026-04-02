@@ -3,8 +3,10 @@ from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
 import os
 import uuid
+from django.db.models import Q, F
 
 # Storage selection for ImageField using Django 4.2+ storages utility
 # Using storages.backends ensures consistent migration state across environments
@@ -23,7 +25,6 @@ def get_crush_photo_storage():
     """
     try:
         from django.core.files.storage.base import Storage
-
         storage = storages["crush_private"]
         # Validate the backend is a proper Storage instance (guards against
         # broken native extensions where AzureStorage falls back to object)
@@ -98,72 +99,74 @@ class SpecialUserExperience(models.Model):
     When a user with matching first_name and last_name logs in,
     they receive a personalized, unique Crush.lu experience.
     """
-
     first_name = models.CharField(
-        max_length=150, help_text=_("First name to match (case-insensitive)")
+        max_length=150,
+        help_text=_("First name to match (case-insensitive)")
     )
     last_name = models.CharField(
-        max_length=150, help_text=_("Last name to match (case-insensitive)")
+        max_length=150,
+        help_text=_("Last name to match (case-insensitive)")
     )
     linked_user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="special_experiences",
-        help_text=_(
-            "Direct link to user (bypasses name matching). Used for gifted journeys."
-        ),
+        related_name='special_experiences',
+        help_text=_("Direct link to user (bypasses name matching). Used for gifted journeys.")
     )
     is_active = models.BooleanField(
-        default=True, help_text=_("Enable/disable this special experience")
+        default=True,
+        help_text=_("Enable/disable this special experience")
     )
 
     # Customization options
     custom_welcome_title = models.CharField(
         max_length=200,
         default="Welcome to Your Special Journey",
-        help_text=_("Custom welcome message title"),
+        help_text=_("Custom welcome message title")
     )
     custom_welcome_message = models.TextField(
         default="Something magical awaits you...",
-        help_text=_("Custom welcome message body"),
+        help_text=_("Custom welcome message body")
     )
     custom_theme_color = models.CharField(
         max_length=7,
         default="#FF1493",
-        help_text=_("Hex color code for custom theme (e.g., #FF1493 for deep pink)"),
+        help_text=_("Hex color code for custom theme (e.g., #FF1493 for deep pink)")
     )
     animation_style = models.CharField(
         max_length=20,
         choices=[
-            ("hearts", _("Floating Hearts")),
-            ("stars", _("Sparkling Stars")),
-            ("roses", _("Falling Rose Petals")),
-            ("fireworks", _("Fireworks")),
-            ("aurora", _("Aurora Borealis")),
+            ('hearts', _('Floating Hearts')),
+            ('stars', _('Sparkling Stars')),
+            ('roses', _('Falling Rose Petals')),
+            ('fireworks', _('Fireworks')),
+            ('aurora', _('Aurora Borealis')),
         ],
-        default="hearts",
-        help_text=_("Animation effect on welcome screen"),
+        default='hearts',
+        help_text=_("Animation effect on welcome screen")
     )
 
     # Auto-approve and special permissions
     auto_approve_profile = models.BooleanField(
         default=True,
-        help_text=_("Automatically approve this user's profile (skip coach review)"),
+        help_text=_("Automatically approve this user's profile (skip coach review)")
     )
     skip_waitlist = models.BooleanField(
-        default=True, help_text=_("Skip event waitlists - always get confirmed spot")
+        default=True,
+        help_text=_("Skip event waitlists - always get confirmed spot")
     )
     vip_badge = models.BooleanField(
-        default=True, help_text=_("Display VIP badge on profile")
+        default=True,
+        help_text=_("Display VIP badge on profile")
     )
 
     # Custom landing page URL (optional)
     custom_landing_url = models.CharField(
         max_length=200,
         blank=True,
-        help_text=_("Optional: Custom landing page path (e.g., 'special-welcome')"),
+        help_text=_("Optional: Custom landing page path (e.g., 'special-welcome')")
     )
 
     # Tracking
@@ -172,10 +175,11 @@ class SpecialUserExperience(models.Model):
     last_triggered_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Last time this special experience was triggered"),
+        help_text=_("Last time this special experience was triggered")
     )
     trigger_count = models.PositiveIntegerField(
-        default=0, help_text=_("Number of times this experience has been triggered")
+        default=0,
+        help_text=_("Number of times this experience has been triggered")
     )
 
     class Meta:
@@ -184,15 +188,15 @@ class SpecialUserExperience(models.Model):
         constraints = [
             # For legacy name-matching: unique (first_name, last_name) when no linked_user
             models.UniqueConstraint(
-                fields=["first_name", "last_name"],
+                fields=['first_name', 'last_name'],
                 condition=models.Q(linked_user__isnull=True),
-                name="unique_name_when_no_linked_user",
+                name='unique_name_when_no_linked_user'
             ),
             # Each user can only have one directly-linked special experience
             models.UniqueConstraint(
-                fields=["linked_user"],
+                fields=['linked_user'],
                 condition=models.Q(linked_user__isnull=False),
-                name="unique_linked_user",
+                name='unique_linked_user'
             ),
         ]
 
@@ -215,15 +219,15 @@ class SpecialUserExperience(models.Model):
 
         # Fallback to name matching (legacy behavior)
         return (
-            user.first_name.lower() == self.first_name.lower()
-            and user.last_name.lower() == self.last_name.lower()
+            user.first_name.lower() == self.first_name.lower() and
+            user.last_name.lower() == self.last_name.lower()
         )
 
     def trigger(self):
         """Mark this experience as triggered"""
         self.last_triggered_at = timezone.now()
         self.trigger_count += 1
-        self.save(update_fields=["last_triggered_at", "trigger_count"])
+        self.save(update_fields=['last_triggered_at', 'trigger_count'])
 
     @property
     def journey(self):
@@ -231,14 +235,14 @@ class SpecialUserExperience(models.Model):
         Backwards compatibility: return the Wonderland journey.
         Use this for code that expects the old OneToOne relationship.
         """
-        return self.journeys.filter(journey_type="wonderland").first()
+        return self.journeys.filter(journey_type='wonderland').first()
 
     @property
     def advent_calendar_journey(self):
         """Get the Advent Calendar journey for this user"""
-        return self.journeys.filter(journey_type="advent_calendar").first()
+        return self.journeys.filter(journey_type='advent_calendar').first()
 
-    def get_journey(self, journey_type="wonderland"):
+    def get_journey(self, journey_type='wonderland'):
         """Get a specific journey by type"""
         return self.journeys.filter(journey_type=journey_type).first()
 
@@ -249,13 +253,12 @@ class SpecialUserExperience(models.Model):
 
 class CrushCoach(models.Model):
     """Crush coaches who review and approve profiles"""
-
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(max_length=500, blank=True)
     specializations = models.CharField(
         max_length=200,
         blank=True,
-        help_text=_("e.g., Young professionals, Students, 30+, etc."),
+        help_text=_("e.g., Young professionals, Students, 30+, etc.")
     )
     # Coach profile photo (stored in same private container as user photos)
     photo = models.ImageField(
@@ -263,28 +266,26 @@ class CrushCoach(models.Model):
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Coach profile photo shown to users"),
+        help_text=_("Coach profile photo shown to users")
     )
     spoken_languages = models.JSONField(
         default=list,
         blank=True,
-        help_text=_("Languages the coach can speak for profile reviews"),
+        help_text=_("Languages the coach can speak for profile reviews")
     )
     phone_number = models.CharField(
         max_length=20,
         blank=True,
-        validators=[
-            RegexValidator(
-                regex=r"^\+?[\d\s\-().]{7,20}$",
-                message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
-            )
-        ],
-        help_text=_("Coach's direct phone number for WhatsApp and calls"),
+        validators=[RegexValidator(
+            regex=r'^\+?[\d\s\-().]{7,20}$',
+            message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
+        )],
+        help_text=_("Coach's direct phone number for WhatsApp and calls")
     )
     is_active = models.BooleanField(default=True)
     max_active_reviews = models.PositiveIntegerField(
         default=10,
-        help_text=_("Maximum number of profiles this coach can review simultaneously"),
+        help_text=_("Maximum number of profiles this coach can review simultaneously")
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -319,43 +320,40 @@ class CrushCoach(models.Model):
         if not self.phone_number:
             return ""
         import re
-
-        return re.sub(r"[^\d]", "", self.phone_number)
+        return re.sub(r'[^\d]', '', self.phone_number)
 
     def get_active_reviews_count(self):
-        return self.profilesubmission_set.filter(status="pending").count()
+        return self.profilesubmission_set.filter(status='pending').count()
 
     def can_accept_reviews(self):
-        return (
-            self.is_active and self.get_active_reviews_count() < self.max_active_reviews
-        )
+        return self.is_active and self.get_active_reviews_count() < self.max_active_reviews
 
 
 class CrushProfile(models.Model):
     """User profile for Crush.lu platform"""
 
     GENDER_CHOICES = [
-        ("M", _("Male")),
-        ("F", _("Female")),
-        ("NB", _("Non-binary")),
-        ("O", _("Other")),
-        ("P", _("Prefer not to say")),
+        ('M', _('Male')),
+        ('F', _('Female')),
+        ('NB', _('Non-binary')),
+        ('O', _('Other')),
+        ('P', _('Prefer not to say')),
     ]
 
     LOOKING_FOR_CHOICES = [
-        ("friends", _("New Friends")),
-        ("dating", _("Dating")),
-        ("both", _("Both")),
-        ("networking", _("Social Networking")),
+        ('friends', _('New Friends')),
+        ('dating', _('Dating')),
+        ('both', _('Both')),
+        ('networking', _('Social Networking')),
     ]
 
     COMPLETION_STATUS_CHOICES = [
-        ("not_started", _("Not Started")),
-        ("step1", _("Step 1: Basic Info Saved")),
-        ("step2", _("Step 2: About You Saved")),
-        ("step3", _("Step 3: Photos Saved")),
-        ("step4", _("Step 4: Coach Selected")),
-        ("submitted", _("Submitted for Review")),
+        ('not_started', _('Not Started')),
+        ('step1', _('Step 1: Basic Info Saved')),
+        ('step2', _('Step 2: About You Saved')),
+        ('step3', _('Step 3: Photos Saved')),
+        ('step4', _('Step 4: Coach Selected')),
+        ('submitted', _('Submitted for Review')),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -364,8 +362,8 @@ class CrushProfile(models.Model):
     completion_status = models.CharField(
         max_length=20,
         choices=COMPLETION_STATUS_CHOICES,
-        default="not_started",
-        help_text=_("Track which step user completed"),
+        default='not_started',
+        help_text=_("Track which step user completed")
     )
     # Note: Screening call tracking has been consolidated into ProfileSubmission.review_call_completed
     # The Step 1 screening system was redundant and has been removed
@@ -374,82 +372,81 @@ class CrushProfile(models.Model):
     draft_data = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_("Temporary storage for incomplete/invalid step data"),
+        help_text=_("Temporary storage for incomplete/invalid step data")
     )
     last_draft_saved = models.DateTimeField(
-        null=True, blank=True, help_text=_("Timestamp of last auto-save")
+        null=True,
+        blank=True,
+        help_text=_("Timestamp of last auto-save")
     )
     draft_expires_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("Auto-delete inactive drafts after 30 days")
+        null=True,
+        blank=True,
+        help_text=_("Auto-delete inactive drafts after 30 days")
     )
 
     # Basic Info (Step 1 - REQUIRED for initial save)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=2, choices=GENDER_CHOICES, blank=True)
     phone_number = models.CharField(
-        max_length=20,
-        blank=True,
-        db_index=True,
-        validators=[
-            RegexValidator(
-                regex=r"^\+[\d\s\-().]{7,20}$",
-                message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
-            )
-        ],
+        max_length=20, blank=True, db_index=True,
+        validators=[RegexValidator(
+            regex=r'^\+[\d\s\-().]{7,20}$',
+            message=_("Enter a valid phone number (e.g., +352 621 123 456)."),
+        )],
     )  # Required in form, not model
-    phone_verified = models.BooleanField(
-        default=False, help_text=_("Whether phone was verified via SMS OTP")
-    )
-    phone_verified_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("When phone was verified")
-    )
+    phone_verified = models.BooleanField(default=False, help_text=_("Whether phone was verified via SMS OTP"))
+    phone_verified_at = models.DateTimeField(null=True, blank=True, help_text=_("When phone was verified"))
     phone_verification_uid = models.CharField(
         max_length=128,
         null=True,
         blank=True,
         db_index=True,
-        help_text=_("Firebase UID from phone verification (for audit/anti-replay)"),
+        help_text=_("Firebase UID from phone verification (for audit/anti-replay)")
     )
-    location = models.CharField(
-        max_length=100, blank=True, help_text=_("City/Region in Luxembourg")
-    )
+    location = models.CharField(max_length=100, blank=True, help_text=_("City/Region in Luxembourg"))
 
     # Profile Content (Step 2 - Optional until completion)
-    bio = models.TextField(
-        max_length=500, blank=True, help_text=_("Tell us about yourself!")
-    )
+    bio = models.TextField(max_length=500, blank=True, help_text=_("Tell us about yourself!"))
     interests = models.TextField(
         max_length=300,
         blank=True,
-        help_text=_("Your hobbies and interests (comma-separated)"),
+        help_text=_("Your hobbies and interests (comma-separated)")
     )
     looking_for = models.CharField(
-        max_length=20, choices=LOOKING_FOR_CHOICES, default="friends", blank=True
+        max_length=20,
+        choices=LOOKING_FOR_CHOICES,
+        default='friends',
+        blank=True
     )
 
     # Ideal Crush Preferences (optional)
     preferred_age_min = models.PositiveSmallIntegerField(
-        default=18, help_text=_("Minimum preferred age")
+        default=18,
+        help_text=_("Minimum preferred age")
     )
     preferred_age_max = models.PositiveSmallIntegerField(
-        default=99, help_text=_("Maximum preferred age")
+        default=99,
+        help_text=_("Maximum preferred age")
     )
     preferred_genders = models.JSONField(
-        default=list, blank=True, help_text=_("Gender codes the user is interested in")
+        default=list,
+        blank=True,
+        help_text=_("Gender codes the user is interested in")
     )
 
     FIRST_STEP_CHOICES = [
-        ("i_initiate", _("I prefer to make the first step")),
-        ("they_initiate", _("I prefer the other person to make the first step")),
-        ("no_preference", _("No preference")),
+        ('i_initiate', _('I prefer to make the first step')),
+        ('they_initiate', _('I prefer the other person to make the first step')),
+        ('no_preference', _('No preference')),
     ]
 
     first_step_preference = models.CharField(
         max_length=20,
         choices=FIRST_STEP_CHOICES,
         blank=True,
-        default="",
-        help_text=_("Who should make the first step?"),
+        default='',
+        help_text=_("Who should make the first step?")
     )
 
     # Matching: Qualities, Defects, and Sought Qualities
@@ -483,88 +480,107 @@ class CrushProfile(models.Model):
     # Path structure: users/{user_id}/photos/{uuid}.{ext}
     # Using lazy storage ensures consistent migration state across environments
     photo_1 = models.ImageField(
-        upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
+        upload_to=user_photo_path,
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
     )
     photo_2 = models.ImageField(
-        upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
+        upload_to=user_photo_path,
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
     )
     photo_3 = models.ImageField(
-        upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
+        upload_to=user_photo_path,
+        blank=True,
+        null=True,
+        storage=crush_photo_storage
     )
 
     # Privacy Settings
     show_full_name = models.BooleanField(
         default=False,
-        help_text=_("Show full name (if false, only first name is shown)"),
+        help_text=_("Show full name (if false, only first name is shown)")
     )
     show_exact_age = models.BooleanField(
-        default=True, help_text=_("Show exact age (if false, show age range)")
+        default=True,
+        help_text=_("Show exact age (if false, show age range)")
     )
     blur_photos = models.BooleanField(
-        default=False, help_text=_("Blur photos until mutual interest")
+        default=False,
+        help_text=_("Blur photos until mutual interest")
     )
 
     # Language Preference
     preferred_language = models.CharField(
         max_length=5,
         choices=[
-            ("en", _("English")),
-            ("de", _("Deutsch")),
-            ("fr", _("Français")),
+            ('en', _('English')),
+            ('de', _('Deutsch')),
+            ('fr', _('Français')),
         ],
-        default="en",
-        help_text=_("Preferred language for emails and notifications"),
+        default='en',
+        help_text=_("Preferred language for emails and notifications")
     )
 
     # Event Languages (languages user can speak at in-person events)
     EVENT_LANGUAGE_CHOICES = [
-        ("en", _("English")),
-        ("de", _("Deutsch")),
-        ("fr", _("Français")),
-        ("lu", _("Lëtzebuergesch")),
+        ('en', _('English')),
+        ('de', _('Deutsch')),
+        ('fr', _('Français')),
+        ('lu', _('Lëtzebuergesch')),
     ]
     event_languages = models.JSONField(
         default=list,
         blank=True,
-        help_text=_("Languages the user can speak at in-person events"),
+        help_text=_("Languages the user can speak at in-person events")
     )
 
     # Wallet passes
     apple_pass_serial = models.CharField(
-        max_length=64, blank=True, help_text=_("Apple Wallet pass serial number")
+        max_length=64,
+        blank=True,
+        help_text=_("Apple Wallet pass serial number")
     )
     apple_auth_token = models.CharField(
-        max_length=64, blank=True, help_text=_("Apple Wallet authentication token")
+        max_length=64,
+        blank=True,
+        help_text=_("Apple Wallet authentication token")
     )
     google_wallet_object_id = models.CharField(
-        max_length=128, blank=True, help_text=_("Google Wallet object ID")
+        max_length=128,
+        blank=True,
+        help_text=_("Google Wallet object ID")
     )
     show_photo_on_wallet = models.BooleanField(
-        default=True, help_text=_("Show profile photo on wallet card")
+        default=True,
+        help_text=_("Show profile photo on wallet card")
     )
 
     # Outlook contact sync
     outlook_contact_id = models.CharField(
         max_length=255,
         blank=True,
-        help_text=_("Microsoft Graph contact ID for Outlook sync"),
+        help_text=_("Microsoft Graph contact ID for Outlook sync")
     )
 
     # Referral Rewards
     MEMBERSHIP_TIER_CHOICES = [
-        ("basic", _("Basic")),
-        ("bronze", _("Bronze")),
-        ("silver", _("Silver")),
-        ("gold", _("Gold")),
+        ('basic', _('Basic')),
+        ('bronze', _('Bronze')),
+        ('silver', _('Silver')),
+        ('gold', _('Gold')),
     ]
     referral_points = models.PositiveIntegerField(
-        default=0, help_text=_("Points earned from referrals")
+        default=0,
+        help_text=_("Points earned from referrals")
     )
     membership_tier = models.CharField(
         max_length=20,
         choices=MEMBERSHIP_TIER_CHOICES,
-        default="basic",
-        help_text=_("Membership tier based on referral activity"),
+        default='basic',
+        help_text=_("Membership tier based on referral activity")
     )
 
     # Status
@@ -579,9 +595,9 @@ class CrushProfile(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["phone_number"],
-                condition=~models.Q(phone_number=""),
-                name="unique_non_empty_phone_number",
+                fields=['phone_number'],
+                condition=~models.Q(phone_number=''),
+                name='unique_non_empty_phone_number',
             ),
         ]
 
@@ -593,16 +609,11 @@ class CrushProfile(models.Model):
         if not self.date_of_birth:
             return None
         # Defensive check: date_of_birth should be a date object but may be corrupted
-        if not hasattr(self.date_of_birth, "year"):
+        if not hasattr(self.date_of_birth, 'year'):
             return None
         today = timezone.now().date()
-        return (
-            today.year
-            - self.date_of_birth.year
-            - (
-                (today.month, today.day)
-                < (self.date_of_birth.month, self.date_of_birth.day)
-            )
+        return today.year - self.date_of_birth.year - (
+            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
 
     @property
@@ -638,7 +649,7 @@ class CrushProfile(models.Model):
     def display_name(self):
         if self.show_full_name:
             return self.user.get_full_name() or self.user.username
-        return self.user.first_name or self.user.username.split("@")[0]
+        return self.user.first_name or self.user.username.split('@')[0]
 
     @property
     def city(self):
@@ -654,33 +665,53 @@ class CrushProfile(models.Model):
 
         # Step 1: Basic Info (Required)
         if not self.date_of_birth:
-            missing.append(
-                {"field": "date_of_birth", "label": _("Date of Birth"), "step": 1}
-            )
+            missing.append({
+                'field': 'date_of_birth',
+                'label': _('Date of Birth'),
+                'step': 1
+            })
         if not self.gender:
-            missing.append({"field": "gender", "label": _("Gender"), "step": 1})
+            missing.append({
+                'field': 'gender',
+                'label': _('Gender'),
+                'step': 1
+            })
         if not self.phone_number:
-            missing.append(
-                {"field": "phone_number", "label": _("Phone Number"), "step": 1}
-            )
+            missing.append({
+                'field': 'phone_number',
+                'label': _('Phone Number'),
+                'step': 1
+            })
         if not self.phone_verified:
-            missing.append(
-                {"field": "phone_verified", "label": _("Phone Verification"), "step": 1}
-            )
+            missing.append({
+                'field': 'phone_verified',
+                'label': _('Phone Verification'),
+                'step': 1
+            })
         if not self.location:
-            missing.append({"field": "location", "label": _("Location"), "step": 1})
+            missing.append({
+                'field': 'location',
+                'label': _('Location'),
+                'step': 1
+            })
 
         # Step 2: About You (bio and interests are optional)
 
         # Step 3: Photos (At least one required)
         if not self.photo_1:
-            missing.append({"field": "photo_1", "label": _("Profile Photo"), "step": 3})
+            missing.append({
+                'field': 'photo_1',
+                'label': _('Profile Photo'),
+                'step': 3
+            })
 
         # Step 3: Event Languages (At least one required)
         if not self.event_languages:
-            missing.append(
-                {"field": "event_languages", "label": _("Event Languages"), "step": 3}
-            )
+            missing.append({
+                'field': 'event_languages',
+                'label': _('Event Languages'),
+                'step': 3
+            })
 
         return missing
 
@@ -727,55 +758,54 @@ class CrushProfile(models.Model):
         self.phone_verified_at = None
         self.phone_verification_uid = None
         # Use update_fields to bypass the save() protection
-        super().save(
-            update_fields=[
-                "phone_verified",
-                "phone_verified_at",
-                "phone_verification_uid",
-            ]
-        )
+        super().save(update_fields=['phone_verified', 'phone_verified_at', 'phone_verification_uid'])
 
 
 class ProfileSubmission(models.Model):
     """Track profile submissions for coach review"""
 
     STATUS_CHOICES = [
-        ("pending", _("Pending Review")),
-        ("approved", _("Approved")),
-        ("rejected", _("Rejected")),
-        ("revision", _("Needs Revision")),
-        ("recontact_coach", _("Recontact Coach Required")),
+        ('pending', _('Pending Review')),
+        ('approved', _('Approved')),
+        ('rejected', _('Rejected')),
+        ('revision', _('Needs Revision')),
+        ('recontact_coach', _('Recontact Coach Required')),
     ]
 
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
     coach = models.ForeignKey(
-        CrushCoach, on_delete=models.SET_NULL, null=True, blank=True
+        CrushCoach,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
-    status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True
-    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
 
     # Review details
     coach_notes = models.TextField(blank=True, help_text=_("Internal notes from coach"))
     feedback_to_user = models.TextField(
-        blank=True, help_text=_("Feedback shown to user if revision needed")
+        blank=True,
+        help_text=_("Feedback shown to user if revision needed")
     )
 
     # Screening call during review (required before approval)
     review_call_completed = models.BooleanField(
         default=False,
-        help_text=_("Coach must complete screening call before approving profile"),
+        help_text=_("Coach must complete screening call before approving profile")
     )
     review_call_date = models.DateTimeField(
-        null=True, blank=True, help_text=_("When coach completed the screening call")
+        null=True,
+        blank=True,
+        help_text=_("When coach completed the screening call")
     )
     review_call_notes = models.TextField(
-        blank=True, help_text=_("Notes from coach's screening call during review")
+        blank=True,
+        help_text=_("Notes from coach's screening call during review")
     )
     review_call_checklist = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_("Structured checklist data from screening call"),
+        help_text=_("Structured checklist data from screening call")
     )
 
     # Timestamps
@@ -783,21 +813,15 @@ class ProfileSubmission(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-submitted_at"]
+        ordering = ['-submitted_at']
         indexes = [
             # Composite index for coach workload queries
             # Used by: assign_coach() and coach performance queries
-            models.Index(
-                fields=["coach", "status"], name="crush_lu_prof_coach_status_idx"
-            ),
+            models.Index(fields=['coach', 'status'], name='crush_lu_prof_coach_status_idx'),
             # Pending submissions sorted by date (coach dashboard queue)
-            models.Index(
-                fields=["status", "submitted_at"], name="crush_lu_prof_status_date_idx"
-            ),
+            models.Index(fields=['status', 'submitted_at'], name='crush_lu_prof_status_date_idx'),
             # Coach-assigned submissions filtered by status
-            models.Index(
-                fields=["status", "coach"], name="crush_lu_prof_status_coach_idx"
-            ),
+            models.Index(fields=['status', 'coach'], name='crush_lu_prof_status_coach_idx'),
         ]
 
     def __str__(self):
@@ -805,20 +829,16 @@ class ProfileSubmission(models.Model):
 
     def assign_coach(self):
         """Auto-assign to an available coach, preferring language matches"""
-        available_coaches = (
-            CrushCoach.objects.filter(is_active=True)
-            .annotate(
-                active_reviews=models.Count(
-                    "profilesubmission",
-                    filter=models.Q(profilesubmission__status="pending"),
-                )
-            )
-            .filter(active_reviews__lt=models.F("max_active_reviews"))
-            .order_by("active_reviews")
-        )
+        available_coaches = CrushCoach.objects.filter(
+            is_active=True
+        ).annotate(
+            active_reviews=models.Count('profilesubmission', filter=models.Q(profilesubmission__status='pending'))
+        ).filter(
+            active_reviews__lt=models.F('max_active_reviews')
+        ).order_by('active_reviews')
 
         # Try language-matching coach first
-        user_languages = getattr(self.profile, "event_languages", None) or []
+        user_languages = getattr(self.profile, 'event_languages', None) or []
         if user_languages:
             for coach in available_coaches:
                 coach_langs = coach.spoken_languages or []
@@ -840,74 +860,77 @@ class CallAttempt(models.Model):
     """Track all call attempts (both successful and failed) for audit trail"""
 
     RESULT_CHOICES = [
-        ("success", _("Call Completed")),
-        ("failed", _("Call Failed")),
-        ("sms_sent", _("SMS Sent")),
-        ("event_invite_sms", _("Event Invite SMS")),
+        ('success', _('Call Completed')),
+        ('failed', _('Call Failed')),
+        ('sms_sent', _('SMS Sent')),
+        ('event_invite_sms', _('Event Invite SMS')),
     ]
 
     FAILURE_REASON_CHOICES = [
-        ("no_answer", _("No answer")),
-        ("voicemail", _("Voicemail left")),
-        ("wrong_number", _("Wrong number")),
-        ("user_busy", _("User busy")),
-        ("scheduled_callback", _("Scheduled callback")),
+        ('no_answer', _('No answer')),
+        ('voicemail', _('Voicemail left')),
+        ('wrong_number', _('Wrong number')),
+        ('user_busy', _('User busy')),
+        ('scheduled_callback', _('Scheduled callback')),
     ]
 
     submission = models.ForeignKey(
-        "ProfileSubmission",
+        'ProfileSubmission',
         on_delete=models.CASCADE,
-        related_name="call_attempts",
+        related_name='call_attempts',
         null=True,
         blank=True,
-        help_text=_("The profile submission this call attempt is for"),
+        help_text=_("The profile submission this call attempt is for")
     )
     profile = models.ForeignKey(
-        "CrushProfile",
+        'CrushProfile',
         on_delete=models.CASCADE,
-        related_name="call_attempts",
+        related_name='call_attempts',
         null=True,
         blank=True,
-        help_text=_("Direct profile link (for profiles without a submission)"),
+        help_text=_("Direct profile link (for profiles without a submission)")
     )
     attempt_date = models.DateTimeField(
-        auto_now_add=True, db_index=True, help_text=_("When the call attempt was made")
+        auto_now_add=True,
+        db_index=True,
+        help_text=_("When the call attempt was made")
     )
     result = models.CharField(
         max_length=20,
         choices=RESULT_CHOICES,
-        help_text=_("Whether the call succeeded or failed"),
+        help_text=_("Whether the call succeeded or failed")
     )
     failure_reason = models.CharField(
         max_length=50,
         choices=FAILURE_REASON_CHOICES,
         null=True,
         blank=True,
-        help_text=_("Reason why call failed (if applicable)"),
+        help_text=_("Reason why call failed (if applicable)")
     )
     notes = models.TextField(
-        blank=True, help_text=_("Additional notes about the call attempt")
+        blank=True,
+        help_text=_("Additional notes about the call attempt")
     )
     coach = models.ForeignKey(
-        "CrushCoach",
+        'CrushCoach',
         on_delete=models.SET_NULL,
         null=True,
-        help_text=_("Coach who made the call attempt"),
+        help_text=_("Coach who made the call attempt")
     )
     event = models.ForeignKey(
-        "crush_lu.MeetupEvent",
+        'crush_lu.MeetupEvent',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text=_("Related event (for event invite SMS)"),
+        help_text=_("Related event (for event invite SMS)")
     )
 
     class Meta:
-        ordering = ["-attempt_date"]
-        verbose_name = _("Call Attempt")
-        verbose_name_plural = _("Call Attempts")
+        ordering = ['-attempt_date']
+        verbose_name = _('Call Attempt')
+        verbose_name_plural = _('Call Attempts')
         indexes = [
-            models.Index(fields=["submission", "-attempt_date"]),
+            models.Index(fields=['submission', '-attempt_date']),
         ]
 
     def __str__(self):
@@ -915,17 +938,17 @@ class CallAttempt(models.Model):
 
     @property
     def is_failed(self):
-        return self.result == "failed"
+        return self.result == 'failed'
 
 
 class CoachSession(models.Model):
     """Track interactions between coaches and users"""
 
     SESSION_TYPE_CHOICES = [
-        ("onboarding", _("Onboarding Session")),
-        ("feedback", _("Profile Feedback")),
-        ("guidance", _("Dating Guidance")),
-        ("followup", _("Follow-up")),
+        ('onboarding', _('Onboarding Session')),
+        ('feedback', _('Profile Feedback')),
+        ('guidance', _('Dating Guidance')),
+        ('followup', _('Follow-up')),
     ]
 
     coach = models.ForeignKey(CrushCoach, on_delete=models.CASCADE)
@@ -939,12 +962,10 @@ class CoachSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ['-created_at']
 
     def __str__(self):
-        return (
-            f"{self.coach} - {self.user.username} ({self.get_session_type_display()})"
-        )
+        return f"{self.coach} - {self.user.username} ({self.get_session_type_display()})"
 
 
 class UserActivity(models.Model):
@@ -952,54 +973,58 @@ class UserActivity(models.Model):
     Tracks user activity and online status.
     Helps identify active vs inactive users and PWA usage.
     """
-
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name="activity",
-        help_text=_("User being tracked"),
+        related_name='activity',
+        help_text=_("User being tracked")
     )
 
     # Activity timestamps
     last_seen = models.DateTimeField(
-        db_index=True, help_text=_("Last time user made a request")
+        db_index=True,
+        help_text=_("Last time user made a request")
     )
     last_pwa_visit = models.DateTimeField(
         null=True,
         blank=True,
         db_index=True,
-        help_text=_("Last time user accessed via PWA (standalone mode)"),
+        help_text=_("Last time user accessed via PWA (standalone mode)")
     )
 
     # PWA usage
     is_pwa_user = models.BooleanField(
-        default=False, help_text=_("Has this user ever used the installed PWA?")
+        default=False,
+        help_text=_("Has this user ever used the installed PWA?")
     )
 
     # Activity stats
     total_visits = models.PositiveIntegerField(
-        default=0, help_text=_("Total number of visits/requests")
+        default=0,
+        help_text=_("Total number of visits/requests")
     )
 
     # Re-engagement tracking
     last_reminder_sent = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Last time a reminder email was sent to this user"),
+        help_text=_("Last time a reminder email was sent to this user")
     )
     reminders_sent_count = models.PositiveIntegerField(
-        default=0, help_text=_("Total number of reminder emails sent to this user")
+        default=0,
+        help_text=_("Total number of reminder emails sent to this user")
     )
 
     # Metadata
     first_seen = models.DateTimeField(
-        auto_now_add=True, help_text=_("First time user was tracked")
+        auto_now_add=True,
+        help_text=_("First time user was tracked")
     )
 
     class Meta:
         verbose_name = _("User Activity")
         verbose_name_plural = _("User Activities")
-        ordering = ["-last_seen"]
+        ordering = ['-last_seen']
 
     def __str__(self):
         return f"{self.user.username} - Last seen: {self.last_seen}"
@@ -1058,73 +1083,78 @@ class PWADeviceInstallation(models.Model):
     """
 
     OS_CHOICES = [
-        ("ios", _("iOS")),
-        ("android", _("Android")),
-        ("windows", _("Windows")),
-        ("macos", _("macOS")),
-        ("linux", _("Linux")),
-        ("chromeos", _("ChromeOS")),
-        ("unknown", _("Unknown")),
+        ('ios', _('iOS')),
+        ('android', _('Android')),
+        ('windows', _('Windows')),
+        ('macos', _('macOS')),
+        ('linux', _('Linux')),
+        ('chromeos', _('ChromeOS')),
+        ('unknown', _('Unknown')),
     ]
 
     FORM_FACTOR_CHOICES = [
-        ("phone", _("Phone")),
-        ("tablet", _("Tablet")),
-        ("desktop", _("Desktop")),
-        ("unknown", _("Unknown")),
+        ('phone', _('Phone')),
+        ('tablet', _('Tablet')),
+        ('desktop', _('Desktop')),
+        ('unknown', _('Unknown')),
     ]
 
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="pwa_installations",
-        help_text=_("User who installed the PWA"),
+        related_name='pwa_installations',
+        help_text=_("User who installed the PWA")
     )
 
     # Device identification
     device_fingerprint = models.CharField(
         max_length=64,
         db_index=True,
-        help_text=_("Stable browser fingerprint for device identification"),
+        help_text=_("Stable browser fingerprint for device identification")
     )
 
     # Device classification
     os_type = models.CharField(
         max_length=20,
         choices=OS_CHOICES,
-        default="unknown",
-        help_text=_("Operating system type"),
+        default='unknown',
+        help_text=_("Operating system type")
     )
     form_factor = models.CharField(
         max_length=20,
         choices=FORM_FACTOR_CHOICES,
-        default="unknown",
-        help_text=_("Device form factor (phone, tablet, desktop)"),
+        default='unknown',
+        help_text=_("Device form factor (phone, tablet, desktop)")
     )
     device_category = models.CharField(
         max_length=50,
-        help_text=_("Combined category like 'Android Phone', 'Windows Desktop'"),
+        help_text=_("Combined category like 'Android Phone', 'Windows Desktop'")
     )
     browser = models.CharField(
         max_length=50,
         blank=True,
-        help_text=_("Browser name (Chrome, Safari, Edge, etc.)"),
+        help_text=_("Browser name (Chrome, Safari, Edge, etc.)")
     )
 
     # Raw data for debugging
-    user_agent = models.TextField(blank=True, help_text=_("Full user agent string"))
+    user_agent = models.TextField(
+        blank=True,
+        help_text=_("Full user agent string")
+    )
 
     # Timestamps
     installed_at = models.DateTimeField(
-        auto_now_add=True, help_text=_("When PWA was first installed on this device")
+        auto_now_add=True,
+        help_text=_("When PWA was first installed on this device")
     )
     last_used_at = models.DateTimeField(
-        auto_now=True, help_text=_("Last time PWA was used on this device")
+        auto_now=True,
+        help_text=_("Last time PWA was used on this device")
     )
 
     class Meta:
-        unique_together = ("user", "device_fingerprint")
-        ordering = ["-last_used_at"]
+        unique_together = ('user', 'device_fingerprint')
+        ordering = ['-last_used_at']
         verbose_name = _("PWA Device Installation")
         verbose_name_plural = _("PWA Device Installations")
 
@@ -1147,55 +1177,64 @@ class PushSubscription(models.Model):
     Stores Web Push API subscription data for sending push notifications to PWA users.
     Each user can have multiple subscriptions (different devices/browsers).
     """
-
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="push_subscriptions",
-        help_text=_("User who owns this push subscription"),
+        related_name='push_subscriptions',
+        help_text=_("User who owns this push subscription")
     )
 
     # Push subscription data (from browser's PushManager API)
-    endpoint = models.URLField(max_length=500, help_text=_("Push service endpoint URL"))
+    endpoint = models.URLField(
+        max_length=500,
+        help_text=_("Push service endpoint URL")
+    )
     p256dh_key = models.CharField(
-        max_length=255, help_text=_("Public key for encryption (p256dh)")
+        max_length=255,
+        help_text=_("Public key for encryption (p256dh)")
     )
     auth_key = models.CharField(
-        max_length=255, help_text=_("Authentication secret (auth)")
+        max_length=255,
+        help_text=_("Authentication secret (auth)")
     )
 
     # Device/browser information (optional but helpful)
-    user_agent = models.TextField(blank=True, help_text=_("Browser user agent string"))
+    user_agent = models.TextField(
+        blank=True,
+        help_text=_("Browser user agent string")
+    )
     device_name = models.CharField(
         max_length=100,
         blank=True,
-        help_text=_("Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"),
+        help_text=_("Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')")
     )
     device_fingerprint = models.CharField(
         max_length=64,
         blank=True,
         db_index=True,
-        help_text=_(
-            "Browser fingerprint hash for stable device identification across sessions"
-        ),
+        help_text=_("Browser fingerprint hash for stable device identification across sessions")
     )
 
     # Notification preferences
     enabled = models.BooleanField(
         default=True,
-        help_text=_("User can disable notifications without unsubscribing"),
+        help_text=_("User can disable notifications without unsubscribing")
     )
     notify_new_messages = models.BooleanField(
-        default=True, help_text=_("Notify about new connection messages")
+        default=True,
+        help_text=_("Notify about new connection messages")
     )
     notify_event_reminders = models.BooleanField(
-        default=True, help_text=_("Notify about upcoming events")
+        default=True,
+        help_text=_("Notify about upcoming events")
     )
     notify_new_connections = models.BooleanField(
-        default=True, help_text=_("Notify about new connection requests")
+        default=True,
+        help_text=_("Notify about new connection requests")
     )
     notify_profile_updates = models.BooleanField(
-        default=True, help_text=_("Notify about profile approval status")
+        default=True,
+        help_text=_("Notify about profile approval status")
     )
 
     # Metadata
@@ -1204,18 +1243,16 @@ class PushSubscription(models.Model):
     last_used_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Last time a notification was successfully sent"),
+        help_text=_("Last time a notification was successfully sent")
     )
     failure_count = models.PositiveIntegerField(
         default=0,
-        help_text=_(
-            "Number of consecutive failed deliveries (auto-delete after threshold)"
-        ),
+        help_text=_("Number of consecutive failed deliveries (auto-delete after threshold)")
     )
 
     class Meta:
-        unique_together = ("user", "endpoint")
-        ordering = ["-created_at"]
+        unique_together = ('user', 'endpoint')
+        ordering = ['-created_at']
         verbose_name = _("Push Notification Subscription")
         verbose_name_plural = _("Push Notification Subscriptions")
 
@@ -1227,7 +1264,7 @@ class PushSubscription(models.Model):
         """Mark successful notification delivery"""
         self.last_used_at = timezone.now()
         self.failure_count = 0
-        self.save(update_fields=["last_used_at", "failure_count"])
+        self.save(update_fields=['last_used_at', 'failure_count'])
 
     def mark_failure(self):
         """Mark failed notification delivery (auto-delete after 5 failures)"""
@@ -1236,7 +1273,7 @@ class PushSubscription(models.Model):
             # Subscription likely expired/invalid - delete it
             self.delete()
         else:
-            self.save(update_fields=["failure_count"])
+            self.save(update_fields=['failure_count'])
 
 
 class EmailPreference(models.Model):
@@ -1247,12 +1284,11 @@ class EmailPreference(models.Model):
     - Marketing emails OFF by default (GDPR compliance)
     - Secure unsubscribe token for one-click unsubscribe without login
     """
-
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name="email_preference",
-        help_text=_("User who owns these email preferences"),
+        related_name='email_preference',
+        help_text=_("User who owns these email preferences")
     )
 
     # Secure unsubscribe token (no login required for unsubscribe)
@@ -1260,37 +1296,39 @@ class EmailPreference(models.Model):
         default=uuid.uuid4,
         unique=True,
         editable=False,
-        help_text=_("Secure token for one-click unsubscribe links"),
+        help_text=_("Secure token for one-click unsubscribe links")
     )
 
     # Email categories - mirrors PushSubscription preferences
     email_profile_updates = models.BooleanField(
-        default=True, help_text=_("Emails about profile approval, revision requests")
+        default=True,
+        help_text=_("Emails about profile approval, revision requests")
     )
     email_event_reminders = models.BooleanField(
         default=True,
-        help_text=_("Reminders about upcoming events you're registered for"),
+        help_text=_("Reminders about upcoming events you're registered for")
     )
     email_new_connections = models.BooleanField(
-        default=True, help_text=_("Notifications about new connection requests")
+        default=True,
+        help_text=_("Notifications about new connection requests")
     )
     email_new_messages = models.BooleanField(
-        default=True, help_text=_("Notifications about new messages from connections")
+        default=True,
+        help_text=_("Notifications about new messages from connections")
     )
     email_newsletter = models.BooleanField(
         default=True,  # ON by default - service-related announcements about events/community
-        help_text=_("Newsletter emails about upcoming events and community news"),
+        help_text=_("Newsletter emails about upcoming events and community news")
     )
     email_marketing = models.BooleanField(
         default=False,  # OFF by default - GDPR compliance
-        help_text=_(
-            "Marketing emails, newsletters, promotions (requires explicit opt-in)"
-        ),
+        help_text=_("Marketing emails, newsletters, promotions (requires explicit opt-in)")
     )
 
     # Master unsubscribe switch
     unsubscribed_all = models.BooleanField(
-        default=False, help_text=_("User has unsubscribed from ALL emails")
+        default=False,
+        help_text=_("User has unsubscribed from ALL emails")
     )
 
     # Tracking
@@ -1300,7 +1338,7 @@ class EmailPreference(models.Model):
     class Meta:
         verbose_name = _("Email Preference")
         verbose_name_plural = _("Email Preferences")
-        ordering = ["-updated_at"]
+        ordering = ['-updated_at']
 
     def __str__(self):
         status = "Unsubscribed" if self.unsubscribed_all else "Subscribed"
@@ -1323,12 +1361,12 @@ class EmailPreference(models.Model):
 
         # Check specific category
         category_map = {
-            "profile_updates": self.email_profile_updates,
-            "event_reminders": self.email_event_reminders,
-            "new_connections": self.email_new_connections,
-            "new_messages": self.email_new_messages,
-            "newsletter": self.email_newsletter,
-            "marketing": self.email_marketing,
+            'profile_updates': self.email_profile_updates,
+            'event_reminders': self.email_event_reminders,
+            'new_connections': self.email_new_connections,
+            'new_messages': self.email_new_messages,
+            'newsletter': self.email_newsletter,
+            'marketing': self.email_marketing,
         }
 
         return category_map.get(email_type, True)
@@ -1337,17 +1375,17 @@ class EmailPreference(models.Model):
         """Return list of enabled email categories (for admin display)"""
         categories = []
         if self.email_profile_updates:
-            categories.append("profile_updates")
+            categories.append('profile_updates')
         if self.email_event_reminders:
-            categories.append("event_reminders")
+            categories.append('event_reminders')
         if self.email_new_connections:
-            categories.append("new_connections")
+            categories.append('new_connections')
         if self.email_new_messages:
-            categories.append("new_messages")
+            categories.append('new_messages')
         if self.email_newsletter:
-            categories.append("newsletter")
+            categories.append('newsletter')
         if self.email_marketing:
-            categories.append("marketing")
+            categories.append('marketing')
         return categories
 
     @classmethod
@@ -1369,53 +1407,47 @@ class UserDataConsent(models.Model):
     1. PowerUp consent (identity): Implicit during account creation (User + Allauth)
     2. Crush.lu consent (profile): Explicit during profile creation
     """
-
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="data_consent"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='data_consent')
 
     # PowerUp Layer Consent (User + Allauth)
     powerup_consent_given = models.BooleanField(
         default=False,
-        help_text=_(
-            "User consents to PowerUp identity layer (User model + OAuth data)"
-        ),
+        help_text=_("User consents to PowerUp identity layer (User model + OAuth data)")
     )
     powerup_consent_date = models.DateTimeField(null=True, blank=True)
     powerup_consent_ip = models.GenericIPAddressField(null=True, blank=True)
-    powerup_terms_version = models.CharField(max_length=10, default="1.0")
+    powerup_terms_version = models.CharField(max_length=10, default='1.0')
 
     # Crush.lu Layer Consent (CrushProfile + related data)
     crushlu_consent_given = models.BooleanField(
         default=False,
-        help_text=_(
-            "User consents to Crush.lu profile layer (dating profile + photos)"
-        ),
+        help_text=_("User consents to Crush.lu profile layer (dating profile + photos)")
     )
     crushlu_consent_date = models.DateTimeField(null=True, blank=True)
     crushlu_consent_ip = models.GenericIPAddressField(null=True, blank=True)
-    crushlu_terms_version = models.CharField(max_length=10, default="1.0")
+    crushlu_terms_version = models.CharField(max_length=10, default='1.0')
 
     # Permanent ban from Crush.lu
     crushlu_banned = models.BooleanField(
         default=False,
-        help_text=_("User is permanently banned from creating new Crush.lu profiles"),
+        help_text=_("User is permanently banned from creating new Crush.lu profiles")
     )
     crushlu_ban_date = models.DateTimeField(null=True, blank=True)
     crushlu_ban_reason = models.CharField(
         max_length=50,
         choices=[
-            ("user_deletion", _("User deleted profile")),
-            ("admin_action", _("Admin action")),
-            ("terms_violation", _("Terms violation")),
+            ('user_deletion', _('User deleted profile')),
+            ('admin_action', _('Admin action')),
+            ('terms_violation', _('Terms violation')),
         ],
         null=True,
-        blank=True,
+        blank=True
     )
 
     # Marketing consent (optional)
     marketing_consent = models.BooleanField(
-        default=False, help_text=_("User consents to marketing communications")
+        default=False,
+        help_text=_("User consents to marketing communications")
     )
     marketing_consent_date = models.DateTimeField(null=True, blank=True)
 
@@ -1444,55 +1476,64 @@ class CoachPushSubscription(models.Model):
     Completely separate from user PushSubscription to avoid conflicts.
     Each coach can have multiple subscriptions (different devices/browsers).
     """
-
     coach = models.ForeignKey(
         CrushCoach,
         on_delete=models.CASCADE,
-        related_name="push_subscriptions",
-        help_text=_("Coach who owns this push subscription"),
+        related_name='push_subscriptions',
+        help_text=_("Coach who owns this push subscription")
     )
 
     # Push subscription data (from browser's PushManager API)
-    endpoint = models.URLField(max_length=500, help_text=_("Push service endpoint URL"))
+    endpoint = models.URLField(
+        max_length=500,
+        help_text=_("Push service endpoint URL")
+    )
     p256dh_key = models.CharField(
-        max_length=255, help_text=_("Public key for encryption (p256dh)")
+        max_length=255,
+        help_text=_("Public key for encryption (p256dh)")
     )
     auth_key = models.CharField(
-        max_length=255, help_text=_("Authentication secret (auth)")
+        max_length=255,
+        help_text=_("Authentication secret (auth)")
     )
 
     # Device/browser information
-    user_agent = models.TextField(blank=True, help_text=_("Browser user agent string"))
+    user_agent = models.TextField(
+        blank=True,
+        help_text=_("Browser user agent string")
+    )
     device_name = models.CharField(
         max_length=100,
         blank=True,
-        help_text=_("Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')"),
+        help_text=_("Friendly device name (e.g., 'Android Chrome', 'iPhone Safari')")
     )
     device_fingerprint = models.CharField(
         max_length=64,
         blank=True,
         db_index=True,
-        help_text=_(
-            "Browser fingerprint hash for stable device identification across sessions"
-        ),
+        help_text=_("Browser fingerprint hash for stable device identification across sessions")
     )
 
     # Coach-specific notification preferences
     enabled = models.BooleanField(
         default=True,
-        help_text=_("Coach can disable notifications without unsubscribing"),
+        help_text=_("Coach can disable notifications without unsubscribing")
     )
     notify_new_submissions = models.BooleanField(
-        default=True, help_text=_("Notify when new profile is assigned for review")
+        default=True,
+        help_text=_("Notify when new profile is assigned for review")
     )
     notify_screening_reminders = models.BooleanField(
-        default=True, help_text=_("Notify about pending screening calls")
+        default=True,
+        help_text=_("Notify about pending screening calls")
     )
     notify_user_responses = models.BooleanField(
-        default=True, help_text=_("Notify when user submits revision")
+        default=True,
+        help_text=_("Notify when user submits revision")
     )
     notify_system_alerts = models.BooleanField(
-        default=True, help_text=_("Notify about system/admin messages")
+        default=True,
+        help_text=_("Notify about system/admin messages")
     )
 
     # Metadata
@@ -1501,18 +1542,16 @@ class CoachPushSubscription(models.Model):
     last_used_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Last time a notification was successfully sent"),
+        help_text=_("Last time a notification was successfully sent")
     )
     failure_count = models.PositiveIntegerField(
         default=0,
-        help_text=_(
-            "Number of consecutive failed deliveries (auto-delete after threshold)"
-        ),
+        help_text=_("Number of consecutive failed deliveries (auto-delete after threshold)")
     )
 
     class Meta:
-        unique_together = ("coach", "endpoint")
-        ordering = ["-created_at"]
+        unique_together = ('coach', 'endpoint')
+        ordering = ['-created_at']
         verbose_name = _("Coach Push Subscription")
         verbose_name_plural = _("Coach Push Subscriptions")
 
@@ -1524,7 +1563,7 @@ class CoachPushSubscription(models.Model):
         """Mark successful notification delivery"""
         self.last_used_at = timezone.now()
         self.failure_count = 0
-        self.save(update_fields=["last_used_at", "failure_count"])
+        self.save(update_fields=['last_used_at', 'failure_count'])
 
     def mark_failure(self):
         """Mark failed notification delivery (auto-delete after 5 failures)"""
@@ -1533,7 +1572,7 @@ class CoachPushSubscription(models.Model):
             # Subscription likely expired/invalid - delete it
             self.delete()
         else:
-            self.save(update_fields=["failure_count"])
+            self.save(update_fields=['failure_count'])
 
 
 class ProfileReminder(models.Model):
@@ -1543,29 +1582,30 @@ class ProfileReminder(models.Model):
     """
 
     REMINDER_TYPE_CHOICES = [
-        ("24h", _("24 Hour")),
-        ("72h", _("72 Hour")),
-        ("7d", _("7 Day Final")),
+        ('24h', _('24 Hour')),
+        ('72h', _('72 Hour')),
+        ('7d', _('7 Day Final')),
     ]
 
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="profile_reminders",
-        help_text=_("User who received this reminder"),
+        related_name='profile_reminders',
+        help_text=_("User who received this reminder")
     )
     reminder_type = models.CharField(
         max_length=10,
         choices=REMINDER_TYPE_CHOICES,
-        help_text=_("Type of reminder sent"),
+        help_text=_("Type of reminder sent")
     )
     sent_at = models.DateTimeField(
-        auto_now_add=True, help_text=_("When the reminder was sent")
+        auto_now_add=True,
+        help_text=_("When the reminder was sent")
     )
 
     class Meta:
-        unique_together = ["user", "reminder_type"]  # One of each type per user
-        ordering = ["-sent_at"]
+        unique_together = ['user', 'reminder_type']  # One of each type per user
+        ordering = ['-sent_at']
         verbose_name = _("Profile Reminder")
         verbose_name_plural = _("Profile Reminders")
 

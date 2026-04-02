@@ -1,5 +1,10 @@
-{% extends "crush_lu/base.html" %} {% load i18n %} {% load static %} {% block title %}{{
-special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css %}
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ special_experience.welcome_title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
 <style>
     /* Override theme color with custom color */
     :root {
@@ -326,7 +331,9 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
         }
     }
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <!-- Animation Container -->
 <div class="animation-container" id="animationContainer"></div>
 
@@ -335,8 +342,7 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
     <div class="welcome-card text-center">
         {% if special_experience.vip_badge %}
         <div class="vip-badge">
-            {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "VIP
-            EXPERIENCE" %} {% include "shared/icons/star.html" with class="w-5 h-5" %}
+            {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "VIP EXPERIENCE" %} {% include "shared/icons/star.html" with class="w-5 h-5" %}
         </div>
         {% endif %}
 
@@ -345,25 +351,26 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
         <p class="welcome-message">{{ special_experience.welcome_message }}</p>
 
         <a href="{% url 'crush_lu:journey_map' %}" class="btn-special inline-block">
-            {% trans "Begin Your Journey" %} {% include "shared/icons/arrow-right.html"
-            with class="w-5 h-5" %}
+            {% trans "Begin Your Journey" %} {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
         </a>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script nonce="{{ csp_nonce }}">
     // Animation JavaScript
-    const container = document.getElementById("animationContainer");
-    const animationStyle = "{{ special_experience.animation_style }}";
+    const container = document.getElementById('animationContainer');
+    const animationStyle = '{{ special_experience.animation_style }}';
 
     // Hearts Animation
-    if (animationStyle === "hearts") {
+    if (animationStyle === 'hearts') {
         function createHeart() {
-            const heart = document.createElement("div");
-            heart.className = "heart";
-            heart.style.left = Math.random() * 100 + "%";
-            heart.style.animationDuration = 5 + Math.random() * 5 + "s";
-            heart.style.animationDelay = Math.random() * 3 + "s";
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.style.left = Math.random() * 100 + '%';
+            heart.style.animationDuration = (5 + Math.random() * 5) + 's';
+            heart.style.animationDelay = Math.random() * 3 + 's';
             container.appendChild(heart);
 
             setTimeout(() => heart.remove(), 10000);
@@ -379,13 +386,13 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
     }
 
     // Rose Petals Animation
-    if (animationStyle === "roses") {
+    if (animationStyle === 'roses') {
         function createPetal() {
-            const petal = document.createElement("div");
-            petal.className = "petal";
-            petal.style.left = Math.random() * 100 + "%";
-            petal.style.animationDuration = 8 + Math.random() * 4 + "s";
-            petal.style.animationDelay = Math.random() * 2 + "s";
+            const petal = document.createElement('div');
+            petal.className = 'petal';
+            petal.style.left = Math.random() * 100 + '%';
+            petal.style.animationDuration = (8 + Math.random() * 4) + 's';
+            petal.style.animationDelay = Math.random() * 2 + 's';
             container.appendChild(petal);
 
             setTimeout(() => petal.remove(), 12000);
@@ -401,13 +408,13 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
     }
 
     // Stars Animation
-    if (animationStyle === "stars") {
+    if (animationStyle === 'stars') {
         function createStar() {
-            const star = document.createElement("div");
-            star.className = "star";
-            star.style.left = Math.random() * 100 + "%";
-            star.style.top = Math.random() * 100 + "%";
-            star.style.animationDelay = Math.random() * 3 + "s";
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 3 + 's';
             container.appendChild(star);
         }
 
@@ -418,21 +425,21 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
     }
 
     // Fireworks Animation
-    if (animationStyle === "fireworks") {
+    if (animationStyle === 'fireworks') {
         function createFirework() {
             const x = Math.random() * window.innerWidth;
             const y = Math.random() * (window.innerHeight * 0.7);
 
             for (let i = 0; i < 30; i++) {
-                const firework = document.createElement("div");
-                firework.className = "firework";
-                firework.style.left = x + "px";
-                firework.style.top = y + "px";
+                const firework = document.createElement('div');
+                firework.className = 'firework';
+                firework.style.left = x + 'px';
+                firework.style.top = y + 'px';
 
                 const angle = (Math.PI * 2 * i) / 30;
                 const velocity = 50 + Math.random() * 50;
-                firework.style.setProperty("--tx", Math.cos(angle) * velocity + "px");
-                firework.style.setProperty("--ty", Math.sin(angle) * velocity + "px");
+                firework.style.setProperty('--tx', Math.cos(angle) * velocity + 'px');
+                firework.style.setProperty('--ty', Math.sin(angle) * velocity + 'px');
 
                 container.appendChild(firework);
 
@@ -446,11 +453,11 @@ special_experience.welcome_title }} - Crush.lu{% endblock %} {% block extra_css 
     }
 
     // Aurora Animation
-    if (animationStyle === "aurora") {
+    if (animationStyle === 'aurora') {
         for (let i = 0; i < 3; i++) {
-            const aurora = document.createElement("div");
-            aurora.className = "aurora";
-            aurora.style.animationDelay = i * 5 + "s";
+            const aurora = document.createElement('div');
+            aurora.className = 'aurora';
+            aurora.style.animationDelay = (i * 5) + 's';
             container.appendChild(aurora);
         }
     }

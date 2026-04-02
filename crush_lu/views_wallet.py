@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ImproperlyConfigured
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 
 from .models import CrushProfile, EventRegistration
@@ -59,9 +59,7 @@ def apple_wallet_pass(request):
     logger.info("Apple Wallet pass requested - feature coming soon")
     return JsonResponse(
         {
-            "error": _(
-                "Apple Wallet support is coming soon! Please use Google Wallet in the meantime."
-            ),
+            "error": _("Apple Wallet support is coming soon! Please use Google Wallet in the meantime."),
             "status": "coming_soon",
         },
         status=501,  # Not Implemented

@@ -1,426 +1,266 @@
-{% extends 'crush_lu/base.html' %} {% load analytics i18n %} {% block title %}{% trans
-"Profile Submitted - Crush.lu" %}{% endblock %} {% block content %} {# Track profile
-submission status view in Application Insights #} {% appinsights_event
-"profile_submission_viewed" status=submission.status %} {% ga4_event "tutorial_complete"
-%} {% fb_event "Lead" %}
+{% extends 'crush_lu/base.html' %}
+{% load analytics i18n %}
+
+{% block title %}{% trans "Profile Submitted - Crush.lu" %}{% endblock %}
+
+{% block content %}
+{# Track profile submission status view in Application Insights #}
+{% appinsights_event "profile_submission_viewed" status=submission.status %}
+{% ga4_event "tutorial_complete" %}
+{% fb_event "Lead" %}
 <div class="flex justify-center py-6 md:py-8">
     <div class="w-full max-w-3xl px-4">
         <div>
             <div class="text-center">
-                {% if submission.status == 'pending' or submission.status ==
-                'under_review' %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        ⏳
+                {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ⏳
+                        </div>
                     </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Profile Under Review" %}
-                </h2>
-                <p class="mb-4 text-base text-gray-600 dark:text-gray-300">
-                    {% trans "Your profile is currently being reviewed by our Crush
-                    Coaches." %}
-                </p>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-4">
+                        {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
+                    </p>
 
-                <div
-                    class="mb-6 overflow-hidden rounded-xl border border-gray-200 text-left dark:border-gray-700"
-                >
-                    <div
-                        class="flex items-center gap-3 border-b border-amber-200/50 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-900/20"
-                    >
-                        {% include "shared/icons/clock.html" with class="w-5 h-5
-                        text-amber-600 dark:text-amber-400 flex-shrink-0" %}
-                        <div>
-                            <p
-                                class="mb-0 text-sm font-semibold text-gray-900 dark:text-white"
-                            >
-                                {{ submission.get_status_display }}
-                            </p>
-                            <p class="mb-0 text-xs text-gray-600 dark:text-gray-400">
-                                {% blocktrans with
-                                time=submission.submitted_at|timesince %}{{ time }}
-                                ago{% endblocktrans %} {% if submission.coach %} · {%
-                                trans "Coach:" %} {{ submission.coach.user.get_full_name
-                                }}{% endif %}
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden text-left mb-6">
+                        <div class="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50">
+                            {% include "shared/icons/clock.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" %}
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{{ submission.get_status_display }}</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 mb-0">
+                                    {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}
+                                    {% if submission.coach %} · {% trans "Coach:" %} {{ submission.coach.user.get_full_name }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                            <p class="font-semibold mb-2">{% trans "What happens next?" %}</p>
+                            <ol class="list-decimal ml-5 space-y-1 text-sm mb-3">
+                                <li>{% trans "Your assigned Crush Coach will review your profile" %}</li>
+                                <li>{% trans "You'll receive feedback within 24-48 hours" %}</li>
+                                <li>{% trans "Once approved, you can register for events!" %}</li>
+                            </ol>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                                {% trans "You cannot edit your profile while it's under review." %}
                             </p>
                         </div>
                     </div>
-                    <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                        <p class="mb-2 font-semibold">
-                            {% trans "What happens next?" %}
-                        </p>
-                        <ol class="mb-3 ml-5 list-decimal space-y-1 text-sm">
-                            <li>
-                                {% trans "Your assigned Crush Coach will review your
-                                profile" %}
-                            </li>
-                            <li>
-                                {% trans "You'll receive feedback within 24-48 hours" %}
-                            </li>
-                            <li>
-                                {% trans "Once approved, you can register for events!"
-                                %}
-                            </li>
-                        </ol>
-                        <p class="mb-0 text-xs text-gray-500 dark:text-gray-400">
-                            {% trans "You cannot edit your profile while it's under
-                            review." %}
-                        </p>
-                    </div>
-                </div>
 
                 {% elif submission.status == 'revision' %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        ✏️
-                    </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Almost There! A Few Tweaks Needed" %}
-                </h2>
-                <p
-                    class="mb-6 text-base font-medium text-amber-600 dark:text-amber-300"
-                >
-                    {% trans "Your coach has reviewed your profile and suggested a few
-                    improvements." %}
-                </p>
-
-                {% if submission.feedback_to_user %}
-                <div class="alert alert-warning border-l-4 border-amber-500 text-left">
-                    <div class="flex-shrink-0">
-                        {% include "shared/icons/chat-bubble-left.html" with class="w-5
-                        h-5" %}
-                    </div>
-                    <div class="flex-1">
-                        <h5 class="mb-2 font-semibold">
-                            {% trans "Coach Feedback:" %}
-                        </h5>
-                        <div class="text-sm">
-                            {{ submission.feedback_to_user|linebreaks }}
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ✏️
                         </div>
                     </div>
-                </div>
-                {% endif %}
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Almost There! A Few Tweaks Needed" %}</h2>
+                    <p class="text-base text-amber-600 dark:text-amber-300 mb-6 font-medium">
+                        {% trans "Your coach has reviewed your profile and suggested a few improvements." %}
+                    </p>
 
-                <div class="mb-4">
-                    <a
-                        href="{% url 'crush_lu:edit_profile' %}"
-                        class="btn-crush-primary gap-2"
-                    >
-                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
-                        <span>{% trans "Update Your Profile" %}</span>
-                    </a>
-                </div>
+                    {% if submission.feedback_to_user %}
+                    <div class="alert alert-warning text-left border-l-4 border-amber-500">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                            <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary gap-2">
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+                            <span>{% trans "Update Your Profile" %}</span>
+                        </a>
+                    </div>
 
                 {% elif submission.status == 'approved' %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-emerald-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        ✅
-                    </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Profile Approved!" %}
-                </h2>
-                <p
-                    class="mb-6 text-base font-medium text-green-600 dark:text-green-300"
-                >
-                    {% trans "Congratulations! Your profile has been approved by our
-                    coaches." %}
-                </p>
-
-                <div class="alert alert-success text-left">
-                    <div class="flex-shrink-0">
-                        {% include "shared/icons/check-circle.html" with class="w-5 h-5"
-                        %}
-                    </div>
-                    <div class="flex-1">
-                        <p class="mb-0">
-                            {% trans "You can now register for events and start making
-                            connections!" %}
-                        </p>
-                    </div>
-                </div>
-
-                {% elif submission.status == 'rejected' %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        ❌
-                    </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Profile Needs Updates" %}
-                </h2>
-                <p class="mb-6 text-base font-medium text-red-600 dark:text-red-300">
-                    {% trans "Your profile needs some updates before it can be
-                    approved." %}
-                </p>
-
-                {% if submission.feedback_to_user %}
-                <div class="alert alert-warning border-l-4 border-amber-500 text-left">
-                    <div class="flex-shrink-0">
-                        {% include "shared/icons/chat-bubble-left.html" with class="w-5
-                        h-5" %}
-                    </div>
-                    <div class="flex-1">
-                        <h5 class="mb-2 font-semibold">
-                            {% trans "Coach Feedback:" %}
-                        </h5>
-                        <div class="text-sm">
-                            {{ submission.feedback_to_user|linebreaks }}
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ✅
                         </div>
                     </div>
-                </div>
-                {% endif %}
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
+                    <p class="text-base text-green-600 dark:text-green-300 mb-6 font-medium">
+                        {% trans "Congratulations! Your profile has been approved by our coaches." %}
+                    </p>
 
-                <div class="mb-4">
-                    <a
-                        href="{% url 'crush_lu:edit_profile' %}"
-                        class="btn-crush-primary gap-2"
-                    >
-                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
-                        <span>{% trans "Update Your Profile" %}</span>
-                    </a>
-                </div>
+                    <div class="alert alert-success text-left">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <p class="mb-0">{% trans "You can now register for events and start making connections!" %}</p>
+                        </div>
+                    </div>
+
+                {% elif submission.status == 'rejected' %}
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ❌
+                        </div>
+                    </div>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
+                    <p class="text-base text-red-600 dark:text-red-300 mb-6 font-medium">
+                        {% trans "Your profile needs some updates before it can be approved." %}
+                    </p>
+
+                    {% if submission.feedback_to_user %}
+                    <div class="alert alert-warning text-left border-l-4 border-amber-500">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Coach Feedback:" %}</h5>
+                            <div class="text-sm">{{ submission.feedback_to_user|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary gap-2">
+                            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+                            <span>{% trans "Update Your Profile" %}</span>
+                        </a>
+                    </div>
 
                 {% elif submission.status == 'recontact_coach' %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-pink-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        📞
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            📞
+                        </div>
                     </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Coach Needs to Speak With You" %}
-                </h2>
-                <p
-                    class="mb-6 text-base font-medium text-purple-600 dark:text-purple-300"
-                >
-                    {% trans "Your coach tried to reach you but couldn't connect. Please
-                    contact them to complete your screening call." %}
-                </p>
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
+                    <p class="text-base text-purple-600 dark:text-purple-300 mb-6 font-medium">
+                        {% trans "Your coach tried to reach you but couldn't connect. Please contact them to complete your screening call." %}
+                    </p>
 
-                <div class="alert alert-info text-left">
-                    <div class="flex-shrink-0">
-                        {% include "shared/icons/phone.html" with class="w-5 h-5" %}
+                    <div class="alert alert-info text-left">
+                        <div class="flex-shrink-0">
+                            {% include "shared/icons/phone.html" with class="w-5 h-5" %}
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-semibold mb-2">{% trans "Next Steps:" %}</h5>
+                            <ol class="mb-0 list-decimal ml-5 space-y-1 text-sm">
+                                <li>{% trans "Contact your coach using the information below" %}</li>
+                                <li>{% trans "Schedule a time for your screening call" %}</li>
+                                <li>{% trans "Complete the call to get your profile approved" %}</li>
+                            </ol>
+                        </div>
                     </div>
-                    <div class="flex-1">
-                        <h5 class="mb-2 font-semibold">{% trans "Next Steps:" %}</h5>
-                        <ol class="mb-0 ml-5 list-decimal space-y-1 text-sm">
-                            <li>
-                                {% trans "Contact your coach using the information
-                                below" %}
-                            </li>
-                            <li>
-                                {% trans "Schedule a time for your screening call" %}
-                            </li>
-                            <li>
-                                {% trans "Complete the call to get your profile
-                                approved" %}
-                            </li>
-                        </ol>
-                    </div>
-                </div>
 
                 {% else %}
-                <div class="mb-4 flex justify-center">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-pink-500 text-3xl shadow-lg md:h-20 md:w-20 md:text-4xl"
-                    >
-                        ✅
+                    <div class="flex justify-center mb-4">
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
+                            ✅
+                        </div>
                     </div>
-                </div>
-                <h2
-                    class="mt-4 mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white"
-                >
-                    {% trans "Profile Submitted Successfully!" %}
-                </h2>
-                <p class="mb-6 text-base text-gray-600 dark:text-gray-300">
-                    {% trans "Your profile has been submitted for review by our Crush
-                    Coaches." %}
-                </p>
-                {% endif %} {% if submission.coach and submission.status ==
-                'recontact_coach' %} {# Enhanced coach card for recontact status #}
-                <div
-                    class="mb-6 overflow-hidden rounded-xl border border-purple-200 bg-white text-left shadow-md dark:border-purple-800/50 dark:bg-slate-800"
-                >
+                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>
+                    <p class="text-base text-gray-600 dark:text-gray-300 mb-6">
+                        {% trans "Your profile has been submitted for review by our Crush Coaches." %}
+                    </p>
+                {% endif %}
+
+                {% if submission.coach and submission.status == 'recontact_coach' %}
+                {# Enhanced coach card for recontact status #}
+                <div class="rounded-xl border border-purple-200 dark:border-purple-800/50 bg-white dark:bg-slate-800 shadow-md mb-6 text-left overflow-hidden">
                     <div class="px-5 py-4">
-                        <div class="mb-4 flex items-center gap-4">
+                        <div class="flex items-center gap-4 mb-4">
                             {% if submission.coach.photo %}
-                            <div class="relative flex-shrink-0">
-                                <div
-                                    class="from-crush-purple to-crush-pink h-20 w-20 rounded-full bg-gradient-to-br p-0.5"
-                                >
-                                    <img
-                                        src="{{ submission.coach.photo.url }}"
-                                        alt="{{ submission.coach.user.get_full_name }}"
-                                        class="h-full w-full rounded-full border-2 border-white object-cover dark:border-slate-800"
-                                        loading="lazy"
-                                    />
+                                <div class="relative flex-shrink-0">
+                                    <div class="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-crush-purple to-crush-pink">
+                                        <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
+                                             class="w-full h-full rounded-full object-cover border-2 border-white dark:border-slate-800"
+                                             loading="lazy">
+                                    </div>
                                 </div>
-                            </div>
                             {% else %}
-                            <div
-                                class="from-crush-purple to-crush-pink flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-2xl font-bold text-white shadow-md"
-                            >
-                                {{ submission.coach.user.get_full_name|slice:":1"|upper
-                                }}
-                            </div>
-                            {% endif %}
-                            <div class="min-w-0 flex-1">
-                                <p
-                                    class="text-crush-purple mb-0.5 text-xs font-semibold tracking-wide uppercase"
-                                >
-                                    {% trans "Your Crush Coach" %}
-                                </p>
-                                <p
-                                    class="mb-1 text-lg font-bold text-gray-900 dark:text-white"
-                                >
-                                    {{ submission.coach.user.get_full_name }}
-                                </p>
-                                {% if submission.coach.get_spoken_languages_display %}
-                                <div class="flex flex-wrap gap-1.5">
-                                    {% for lang in
-                                    submission.coach.get_spoken_languages_display %}
-                                    <span
-                                        class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                                    >
-                                        {{ lang.flag }} {{ lang.name }}
-                                    </span>
-                                    {% endfor %}
+                                <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-2xl font-bold shadow-md flex-shrink-0">
+                                    {{ submission.coach.user.get_full_name|slice:":1"|upper }}
                                 </div>
+                            {% endif %}
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-semibold text-crush-purple uppercase tracking-wide mb-0.5">{% trans "Your Crush Coach" %}</p>
+                                <p class="text-lg font-bold text-gray-900 dark:text-white mb-1">{{ submission.coach.user.get_full_name }}</p>
+                                {% if submission.coach.get_spoken_languages_display %}
+                                    <div class="flex flex-wrap gap-1.5">
+                                        {% for lang in submission.coach.get_spoken_languages_display %}
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                                                {{ lang.flag }} {{ lang.name }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
                                 {% endif %}
                             </div>
                         </div>
                         {% if submission.coach.specializations %}
-                        <p class="mb-1 text-sm text-gray-500 dark:text-gray-400">
-                            {{ submission.coach.specializations }}
-                        </p>
-                        {% endif %} {% if submission.coach.bio %}
-                        <p class="mb-0 text-sm text-gray-600 dark:text-gray-300">
-                            {{ submission.coach.bio }}
-                        </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ submission.coach.specializations }}</p>
+                        {% endif %}
+                        {% if submission.coach.bio %}
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{{ submission.coach.bio }}</p>
                         {% endif %}
                     </div>
-                    <div
-                        class="flex flex-col gap-2.5 border-t border-purple-100 bg-purple-50/50 px-5 py-4 dark:border-purple-800/30 dark:bg-purple-900/10"
-                    >
+                    <div class="px-5 py-4 border-t border-purple-100 dark:border-purple-800/30 bg-purple-50/50 dark:bg-purple-900/10 flex flex-col gap-2.5">
                         {% if coach_phone_available %}
-                        <a
-                            href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-600"
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                width="18"
-                                height="18"
-                                fill="currentColor"
-                            >
-                                <path
-                                    d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
-                                />
+                        <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call for Crush.lu.' %}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold text-sm transition-colors shadow-sm">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                             </svg>
                             {% trans "WhatsApp Coach" %}
                         </a>
-                        <a
-                            href="tel:+{{ coach_contact_phone }}"
-                            class="from-crush-purple to-crush-pink flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-                        >
+                        <a href="tel:+{{ coach_contact_phone }}"
+                           class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 text-white font-semibold text-sm transition-opacity shadow-sm">
                             {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                             {% trans "Call Coach" %}
                         </a>
                         {% endif %}
-                        <a
-                            href="mailto:{{ submission.coach.user.email }}"
-                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-purple-300 px-4 py-3 text-sm font-semibold text-purple-700 transition-colors hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900/20"
-                        >
-                            {% include "shared/icons/envelope.html" with class="w-5 h-5"
-                            %} {% trans "Email Coach" %}
+                        <a href="mailto:{{ submission.coach.user.email }}"
+                           class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 font-semibold text-sm transition-colors">
+                            {% include "shared/icons/envelope.html" with class="w-5 h-5" %}
+                            {% trans "Email Coach" %}
                         </a>
                     </div>
                 </div>
-                {% elif submission.coach and submission.status != 'rejected' and
-                submission.status != 'approved' %} {# Compact coach display for other
-                statuses #}
-                <div class="mb-6 flex items-center gap-4 text-left">
+                {% elif submission.coach and submission.status != 'rejected' and submission.status != 'approved' %}
+                {# Compact coach display for other statuses #}
+                <div class="flex items-center gap-4 mb-6 text-left">
                     {% if submission.coach.photo %}
-                    <img
-                        src="{{ submission.coach.photo.url }}"
-                        alt="{{ submission.coach.user.get_full_name }}"
-                        class="border-crush-purple/30 h-14 w-14 flex-shrink-0 rounded-full border-2 object-cover shadow-md"
-                        loading="lazy"
-                    />
+                        <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
+                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md flex-shrink-0"
+                             loading="lazy">
                     {% else %}
-                    <div
-                        class="from-crush-purple to-crush-pink flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xl font-bold text-white shadow-md"
-                    >
-                        {{ submission.coach.user.get_full_name|slice:":1"|upper }}
-                    </div>
+                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
+                            {{ submission.coach.user.get_full_name|slice:":1"|upper }}
+                        </div>
                     {% endif %}
-                    <div class="min-w-0 flex-1">
-                        <p
-                            class="text-crush-purple mb-0.5 text-xs font-semibold tracking-wide uppercase"
-                        >
-                            {% trans "Your Crush Coach" %}
-                        </p>
-                        <p
-                            class="mb-0.5 text-base font-bold text-gray-900 dark:text-white"
-                        >
-                            {{ submission.coach.user.get_full_name }}
-                        </p>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-semibold text-crush-purple uppercase tracking-wide mb-0.5">{% trans "Your Crush Coach" %}</p>
+                        <p class="text-base font-bold text-gray-900 dark:text-white mb-0.5">{{ submission.coach.user.get_full_name }}</p>
                         {% if submission.coach.specializations %}
-                        <p class="mb-1 text-xs text-gray-500 dark:text-gray-400">
-                            {{ submission.coach.specializations }}
-                        </p>
-                        {% endif %} {% if submission.coach.bio %}
-                        <p class="mb-1.5 text-xs text-gray-600 dark:text-gray-300">
-                            {{ submission.coach.bio }}
-                        </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ submission.coach.specializations }}</p>
                         {% endif %}
-                        <div class="flex flex-wrap items-center gap-3">
-                            <a
-                                href="mailto:{{ submission.coach.user.email }}"
-                                class="text-crush-purple hover:text-crush-pink inline-flex items-center gap-1 text-xs font-medium transition-colors"
-                            >
-                                {% include "shared/icons/envelope.html" with
-                                class="w-3.5 h-3.5" %} {% trans "Email Coach" %}
+                        {% if submission.coach.bio %}
+                            <p class="text-xs text-gray-600 dark:text-gray-300 mb-1.5">{{ submission.coach.bio }}</p>
+                        {% endif %}
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <a href="mailto:{{ submission.coach.user.email }}"
+                               class="inline-flex items-center gap-1 text-xs text-crush-purple hover:text-crush-pink transition-colors font-medium">
+                                {% include "shared/icons/envelope.html" with class="w-3.5 h-3.5" %}
+                                {% trans "Email Coach" %}
                             </a>
                             {% if coach_phone_available %}
-                            <a
-                                href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call with my Crush Coach.' %}"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="inline-flex items-center gap-1 text-xs font-medium text-green-600 transition-colors hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-                            >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    width="14"
-                                    height="14"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
-                                    />
+                            <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call with my Crush Coach.' %}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors font-medium">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                                 </svg>
                                 {% trans "WhatsApp" %}
                             </a>
@@ -428,33 +268,29 @@ submission status view in Application Insights #} {% appinsights_event
                         </div>
                     </div>
                 </div>
-                {% endif %} {% if submission.status != 'approved' %}
+                {% endif %}
+
+                {% if submission.status != 'approved' %}
                 <div class="mt-4 mb-4 md:mt-6 md:mb-6">
-                    {% if submission.status == 'pending' or submission.status ==
-                    'under_review' %}
-                    <p
-                        class="mb-2 text-center text-xs font-medium text-purple-600/70 dark:text-purple-300/70"
-                    >
-                        {% trans "While You Wait: Your Love Story Awaits" %}
-                    </p>
-                    {% elif submission.status == 'rejected' or submission.status ==
-                    'revision' %}
-                    <p
-                        class="mb-2 text-center text-xs font-medium text-purple-600/70 dark:text-purple-300/70"
-                    >
-                        {% trans "Your Perfect Match Is Worth The Effort" %}
-                    </p>
+                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "While You Wait: Your Love Story Awaits" %}
+                        </p>
+                    {% elif submission.status == 'rejected' or submission.status == 'revision' %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "Your Perfect Match Is Worth The Effort" %}
+                        </p>
                     {% elif submission.status == 'recontact_coach' %}
-                    <p
-                        class="mb-2 text-center text-xs font-medium text-purple-600/70 dark:text-purple-300/70"
-                    >
-                        {% trans "Almost There! Your Story Is About To Begin" %}
-                    </p>
-                    {% endif %} {% if submission.status == 'pending' or
-                    submission.status == 'under_review' %} {% include
-                    "crush_lu/includes/ghost-story-compact.html" %} {% else %} {%
-                    include "crush_lu/includes/ghost-story-compact.html" with
-                    show_cta=False %} {% endif %}
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "Almost There! Your Story Is About To Begin" %}
+                        </p>
+                    {% endif %}
+
+                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                        {% include "crush_lu/includes/ghost-story-compact.html" %}
+                    {% else %}
+                        {% include "crush_lu/includes/ghost-story-compact.html" with show_cta=False %}
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -463,19 +299,13 @@ submission status view in Application Insights #} {% appinsights_event
                         {% trans "Go to Dashboard" %}
                     </a>
                     {% if submission.status == 'approved' %}
-                    <a
-                        href="{% url 'crush_lu:event_list' %}"
-                        class="btn-outline-secondary"
-                    >
-                        {% trans "Browse Events" %}
-                    </a>
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                            {% trans "Browse Events" %}
+                        </a>
                     {% else %}
-                    <a
-                        href="{% url 'crush_lu:event_list' %}"
-                        class="btn-outline-secondary"
-                    >
-                        {% trans "Browse Events (while you wait)" %}
-                    </a>
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                            {% trans "Browse Events (while you wait)" %}
+                        </a>
                     {% endif %}
                 </div>
             </div>

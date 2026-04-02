@@ -15,19 +15,18 @@ def get_microsoft_login_url(context):
     """
     from allauth.socialaccount.models import SocialApp
 
-    request = context.get("request")
+    request = context.get('request')
     if not request:
         return None
 
     try:
         # Check if Microsoft SocialApp exists for any site
-        if not SocialApp.objects.filter(provider="microsoft").exists():
+        if not SocialApp.objects.filter(provider='microsoft').exists():
             return None
 
         # Get the URL using allauth's helper
         from allauth.socialaccount.templatetags.socialaccount import provider_login_url
-
-        return provider_login_url(context, "microsoft")
+        return provider_login_url(context, 'microsoft')
     except SocialApp.DoesNotExist:
         return None
     except Exception:

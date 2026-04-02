@@ -1,413 +1,155 @@
-<svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="89 75 318 325"
-    class="{{ class|default:'w-7 h-7' }}"
-    aria-hidden="true"
->
-    {# Ghost Story - Leo Ghost: The Regal King/Queen — grand jeweled crown, flowing
-    royal cape, golden scepter with heart gem, sunburst aura #}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" class="{{ class|default:'w-7 h-7' }}" aria-hidden="true">
+  {# Ghost Story - Leo Ghost: The Regal King/Queen — grand jeweled crown, flowing royal cape, golden scepter with heart gem, sunburst aura #}
+
+  <g>
+    <!-- Regal float -->
+    <animateTransform attributeName="transform" type="translate"
+      values="0 0;0 -9;0 -3;0 -7;0 0"
+      dur="3s" repeatCount="indefinite" calcMode="spline"
+      keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"/>
 
     <g>
-        <!-- Regal float -->
-        <animateTransform
-            attributeName="transform"
-            type="translate"
-            values="0 0;0 -9;0 -3;0 -7;0 0"
-            dur="3s"
-            repeatCount="indefinite"
-            calcMode="spline"
-            keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
-        />
+      <!-- Proud sway -->
+      <animateTransform attributeName="transform" type="rotate"
+        values="0 248 230;-3 248 230;0 248 230;3 248 230;0 248 230"
+        dur="3s" repeatCount="indefinite" calcMode="spline"
+        keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"/>
 
-        <g>
-            <!-- Proud sway -->
-            <animateTransform
-                attributeName="transform"
-                type="rotate"
-                values="0 248 230;-3 248 230;0 248 230;3 248 230;0 248 230"
-                dur="3s"
-                repeatCount="indefinite"
-                calcMode="spline"
-                keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
-            />
+      <!-- Sunburst aura behind ghost -->
+      <g transform="translate(244,200)" opacity="0.15">
+        <animate attributeName="opacity" values="0.1;0.2;0.1" dur="3s" repeatCount="indefinite"/>
+        <line x1="0" y1="-80" x2="0" y2="-130" stroke="#FFD700" stroke-width="3.5"/>
+        <line x1="55" y1="-55" x2="95" y2="-95" stroke="#FFD700" stroke-width="3.5"/>
+        <line x1="80" y1="0" x2="130" y2="0" stroke="#FFD700" stroke-width="3.5"/>
+        <line x1="-55" y1="-55" x2="-95" y2="-95" stroke="#FFD700" stroke-width="3.5"/>
+        <line x1="-80" y1="0" x2="-130" y2="0" stroke="#FFD700" stroke-width="3.5"/>
+        <line x1="40" y1="-70" x2="68" y2="-118" stroke="#F6AD55" stroke-width="3"/>
+        <line x1="-40" y1="-70" x2="-68" y2="-118" stroke="#F6AD55" stroke-width="3"/>
+        <line x1="70" y1="-30" x2="118" y2="-52" stroke="#F6AD55" stroke-width="3"/>
+        <line x1="-70" y1="-30" x2="-118" y2="-52" stroke="#F6AD55" stroke-width="3"/>
+      </g>
 
-            <!-- Sunburst aura behind ghost -->
-            <g transform="translate(244,200)" opacity="0.15">
-                <animate
-                    attributeName="opacity"
-                    values="0.1;0.2;0.1"
-                    dur="3s"
-                    repeatCount="indefinite"
-                />
-                <line
-                    x1="0"
-                    y1="-80"
-                    x2="0"
-                    y2="-130"
-                    stroke="#FFD700"
-                    stroke-width="3.5"
-                />
-                <line
-                    x1="55"
-                    y1="-55"
-                    x2="95"
-                    y2="-95"
-                    stroke="#FFD700"
-                    stroke-width="3.5"
-                />
-                <line
-                    x1="80"
-                    y1="0"
-                    x2="130"
-                    y2="0"
-                    stroke="#FFD700"
-                    stroke-width="3.5"
-                />
-                <line
-                    x1="-55"
-                    y1="-55"
-                    x2="-95"
-                    y2="-95"
-                    stroke="#FFD700"
-                    stroke-width="3.5"
-                />
-                <line
-                    x1="-80"
-                    y1="0"
-                    x2="-130"
-                    y2="0"
-                    stroke="#FFD700"
-                    stroke-width="3.5"
-                />
-                <line
-                    x1="40"
-                    y1="-70"
-                    x2="68"
-                    y2="-118"
-                    stroke="#F6AD55"
-                    stroke-width="3"
-                />
-                <line
-                    x1="-40"
-                    y1="-70"
-                    x2="-68"
-                    y2="-118"
-                    stroke="#F6AD55"
-                    stroke-width="3"
-                />
-                <line
-                    x1="70"
-                    y1="-30"
-                    x2="118"
-                    y2="-52"
-                    stroke="#F6AD55"
-                    stroke-width="3"
-                />
-                <line
-                    x1="-70"
-                    y1="-30"
-                    x2="-118"
-                    y2="-52"
-                    stroke="#F6AD55"
-                    stroke-width="3"
-                />
-            </g>
+      <!-- Flowing royal cape behind ghost body -->
+      <g transform="translate(244,180)">
+        <path d="M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z" fill="#805AD5" opacity="0.6">
+          <animate attributeName="d"
+            values="M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z;M-55,15 C-72,48 -80,92 -66,150 C-58,163 -38,166 -20,158 L-20,22 Z;M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z"
+            dur="4s" repeatCount="indefinite" calcMode="spline"
+            keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+        </path>
+        <path d="M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z" fill="#805AD5" opacity="0.6">
+          <animate attributeName="d"
+            values="M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z;M55,15 C72,48 80,92 66,150 C58,163 38,166 20,158 L20,22 Z;M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z"
+            dur="4s" repeatCount="indefinite" calcMode="spline"
+            keySplines="0.45 0 0.55 1;0.45 0 0.55 1" begin="0.2s"/>
+        </path>
+        <!-- Cape trim -->
+        <path d="M-24,22 C-32,25 -40,30 -45,38" fill="none" stroke="#ECC94B" stroke-width="2" opacity="0.5"/>
+        <path d="M24,22 C32,25 40,30 45,38" fill="none" stroke="#ECC94B" stroke-width="2" opacity="0.5"/>
+      </g>
 
-            <!-- Flowing royal cape behind ghost body -->
-            <g transform="translate(244,180)">
-                <path
-                    d="M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z"
-                    fill="#805AD5"
-                    opacity="0.6"
-                >
-                    <animate
-                        attributeName="d"
-                        values="M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z;M-55,15 C-72,48 -80,92 -66,150 C-58,163 -38,166 -20,158 L-20,22 Z;M-55,15 C-68,40 -75,85 -62,145 C-55,158 -35,162 -20,155 L-20,22 Z"
-                        dur="4s"
-                        repeatCount="indefinite"
-                        calcMode="spline"
-                        keySplines="0.45 0 0.55 1;0.45 0 0.55 1"
-                    />
-                </path>
-                <path
-                    d="M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z"
-                    fill="#805AD5"
-                    opacity="0.6"
-                >
-                    <animate
-                        attributeName="d"
-                        values="M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z;M55,15 C72,48 80,92 66,150 C58,163 38,166 20,158 L20,22 Z;M55,15 C68,40 75,85 62,145 C55,158 35,162 20,155 L20,22 Z"
-                        dur="4s"
-                        repeatCount="indefinite"
-                        calcMode="spline"
-                        keySplines="0.45 0 0.55 1;0.45 0 0.55 1"
-                        begin="0.2s"
-                    />
-                </path>
-                <!-- Cape trim -->
-                <path
-                    d="M-24,22 C-32,25 -40,30 -45,38"
-                    fill="none"
-                    stroke="#ECC94B"
-                    stroke-width="2"
-                    opacity="0.5"
-                />
-                <path
-                    d="M24,22 C32,25 40,30 45,38"
-                    fill="none"
-                    stroke="#ECC94B"
-                    stroke-width="2"
-                    opacity="0.5"
-                />
-            </g>
+      <!-- Ghost body - fire element warm peach -->
+      <path d="M0 0 C20.10256691 16.26024803 34.87819428 37.57947896 38.1875 63.76953125 C38.46074249 68.12006401 38.59879554 72.45510272 38.6875 76.8125 C39.49397619 108.73115191 42.19992181 139.06430556 66.3359375 162.734375 C70.00595213 165.97764375 73.95948905 168.8070311 77.953125 171.63671875 C82.9917218 175.64600221 85.36027289 179.29625985 86.48828125 185.546875 C86.87339201 189.92656604 85.95121208 193.0673738 83.375 196.625 C77.90943725 202.72120461 70.88920791 205.2992975 63.3359375 208.01953125 C50.85398343 212.53885945 45.98921795 218.32090001 39.01953125 229.25390625 C33.70859595 237.46871692 27.49316695 242.9501775 17.75 245.25 C10.388348 246.38875554 3.34927772 245.1730557 -3.875 243.6875 C-10.12959473 242.53978632 -15.95813152 241.87814751 -21.65625 245.1640625 C-25.54523688 248.08080266 -28.92792527 251.39678091 -32.3125 254.875 C-40.66120582 263.40519942 -50.43310595 268.95599728 -62.5 269.25 C-73.76530721 268.87286769 -82.79467839 262.91379118 -90.50390625 254.9375 C-92.75099008 252.29729783 -94.73016862 249.50490583 -96.75 246.6875 C-101.32320213 240.49429915 -105.56878234 236.26373689 -113.3125 234.875 C-116.79371116 234.61863174 -119.69589039 235.36413376 -123.0546875 236.3125 C-130.93101016 238.05673754 -138.12014382 237.43490546 -145.13671875 233.40625 C-151.75307285 228.55980032 -154.82181713 221.11947486 -158.2109375 213.86328125 C-163.63290399 205.99235963 -172.98560762 204.06453593 -181.7109375 201.49609375 C-188.522037 199.37992844 -193.06039335 197.11558975 -197.1875 191.0625 C-199.03855323 185.71501288 -199.07285512 181.04883859 -197.25 175.6875 C-193.32438105 169.86238801 -188.78887337 165.98205892 -182.8125 162.3125 C-169.50322089 154.0690993 -162.68158781 141.23950933 -157.3125 126.8125 C-156.95414063 125.96300781 -156.59578125 125.11351562 -156.2265625 124.23828125 C-150.92114519 110.57583443 -150.52313764 94.93878212 -149.65063477 80.45727539 C-147.95656368 52.97761837 -140.00209136 27.24778404 -119.52734375 7.74609375 C-86.66535611 -20.94294308 -36.187531 -25.86861612 0 0Z" fill="#FFF0E6" transform="translate(293.3125,126.1875)">
+        <animateTransform attributeName="transform" type="scale"
+          values="1;1.03;1;1.01;1" additive="sum"
+          dur="3s" repeatCount="indefinite" calcMode="spline"
+          keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"/>
+      </path>
 
-            <!-- Ghost body - fire element warm peach -->
-            <path
-                d="M0 0 C20.10256691 16.26024803 34.87819428 37.57947896 38.1875 63.76953125 C38.46074249 68.12006401 38.59879554 72.45510272 38.6875 76.8125 C39.49397619 108.73115191 42.19992181 139.06430556 66.3359375 162.734375 C70.00595213 165.97764375 73.95948905 168.8070311 77.953125 171.63671875 C82.9917218 175.64600221 85.36027289 179.29625985 86.48828125 185.546875 C86.87339201 189.92656604 85.95121208 193.0673738 83.375 196.625 C77.90943725 202.72120461 70.88920791 205.2992975 63.3359375 208.01953125 C50.85398343 212.53885945 45.98921795 218.32090001 39.01953125 229.25390625 C33.70859595 237.46871692 27.49316695 242.9501775 17.75 245.25 C10.388348 246.38875554 3.34927772 245.1730557 -3.875 243.6875 C-10.12959473 242.53978632 -15.95813152 241.87814751 -21.65625 245.1640625 C-25.54523688 248.08080266 -28.92792527 251.39678091 -32.3125 254.875 C-40.66120582 263.40519942 -50.43310595 268.95599728 -62.5 269.25 C-73.76530721 268.87286769 -82.79467839 262.91379118 -90.50390625 254.9375 C-92.75099008 252.29729783 -94.73016862 249.50490583 -96.75 246.6875 C-101.32320213 240.49429915 -105.56878234 236.26373689 -113.3125 234.875 C-116.79371116 234.61863174 -119.69589039 235.36413376 -123.0546875 236.3125 C-130.93101016 238.05673754 -138.12014382 237.43490546 -145.13671875 233.40625 C-151.75307285 228.55980032 -154.82181713 221.11947486 -158.2109375 213.86328125 C-163.63290399 205.99235963 -172.98560762 204.06453593 -181.7109375 201.49609375 C-188.522037 199.37992844 -193.06039335 197.11558975 -197.1875 191.0625 C-199.03855323 185.71501288 -199.07285512 181.04883859 -197.25 175.6875 C-193.32438105 169.86238801 -188.78887337 165.98205892 -182.8125 162.3125 C-169.50322089 154.0690993 -162.68158781 141.23950933 -157.3125 126.8125 C-156.95414063 125.96300781 -156.59578125 125.11351562 -156.2265625 124.23828125 C-150.92114519 110.57583443 -150.52313764 94.93878212 -149.65063477 80.45727539 C-147.95656368 52.97761837 -140.00209136 27.24778404 -119.52734375 7.74609375 C-86.66535611 -20.94294308 -36.187531 -25.86861612 0 0Z"
-                fill="#FFF0E6"
-                transform="translate(293.3125,126.1875)"
-            >
-                <animateTransform
-                    attributeName="transform"
-                    type="scale"
-                    values="1;1.03;1;1.01;1"
-                    additive="sum"
-                    dur="3s"
-                    repeatCount="indefinite"
-                    calcMode="spline"
-                    keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
-                />
-            </path>
+      <!-- Grand crown with ruby jewels -->
+      <g transform="translate(244,125)">
+        <!-- Crown base -->
+        <rect x="-40" y="0" width="80" height="15" rx="4" fill="#ECC94B"/>
+        <!-- Crown points (5 ornate peaks) -->
+        <polygon points="-40,0 -30,-24 -20,0" fill="#D69E2E"/>
+        <polygon points="-20,0 -10,-29 0,0" fill="#ECC94B"/>
+        <polygon points="0,0 10,-34 20,0" fill="#D69E2E"/>
+        <polygon points="20,0 30,-29 40,0" fill="#ECC94B"/>
+        <!-- Central large ruby -->
+        <circle cx="10" cy="-24" r="4.5" fill="#E53E3E">
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Side rubies -->
+        <circle cx="-20" cy="-16" r="3" fill="#FC8181">
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" begin="0.3s"/>
+        </circle>
+        <circle cx="30" cy="-18" r="3" fill="#FC8181">
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" begin="0.6s"/>
+        </circle>
+        <!-- Crown glint -->
+        <line x1="-26" y1="-8" x2="-18" y2="-3" stroke="#FFF" stroke-width="1.5" opacity="0.4">
+          <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2.5s" repeatCount="indefinite"/>
+        </line>
+      </g>
 
-            <!-- Grand crown with ruby jewels -->
-            <g transform="translate(244,125)">
-                <!-- Crown base -->
-                <rect x="-40" y="0" width="80" height="15" rx="4" fill="#ECC94B" />
-                <!-- Crown points (5 ornate peaks) -->
-                <polygon points="-40,0 -30,-24 -20,0" fill="#D69E2E" />
-                <polygon points="-20,0 -10,-29 0,0" fill="#ECC94B" />
-                <polygon points="0,0 10,-34 20,0" fill="#D69E2E" />
-                <polygon points="20,0 30,-29 40,0" fill="#ECC94B" />
-                <!-- Central large ruby -->
-                <circle cx="10" cy="-24" r="4.5" fill="#E53E3E">
-                    <animate
-                        attributeName="opacity"
-                        values="0.7;1;0.7"
-                        dur="1.8s"
-                        repeatCount="indefinite"
-                    />
-                </circle>
-                <!-- Side rubies -->
-                <circle cx="-20" cy="-16" r="3" fill="#FC8181">
-                    <animate
-                        attributeName="opacity"
-                        values="0.6;1;0.6"
-                        dur="2s"
-                        repeatCount="indefinite"
-                        begin="0.3s"
-                    />
-                </circle>
-                <circle cx="30" cy="-18" r="3" fill="#FC8181">
-                    <animate
-                        attributeName="opacity"
-                        values="0.6;1;0.6"
-                        dur="2s"
-                        repeatCount="indefinite"
-                        begin="0.6s"
-                    />
-                </circle>
-                <!-- Crown glint -->
-                <line
-                    x1="-26"
-                    y1="-8"
-                    x2="-18"
-                    y2="-3"
-                    stroke="#FFF"
-                    stroke-width="1.5"
-                    opacity="0.4"
-                >
-                    <animate
-                        attributeName="opacity"
-                        values="0.2;0.6;0.2"
-                        dur="2.5s"
-                        repeatCount="indefinite"
-                    />
-                </line>
-            </g>
-
-            <!-- Golden scepter with heart gem (right side) -->
-            <g transform="translate(340,215) rotate(-15)">
-                <!-- Scepter rod -->
-                <rect x="-3" y="-35" width="6" height="70" rx="3" fill="#ECC94B" />
-                <!-- Heart gem at top -->
-                <g transform="translate(0,-42)">
-                    <path
-                        d="M0,2.8 C0,0.7 -2.1,-2.1 -4.9,-2.1 C-7.7,-2.1 -9.8,0.7 -9.8,2.8 C-9.8,7.7 0,12.6 0,12.6 C0,12.6 9.8,7.7 9.8,2.8 C9.8,0.7 7.7,-2.1 4.9,-2.1 C2.1,-2.1 0,0.7 0,2.8Z"
-                        fill="#E53E3E"
-                    />
-                    <animate
-                        attributeName="opacity"
-                        values="0.8;1;0.8"
-                        dur="2s"
-                        repeatCount="indefinite"
-                    />
-                </g>
-                <!-- Scepter orb base -->
-                <circle cx="0" cy="-30" r="6" fill="#D69E2E" />
-            </g>
-
-            <!-- Left eye - proud, warm -->
-            <g transform="translate(205,188)">
-                <ellipse cx="0" cy="0" rx="10" ry="7" fill="#27183f" />
-                <circle cx="2" cy="-1" r="3" fill="#FFF" opacity="0.9" />
-                <circle cx="0" cy="0" r="1.5" fill="#FFD700" opacity="0.4" />
-                <line
-                    x1="-10"
-                    y1="-12"
-                    x2="8"
-                    y2="-10"
-                    stroke="#27183f"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                />
-            </g>
-
-            <!-- Right eye - proud, warm -->
-            <g transform="translate(278,188)">
-                <ellipse cx="0" cy="0" rx="10" ry="7" fill="#27183f" />
-                <circle cx="2" cy="-1" r="3" fill="#FFF" opacity="0.9" />
-                <circle cx="0" cy="0" r="1.5" fill="#FFD700" opacity="0.4" />
-                <line
-                    x1="-8"
-                    y1="-10"
-                    x2="10"
-                    y2="-12"
-                    stroke="#27183f"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                />
-            </g>
-
-            <!-- Rosy cheeks -->
-            <ellipse cx="185" cy="218" rx="14" ry="8" fill="#FF8EC6" opacity="0.4">
-                <animate
-                    attributeName="opacity"
-                    values="0.3;0.5;0.3"
-                    dur="2s"
-                    repeatCount="indefinite"
-                />
-            </ellipse>
-            <ellipse cx="300" cy="218" rx="14" ry="8" fill="#FF8EC6" opacity="0.4">
-                <animate
-                    attributeName="opacity"
-                    values="0.3;0.5;0.3"
-                    dur="2s"
-                    repeatCount="indefinite"
-                    begin="0.4s"
-                />
-            </ellipse>
-
-            <!-- Mouth - proud wide grin -->
-            <path
-                d="M215,244 Q248,272 280,244"
-                fill="#27183f"
-                stroke="#27183f"
-                stroke-width="1"
-            >
-                <animate
-                    attributeName="d"
-                    values="M215,244 Q248,272 280,244;M213,244 Q248,276 282,244;M215,244 Q248,272 280,244"
-                    dur="3s"
-                    repeatCount="indefinite"
-                    calcMode="spline"
-                    keySplines="0.45 0 0.55 1;0.45 0 0.55 1"
-                />
-            </path>
-
-            <!-- Leo zodiac symbol -->
-            <g transform="translate(365,160)">
-                <text
-                    font-family="serif"
-                    font-size="20"
-                    fill="#D69E2E"
-                    text-anchor="middle"
-                    dominant-baseline="central"
-                >
-                    &#x264C;
-                </text>
-                <animate
-                    attributeName="opacity"
-                    values="0.5;1;0.5"
-                    dur="2.5s"
-                    repeatCount="indefinite"
-                />
-            </g>
-
-            <!-- Floating golden stars -->
-            <path
-                d="M0,-5 L1.5,-1.5 L5,0 L1.5,1.5 L0,5 L-1.5,1.5 L-5,0 L-1.5,-1.5Z"
-                fill="#FFD700"
-                transform="translate(350,115)"
-            >
-                <animate
-                    attributeName="opacity"
-                    values="0;1;0"
-                    dur="1.5s"
-                    repeatCount="indefinite"
-                />
-                <animateTransform
-                    attributeName="transform"
-                    type="scale"
-                    values="0.5;1.2;0.5"
-                    dur="1.5s"
-                    repeatCount="indefinite"
-                    additive="sum"
-                />
-            </path>
-            <path
-                d="M0,-4 L1.2,-1.2 L4,0 L1.2,1.2 L0,4 L-1.2,1.2 L-4,0 L-1.2,-1.2Z"
-                fill="#F6AD55"
-                transform="translate(155,130)"
-            >
-                <animate
-                    attributeName="opacity"
-                    values="0;0.9;0"
-                    dur="2s"
-                    repeatCount="indefinite"
-                    begin="0.6s"
-                />
-                <animateTransform
-                    attributeName="transform"
-                    type="scale"
-                    values="0.5;1.3;0.5"
-                    dur="2s"
-                    repeatCount="indefinite"
-                    begin="0.6s"
-                    additive="sum"
-                />
-            </path>
-            <path
-                d="M0,-3 L0.9,-0.9 L3,0 L0.9,0.9 L0,3 L-0.9,0.9 L-3,0 L-0.9,-0.9Z"
-                fill="#FFD700"
-                transform="translate(360,250)"
-            >
-                <animate
-                    attributeName="opacity"
-                    values="0;0.8;0"
-                    dur="1.8s"
-                    repeatCount="indefinite"
-                    begin="1s"
-                />
-                <animateTransform
-                    attributeName="transform"
-                    type="scale"
-                    values="0.5;1.1;0.5"
-                    dur="1.8s"
-                    repeatCount="indefinite"
-                    begin="1s"
-                    additive="sum"
-                />
-            </path>
+      <!-- Golden scepter with heart gem (right side) -->
+      <g transform="translate(340,215) rotate(-15)">
+        <!-- Scepter rod -->
+        <rect x="-3" y="-35" width="6" height="70" rx="3" fill="#ECC94B"/>
+        <!-- Heart gem at top -->
+        <g transform="translate(0,-42)">
+          <path d="M0,2.8 C0,0.7 -2.1,-2.1 -4.9,-2.1 C-7.7,-2.1 -9.8,0.7 -9.8,2.8 C-9.8,7.7 0,12.6 0,12.6 C0,12.6 9.8,7.7 9.8,2.8 C9.8,0.7 7.7,-2.1 4.9,-2.1 C2.1,-2.1 0,0.7 0,2.8Z" fill="#E53E3E"/>
+          <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
         </g>
+        <!-- Scepter orb base -->
+        <circle cx="0" cy="-30" r="6" fill="#D69E2E"/>
+      </g>
+
+      <!-- Left eye - proud, warm -->
+      <g transform="translate(205,188)">
+        <ellipse cx="0" cy="0" rx="10" ry="7" fill="#27183f"/>
+        <circle cx="2" cy="-1" r="3" fill="#FFF" opacity="0.9"/>
+        <circle cx="0" cy="0" r="1.5" fill="#FFD700" opacity="0.4"/>
+        <line x1="-10" y1="-12" x2="8" y2="-10" stroke="#27183f" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+
+      <!-- Right eye - proud, warm -->
+      <g transform="translate(278,188)">
+        <ellipse cx="0" cy="0" rx="10" ry="7" fill="#27183f"/>
+        <circle cx="2" cy="-1" r="3" fill="#FFF" opacity="0.9"/>
+        <circle cx="0" cy="0" r="1.5" fill="#FFD700" opacity="0.4"/>
+        <line x1="-8" y1="-10" x2="10" y2="-12" stroke="#27183f" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+
+      <!-- Rosy cheeks -->
+      <ellipse cx="185" cy="218" rx="14" ry="8" fill="#FF8EC6" opacity="0.4">
+        <animate attributeName="opacity" values="0.3;0.5;0.3" dur="2s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="300" cy="218" rx="14" ry="8" fill="#FF8EC6" opacity="0.4">
+        <animate attributeName="opacity" values="0.3;0.5;0.3" dur="2s" repeatCount="indefinite" begin="0.4s"/>
+      </ellipse>
+
+      <!-- Mouth - proud wide grin -->
+      <path d="M215,244 Q248,272 280,244" fill="#27183f" stroke="#27183f" stroke-width="1">
+        <animate attributeName="d"
+          values="M215,244 Q248,272 280,244;M213,244 Q248,276 282,244;M215,244 Q248,272 280,244"
+          dur="3s" repeatCount="indefinite" calcMode="spline"
+          keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+      </path>
+
+      <!-- Leo zodiac symbol -->
+      <g transform="translate(365,160)">
+        <text font-family="serif" font-size="20" fill="#D69E2E" text-anchor="middle" dominant-baseline="central">&#x264C;</text>
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/>
+      </g>
+
+      <!-- Floating golden stars -->
+      <path d="M0,-5 L1.5,-1.5 L5,0 L1.5,1.5 L0,5 L-1.5,1.5 L-5,0 L-1.5,-1.5Z" fill="#FFD700" transform="translate(350,115)">
+        <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="scale"
+          values="0.5;1.2;0.5" dur="1.5s" repeatCount="indefinite" additive="sum"/>
+      </path>
+      <path d="M0,-4 L1.2,-1.2 L4,0 L1.2,1.2 L0,4 L-1.2,1.2 L-4,0 L-1.2,-1.2Z" fill="#F6AD55" transform="translate(155,130)">
+        <animate attributeName="opacity" values="0;0.9;0" dur="2s" repeatCount="indefinite" begin="0.6s"/>
+        <animateTransform attributeName="transform" type="scale"
+          values="0.5;1.3;0.5" dur="2s" repeatCount="indefinite" begin="0.6s" additive="sum"/>
+      </path>
+      <path d="M0,-3 L0.9,-0.9 L3,0 L0.9,0.9 L0,3 L-0.9,0.9 L-3,0 L-0.9,-0.9Z" fill="#FFD700" transform="translate(360,250)">
+        <animate attributeName="opacity" values="0;0.8;0" dur="1.8s" repeatCount="indefinite" begin="1s"/>
+        <animateTransform attributeName="transform" type="scale"
+          values="0.5;1.1;0.5" dur="1.8s" repeatCount="indefinite" begin="1s" additive="sum"/>
+      </path>
+
     </g>
+  </g>
 </svg>

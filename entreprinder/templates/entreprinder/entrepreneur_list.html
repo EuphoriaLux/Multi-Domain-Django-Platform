@@ -1,92 +1,77 @@
-{% extends "base.html" %} {% load static i18n %} {% block title %}{% trans "Find
-Entrepreneurs - Entreprinder" %}{% endblock %} {% block content %}
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Find Entrepreneurs - Entreprinder" %}{% endblock %}
+
+{% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{% trans "Find Entrepreneurs" %}</h1>
 
     <div class="row">
         {% for profile in profiles %}
-        <div class="col-md-4 entrepreneur-card mb-4">
-            <div class="card">
-                {% if profile.profile_picture %}
-                <img
-                    src="{{ profile.profile_picture.url }}"
-                    class="card-img-top"
-                    alt="{% blocktrans with username=profile.user.username %}{{ username }}'s profile picture{% endblocktrans %}"
-                />
-                {% else %}
-                <img
-                    src="{{ POWERUP_DEFAULT_PROFILE_URL }}"
-                    class="card-img-top"
-                    alt="{% trans 'Default profile picture' %}"
-                />
-                {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title">
-                        {{ profile.user.get_full_name|default:profile.user.username }}
-                    </h5>
-                    <p class="card-text">
-                        <strong>{% trans "Industry:" %}</strong> {{ profile.industry }}
-                    </p>
-                    <p class="card-text">
-                        <strong>{% trans "Company:" %}</strong> {{ profile.company }}
-                    </p>
-                    <p class="card-text">{{ profile.bio|truncatewords:20 }}</p>
-                    <button
-                        class="btn btn-primary like-button"
-                        data-profile-id="{{ profile.id }}"
-                    >
-                        {% trans "Like" %}
-                    </button>
-                    <div class="loading-spinner" style="display: none">
-                        {% trans "Loading..." %}
+            <div class="col-md-4 mb-4 entrepreneur-card">
+                <div class="card">
+                    {% if profile.profile_picture %}
+                        <img src="{{ profile.profile_picture.url }}" class="card-img-top" alt="{% blocktrans with username=profile.user.username %}{{ username }}'s profile picture{% endblocktrans %}">
+                    {% else %}
+                        <img src="{{ POWERUP_DEFAULT_PROFILE_URL }}" class="card-img-top" alt="{% trans 'Default profile picture' %}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ profile.user.get_full_name|default:profile.user.username }}</h5>
+                        <p class="card-text"><strong>{% trans "Industry:" %}</strong> {{ profile.industry }}</p>
+                        <p class="card-text"><strong>{% trans "Company:" %}</strong> {{ profile.company }}</p>
+                        <p class="card-text">{{ profile.bio|truncatewords:20 }}</p>
+                        <button class="btn btn-primary like-button" data-profile-id="{{ profile.id }}">{% trans "Like" %}</button>
+                        <div class="loading-spinner" style="display: none;">{% trans "Loading..." %}</div>
                     </div>
                 </div>
             </div>
-        </div>
         {% empty %}
-        <div class="col-12">
-            <p>{% trans "No more entrepreneurs to show at the moment." %}</p>
-        </div>
+            <div class="col-12">
+                <p>{% trans "No more entrepreneurs to show at the moment." %}</p>
+            </div>
         {% endfor %}
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const likeButtons = document.querySelectorAll('.like-button');
-        likeButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const profileId = this.dataset.profileId;
-                fetch('{% url "entreprinder:swipe_action" %}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({
-                        profile_id: profileId,
-                        action: 'like'
-                    })
+document.addEventListener('DOMContentLoaded', function() {
+    const likeButtons = document.querySelectorAll('.like-button');
+    likeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const profileId = this.dataset.profileId;
+            fetch('{% url "entreprinder:swipe_action" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    profile_id: profileId,
+                    action: 'like'
                 })
-                .then(response => response.json())
-                .then(data => {
-                    this.querySelector('.loading-spinner').style.display = 'none';
-                    if (data.status === 'match') {
-                        alert("{% trans "It's a match!" %}");
-                    }
-                    if (data.status === 'no_more_profiles') {
-                        window.location.href = data.redirect_url;
-                    } else {
-                        // Remove the liked profile from the list
-                        this.closest('.entrepreneur-card').remove();
-                    }
-                })
-                .catch(error => {
-                    this.querySelector('.loading-spinner').style.display = 'none';
-                    console.error('Error:', error);
-                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.querySelector('.loading-spinner').style.display = 'none';
+                if (data.status === 'match') {
+                    alert("{% trans "It's a match!" %}");
+                }
+                if (data.status === 'no_more_profiles') {
+                    window.location.href = data.redirect_url;
+                } else {
+                    // Remove the liked profile from the list
+                    this.closest('.entrepreneur-card').remove();
+                }
+            })
+            .catch(error => {
+                this.querySelector('.loading-spinner').style.display = 'none';
+                console.error('Error:', error);
             });
         });
     });
+});
 </script>
 {% endblock %}

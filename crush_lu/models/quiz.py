@@ -18,7 +18,9 @@ class QuizEvent(models.Model):
         on_delete=models.CASCADE,
         related_name="quiz",
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="draft")
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default="draft"
+    )
     current_round = models.ForeignKey(
         "QuizRound",
         on_delete=models.SET_NULL,
@@ -91,7 +93,9 @@ class QuizEvent(models.Model):
 class QuizRound(models.Model):
     """A named round within a quiz (e.g., 'Round 1: Movies')."""
 
-    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="rounds")
+    quiz = models.ForeignKey(
+        QuizEvent, on_delete=models.CASCADE, related_name="rounds"
+    )
     title = models.CharField(max_length=200)
     sort_order = models.PositiveIntegerField(default=0)
     time_per_question = models.PositiveIntegerField(
@@ -151,7 +155,9 @@ class QuizQuestion(models.Model):
 class QuizTable(models.Model):
     """A group of participants at a physical table during the quiz."""
 
-    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="tables")
+    quiz = models.ForeignKey(
+        QuizEvent, on_delete=models.CASCADE, related_name="tables"
+    )
     table_number = models.PositiveIntegerField()
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -184,7 +190,9 @@ class QuizTableMembership(models.Model):
     table = models.ForeignKey(
         QuizTable, on_delete=models.CASCADE, related_name="memberships"
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -211,7 +219,9 @@ class QuizRotationSchedule(models.Model):
     table = models.ForeignKey(
         QuizTable, on_delete=models.CASCADE, related_name="rotation_entries"
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
+    )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     rotation_group = models.CharField(
         max_length=1,
@@ -254,15 +264,15 @@ class TableRoundScore(models.Model):
 
     def __str__(self):
         status = "correct" if self.is_correct else "incorrect"
-        return (
-            f"Table {self.table.table_number} - Q{self.question.sort_order} - {status}"
-        )
+        return f"Table {self.table.table_number} - Q{self.question.sort_order} - {status}"
 
 
 class IndividualScore(models.Model):
     """Score per user per question."""
 
-    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="scores")
+    quiz = models.ForeignKey(
+        QuizEvent, on_delete=models.CASCADE, related_name="scores"
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -271,7 +281,9 @@ class IndividualScore(models.Model):
     question = models.ForeignKey(
         QuizQuestion, on_delete=models.CASCADE, related_name="scores"
     )
-    answer = models.JSONField(default=str, blank=True, help_text=_("The chosen answer"))
+    answer = models.JSONField(
+        default=str, blank=True, help_text=_("The chosen answer")
+    )
     is_correct = models.BooleanField(default=False)
     points_earned = models.PositiveIntegerField(default=0)
     answered_at = models.DateTimeField(auto_now_add=True)

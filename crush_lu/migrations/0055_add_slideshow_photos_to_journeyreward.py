@@ -6,17 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0054_migrate_options_to_en"),
+        ('crush_lu', '0054_migrate_options_to_en'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="journeyreward",
-            name="slideshow_photos",
-            field=models.JSONField(
-                blank=True,
-                default=list,
-                help_text="Additional photos for slideshow rewards (up to 5 images)",
-            ),
+            model_name='journeyreward',
+            name='slideshow_photos',
+            field=models.JSONField(blank=True, default=list, help_text='Additional photos for slideshow rewards (up to 5 images)'),
         ),
     ]

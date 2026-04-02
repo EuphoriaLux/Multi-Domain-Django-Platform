@@ -7,13 +7,14 @@ Tests error scenarios for:
 - Challenge answer edge cases
 - Gift claiming failures and retry mechanism
 """
-
 import json
 import pytest
 from datetime import date, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 
 from crush_lu.models import (
     JourneyGift,
@@ -21,6 +22,8 @@ from crush_lu.models import (
     JourneyChapter,
     JourneyChallenge,
     JourneyReward,
+    JourneyProgress,
+    ChapterProgress,
     SpecialUserExperience,
 )
 from crush_lu.utils.journey_validation import (
@@ -43,15 +46,10 @@ def mock_azure_storage():
 
     This mocks the actual AzureStorage backend so file field saves don't hit Azure.
     """
-    with patch(
-        "storages.backends.azure_storage.AzureStorage._save"
-    ) as mock_save, patch(
-        "storages.backends.azure_storage.AzureStorage._open"
-    ) as mock_open, patch(
-        "storages.backends.azure_storage.AzureStorage.url"
-    ) as mock_url, patch(
-        "storages.backends.azure_storage.AzureStorage.exists"
-    ) as mock_exists:
+    with patch('storages.backends.azure_storage.AzureStorage._save') as mock_save, \
+         patch('storages.backends.azure_storage.AzureStorage._open') as mock_open, \
+         patch('storages.backends.azure_storage.AzureStorage.url') as mock_url, \
+         patch('storages.backends.azure_storage.AzureStorage.exists') as mock_exists:
         mock_save.return_value = "mocked/path/file.jpg"
         mock_url.return_value = "https://mocked.url/file.jpg"
         mock_exists.return_value = True
@@ -67,7 +65,9 @@ def mock_azure_storage():
 def sender_user(db):
     """Create a user who will send gifts."""
     return User.objects.create_user(
-        username="sender", email="sender@example.com", password="testpass123"
+        username='sender',
+        email='sender@example.com',
+        password='testpass123'
     )
 
 
@@ -75,7 +75,9 @@ def sender_user(db):
 def recipient_user(db):
     """Create a user who will receive gifts."""
     return User.objects.create_user(
-        username="recipient", email="recipient@example.com", password="testpass123"
+        username='recipient',
+        email='recipient@example.com',
+        password='testpass123'
     )
 
 
@@ -102,7 +104,7 @@ def journey_config(db):
     )
     return JourneyConfiguration.objects.create(
         special_experience=special_exp,
-        journey_type="wonderland",
+        journey_type='wonderland',
         journey_name="Test Journey",
         total_chapters=6,
         date_first_met=date.today() - timedelta(days=365),
@@ -129,7 +131,7 @@ def journey_challenge(journey_chapter):
     return JourneyChallenge.objects.create(
         chapter=journey_chapter,
         challenge_order=1,
-        challenge_type="open_text",
+        challenge_type='open_text',
         question="What is the answer?",
         correct_answer="test answer",
         alternative_answers=[],
@@ -152,14 +154,10 @@ class TestGiftClaimingErrors:
         initial_attempts = journey_gift.claim_attempts
 
         # Simulate a claim failure by mocking SpecialUserExperience creation
-        with patch(
-            "crush_lu.models.profiles.SpecialUserExperience.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.profiles.SpecialUserExperience.objects.create') as mock_create:
             mock_create.side_effect = Exception("Database error")
 
-            with pytest.raises(
-                ValueError, match="Failed to create/update SpecialUserExperience"
-            ):
+            with pytest.raises(ValueError, match="Failed to create/update SpecialUserExperience"):
                 journey_gift.claim(recipient_user)
 
         journey_gift.refresh_from_db()
@@ -167,9 +165,7 @@ class TestGiftClaimingErrors:
 
     def test_claim_marks_failed_on_error(self, journey_gift, recipient_user):
         """Test that failed claims are marked with CLAIM_FAILED status."""
-        with patch(
-            "crush_lu.models.profiles.SpecialUserExperience.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.profiles.SpecialUserExperience.objects.create') as mock_create:
             mock_create.side_effect = Exception("Database error")
 
             with pytest.raises(ValueError):
@@ -177,17 +173,12 @@ class TestGiftClaimingErrors:
 
         journey_gift.refresh_from_db()
         assert journey_gift.status == JourneyGift.Status.CLAIM_FAILED
-        assert (
-            "Failed to create/update SpecialUserExperience"
-            in journey_gift.claim_error_message
-        )
+        assert "Failed to create/update SpecialUserExperience" in journey_gift.claim_error_message
 
     def test_claim_retry_allowed_after_failure(self, journey_gift, recipient_user):
         """Test that gifts can be retried after failure."""
         # Simulate first failure
-        with patch(
-            "crush_lu.models.profiles.SpecialUserExperience.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.profiles.SpecialUserExperience.objects.create') as mock_create:
             mock_create.side_effect = Exception("Temporary error")
 
             with pytest.raises(ValueError):
@@ -213,9 +204,7 @@ class TestGiftClaimingErrors:
         """Test that error messages are stored for debugging."""
         error_msg = "Custom error message for testing"
 
-        with patch(
-            "crush_lu.models.journey.JourneyConfiguration.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.journey.JourneyConfiguration.objects.create') as mock_create:
             mock_create.side_effect = Exception(error_msg)
 
             with pytest.raises(ValueError):
@@ -234,16 +223,9 @@ class TestGiftClaimingErrors:
 class TestMediaAttachmentErrors:
     """Test error handling in media attachment process."""
 
-    @patch("crush_lu.models.journey_gift.get_crush_photo_storage")
-    @patch("crush_lu.models.profiles.get_crush_photo_storage")
-    def test_chapter1_critical_failure_rollback(
-        self,
-        mock_storage_profiles,
-        mock_storage_gift,
-        journey_gift,
-        recipient_user,
-        journey_config,
-    ):
+    @patch('crush_lu.models.journey_gift.get_crush_photo_storage')
+    @patch('crush_lu.models.profiles.get_crush_photo_storage')
+    def test_chapter1_critical_failure_rollback(self, mock_storage_profiles, mock_storage_gift, journey_gift, recipient_user, journey_config):
         """Test that critical Chapter 1 image failure triggers rollback."""
         # Mock storage for both profiles and journey_gift modules
         mock_storage_instance = Mock()
@@ -253,33 +235,29 @@ class TestMediaAttachmentErrors:
 
         # Add Chapter 1 image to gift
         journey_gift.chapter1_image = SimpleUploadedFile(
-            "test.jpg", b"fake image content", content_type="image/jpeg"
+            "test.jpg",
+            b"fake image content",
+            content_type="image/jpeg"
         )
         journey_gift.save()
 
         # Mock storage save to fail
-        with patch(
-            "crush_lu.models.journey.JourneyReward.objects.filter"
-        ) as mock_filter:
+        with patch('crush_lu.models.journey.JourneyReward.objects.filter') as mock_filter:
             # Simulate reward found but save fails
             mock_reward = Mock()
             mock_reward.photo.save.side_effect = Exception("Storage failure")
             mock_filter.return_value.first.return_value = mock_reward
 
-            with pytest.raises(
-                ValueError, match="Media attachment failed unexpectedly"
-            ):
+            with pytest.raises(ValueError, match="Media attachment failed unexpectedly"):
                 journey_gift.claim(recipient_user)
 
         journey_gift.refresh_from_db()
         assert journey_gift.status == JourneyGift.Status.CLAIM_FAILED
         assert "Storage failure" in journey_gift.claim_error_message
 
-    @patch("crush_lu.models.journey_gift.get_crush_photo_storage")
-    @patch("crush_lu.models.profiles.get_crush_photo_storage")
-    def test_chapter3_partial_failure_continues(
-        self, mock_storage_profiles, mock_storage_gift, journey_gift, recipient_user
-    ):
+    @patch('crush_lu.models.journey_gift.get_crush_photo_storage')
+    @patch('crush_lu.models.profiles.get_crush_photo_storage')
+    def test_chapter3_partial_failure_continues(self, mock_storage_profiles, mock_storage_gift, journey_gift, recipient_user):
         """Test that partial Chapter 3 slideshow failures don't block claim."""
         # Mock storage to avoid Azure errors
         mock_storage_instance = Mock()
@@ -291,8 +269,8 @@ class TestMediaAttachmentErrors:
         for i in range(3):
             setattr(
                 journey_gift,
-                f"chapter3_image_{i + 1}",
-                SimpleUploadedFile(f"test{i}.jpg", b"fake", content_type="image/jpeg"),
+                f'chapter3_image_{i + 1}',
+                SimpleUploadedFile(f"test{i}.jpg", b"fake", content_type="image/jpeg")
             )
         journey_gift.save()
 
@@ -306,15 +284,12 @@ class TestMediaAttachmentErrors:
         # This tests the retry logic in _attach_media_to_rewards
         # We'll verify the method signature supports retry parameter
         import inspect
-
         sig = inspect.signature(journey_gift._attach_media_to_rewards)
-        assert "max_retries" in sig.parameters
+        assert 'max_retries' in sig.parameters
 
-    @patch("crush_lu.models.journey_gift.get_crush_photo_storage")
-    @patch("crush_lu.models.profiles.get_crush_photo_storage")
-    def test_media_attachment_returns_results(
-        self, mock_storage_profiles, mock_storage_gift, journey_gift, journey_config
-    ):
+    @patch('crush_lu.models.journey_gift.get_crush_photo_storage')
+    @patch('crush_lu.models.profiles.get_crush_photo_storage')
+    def test_media_attachment_returns_results(self, mock_storage_profiles, mock_storage_gift, journey_gift, journey_config):
         """Test that media attachment returns detailed results."""
         # Mock storage
         mock_storage_instance = Mock()
@@ -324,7 +299,9 @@ class TestMediaAttachmentErrors:
 
         # Add a test image
         journey_gift.chapter1_image = SimpleUploadedFile(
-            "test.jpg", b"fake image content", content_type="image/jpeg"
+            "test.jpg",
+            b"fake image content",
+            content_type="image/jpeg"
         )
         journey_gift.save()
 
@@ -335,10 +312,10 @@ class TestMediaAttachmentErrors:
         assert isinstance(results, list)
         # Each result should be a MediaAttachmentResult
         for result in results:
-            assert hasattr(result, "chapter")
-            assert hasattr(result, "success")
-            assert hasattr(result, "error_message")
-            assert hasattr(result, "is_critical")
+            assert hasattr(result, 'chapter')
+            assert hasattr(result, 'success')
+            assert hasattr(result, 'error_message')
+            assert hasattr(result, 'is_critical')
 
 
 # ==============================================================================
@@ -431,60 +408,64 @@ class TestTimelineEventValidation:
 
     def test_clean_structure_detected(self, journey_challenge):
         """Test that clean structure is properly detected."""
-        journey_challenge.options = {"events": [{"title_en": "Event 1"}]}
+        journey_challenge.options = {'events': [{'title_en': 'Event 1'}]}
         journey_challenge.save()
 
         from crush_lu.views_journey import _validate_timeline_structure
-
         result = _validate_timeline_structure(
-            journey_challenge, journey_challenge.options, "en"
+            journey_challenge,
+            journey_challenge.options,
+            'en'
         )
 
-        assert result["is_valid"]
-        assert result["structure_type"] == "clean"
+        assert result['is_valid']
+        assert result['structure_type'] == 'clean'
 
     def test_legacy_nested_structure_detected(self, journey_challenge):
         """Test that legacy nested structure is detected with warning."""
-        journey_challenge.options = {"events_en": [{"title_en": "Event 1"}]}
+        journey_challenge.options = {'events_en': [{'title_en': 'Event 1'}]}
         journey_challenge.save()
 
         from crush_lu.views_journey import _validate_timeline_structure
-
         result = _validate_timeline_structure(
-            journey_challenge, journey_challenge.options, "en"
+            journey_challenge,
+            journey_challenge.options,
+            'en'
         )
 
-        assert result["structure_type"] == "legacy_nested"
-        assert any("LEGACY" in w for w in result["warnings"])
+        assert result['structure_type'] == 'legacy_nested'
+        assert any('LEGACY' in w for w in result['warnings'])
 
     def test_mixed_structure_warning(self, journey_challenge):
         """Test that mixed structure produces warning."""
         journey_challenge.options = {
-            "events": [{"title_en": "Event 1"}],
-            "events_de": [{"title_de": "Event 1"}],
+            'events': [{'title_en': 'Event 1'}],
+            'events_de': [{'title_de': 'Event 1'}]
         }
         journey_challenge.save()
 
         from crush_lu.views_journey import _validate_timeline_structure
-
         result = _validate_timeline_structure(
-            journey_challenge, journey_challenge.options, "en"
+            journey_challenge,
+            journey_challenge.options,
+            'en'
         )
 
-        assert any("MIXED" in w for w in result["warnings"])
+        assert any('MIXED' in w for w in result['warnings'])
 
     def test_invalid_event_object_detected(self, journey_challenge):
         """Test that invalid event objects are detected."""
-        journey_challenge.options = {"events": ["not a dict", {"valid": "event"}]}
+        journey_challenge.options = {'events': ["not a dict", {"valid": "event"}]}
         journey_challenge.save()
 
         from crush_lu.views_journey import _validate_timeline_structure
-
         result = _validate_timeline_structure(
-            journey_challenge, journey_challenge.options, "en"
+            journey_challenge,
+            journey_challenge.options,
+            'en'
         )
 
-        assert any("not a dict" in w for w in result["warnings"])
+        assert any('not a dict' in w for w in result['warnings'])
 
 
 # ==============================================================================
@@ -500,12 +481,12 @@ class TestSlideshowPathStorage:
         """Test that relative paths are considered valid."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"path": "users/1/photos/test.jpg", "order": 0},
-                {"path": "users/1/photos/test2.jpg", "order": 1},
-            ],
+                {'path': 'users/1/photos/test.jpg', 'order': 0},
+                {'path': 'users/1/photos/test2.jpg', 'order': 1},
+            ]
         )
 
         is_valid, errors = reward.validate_slideshow_paths()
@@ -516,71 +497,71 @@ class TestSlideshowPathStorage:
         """Test that absolute paths trigger warnings."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"path": "/absolute/path/test.jpg", "order": 0},
-            ],
+                {'path': '/absolute/path/test.jpg', 'order': 0},
+            ]
         )
 
         is_valid, errors = reward.validate_slideshow_paths()
         assert not is_valid
-        assert any("absolute" in e.lower() for e in errors)
+        assert any('absolute' in e.lower() for e in errors)
 
     def test_windows_paths_invalid(self, journey_chapter):
         """Test that Windows-style paths are detected."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"path": "C:\\Users\\photos\\test.jpg", "order": 0},
-            ],
+                {'path': 'C:\\Users\\photos\\test.jpg', 'order': 0},
+            ]
         )
 
         is_valid, errors = reward.validate_slideshow_paths()
         assert not is_valid
-        assert any("absolute" in e.lower() for e in errors)
+        assert any('absolute' in e.lower() for e in errors)
 
     def test_missing_path_key_invalid(self, journey_chapter):
         """Test that missing 'path' key is detected."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"url": "some_url.jpg", "order": 0},  # Missing 'path'
-            ],
+                {'url': 'some_url.jpg', 'order': 0},  # Missing 'path'
+            ]
         )
 
         is_valid, errors = reward.validate_slideshow_paths()
         assert not is_valid
-        assert any("missing" in e.lower() and "path" in e.lower() for e in errors)
+        assert any('missing' in e.lower() and 'path' in e.lower() for e in errors)
 
     def test_invalid_order_type(self, journey_chapter):
         """Test that non-integer order values are detected."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"path": "users/1/photos/test.jpg", "order": "not an int"},
-            ],
+                {'path': 'users/1/photos/test.jpg', 'order': "not an int"},
+            ]
         )
 
         is_valid, errors = reward.validate_slideshow_paths()
         assert not is_valid
-        assert any("order" in e.lower() for e in errors)
+        assert any('order' in e.lower() for e in errors)
 
     def test_get_slideshow_urls_uses_storage(self, journey_chapter, mock_azure_storage):
         """Test that get_slideshow_urls uses storage backend."""
         reward = JourneyReward.objects.create(
             chapter=journey_chapter,
-            reward_type="photo_slideshow",
+            reward_type='photo_slideshow',
             title="Test Reward",
             slideshow_photos=[
-                {"path": "users/1/photos/test.jpg", "order": 0},
-            ],
+                {'path': 'users/1/photos/test.jpg', 'order': 0},
+            ]
         )
 
         # Call get_slideshow_urls - it should use the storage backend
@@ -590,10 +571,10 @@ class TestSlideshowPathStorage:
         assert isinstance(urls, list)
         assert len(urls) == 1
         # URLs are returned as dicts with 'url' and 'order' keys
-        assert "url" in urls[0]
-        assert "order" in urls[0]
+        assert 'url' in urls[0]
+        assert 'order' in urls[0]
         # Verify the path is present in the generated URL
-        assert "users/1/photos/test.jpg" in urls[0]["url"]
+        assert 'users/1/photos/test.jpg' in urls[0]['url']
 
 
 # ==============================================================================
@@ -608,9 +589,7 @@ class TestErrorHandlingIntegration:
     def test_failed_claim_can_be_retried(self, journey_gift, recipient_user):
         """Test that a failed claim can be successfully retried."""
         # First attempt fails
-        with patch(
-            "crush_lu.models.journey.JourneyConfiguration.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.journey.JourneyConfiguration.objects.create') as mock_create:
             mock_create.side_effect = Exception("Temporary database error")
 
             with pytest.raises(ValueError):
@@ -627,9 +606,7 @@ class TestErrorHandlingIntegration:
 
     def test_error_logging_structured(self, journey_gift, recipient_user, caplog):
         """Test that errors are logged with structured information."""
-        with patch(
-            "crush_lu.models.profiles.SpecialUserExperience.objects.create"
-        ) as mock_create:
+        with patch('crush_lu.models.profiles.SpecialUserExperience.objects.create') as mock_create:
             mock_create.side_effect = Exception("Test error")
 
             with pytest.raises(ValueError):
@@ -637,5 +614,6 @@ class TestErrorHandlingIntegration:
 
         # Verify structured logging
         assert any(
-            journey_gift.gift_code in record.message for record in caplog.records
+            journey_gift.gift_code in record.message
+            for record in caplog.records
         )

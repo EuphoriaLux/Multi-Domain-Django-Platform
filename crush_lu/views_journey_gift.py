@@ -29,7 +29,7 @@ def gift_create(request):
     A QR code is generated for sharing.
     If recipient email is provided, sends notification email with QR code.
     """
-    if request.method == "POST":
+    if request.method == 'POST':
         form = JourneyGiftForm(request.POST, request.FILES)
         if form.is_valid():
             # Create the gift
@@ -41,9 +41,7 @@ def gift_create(request):
             try:
                 save_gift_qr_code(gift)
             except Exception as e:
-                logger.warning(
-                    f"Failed to generate QR code for gift {gift.gift_code}: {e}"
-                )
+                logger.warning(f"Failed to generate QR code for gift {gift.gift_code}: {e}")
 
             # Send email notification if recipient email provided
             if gift.recipient_email:
@@ -52,38 +50,23 @@ def gift_create(request):
                     if email_sent:
                         messages.success(
                             request,
-                            _("Your gift has been created and sent to %(email)s!")
-                            % {"email": gift.recipient_email},
+                            _('Your gift has been created and sent to %(email)s!') % {'email': gift.recipient_email}
                         )
                     else:
-                        messages.success(
-                            request,
-                            _("Your gift has been created! Share the QR code below."),
-                        )
+                        messages.success(request, _('Your gift has been created! Share the QR code below.'))
                 except Exception as e:
-                    logger.error(
-                        f"Failed to send gift notification email: {e}", exc_info=True
-                    )
-                    messages.success(
-                        request,
-                        _("Your gift has been created! Share the QR code below."),
-                    )
+                    logger.error(f"Failed to send gift notification email: {e}", exc_info=True)
+                    messages.success(request, _('Your gift has been created! Share the QR code below.'))
             else:
-                messages.success(
-                    request, _("Your gift has been created! Share the QR code below.")
-                )
+                messages.success(request, _('Your gift has been created! Share the QR code below.'))
 
-            return redirect("crush_lu:gift_success", gift_code=gift.gift_code)
+            return redirect('crush_lu:gift_success', gift_code=gift.gift_code)
     else:
         form = JourneyGiftForm()
 
-    return render(
-        request,
-        "crush_lu/journey/gift_create.html",
-        {
-            "form": form,
-        },
-    )
+    return render(request, 'crush_lu/journey/gift_create.html', {
+        'form': form,
+    })
 
 
 @login_required
@@ -95,13 +78,9 @@ def gift_success(request, gift_code):
     """
     gift = get_object_or_404(JourneyGift, gift_code=gift_code, sender=request.user)
 
-    return render(
-        request,
-        "crush_lu/journey/gift_success.html",
-        {
-            "gift": gift,
-        },
-    )
+    return render(request, 'crush_lu/journey/gift_success.html', {
+        'gift': gift,
+    })
 
 
 def gift_landing(request, gift_code):
@@ -115,24 +94,20 @@ def gift_landing(request, gift_code):
     # Check if gift is claimable
     if not gift.is_claimable:
         if gift.is_expired:
-            return render(request, "crush_lu/journey/gift_expired.html", {"gift": gift})
+            return render(request, 'crush_lu/journey/gift_expired.html', {'gift': gift})
         elif gift.status == JourneyGift.Status.CLAIMED:
-            return render(request, "crush_lu/journey/gift_claimed.html", {"gift": gift})
+            return render(request, 'crush_lu/journey/gift_claimed.html', {'gift': gift})
 
     # If user is logged in, redirect to claim page
     if request.user.is_authenticated:
-        return redirect("crush_lu:gift_claim", gift_code=gift_code)
+        return redirect('crush_lu:gift_claim', gift_code=gift_code)
 
     # Store gift code in session for post-signup claiming
-    request.session["pending_gift_code"] = gift_code
+    request.session['pending_gift_code'] = gift_code
 
-    return render(
-        request,
-        "crush_lu/journey/gift_landing.html",
-        {
-            "gift": gift,
-        },
-    )
+    return render(request, 'crush_lu/journey/gift_landing.html', {
+        'gift': gift,
+    })
 
 
 @login_required
@@ -148,36 +123,33 @@ def gift_claim(request, gift_code):
     # Check if gift is claimable
     if not gift.is_claimable:
         if gift.is_expired:
-            messages.error(request, _("This gift has expired."))
+            messages.error(request, _('This gift has expired.'))
         elif gift.status == JourneyGift.Status.CLAIMED:
-            messages.error(request, _("This gift has already been claimed."))
-        return redirect("crush_lu:journey_map_wonderland")
+            messages.error(request, _('This gift has already been claimed.'))
+        return redirect('crush_lu:journey_map_wonderland')
 
-    if request.method == "POST":
+    if request.method == 'POST':
         try:
             # Claim the gift - this creates the journey
             journey = gift.claim(request.user)
 
             # Clear session gift code if present
-            if "pending_gift_code" in request.session:
-                del request.session["pending_gift_code"]
+            if 'pending_gift_code' in request.session:
+                del request.session['pending_gift_code']
 
             messages.success(
-                request, _("Welcome to your Wonderland! Your journey has been created.")
+                request,
+                _('Welcome to your Wonderland! Your journey has been created.')
             )
-            return redirect("crush_lu:journey_map_wonderland")
+            return redirect('crush_lu:journey_map_wonderland')
 
         except ValueError as e:
             messages.error(request, str(e))
-            return redirect("crush_lu:gift_landing", gift_code=gift_code)
+            return redirect('crush_lu:gift_landing', gift_code=gift_code)
 
-    return render(
-        request,
-        "crush_lu/journey/gift_claim.html",
-        {
-            "gift": gift,
-        },
-    )
+    return render(request, 'crush_lu/journey/gift_claim.html', {
+        'gift': gift,
+    })
 
 
 @login_required
@@ -187,12 +159,8 @@ def gift_list(request):
 
     Shows gift status and allows tracking of sent gifts.
     """
-    gifts = JourneyGift.objects.filter(sender=request.user).order_by("-created_at")
+    gifts = JourneyGift.objects.filter(sender=request.user).order_by('-created_at')
 
-    return render(
-        request,
-        "crush_lu/journey/gift_list.html",
-        {
-            "gifts": gifts,
-        },
-    )
+    return render(request, 'crush_lu/journey/gift_list.html', {
+        'gifts': gifts,
+    })

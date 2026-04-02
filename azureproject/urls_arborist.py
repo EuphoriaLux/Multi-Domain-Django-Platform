@@ -16,6 +16,7 @@ from arborist.sitemaps import ArboristStaticViewSitemap
 from .views_seo import robots_txt_arborist
 from .urls_shared import base_patterns
 
+
 # Sitemap configuration
 sitemaps = {
     "static": ArboristStaticViewSitemap,
@@ -26,8 +27,10 @@ urlpatterns = base_patterns + [
     # SEO - robots.txt and sitemap
     path("robots.txt", robots_txt_arborist, name="robots_txt"),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
+
     # Arborist custom admin panel (language-neutral)
     path("arborist-admin/", arborist_admin_site.urls),
+
     # Standard Django admin (language-neutral)
     path("admin/", admin.site.urls),
 ]
@@ -37,6 +40,7 @@ urlpatterns = base_patterns + [
 urlpatterns += i18n_patterns(
     # Arborist informational site pages
     path("", include("arborist.urls", namespace="arborist")),
+
     # Include /en/ prefix even for default language
     prefix_default_language=True,
 )

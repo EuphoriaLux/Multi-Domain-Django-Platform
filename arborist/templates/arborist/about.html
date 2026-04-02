@@ -1,9 +1,14 @@
-{% extends "arborist/base.html" %} {% load i18n %} {% block content %}
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block content %}
 <!-- Header -->
-<section class="bg-green-800 py-16 text-white">
+<section class="bg-green-800 text-white py-16">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl text-center">
-            <h1 class="mb-4 text-4xl font-bold">{% trans "About Me" %}</h1>
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-4">
+                {% trans "About Me" %}
+            </h1>
             <p class="text-xl">
                 {% trans "Tom Aakrann - Your Arborist in Luxembourg" %}
             </p>
@@ -14,31 +19,29 @@
 <!-- Introduction -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl">
-            <div class="grid items-center gap-12 md:grid-cols-2">
+        <div class="max-w-4xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
                 <div>
-                    <h2 class="mb-6 text-3xl font-bold text-green-800">
+                    <h2 class="text-3xl font-bold mb-6 text-green-800">
                         {% trans "Passion for Trees" %}
                     </h2>
-                    <div class="space-y-4 text-gray-700">
+                    <div class="text-gray-700 space-y-4">
                         <p class="text-lg">
-                            {% trans "My name is Tom Aakrann and trees are my passion.
-                            As a certified arborist and tree inspector, I combine solid
-                            expertise with practical experience." %}
+                            {% trans "My name is Tom Aakrann and trees are my passion. As a certified arborist and tree inspector, I combine solid expertise with practical experience." %}
                         </p>
                         <p class="text-lg">
-                            {% trans "Every tree tells a story and deserves expert care.
-                            Whether a centuries-old oak or a young fruit tree - I treat
-                            every tree with the respect and care it deserves." %}
+                            {% trans "Every tree tells a story and deserves expert care. Whether a centuries-old oak or a young fruit tree - I treat every tree with the respect and care it deserves." %}
                         </p>
                     </div>
                 </div>
-                <div class="rounded-xl bg-green-50 p-8 text-center">
-                    <div class="mb-4 text-6xl">&#127795;</div>
-                    <p class="text-lg font-semibold text-green-800">
+                <div class="bg-green-50 rounded-xl p-8 text-center">
+                    <div class="text-6xl mb-4">&#127795;</div>
+                    <p class="text-green-800 font-semibold text-lg">
                         {% trans "Arborist Tom Aakrann" %}
                     </p>
-                    <p class="text-gray-600">{% trans "Luxembourg" %}</p>
+                    <p class="text-gray-600">
+                        {% trans "Luxembourg" %}
+                    </p>
                 </div>
             </div>
         </div>
@@ -46,25 +49,22 @@
 </section>
 
 <!-- Qualifications -->
-<section class="bg-gray-50 py-16">
+<section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl">
-            <h2 class="mb-8 text-center text-3xl font-bold text-green-800">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-green-800">
                 {% trans "Qualifications" %}
             </h2>
-            <div class="grid gap-8 md:grid-cols-2">
+            <div class="grid md:grid-cols-2 gap-8">
                 <div class="card">
                     <div class="flex items-start gap-4">
                         <div class="text-3xl">&#128203;</div>
                         <div>
-                            <h3 class="mb-2 text-xl font-semibold text-green-800">
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
                                 {% trans "FLL-Certified Tree Inspector" %}
                             </h3>
                             <p class="text-gray-600">
-                                {% trans "Training according to the guidelines of the
-                                Research Society for Landscape Development and Landscape
-                                Construction (FLL) for visual tree inspection and
-                                traffic safety assessment." %}
+                                {% trans "Training according to the guidelines of the Research Society for Landscape Development and Landscape Construction (FLL) for visual tree inspection and traffic safety assessment." %}
                             </p>
                         </div>
                     </div>
@@ -74,13 +74,11 @@
                     <div class="flex items-start gap-4">
                         <div class="text-3xl">&#9875;</div>
                         <div>
-                            <h3 class="mb-2 text-xl font-semibold text-green-800">
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
                                 {% trans "SKT-B Rope Climbing Technique" %}
                             </h3>
                             <p class="text-gray-600">
-                                {% trans "Certified for Rope Climbing Technique B -
-                                working with chainsaw in the tree crown. Safe and gentle
-                                tree care at any height." %}
+                                {% trans "Certified for Rope Climbing Technique B - working with chainsaw in the tree crown. Safe and gentle tree care at any height." %}
                             </p>
                         </div>
                     </div>
@@ -90,13 +88,11 @@
                     <div class="flex items-start gap-4">
                         <div class="text-3xl">&#127807;</div>
                         <div>
-                            <h3 class="mb-2 text-xl font-semibold text-green-800">
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
                                 {% trans "Professional Tree Care" %}
                             </h3>
                             <p class="text-gray-600">
-                                {% trans "Work according to the recognized ZTV tree care
-                                guidelines. Quality standard for professional tree care
-                                measures." %}
+                                {% trans "Work according to the recognized ZTV tree care guidelines. Quality standard for professional tree care measures." %}
                             </p>
                         </div>
                     </div>
@@ -106,13 +102,11 @@
                     <div class="flex items-start gap-4">
                         <div class="text-3xl">&#127793;</div>
                         <div>
-                            <h3 class="mb-2 text-xl font-semibold text-green-800">
+                            <h3 class="text-xl font-semibold mb-2 text-green-800">
                                 {% trans "Fruit Tree Care" %}
                             </h3>
                             <p class="text-gray-600">
-                                {% trans "Specialization in fruit tree care. Training
-                                pruning, maintenance pruning and rejuvenation for
-                                maximum yield." %}
+                                {% trans "Specialization in fruit tree care. Training pruning, maintenance pruning and rejuvenation for maximum yield." %}
                             </p>
                         </div>
                     </div>
@@ -125,35 +119,30 @@
 <!-- Philosophy -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl">
-            <h2 class="mb-8 text-center text-3xl font-bold text-green-800">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8 text-center text-green-800">
                 {% trans "My Philosophy" %}
             </h2>
-            <div class="grid gap-8 md:grid-cols-3">
+            <div class="grid md:grid-cols-3 gap-8">
                 <div class="text-center">
-                    <div class="mb-4 text-4xl">&#128170;</div>
-                    <h3 class="mb-2 text-xl font-semibold">{% trans "Quality" %}</h3>
+                    <div class="text-4xl mb-4">&#128170;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Quality" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "Professional work according to recognized standards.
-                        No compromises in tree care." %}
+                        {% trans "Professional work according to recognized standards. No compromises in tree care." %}
                     </p>
                 </div>
                 <div class="text-center">
-                    <div class="mb-4 text-4xl">&#127807;</div>
-                    <h3 class="mb-2 text-xl font-semibold">
-                        {% trans "Sustainability" %}
-                    </h3>
+                    <div class="text-4xl mb-4">&#127807;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Sustainability" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "Tree preservation over tree removal. Ecological
-                        aspects are considered in every decision." %}
+                        {% trans "Tree preservation over tree removal. Ecological aspects are considered in every decision." %}
                     </p>
                 </div>
                 <div class="text-center">
-                    <div class="mb-4 text-4xl">&#129309;</div>
-                    <h3 class="mb-2 text-xl font-semibold">{% trans "Trust" %}</h3>
+                    <div class="text-4xl mb-4">&#129309;</div>
+                    <h3 class="text-xl font-semibold mb-2">{% trans "Trust" %}</h3>
                     <p class="text-gray-600">
-                        {% trans "Honest advice and transparent pricing. Personal
-                        service from start to finish." %}
+                        {% trans "Honest advice and transparent pricing. Personal service from start to finish." %}
                     </p>
                 </div>
             </div>
@@ -162,13 +151,13 @@
 </section>
 
 <!-- Languages -->
-<section class="bg-green-50 py-16">
+<section class="py-16 bg-green-50">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl text-center">
-            <h2 class="mb-6 text-3xl font-bold text-green-800">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-3xl font-bold mb-6 text-green-800">
                 {% trans "Languages" %}
             </h2>
-            <p class="mb-6 text-lg text-gray-700">
+            <p class="text-lg text-gray-700 mb-6">
                 {% trans "I am happy to advise you in your language:" %}
             </p>
             <div class="flex flex-wrap justify-center gap-6">
@@ -190,17 +179,15 @@
 </section>
 
 <!-- CTA -->
-<section class="bg-green-800 py-16 text-white">
+<section class="py-16 bg-green-800 text-white">
     <div class="container mx-auto px-4 text-center">
-        <h2 class="mb-4 text-3xl font-bold">
+        <h2 class="text-3xl font-bold mb-4">
             {% trans "Let's care for your trees together" %}
         </h2>
-        <p class="mb-8 text-xl">{% trans "Contact me for a free consultation." %}</p>
-        <a
-            href="{% url 'arborist:contact' %}"
-            class="btn"
-            style="background: #fff; color: #2d5016"
-        >
+        <p class="text-xl mb-8">
+            {% trans "Contact me for a free consultation." %}
+        </p>
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
             {% trans "Get in Touch" %}
         </a>
     </div>

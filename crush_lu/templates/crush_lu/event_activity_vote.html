@@ -1,35 +1,27 @@
-{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% block title %}{%
-trans "Vote on Activities" %} - {{ event.title }} - Crush.lu{% endblock %} {% block
-extra_css %} {% endblock %} {% block content %}
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Vote on Activities" %} - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
 <!-- Hidden data for JavaScript -->
-<div
-    id="event-id-data"
-    class="hidden"
-    data-event-id="{{ event.id }}"
-    data-results-url="{% url 'crush_lu:event_voting_results' event.id %}"
-></div>
+<div id="event-id-data" class="hidden" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}"></div>
 
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4">
-        <a
-            href="{% url 'crush_lu:event_voting_lobby' event.id %}"
-            class="mb-4 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-        >
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans
-            "Back to Lobby" %}
+        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Lobby" %}
         </a>
 
-        <div
-            class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-4 sm:p-6 md:p-8">
-                <div class="mb-4 text-center">
-                    <h1 class="display-5 dark:text-white">
-                        {% trans "Vote for Event Activities" %}
-                    </h1>
-                    <p class="text-lg text-gray-500 dark:text-gray-400">
-                        {{ event.title }}
-                    </p>
+                <div class="text-center mb-4">
+                    <h1 class="display-5 dark:text-white">{% trans "Vote for Event Activities" %}</h1>
+                    <p class="text-lg text-gray-500 dark:text-gray-400">{{ event.title }}</p>
                 </div>
 
                 <div class="countdown-banner">
@@ -40,101 +32,49 @@ extra_css %} {% endblock %} {% block content %}
                 </div>
 
                 {% if has_voted_both %}
-                <div
-                    class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                >
-                    <strong>{% trans "✓ Current Votes:" %}</strong><br />
-                    {% blocktrans with
-                    style=presentation_vote.selected_option.display_name %}Presentation
-                    Style: <strong>{{ style }}</strong>{% endblocktrans %}<br />
-                    {% blocktrans with twist=twist_vote.selected_option.display_name
-                    %}Speed Dating Twist: <strong>{{ twist }}</strong>{% endblocktrans
-                    %}<br />
-                    <small class="text-gray-500 dark:text-gray-400"
-                        >{% trans "You can change your votes anytime before voting
-                        closes." %}</small
-                    >
+                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-4">
+                    <strong>{% trans "✓ Current Votes:" %}</strong><br>
+                    {% blocktrans with style=presentation_vote.selected_option.display_name %}Presentation Style: <strong>{{ style }}</strong>{% endblocktrans %}<br>
+                    {% blocktrans with twist=twist_vote.selected_option.display_name %}Speed Dating Twist: <strong>{{ twist }}</strong>{% endblocktrans %}<br>
+                    <small class="text-gray-500 dark:text-gray-400">{% trans "You can change your votes anytime before voting closes." %}</small>
                 </div>
                 {% elif presentation_vote or twist_vote %}
-                <div
-                    class="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <strong>{% trans "⚠️ Incomplete!" %}</strong> {% trans "You must
-                    vote on BOTH categories to submit." %} {% if presentation_vote %}<br />{%
-                    trans "✓ You've voted on Presentation Style." %}{% endif %} {% if
-                    twist_vote %}<br />{% trans "✓ You've voted on Speed Dating Twist."
-                    %}{% endif %}
+                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 mb-4">
+                    <strong>{% trans "⚠️ Incomplete!" %}</strong> {% trans "You must vote on BOTH categories to submit." %}
+                    {% if presentation_vote %}<br>{% trans "✓ You've voted on Presentation Style." %}{% endif %}
+                    {% if twist_vote %}<br>{% trans "✓ You've voted on Speed Dating Twist." %}{% endif %}
                 </div>
                 {% endif %}
 
                 <form id="vote-form" method="post">
                     {% csrf_token %}
-                    <input
-                        type="hidden"
-                        id="presentation-option-id"
-                        name="presentation_option_id"
-                        value="{{ presentation_vote.selected_option.id|default:'' }}"
-                    />
-                    <input
-                        type="hidden"
-                        id="twist-option-id"
-                        name="twist_option_id"
-                        value="{{ twist_vote.selected_option.id|default:'' }}"
-                    />
+                    <input type="hidden" id="presentation-option-id" name="presentation_option_id" value="{{ presentation_vote.selected_option.id|default:'' }}">
+                    <input type="hidden" id="twist-option-id" name="twist_option_id" value="{{ twist_vote.selected_option.id|default:'' }}">
 
-                    <div
-                        class="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-4 text-purple-800 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                    >
-                        <strong>{% trans "📋 Vote on TWO Categories:" %}</strong> {%
-                        trans "You must vote on both your presentation style AND speed
-                        dating twist!" %}
+                    <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300 rounded-lg p-4 mb-4">
+                        <strong>{% trans "📋 Vote on TWO Categories:" %}</strong> {% trans "You must vote on both your presentation style AND speed dating twist!" %}
                     </div>
 
                     <!-- CATEGORY 1: Presentation Style (Phase 2) -->
                     <div class="activity-group-card">
                         <div class="category-badge">{% trans "Category 1 of 2" %}</div>
-                        <h3 class="section-header dark:text-white">
-                            {% trans "🎤 Presentation Style (Phase 2 - Mandatory)" %}
-                        </h3>
-                        <p class="mb-3 text-gray-500 dark:text-gray-400">
-                            {% trans "Everyone will present for 90 seconds. Choose how
-                            YOU want to introduce yourself!" %}
-                        </p>
+                        <h3 class="section-header dark:text-white">{% trans "🎤 Presentation Style (Phase 2 - Mandatory)" %}</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!" %}</p>
 
                         <div class="variant-options">
                             {% for option in presentation_style_options %}
-                            <div
-                                class="variant-option-item flex items-start gap-2 sm:gap-3"
-                            >
-                                <input
-                                    class="variant-radio presentation-radio mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 sm:h-5 sm:w-5"
-                                    type="radio"
-                                    name="presentation_choice"
-                                    id="presentation-{{ option.id }}"
-                                    value="{{ option.id }}"
-                                    {%
-                                    if
-                                    presentation_vote
-                                    and
-                                    presentation_vote.selected_option.id=""
-                                    ="option.id"
-                                    %}checked{%
-                                    endif
-                                    %}
-                                    data-option-id="{{ option.id }}"
-                                    data-category="presentation"
-                                />
-                                <label
-                                    class="vote-option-label w-full cursor-pointer"
-                                    for="presentation-{{ option.id }}"
-                                >
-                                    <span class="font-semibold"
-                                        >{{ option.display_name }}</span
-                                    >
-                                    <span
-                                        class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400"
-                                        >{{ option.description }}</span
-                                    >
+                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
+                                <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio flex-shrink-0"
+                                       type="radio"
+                                       name="presentation_choice"
+                                       id="presentation-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if presentation_vote and presentation_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}"
+                                       data-category="presentation">
+                                <label class="vote-option-label w-full cursor-pointer" for="presentation-{{ option.id }}">
+                                    <span class="font-semibold">{{ option.display_name }}</span>
+                                    <span class="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ option.description }}</span>
                                 </label>
                             </div>
                             {% endfor %}
@@ -144,119 +84,76 @@ extra_css %} {% endblock %} {% block content %}
                     <!-- CATEGORY 2: Speed Dating Twist (Phase 3) -->
                     <div class="activity-group-card">
                         <div class="category-badge">{% trans "Category 2 of 2" %}</div>
-                        <h3 class="section-header dark:text-white">
-                            {% trans "💕 Speed Dating Twist (Phase 3)" %}
-                        </h3>
-                        <p class="mb-3 text-gray-500 dark:text-gray-400">
-                            {% trans "After presentations, you'll do speed dating with
-                            matched pairs. Choose a fun twist!" %}
-                        </p>
+                        <h3 class="section-header dark:text-white">{% trans "💕 Speed Dating Twist (Phase 3)" %}</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "After presentations, you'll do speed dating with matched pairs. Choose a fun twist!" %}</p>
 
                         <div class="variant-options">
                             {% for option in speed_dating_twist_options %}
-                            <div
-                                class="variant-option-item flex items-start gap-2 sm:gap-3"
-                            >
-                                <input
-                                    class="variant-radio twist-radio mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 sm:h-5 sm:w-5"
-                                    type="radio"
-                                    name="twist_choice"
-                                    id="twist-{{ option.id }}"
-                                    value="{{ option.id }}"
-                                    {%
-                                    if
-                                    twist_vote
-                                    and
-                                    twist_vote.selected_option.id=""
-                                    ="option.id"
-                                    %}checked{%
-                                    endif
-                                    %}
-                                    data-option-id="{{ option.id }}"
-                                    data-category="twist"
-                                />
-                                <label
-                                    class="vote-option-label w-full cursor-pointer"
-                                    for="twist-{{ option.id }}"
-                                >
-                                    <span class="font-semibold"
-                                        >{{ option.display_name }}</span
-                                    >
-                                    <span
-                                        class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400"
-                                        >{{ option.description }}</span
-                                    >
+                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
+                                <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio twist-radio flex-shrink-0"
+                                       type="radio"
+                                       name="twist_choice"
+                                       id="twist-{{ option.id }}"
+                                       value="{{ option.id }}"
+                                       {% if twist_vote and twist_vote.selected_option.id == option.id %}checked{% endif %}
+                                       data-option-id="{{ option.id }}"
+                                       data-category="twist">
+                                <label class="vote-option-label w-full cursor-pointer" for="twist-{{ option.id }}">
+                                    <span class="font-semibold">{{ option.display_name }}</span>
+                                    <span class="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ option.description }}</span>
                                 </label>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
 
-                    <div class="mt-6 text-center">
-                        <button
-                            type="submit"
-                            id="submit-vote-btn"
-                            class="btn-crush-primary px-8 py-3 text-lg disabled:cursor-not-allowed disabled:opacity-50"
-                            {%
-                            if
-                            not
-                            has_voted_both
-                            and
-                            not
-                            presentation_vote
-                            and
-                            not
-                            twist_vote
-                            %}disabled{%
-                            endif
-                            %}
-                        >
-                            {% if has_voted_both %}{% trans "Update My Votes" %}{% else
-                            %}{% trans "Submit My Votes" %}{% endif %}
+                    <div class="text-center mt-6">
+                        <button type="submit" id="submit-vote-btn" class="btn-crush-primary px-8 py-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                {% if not has_voted_both and not presentation_vote and not twist_vote %}disabled{% endif %}>
+                            {% if has_voted_both %}{% trans "Update My Votes" %}{% else %}{% trans "Submit My Votes" %}{% endif %}
                         </button>
                     </div>
                 </form>
 
-                <div
-                    class="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <strong>{% trans "Remember:" %}</strong> {% trans "You can change
-                    your votes at any time before the voting period ends!" %}
+                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-4 mt-4">
+                    <strong>{% trans "Remember:" %}</strong> {% trans "You can change your votes at any time before the voting period ends!" %}
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
-    // Update JavaScript to handle two categories
-    document.addEventListener("DOMContentLoaded", () => {
-        const presentationRadios = document.querySelectorAll(".presentation-radio");
-        const twistRadios = document.querySelectorAll(".twist-radio");
-        const submitBtn = document.getElementById("submit-vote-btn");
-        const presentationHidden = document.getElementById("presentation-option-id");
-        const twistHidden = document.getElementById("twist-option-id");
+// Update JavaScript to handle two categories
+document.addEventListener('DOMContentLoaded', () => {
+    const presentationRadios = document.querySelectorAll('.presentation-radio');
+    const twistRadios = document.querySelectorAll('.twist-radio');
+    const submitBtn = document.getElementById('submit-vote-btn');
+    const presentationHidden = document.getElementById('presentation-option-id');
+    const twistHidden = document.getElementById('twist-option-id');
 
-        function checkBothSelected() {
-            const presentationSelected = presentationHidden.value !== "";
-            const twistSelected = twistHidden.value !== "";
-            submitBtn.disabled = !(presentationSelected && twistSelected);
-        }
+    function checkBothSelected() {
+        const presentationSelected = presentationHidden.value !== '';
+        const twistSelected = twistHidden.value !== '';
+        submitBtn.disabled = !(presentationSelected && twistSelected);
+    }
 
-        presentationRadios.forEach((radio) => {
-            radio.addEventListener("change", (e) => {
-                presentationHidden.value = e.target.value;
-                checkBothSelected();
-            });
-        });
-
-        twistRadios.forEach((radio) => {
-            radio.addEventListener("change", (e) => {
-                twistHidden.value = e.target.value;
-                checkBothSelected();
-            });
+    presentationRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            presentationHidden.value = e.target.value;
+            checkBothSelected();
         });
     });
+
+    twistRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            twistHidden.value = e.target.value;
+            checkBothSelected();
+        });
+    });
+});
 </script>
 {% endblock %}

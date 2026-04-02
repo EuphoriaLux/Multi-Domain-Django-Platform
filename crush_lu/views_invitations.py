@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile,
+    CrushCoach,
     MeetupEvent,
     EventInvitation,
 )
-from .decorators import coach_required, ratelimit
+from .decorators import crush_login_required, coach_required, ratelimit
 
 
 def invitation_landing(request, code):
@@ -81,6 +82,7 @@ def invitation_accept(request, code):
 
                 # Create user account with random password
                 username = f"guest_{invitation.guest_email.split('@')[0]}_{uuid.uuid4().hex[:6]}"
+                from django.contrib.auth.hashers import make_password
                 import secrets
                 import string
 
@@ -221,17 +223,11 @@ def coach_manage_invitations(request, event_id):
                         invitation, request
                     )
                     if email_sent:
-                        messages.success(
-                            request,
-                            _("Invitation sent to %(email)s.") % {"email": email},
-                        )
+                        messages.success(request, _("Invitation sent to %(email)s.") % {"email": email})
                     else:
                         messages.warning(
                             request,
-                            _(
-                                "Invitation created for %(email)s, but email could not be sent. Code: %(code)s"
-                            )
-                            % {"email": email, "code": invitation.invitation_code},
+                            _("Invitation created for %(email)s, but email could not be sent. Code: %(code)s") % {"email": email, "code": invitation.invitation_code},
                         )
                     logger.info(
                         f"Invitation created for {email} to event {event.title}"

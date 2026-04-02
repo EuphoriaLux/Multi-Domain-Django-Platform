@@ -7,7 +7,7 @@
  *   CrushConfetti.fire({ count: 80 }) — custom particle count
  */
 (function () {
-    "use strict";
+    'use strict';
 
     var DEFAULTS = {
         count: 60,
@@ -15,7 +15,7 @@
         drag: 0.02,
         spread: 90,
         durationMs: 3000,
-        colors: ["#9B59B6", "#FF6B9D", "#FFD700", "#6DD5FA", "#FC5C7D", "#E040FB"],
+        colors: ['#9B59B6', '#FF6B9D', '#FFD700', '#6DD5FA', '#FC5C7D', '#E040FB']
     };
 
     function randomRange(min, max) {
@@ -23,9 +23,9 @@
     }
 
     function createCanvas() {
-        var canvas = document.createElement("canvas");
+        var canvas = document.createElement('canvas');
         canvas.style.cssText =
-            "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999";
+            'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         document.body.appendChild(canvas);
@@ -88,7 +88,7 @@
         }
 
         var canvas = createCanvas();
-        var ctx = canvas.getContext("2d");
+        var ctx = canvas.getContext('2d');
         var cx = canvas.width / 2;
         var cy = canvas.height * 0.35;
 

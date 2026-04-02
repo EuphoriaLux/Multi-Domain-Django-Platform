@@ -6,38 +6,25 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models.journey import JourneyConfiguration
-from crush_lu.models.profiles import (
-    CrushProfile,
-    ProfileSubmission,
-    SpecialUserExperience,
-    UserDataConsent,
-)
+from crush_lu.models.profiles import CrushProfile, ProfileSubmission, SpecialUserExperience, UserDataConsent
 
 
 class SpecialUserExperienceTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create(
-            username="alice", first_name="Alice", last_name="Wonder"
-        )
+        self.user = User.objects.create(username="alice", first_name="Alice", last_name="Wonder")
 
     def test_matches_user_is_case_insensitive_and_active(self):
-        special = SpecialUserExperience.objects.create(
-            first_name="alice", last_name="wonder", is_active=True
-        )
+        special = SpecialUserExperience.objects.create(first_name="alice", last_name="wonder", is_active=True)
 
         self.assertTrue(special.matches_user(self.user))
 
     def test_matches_user_respects_inactive_state(self):
-        special = SpecialUserExperience.objects.create(
-            first_name="Alice", last_name="Wonder", is_active=False
-        )
+        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder", is_active=False)
 
         self.assertFalse(special.matches_user(self.user))
 
     def test_trigger_updates_timestamp_and_count(self):
-        special = SpecialUserExperience.objects.create(
-            first_name="Alice", last_name="Wonder"
-        )
+        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder")
 
         self.assertIsNone(special.last_triggered_at)
         self.assertEqual(special.trigger_count, 0)
@@ -49,9 +36,7 @@ class SpecialUserExperienceTests(TestCase):
         self.assertEqual(special.trigger_count, 1)
 
     def test_journey_helpers_return_expected_records(self):
-        special = SpecialUserExperience.objects.create(
-            first_name="Alice", last_name="Wonder"
-        )
+        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder")
         wonderland = JourneyConfiguration.objects.create(
             special_experience=special,
             journey_type="wonderland",
@@ -75,9 +60,7 @@ class CrushProfileTests(TestCase):
             first_name="Test",
             last_name="User",
         )
-        self.profile = CrushProfile.objects.create(
-            user=self.user, location="canton-luxembourg"
-        )
+        self.profile = CrushProfile.objects.create(user=self.user, location="canton-luxembourg")
 
     def test_age_and_age_range_calculation(self):
         today = timezone.now().date()
@@ -114,17 +97,13 @@ class RegistrationFlowTests(TestCase):
             "crushlu_consent": True,  # Required consent checkbox
         }
 
-        response = self.client.post(
-            reverse("crush_lu:signup"), signup_data, follow=True, HTTP_HOST="crush.lu"
-        )
+        response = self.client.post(reverse("crush_lu:signup"), signup_data, follow=True, HTTP_HOST="crush.lu")
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
         user = User.objects.get(email="newuser@example.com")
         self.assertGreater(len(response.redirect_chain), 0)
-        self.assertEqual(
-            response.redirect_chain[-1][0], reverse("crush_lu:create_profile")
-        )
+        self.assertEqual(response.redirect_chain[-1][0], reverse("crush_lu:create_profile"))
 
         # Get or create the profile and mark phone as verified (required for submission)
         profile, _ = CrushProfile.objects.get_or_create(user=user)
@@ -135,9 +114,7 @@ class RegistrationFlowTests(TestCase):
 
         profile_data = {
             "phone_number": "+35212345678",
-            "date_of_birth": (
-                timezone.now().date() - timedelta(days=30 * 365)
-            ).isoformat(),
+            "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
             "gender": "F",
             "location": "canton-luxembourg",  # Canton-based location (from interactive map)
             "looking_for": "dating",
@@ -146,12 +123,7 @@ class RegistrationFlowTests(TestCase):
             "event_languages": ["en", "fr"],
         }
 
-        profile_response = self.client.post(
-            reverse("crush_lu:create_profile"),
-            profile_data,
-            follow=True,
-            HTTP_HOST="crush.lu",
-        )
+        profile_response = self.client.post(reverse("crush_lu:create_profile"), profile_data, follow=True, HTTP_HOST="crush.lu")
 
         self.assertEqual(profile_response.status_code, 200)
         profile.refresh_from_db()
@@ -198,8 +170,7 @@ class CrushPreferencesTests(TestCase):
         self._grant_consent()
         self.client.login(username="pref@example.com", password="testpass123")
         response = self.client.get(
-            reverse("crush_lu:crush_preferences"),
-            HTTP_HOST="crush.lu",
+            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu",
         )
         self.assertEqual(response.status_code, 200)
 

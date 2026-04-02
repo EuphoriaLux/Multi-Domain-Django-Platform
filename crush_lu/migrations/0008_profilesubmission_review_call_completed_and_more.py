@@ -6,32 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0007_globalactivityoption_and_more"),
+        ('crush_lu', '0007_globalactivityoption_and_more'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="profilesubmission",
-            name="review_call_completed",
-            field=models.BooleanField(
-                default=False,
-                help_text="Coach must complete screening call before approving profile",
-            ),
+            model_name='profilesubmission',
+            name='review_call_completed',
+            field=models.BooleanField(default=False, help_text='Coach must complete screening call before approving profile'),
         ),
         migrations.AddField(
-            model_name="profilesubmission",
-            name="review_call_date",
-            field=models.DateTimeField(
-                blank=True,
-                help_text="When coach completed the screening call",
-                null=True,
-            ),
+            model_name='profilesubmission',
+            name='review_call_date',
+            field=models.DateTimeField(blank=True, help_text='When coach completed the screening call', null=True),
         ),
         migrations.AddField(
-            model_name="profilesubmission",
-            name="review_call_notes",
-            field=models.TextField(
-                blank=True, help_text="Notes from coach's screening call during review"
-            ),
+            model_name='profilesubmission',
+            name='review_call_notes',
+            field=models.TextField(blank=True, help_text="Notes from coach's screening call during review"),
         ),
     ]

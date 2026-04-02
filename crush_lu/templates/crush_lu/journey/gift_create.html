@@ -1,10 +1,12 @@
-{% extends "crush_lu/journey/gift_base.html" %} {% load static i18n %} {% block title
-%}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %} {% block gift_content %}
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Create a Journey Gift" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
 <div class="gift-card" x-data="giftCreateForm">
     <h1 class="gift-title">{% trans "Create a Wonderland Journey" %}</h1>
-    <p class="gift-subtitle">
-        {% trans "Create a magical experience for someone special" %}
-    </p>
+    <p class="gift-subtitle">{% trans "Create a magical experience for someone special" %}</p>
 
     <!-- Step Navigation -->
     <div class="step-nav">
@@ -25,58 +27,62 @@
         <div class="step-content" x-bind:class="stepOneContentClass">
             <div class="form-group">
                 <label for="id_recipient_name">{{ form.recipient_name.label }}</label>
-                {{ form.recipient_name }} {% if form.recipient_name.help_text %}
+                {{ form.recipient_name }}
+                {% if form.recipient_name.help_text %}
                 <p class="help-text">{{ form.recipient_name.help_text }}</p>
-                {% endif %} {% if form.recipient_name.errors %}
+                {% endif %}
+                {% if form.recipient_name.errors %}
                 <p class="error-text">{{ form.recipient_name.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="id_date_first_met">{{ form.date_first_met.label }}</label>
-                {{ form.date_first_met }} {% if form.date_first_met.help_text %}
+                {{ form.date_first_met }}
+                {% if form.date_first_met.help_text %}
                 <p class="help-text">{{ form.date_first_met.help_text }}</p>
-                {% endif %} {% if form.date_first_met.errors %}
+                {% endif %}
+                {% if form.date_first_met.errors %}
                 <p class="error-text">{{ form.date_first_met.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <div class="form-group">
-                <label for="id_location_first_met"
-                    >{{ form.location_first_met.label }}</label
-                >
-                {{ form.location_first_met }} {% if form.location_first_met.help_text %}
+                <label for="id_location_first_met">{{ form.location_first_met.label }}</label>
+                {{ form.location_first_met }}
+                {% if form.location_first_met.help_text %}
                 <p class="help-text">{{ form.location_first_met.help_text }}</p>
-                {% endif %} {% if form.location_first_met.errors %}
+                {% endif %}
+                {% if form.location_first_met.errors %}
                 <p class="error-text">{{ form.location_first_met.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="id_sender_message">{{ form.sender_message.label }}</label>
-                {{ form.sender_message }} {% if form.sender_message.help_text %}
+                {{ form.sender_message }}
+                {% if form.sender_message.help_text %}
                 <p class="help-text">{{ form.sender_message.help_text }}</p>
-                {% endif %} {% if form.sender_message.errors %}
+                {% endif %}
+                {% if form.sender_message.errors %}
                 <p class="error-text">{{ form.sender_message.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <div class="form-group">
                 <label for="id_recipient_email">{{ form.recipient_email.label }}</label>
-                {{ form.recipient_email }} {% if form.recipient_email.help_text %}
+                {{ form.recipient_email }}
+                {% if form.recipient_email.help_text %}
                 <p class="help-text">{{ form.recipient_email.help_text }}</p>
-                {% endif %} {% if form.recipient_email.errors %}
+                {% endif %}
+                {% if form.recipient_email.errors %}
                 <p class="error-text">{{ form.recipient_email.errors.0 }}</p>
                 {% endif %}
             </div>
 
             <div class="form-submit">
                 <div class="btn-group">
-                    <button
-                        type="button"
-                        class="btn-gift btn-gift-primary"
-                        @click="goToStep2"
-                    >
+                    <button type="button" class="btn-gift btn-gift-primary" @click="goToStep2">
                         {% trans "Next: Add Media" %} &rarr;
                     </button>
                 </div>
@@ -91,9 +97,7 @@
             <div class="media-info">
                 <p>
                     <strong>{% trans "Optional:" %}</strong>
-                    {% trans "Add photos and voice/video messages to make the journey
-                    extra special. These will be revealed as rewards when your recipient
-                    completes challenges!" %}
+                    {% trans "Add photos and voice/video messages to make the journey extra special. These will be revealed as rewards when your recipient completes challenges!" %}
                 </p>
             </div>
 
@@ -104,26 +108,16 @@
                     {% trans "Chapter 1: Photo Puzzle" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "This photo will be revealed piece by piece as a puzzle.
-                    Best with a square image (800x800px)." %}
+                    {% trans "This photo will be revealed piece by piece as a puzzle. Best with a square image (800x800px)." %}
                 </p>
                 <div class="file-upload-wrapper" x-bind:class="chapter1HasFile">
                     {{ form.chapter1_image }}
                     <div class="file-upload-icon">📷</div>
-                    <div class="file-upload-text">
-                        {% trans "Click or drag to upload photo" %}
+                    <div class="file-upload-text">{% trans "Click or drag to upload photo" %}</div>
+                    <div class="file-upload-preview" x-bind:class="chapter1PreviewClass">
+                        <img x-bind:src="chapter1Preview" alt="Preview">
                     </div>
-                    <div
-                        class="file-upload-preview"
-                        x-bind:class="chapter1PreviewClass"
-                    >
-                        <img x-bind:src="chapter1Preview" alt="Preview" />
-                    </div>
-                    <div
-                        class="file-name"
-                        x-text="chapter1FileName"
-                        x-show="chapter1HasFileFlag"
-                    ></div>
+                    <div class="file-name" x-text="chapter1FileName" x-show="chapter1HasFileFlag"></div>
                 </div>
                 {% if form.chapter1_image.errors %}
                 <p class="error-text">{{ form.chapter1_image.errors.0 }}</p>
@@ -137,8 +131,7 @@
                     {% trans "Chapter 3: Photo Slideshow" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add
-                    memories of your time together!" %}
+                    {% trans "Add up to 5 photos for a beautiful slideshow reveal. Add memories of your time together!" %}
                 </p>
                 <div class="slideshow-grid">
                     <div class="slideshow-item">
@@ -186,35 +179,23 @@
                     {% trans "Chapter 4: Video Message" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "Record a heartfelt video message. This will be revealed as
-                    the emotional finale of the journey!" %}
+                    {% trans "Record a heartfelt video message. This will be revealed as the emotional finale of the journey!" %}
                 </p>
 
                 <div>
                     <div class="file-upload-wrapper" x-bind:class="videoHasFile">
                         {{ form.chapter4_video }}
-                        <div class="file-upload-icon" x-show="videoDefaultVisible">
-                            🎬
-                        </div>
-                        <div class="file-upload-text" x-show="videoDefaultVisible">
-                            {% trans "MP4, MOV (max 50MB)" %}
-                        </div>
+                        <div class="file-upload-icon" x-show="videoDefaultVisible">🎬</div>
+                        <div class="file-upload-text" x-show="videoDefaultVisible">{% trans "MP4, MOV (max 50MB)" %}</div>
                         <!-- Video file info display -->
                         <div class="mt-2.5" x-show="videoInfoVisible">
-                            <div class="mb-1 text-2xl">🎬</div>
+                            <div class="text-2xl mb-1">🎬</div>
                             <div class="file-name" x-text="videoFileName"></div>
-                            <div
-                                class="mt-1 text-xs text-white/60"
-                                x-text="videoFileSize"
-                            ></div>
+                            <div class="text-xs text-white/60 mt-1" x-text="videoFileSize"></div>
                         </div>
                     </div>
                     <!-- Client-side validation error -->
-                    <p
-                        class="error-text"
-                        x-show="videoHasError"
-                        x-text="videoError"
-                    ></p>
+                    <p class="error-text" x-show="videoHasError" x-text="videoError"></p>
                     {% if form.chapter4_video.errors %}
                     <p class="error-text">{{ form.chapter4_video.errors.0 }}</p>
                     {% endif %}
@@ -228,35 +209,23 @@
                     {% trans "Chapter 5: Letter Music" %}
                 </h3>
                 <p class="help-text mb-4">
-                    {% trans "Add background music that plays while reading your Future
-                    Letter in Chapter 5!" %}
+                    {% trans "Add background music that plays while reading your Future Letter in Chapter 5!" %}
                 </p>
 
                 <div>
                     <div class="file-upload-wrapper" x-bind:class="audioHasFile">
                         {{ form.chapter5_letter_music }}
-                        <div class="file-upload-icon" x-show="audioDefaultVisible">
-                            🎵
-                        </div>
-                        <div class="file-upload-text" x-show="audioDefaultVisible">
-                            {% trans "MP3, WAV, M4A (max 10MB)" %}
-                        </div>
+                        <div class="file-upload-icon" x-show="audioDefaultVisible">🎵</div>
+                        <div class="file-upload-text" x-show="audioDefaultVisible">{% trans "MP3, WAV, M4A (max 10MB)" %}</div>
                         <!-- Audio file info display -->
                         <div class="mt-2.5" x-show="audioInfoVisible">
-                            <div class="mb-1 text-2xl">🎵</div>
+                            <div class="text-2xl mb-1">🎵</div>
                             <div class="file-name" x-text="audioFileName"></div>
-                            <div
-                                class="mt-1 text-xs text-white/60"
-                                x-text="audioFileSize"
-                            ></div>
+                            <div class="text-xs text-white/60 mt-1" x-text="audioFileSize"></div>
                         </div>
                     </div>
                     <!-- Client-side validation error -->
-                    <p
-                        class="error-text"
-                        x-show="audioHasError"
-                        x-text="audioError"
-                    ></p>
+                    <p class="error-text" x-show="audioHasError" x-text="audioError"></p>
                     {% if form.chapter5_letter_music.errors %}
                     <p class="error-text">{{ form.chapter5_letter_music.errors.0 }}</p>
                     {% endif %}

@@ -46,9 +46,7 @@ class OnboardingSession(models.Model):
         help_text="Tenants included in this onboarding (GDAP, RBAC, etc.)",
     )
     meeting_slots = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="List of selected slot datetimes (ISO format)",
+        default=list, blank=True, help_text="List of selected slot datetimes (ISO format)"
     )
     include_gdap = models.BooleanField(default=True)
     include_rbac = models.BooleanField(default=True)

@@ -7,68 +7,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("vinsdelux", "0005_vdlproducer_elevation_vdlproducer_map_x_position_and_more"),
+        ('vinsdelux', '0005_vdlproducer_elevation_vdlproducer_map_x_position_and_more'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="VdlAdoptionPlanImage",
+            name='VdlAdoptionPlanImage',
             fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "image",
-                    models.ImageField(
-                        help_text="Image for the adoption plan (will be stored in adoption_plans/YYYY/MM/ folder)",
-                        upload_to="adoption_plans/%Y/%m/",
-                    ),
-                ),
-                (
-                    "order",
-                    models.IntegerField(
-                        default=0,
-                        help_text="Display order for rotation (lower numbers appear first)",
-                    ),
-                ),
-                (
-                    "caption",
-                    models.CharField(
-                        blank=True,
-                        help_text="Optional caption for the image",
-                        max_length=255,
-                        null=True,
-                    ),
-                ),
-                (
-                    "is_primary",
-                    models.BooleanField(
-                        default=False,
-                        help_text="Is this the primary/default image for the adoption plan?",
-                    ),
-                ),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                ("updated_at", models.DateTimeField(auto_now=True)),
-                (
-                    "adoption_plan",
-                    models.ForeignKey(
-                        help_text="The adoption plan this image belongs to",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="images",
-                        to="vinsdelux.vdladoptionplan",
-                    ),
-                ),
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('image', models.ImageField(help_text='Image for the adoption plan (will be stored in adoption_plans/YYYY/MM/ folder)', upload_to='adoption_plans/%Y/%m/')),
+                ('order', models.IntegerField(default=0, help_text='Display order for rotation (lower numbers appear first)')),
+                ('caption', models.CharField(blank=True, help_text='Optional caption for the image', max_length=255, null=True)),
+                ('is_primary', models.BooleanField(default=False, help_text='Is this the primary/default image for the adoption plan?')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('adoption_plan', models.ForeignKey(help_text='The adoption plan this image belongs to', on_delete=django.db.models.deletion.CASCADE, related_name='images', to='vinsdelux.vdladoptionplan')),
             ],
             options={
-                "verbose_name": "Adoption Plan Image",
-                "verbose_name_plural": "Adoption Plan Images",
-                "ordering": ["adoption_plan", "order"],
+                'verbose_name': 'Adoption Plan Image',
+                'verbose_name_plural': 'Adoption Plan Images',
+                'ordering': ['adoption_plan', 'order'],
             },
         ),
     ]

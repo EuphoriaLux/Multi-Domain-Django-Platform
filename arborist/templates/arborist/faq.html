@@ -1,29 +1,34 @@
-{% extends "arborist/base.html" %} {% load i18n %} {% block extra_head %}
+{% extends "arborist/base.html" %}
+{% load i18n %}
+
+{% block extra_head %}
 <!-- FAQ Page Structured Data -->
 <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": [
-            {% for item in faq_items %}
-            {
-                "@type": "Question",
-                "name": "{{ item.question }}",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "{{ item.answer }}"
-                }
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ]
-    }
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {% for item in faq_items %}
+        {
+            "@type": "Question",
+            "name": "{{ item.question }}",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "{{ item.answer }}"
+            }
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
 </script>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <!-- Header -->
-<section class="bg-green-800 py-16 text-white">
+<section class="bg-green-800 text-white py-16">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-4xl text-center">
-            <h1 class="mb-4 text-4xl font-bold">
+        <div class="max-w-4xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-4">
                 {% trans "Frequently Asked Questions" %}
             </h1>
             <p class="text-xl">
@@ -36,64 +41,57 @@
 <!-- FAQ List -->
 <section class="py-16">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-3xl">
+        <div class="max-w-3xl mx-auto">
             <div class="space-y-6">
                 {% for item in faq_items %}
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {{ item.question }}
                     </h2>
-                    <p class="text-gray-700">{{ item.answer }}</p>
+                    <p class="text-gray-700">
+                        {{ item.answer }}
+                    </p>
                 </div>
                 {% empty %}
                 <!-- Fallback content if faq_items is not passed -->
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {% trans "How much does a tree inspection cost?" %}
                     </h2>
                     <p class="text-gray-700">
-                        {% trans "The cost of a tree inspection depends on the number of
-                        trees and the effort required. Contact me for an individual
-                        quote." %}
+                        {% trans "The cost of a tree inspection depends on the number of trees and the effort required. Contact me for an individual quote." %}
                     </p>
                 </div>
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {% trans "When is the best time for fruit tree pruning?" %}
                     </h2>
                     <p class="text-gray-700">
-                        {% trans "The best time for fruit tree pruning varies by fruit
-                        type. Pome fruit (apple, pear) is usually pruned in winter,
-                        stone fruit (cherry, plum) after harvest in summer." %}
+                        {% trans "The best time for fruit tree pruning varies by fruit type. Pome fruit (apple, pear) is usually pruned in winter, stone fruit (cherry, plum) after harvest in summer." %}
                     </p>
                 </div>
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {% trans "Do you also work with rope climbing technique?" %}
                     </h2>
                     <p class="text-gray-700">
-                        {% trans "Yes, I am SKT-B certified and work with professional
-                        rope climbing technique. This enables tree-friendly care even
-                        without heavy machinery." %}
+                        {% trans "Yes, I am SKT-B certified and work with professional rope climbing technique. This enables tree-friendly care even without heavy machinery." %}
                     </p>
                 </div>
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {% trans "In which regions do you operate?" %}
                     </h2>
                     <p class="text-gray-700">
-                        {% trans "I operate throughout Luxembourg, with a focus on the
-                        center and south of the country." %}
+                        {% trans "I operate throughout Luxembourg, with a focus on the center and south of the country." %}
                     </p>
                 </div>
                 <div class="card">
-                    <h2 class="mb-3 text-xl font-semibold text-green-800">
+                    <h2 class="text-xl font-semibold mb-3 text-green-800">
                         {% trans "Do you also offer emergency services?" %}
                     </h2>
                     <p class="text-gray-700">
-                        {% trans "Yes, for storm damage or other emergencies I am also
-                        available on short notice. Contact me by phone for urgent
-                        requests." %}
+                        {% trans "Yes, for storm damage or other emergencies I am also available on short notice. Contact me by phone for urgent requests." %}
                     </p>
                 </div>
                 {% endfor %}
@@ -103,57 +101,47 @@
 </section>
 
 <!-- Additional Questions -->
-<section class="bg-gray-50 py-16">
+<section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
-        <div class="mx-auto max-w-3xl">
-            <h2 class="mb-8 text-center text-2xl font-bold text-green-800">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-2xl font-bold mb-8 text-center text-green-800">
                 {% trans "More Frequently Asked Questions" %}
             </h2>
 
             <div class="space-y-6">
                 <div class="card">
-                    <h3 class="mb-2 text-lg font-semibold text-green-800">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
                         {% trans "Do I need a permit for tree removal?" %}
                     </h3>
                     <p class="text-gray-700">
-                        {% trans "In many municipalities in Luxembourg, tree removal
-                        requires a permit. I am happy to advise you on local regulations
-                        and help with the application process." %}
+                        {% trans "In many municipalities in Luxembourg, tree removal requires a permit. I am happy to advise you on local regulations and help with the application process." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="mb-2 text-lg font-semibold text-green-800">
-                        {% trans "What is the difference between tree care and tree
-                        inspection?" %}
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
+                        {% trans "What is the difference between tree care and tree inspection?" %}
                     </h3>
                     <p class="text-gray-700">
-                        {% trans "Tree inspection is the systematic examination of a
-                        tree for damage and traffic safety. Tree care includes active
-                        measures such as pruning, deadwood removal, and crown
-                        correction." %}
+                        {% trans "Tree inspection is the systematic examination of a tree for damage and traffic safety. Tree care includes active measures such as pruning, deadwood removal, and crown correction." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="mb-2 text-lg font-semibold text-green-800">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
                         {% trans "How often should a tree be inspected?" %}
                     </h3>
                     <p class="text-gray-700">
-                        {% trans "For trees in high-traffic locations, the FLL
-                        recommends annual inspection. For less frequented locations, a
-                        longer interval may be sufficient." %}
+                        {% trans "For trees in high-traffic locations, the FLL recommends annual inspection. For less frequented locations, a longer interval may be sufficient." %}
                     </p>
                 </div>
 
                 <div class="card">
-                    <h3 class="mb-2 text-lg font-semibold text-green-800">
+                    <h3 class="text-lg font-semibold mb-2 text-green-800">
                         {% trans "Do you dispose of the cuttings?" %}
                     </h3>
                     <p class="text-gray-700">
-                        {% trans "Yes, upon request I dispose of the cuttings properly.
-                        Alternatively, they can remain on-site, e.g., as wood chips for
-                        your garden beds." %}
+                        {% trans "Yes, upon request I dispose of the cuttings properly. Alternatively, they can remain on-site, e.g., as wood chips for your garden beds." %}
                     </p>
                 </div>
             </div>
@@ -162,18 +150,15 @@
 </section>
 
 <!-- CTA -->
-<section class="bg-green-800 py-16 text-white">
+<section class="py-16 bg-green-800 text-white">
     <div class="container mx-auto px-4 text-center">
-        <h2 class="mb-4 text-3xl font-bold">{% trans "More Questions?" %}</h2>
-        <p class="mb-8 text-xl">
-            {% trans "Contact me - I am happy to answer all your questions about tree
-            care." %}
+        <h2 class="text-3xl font-bold mb-4">
+            {% trans "More Questions?" %}
+        </h2>
+        <p class="text-xl mb-8">
+            {% trans "Contact me - I am happy to answer all your questions about tree care." %}
         </p>
-        <a
-            href="{% url 'arborist:contact' %}"
-            class="btn"
-            style="background: #fff; color: #2d5016"
-        >
+        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
             {% trans "Get in Touch" %}
         </a>
     </div>

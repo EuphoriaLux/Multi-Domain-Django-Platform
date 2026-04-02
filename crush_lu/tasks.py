@@ -16,7 +16,6 @@ Usage in views:
 
 See: https://docs.djangoproject.com/en/6.0/topics/tasks/
 """
-
 import logging
 
 from django.tasks import task
@@ -33,7 +32,6 @@ def _build_fake_request(host, is_secure=True):
     - get_host() -> domain string
     - is_secure() -> bool for https://
     """
-
     class FakeRequest:
         def __init__(self, host, secure):
             self._host = host
@@ -95,18 +93,22 @@ def send_event_registration_email_task(registration_id, host, is_secure=True):
     from .email_helpers import send_event_registration_confirmation
 
     try:
-        registration = EventRegistration.objects.select_related("user", "event").get(
-            pk=registration_id
-        )
+        registration = EventRegistration.objects.select_related(
+            "user", "event"
+        ).get(pk=registration_id)
         request = _build_fake_request(host, is_secure)
         send_event_registration_confirmation(registration, request)
         logger.info(
             f"[TASK] Registration email sent for registration {registration_id}"
         )
     except EventRegistration.DoesNotExist:
-        logger.warning(f"[TASK] Registration {registration_id} not found for email")
+        logger.warning(
+            f"[TASK] Registration {registration_id} not found for email"
+        )
     except Exception as e:
-        logger.error(f"[TASK] Failed to send registration email {registration_id}: {e}")
+        logger.error(
+            f"[TASK] Failed to send registration email {registration_id}: {e}"
+        )
 
 
 @task(priority=8)
@@ -127,7 +129,9 @@ def send_connection_notification_task(
         send_new_connection_request_notification(
             recipient, connection, requester, request
         )
-        logger.info(f"[TASK] Connection notification sent to user {recipient_id}")
+        logger.info(
+            f"[TASK] Connection notification sent to user {recipient_id}"
+        )
     except (User.DoesNotExist, EventConnection.DoesNotExist) as e:
         logger.warning(f"[TASK] Object not found for connection notification: {e}")
     except Exception as e:
@@ -147,11 +151,15 @@ def send_profile_reminder_task(user_id, reminder_type, host, is_secure=True):
         user = User.objects.get(pk=user_id)
         request = _build_fake_request(host, is_secure)
         send_profile_incomplete_reminder(user, reminder_type, request)
-        logger.info(f"[TASK] Profile reminder ({reminder_type}) sent to user {user_id}")
+        logger.info(
+            f"[TASK] Profile reminder ({reminder_type}) sent to user {user_id}"
+        )
     except User.DoesNotExist:
         logger.warning(f"[TASK] User {user_id} not found for profile reminder")
     except Exception as e:
-        logger.error(f"[TASK] Failed to send profile reminder to user {user_id}: {e}")
+        logger.error(
+            f"[TASK] Failed to send profile reminder to user {user_id}: {e}"
+        )
 
 
 @task(priority=5)
@@ -163,4 +171,6 @@ def send_coach_push_notification_task(coach_user_id, title, body, url=None):
         _send_push_to_coach(coach_user_id, title, body, url)
         logger.info(f"[TASK] Push notification sent to coach {coach_user_id}")
     except Exception as e:
-        logger.error(f"[TASK] Failed to send push to coach {coach_user_id}: {e}")
+        logger.error(
+            f"[TASK] Failed to send push to coach {coach_user_id}: {e}"
+        )

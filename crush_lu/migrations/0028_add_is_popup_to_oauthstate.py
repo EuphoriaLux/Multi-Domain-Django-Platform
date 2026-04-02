@@ -6,16 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0027_emailpreference"),
+        ('crush_lu', '0027_emailpreference'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="oauthstate",
-            name="is_popup",
-            field=models.BooleanField(
-                default=False,
-                help_text="Whether this OAuth flow was initiated from a popup window",
-            ),
+            model_name='oauthstate',
+            name='is_popup',
+            field=models.BooleanField(default=False, help_text='Whether this OAuth flow was initiated from a popup window'),
         ),
     ]

@@ -93,7 +93,7 @@ ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
 from azureproject.domains import DOMAINS
 
 for _config in DOMAINS.values():
-    for _alias in _config.get("aliases", []):
+    for _alias in _config.get('aliases', []):
         if _alias not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_alias)
 
@@ -207,9 +207,7 @@ STORAGES = {
 # Each platform uses its own container (crush-lu-media, vinsdelux-media, etc.)
 # Legacy AZURE_CONTAINER_NAME removed - use storage backend's .url() method instead
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
-MEDIA_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"  # Fallback only
-)
+MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"  # Fallback only
 
 # ============================================================================
 # CONTENT IMAGE URLS (Azure Blob Storage - Platform-Specific Containers)
@@ -224,9 +222,7 @@ MEDIA_URL = (
 # - powerup-media/defaults/profile.png
 
 # Crush.lu images (in crush-lu-media container)
-CRUSH_MEDIA_BASE_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
-)
+CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     "SOCIAL_PREVIEW_IMAGE_URL",
     f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
@@ -237,9 +233,7 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
 )
 
 # VinsDelux images (in vinsdelux-media container)
-VINSDELUX_MEDIA_BASE_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
-)
+VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
     "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
 )
@@ -249,9 +243,7 @@ VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
 )
 
 # PowerUP/Entreprinder images (in powerup-media container)
-POWERUP_MEDIA_BASE_URL = (
-    f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
-)
+POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     "POWERUP_DEFAULT_PROFILE_URL",
     f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png",
@@ -278,7 +270,8 @@ try:
     # Get Connection String (POSTGRESQLCONNSTR_ prefix from Azure Connection Strings section)
     # Azure automatically prefixes connection strings with type (POSTGRESQLCONNSTR_, SQLCONNSTR_, etc.)
     conn_str_key = next(
-        (k for k in os.environ.keys() if k.startswith("POSTGRESQLCONNSTR_")), None
+        (k for k in os.environ.keys() if k.startswith('POSTGRESQLCONNSTR_')),
+        None
     )
 
     if not conn_str_key:
@@ -572,7 +565,6 @@ from azureproject.telemetry_config import configure_azure_monitor_telemetry
 telemetry_ok = configure_azure_monitor_telemetry(environment=DJANGO_ENV)
 if not telemetry_ok:
     import sys
-
     print(
         "WARNING: Azure Monitor telemetry not configured. "
         "Check APPLICATIONINSIGHTS_CONNECTION_STRING is set.",

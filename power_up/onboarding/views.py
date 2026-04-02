@@ -80,18 +80,20 @@ def configure(request, session_id):
     # Group summary for sidebar
     active_contract = group.contracts.filter(status="active").first()
 
-    tenants = Tenant.objects.filter(entity__group=group, is_active=True).select_related(
-        "entity"
-    )
+    tenants = Tenant.objects.filter(
+        entity__group=group, is_active=True
+    ).select_related("entity")
 
     contacts = group.authorized_contacts.filter(is_active=True)
     # Annotate contacts with their role label for this group
-    role_map = dict(group.user_roles.values_list("contact_id", "role"))
+    role_map = dict(
+        group.user_roles.values_list("contact_id", "role")
+    )
     contacts_with_roles = []
     for c in contacts:
-        c.role_label = dict(group.user_roles.model.Role.choices).get(
-            role_map.get(c.pk), ""
-        )
+        c.role_label = dict(
+            group.user_roles.model.Role.choices
+        ).get(role_map.get(c.pk), "")
         contacts_with_roles.append(c)
 
     return render(
@@ -222,9 +224,7 @@ def partial_slot_picker(request):
 
 @staff_member_required
 def tenant_edit(request, tenant_id, session_id=None):
-    tenant = get_object_or_404(
-        Tenant.objects.select_related("entity__group"), pk=tenant_id
-    )
+    tenant = get_object_or_404(Tenant.objects.select_related("entity__group"), pk=tenant_id)
     group = tenant.entity.group
 
     if request.method == "POST":

@@ -1,12 +1,15 @@
-{% extends "crush_lu/journey/gift_base.html" %} {% load static i18n %} {% block title
-%}{% trans "Claim Your Journey" %} - Crush.lu{% endblock %} {% block gift_content %}
+{% extends "crush_lu/journey/gift_base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Claim Your Journey" %} - Crush.lu{% endblock %}
+
+{% block gift_content %}
 <article class="gift-card">
     <h1 class="gift-title">{% trans "Claim Your Wonderland Journey" %}</h1>
 
     <div class="claim-hero">
         <p class="claim-from">
-            <strong>{{ gift.sender.first_name }}</strong> {% trans "created this journey
-            for" %}
+            <strong>{{ gift.sender.first_name }}</strong> {% trans "created this journey for" %}
         </p>
         <p class="claim-recipient">{{ gift.recipient_name }}</p>
     </div>
@@ -19,10 +22,7 @@
     {% endif %}
 
     <div class="claim-info">
-        <p>
-            {% trans "Ready to begin your adventure? Once you claim this gift, your
-            personalized 6-chapter Wonderland journey will be created." %}
-        </p>
+        <p>{% trans "Ready to begin your adventure? Once you claim this gift, your personalized 6-chapter Wonderland journey will be created." %}</p>
     </div>
 
     <form method="post" class="claim-form">
@@ -33,8 +33,7 @@
     </form>
 
     <p class="claim-hint">
-        {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets,
-        and messages." %}
+        {% trans "By claiming this gift, you'll unlock 6 chapters of puzzles, secrets, and messages." %}
     </p>
 </article>
 {% endblock %}

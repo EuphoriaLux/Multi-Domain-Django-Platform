@@ -87,36 +87,29 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     # Build secondary fields (below primary)
     secondary_fields = []
     if pass_data["next_event"]:
-        secondary_fields.append(
-            {
-                "key": "next_event",
-                "label": "Next Event",
-                "value": pass_data["next_event"]["title"],
-            }
-        )
-        secondary_fields.append(
-            {
-                "key": "event_date",
-                "label": "Date",
-                "value": pass_data["next_event"]["date"],
-            }
-        )
+        secondary_fields.append({
+            "key": "next_event",
+            "label": "Next Event",
+            "value": pass_data["next_event"]["title"],
+        })
+        secondary_fields.append({
+            "key": "event_date",
+            "label": "Date",
+            "value": pass_data["next_event"]["date"],
+        })
     else:
-        secondary_fields.append(
-            {
-                "key": "next_event",
-                "label": "Next Event",
-                "value": "No upcoming events",
-            }
-        )
+        secondary_fields.append({
+            "key": "next_event",
+            "label": "Next Event",
+            "value": "No upcoming events",
+        })
 
     # Build auxiliary fields (bottom row)
     auxiliary_fields = [
         {
             "key": "member_since",
             "label": "Member since",
-            "value": pass_data["member_since"]
-            or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "value": pass_data["member_since"] or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         },
         {
             "key": "points",
@@ -140,13 +133,11 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     ]
 
     if pass_data["next_event"] and pass_data["next_event"].get("location"):
-        back_fields.append(
-            {
-                "key": "event_location",
-                "label": "Event Location",
-                "value": pass_data["next_event"]["location"],
-            }
-        )
+        back_fields.append({
+            "key": "event_location",
+            "label": "Event Location",
+            "value": pass_data["next_event"]["location"],
+        })
 
     payload = {
         "formatVersion": 1,
@@ -237,9 +228,7 @@ def build_apple_pass(profile, request=None):
         bytes: The .pkpass file contents
     """
     serial_number, auth_token = _ensure_pass_identifiers(profile)
-    pass_payload = _build_pass_payload(
-        profile, serial_number, auth_token, request=request
-    )
+    pass_payload = _build_pass_payload(profile, serial_number, auth_token, request=request)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pass_json_path = os.path.join(temp_dir, "pass.json")
@@ -258,9 +247,7 @@ def build_apple_pass(profile, request=None):
             file_path = os.path.join(temp_dir, filename)
             with open(file_path, "rb") as handle:
                 # SHA1 is required by Apple Wallet specification for manifest.json
-                manifest[filename] = hashlib.sha1(
-                    handle.read(), usedforsecurity=False
-                ).hexdigest()
+                manifest[filename] = hashlib.sha1(handle.read(), usedforsecurity=False).hexdigest()
 
         with open(manifest_path, "w", encoding="utf-8") as handle:
             json.dump(manifest, handle, ensure_ascii=False, separators=(",", ":"))

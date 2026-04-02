@@ -1,17 +1,20 @@
-{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
-extra_head %}
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
 <!-- CSRF token for AJAX requests -->
-<meta name="csrf-token" content="{{ csrf_token }}" />
-{% endblock %} {% block extra_journey_css %}{% endblock %} {% block journey_content %}
-<div class="journey-container-content journey-animate-fade-in my-12">
+<meta name="csrf-token" content="{{ csrf_token }}">
+{% endblock %}
+
+{% block extra_journey_css %}{% endblock %}
+
+{% block journey_content %}
+<div class="journey-container-content my-12 journey-animate-fade-in">
     <!-- Back Button -->
-    <nav class="mb-6 text-center" aria-label="{% trans 'Navigation' %}">
-        <a
-            href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
-            class="journey-nav-btn"
-        >
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans
-            "Back to Chapter" %}
+    <nav class="text-center mb-6" aria-label="{% trans 'Navigation' %}">
+        <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-nav-btn">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back to Chapter" %}
         </a>
     </nav>
 
@@ -24,12 +27,11 @@ extra_head %}
             <div class="reveal-message">{{ reward.message }}</div>
 
             <p class="reveal-instruction">
-                {% trans "Click on pieces to unlock them! Each piece costs" %}
-                <strong>50</strong> {% trans "points" %} &#128142;
+                {% trans "Click on pieces to unlock them! Each piece costs" %} <strong>50</strong> {% trans "points" %} &#128142;
             </p>
 
             <!-- Points Display -->
-            <div class="mb-5 text-center">
+            <div class="text-center mb-5">
                 <span class="reveal-points-badge" aria-live="polite">
                     {% include "shared/icons/star.html" with class="w-5 h-5" %}
                     <span id="currentPoints">{% trans "Loading..." %}</span>
@@ -38,77 +40,34 @@ extra_head %}
             </div>
 
             <!-- Progress Bar -->
-            <div
-                class="reveal-progress-bar"
-                role="progressbar"
-                aria-valuenow="0"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-label="{% trans 'Puzzle completion progress' %}"
-            >
-                <progress
-                    class="reveal-progress-meter"
-                    id="progressMeter"
-                    value="0"
-                    max="100"
-                >
-                    0%
-                </progress>
+            <div class="reveal-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="{% trans 'Puzzle completion progress' %}">
+                <progress class="reveal-progress-meter" id="progressMeter" value="0" max="100">0%</progress>
                 <span class="reveal-progress-label" id="progressLabel">0%</span>
             </div>
 
             <!-- Puzzle Grid -->
             <div class="reveal-puzzle-container">
-                <div
-                    class="reveal-puzzle-grid"
-                    id="puzzleGrid"
-                    role="grid"
-                    aria-label="{% trans 'Photo puzzle - click pieces to reveal' %}"
-                >
-                    {% if reward.photo %} {% with reward.photo.url as photo_url %} {%
-                    for i in "0123456789abcdef"|make_list %}
-                    <div
-                        class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}"
-                        data-index="{{ forloop.counter0 }}"
-                        role="gridcell"
-                        tabindex="0"
-                        aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}"
-                    >
-                        <img
-                            src="{{ photo_url|safe }}"
-                            alt=""
-                            class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}"
-                        />
-                        <div class="reveal-piece-number" aria-hidden="true">
-                            {{ forloop.counter }}
-                        </div>
-                    </div>
-                    {% endfor %} {% endwith %} {% else %} {% static
-                    'crush_lu/images/placeholders/special-memory.svg' as placeholder_url
-                    %} {% for i in "0123456789abcdef"|make_list %}
-                    <div
-                        class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}"
-                        data-index="{{ forloop.counter0 }}"
-                        role="gridcell"
-                        tabindex="0"
-                        aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}"
-                    >
-                        <img
-                            src="{{ placeholder_url }}"
-                            alt=""
-                            class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}"
-                        />
-                        <div class="reveal-piece-number" aria-hidden="true">
-                            {{ forloop.counter }}
-                        </div>
-                    </div>
-                    {% endfor %} {% endif %}
+                <div class="reveal-puzzle-grid" id="puzzleGrid" role="grid" aria-label="{% trans 'Photo puzzle - click pieces to reveal' %}">
+                    {% if reward.photo %}
+                        {% with reward.photo.url as photo_url %}
+                            {% for i in "0123456789abcdef"|make_list %}
+                                <div class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}" data-index="{{ forloop.counter0 }}" role="gridcell" tabindex="0" aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}">
+                                    <img src="{{ photo_url|safe }}" alt="" class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}">
+                                    <div class="reveal-piece-number" aria-hidden="true">{{ forloop.counter }}</div>
+                                </div>
+                            {% endfor %}
+                        {% endwith %}
+                    {% else %}
+                        {% static 'crush_lu/images/placeholders/special-memory.svg' as placeholder_url %}
+                            {% for i in "0123456789abcdef"|make_list %}
+                                <div class="reveal-puzzle-piece locked reveal-piece-{{ forloop.counter0 }}" data-index="{{ forloop.counter0 }}" role="gridcell" tabindex="0" aria-label="{% trans 'Puzzle piece' %} {{ forloop.counter }} - {% trans 'locked, click to unlock for 50 points' %}">
+                                    <img src="{{ placeholder_url }}" alt="" class="reveal-piece-image reveal-piece-image-{{ forloop.counter0 }}">
+                                    <div class="reveal-piece-number" aria-hidden="true">{{ forloop.counter }}</div>
+                                </div>
+                            {% endfor %}
+                    {% endif %}
                 </div>
-                <div
-                    class="reveal-puzzle-overlay"
-                    id="puzzleOverlay"
-                    aria-hidden="true"
-                >
+                <div class="reveal-puzzle-overlay" id="puzzleOverlay" aria-hidden="true">
                     <div class="reveal-complete-message">
                         &#127881; {% trans "Photo Revealed!" %} &#127881;
                     </div>
@@ -117,25 +76,17 @@ extra_head %}
 
             <div class="reveal-completion-buttons" id="completionButtons">
                 {% if reward.photo %}
-                <a
-                    href="{{ reward.photo.url|safe }}"
-                    download
-                    class="journey-btn-primary mx-2.5 my-5 inline-flex items-center gap-2"
-                >
-                    {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5"
-                    %} {% trans "Download Photo" %}
+                <a href="{{ reward.photo.url|safe }}" download class="journey-btn-primary inline-flex items-center gap-2 mx-2.5 my-5">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-5 h-5" %}
+                    {% trans "Download Photo" %}
                 </a>
                 {% endif %}
-                <a
-                    href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
-                    class="journey-btn-primary mx-2.5 my-5 inline-flex items-center gap-2"
-                >
-                    {% trans "Continue Your Journey" %} {% include
-                    "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+                <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary inline-flex items-center gap-2 mx-2.5 my-5">
+                    {% trans "Continue Your Journey" %}
+                    {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
                 </a>
                 <p class="reveal-tip">
-                    &#128161; {% trans "Tip: Download this special memory to keep
-                    forever!" %}
+                    &#128161; {% trans "Tip: Download this special memory to keep forever!" %}
                 </p>
             </div>
         </div>
@@ -143,146 +94,37 @@ extra_head %}
 </div>
 
 <script nonce="{{ csp_nonce }}">
-    document.addEventListener('DOMContentLoaded', function() {
-        var puzzleGrid = document.getElementById('puzzleGrid');
-        var progressMeter = document.getElementById('progressMeter');
-        var progressLabel = document.getElementById('progressLabel');
-        var progressBar = progressMeter.parentElement;
-        var puzzleOverlay = document.getElementById('puzzleOverlay');
-        var completionButtons = document.getElementById('completionButtons');
-        var currentPointsEl = document.getElementById('currentPoints');
+document.addEventListener('DOMContentLoaded', function() {
+    var puzzleGrid = document.getElementById('puzzleGrid');
+    var progressMeter = document.getElementById('progressMeter');
+    var progressLabel = document.getElementById('progressLabel');
+    var progressBar = progressMeter.parentElement;
+    var puzzleOverlay = document.getElementById('puzzleOverlay');
+    var completionButtons = document.getElementById('completionButtons');
+    var currentPointsEl = document.getElementById('currentPoints');
 
-        var rewardId = {{ reward.id }};
-        var totalPieces = 16;
-        var unlockedPieces = [];
-        var currentPoints = 0;
+    var rewardId = {{ reward.id }};
+    var totalPieces = 16;
+    var unlockedPieces = [];
+    var currentPoints = 0;
 
-        // Load existing progress from server
-        loadProgress();
+    // Load existing progress from server
+    loadProgress();
 
-        function loadProgress() {
-            var url = '/api/journey/reward-progress/' + rewardId + '/';
-            fetch(url)
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    if (data.success) {
-                        unlockedPieces = data.unlocked_pieces || [];
-                        currentPoints = data.current_points || 0;
-                        currentPointsEl.textContent = currentPoints;
-
-                        // Create puzzle pieces after loading progress
-                        createPuzzlePieces();
-
-                        // Check if already completed
-                        if (data.is_completed) {
-                            setTimeout(function() {
-                                puzzleOverlay.classList.add('show');
-                                puzzleOverlay.setAttribute('aria-hidden', 'false');
-                                completionButtons.classList.add('show');
-                            }, 500);
-                        }
-                    } else {
-                        currentPointsEl.textContent = '0';
-                        createPuzzlePieces();
-                    }
-                })
-                .catch(function(error) {
-                    console.error('Error loading progress:', error);
-                    currentPointsEl.textContent = '?';
-                    createPuzzlePieces();
-                });
-        }
-
-        function createPuzzlePieces() {
-            var pieces = puzzleGrid.querySelectorAll('.reveal-puzzle-piece');
-            pieces.forEach(function(pieceEl) {
-                var index = parseInt(pieceEl.dataset.index, 10);
-                if (unlockedPieces.indexOf(index) !== -1) {
-                    pieceEl.classList.remove('locked');
-                    pieceEl.classList.add('unlocked');
-                    pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
-                    return;
-                }
-
-                pieceEl.classList.add('locked');
-                pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "locked, click to unlock for 50 points" %}{% endfilter %}');
-                pieceEl.addEventListener('click', function() { unlockPiece(pieceEl, index); });
-                pieceEl.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        unlockPiece(pieceEl, index);
-                    }
-                });
-            });
-
-            updateProgress();
-        }
-
-        function unlockPiece(piece, index) {
-            // Prevent if already unlocked or currently loading
-            if (piece.classList.contains('unlocked') || piece.classList.contains('loading')) {
-                return;
-            }
-
-            // Add loading state IMMEDIATELY to prevent double clicks
-            piece.classList.add('loading');
-            piece.style.pointerEvents = 'none';
-
-            // Get CSRF token from cookie or meta tag
-            var csrfToken = getCookie('csrftoken') ||
-                           (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : null) ||
-                           (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null);
-
-            if (!csrfToken) {
-                console.error('CSRF token not found');
-                // Remove loading state on error
-                piece.classList.remove('loading');
-                piece.style.pointerEvents = '';
-                showNotification('&#10060; {% filter escapejs %}{% trans "Security token missing. Please refresh the page." %}{% endfilter %}', 'error');
-                return;
-            }
-
-            fetch('/api/journey/unlock-puzzle-piece/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    reward_id: rewardId,
-                    piece_index: index
-                })
-            })
-            .then(function(response) {
-                if (!response.ok) {
-                    throw new Error('Server error: ' + response.status + ' ' + response.statusText);
-                }
-                return response.json();
-            })
+    function loadProgress() {
+        var url = '/api/journey/reward-progress/' + rewardId + '/';
+        fetch(url)
+            .then(function(response) { return response.json(); })
             .then(function(data) {
-                // Remove loading state
-                piece.classList.remove('loading');
-
                 if (data.success) {
-                    // Unlock the piece visually
-                    piece.classList.remove('locked');
-                    piece.classList.add('unlocked');
-                    piece.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
-
-                    // Update points display
-                    currentPoints = data.points_remaining;
+                    unlockedPieces = data.unlocked_pieces || [];
+                    currentPoints = data.current_points || 0;
                     currentPointsEl.textContent = currentPoints;
 
-                    // Update unlocked pieces
-                    unlockedPieces = data.unlocked_pieces;
+                    // Create puzzle pieces after loading progress
+                    createPuzzlePieces();
 
-                    // Update progress
-                    updateProgress();
-
-                    // Show success message
-                    showNotification('&#10024; {% filter escapejs %}{% trans "Piece unlocked! -50 points" %}{% endfilter %}', 'success');
-
-                    // Check if complete
+                    // Check if already completed
                     if (data.is_completed) {
                         setTimeout(function() {
                             puzzleOverlay.classList.add('show');
@@ -291,67 +133,176 @@ extra_head %}
                         }, 500);
                     }
                 } else {
-                    // Re-enable clicking on error
-                    piece.style.pointerEvents = '';
-
-                    // Show error message
-                    if (data.insufficient_points) {
-                        showNotification('&#10060; {% filter escapejs %}{% trans "Not enough points! You need" %}{% endfilter %} ' + data.points_needed + ' {% filter escapejs %}{% trans "points." %}{% endfilter %}', 'error');
-                    } else if (data.already_unlocked) {
-                        showNotification('&#8505; {% filter escapejs %}{% trans "This piece is already unlocked" %}{% endfilter %}', 'info');
-                        // Mark as unlocked since it already is
-                        piece.classList.remove('locked');
-                        piece.classList.add('unlocked');
-                    } else {
-                        showNotification('&#10060; ' + data.message, 'error');
-                    }
+                    currentPointsEl.textContent = '0';
+                    createPuzzlePieces();
                 }
             })
             .catch(function(error) {
-                console.error('Error unlocking piece:', error);
-                // Remove loading state and re-enable clicking
-                piece.classList.remove('loading');
-                piece.style.pointerEvents = '';
-                showNotification('&#10060; {% filter escapejs %}{% trans "An error occurred. Please try again." %}{% endfilter %}', 'error');
+                console.error('Error loading progress:', error);
+                currentPointsEl.textContent = '?';
+                createPuzzlePieces();
             });
+    }
+
+    function createPuzzlePieces() {
+        var pieces = puzzleGrid.querySelectorAll('.reveal-puzzle-piece');
+        pieces.forEach(function(pieceEl) {
+            var index = parseInt(pieceEl.dataset.index, 10);
+            if (unlockedPieces.indexOf(index) !== -1) {
+                pieceEl.classList.remove('locked');
+                pieceEl.classList.add('unlocked');
+                pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
+                return;
+            }
+
+            pieceEl.classList.add('locked');
+            pieceEl.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "locked, click to unlock for 50 points" %}{% endfilter %}');
+            pieceEl.addEventListener('click', function() { unlockPiece(pieceEl, index); });
+            pieceEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    unlockPiece(pieceEl, index);
+                }
+            });
+        });
+
+        updateProgress();
+    }
+
+    function unlockPiece(piece, index) {
+        // Prevent if already unlocked or currently loading
+        if (piece.classList.contains('unlocked') || piece.classList.contains('loading')) {
+            return;
         }
 
-        function updateProgress() {
-            var progress = Math.round((unlockedPieces.length / totalPieces) * 100);
-            progressMeter.value = progress;
-            progressLabel.textContent = progress + '%';
-            progressBar.setAttribute('aria-valuenow', progress);
+        // Add loading state IMMEDIATELY to prevent double clicks
+        piece.classList.add('loading');
+        piece.style.pointerEvents = 'none';
+
+        // Get CSRF token from cookie or meta tag
+        var csrfToken = getCookie('csrftoken') ||
+                       (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : null) ||
+                       (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null);
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            // Remove loading state on error
+            piece.classList.remove('loading');
+            piece.style.pointerEvents = '';
+            showNotification('&#10060; {% filter escapejs %}{% trans "Security token missing. Please refresh the page." %}{% endfilter %}', 'error');
+            return;
         }
 
-        function showNotification(message, type) {
-            var notification = document.createElement('div');
-            notification.setAttribute('role', 'alert');
-            notification.setAttribute('aria-live', 'polite');
-            notification.className = 'journey-toast journey-toast-' + type;
-            notification.innerHTML = message;
-            document.body.appendChild(notification);
+        fetch('/api/journey/unlock-puzzle-piece/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                reward_id: rewardId,
+                piece_index: index
+            })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Server error: ' + response.status + ' ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            // Remove loading state
+            piece.classList.remove('loading');
 
-            setTimeout(function() {
-                notification.classList.add('journey-toast-exit');
-                setTimeout(function() { notification.remove(); }, 300);
-            }, 3000);
-        }
+            if (data.success) {
+                // Unlock the piece visually
+                piece.classList.remove('locked');
+                piece.classList.add('unlocked');
+                piece.setAttribute('aria-label', '{% filter escapejs %}{% trans "Puzzle piece" %}{% endfilter %} ' + (index + 1) + ' - {% filter escapejs %}{% trans "unlocked" %}{% endfilter %}');
 
-        function getCookie(name) {
-            var cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
+                // Update points display
+                currentPoints = data.points_remaining;
+                currentPointsEl.textContent = currentPoints;
+
+                // Update unlocked pieces
+                unlockedPieces = data.unlocked_pieces;
+
+                // Update progress
+                updateProgress();
+
+                // Show success message
+                showNotification('&#10024; {% filter escapejs %}{% trans "Piece unlocked! -50 points" %}{% endfilter %}', 'success');
+
+                // Check if complete
+                if (data.is_completed) {
+                    setTimeout(function() {
+                        puzzleOverlay.classList.add('show');
+                        puzzleOverlay.setAttribute('aria-hidden', 'false');
+                        completionButtons.classList.add('show');
+                    }, 500);
+                }
+            } else {
+                // Re-enable clicking on error
+                piece.style.pointerEvents = '';
+
+                // Show error message
+                if (data.insufficient_points) {
+                    showNotification('&#10060; {% filter escapejs %}{% trans "Not enough points! You need" %}{% endfilter %} ' + data.points_needed + ' {% filter escapejs %}{% trans "points." %}{% endfilter %}', 'error');
+                } else if (data.already_unlocked) {
+                    showNotification('&#8505; {% filter escapejs %}{% trans "This piece is already unlocked" %}{% endfilter %}', 'info');
+                    // Mark as unlocked since it already is
+                    piece.classList.remove('locked');
+                    piece.classList.add('unlocked');
+                } else {
+                    showNotification('&#10060; ' + data.message, 'error');
                 }
             }
-            return cookieValue;
-        }
+        })
+        .catch(function(error) {
+            console.error('Error unlocking piece:', error);
+            // Remove loading state and re-enable clicking
+            piece.classList.remove('loading');
+            piece.style.pointerEvents = '';
+            showNotification('&#10060; {% filter escapejs %}{% trans "An error occurred. Please try again." %}{% endfilter %}', 'error');
+        });
+    }
 
-    });
+    function updateProgress() {
+        var progress = Math.round((unlockedPieces.length / totalPieces) * 100);
+        progressMeter.value = progress;
+        progressLabel.textContent = progress + '%';
+        progressBar.setAttribute('aria-valuenow', progress);
+    }
+
+    function showNotification(message, type) {
+        var notification = document.createElement('div');
+        notification.setAttribute('role', 'alert');
+        notification.setAttribute('aria-live', 'polite');
+        notification.className = 'journey-toast journey-toast-' + type;
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+
+        setTimeout(function() {
+            notification.classList.add('journey-toast-exit');
+            setTimeout(function() { notification.remove(); }, 300);
+        }, 3000);
+    }
+
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+});
 </script>
 {% endblock %}

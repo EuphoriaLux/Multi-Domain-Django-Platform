@@ -7,32 +7,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0101_add_event_invite_sms_fields"),
+        ('crush_lu', '0101_add_event_invite_sms_fields'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="callattempt",
-            name="profile",
-            field=models.ForeignKey(
-                blank=True,
-                help_text="Direct profile link (for profiles without a submission)",
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="call_attempts",
-                to="crush_lu.crushprofile",
-            ),
+            model_name='callattempt',
+            name='profile',
+            field=models.ForeignKey(blank=True, help_text='Direct profile link (for profiles without a submission)', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='call_attempts', to='crush_lu.crushprofile'),
         ),
         migrations.AlterField(
-            model_name="callattempt",
-            name="submission",
-            field=models.ForeignKey(
-                blank=True,
-                help_text="The profile submission this call attempt is for",
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="call_attempts",
-                to="crush_lu.profilesubmission",
-            ),
+            model_name='callattempt',
+            name='submission',
+            field=models.ForeignKey(blank=True, help_text='The profile submission this call attempt is for', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='call_attempts', to='crush_lu.profilesubmission'),
         ),
     ]

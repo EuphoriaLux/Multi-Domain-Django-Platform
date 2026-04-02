@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 try:
     from storages.backends.azure_storage import AzureStorage
     from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-
     AZURE_STORAGE_AVAILABLE = True
 except ImportError:
     AzureStorage = object  # Placeholder
@@ -35,7 +34,7 @@ except ImportError:
 
 def is_azurite_mode():
     """Check if we're running in Azurite (local emulator) mode."""
-    return getattr(settings, "AZURITE_MODE", False)
+    return getattr(settings, 'AZURITE_MODE', False)
 
 
 class VdlMediaStorage(AzureStorage):
@@ -56,21 +55,22 @@ class VdlMediaStorage(AzureStorage):
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings
-        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
-        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
+        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
+        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
 
         # Container name (configurable via environment)
-        container_name = os.getenv("AZURE_VINSDELUX_MEDIA_CONTAINER", "vinsdelux-media")
+        container_name = os.getenv(
+            'AZURE_VINSDELUX_MEDIA_CONTAINER',
+            'vinsdelux-media'
+        )
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
+            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(
-                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
-            )
+            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -92,28 +92,26 @@ class VdlPrivateStorage(AzureStorage):
 
     SAS token expiration: 2 hours (7200 seconds)
     """
-
     expiration_secs = 7200  # 2 hours for document access
 
     def __init__(self, *args, **kwargs):
         # Get credentials from settings
-        self.account_name = getattr(settings, "AZURE_ACCOUNT_NAME", None)
-        self.account_key = getattr(settings, "AZURE_ACCOUNT_KEY", None)
+        self.account_name = getattr(settings, 'AZURE_ACCOUNT_NAME', None)
+        self.account_key = getattr(settings, 'AZURE_ACCOUNT_KEY', None)
 
         # Container name (configurable via environment)
         container_name = os.getenv(
-            "AZURE_VINSDELUX_PRIVATE_CONTAINER", "vinsdelux-private"
+            'AZURE_VINSDELUX_PRIVATE_CONTAINER',
+            'vinsdelux-private'
         )
         self.azure_container = container_name
 
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
-            self.connection_string = getattr(settings, "AZURE_CONNECTION_STRING", None)
+            self.connection_string = getattr(settings, 'AZURE_CONNECTION_STRING', None)
             self.azure_ssl = False  # Azurite uses HTTP
-            self._azurite_host = getattr(
-                settings, "AZURITE_BLOB_HOST", "127.0.0.1:10000"
-            )
+            self._azurite_host = getattr(settings, 'AZURITE_BLOB_HOST', '127.0.0.1:10000')
         else:
             self.azure_ssl = True  # Production uses HTTPS
 
@@ -145,7 +143,7 @@ class VdlPrivateStorage(AzureStorage):
             container_name=self.azure_container,
             blob_name=name,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire),
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
         )
 
         # Build URL based on environment
@@ -165,7 +163,6 @@ class VdlPrivateStorage(AzureStorage):
 # Upload Path Helpers for VinsDelux Models
 # =============================================================================
 
-
 def _vinsdelux_upload_path(subfolder: str, instance, filename: str) -> str:
     """
     Generate VinsDelux upload path with UUID.
@@ -182,14 +179,14 @@ def _vinsdelux_upload_path(subfolder: str, instance, filename: str) -> str:
     unique_filename = f"{uuid.uuid4().hex}{ext}"
 
     # Normalize subfolder (remove leading/trailing slashes)
-    subfolder = subfolder.strip("/")
+    subfolder = subfolder.strip('/')
 
     if subfolder:
         return f"{subfolder}/{unique_filename}"
     return unique_filename
 
 
-def vinsdelux_upload_path(subfolder: str = ""):
+def vinsdelux_upload_path(subfolder: str = ''):
     """
     Factory function to create VinsDelux upload_to callables.
 
@@ -215,40 +212,31 @@ def vinsdelux_upload_path(subfolder: str = ""):
 # Note: These are callable factories, not instances, to avoid Django settings
 # issues during module import. They will be instantiated when first accessed.
 
-
 def get_vinsdelux_media_storage():
     """Get VinsDelux media storage instance (lazy initialization)."""
     try:
         from django.core.files.storage.base import Storage
-
         storage = VdlMediaStorage()
         if not isinstance(storage, Storage):
             from django.core.files.storage import default_storage
-
             return default_storage
         return storage
     except Exception:
         from django.core.files.storage import default_storage
-
         return default_storage
-
 
 def get_vinsdelux_private_storage():
     """Get VinsDelux private storage instance (lazy initialization)."""
     try:
         from django.core.files.storage.base import Storage
-
         storage = VdlPrivateStorage()
         if not isinstance(storage, Storage):
             from django.core.files.storage import default_storage
-
             return default_storage
         return storage
     except Exception:
         from django.core.files.storage import default_storage
-
         return default_storage
-
 
 # Aliases for backward compatibility and convenience
 vinsdelux_media_storage = get_vinsdelux_media_storage

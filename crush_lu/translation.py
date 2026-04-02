@@ -23,31 +23,31 @@ from .models.journey import (
 class CrushCoachTranslationOptions(TranslationOptions):
     """Translatable fields for coach profiles (bio and specializations)."""
 
-    fields = ("bio", "specializations")
+    fields = ('bio', 'specializations')
 
 
 class SpecialUserExperienceTranslationOptions(TranslationOptions):
     """Translatable fields for special user welcome experience."""
 
-    fields = ("custom_welcome_title", "custom_welcome_message")
+    fields = ('custom_welcome_title', 'custom_welcome_message')
 
 
 class MeetupEventTranslationOptions(TranslationOptions):
     """Translatable fields for meetup events."""
 
-    fields = ("title", "description")
+    fields = ('title', 'description')
 
 
 class JourneyConfigurationTranslationOptions(TranslationOptions):
     """Translatable fields for journey configuration."""
 
-    fields = ("journey_name", "final_message")
+    fields = ('journey_name', 'final_message')
 
 
 class JourneyChapterTranslationOptions(TranslationOptions):
     """Translatable fields for journey chapters."""
 
-    fields = ("title", "theme", "story_introduction", "completion_message")
+    fields = ('title', 'theme', 'story_introduction', 'completion_message')
 
 
 class JourneyChallengeTranslationOptions(TranslationOptions):
@@ -61,37 +61,37 @@ class JourneyChallengeTranslationOptions(TranslationOptions):
     for multiple choice answers that users see.
     """
 
-    fields = ("question", "hint_1", "hint_2", "hint_3", "success_message", "options")
+    fields = ('question', 'hint_1', 'hint_2', 'hint_3', 'success_message', 'options')
 
 
 class JourneyRewardTranslationOptions(TranslationOptions):
     """Translatable fields for journey rewards (poems, letters, etc.)."""
 
-    fields = ("title", "message")
+    fields = ('title', 'message')
 
 
 class CrushSiteConfigTranslationOptions(TranslationOptions):
     """Translatable fields for site config banner."""
 
-    fields = ("banner_message", "banner_link_text", "banner_link_url")
+    fields = ('banner_message', 'banner_link_text', 'banner_link_url')
 
 
 class EventPollTranslationOptions(TranslationOptions):
     """Translatable fields for event polls."""
 
-    fields = ("title", "description")
+    fields = ('title', 'description')
 
 
 class EventPollOptionTranslationOptions(TranslationOptions):
     """Translatable fields for event poll options."""
 
-    fields = ("name", "description")
+    fields = ('name', 'description')
 
 
 class TraitTranslationOptions(TranslationOptions):
     """Translatable fields for matching traits (qualities and defects)."""
 
-    fields = ("label",)
+    fields = ('label',)
 
 
 # Register models with translation options

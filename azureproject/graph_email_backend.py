@@ -3,7 +3,6 @@
 Microsoft Graph API email backend for Django.
 Sends emails using Microsoft Graph instead of SMTP.
 """
-
 import logging
 from django.core.mail.backends.base import BaseEmailBackend
 from django.conf import settings
@@ -19,35 +18,23 @@ class GraphEmailBackend(BaseEmailBackend):
 
     def __init__(self, fail_silently=False, **kwargs):
         super().__init__(fail_silently=fail_silently, **kwargs)
-        self.tenant_id = kwargs.get("tenant_id") or getattr(
-            settings, "GRAPH_TENANT_ID", None
-        )
-        self.client_id = kwargs.get("client_id") or getattr(
-            settings, "GRAPH_CLIENT_ID", None
-        )
-        self.client_secret = kwargs.get("client_secret") or getattr(
-            settings, "GRAPH_CLIENT_SECRET", None
-        )
-        self.from_email = kwargs.get("from_email") or getattr(
-            settings, "GRAPH_FROM_EMAIL", "noreply@crush.lu"
-        )
+        self.tenant_id = kwargs.get('tenant_id') or getattr(settings, 'GRAPH_TENANT_ID', None)
+        self.client_id = kwargs.get('client_id') or getattr(settings, 'GRAPH_CLIENT_ID', None)
+        self.client_secret = kwargs.get('client_secret') or getattr(settings, 'GRAPH_CLIENT_SECRET', None)
+        self.from_email = kwargs.get('from_email') or getattr(settings, 'GRAPH_FROM_EMAIL', 'noreply@crush.lu')
 
         if not all([self.tenant_id, self.client_id, self.client_secret]):
             if not fail_silently:
-                raise ValueError(
-                    "Microsoft Graph credentials not configured. "
-                    "Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and GRAPH_CLIENT_SECRET."
-                )
+                raise ValueError("Microsoft Graph credentials not configured. "
+                               "Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, and GRAPH_CLIENT_SECRET.")
 
     def get_access_token(self):
         """Get access token using client credentials flow (app-only authentication)"""
         try:
             import msal
         except ImportError:
-            raise ImportError(
-                "msal package is required for Graph API email backend. "
-                "Install with: pip install msal"
-            )
+            raise ImportError("msal package is required for Graph API email backend. "
+                            "Install with: pip install msal")
 
         authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         scope = ["https://graph.microsoft.com/.default"]
@@ -70,9 +57,7 @@ class GraphEmailBackend(BaseEmailBackend):
         if "access_token" in result:
             return result["access_token"]
         else:
-            error = result.get(
-                "error_description", result.get("error", "Unknown error")
-            )
+            error = result.get("error_description", result.get("error", "Unknown error"))
             logger.error(f"Failed to acquire Graph API access token: {error}")
             raise Exception(f"Failed to acquire access token: {error}")
 
@@ -106,23 +91,13 @@ class GraphEmailBackend(BaseEmailBackend):
         try:
             import requests
         except ImportError:
-            raise ImportError(
-                "requests package is required for Graph API email backend. "
-                "Install with: pip install requests"
-            )
+            raise ImportError("requests package is required for Graph API email backend. "
+                            "Install with: pip install requests")
 
         # Prepare recipients
         to_recipients = [{"emailAddress": {"address": addr}} for addr in message.to]
-        cc_recipients = (
-            [{"emailAddress": {"address": addr}} for addr in message.cc]
-            if message.cc
-            else []
-        )
-        bcc_recipients = (
-            [{"emailAddress": {"address": addr}} for addr in message.bcc]
-            if message.bcc
-            else []
-        )
+        cc_recipients = [{"emailAddress": {"address": addr}} for addr in message.cc] if message.cc else []
+        bcc_recipients = [{"emailAddress": {"address": addr}} for addr in message.bcc] if message.bcc else []
 
         # Determine content type
         content_type = "HTML" if message.content_subtype == "html" else "Text"
@@ -131,10 +106,13 @@ class GraphEmailBackend(BaseEmailBackend):
         email_payload = {
             "message": {
                 "subject": message.subject,
-                "body": {"contentType": content_type, "content": message.body},
+                "body": {
+                    "contentType": content_type,
+                    "content": message.body
+                },
                 "toRecipients": to_recipients,
             },
-            "saveToSentItems": "true",
+            "saveToSentItems": "true"
         }
 
         if cc_recipients:
@@ -148,31 +126,20 @@ class GraphEmailBackend(BaseEmailBackend):
             for attachment in message.attachments:
                 # attachment is tuple: (filename, content, mimetype)
                 if isinstance(attachment, tuple) and len(attachment) >= 2:
-                    filename, content, mimetype = (
-                        attachment[0],
-                        attachment[1],
-                        (
-                            attachment[2]
-                            if len(attachment) > 2
-                            else "application/octet-stream"
-                        ),
-                    )
+                    filename, content, mimetype = attachment[0], attachment[1], attachment[2] if len(attachment) > 2 else 'application/octet-stream'
 
                     # Encode content to base64
                     import base64
-
                     if isinstance(content, str):
-                        content = content.encode("utf-8")
-                    encoded_content = base64.b64encode(content).decode("utf-8")
+                        content = content.encode('utf-8')
+                    encoded_content = base64.b64encode(content).decode('utf-8')
 
-                    attachments.append(
-                        {
-                            "@odata.type": "#microsoft.graph.fileAttachment",
-                            "name": filename,
-                            "contentType": mimetype,
-                            "contentBytes": encoded_content,
-                        }
-                    )
+                    attachments.append({
+                        "@odata.type": "#microsoft.graph.fileAttachment",
+                        "name": filename,
+                        "contentType": mimetype,
+                        "contentBytes": encoded_content
+                    })
 
             if attachments:
                 email_payload["message"]["attachments"] = attachments
@@ -184,25 +151,17 @@ class GraphEmailBackend(BaseEmailBackend):
         endpoint = f"https://graph.microsoft.com/v1.0/users/{from_email}/sendMail"
         headers = {
             "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
 
-        response = requests.post(
-            endpoint, headers=headers, json=email_payload, timeout=30
-        )
+        response = requests.post(endpoint, headers=headers, json=email_payload, timeout=30)
 
         if response.status_code not in [200, 202]:
             error_msg = response.text
-            logger.error(
-                f"Graph API error (status {response.status_code}): {error_msg}"
-            )
-            raise Exception(
-                f"Failed to send email via Graph API: HTTP {response.status_code} - {error_msg}"
-            )
+            logger.error(f"Graph API error (status {response.status_code}): {error_msg}")
+            raise Exception(f"Failed to send email via Graph API: HTTP {response.status_code} - {error_msg}")
 
-        logger.info(
-            f"Email sent successfully via Graph API to {message.to} from {from_email}"
-        )
+        logger.info(f"Email sent successfully via Graph API to {message.to} from {from_email}")
 
 
 def create_outlook_draft(subject, html_content, recipient_email, from_email=None):
@@ -224,16 +183,16 @@ def create_outlook_draft(subject, html_content, recipient_email, from_email=None
     try:
         import msal
     except ImportError:
-        return {"success": False, "error": "msal package not installed"}
+        return {'success': False, 'error': 'msal package not installed'}
 
     # Get Graph API credentials
-    tenant_id = os.getenv("GRAPH_TENANT_ID")
-    client_id = os.getenv("GRAPH_CLIENT_ID")
-    client_secret = os.getenv("GRAPH_CLIENT_SECRET")
-    from_email = from_email or os.getenv("CRUSH_DEFAULT_FROM_EMAIL", "noreply@crush.lu")
+    tenant_id = os.getenv('GRAPH_TENANT_ID')
+    client_id = os.getenv('GRAPH_CLIENT_ID')
+    client_secret = os.getenv('GRAPH_CLIENT_SECRET')
+    from_email = from_email or os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu')
 
     if not all([tenant_id, client_id, client_secret]):
-        return {"success": False, "error": "Graph API credentials not configured"}
+        return {'success': False, 'error': 'Graph API credentials not configured'}
 
     # Get access token
     authority = f"https://login.microsoftonline.com/{tenant_id}"
@@ -251,37 +210,45 @@ def create_outlook_draft(subject, html_content, recipient_email, from_email=None
 
     if "access_token" not in result:
         error = result.get("error_description", result.get("error", "Unknown error"))
-        return {"success": False, "error": f"Failed to get access token: {error}"}
+        return {'success': False, 'error': f'Failed to get access token: {error}'}
 
     token = result["access_token"]
 
     # Create draft email payload
     draft_payload = {
         "subject": subject,
-        "body": {"contentType": "HTML", "content": html_content},
-        "toRecipients": [{"emailAddress": {"address": recipient_email}}],
+        "body": {
+            "contentType": "HTML",
+            "content": html_content
+        },
+        "toRecipients": [
+            {"emailAddress": {"address": recipient_email}}
+        ]
     }
 
     # Create draft via Graph API
     endpoint = f"https://graph.microsoft.com/v1.0/users/{from_email}/messages"
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
 
     response = requests.post(endpoint, headers=headers, json=draft_payload, timeout=30)
 
     if response.status_code in [200, 201]:
         data = response.json()
         # Get the web link to open in Outlook
-        web_link = data.get("webLink", "")
-        message_id = data.get("id", "")
+        web_link = data.get('webLink', '')
+        message_id = data.get('id', '')
 
-        logger.info(
-            f"Draft created successfully for {recipient_email} from {from_email}"
-        )
+        logger.info(f"Draft created successfully for {recipient_email} from {from_email}")
 
-        return {"success": True, "web_link": web_link, "message_id": message_id}
+        return {
+            'success': True,
+            'web_link': web_link,
+            'message_id': message_id
+        }
     else:
         error_msg = response.text
-        logger.error(
-            f"Graph API draft creation error (status {response.status_code}): {error_msg}"
-        )
-        return {"success": False, "error": f"HTTP {response.status_code} - {error_msg}"}
+        logger.error(f"Graph API draft creation error (status {response.status_code}): {error_msg}")
+        return {'success': False, 'error': f'HTTP {response.status_code} - {error_msg}'}

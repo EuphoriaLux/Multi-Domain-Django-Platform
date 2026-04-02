@@ -8,13 +8,12 @@ Usage:
 
 This is safe to run multiple times - it only updates rows where app='crush_delegation'.
 """
-
 from django.core.management.base import BaseCommand
 from django.db import connection
 
 
 class Command(BaseCommand):
-    help = "Rename crush_delegation to delegations in django_migrations table"
+    help = 'Rename crush_delegation to delegations in django_migrations table'
 
     def handle(self, *args, **options):
         with connection.cursor() as cursor:
@@ -31,17 +30,13 @@ class Command(BaseCommand):
 
             if old_count == 0 and new_count > 0:
                 self.stdout.write(
-                    self.style.SUCCESS(
-                        "Already migrated: delegations app found, no crush_delegation entries."
-                    )
+                    self.style.SUCCESS('Already migrated: delegations app found, no crush_delegation entries.')
                 )
                 return
 
             if old_count == 0 and new_count == 0:
                 self.stdout.write(
-                    self.style.WARNING(
-                        "No migrations found for either app name. Fresh database?"
-                    )
+                    self.style.WARNING('No migrations found for either app name. Fresh database?')
                 )
                 return
 
@@ -51,7 +46,5 @@ class Command(BaseCommand):
             )
 
             self.stdout.write(
-                self.style.SUCCESS(
-                    f"Successfully renamed {old_count} migration(s) from crush_delegation to delegations."
-                )
+                self.style.SUCCESS(f'Successfully renamed {old_count} migration(s) from crush_delegation to delegations.')
             )

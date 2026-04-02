@@ -1,90 +1,48 @@
-{% extends 'crush_lu/base.html' %} {% load i18n %} {% block title %}{{ event.title }} -
-{% trans "Event Management" %} - Crush.lu{% endblock %} {% block content %}
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{{ event.title }} - {% trans "Event Management" %} - Crush.lu{% endblock %}
+
+{% block content %}
 <!-- Header -->
 <div class="mb-6">
-    <div class="mb-2 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <a
-            href="{% url 'crush_lu:coach_event_list' %}"
-            class="hover:text-crush-purple transition-colors"
-            >{% trans "Events" %}</a
-        >
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
         <span>/</span>
-        <span class="text-gray-700 dark:text-gray-300"
-            >{{ event.title|truncatechars:40 }}</span
-        >
+        <span class="text-gray-700 dark:text-gray-300">{{ event.title|truncatechars:40 }}</span>
     </div>
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <h2 class="text-2xl font-bold dark:text-white">{{ event.title }}</h2>
-            <div
-                class="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400"
-            >
+            <div class="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
                 <span class="inline-flex items-center gap-1">
-                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %} {{
-                    event.date_time|date:"D, M j, Y \a\t g:i A" }}
+                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                    {{ event.date_time|date:"D, M j, Y \a\t g:i A" }}
                 </span>
                 <span class="inline-flex items-center gap-1">
-                    {% include "shared/icons/map-pin.html" with class="w-4 h-4" %} {{
-                    event.location }}
+                    {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
+                    {{ event.location }}
                 </span>
-                <span
-                    class="bg-crush-purple/10 dark:bg-crush-purple/20 text-crush-purple inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                    >{{ event.get_event_type_display }}</span
-                >
+                <span class="inline-flex items-center px-2 py-0.5 bg-crush-purple/10 dark:bg-crush-purple/20 text-crush-purple text-xs font-medium rounded-full">{{ event.get_event_type_display }}</span>
                 {% if event.is_private_invitation %}
-                <span
-                    class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                    >{% trans "Private" %}</span
-                >
+                    <span class="inline-flex items-center px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-medium rounded-full">{% trans "Private" %}</span>
                 {% endif %}
             </div>
         </div>
         <div class="flex flex-wrap gap-2 self-start">
-            <a
-                href="{% url 'crush_lu:coach_event_sms_invite' event.id %}"
-                class="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700"
-            >
-                <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                    />
-                </svg>
+            <a href="{% url 'crush_lu:coach_event_sms_invite' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                 <span>{% trans "SMS Invite" %}</span>
             </a>
             {% if event.is_private_invitation %}
-            <a
-                href="{% url 'crush_lu:coach_manage_invitations' event.id %}"
-                class="bg-crush-purple hover:bg-crush-purple/90 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-white transition-colors"
-            >
+            <a href="{% url 'crush_lu:coach_manage_invitations' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-crush-purple text-white hover:bg-crush-purple/90 rounded-lg transition-colors">
                 {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
                 <span>{% trans "Manage Invitations" %}</span>
             </a>
-            {% endif %} {% if has_quiz %}
-            <a
-                href="{% url 'crush_lu:quiz_coach' event.id %}"
-                class="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-green-700"
-            >
-                <svg
-                    class="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                    />
-                </svg>
+            {% endif %}
+            {% if has_quiz %}
+            <a href="{% url 'crush_lu:quiz_coach' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                 <span>{% trans "Quiz Host Panel" %}</span>
             </a>
             {% endif %}
@@ -93,113 +51,60 @@
 </div>
 
 <!-- Stats Cards -->
-<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-    <div
-        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-    >
-        <p class="text-2xl font-bold text-green-600 dark:text-green-400">
-            {{ confirmed_count }}
-        </p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "Confirmed" %}
-        </p>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ confirmed_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Confirmed" %}</p>
     </div>
-    <div
-        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-    >
-        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">
-            {{ waitlist_count }}
-        </p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "Waitlist" %}
-        </p>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ waitlist_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Waitlist" %}</p>
     </div>
-    <div
-        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-    >
-        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {{ spots_remaining }}
-        </p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "Spots Remaining" %}
-        </p>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ spots_remaining }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Spots Remaining" %}</p>
     </div>
-    <div
-        class="rounded-xl bg-white p-4 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-    >
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
         <p class="text-2xl font-bold dark:text-white">{{ total_registrations }}</p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "Total Signups" %}
-        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Total Signups" %}</p>
     </div>
 </div>
 
 <!-- Event Control (Speed Dating phases) -->
 {% if event.enable_activity_voting %}
 <div class="mb-6">
-    <h3
-        class="mb-3 text-sm font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400"
-    >
-        {% trans "Event Control" %}
-    </h3>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <a
-            href="{% url 'crush_lu:event_voting_results' event.id %}"
-            class="hover:ring-crush-purple/30 rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md hover:ring-1 dark:bg-gray-800 dark:shadow-gray-900/20 dark:hover:shadow-gray-900/40"
-        >
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Event Control" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">
-                <div
-                    class="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-lg dark:bg-purple-900/30"
-                >
+                <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg">
                     📊
                 </div>
                 <div>
-                    <p class="font-semibold dark:text-white">
-                        {% trans "Live Voting Dashboard" %}
-                    </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {% trans "Monitor votes & attendance" %}
-                    </p>
+                    <p class="font-semibold dark:text-white">{% trans "Live Voting Dashboard" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Monitor votes & attendance" %}</p>
                 </div>
             </div>
         </a>
-        <a
-            href="{% url 'crush_lu:coach_presentation_control' event.id %}"
-            class="hover:ring-crush-purple/30 rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md hover:ring-1 dark:bg-gray-800 dark:shadow-gray-900/20 dark:hover:shadow-gray-900/40"
-        >
+        <a href="{% url 'crush_lu:coach_presentation_control' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">
-                <div
-                    class="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-100 text-lg dark:bg-pink-900/30"
-                >
+                <div class="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-lg">
                     🎬
                 </div>
                 <div>
-                    <p class="font-semibold dark:text-white">
-                        {% trans "Presentation Control" %}
-                    </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {% trans "Manage presenter queue" %}
-                    </p>
+                    <p class="font-semibold dark:text-white">{% trans "Presentation Control" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Manage presenter queue" %}</p>
                 </div>
             </div>
         </a>
-        <a
-            href="{% url 'crush_lu:coach_event_checkin' event.id %}"
-            class="hover:ring-crush-purple/30 rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md hover:ring-1 dark:bg-gray-800 dark:shadow-gray-900/20 dark:hover:shadow-gray-900/40"
-        >
+        <a href="{% url 'crush_lu:coach_event_checkin' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">
-                <div
-                    class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-lg dark:bg-green-900/30"
-                >
+                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-lg">
                     📱
                 </div>
                 <div>
-                    <p class="font-semibold dark:text-white">
-                        {% trans "Check-In Scanner" %}
-                    </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {% trans "Scan attendee QR codes" %}
-                    </p>
+                    <p class="font-semibold dark:text-white">{% trans "Check-In Scanner" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Scan attendee QR codes" %}</p>
                 </div>
             </div>
         </a>
@@ -210,74 +115,48 @@
 <!-- Post-Event Activity -->
 {% if connection_count or spark_count %}
 <div class="mb-6">
-    <h3
-        class="mb-3 text-sm font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400"
-    >
-        {% trans "Post-Event Activity" %}
-    </h3>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Post-Event Activity" %}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <!-- Connections -->
-        <div
-            class="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-100 dark:bg-pink-900/30"
-                    >
-                        {% include "shared/icons/heart.html" with class="w-5 h-5
-                        text-pink-600 dark:text-pink-400" %}
+                    <div class="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
+                        {% include "shared/icons/heart.html" with class="w-5 h-5 text-pink-600 dark:text-pink-400" %}
                     </div>
                     <div>
-                        <p class="font-semibold dark:text-white">
-                            {{ connection_count }} {% trans "Connections" %}
-                        </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ mutual_connections }} {% trans "mutual" %}
-                        </p>
+                        <p class="font-semibold dark:text-white">{{ connection_count }} {% trans "Connections" %}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ mutual_connections }} {% trans "mutual" %}</p>
                     </div>
                 </div>
-                <a
-                    href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review"
-                    class="text-crush-purple text-xs font-medium hover:underline dark:text-purple-400"
-                >
+                <a href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
                     {% trans "Review" %} &rarr;
                 </a>
             </div>
         </div>
 
         <!-- Sparks -->
-        <div
-            class="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30"
-                    >
-                        {% include "shared/icons/sparkles.html" with class="w-5 h-5
-                        text-amber-600 dark:text-amber-400" %}
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
                     </div>
                     <div>
-                        <p class="font-semibold dark:text-white">
-                            {{ spark_count }} {% trans "Sparks" %}
-                        </p>
+                        <p class="font-semibold dark:text-white">{{ spark_count }} {% trans "Sparks" %}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {% if sparks_pending %}
-                            <span class="font-medium text-amber-600 dark:text-amber-400"
-                                >{{ sparks_pending }} {% trans "pending review" %}</span
-                            >
-                            {% else %} {% trans "none pending" %} {% endif %}
+                                <span class="text-amber-600 dark:text-amber-400 font-medium">{{ sparks_pending }} {% trans "pending review" %}</span>
+                            {% else %}
+                                {% trans "none pending" %}
+                            {% endif %}
                         </p>
                     </div>
                 </div>
                 {% if sparks_pending %}
-                <a
-                    href="{% url 'crush_lu:coach_spark_list' %}"
-                    class="text-crush-purple text-xs font-medium hover:underline dark:text-purple-400"
-                >
-                    {% trans "Review" %} &rarr;
-                </a>
+                    <a href="{% url 'crush_lu:coach_spark_list' %}" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                        {% trans "Review" %} &rarr;
+                    </a>
                 {% endif %}
             </div>
         </div>
@@ -286,244 +165,162 @@
 {% endif %}
 
 <!-- Status Filter Tabs -->
-<div class="mb-6 flex flex-wrap gap-2">
-    <a
-        href="?status=all"
-        class="{% if status_filter == 'all' %}bg-crush-purple text-white{% else %}bg-white dark:border-gray-700{% endif %} inline-flex items-center rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-    >
+<div class="flex flex-wrap gap-2 mb-6">
+    <a href="?status=all" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'all' %}bg-crush-purple text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
         {% trans "All" %}
-        <span
-            class="{% if status_filter == 'all' %}bg-white/20{% else %}bg-gray-100 dark:bg-gray-700{% endif %} ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-xs"
-            >{{ total_registrations }}</span
-        >
+        <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'all' %}bg-white/20{% else %}bg-gray-100 dark:bg-gray-700{% endif %}">{{ total_registrations }}</span>
     </a>
-    <a
-        href="?status=confirmed"
-        class="{% if status_filter == 'confirmed' %}bg-green-600 text-white{% else %}bg-white dark:border-gray-700{% endif %} inline-flex items-center rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-    >
+    <a href="?status=confirmed" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'confirmed' %}bg-green-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
         {% trans "Confirmed" %}
-        <span
-            class="{% if status_filter == 'confirmed' %}bg-white/20{% else %}bg-green-100 dark:text-green-300{% endif %} ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-xs text-green-700 dark:bg-green-900/30"
-            >{{ confirmed_count }}</span
-        >
+        <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'confirmed' %}bg-white/20{% else %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% endif %}">{{ confirmed_count }}</span>
     </a>
-    <a
-        href="?status=waitlist"
-        class="{% if status_filter == 'waitlist' %}bg-amber-600 text-white{% else %}bg-white dark:border-gray-700{% endif %} inline-flex items-center rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-    >
+    <a href="?status=waitlist" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'waitlist' %}bg-amber-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
         {% trans "Waitlist" %}
-        <span
-            class="{% if status_filter == 'waitlist' %}bg-white/20{% else %}bg-amber-100 dark:text-amber-300{% endif %} ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-xs text-amber-700 dark:bg-amber-900/30"
-            >{{ waitlist_count }}</span
-        >
+        <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'waitlist' %}bg-white/20{% else %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300{% endif %}">{{ waitlist_count }}</span>
     </a>
-    <a
-        href="?status=other"
-        class="{% if status_filter == 'other' %}bg-gray-600 text-white{% else %}bg-white dark:border-gray-700{% endif %} inline-flex items-center rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-    >
+    <a href="?status=other" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'other' %}bg-gray-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
         {% trans "Other" %}
     </a>
 </div>
 
 <!-- Member Cards Grid -->
 {% if registrations %}
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-    {% for reg in registrations %}
-    <a
-        href="{% url 'crush_lu:coach_member_overview' reg.user.id %}"
-        class="hover:ring-crush-purple/30 block overflow-hidden rounded-xl bg-white shadow-sm transition-all hover:shadow-md hover:ring-1 dark:bg-gray-800 dark:shadow-gray-900/20 dark:hover:shadow-gray-900/40"
-    >
-        <div class="p-4">
-            <div class="flex items-start gap-3">
-                <!-- Avatar -->
-                <div class="flex-shrink-0">
-                    {% with profile=reg.user.crushprofile %} {% if profile and
-                    profile.photo_1 %}
-                    <img
-                        src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}"
-                        alt=""
-                        class="h-12 w-12 rounded-full object-cover"
-                        loading="lazy"
-                    />
-                    {% else %}
-                    <div
-                        class="from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br"
-                    >
-                        <span
-                            class="text-crush-purple dark:text-crush-pink text-lg font-semibold"
-                            >{{ reg.user.first_name|first|upper }}</span
-                        >
-                    </div>
-                    {% endif %} {% endwith %}
-                </div>
-
-                <!-- Info -->
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5">
-                        <h4
-                            class="truncate text-sm font-semibold text-gray-900 dark:text-white"
-                        >
-                            {% with profile=reg.user.crushprofile %} {% if profile %}{{
-                            profile.display_name }}{% else %}{{
-                            reg.user.first_name|default:reg.user.username }}{% endif %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {% for reg in registrations %}
+            <a href="{% url 'crush_lu:coach_member_overview' reg.user.id %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
+                <div class="p-4">
+                    <div class="flex items-start gap-3">
+                        <!-- Avatar -->
+                        <div class="flex-shrink-0">
+                            {% with profile=reg.user.crushprofile %}
+                                {% if profile and profile.photo_1 %}
+                                    <img src="{% url 'crush_lu:serve_profile_photo' reg.user.id 'photo_1' %}"
+                                         alt=""
+                                         class="w-12 h-12 rounded-full object-cover"
+                                         loading="lazy">
+                                {% else %}
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
+                                        <span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span>
+                                    </div>
+                                {% endif %}
                             {% endwith %}
-                        </h4>
-                        <!-- Gender icon -->
-                        {% with profile=reg.user.crushprofile %} {% if profile.gender ==
-                        'F' %}
-                        <span class="text-xs text-pink-500" title="{% trans 'Female' %}"
-                            >&#9792;</span
-                        >
-                        {% elif profile.gender == 'M' %}
-                        <span class="text-xs text-blue-500" title="{% trans 'Male' %}"
-                            >&#9794;</span
-                        >
-                        {% elif profile.gender %}
-                        <span
-                            class="text-xs text-purple-500"
-                            title="{{ profile.get_gender_display }}"
-                            >&#9898;</span
-                        >
-                        {% endif %} {% endwith %}
+                        </div>
+
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <h4 class="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                                    {% with profile=reg.user.crushprofile %}
+                                        {% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}
+                                    {% endwith %}
+                                </h4>
+                                <!-- Gender icon -->
+                                {% with profile=reg.user.crushprofile %}
+                                    {% if profile.gender == 'F' %}
+                                        <span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>
+                                    {% elif profile.gender == 'M' %}
+                                        <span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>
+                                    {% elif profile.gender %}
+                                        <span class="text-purple-500 text-xs" title="{{ profile.get_gender_display }}">&#9898;</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+
+                            <!-- Age -->
+                            {% with profile=reg.user.crushprofile %}
+                                {% if profile %}
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {% if profile.show_exact_age and profile.age %}
+                                            {{ profile.age }} {% trans "years" %}
+                                        {% elif profile.age_range %}
+                                            {{ profile.age_range }}
+                                        {% endif %}
+                                    </p>
+                                {% endif %}
+                            {% endwith %}
+
+                            <!-- Verification Status -->
+                            {% with profile=reg.user.crushprofile %}
+                                {% if profile and profile.is_approved %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                                        &#10003; {% trans "Verified" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'pending' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                        &#9679; {% trans "In Review" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'revision' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                        &#8634; {% trans "Revision" %}
+                                    </span>
+                                {% elif reg.latest_submission and reg.latest_submission.status == 'recontact_coach' %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                        &#9742; {% trans "Recontact" %}
+                                    </span>
+                                {% elif profile and not profile.is_approved %}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                        {% trans "Not Verified" %}
+                                    </span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <!-- Status Badge -->
+                        <div class="flex-shrink-0">
+                            {% if reg.status == 'confirmed' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{% trans "Confirmed" %}</span>
+                            {% elif reg.status == 'attended' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">{% trans "Attended" %}</span>
+                            {% elif reg.status == 'waitlist' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">{% trans "Waitlist" %}</span>
+                            {% elif reg.status == 'pending' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">{% trans "Pending" %}</span>
+                            {% elif reg.status == 'no_show' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">{% trans "No Show" %}</span>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <!-- Age -->
-                    {% with profile=reg.user.crushprofile %} {% if profile %}
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {% if profile.show_exact_age and profile.age %} {{ profile.age
-                        }} {% trans "years" %} {% elif profile.age_range %} {{
-                        profile.age_range }} {% endif %}
-                    </p>
-                    {% endif %} {% endwith %}
+                    <!-- Extra Info -->
+                    <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
+                        <!-- Registration date -->
+                        <p class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                            {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                            {% trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
+                        </p>
 
-                    <!-- Verification Status -->
-                    {% with profile=reg.user.crushprofile %} {% if profile and
-                    profile.is_approved %}
-                    <span
-                        class="inline-flex items-center rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                    >
-                        &#10003; {% trans "Verified" %}
-                    </span>
-                    {% elif reg.latest_submission and reg.latest_submission.status ==
-                    'pending' %}
-                    <span
-                        class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    >
-                        &#9679; {% trans "In Review" %}
-                    </span>
-                    {% elif reg.latest_submission and reg.latest_submission.status ==
-                    'revision' %}
-                    <span
-                        class="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                    >
-                        &#8634; {% trans "Revision" %}
-                    </span>
-                    {% elif reg.latest_submission and reg.latest_submission.status ==
-                    'recontact_coach' %}
-                    <span
-                        class="inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
-                    >
-                        &#9742; {% trans "Recontact" %}
-                    </span>
-                    {% elif profile and not profile.is_approved %}
-                    <span
-                        class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    >
-                        {% trans "Not Verified" %}
-                    </span>
-                    {% endif %} {% endwith %}
+                        <!-- Dietary restrictions (food events only) -->
+                        {% if event.has_food_component and reg.dietary_restrictions %}
+                            <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                                {{ reg.dietary_restrictions }}
+                            </p>
+                        {% endif %}
+
+                        <!-- Plus-one guest -->
+                        {% if event.allow_plus_ones and reg.bringing_guest %}
+                            <p class="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                                {% include "shared/icons/user-plus.html" with class="w-3 h-3" %}
+                                +1: {{ reg.guest_name|default:_("Guest") }}
+                            </p>
+                        {% endif %}
+                    </div>
                 </div>
-
-                <!-- Status Badge -->
-                <div class="flex-shrink-0">
-                    {% if reg.status == 'confirmed' %}
-                    <span
-                        class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                        >{% trans "Confirmed" %}</span
-                    >
-                    {% elif reg.status == 'attended' %}
-                    <span
-                        class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        >{% trans "Attended" %}</span
-                    >
-                    {% elif reg.status == 'waitlist' %}
-                    <span
-                        class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                        >{% trans "Waitlist" %}</span
-                    >
-                    {% elif reg.status == 'pending' %}
-                    <span
-                        class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                        >{% trans "Pending" %}</span
-                    >
-                    {% elif reg.status == 'no_show' %}
-                    <span
-                        class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                        >{% trans "No Show" %}</span
-                    >
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Extra Info -->
-            <div
-                class="mt-3 space-y-1.5 border-t border-gray-100 pt-3 dark:border-gray-700"
-            >
-                <!-- Registration date -->
-                <p
-                    class="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
-                >
-                    {% include "shared/icons/clock.html" with class="w-3 h-3" %} {%
-                    trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
-                </p>
-
-                <!-- Dietary restrictions (food events only) -->
-                {% if event.has_food_component and reg.dietary_restrictions %}
-                <p
-                    class="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400"
-                >
-                    <svg
-                        class="h-3 w-3 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                        ></path>
-                    </svg>
-                    {{ reg.dietary_restrictions }}
-                </p>
-                {% endif %}
-
-                <!-- Plus-one guest -->
-                {% if event.allow_plus_ones and reg.bringing_guest %}
-                <p
-                    class="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
-                >
-                    {% include "shared/icons/user-plus.html" with class="w-3 h-3" %} +1:
-                    {{ reg.guest_name|default:_("Guest") }}
-                </p>
-                {% endif %}
-            </div>
-        </div>
-    </a>
-    {% endfor %}
-</div>
-{% else %}
-<div
-    class="rounded-xl bg-white p-8 text-center shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
->
-    <div class="mb-2 text-gray-400 dark:text-gray-500">
-        {% include "shared/icons/users.html" with class="w-10 h-10 mx-auto" %}
+            </a>
+        {% endfor %}
     </div>
-    <p class="text-gray-500 dark:text-gray-400">
-        {% if status_filter != 'all' %} {% trans "No registrations match this filter."
-        %} {% else %} {% trans "No one has registered for this event yet." %} {% endif
-        %}
-    </p>
-</div>
-{% endif %} {% endblock %}
+{% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+        <div class="text-gray-400 dark:text-gray-500 mb-2">
+            {% include "shared/icons/users.html" with class="w-10 h-10 mx-auto" %}
+        </div>
+        <p class="text-gray-500 dark:text-gray-400">
+            {% if status_filter != 'all' %}
+                {% trans "No registrations match this filter." %}
+            {% else %}
+                {% trans "No one has registered for this event yet." %}
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+{% endblock %}

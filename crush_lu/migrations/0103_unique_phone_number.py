@@ -10,26 +10,24 @@ def deduplicate_phone_numbers(apps, schema_editor):
     Keeps the phone number on the most recently updated profile,
     clears it on all other profiles with the same number.
     """
-    CrushProfile = apps.get_model("crush_lu", "CrushProfile")
+    CrushProfile = apps.get_model('crush_lu', 'CrushProfile')
     from django.db.models import Count
 
     duplicates = (
-        CrushProfile.objects.exclude(phone_number="")
+        CrushProfile.objects.exclude(phone_number='')
         .exclude(phone_number__isnull=True)
-        .values("phone_number")
-        .annotate(count=Count("id"))
+        .values('phone_number')
+        .annotate(count=Count('id'))
         .filter(count__gt=1)
     )
 
     for entry in duplicates:
-        phone = entry["phone_number"]
-        profiles = CrushProfile.objects.filter(phone_number=phone).order_by(
-            "-updated_at", "-id"
-        )
+        phone = entry['phone_number']
+        profiles = CrushProfile.objects.filter(phone_number=phone).order_by('-updated_at', '-id')
         # Keep the first one (most recently updated), clear the rest
         profiles_to_clear = profiles[1:]
         CrushProfile.objects.filter(id__in=[p.id for p in profiles_to_clear]).update(
-            phone_number="",
+            phone_number='',
             phone_verified=False,
         )
 
@@ -37,18 +35,14 @@ def deduplicate_phone_numbers(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0102_callattempt_nullable_submission_add_profile"),
+        ('crush_lu', '0102_callattempt_nullable_submission_add_profile'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.RunPython(deduplicate_phone_numbers, migrations.RunPython.noop),
         migrations.AddConstraint(
-            model_name="crushprofile",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(("phone_number", ""), _negated=True),
-                fields=("phone_number",),
-                name="unique_non_empty_phone_number",
-            ),
+            model_name='crushprofile',
+            constraint=models.UniqueConstraint(condition=models.Q(('phone_number', ''), _negated=True), fields=('phone_number',), name='unique_non_empty_phone_number'),
         ),
     ]

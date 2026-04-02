@@ -7,17 +7,19 @@ This test suite validates that the invitation acceptance flow:
 - Does not auto-approve profiles (requires coach review)
 - Prevents minors from accessing the platform
 """
-
 import pytest
+import uuid
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.test import Client
 
 from crush_lu.models import (
     EventInvitation,
     MeetupEvent,
     CrushProfile,
+    CrushCoach,
 )
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.forms import InvitationAcceptanceForm
@@ -69,23 +71,24 @@ class TestInvitationAgeVerification:
     def test_form_requires_date_of_birth(self, pending_invitation):
         """Test that InvitationAcceptanceForm requires date of birth."""
         form = InvitationAcceptanceForm(
-            data={"agree_to_terms": True}, invitation=pending_invitation
+            data={'agree_to_terms': True},
+            invitation=pending_invitation
         )
         assert not form.is_valid()
-        assert "date_of_birth" in form.errors
+        assert 'date_of_birth' in form.errors
 
     def test_form_rejects_future_dates(self, pending_invitation):
         """Test that future dates are rejected."""
         future_date = timezone.now().date() + timedelta(days=1)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": future_date,
-                "agree_to_terms": True,
+                'date_of_birth': future_date,
+                'agree_to_terms': True,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert not form.is_valid()
-        assert "date_of_birth" in form.errors
+        assert 'date_of_birth' in form.errors
 
     def test_form_rejects_under_18(self, pending_invitation):
         """Test that users under 18 are rejected."""
@@ -93,14 +96,14 @@ class TestInvitationAgeVerification:
         dob = timezone.now().date() - timedelta(days=365 * 17)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": dob,
-                "agree_to_terms": True,
+                'date_of_birth': dob,
+                'agree_to_terms': True,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert not form.is_valid()
-        assert "date_of_birth" in form.errors
-        assert "18" in str(form.errors["date_of_birth"])
+        assert 'date_of_birth' in form.errors
+        assert '18' in str(form.errors['date_of_birth'])
 
     def test_form_accepts_18_year_old(self, pending_invitation):
         """Test that 18 year olds are accepted."""
@@ -109,10 +112,10 @@ class TestInvitationAgeVerification:
         dob = timezone.now().date() - timedelta(days=365 * 18 + 5)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": dob,
-                "agree_to_terms": True,
+                'date_of_birth': dob,
+                'agree_to_terms': True,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert form.is_valid(), f"Form errors: {form.errors}"
 
@@ -121,10 +124,10 @@ class TestInvitationAgeVerification:
         dob = timezone.now().date() - timedelta(days=365 * 25)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": dob,
-                "agree_to_terms": True,
+                'date_of_birth': dob,
+                'agree_to_terms': True,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert form.is_valid(), f"Form errors: {form.errors}"
 
@@ -134,30 +137,30 @@ class TestInvitationAgeVerification:
         dob = timezone.now().date() - timedelta(days=365 * 121 + 100)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": dob,
-                "agree_to_terms": True,
+                'date_of_birth': dob,
+                'agree_to_terms': True,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert not form.is_valid()
-        assert "date_of_birth" in form.errors
+        assert 'date_of_birth' in form.errors
 
     def test_form_requires_terms_agreement(self, pending_invitation):
         """Test that terms agreement is required."""
         dob = timezone.now().date() - timedelta(days=365 * 25)
         form = InvitationAcceptanceForm(
             data={
-                "date_of_birth": dob,
-                "agree_to_terms": False,
+                'date_of_birth': dob,
+                'agree_to_terms': False,
             },
-            invitation=pending_invitation,
+            invitation=pending_invitation
         )
         assert not form.is_valid()
-        assert "agree_to_terms" in form.errors
+        assert 'agree_to_terms' in form.errors
 
 
 @pytest.mark.django_db
-@pytest.mark.urls("azureproject.urls_crush")
+@pytest.mark.urls('azureproject.urls_crush')
 class TestInvitationAcceptanceView:
     """Test invitation acceptance view creates profile correctly."""
 
@@ -165,19 +168,13 @@ class TestInvitationAcceptanceView:
         self, client, pending_invitation
     ):
         """Test that accepting invitation creates profile with actual DOB."""
-        url = reverse(
-            "crush_lu:invitation_accept",
-            kwargs={"code": pending_invitation.invitation_code},
-        )
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
         dob = timezone.now().date() - timedelta(days=365 * 28)
 
-        response = client.post(
-            url,
-            data={
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "agree_to_terms": True,
-            },
-        )
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
 
         # Should create user and profile
         assert User.objects.filter(email=pending_invitation.guest_email).exists()
@@ -194,19 +191,13 @@ class TestInvitationAcceptanceView:
         self, client, pending_invitation
     ):
         """Test that invitation acceptance does NOT auto-approve profile."""
-        url = reverse(
-            "crush_lu:invitation_accept",
-            kwargs={"code": pending_invitation.invitation_code},
-        )
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
-            url,
-            data={
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "agree_to_terms": True,
-            },
-        )
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
 
         user = User.objects.get(email=pending_invitation.guest_email)
         profile = CrushProfile.objects.get(user=user)
@@ -217,73 +208,55 @@ class TestInvitationAcceptanceView:
 
     def test_invitation_acceptance_rejects_minor(self, client, pending_invitation):
         """Test that minors cannot accept invitations."""
-        url = reverse(
-            "crush_lu:invitation_accept",
-            kwargs={"code": pending_invitation.invitation_code},
-        )
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
         # 17 years old - should be rejected
         dob = timezone.now().date() - timedelta(days=365 * 17)
 
-        response = client.post(
-            url,
-            data={
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "agree_to_terms": True,
-            },
-        )
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
 
         # Should not create user
         assert not User.objects.filter(email=pending_invitation.guest_email).exists()
         # Should show form with errors
         assert response.status_code == 200
-        assert "form" in response.context
-        assert not response.context["form"].is_valid()
+        assert 'form' in response.context
+        assert not response.context['form'].is_valid()
 
     def test_invitation_acceptance_logs_in_user(self, client, pending_invitation):
         """Test that successful acceptance logs the user in."""
-        url = reverse(
-            "crush_lu:invitation_accept",
-            kwargs={"code": pending_invitation.invitation_code},
-        )
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
-            url,
-            data={
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "agree_to_terms": True,
-            },
-        )
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
 
         # User should be logged in
-        assert "_auth_user_id" in client.session
+        assert '_auth_user_id' in client.session
 
     def test_invitation_acceptance_updates_invitation_status(
         self, client, pending_invitation
     ):
         """Test that invitation status is updated to 'accepted'."""
-        url = reverse(
-            "crush_lu:invitation_accept",
-            kwargs={"code": pending_invitation.invitation_code},
-        )
+        url = reverse('crush_lu:invitation_accept', kwargs={'code': pending_invitation.invitation_code})
         dob = timezone.now().date() - timedelta(days=365 * 25)
 
-        response = client.post(
-            url,
-            data={
-                "date_of_birth": dob.strftime("%Y-%m-%d"),
-                "agree_to_terms": True,
-            },
-        )
+        response = client.post(url, data={
+            'date_of_birth': dob.strftime('%Y-%m-%d'),
+            'agree_to_terms': True,
+        })
 
         pending_invitation.refresh_from_db()
-        assert pending_invitation.status == "accepted"
+        assert pending_invitation.status == 'accepted'
         assert pending_invitation.accepted_at is not None
         assert pending_invitation.created_user is not None
 
 
 @pytest.mark.django_db
-@pytest.mark.urls("azureproject.urls_crush")
+@pytest.mark.urls('azureproject.urls_crush')
 class TestEventRegistrationSecurity:
     """Test event registration security for invited users."""
 
@@ -293,11 +266,11 @@ class TestEventRegistrationSecurity:
         """Test that existing invited users without profile are redirected to profile creation."""
         # Create user without profile
         user = User.objects.create_user(
-            username="existing@example.com",
-            email="existing@example.com",
-            password="testpass123",
-            first_name="Existing",
-            last_name="User",
+            username='existing@example.com',
+            email='existing@example.com',
+            password='testpass123',
+            first_name='Existing',
+            last_name='User'
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
 
@@ -305,15 +278,15 @@ class TestEventRegistrationSecurity:
         private_event.invited_users.add(user)
 
         # Login
-        client.login(username="existing@example.com", password="testpass123")
+        client.login(username='existing@example.com', password='testpass123')
 
         # Try to register for event
-        url = reverse("crush_lu:event_register", kwargs={"event_id": private_event.id})
+        url = reverse('crush_lu:event_register', kwargs={'event_id': private_event.id})
         response = client.get(url)
 
         # Should redirect to profile creation, not auto-create profile
         assert response.status_code == 302
-        assert "create-profile" in response.url
+        assert 'create-profile' in response.url
 
     def test_external_guest_without_profile_shows_error(
         self, client, private_event, pending_invitation
@@ -321,29 +294,29 @@ class TestEventRegistrationSecurity:
         """Test that external guests without profile see error message."""
         # Create user but no profile (should never happen in real flow)
         user = User.objects.create_user(
-            username="guest@example.com",
-            email="guest@example.com",
-            password="testpass123",
-            first_name="Guest",
-            last_name="User",
+            username='guest@example.com',
+            email='guest@example.com',
+            password='testpass123',
+            first_name='Guest',
+            last_name='User'
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
 
         # Mark invitation as approved
-        pending_invitation.approval_status = "approved"
+        pending_invitation.approval_status = 'approved'
         pending_invitation.created_user = user
         pending_invitation.save()
 
         # Login
-        client.login(username="guest@example.com", password="testpass123")
+        client.login(username='guest@example.com', password='testpass123')
 
         # Try to register for event
-        url = reverse("crush_lu:event_register", kwargs={"event_id": private_event.id})
+        url = reverse('crush_lu:event_register', kwargs={'event_id': private_event.id})
         response = client.get(url)
 
         # Should redirect to event detail with error message
         assert response.status_code == 302
-        assert f"/events/{private_event.id}/" in response.url
+        assert f'/events/{private_event.id}/' in response.url
 
 
 @pytest.mark.django_db

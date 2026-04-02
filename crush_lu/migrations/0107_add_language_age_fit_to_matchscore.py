@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0106_seed_traits"),
+        ('crush_lu', '0106_seed_traits'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="matchscore",
-            name="score_age_fit",
+            model_name='matchscore',
+            name='score_age_fit',
             field=models.FloatField(default=0),
         ),
         migrations.AddField(
-            model_name="matchscore",
-            name="score_language",
+            model_name='matchscore',
+            name='score_language',
             field=models.FloatField(default=0),
         ),
     ]

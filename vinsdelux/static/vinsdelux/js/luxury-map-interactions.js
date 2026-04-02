@@ -14,16 +14,16 @@ class LuxuryMapInteractions {
     initializeInteractions() {
         // Premium hover effects for map elements
         this.setupMapHoverEffects();
-
+        
         // Smooth scroll animations
         this.setupSmoothScrolling();
-
+        
         // Selection animations
         this.setupSelectionAnimations();
-
+        
         // Loading states
         this.setupLoadingStates();
-
+        
         // Parallax effects for desktop
         if (window.innerWidth > 1200) {
             this.setupParallaxEffects();
@@ -32,25 +32,25 @@ class LuxuryMapInteractions {
 
     setupMapHoverEffects() {
         // Custom cursor for map area
-        const mapContainer = document.getElementById("vineyard-map");
+        const mapContainer = document.getElementById('vineyard-map');
         if (!mapContainer) return;
 
         // Wine glass cursor on hover
         mapContainer.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="%23D4AF37" d="M16 2c-3 0-5 2-5 5 0 4 5 8 5 12v7h-3v2h8v-2h-3v-7c0-4 5-8 5-12 0-3-2-5-5-5z"/></svg>'), auto`;
 
         // Hover ripple effect
-        mapContainer.addEventListener("mousemove", (e) => {
+        mapContainer.addEventListener('mousemove', (e) => {
             if (!this.throttle) {
                 this.createRipple(e.clientX, e.clientY);
                 this.throttle = true;
-                setTimeout(() => (this.throttle = false), 100);
+                setTimeout(() => this.throttle = false, 100);
             }
         });
     }
 
     createRipple(x, y) {
-        const ripple = document.createElement("div");
-        ripple.className = "vdl-ripple";
+        const ripple = document.createElement('div');
+        ripple.className = 'vdl-ripple';
         ripple.style.cssText = `
             position: fixed;
             left: ${x}px;
@@ -64,29 +64,26 @@ class LuxuryMapInteractions {
             z-index: 9999;
             animation: rippleExpand 0.6s ease-out;
         `;
-
+        
         document.body.appendChild(ripple);
         setTimeout(() => ripple.remove(), 600);
     }
 
     setupSmoothScrolling() {
         // Smooth scroll to sections
-        document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-            anchor.addEventListener("click", (e) => {
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', (e) => {
                 e.preventDefault();
-                const target = document.querySelector(anchor.getAttribute("href"));
+                const target = document.querySelector(anchor.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
+                        behavior: 'smooth',
+                        block: 'start'
                     });
-
+                    
                     // Add arrival animation
-                    target.classList.add("vdl-arrival-highlight");
-                    setTimeout(
-                        () => target.classList.remove("vdl-arrival-highlight"),
-                        2000,
-                    );
+                    target.classList.add('vdl-arrival-highlight');
+                    setTimeout(() => target.classList.remove('vdl-arrival-highlight'), 2000);
                 }
             });
         });
@@ -94,19 +91,19 @@ class LuxuryMapInteractions {
 
     setupSelectionAnimations() {
         // Enhance plot selection with luxury animations
-        document.addEventListener("plotSelected", (e) => {
+        document.addEventListener('plotSelected', (e) => {
             this.animateSelection(e.detail);
         });
 
-        document.addEventListener("plotDeselected", (e) => {
+        document.addEventListener('plotDeselected', (e) => {
             this.animateDeselection(e.detail);
         });
     }
 
     animateSelection(plotData) {
         // Create selection burst effect
-        const burst = document.createElement("div");
-        burst.className = "vdl-selection-burst";
+        const burst = document.createElement('div');
+        burst.className = 'vdl-selection-burst';
         burst.innerHTML = `
             <svg viewBox="0 0 100 100" style="width: 200px; height: 200px;">
                 <circle cx="50" cy="50" r="45" fill="none" stroke="url(#goldGradient)" stroke-width="2" opacity="0">
@@ -121,7 +118,7 @@ class LuxuryMapInteractions {
                 </defs>
             </svg>
         `;
-
+        
         // Position burst at plot location
         burst.style.cssText = `
             position: absolute;
@@ -131,20 +128,20 @@ class LuxuryMapInteractions {
             pointer-events: none;
             z-index: 1000;
         `;
-
-        document.getElementById("vineyard-map")?.appendChild(burst);
+        
+        document.getElementById('vineyard-map')?.appendChild(burst);
         setTimeout(() => burst.remove(), 500);
 
         // Animate sidebar update
         this.animateSidebarUpdate();
-
+        
         // Play subtle sound effect (if enabled)
         this.playSelectionSound();
     }
 
     animateDeselection(plotData) {
         // Gentle fade out animation
-        const fadeCircle = document.createElement("div");
+        const fadeCircle = document.createElement('div');
         fadeCircle.style.cssText = `
             position: absolute;
             width: 60px;
@@ -156,31 +153,31 @@ class LuxuryMapInteractions {
             animation: fadeOut 0.4s ease-out;
             pointer-events: none;
         `;
-
-        document.getElementById("vineyard-map")?.appendChild(fadeCircle);
+        
+        document.getElementById('vineyard-map')?.appendChild(fadeCircle);
         setTimeout(() => fadeCircle.remove(), 400);
     }
 
     animateSidebarUpdate() {
-        const sidebar = document.querySelector(".vdl-sidebar");
+        const sidebar = document.querySelector('.vdl-sidebar');
         if (!sidebar) return;
 
-        sidebar.classList.add("vdl-updating");
-        setTimeout(() => sidebar.classList.remove("vdl-updating"), 300);
+        sidebar.classList.add('vdl-updating');
+        setTimeout(() => sidebar.classList.remove('vdl-updating'), 300);
 
         // Animate counter
-        const counter = document.getElementById("selected-count");
+        const counter = document.getElementById('selected-count');
         if (counter) {
-            counter.classList.add("vdl-counter-pulse");
-            setTimeout(() => counter.classList.remove("vdl-counter-pulse"), 400);
+            counter.classList.add('vdl-counter-pulse');
+            setTimeout(() => counter.classList.remove('vdl-counter-pulse'), 400);
         }
     }
 
     setupLoadingStates() {
         // Premium loading animation
         const createLoader = () => {
-            const loader = document.createElement("div");
-            loader.className = "vdl-premium-loader";
+            const loader = document.createElement('div');
+            loader.className = 'vdl-premium-loader';
             loader.innerHTML = `
                 <div class="vdl-wine-pour">
                     <svg viewBox="0 0 100 150" style="width: 60px; height: 90px;">
@@ -208,7 +205,7 @@ class LuxuryMapInteractions {
 
         window.hidePremiumLoader = (loader) => {
             if (loader) {
-                loader.classList.add("fade-out");
+                loader.classList.add('fade-out');
                 setTimeout(() => loader.remove(), 300);
             }
         };
@@ -217,7 +214,7 @@ class LuxuryMapInteractions {
     setupMobileGestures() {
         if (!this.isTouchDevice()) return;
 
-        const sidebar = document.querySelector(".vdl-sidebar");
+        const sidebar = document.querySelector('.vdl-sidebar');
         if (!sidebar) return;
 
         let startY = 0;
@@ -225,53 +222,49 @@ class LuxuryMapInteractions {
         let isDragging = false;
 
         // Swipe to expand/collapse sidebar
-        sidebar.addEventListener("touchstart", (e) => {
+        sidebar.addEventListener('touchstart', (e) => {
             startY = e.touches[0].clientY;
             isDragging = true;
-            sidebar.style.transition = "none";
+            sidebar.style.transition = 'none';
         });
 
-        sidebar.addEventListener("touchmove", (e) => {
+        sidebar.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
-
+            
             currentY = e.touches[0].clientY;
             const deltaY = currentY - startY;
-
+            
             // Apply transform based on swipe
             if (deltaY > 0) {
                 sidebar.style.transform = `translateY(${Math.min(deltaY, 200)}px)`;
             }
         });
 
-        sidebar.addEventListener("touchend", (e) => {
+        sidebar.addEventListener('touchend', (e) => {
             isDragging = false;
-            sidebar.style.transition = "";
-
+            sidebar.style.transition = '';
+            
             const deltaY = currentY - startY;
-
+            
             // Determine if should expand or collapse
             if (deltaY > 100) {
-                sidebar.classList.remove("expanded");
+                sidebar.classList.remove('expanded');
             } else if (deltaY < -100) {
-                sidebar.classList.add("expanded");
+                sidebar.classList.add('expanded');
             }
-
-            sidebar.style.transform = "";
+            
+            sidebar.style.transform = '';
             startY = 0;
             currentY = 0;
         });
 
         // Long press for context menu
         let longPressTimer;
-
-        document.querySelectorAll(".vdl-cart-item").forEach((item) => {
-            item.addEventListener("touchstart", (e) => {
+        
+        document.querySelectorAll('.vdl-cart-item').forEach(item => {
+            item.addEventListener('touchstart', (e) => {
                 longPressTimer = setTimeout(() => {
-                    this.showContextMenu(
-                        e.touches[0].clientX,
-                        e.touches[0].clientY,
-                        item,
-                    );
+                    this.showContextMenu(e.touches[0].clientX, e.touches[0].clientY, item);
                     // Haptic feedback if available
                     if (navigator.vibrate) {
                         navigator.vibrate(50);
@@ -279,11 +272,11 @@ class LuxuryMapInteractions {
                 }, 500);
             });
 
-            item.addEventListener("touchend", () => {
+            item.addEventListener('touchend', () => {
                 clearTimeout(longPressTimer);
             });
 
-            item.addEventListener("touchmove", () => {
+            item.addEventListener('touchmove', () => {
                 clearTimeout(longPressTimer);
             });
         });
@@ -291,10 +284,10 @@ class LuxuryMapInteractions {
 
     showContextMenu(x, y, item) {
         // Remove existing context menu
-        document.querySelector(".vdl-context-menu")?.remove();
+        document.querySelector('.vdl-context-menu')?.remove();
 
-        const menu = document.createElement("div");
-        menu.className = "vdl-context-menu";
+        const menu = document.createElement('div');
+        menu.className = 'vdl-context-menu';
         menu.style.cssText = `
             position: fixed;
             left: ${x}px;
@@ -307,71 +300,65 @@ class LuxuryMapInteractions {
             min-width: 150px;
             animation: contextMenuAppear 0.2s ease-out;
         `;
-
+        
         menu.innerHTML = `
             <div class="vdl-context-item" onclick="viewPlotDetails()">View Details</div>
             <div class="vdl-context-item" onclick="sharePlot()">Share</div>
             <div class="vdl-context-item" onclick="removePlot()">Remove</div>
         `;
-
+        
         document.body.appendChild(menu);
-
+        
         // Remove on next tap
         setTimeout(() => {
-            document.addEventListener("touchstart", () => menu.remove(), {
-                once: true,
-            });
+            document.addEventListener('touchstart', () => menu.remove(), { once: true });
         }, 100);
     }
 
     setupParallaxEffects() {
-        const hero = document.querySelector(".vdl-hero");
-        const mapSection = document.querySelector(".vdl-map-section");
-
-        window.addEventListener("scroll", () => {
+        const hero = document.querySelector('.vdl-hero');
+        const mapSection = document.querySelector('.vdl-map-section');
+        
+        window.addEventListener('scroll', () => {
             if (!this.scrollThrottle) {
                 const scrolled = window.pageYOffset;
-
+                
                 // Parallax hero background
                 if (hero) {
                     hero.style.transform = `translateY(${scrolled * 0.5}px)`;
                 }
-
+                
                 // Subtle map section parallax
-                if (
-                    mapSection &&
-                    scrolled > mapSection.offsetTop - window.innerHeight
-                ) {
-                    const offset =
-                        (scrolled - (mapSection.offsetTop - window.innerHeight)) * 0.1;
+                if (mapSection && scrolled > mapSection.offsetTop - window.innerHeight) {
+                    const offset = (scrolled - (mapSection.offsetTop - window.innerHeight)) * 0.1;
                     mapSection.style.transform = `translateY(${-offset}px)`;
                 }
-
+                
                 this.scrollThrottle = true;
-                requestAnimationFrame(() => (this.scrollThrottle = false));
+                requestAnimationFrame(() => this.scrollThrottle = false);
             }
         });
     }
 
     initializeAccessibility() {
         // Enhanced keyboard navigation
-        const plots = document.querySelectorAll("[data-plot-id]");
+        const plots = document.querySelectorAll('[data-plot-id]');
         let currentIndex = 0;
 
-        document.addEventListener("keydown", (e) => {
+        document.addEventListener('keydown', (e) => {
             if (!plots.length) return;
 
-            switch (e.key) {
-                case "ArrowLeft":
+            switch(e.key) {
+                case 'ArrowLeft':
                     currentIndex = Math.max(0, currentIndex - 1);
                     this.focusPlot(plots[currentIndex]);
                     break;
-                case "ArrowRight":
+                case 'ArrowRight':
                     currentIndex = Math.min(plots.length - 1, currentIndex + 1);
                     this.focusPlot(plots[currentIndex]);
                     break;
-                case "Enter":
-                case " ":
+                case 'Enter':
+                case ' ':
                     if (plots[currentIndex]) {
                         plots[currentIndex].click();
                         e.preventDefault();
@@ -381,25 +368,25 @@ class LuxuryMapInteractions {
         });
 
         // Screen reader announcements
-        this.announcer = document.createElement("div");
-        this.announcer.className = "sr-only";
-        this.announcer.setAttribute("aria-live", "polite");
-        this.announcer.setAttribute("aria-atomic", "true");
+        this.announcer = document.createElement('div');
+        this.announcer.className = 'sr-only';
+        this.announcer.setAttribute('aria-live', 'polite');
+        this.announcer.setAttribute('aria-atomic', 'true');
         document.body.appendChild(this.announcer);
     }
 
     focusPlot(plot) {
         if (!plot) return;
-
+        
         // Remove previous focus
-        document.querySelectorAll(".vdl-keyboard-focus").forEach((el) => {
-            el.classList.remove("vdl-keyboard-focus");
+        document.querySelectorAll('.vdl-keyboard-focus').forEach(el => {
+            el.classList.remove('vdl-keyboard-focus');
         });
-
+        
         // Add focus to current plot
-        plot.classList.add("vdl-keyboard-focus");
+        plot.classList.add('vdl-keyboard-focus');
         plot.focus();
-
+        
         // Announce to screen reader
         this.announce(`Plot ${plot.dataset.plotName || plot.dataset.plotId} selected`);
     }
@@ -409,49 +396,43 @@ class LuxuryMapInteractions {
             this.announcer.textContent = message;
             // Clear after announcement
             setTimeout(() => {
-                this.announcer.textContent = "";
+                this.announcer.textContent = '';
             }, 1000);
         }
     }
 
     setupPerformanceMonitoring() {
         // Monitor interaction performance
-        if ("PerformanceObserver" in window) {
+        if ('PerformanceObserver' in window) {
             const observer = new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
                     if (entry.duration > 100) {
-                        console.warn(
-                            "Slow interaction detected:",
-                            entry.name,
-                            entry.duration,
-                        );
+                        console.warn('Slow interaction detected:', entry.name, entry.duration);
                     }
                 }
             });
-
-            observer.observe({ entryTypes: ["measure"] });
+            
+            observer.observe({ entryTypes: ['measure'] });
         }
     }
 
     playSelectionSound() {
         // Optional: Play subtle sound on selection
-        if (this.soundEnabled && "Audio" in window) {
-            const audio = new Audio(
-                "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHmS/7+OZURE",
-            );
+        if (this.soundEnabled && 'Audio' in window) {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHmS/7+OZURE');
             audio.volume = 0.1;
             audio.play().catch(() => {}); // Ignore if autoplay is blocked
         }
     }
 
     isTouchDevice() {
-        return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     }
 }
 
 // Initialize when DOM is ready
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
         window.luxuryMapInteractions = new LuxuryMapInteractions();
     });
 } else {
@@ -459,7 +440,7 @@ if (document.readyState === "loading") {
 }
 
 // Add CSS animations dynamically
-const style = document.createElement("style");
+const style = document.createElement('style');
 style.textContent = `
     @keyframes rippleExpand {
         to {

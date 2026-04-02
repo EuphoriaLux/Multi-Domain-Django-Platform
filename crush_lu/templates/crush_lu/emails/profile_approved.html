@@ -1,15 +1,14 @@
-{% extends "crush_lu/emails/base_email.html" %} {% load i18n %} {% block title %}{%
-trans "Profile Approved" %} - Crush.lu{% endblock %} {% block header_title %}{% trans
-"Welcome to Crush.lu!" %} 🎉{% endblock %} {% block content %}
-<h2>
-    {% blocktrans with first_name=first_name %}Congratulations {{ first_name }}!{%
-    endblocktrans %}
-</h2>
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
 
-<p>
-    <strong>{% trans "Your profile has been approved!" %}</strong> {% trans "You're now
-    part of the Crush.lu community." %}
-</p>
+{% block title %}{% trans "Profile Approved" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Welcome to Crush.lu!" %} 🎉{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Congratulations {{ first_name }}!{% endblocktrans %}</h2>
+
+<p><strong>{% trans "Your profile has been approved!" %}</strong> {% trans "You're now part of the Crush.lu community." %}</p>
 
 {% if coach_notes %}
 <div class="info-box">
@@ -29,7 +28,7 @@ trans "Profile Approved" %} - Crush.lu{% endblock %} {% block header_title %}{% 
 
 <div class="info-box">
     <strong>{% trans "💡 Pro Tips:" %}</strong>
-    <ul style="margin: 10px 0">
+    <ul style="margin: 10px 0;">
         <li>{% trans "Events fill up fast - register early!" %}</li>
         <li>{% trans "Be yourself and have fun" %}</li>
         <li>{% trans "Respect everyone's privacy and boundaries" %}</li>
@@ -39,7 +38,7 @@ trans "Profile Approved" %} - Crush.lu{% endblock %} {% block header_title %}{% 
 <p>{% trans "We're excited to see you at our events!" %}</p>
 
 <p>
-    {% trans "Cheers," %}<br />
+    {% trans "Cheers," %}<br>
     <strong>{% trans "The Crush.lu Team" %}</strong>
 </p>
 {% endblock %}

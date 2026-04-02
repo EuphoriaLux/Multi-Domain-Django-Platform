@@ -3,7 +3,6 @@ Tests for the Crush.lu Unified Notification Service
 
 Tests the "push first, email fallback" notification strategy.
 """
-
 import pytest
 from unittest.mock import patch, MagicMock
 from django.contrib.auth.models import User
@@ -13,7 +12,10 @@ from crush_lu.notification_service import (
     NotificationType,
     NotificationResult,
     notify_profile_approved,
+    notify_profile_revision,
     notify_new_message,
+    notify_new_connection,
+    notify_connection_accepted,
 )
 from crush_lu.models import PushSubscription, EmailPreference, CrushProfile
 
@@ -22,18 +24,18 @@ from crush_lu.models import PushSubscription, EmailPreference, CrushProfile
 def user_with_profile(db):
     """Create a user with a CrushProfile."""
     user = User.objects.create_user(
-        username="testuser@example.com",
-        email="testuser@example.com",
-        password="testpass123",
-        first_name="Test",
-        last_name="User",
+        username='testuser@example.com',
+        email='testuser@example.com',
+        password='testpass123',
+        first_name='Test',
+        last_name='User'
     )
     profile = CrushProfile.objects.create(
         user=user,
-        date_of_birth="1990-01-01",
-        gender="M",
-        location="Luxembourg",
-        is_approved=True,
+        date_of_birth='1990-01-01',
+        gender='M',
+        location='Luxembourg',
+        is_approved=True
     )
     return user
 
@@ -43,15 +45,15 @@ def user_with_push_subscription(user_with_profile):
     """Create a user with an active push subscription."""
     PushSubscription.objects.create(
         user=user_with_profile,
-        endpoint="https://push.example.com/test",
-        p256dh_key="test_p256dh_key",
-        auth_key="test_auth_key",
-        device_name="Test Device",
+        endpoint='https://push.example.com/test',
+        p256dh_key='test_p256dh_key',
+        auth_key='test_auth_key',
+        device_name='Test Device',
         enabled=True,
         notify_new_messages=True,
         notify_event_reminders=True,
         notify_new_connections=True,
-        notify_profile_updates=True,
+        notify_profile_updates=True
     )
     return user_with_profile
 
@@ -64,7 +66,7 @@ def user_with_email_preferences(user_with_profile):
         email_profile_updates=True,
         email_event_reminders=True,
         email_new_connections=True,
-        email_new_messages=True,
+        email_new_messages=True
     )
     return user_with_profile
 
@@ -102,19 +104,19 @@ class TestNotificationResult:
 class TestNotificationServiceChannels:
     """Tests for independent push and email notification channels."""
 
-    @patch("crush_lu.notification_service.NotificationService._send_push")
-    @patch("crush_lu.notification_service.NotificationService._send_email")
+    @patch('crush_lu.notification_service.NotificationService._send_push')
+    @patch('crush_lu.notification_service.NotificationService._send_email')
     def test_both_channels_when_push_subscribed(
         self, mock_email, mock_push, user_with_push_subscription
     ):
         """User with push subscription receives both push and email independently."""
-        mock_push.return_value = {"success": 1, "failed": 0, "total": 1}
+        mock_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
         mock_email.return_value = True
 
         result = NotificationService.notify(
             user=user_with_push_subscription,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_push_subscription.crushprofile},
+            context={'profile': user_with_push_subscription.crushprofile}
         )
 
         assert result.push_attempted is True
@@ -124,19 +126,19 @@ class TestNotificationServiceChannels:
         mock_push.assert_called_once()
         mock_email.assert_called_once()
 
-    @patch("crush_lu.notification_service.NotificationService._send_push")
-    @patch("crush_lu.notification_service.NotificationService._send_email")
+    @patch('crush_lu.notification_service.NotificationService._send_push')
+    @patch('crush_lu.notification_service.NotificationService._send_email')
     def test_email_still_sent_when_push_fails(
         self, mock_email, mock_push, user_with_push_subscription
     ):
         """Email is sent regardless of push failure (independent channels)."""
-        mock_push.return_value = {"success": 0, "failed": 1, "total": 1}
+        mock_push.return_value = {'success': 0, 'failed': 1, 'total': 1}
         mock_email.return_value = True
 
         result = NotificationService.notify(
             user=user_with_push_subscription,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_push_subscription.crushprofile},
+            context={'profile': user_with_push_subscription.crushprofile}
         )
 
         assert result.push_attempted is True
@@ -145,15 +147,17 @@ class TestNotificationServiceChannels:
         mock_push.assert_called_once()
         mock_email.assert_called_once()
 
-    @patch("crush_lu.notification_service.NotificationService._send_email")
-    def test_email_only_when_no_push_subscription(self, mock_email, user_with_profile):
+    @patch('crush_lu.notification_service.NotificationService._send_email')
+    def test_email_only_when_no_push_subscription(
+        self, mock_email, user_with_profile
+    ):
         """User without push subscription receives email only."""
         mock_email.return_value = True
 
         result = NotificationService.notify(
             user=user_with_profile,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_profile.crushprofile},
+            context={'profile': user_with_profile.crushprofile}
         )
 
         assert result.push_attempted is False
@@ -164,7 +168,7 @@ class TestNotificationServiceChannels:
 class TestNotificationServicePreferences:
     """Tests for respecting user notification preferences."""
 
-    @patch("crush_lu.email_helpers.can_send_email")
+    @patch('crush_lu.email_helpers.can_send_email')
     def test_no_notification_when_email_unsubscribed(
         self, mock_can_send, user_with_profile
     ):
@@ -174,12 +178,12 @@ class TestNotificationServicePreferences:
         result = NotificationService.notify(
             user=user_with_profile,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_profile.crushprofile},
+            context={'profile': user_with_profile.crushprofile}
         )
 
         assert result.push_attempted is False
         assert result.email_sent is False
-        assert result.email_skipped_reason == "user_unsubscribed"
+        assert result.email_skipped_reason == 'user_unsubscribed'
 
     def test_push_respects_specific_preference(self, user_with_push_subscription):
         """Push subscription with specific notification type disabled."""
@@ -188,15 +192,13 @@ class TestNotificationServicePreferences:
         sub.notify_profile_updates = False
         sub.save()
 
-        with patch(
-            "crush_lu.notification_service.NotificationService._send_email"
-        ) as mock_email:
+        with patch('crush_lu.notification_service.NotificationService._send_email') as mock_email:
             mock_email.return_value = True
 
             result = NotificationService.notify(
                 user=user_with_push_subscription,
                 notification_type=NotificationType.PROFILE_APPROVED,
-                context={"profile": user_with_push_subscription.crushprofile},
+                context={'profile': user_with_push_subscription.crushprofile}
             )
 
             # No push attempted because preference is disabled
@@ -208,33 +210,29 @@ class TestNotificationServicePreferences:
 class TestNotificationTypes:
     """Tests for different notification types."""
 
-    def test_send_push_returns_dict_for_profile_approved(
-        self, user_with_push_subscription
-    ):
+    def test_send_push_returns_dict_for_profile_approved(self, user_with_push_subscription):
         """_send_push returns a dict for PROFILE_APPROVED type."""
-        with patch("crush_lu.push_notifications.send_push_notification") as mock:
-            mock.return_value = {"success": 1, "failed": 0, "total": 1}
+        with patch('crush_lu.push_notifications.send_push_notification') as mock:
+            mock.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
             result = NotificationService._send_push(
                 user_with_push_subscription,
                 NotificationType.PROFILE_APPROVED,
-                {"profile": user_with_push_subscription.crushprofile},
+                {'profile': user_with_push_subscription.crushprofile}
             )
 
             assert isinstance(result, dict)
             mock.assert_called_once()
 
-    def test_send_push_returns_dict_for_profile_revision(
-        self, user_with_push_subscription
-    ):
+    def test_send_push_returns_dict_for_profile_revision(self, user_with_push_subscription):
         """_send_push returns a dict for PROFILE_REVISION type."""
-        with patch("crush_lu.push_notifications.send_push_notification") as mock:
-            mock.return_value = {"success": 1, "failed": 0, "total": 1}
+        with patch('crush_lu.push_notifications.send_push_notification') as mock:
+            mock.return_value = {'success': 1, 'failed': 0, 'total': 1}
 
             result = NotificationService._send_push(
                 user_with_push_subscription,
                 NotificationType.PROFILE_REVISION,
-                {"feedback": "Please update your bio"},
+                {'feedback': 'Please update your bio'}
             )
 
             assert isinstance(result, dict)
@@ -244,7 +242,7 @@ class TestNotificationTypes:
 class TestConvenienceFunctions:
     """Tests for convenience wrapper functions."""
 
-    @patch.object(NotificationService, "notify")
+    @patch.object(NotificationService, 'notify')
     def test_notify_profile_approved(self, mock_notify, user_with_profile):
         """notify_profile_approved calls NotificationService correctly."""
         mock_notify.return_value = NotificationResult()
@@ -252,64 +250,62 @@ class TestConvenienceFunctions:
         notify_profile_approved(
             user=user_with_profile,
             profile=user_with_profile.crushprofile,
-            coach_notes="Great profile!",
-            request=None,
+            coach_notes='Great profile!',
+            request=None
         )
 
         mock_notify.assert_called_once()
         call_args = mock_notify.call_args
-        assert call_args.kwargs["user"] == user_with_profile
-        assert (
-            call_args.kwargs["notification_type"] == NotificationType.PROFILE_APPROVED
-        )
-        assert call_args.kwargs["context"]["coach_notes"] == "Great profile!"
+        assert call_args.kwargs['user'] == user_with_profile
+        assert call_args.kwargs['notification_type'] == NotificationType.PROFILE_APPROVED
+        assert call_args.kwargs['context']['coach_notes'] == 'Great profile!'
 
-    @patch.object(NotificationService, "notify")
+    @patch.object(NotificationService, 'notify')
     def test_notify_new_message(self, mock_notify, user_with_profile):
         """notify_new_message calls NotificationService correctly."""
         mock_notify.return_value = NotificationResult()
         mock_message = MagicMock()
 
         notify_new_message(
-            recipient=user_with_profile, message=mock_message, request=None
+            recipient=user_with_profile,
+            message=mock_message,
+            request=None
         )
 
         mock_notify.assert_called_once()
         call_args = mock_notify.call_args
-        assert call_args.kwargs["user"] == user_with_profile
-        assert call_args.kwargs["notification_type"] == NotificationType.NEW_MESSAGE
-        assert call_args.kwargs["context"]["message"] == mock_message
+        assert call_args.kwargs['user'] == user_with_profile
+        assert call_args.kwargs['notification_type'] == NotificationType.NEW_MESSAGE
+        assert call_args.kwargs['context']['message'] == mock_message
 
 
 class TestErrorHandling:
     """Tests for error handling in notification service."""
 
-    @patch("crush_lu.notification_service.NotificationService._send_push")
+    @patch('crush_lu.notification_service.NotificationService._send_push')
     def test_push_exception_handled(self, mock_push, user_with_push_subscription):
         """Exceptions during push don't crash the service."""
-        mock_push.side_effect = Exception("Push service error")
+        mock_push.side_effect = Exception('Push service error')
 
         result = NotificationService.notify(
             user=user_with_push_subscription,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_push_subscription.crushprofile},
+            context={'profile': user_with_push_subscription.crushprofile}
         )
 
         # Should still try email fallback
         assert result.push_attempted is True
-        assert (
-            "Push service error" in str(result.errors) or result.push_failed_count == 1
-        )
+        assert 'Push service error' in str(result.errors) or result.push_failed_count == 1
 
-    @patch("crush_lu.notification_service.NotificationService._send_email")
+    @patch('crush_lu.notification_service.NotificationService._send_email')
     def test_email_exception_handled(self, mock_email, user_with_profile):
         """Exceptions during email don't crash the service."""
-        mock_email.side_effect = Exception("Email service error")
+        mock_email.side_effect = Exception('Email service error')
 
         result = NotificationService.notify(
             user=user_with_profile,
             notification_type=NotificationType.PROFILE_APPROVED,
-            context={"profile": user_with_profile.crushprofile},
+            context={'profile': user_with_profile.crushprofile}
         )
 
         # Should record the error

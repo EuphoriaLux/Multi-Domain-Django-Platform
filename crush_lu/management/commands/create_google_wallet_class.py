@@ -17,6 +17,7 @@ Requirements:
 """
 
 import json
+import time
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -25,12 +26,12 @@ try:
     from google.auth.transport.requests import Request
     from google.oauth2 import service_account
     import google.auth.exceptions
-
     GOOGLE_AUTH_AVAILABLE = True
 except ImportError:
     GOOGLE_AUTH_AVAILABLE = False
 
 import httpx
+
 
 GOOGLE_WALLET_API_BASE = "https://walletobjects.googleapis.com/walletobjects/v1"
 
@@ -194,7 +195,9 @@ class Command(BaseCommand):
             },
             # Callback URL for pass save/delete events
             # Google will POST to this URL when users save or delete passes
-            "callbackOptions": {"url": "https://crush.lu/wallet/google/callback/"},
+            "callbackOptions": {
+                "url": "https://crush.lu/wallet/google/callback/"
+            },
         }
 
     def _get_credentials(self):
@@ -214,17 +217,13 @@ class Command(BaseCommand):
             )
             return None
 
-        service_account_email = getattr(
-            settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None
-        )
+        service_account_email = getattr(settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None)
         private_key = getattr(settings, "WALLET_GOOGLE_PRIVATE_KEY", None)
         private_key_path = getattr(settings, "WALLET_GOOGLE_PRIVATE_KEY_PATH", None)
 
         if not service_account_email:
             self.stderr.write(
-                self.style.ERROR(
-                    "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL is not configured"
-                )
+                self.style.ERROR("WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL is not configured")
             )
             return None
 
@@ -250,9 +249,7 @@ class Command(BaseCommand):
                         full_credentials = json.loads(content)
                         return service_account.Credentials.from_service_account_info(
                             full_credentials,
-                            scopes=[
-                                "https://www.googleapis.com/auth/wallet_object.issuer"
-                            ],
+                            scopes=["https://www.googleapis.com/auth/wallet_object.issuer"],
                         )
                     credentials_info["private_key"] = content
             except FileNotFoundError:

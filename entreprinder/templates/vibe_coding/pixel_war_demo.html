@@ -1,17 +1,13 @@
-{% extends "base.html" %} {% load static %} {% load i18n %} {% block title %}Pixel Wars
-React Demo{% endblock %} {% block extra_css %}
-<link
-    rel="stylesheet"
-    href="{% static 'entreprinder/css/pages/pixel-war-react.css' %}"
-/>
-<link
-    rel="stylesheet"
-    href="{% static 'entreprinder/css/pages/enhanced-pixel-war-mobile.css' %}"
-/>
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-/>
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}Pixel Wars React Demo{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'entreprinder/css/pages/pixel-war-react.css' %}">
+<link rel="stylesheet" href="{% static 'entreprinder/css/pages/enhanced-pixel-war-mobile.css' %}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
     /* Demo page specific styles */
     .demo-container {
@@ -139,7 +135,7 @@ React Demo{% endblock %} {% block extra_css %}
         padding: 0 !important;
         margin-top: 0 !important;
     }
-
+    
     @media (min-width: 1024px) {
         main.container {
             width: 100vw !important;
@@ -164,28 +160,35 @@ React Demo{% endblock %} {% block extra_css %}
         }
     }
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <div class="demo-container">
     <div class="demo-header">
         <h1>🎨 Pixel Wars React Demo</h1>
-        <p class="demo-subtitle">
-            Experience the modern React implementation of collaborative pixel art
-        </p>
-
+        <p class="demo-subtitle">Experience the modern React implementation of collaborative pixel art</p>
+        
         <div class="version-selector">
-            <button
-                class="version-btn active"
+            <button 
+                class="version-btn active" 
                 id="desktopBtn"
                 onclick="showVersion('desktop')"
             >
                 <span class="version-icon">🖥️</span>
                 Desktop React
             </button>
-            <button class="version-btn" id="mobileBtn" onclick="showVersion('mobile')">
+            <button 
+                class="version-btn" 
+                id="mobileBtn"
+                onclick="showVersion('mobile')"
+            >
                 <span class="version-icon">📱</span>
                 Enhanced Mobile
             </button>
-            <a href="{% url 'vibe_coding:pixel_war' %}" class="version-btn">
+            <a 
+                href="{% url 'vibe_coding:pixel_war' %}" 
+                class="version-btn"
+            >
                 <span class="version-icon">⚡</span>
                 Original JS
             </a>
@@ -197,10 +200,7 @@ React Demo{% endblock %} {% block extra_css %}
         <div id="desktop-version" class="version-container">
             <div class="version-info">
                 <h3>Desktop React Version</h3>
-                <p>
-                    Full-featured React implementation with component-based
-                    architecture, optimized for desktop and larger screens.
-                </p>
+                <p>Full-featured React implementation with component-based architecture, optimized for desktop and larger screens.</p>
                 <div class="features-list">
                     <span class="feature-tag">React Hooks</span>
                     <span class="feature-tag performance">Canvas API</span>
@@ -212,13 +212,10 @@ React Demo{% endblock %} {% block extra_css %}
         </div>
 
         <!-- Enhanced Mobile Version -->
-        <div id="mobile-version" class="version-container" style="display: none">
+        <div id="mobile-version" class="version-container" style="display: none;">
             <div class="version-info">
                 <h3>Enhanced Mobile Version</h3>
-                <p>
-                    Touch-optimized React implementation with gesture support, haptic
-                    feedback, and mobile-first design patterns.
-                </p>
+                <p>Touch-optimized React implementation with gesture support, haptic feedback, and mobile-first design patterns.</p>
                 <div class="features-list">
                     <span class="feature-tag mobile">Touch Gestures</span>
                     <span class="feature-tag mobile">Haptic Feedback</span>
@@ -230,7 +227,9 @@ React Demo{% endblock %} {% block extra_css %}
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <!-- CSRF Token -->
 {% csrf_token %}
 
@@ -254,25 +253,13 @@ React Demo{% endblock %} {% block extra_css %}
 </script>
 
 <!-- React Libraries -->
-<script
-    crossorigin
-    src="https://unpkg.com/react@18/umd/react.production.min.js"
-></script>
-<script
-    crossorigin
-    src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <!-- React Components -->
-<script
-    type="text/babel"
-    src="{% static 'entreprinder/js/vibe_coding/react/pixel-wars-react.jsx' %}"
-></script>
-<script
-    type="text/babel"
-    src="{% static 'entreprinder/js/vibe_coding/react/enhanced-pixel-wars-mobile.jsx' %}"
-></script>
+<script type="text/babel" src="{% static 'entreprinder/js/vibe_coding/react/pixel-wars-react.jsx' %}"></script>
+<script type="text/babel" src="{% static 'entreprinder/js/vibe_coding/react/enhanced-pixel-wars-mobile.jsx' %}"></script>
 
 <!-- Demo Logic - Use text/babel to ensure components are loaded -->
 <script type="text/babel">
@@ -281,25 +268,25 @@ React Demo{% endblock %} {% block extra_css %}
 
     function showVersion(version) {
         // Update button states
-        document.querySelectorAll(".version-btn").forEach((btn) => {
-            btn.classList.remove("active");
+        document.querySelectorAll('.version-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
 
         // Show selected version
-        if (version === "desktop") {
-            document.getElementById("desktopBtn").classList.add("active");
-            document.getElementById("desktop-version").style.display = "block";
-            document.getElementById("mobile-version").style.display = "none";
-
+        if (version === 'desktop') {
+            document.getElementById('desktopBtn').classList.add('active');
+            document.getElementById('desktop-version').style.display = 'block';
+            document.getElementById('mobile-version').style.display = 'none';
+            
             // Initialize desktop version if not already initialized
             if (!desktopRoot) {
                 initializeDesktopVersion();
             }
-        } else if (version === "mobile") {
-            document.getElementById("mobileBtn").classList.add("active");
-            document.getElementById("desktop-version").style.display = "none";
-            document.getElementById("mobile-version").style.display = "block";
-
+        } else if (version === 'mobile') {
+            document.getElementById('mobileBtn').classList.add('active');
+            document.getElementById('desktop-version').style.display = 'none';
+            document.getElementById('mobile-version').style.display = 'block';
+            
             // Initialize mobile version if not already initialized
             if (!mobileRoot) {
                 initializeMobileVersion();
@@ -310,81 +297,72 @@ React Demo{% endblock %} {% block extra_css %}
     function initializeDesktopVersion() {
         try {
             // Check if components are available
-            if (typeof PixelWarApp === "undefined") {
-                console.warn("PixelWarApp not loaded yet, retrying...");
+            if (typeof PixelWarApp === 'undefined') {
+                console.warn('PixelWarApp not loaded yet, retrying...');
                 setTimeout(initializeDesktopVersion, 100);
                 return;
             }
-
-            const container = document.getElementById("desktop-react-root");
+            
+            const container = document.getElementById('desktop-react-root');
             if (container) {
                 desktopRoot = ReactDOM.createRoot(container);
                 desktopRoot.render(
-                    React.createElement(PixelWarApp, {
-                        canvasConfig: window.CANVAS_CONFIG,
-                    }),
+                    React.createElement(PixelWarApp, { canvasConfig: window.CANVAS_CONFIG })
                 );
-                console.log("✅ Desktop React version initialized");
+                console.log('✅ Desktop React version initialized');
             }
         } catch (error) {
-            console.error("❌ Failed to initialize desktop version:", error);
+            console.error('❌ Failed to initialize desktop version:', error);
         }
     }
 
     function initializeMobileVersion() {
         try {
             // Check if components are available
-            if (typeof EnhancedMobilePixelWarApp === "undefined") {
-                console.warn("EnhancedMobilePixelWarApp not loaded yet, retrying...");
+            if (typeof EnhancedMobilePixelWarApp === 'undefined') {
+                console.warn('EnhancedMobilePixelWarApp not loaded yet, retrying...');
                 setTimeout(initializeMobileVersion, 100);
                 return;
             }
-
-            const container = document.getElementById("mobile-react-root");
+            
+            const container = document.getElementById('mobile-react-root');
             if (container) {
                 mobileRoot = ReactDOM.createRoot(container);
                 mobileRoot.render(
-                    React.createElement(EnhancedMobilePixelWarApp, {
-                        canvasConfig: window.CANVAS_CONFIG,
-                    }),
+                    React.createElement(EnhancedMobilePixelWarApp, { canvasConfig: window.CANVAS_CONFIG })
                 );
-                console.log("✅ Mobile React version initialized");
+                console.log('✅ Mobile React version initialized');
             }
         } catch (error) {
-            console.error("❌ Failed to initialize mobile version:", error);
+            console.error('❌ Failed to initialize mobile version:', error);
         }
     }
 
     // Initialize desktop version by default - wait a bit for Babel to process
     function waitForComponentsAndInit() {
         // Check if components are loaded
-        if (
-            typeof window.PixelWarApp === "undefined" ||
-            typeof window.EnhancedMobilePixelWarApp === "undefined"
-        ) {
-            console.log("Waiting for React components to load...");
+        if (typeof window.PixelWarApp === 'undefined' || typeof window.EnhancedMobilePixelWarApp === 'undefined') {
+            console.log('Waiting for React components to load...');
             setTimeout(waitForComponentsAndInit, 100);
             return;
         }
-
-        console.log("React components loaded, initializing...");
-
+        
+        console.log('React components loaded, initializing...');
+        
         // Auto-switch to mobile version on mobile devices
-        const isMobile =
-            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-                navigator.userAgent,
-            ) || window.innerWidth < 768;
-
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                         (window.innerWidth < 768);
+        
         if (isMobile) {
-            showVersion("mobile");
+            showVersion('mobile');
         } else {
             initializeDesktopVersion();
         }
     }
-
+    
     // Start initialization when DOM is ready
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
             setTimeout(waitForComponentsAndInit, 100);
         });
     } else {
@@ -393,19 +371,16 @@ React Demo{% endblock %} {% block extra_css %}
 
     // Handle window resize to switch versions appropriately
     let resizeTimeout;
-    window.addEventListener("resize", function () {
+    window.addEventListener('resize', function() {
         clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function () {
+        resizeTimeout = setTimeout(function() {
             const isMobile = window.innerWidth < 768;
-            const currentVersion =
-                document.getElementById("desktop-version").style.display !== "none"
-                    ? "desktop"
-                    : "mobile";
-
-            if (isMobile && currentVersion === "desktop") {
-                showVersion("mobile");
-            } else if (!isMobile && currentVersion === "mobile") {
-                showVersion("desktop");
+            const currentVersion = document.getElementById('desktop-version').style.display !== 'none' ? 'desktop' : 'mobile';
+            
+            if (isMobile && currentVersion === 'desktop') {
+                showVersion('mobile');
+            } else if (!isMobile && currentVersion === 'mobile') {
+                showVersion('desktop');
             }
         }, 250);
     });
@@ -417,28 +392,24 @@ React Demo{% endblock %} {% block extra_css %}
 <!-- Performance monitoring -->
 <script>
     // Monitor performance
-    if ("performance" in window) {
-        window.addEventListener("load", function () {
-            setTimeout(function () {
-                const perfData = performance.getEntriesByType("navigation")[0];
+    if ('performance' in window) {
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const perfData = performance.getEntriesByType('navigation')[0];
                 if (perfData) {
-                    console.log(
-                        `Page load time: ${perfData.loadEventEnd - perfData.loadEventStart}ms`,
-                    );
-                    console.log(
-                        `DOM content loaded: ${perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart}ms`,
-                    );
+                    console.log(`Page load time: ${perfData.loadEventEnd - perfData.loadEventStart}ms`);
+                    console.log(`DOM content loaded: ${perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart}ms`);
                 }
             }, 100);
         });
     }
 
     // Error boundary for the entire demo
-    window.addEventListener("error", function (e) {
-        console.error("Demo error:", e.error);
-
+    window.addEventListener('error', function(e) {
+        console.error('Demo error:', e.error);
+        
         // Show user-friendly error message
-        const errorDiv = document.createElement("div");
+        const errorDiv = document.createElement('div');
         errorDiv.innerHTML = `
             <div style="
                 position: fixed; 
@@ -452,7 +423,7 @@ React Demo{% endblock %} {% block extra_css %}
                 max-width: 300px;
             ">
                 <strong>⚠️ Error occurred</strong><br>
-                <small>${e.error?.message || "Something went wrong"}</small>
+                <small>${e.error?.message || 'Something went wrong'}</small>
                 <button onclick="this.parentElement.remove()" style="
                     float: right; 
                     background: none; 
@@ -464,7 +435,7 @@ React Demo{% endblock %} {% block extra_css %}
             </div>
         `;
         document.body.appendChild(errorDiv);
-
+        
         // Auto-remove after 5 seconds
         setTimeout(() => {
             errorDiv.remove();

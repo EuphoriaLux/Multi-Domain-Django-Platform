@@ -10,77 +10,69 @@ class Newsletter(models.Model):
     """
 
     AUDIENCE_CHOICES = [
-        ("all_users", _("All registered users")),
-        ("all_profiles", _("Users who created a profile")),
-        ("approved_profiles", _("Users with approved profiles")),
-        ("pending_review", _("Users awaiting coach approval")),
-        ("segment", _("Specific user segment")),
+        ('all_users', _('All registered users')),
+        ('all_profiles', _('Users who created a profile')),
+        ('approved_profiles', _('Users with approved profiles')),
+        ('pending_review', _('Users awaiting coach approval')),
+        ('segment', _('Specific user segment')),
     ]
 
     STATUS_CHOICES = [
-        ("draft", _("Draft")),
-        ("sending", _("Sending")),
-        ("sent", _("Sent")),
-        ("failed", _("Failed")),
+        ('draft', _('Draft')),
+        ('sending', _('Sending')),
+        ('sent', _('Sent')),
+        ('failed', _('Failed')),
     ]
 
     # Event (optional - auto-generates content per-user in their language)
     event = models.ForeignKey(
-        "crush_lu.MeetupEvent",
+        'crush_lu.MeetupEvent',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="newsletters",
-        help_text=_(
-            "Select an event to auto-generate announcement content per-user in their language"
-        ),
+        related_name='newsletters',
+        help_text=_("Select an event to auto-generate announcement content per-user in their language"),
     )
 
     # Content
     subject = models.CharField(max_length=200)
     body_html = models.TextField(
         blank=True,
-        help_text=_(
-            "Newsletter body content (HTML). Auto-generated when event is selected."
-        ),
+        help_text=_("Newsletter body content (HTML). Auto-generated when event is selected.")
     )
     body_text = models.TextField(
         blank=True,
-        help_text=_("Plain text fallback (auto-stripped from HTML if blank)"),
+        help_text=_("Plain text fallback (auto-stripped from HTML if blank)")
     )
 
     # Targeting
     audience = models.CharField(
         max_length=20,
         choices=AUDIENCE_CHOICES,
-        default="all_users",
+        default='all_users',
     )
     segment_key = models.CharField(
         max_length=100,
         blank=True,
-        help_text=_(
-            "Segment key from user_segments.py (only used when audience='segment')"
-        ),
+        help_text=_("Segment key from user_segments.py (only used when audience='segment')")
     )
     language = models.CharField(
         max_length=5,
         choices=[
-            ("all", _("All languages")),
-            ("en", _("English")),
-            ("de", _("German")),
-            ("fr", _("French")),
+            ('all', _('All languages')),
+            ('en', _('English')),
+            ('de', _('German')),
+            ('fr', _('French')),
         ],
-        default="all",
-        help_text=_(
-            "Restrict recipients to this language. Use 'All' to send to everyone."
-        ),
+        default='all',
+        help_text=_("Restrict recipients to this language. Use 'All' to send to everyone."),
     )
 
     # Status
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
-        default="draft",
+        default='draft',
     )
 
     # Metadata
@@ -89,7 +81,7 @@ class Newsletter(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="created_newsletters",
+        related_name='created_newsletters',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -102,7 +94,7 @@ class Newsletter(models.Model):
     total_skipped = models.PositiveIntegerField(default=0)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ['-created_at']
         verbose_name = _("Newsletter")
         verbose_name_plural = _("Newsletters")
 
@@ -117,35 +109,37 @@ class NewsletterRecipient(models.Model):
     """
 
     STATUS_CHOICES = [
-        ("pending", _("Pending")),
-        ("sent", _("Sent")),
-        ("failed", _("Failed")),
-        ("skipped", _("Skipped")),
+        ('pending', _('Pending')),
+        ('sent', _('Sent')),
+        ('failed', _('Failed')),
+        ('skipped', _('Skipped')),
     ]
 
     newsletter = models.ForeignKey(
         Newsletter,
         on_delete=models.CASCADE,
-        related_name="recipients",
+        related_name='recipients',
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="newsletter_receipts",
+        related_name='newsletter_receipts',
     )
-    email = models.EmailField(help_text=_("Email snapshot at send time"))
+    email = models.EmailField(
+        help_text=_("Email snapshot at send time")
+    )
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
-        default="pending",
+        default='pending',
     )
     sent_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True)
 
     class Meta:
-        unique_together = [("newsletter", "user")]
+        unique_together = [('newsletter', 'user')]
         indexes = [
-            models.Index(fields=["newsletter", "status"]),
+            models.Index(fields=['newsletter', 'status']),
         ]
         verbose_name = _("Newsletter Recipient")
         verbose_name_plural = _("Newsletter Recipients")

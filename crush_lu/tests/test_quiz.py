@@ -1,9 +1,9 @@
 """Tests for the live quiz feature (models, consumer, API, rotation)."""
-
 import pytest
 from datetime import date, timedelta
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.test import RequestFactory
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -360,7 +360,9 @@ class TestRotationAlgorithm:
         for entry in schedule:
             if entry["role"] == "anchor":
                 # All rounds should have same table for this man
-                man_entries = [e for e in schedule if e["user"] == entry["user"]]
+                man_entries = [
+                    e for e in schedule if e["user"] == entry["user"]
+                ]
                 tables = set(e["table_number"] for e in man_entries)
                 assert len(tables) == 1, "Anchor should stay at same table"
 
@@ -381,9 +383,9 @@ class TestRotationAlgorithm:
                 e for e in schedule if e["user"] == w and e["role"] == "rotator"
             ]
             tables_visited = set(e["table_number"] for e in w_entries)
-            assert (
-                len(tables_visited) == num_tables
-            ), f"Woman should visit all {num_tables} tables, visited {tables_visited}"
+            assert len(tables_visited) == num_tables, (
+                f"Woman should visit all {num_tables} tables, visited {tables_visited}"
+            )
 
     def test_no_duplicate_women_pairing(self):
         """No two women from the same group appear at the same table in the same round."""
@@ -497,9 +499,9 @@ class TestRotationAlgorithm:
             )
             registrations.append(reg)
 
-        regs = EventRegistration.objects.filter(event=event).select_related(
-            "user__crushprofile"
-        )
+        regs = EventRegistration.objects.filter(
+            event=event
+        ).select_related("user__crushprofile")
 
         men, women = split_participants_by_gender(regs)
         # 2M + 2F + 1NB: NB should go to men (equal pools, men <= women)
@@ -673,9 +675,7 @@ class TestQuizAPI:
         assert response.status_code == 200
         assert response.json()["points_awarded"] == 20  # Doubled
 
-    def test_score_table_rejects_non_host(
-        self, quiz_event, quiz_table, quiz_questions, quiz_user
-    ):
+    def test_score_table_rejects_non_host(self, quiz_event, quiz_table, quiz_questions, quiz_user):
         client = APIClient()
         client.force_login(quiz_user)
         response = client.post(
@@ -704,29 +704,39 @@ class TestQuizViews:
             event=quiz_event.event, user=quiz_user, status="attended"
         )
         client.force_login(quiz_user)
-        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/")
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/"
+        )
         assert response.status_code == 200
         assert b"quizLive" in response.content
 
     def test_quiz_live_view_rejects_non_attendee(self, client, quiz_event, quiz_user):
         client.force_login(quiz_user)
-        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/")
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/"
+        )
         assert response.status_code == 404
 
     def test_quiz_coach_view_requires_coach(self, client, quiz_event, quiz_user):
         client.force_login(quiz_user)
-        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/coach/"
+        )
         assert response.status_code == 404  # Not a coach
 
     def test_quiz_coach_view_staff(self, client, quiz_event, coach_user):
         client.force_login(coach_user)
-        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/coach/"
+        )
         assert response.status_code == 200
         assert b"quizHost" in response.content
 
     def test_quiz_night_context(self, client, quiz_event, coach_user):
         """Host view passes is_quiz_night context."""
         client.force_login(coach_user)
-        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        response = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/coach/"
+        )
         assert response.status_code == 200
         assert b"data-quiz-night" in response.content

@@ -13,12 +13,12 @@ from django.urls import reverse
 
 
 class CrushLuAdminSite(admin.AdminSite):
-    site_header = "💕 Crush.lu Coach Panel"
-    site_title = "Crush.lu Coach Panel"
-    index_title = "Welcome to Crush.lu Coach Management"
+    site_header = '💕 Crush.lu Coach Panel'
+    site_title = 'Crush.lu Coach Panel'
+    index_title = 'Welcome to Crush.lu Coach Management'
 
     # Use custom index template with Quick Links and sidebar
-    index_template = "admin/crush_lu/index.html"
+    index_template = 'admin/crush_lu/index.html'
 
     def has_permission(self, request):
         """
@@ -55,7 +55,7 @@ class CrushLuAdminSite(admin.AdminSite):
             return False
 
         # Coaches can see crush_lu app
-        if app_label == "crush_lu":
+        if app_label == 'crush_lu':
             return True
 
         # Superusers can see everything
@@ -69,84 +69,82 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         Override index to add custom dashboard link and analytics.
         """
-        from django.db.models import Count
+        from django.db.models import Count, Q
         from django.utils import timezone
         from datetime import timedelta
         from ..models import (
-            CrushProfile,
-            ProfileSubmission,
-            MeetupEvent,
-            EventConnection,
+            CrushProfile, ProfileSubmission, MeetupEvent,
+            EventConnection, EventRegistration
         )
 
         extra_context = extra_context or {}
-        extra_context["show_dashboard_link"] = True
-        extra_context["dashboard_url"] = reverse("crush_admin_dashboard")
+        extra_context['show_dashboard_link'] = True
+        extra_context['dashboard_url'] = reverse('crush_admin_dashboard')
 
         # Add coach information to context
         try:
             coach = request.user.crushcoach
-            extra_context["is_coach"] = True
-            extra_context["coach_name"] = (
-                request.user.get_full_name() or request.user.username
-            )
+            extra_context['is_coach'] = True
+            extra_context['coach_name'] = request.user.get_full_name() or request.user.username
         except (AttributeError, ObjectDoesNotExist):
-            extra_context["is_coach"] = False
+            extra_context['is_coach'] = False
 
         # Quick stats for index page
-        extra_context["total_profiles"] = CrushProfile.objects.count()
-        extra_context["approved_profiles"] = CrushProfile.objects.filter(
-            is_approved=True
-        ).count()
-        extra_context["mutual_connections"] = EventConnection.objects.filter(
-            status="mutual"
-        ).count()
+        extra_context['total_profiles'] = CrushProfile.objects.count()
+        extra_context['approved_profiles'] = CrushProfile.objects.filter(is_approved=True).count()
+        extra_context['mutual_connections'] = EventConnection.objects.filter(status='mutual').count()
 
         # Upcoming events count
         now = timezone.now()
-        extra_context["upcoming_events"] = MeetupEvent.objects.filter(
-            date_time__gte=now, is_published=True, is_cancelled=False
+        extra_context['upcoming_events'] = MeetupEvent.objects.filter(
+            date_time__gte=now,
+            is_published=True,
+            is_cancelled=False
         ).count()
 
         # Pending actions for Action Center
         cutoff_24h = now - timedelta(hours=24)
-        pending_reviews = ProfileSubmission.objects.filter(status="pending").count()
+        pending_reviews = ProfileSubmission.objects.filter(status='pending').count()
         urgent_reviews = ProfileSubmission.objects.filter(
-            status="pending", submitted_at__lt=cutoff_24h
+            status='pending',
+            submitted_at__lt=cutoff_24h
         ).count()
         awaiting_call = ProfileSubmission.objects.filter(
-            status="pending", coach__isnull=False, review_call_completed=False
+            status='pending',
+            coach__isnull=False,
+            review_call_completed=False
         ).count()
         ready_to_approve = ProfileSubmission.objects.filter(
-            status="pending", coach__isnull=False, review_call_completed=True
+            status='pending',
+            coach__isnull=False,
+            review_call_completed=True
         ).count()
         unassigned = ProfileSubmission.objects.filter(
-            status="pending", coach__isnull=True
+            status='pending',
+            coach__isnull=True
         ).count()
 
-        extra_context["pending_actions"] = {
-            "total_pending": pending_reviews,
-            "urgent_reviews": urgent_reviews,
-            "awaiting_call": awaiting_call,
-            "ready_to_approve": ready_to_approve,
-            "unassigned": unassigned,
+        extra_context['pending_actions'] = {
+            'total_pending': pending_reviews,
+            'urgent_reviews': urgent_reviews,
+            'awaiting_call': awaiting_call,
+            'ready_to_approve': ready_to_approve,
+            'unassigned': unassigned,
         }
 
         # Recent submissions for Today's Focus
-        extra_context["recent_submissions"] = (
-            ProfileSubmission.objects.filter(status="pending")
-            .select_related("profile__user", "coach__user")
-            .order_by("-submitted_at")[:5]
-        )
+        extra_context['recent_submissions'] = ProfileSubmission.objects.filter(
+            status='pending'
+        ).select_related('profile__user', 'coach__user').order_by('-submitted_at')[:5]
 
         # Upcoming events list for Today's Focus
-        extra_context["upcoming_events_list"] = (
-            MeetupEvent.objects.filter(
-                date_time__gte=now, is_published=True, is_cancelled=False
-            )
-            .annotate(registration_count=Count("eventregistration"))
-            .order_by("date_time")[:5]
-        )
+        extra_context['upcoming_events_list'] = MeetupEvent.objects.filter(
+            date_time__gte=now,
+            is_published=True,
+            is_cancelled=False
+        ).annotate(
+            registration_count=Count('eventregistration')
+        ).order_by('date_time')[:5]
 
         return super().index(request, extra_context)
 
@@ -164,183 +162,105 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
             # ═══════════════════════════════════════════════════════════════════
-            "user": {
-                "order": 0,
-                "icon": "🔑",
-                "group": "Users & Profiles",
-            },  # Django User accounts
-            "crushprofile": {"order": 1, "icon": "👤", "group": "Users & Profiles"},
-            "approvedprofile": {"order": 2, "icon": "✅", "group": "Users & Profiles"},
-            "pendingreviewprofile": {
-                "order": 3,
-                "icon": "⏳",
-                "group": "Users & Profiles",
-            },
-            "revisionneededprofile": {
-                "order": 4,
-                "icon": "✏️",
-                "group": "Users & Profiles",
-            },
-            "recontactcoachprofile": {
-                "order": 5,
-                "icon": "📞",
-                "group": "Users & Profiles",
-            },
-            "rejectedprofile": {"order": 6, "icon": "❌", "group": "Users & Profiles"},
-            "incompleteprofile": {
-                "order": 7,
-                "icon": "📝",
-                "group": "Users & Profiles",
-            },
-            "awaitingreviewprofile": {
-                "order": 8,
-                "icon": "📋",
-                "group": "Users & Profiles",
-            },
-            "profilesubmission": {
-                "order": 9,
-                "icon": "📄",
-                "group": "Users & Profiles",
-            },
-            "completedsubmission": {
-                "order": 10,
-                "icon": "✔️",
-                "group": "Users & Profiles",
-            },
-            "inprocesssubmission": {
-                "order": 11,
-                "icon": "🔄",
-                "group": "Users & Profiles",
-            },
-            "crushcoach": {"order": 12, "icon": "🎓", "group": "Users & Profiles"},
-            "coachsession": {"order": 13, "icon": "💬", "group": "Users & Profiles"},
+            'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
+            'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
+            'approvedprofile': {'order': 2, 'icon': '✅', 'group': 'Users & Profiles'},
+            'pendingreviewprofile': {'order': 3, 'icon': '⏳', 'group': 'Users & Profiles'},
+            'revisionneededprofile': {'order': 4, 'icon': '✏️', 'group': 'Users & Profiles'},
+            'recontactcoachprofile': {'order': 5, 'icon': '📞', 'group': 'Users & Profiles'},
+            'rejectedprofile': {'order': 6, 'icon': '❌', 'group': 'Users & Profiles'},
+            'incompleteprofile': {'order': 7, 'icon': '📝', 'group': 'Users & Profiles'},
+            'awaitingreviewprofile': {'order': 8, 'icon': '📋', 'group': 'Users & Profiles'},
+            'profilesubmission': {'order': 9, 'icon': '📄', 'group': 'Users & Profiles'},
+            'completedsubmission': {'order': 10, 'icon': '✔️', 'group': 'Users & Profiles'},
+            'inprocesssubmission': {'order': 11, 'icon': '🔄', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)
             # ═══════════════════════════════════════════════════════════════════
-            "meetupevent": {"order": 1, "icon": "🎉", "group": "Events & Meetups"},
-            "eventregistration": {
-                "order": 2,
-                "icon": "✅",
-                "group": "Events & Meetups",
-            },
-            "eventinvitation": {"order": 3, "icon": "💌", "group": "Events & Meetups"},
-            "speeddatingpair": {"order": 4, "icon": "💑", "group": "Events & Meetups"},
-            "presentationqueue": {
-                "order": 5,
-                "icon": "📋",
-                "group": "Events & Meetups",
-            },
-            "presentationrating": {
-                "order": 6,
-                "icon": "⭐",
-                "group": "Events & Meetups",
-            },
-            "eventpoll": {"order": 7, "icon": "🗳️", "group": "Events & Meetups"},
-            "eventpollvote": {"order": 8, "icon": "📊", "group": "Events & Meetups"},
+            'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
+            'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
+            'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
+            'speeddatingpair': {'order': 4, 'icon': '💑', 'group': 'Events & Meetups'},
+            'presentationqueue': {'order': 5, 'icon': '📋', 'group': 'Events & Meetups'},
+            'presentationrating': {'order': 6, 'icon': '⭐', 'group': 'Events & Meetups'},
+            'eventpoll': {'order': 7, 'icon': '🗳️', 'group': 'Events & Meetups'},
+            'eventpollvote': {'order': 8, 'icon': '📊', 'group': 'Events & Meetups'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 3: Activity Voting (Event activity polls)
             # ═══════════════════════════════════════════════════════════════════
-            "globalactivityoption": {
-                "order": 1,
-                "icon": "🌐",
-                "group": "Activity Voting",
-            },
-            "eventactivityoption": {
-                "order": 2,
-                "icon": "🎯",
-                "group": "Activity Voting",
-            },
-            "eventactivityvote": {"order": 3, "icon": "🗳️", "group": "Activity Voting"},
-            "eventvotingsession": {
-                "order": 4,
-                "icon": "⏱️",
-                "group": "Activity Voting",
-            },
+            'globalactivityoption': {'order': 1, 'icon': '🌐', 'group': 'Activity Voting'},
+            'eventactivityoption': {'order': 2, 'icon': '🎯', 'group': 'Activity Voting'},
+            'eventactivityvote': {'order': 3, 'icon': '🗳️', 'group': 'Activity Voting'},
+            'eventvotingsession': {'order': 4, 'icon': '⏱️', 'group': 'Activity Voting'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 4: Connections & Messages (Post-event interactions)
             # ═══════════════════════════════════════════════════════════════════
-            "crushspark": {"order": 1, "icon": "✨", "group": "Connections"},
-            "eventconnection": {"order": 2, "icon": "🔗", "group": "Connections"},
-            "connectionmessage": {"order": 3, "icon": "💬", "group": "Connections"},
-            "crushconnectwaitlist": {"order": 4, "icon": "📋", "group": "Connections"},
+            'crushspark': {'order': 1, 'icon': '✨', 'group': 'Connections'},
+            'eventconnection': {'order': 2, 'icon': '🔗', 'group': 'Connections'},
+            'connectionmessage': {'order': 3, 'icon': '💬', 'group': 'Connections'},
+            'crushconnectwaitlist': {'order': 4, 'icon': '📋', 'group': 'Connections'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 5: Special Journey System (VIP personalized experiences)
             # ═══════════════════════════════════════════════════════════════════
-            "special_user_experience": {
-                "order": 1,
-                "icon": "✨",
-                "group": "Special Journey",
-            },
-            "journeygift": {
-                "order": 2,
-                "icon": "🎁",
-                "group": "Special Journey",
-            },  # Gifts sent via QR
-            "journeyconfiguration": {
-                "order": 3,
-                "icon": "🗺️",
-                "group": "Special Journey",
-            },
-            "journeychapter": {"order": 4, "icon": "📖", "group": "Special Journey"},
-            "journeychallenge": {"order": 5, "icon": "🎯", "group": "Special Journey"},
-            "journeyreward": {"order": 6, "icon": "🏆", "group": "Special Journey"},
-            "journeyprogress": {"order": 7, "icon": "📊", "group": "Special Journey"},
-            "chapterprogress": {"order": 8, "icon": "📈", "group": "Special Journey"},
-            "challengeattempt": {"order": 9, "icon": "🎮", "group": "Special Journey"},
-            "rewardprogress": {"order": 10, "icon": "✅", "group": "Special Journey"},
+            'special_user_experience': {'order': 1, 'icon': '✨', 'group': 'Special Journey'},
+            'journeygift': {'order': 2, 'icon': '🎁', 'group': 'Special Journey'},  # Gifts sent via QR
+            'journeyconfiguration': {'order': 3, 'icon': '🗺️', 'group': 'Special Journey'},
+            'journeychapter': {'order': 4, 'icon': '📖', 'group': 'Special Journey'},
+            'journeychallenge': {'order': 5, 'icon': '🎯', 'group': 'Special Journey'},
+            'journeyreward': {'order': 6, 'icon': '🏆', 'group': 'Special Journey'},
+            'journeyprogress': {'order': 7, 'icon': '📊', 'group': 'Special Journey'},
+            'chapterprogress': {'order': 8, 'icon': '📈', 'group': 'Special Journey'},
+            'challengeattempt': {'order': 9, 'icon': '🎮', 'group': 'Special Journey'},
+            'rewardprogress': {'order': 10, 'icon': '✅', 'group': 'Special Journey'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 6: Advent Calendar (Seasonal feature)
             # ═══════════════════════════════════════════════════════════════════
-            "adventcalendar": {"order": 1, "icon": "🎄", "group": "Advent Calendar"},
-            "adventdoor": {"order": 2, "icon": "🚪", "group": "Advent Calendar"},
-            "adventdoorcontent": {"order": 3, "icon": "📦", "group": "Advent Calendar"},
-            "adventprogress": {"order": 4, "icon": "📊", "group": "Advent Calendar"},
-            "qrcodetoken": {"order": 5, "icon": "📱", "group": "Advent Calendar"},
+            'adventcalendar': {'order': 1, 'icon': '🎄', 'group': 'Advent Calendar'},
+            'adventdoor': {'order': 2, 'icon': '🚪', 'group': 'Advent Calendar'},
+            'adventdoorcontent': {'order': 3, 'icon': '📦', 'group': 'Advent Calendar'},
+            'adventprogress': {'order': 4, 'icon': '📊', 'group': 'Advent Calendar'},
+            'qrcodetoken': {'order': 5, 'icon': '📱', 'group': 'Advent Calendar'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 7: Notifications & Settings (User preferences)
             # ═══════════════════════════════════════════════════════════════════
-            "pushsubscription": {"order": 1, "icon": "🔔", "group": "Notifications"},
-            "coachpushsubscription": {
-                "order": 2,
-                "icon": "📣",
-                "group": "Notifications",
-            },
-            "newsletter": {"order": 3, "icon": "📰", "group": "Notifications"},
-            "newsletterrecipient": {"order": 4, "icon": "📨", "group": "Notifications"},
-            "emailpreference": {"order": 5, "icon": "📧", "group": "Notifications"},
-            "useractivity": {"order": 6, "icon": "📊", "group": "Notifications"},
-            "profilereminder": {"order": 7, "icon": "📬", "group": "Notifications"},
+            'pushsubscription': {'order': 1, 'icon': '🔔', 'group': 'Notifications'},
+            'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
+            'newsletter': {'order': 3, 'icon': '📰', 'group': 'Notifications'},
+            'newsletterrecipient': {'order': 4, 'icon': '📨', 'group': 'Notifications'},
+            'emailpreference': {'order': 5, 'icon': '📧', 'group': 'Notifications'},
+            'useractivity': {'order': 6, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 7, 'icon': '📬', 'group': 'Notifications'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)
             # ═══════════════════════════════════════════════════════════════════
-            "walletpassproxy": {"order": 1, "icon": "💳", "group": "Wallet & Passes"},
-            "passkitdeviceregistration": {
-                "order": 2,
-                "icon": "📲",
-                "group": "Wallet & Passes",
-            },
+            'walletpassproxy': {'order': 1, 'icon': '💳', 'group': 'Wallet & Passes'},
+            'passkitdeviceregistration': {'order': 2, 'icon': '📲', 'group': 'Wallet & Passes'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 9: Growth & Referrals (Marketing and acquisition)
             # ═══════════════════════════════════════════════════════════════════
-            "referralcode": {"order": 1, "icon": "🎟️", "group": "Growth & Referrals"},
-            "referralattribution": {
-                "order": 2,
-                "icon": "🔗",
-                "group": "Growth & Referrals",
-            },
+            'referralcode': {'order': 1, 'icon': '🎟️', 'group': 'Growth & Referrals'},
+            'referralattribution': {'order': 2, 'icon': '🔗', 'group': 'Growth & Referrals'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 10: Technical & Debug (Developer tools)
             # ═══════════════════════════════════════════════════════════════════
-            "pwadeviceinstallation": {
-                "order": 1,
-                "icon": "📱",
-                "group": "Technical & Debug",
-            },
-            "oauthstate": {"order": 2, "icon": "🔐", "group": "Technical & Debug"},
+            'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
+            'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
+
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 11: Site Settings (Global configuration)
             # ═══════════════════════════════════════════════════════════════════
-            "crushsiteconfig": {"order": 1, "icon": "⚙️", "group": "Site Settings"},
+            'crushsiteconfig': {'order': 1, 'icon': '⚙️', 'group': 'Site Settings'},
         }
 
         # Create grouped app list - transform single crush_lu app into multiple sections
@@ -349,60 +269,55 @@ class CrushLuAdminSite(admin.AdminSite):
         # First, collect User model from auth app to merge into Users & Profiles group
         auth_user_model = None
         for app in app_list:
-            if app["app_label"] == "auth":
-                for model in app["models"]:
-                    if model["object_name"].lower() == "user":
+            if app['app_label'] == 'auth':
+                for model in app['models']:
+                    if model['object_name'].lower() == 'user':
                         auth_user_model = model
                         break
                 break
 
         for app in app_list:
-            if app["app_label"] == "crush_lu":
+            if app['app_label'] == 'crush_lu':
                 # Group models by category
                 groups = {}
 
                 # Add User model from auth app to the groups if found
                 if auth_user_model:
-                    config = custom_order.get("user")
+                    config = custom_order.get('user')
                     if config:
-                        auth_user_model["_order"] = config["order"]
-                        group_name = config["group"]
-                        icon = config["icon"]
-                        if not auth_user_model["name"].startswith(icon):
-                            auth_user_model["name"] = (
-                                f"{icon} {auth_user_model['name']}"
-                            )
+                        auth_user_model['_order'] = config['order']
+                        group_name = config['group']
+                        icon = config['icon']
+                        if not auth_user_model['name'].startswith(icon):
+                            auth_user_model['name'] = f"{icon} {auth_user_model['name']}"
                         if group_name not in groups:
                             groups[group_name] = []
                         groups[group_name].append(auth_user_model)
 
-                for model in app["models"]:
-                    model_name = model["object_name"].lower()
+                for model in app['models']:
+                    model_name = model['object_name'].lower()
 
                     # Handle the special case where object_name doesn't match the key
                     # Map known variations
                     model_key = model_name
-                    if model_key == "specialuserexperience":
-                        model_key = "special_user_experience"
+                    if model_key == 'specialuserexperience':
+                        model_key = 'special_user_experience'
 
                     if model_key in custom_order:
                         config = custom_order[model_key]
-                        model["_order"] = config["order"]
-                        group_name = config["group"]
+                        model['_order'] = config['order']
+                        group_name = config['group']
 
                         # Add icon to model name only if it doesn't already have one
-                        icon = config["icon"]
-                        if not model["name"].startswith(icon):
+                        icon = config['icon']
+                        if not model['name'].startswith(icon):
                             # Remove any existing numbering (e.g., "2. Journey Configurations" -> "Journey Configurations")
-                            clean_name = model["name"]
-                            if (
-                                ". " in clean_name
-                                and clean_name.split(". ")[0].isdigit()
-                            ):
-                                clean_name = ". ".join(clean_name.split(". ")[1:])
+                            clean_name = model['name']
+                            if '. ' in clean_name and clean_name.split('. ')[0].isdigit():
+                                clean_name = '. '.join(clean_name.split('. ')[1:])
 
                             # Add icon only (no number prefix for cleaner look)
-                            model["name"] = f"{icon} {clean_name}"
+                            model['name'] = f"{icon} {clean_name}"
 
                         # Add to appropriate group
                         if group_name not in groups:
@@ -413,63 +328,41 @@ class CrushLuAdminSite(admin.AdminSite):
                 # Order determines sidebar display order - organized by frequency of use
                 group_order = [
                     # === DAILY USE (Coach Core Workflow) ===
-                    (
-                        "👥 Users & Profiles",
-                        "Users & Profiles",
-                    ),  # Profile reviews, coach assignments
-                    (
-                        "🎉 Events & Meetups",
-                        "Events & Meetups",
-                    ),  # Event management, registrations
-                    (
-                        "💕 Connections",
-                        "Connections",
-                    ),  # Post-event connections, messages
-                    (
-                        "🔔 Notifications",
-                        "Notifications",
-                    ),  # Push notifications, email prefs
+                    ('👥 Users & Profiles', 'Users & Profiles'),       # Profile reviews, coach assignments
+                    ('🎉 Events & Meetups', 'Events & Meetups'),       # Event management, registrations
+                    ('💕 Connections', 'Connections'),                 # Post-event connections, messages
+                    ('🔔 Notifications', 'Notifications'),             # Push notifications, email prefs
+
                     # === WEEKLY USE (Features & Growth) ===
-                    (
-                        "✨ Special Journey",
-                        "Special Journey",
-                    ),  # VIP journey creation & monitoring
-                    (
-                        "📈 Growth & Referrals",
-                        "Growth & Referrals",
-                    ),  # Referral tracking, marketing
+                    ('✨ Special Journey', 'Special Journey'),         # VIP journey creation & monitoring
+                    ('📈 Growth & Referrals', 'Growth & Referrals'),   # Referral tracking, marketing
+
                     # === EVENT-SPECIFIC (During Events Only) ===
-                    (
-                        "🗳️ Activity Voting",
-                        "Activity Voting",
-                    ),  # Live event voting sessions
+                    ('🗳️ Activity Voting', 'Activity Voting'),         # Live event voting sessions
+
                     # === SEASONAL / OCCASIONAL ===
-                    ("🎄 Advent Calendar", "Advent Calendar"),  # December only
-                    ("💳 Wallet & Passes", "Wallet & Passes"),  # Apple/Google Wallet
+                    ('🎄 Advent Calendar', 'Advent Calendar'),         # December only
+                    ('💳 Wallet & Passes', 'Wallet & Passes'),         # Apple/Google Wallet
+
                     # === ADMIN / DEBUGGING ===
-                    (
-                        "🔧 Technical & Debug",
-                        "Technical & Debug",
-                    ),  # PWA, OAuth debugging
-                    ("⚙️ Site Settings", "Site Settings"),  # WhatsApp, site config
+                    ('🔧 Technical & Debug', 'Technical & Debug'),     # PWA, OAuth debugging
+                    ('⚙️ Site Settings', 'Site Settings'),               # WhatsApp, site config
                 ]
 
                 for display_name, group_key in group_order:
                     if group_key in groups:
                         # Sort models within each group
-                        groups[group_key].sort(key=lambda x: x.get("_order", 999))
+                        groups[group_key].sort(key=lambda x: x.get('_order', 999))
 
                         # Create a fake "app" for this group
-                        new_app_list.append(
-                            {
-                                "name": display_name,
-                                "app_label": f'crush_lu_{group_key.lower().replace(" ", "_").replace("&", "and")}',
-                                "app_url": "#",
-                                "has_module_perms": True,
-                                "models": groups[group_key],
-                            }
-                        )
-            elif app["app_label"] == "auth":
+                        new_app_list.append({
+                            'name': display_name,
+                            'app_label': f'crush_lu_{group_key.lower().replace(" ", "_").replace("&", "and")}',
+                            'app_url': '#',
+                            'has_module_perms': True,
+                            'models': groups[group_key],
+                        })
+            elif app['app_label'] == 'auth':
                 # Skip auth app - User model is merged into Users & Profiles group
                 continue
             else:
@@ -480,4 +373,4 @@ class CrushLuAdminSite(admin.AdminSite):
 
 
 # Use custom admin site
-crush_admin_site = CrushLuAdminSite(name="crush_admin")
+crush_admin_site = CrushLuAdminSite(name='crush_admin')

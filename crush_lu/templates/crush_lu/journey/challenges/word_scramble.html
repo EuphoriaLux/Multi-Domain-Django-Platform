@@ -1,5 +1,9 @@
-{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
-extra_journey_css %}{% endblock %} {% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}{% endblock %}
+
+{% block journey_content %}
 <div class="journey-container-narrow journey-animate-fade-in">
     {% include "crush_lu/journey/partials/challenge_header.html" %}
 
@@ -20,22 +24,21 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
     >
         <!-- Challenge Type Badge -->
         <div class="journey-badge mb-6">
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {%
-            trans "Word Scramble Challenge" %}
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
+            {% trans "Word Scramble Challenge" %}
         </div>
 
         <!-- Points Display -->
-        <div
-            class="journey-points-display"
-            aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}"
-        >
+        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
             <span aria-hidden="true">&#128142;</span>
             <span x-text="currentPoints">{{ challenge.points_awarded }}</span>
             {% trans "Points" %}
         </div>
 
         <!-- Word Instruction -->
-        <p class="mb-6 text-center text-lg text-white/90">{{ challenge.question }}</p>
+        <p class="text-center text-lg mb-6 text-white/90">
+            {{ challenge.question }}
+        </p>
 
         <!-- Scrambled Word Display -->
         <div class="journey-scrambled-word" x-text="displayText" aria-live="polite">
@@ -48,17 +51,16 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
             class="journey-shuffle-btn"
             title="{% trans 'Shuffle letters' %}"
         >
-            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %} {%
-            trans "Shuffle" %}
+            {% include "shared/icons/arrows-right-left.html" with class="w-5 h-5" %}
+            {% trans "Shuffle" %}
         </button>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
-        {% with completion_message=_("You already unscrambled this word and earned
-        <strong
-            >")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong
-        >." %} {% include "crush_lu/journey/partials/already_completed.html" %} {%
-        endwith %} {% else %}
+        {% with completion_message=_("You already unscrambled this word and earned <strong>")|add:existing_attempt.points_earned|stringformat:"s"|add:" points</strong>." %}
+        {% include "crush_lu/journey/partials/already_completed.html" %}
+        {% endwith %}
+        {% else %}
         <!-- Answer Input Section -->
         <div x-show="isNotSuccess" x-cloak class="mt-8">
             <label for="answerInput" class="sr-only">{% trans "Your answer" %}</label>
@@ -72,10 +74,8 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
                 placeholder="{% trans 'Type the unscrambled word...' %}"
                 autocomplete="off"
                 aria-describedby="answerHelp"
-            />
-            <p id="answerHelp" class="sr-only">
-                {% trans "Enter the unscrambled word or phrase" %}
-            </p>
+            >
+            <p id="answerHelp" class="sr-only">{% trans "Enter the unscrambled word or phrase" %}</p>
 
             <button
                 @click="submitAnswer"
@@ -84,8 +84,7 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
             >
                 <span x-show="isNotSubmitting">{% trans "Submit Answer" %}</span>
                 <span x-show="isSubmitting" x-cloak>{% trans "Checking..." %}</span>
-                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5"
-                %}
+                {% include "shared/icons/arrow-right-circle.html" with class="w-5 h-5" %}
             </button>
         </div>
 

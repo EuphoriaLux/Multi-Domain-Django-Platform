@@ -2,7 +2,7 @@
 .pixel-war-react {
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .pixel-war-header {
@@ -47,12 +47,8 @@
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Main Layout */
@@ -306,37 +302,37 @@
     .pixel-war-header h1 {
         font-size: 2rem;
     }
-
+    
     .pixel-canvas-container {
         padding: 1rem;
     }
-
+    
     .pixel-canvas-container canvas {
         max-width: 100%;
         height: auto;
     }
-
+    
     .canvas-controls {
         flex-wrap: wrap;
         gap: 0.25rem;
     }
-
+    
     .canvas-controls button,
     .canvas-controls span {
         padding: 6px 10px;
         font-size: 0.8rem;
     }
-
+    
     .color-grid {
         grid-template-columns: repeat(6, 1fr);
         gap: 6px;
     }
-
+    
     .color-btn {
         width: 35px;
         height: 35px;
     }
-
+    
     .notification {
         top: 10px;
         right: 10px;
@@ -349,16 +345,16 @@
     .pixel-war-layout {
         padding: 0.25rem;
     }
-
+    
     .controls-sidebar {
         padding: 1rem;
     }
-
+    
     .color-grid {
         grid-template-columns: repeat(8, 1fr);
         gap: 4px;
     }
-
+    
     .color-btn {
         width: 30px;
         height: 30px;
@@ -370,15 +366,15 @@
     .color-btn:hover {
         transform: none;
     }
-
+    
     .color-btn:active {
         transform: scale(0.95);
     }
-
+    
     .canvas-controls button:hover {
         background: #007bff;
     }
-
+    
     .canvas-controls button:active {
         background: #0056b3;
     }
@@ -389,14 +385,14 @@
     .pixel-war-react {
         background: #000;
     }
-
+    
     .controls-sidebar,
     .pixel-canvas-container,
     .info-card {
         background: #fff;
         border: 2px solid #000;
     }
-
+    
     .pixel-war-header h1,
     .subtitle {
         color: #fff;
@@ -409,16 +405,16 @@
     .color-btn {
         transition: none;
     }
-
+    
     .color-btn:hover {
         transform: none;
     }
-
+    
     .loading-spinner {
         animation: none;
         border: 5px solid #fff;
     }
-
+    
     .notification {
         animation: none;
     }

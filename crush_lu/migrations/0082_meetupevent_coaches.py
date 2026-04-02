@@ -6,18 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0081_add_event_languages"),
+        ('crush_lu', '0081_add_event_languages'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="meetupevent",
-            name="coaches",
-            field=models.ManyToManyField(
-                blank=True,
-                help_text="Coaches assigned to facilitate this event.",
-                related_name="assigned_events",
-                to="crush_lu.crushcoach",
-            ),
+            model_name='meetupevent',
+            name='coaches',
+            field=models.ManyToManyField(blank=True, help_text='Coaches assigned to facilitate this event.', related_name='assigned_events', to='crush_lu.crushcoach'),
         ),
     ]

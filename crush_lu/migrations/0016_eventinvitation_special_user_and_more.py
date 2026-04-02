@@ -8,31 +8,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0015_meetupevent_invitation_code_and_more"),
+        ('crush_lu', '0015_meetupevent_invitation_code_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="eventinvitation",
-            name="special_user",
-            field=models.ForeignKey(
-                blank=True,
-                help_text="Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)",
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                related_name="event_invitations",
-                to="crush_lu.specialuserexperience",
-            ),
+            model_name='eventinvitation',
+            name='special_user',
+            field=models.ForeignKey(blank=True, help_text='Link this invitation to a Special User for VIP treatment (auto-fills from name/email match)', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='event_invitations', to='crush_lu.specialuserexperience'),
         ),
         migrations.AddField(
-            model_name="meetupevent",
-            name="invited_users",
-            field=models.ManyToManyField(
-                blank=True,
-                help_text="Existing users invited to this private event (no external invitation needed)",
-                related_name="invited_to_events",
-                to=settings.AUTH_USER_MODEL,
-            ),
+            model_name='meetupevent',
+            name='invited_users',
+            field=models.ManyToManyField(blank=True, help_text='Existing users invited to this private event (no external invitation needed)', related_name='invited_to_events', to=settings.AUTH_USER_MODEL),
         ),
     ]

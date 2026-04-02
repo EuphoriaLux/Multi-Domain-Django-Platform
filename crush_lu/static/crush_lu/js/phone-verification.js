@@ -42,29 +42,25 @@ class PhoneVerification {
         this.failureCount = 0;
 
         // UI state
-        this.state = "idle"; // idle, sending, code_sent, verifying, verified, error
+        this.state = 'idle'; // idle, sending, code_sent, verifying, verified, error
 
         // localStorage key for persisting verification state
-        this.storageKey = "crush_phone_verification";
+        this.storageKey = 'crush_phone_verification';
 
         // Firebase config from options or global window variables (set by Django template)
         // IMPORTANT: No hardcoded defaults - config must be provided via environment variables
         this.firebaseConfig = options.firebaseConfig || {
             apiKey: window.FIREBASE_API_KEY,
             authDomain: window.FIREBASE_AUTH_DOMAIN,
-            projectId: window.FIREBASE_PROJECT_ID,
+            projectId: window.FIREBASE_PROJECT_ID
         };
 
         // Validate config is present
         if (!this.firebaseConfig.apiKey || !this.firebaseConfig.projectId) {
-            const errorMsg = gettext(
-                "Firebase configuration missing. Phone verification is temporarily unavailable.",
-            );
-            console.error(
-                "Firebase configuration missing. Set FIREBASE_API_KEY and FIREBASE_PROJECT_ID environment variables.",
-            );
+            const errorMsg = gettext('Firebase configuration missing. Phone verification is temporarily unavailable.');
+            console.error('Firebase configuration missing. Set FIREBASE_API_KEY and FIREBASE_PROJECT_ID environment variables.');
             this.initializationError = errorMsg;
-            this.setState("error");
+            this.setState('error');
             if (this.onFirebaseError) {
                 this.onFirebaseError(errorMsg);
             }
@@ -85,12 +81,12 @@ class PhoneVerification {
             const stateData = {
                 state: this.state,
                 timestamp: Date.now(),
-                hasConfirmation: !!this.confirmationResult,
+                hasConfirmation: !!this.confirmationResult
             };
             localStorage.setItem(this.storageKey, JSON.stringify(stateData));
         } catch (e) {
             // localStorage not available, silently ignore
-            console.warn("Could not save phone verification state to localStorage");
+            console.warn('Could not save phone verification state to localStorage');
         }
     }
 
@@ -106,10 +102,10 @@ class PhoneVerification {
                 const ageMinutes = (Date.now() - parsed.timestamp) / 1000 / 60;
 
                 // Only restore if less than 10 minutes old and was in code_sent state
-                if (ageMinutes < 10 && parsed.state === "code_sent") {
+                if (ageMinutes < 10 && parsed.state === 'code_sent') {
                     // Note: We can't restore confirmationResult, user will need to resend
                     // But we can show them a helpful message
-                    this.state = "idle";
+                    this.state = 'idle';
                 } else {
                     // Expired or completed, clear storage
                     this.clearStoredState();
@@ -117,7 +113,7 @@ class PhoneVerification {
             }
         } catch (e) {
             // localStorage not available or corrupted data
-            console.warn("Could not restore phone verification state");
+            console.warn('Could not restore phone verification state');
         }
     }
 
@@ -136,15 +132,11 @@ class PhoneVerification {
      * Initialize Firebase SDK
      */
     initFirebase() {
-        if (typeof firebase === "undefined") {
-            const errorMsg = gettext(
-                "Phone verification is temporarily unavailable. Please try again later or contact support.",
-            );
-            console.error(
-                "Firebase SDK not loaded. Include firebase-app-compat.js and firebase-auth-compat.js",
-            );
+        if (typeof firebase === 'undefined') {
+            const errorMsg = gettext('Phone verification is temporarily unavailable. Please try again later or contact support.');
+            console.error('Firebase SDK not loaded. Include firebase-app-compat.js and firebase-auth-compat.js');
             this.initializationError = errorMsg;
-            this.setState("error");
+            this.setState('error');
             if (this.onFirebaseError) {
                 this.onFirebaseError(errorMsg);
             }
@@ -165,12 +157,10 @@ class PhoneVerification {
             this.isInitialized = true;
             this.initializationError = null;
         } catch (error) {
-            const errorMsg = gettext(
-                "Phone verification service failed to initialize. Please refresh the page or try again later.",
-            );
-            console.error("Failed to initialize Firebase:", error);
+            const errorMsg = gettext('Phone verification service failed to initialize. Please refresh the page or try again later.');
+            console.error('Failed to initialize Firebase:', error);
             this.initializationError = errorMsg;
-            this.setState("error");
+            this.setState('error');
             if (this.onFirebaseError) {
                 this.onFirebaseError(errorMsg);
             }
@@ -197,14 +187,12 @@ class PhoneVerification {
      */
     setupRecaptcha() {
         if (!this.isInitialized) {
-            throw new Error("Firebase not initialized");
+            throw new Error('Firebase not initialized');
         }
 
         const container = document.getElementById(this.recaptchaContainerId);
         if (!container) {
-            throw new Error(
-                `reCAPTCHA container not found: ${this.recaptchaContainerId}`,
-            );
+            throw new Error(`reCAPTCHA container not found: ${this.recaptchaContainerId}`);
         }
 
         // Clear any existing verifier
@@ -219,12 +207,13 @@ class PhoneVerification {
         this.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
             this.recaptchaContainerId,
             {
-                size: "invisible",
-                callback: () => {},
-                "expired-callback": () => {
-                    this.setupRecaptcha();
+                size: 'invisible',
+                callback: () => {
                 },
-            },
+                'expired-callback': () => {
+                    this.setupRecaptcha();
+                }
+            }
         );
 
         return this.recaptchaVerifier;
@@ -249,7 +238,7 @@ class PhoneVerification {
         const oldContainer = document.getElementById(this.recaptchaContainerId);
         if (oldContainer && oldContainer.parentNode) {
             const parent = oldContainer.parentNode;
-            const newContainer = document.createElement("div");
+            const newContainer = document.createElement('div');
             newContainer.id = this.recaptchaContainerId;
             parent.replaceChild(newContainer, oldContainer);
         }
@@ -277,17 +266,17 @@ class PhoneVerification {
         let phone = input.value.trim();
 
         // Normalize Luxembourg numbers
-        if (phone.startsWith("00352")) {
-            phone = "+352" + phone.slice(5);
-        } else if (phone.startsWith("352") && !phone.startsWith("+")) {
-            phone = "+352" + phone.slice(3);
-        } else if (!phone.startsWith("+") && phone.length >= 6) {
+        if (phone.startsWith('00352')) {
+            phone = '+352' + phone.slice(5);
+        } else if (phone.startsWith('352') && !phone.startsWith('+')) {
+            phone = '+352' + phone.slice(3);
+        } else if (!phone.startsWith('+') && phone.length >= 6) {
             // Assume Luxembourg if no country code
-            phone = "+352" + phone.replace(/\s+/g, "");
+            phone = '+352' + phone.replace(/\s+/g, '');
         }
 
         // Remove spaces and dashes
-        phone = phone.replace(/[\s\-\(\)]/g, "");
+        phone = phone.replace(/[\s\-\(\)]/g, '');
 
         return phone;
     }
@@ -297,13 +286,13 @@ class PhoneVerification {
      * On failure, resets the reCAPTCHA container DOM and retries up to maxRetries times.
      */
     async sendVerificationCode(phoneNumber = null) {
-        this.setState("sending");
+        this.setState('sending');
 
         try {
             var phone = phoneNumber || this.getPhoneNumber();
 
             if (!phone || phone.length < 8) {
-                throw new Error(gettext("Please enter a valid phone number"));
+                throw new Error(gettext('Please enter a valid phone number'));
             }
 
             var lastError = null;
@@ -311,43 +300,38 @@ class PhoneVerification {
             for (var attempt = 0; attempt <= this.maxRetries; attempt++) {
                 try {
                     if (attempt > 0) {
-                        console.warn(
-                            "SMS send retry attempt " + attempt + "/" + this.maxRetries,
-                        );
+                        console.warn('SMS send retry attempt ' + attempt + '/' + this.maxRetries);
                         // Wait before retrying
-                        await new Promise(function (resolve) {
-                            setTimeout(resolve, 1500);
-                        });
+                        await new Promise(function(resolve) { setTimeout(resolve, 1500); });
                         // Full reCAPTCHA DOM reset for clean retry
                         this.resetRecaptchaContainer();
                     } else if (!this.recaptchaVerifier) {
                         this.setupRecaptcha();
                     }
 
-                    this.confirmationResult = await firebase
-                        .auth()
-                        .signInWithPhoneNumber(phone, this.recaptchaVerifier);
+                    this.confirmationResult = await firebase.auth().signInWithPhoneNumber(
+                        phone,
+                        this.recaptchaVerifier
+                    );
 
                     // Success - reset failure count
                     this.failureCount = 0;
-                    this.setState("code_sent");
+                    this.setState('code_sent');
                     this.onCodeSent(phone);
 
                     return { success: true, phone: phone };
+
                 } catch (error) {
                     lastError = error;
-                    console.error(
-                        "SMS send attempt " + (attempt + 1) + " failed:",
-                        error.code || error.message,
-                    );
+                    console.error('SMS send attempt ' + (attempt + 1) + ' failed:', error.code || error.message);
 
                     // Don't retry for user-input errors or rate limiting
                     var noRetryErrors = [
-                        "auth/invalid-phone-number",
-                        "auth/too-many-requests",
-                        "auth/quota-exceeded",
-                        "auth/user-disabled",
-                        "auth/operation-not-allowed",
+                        'auth/invalid-phone-number',
+                        'auth/too-many-requests',
+                        'auth/quota-exceeded',
+                        'auth/user-disabled',
+                        'auth/operation-not-allowed'
                     ];
                     if (error.code && noRetryErrors.indexOf(error.code) !== -1) {
                         break;
@@ -357,29 +341,24 @@ class PhoneVerification {
 
             // All attempts failed
             this.failureCount++;
-            console.error(
-                "SMS send failed after " +
-                    (this.maxRetries + 1) +
-                    " attempts. Total failures: " +
-                    this.failureCount,
-            );
-            console.error("Last error details:", {
+            console.error('SMS send failed after ' + (this.maxRetries + 1) + ' attempts. Total failures: ' + this.failureCount);
+            console.error('Last error details:', {
                 code: lastError.code,
                 message: lastError.message,
                 name: lastError.name,
                 customData: lastError.customData,
-                serverResponse: lastError.serverResponse,
+                serverResponse: lastError.serverResponse
             });
             if (lastError.serverResponse) {
                 try {
                     var parsed = JSON.parse(lastError.serverResponse);
-                    console.error("Server response details:", parsed);
+                    console.error('Server response details:', parsed);
                 } catch (e) {
-                    console.error("Server response (raw):", lastError.serverResponse);
+                    console.error('Server response (raw):', lastError.serverResponse);
                 }
             }
 
-            this.setState("error");
+            this.setState('error');
             this.onError(this.formatFirebaseError(lastError));
 
             // Reset reCAPTCHA for next manual retry
@@ -390,9 +369,10 @@ class PhoneVerification {
             }
 
             return { success: false, error: lastError.message };
+
         } catch (error) {
             // Validation errors (phone too short, etc.) - no retry needed
-            this.setState("error");
+            this.setState('error');
             this.onError(error.message || this.formatFirebaseError(error));
             return { success: false, error: error.message };
         }
@@ -403,20 +383,18 @@ class PhoneVerification {
      */
     async verifyCode(code) {
         if (!this.confirmationResult) {
-            const error = gettext(
-                "No verification in progress. Please request a new code.",
-            );
+            const error = gettext('No verification in progress. Please request a new code.');
             this.onError(error);
             return { success: false, error };
         }
 
         if (!code || code.length !== 6) {
-            const error = gettext("Please enter the 6-digit code");
+            const error = gettext('Please enter the 6-digit code');
             this.onError(error);
             return { success: false, error };
         }
 
-        this.setState("verifying");
+        this.setState('verifying');
 
         try {
             const result = await this.confirmationResult.confirm(code);
@@ -432,20 +410,21 @@ class PhoneVerification {
             await firebase.auth().signOut();
 
             if (response.success) {
-                this.setState("verified");
+                this.setState('verified');
                 this.onVerified(response.phone_number);
                 return {
                     success: true,
-                    phone_number: response.phone_number,
+                    phone_number: response.phone_number
                 };
             } else {
-                var err = new Error(response.error || "Verification failed");
+                var err = new Error(response.error || 'Verification failed');
                 err.errorCode = response.error_code || null;
                 throw err;
             }
+
         } catch (error) {
-            console.error("Code verification error:", error);
-            this.setState("error");
+            console.error('Code verification error:', error);
+            this.setState('error');
 
             // Also sign out on error to clean up state
             try {
@@ -455,11 +434,7 @@ class PhoneVerification {
             }
 
             this.onError(this.formatFirebaseError(error));
-            return {
-                success: false,
-                error: error.message,
-                error_code: error.errorCode || null,
-            };
+            return { success: false, error: error.message, error_code: error.errorCode || null };
         }
     }
 
@@ -468,13 +443,13 @@ class PhoneVerification {
      * Sends ID token (NOT phone number) for secure server-side verification
      */
     async notifyBackend(idToken) {
-        const response = await fetch("/api/phone/mark-verified/", {
-            method: "POST",
+        const response = await fetch('/api/phone/mark-verified/', {
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": this.csrfToken,
+                'Content-Type': 'application/json',
+                'X-CSRFToken': this.csrfToken
             },
-            body: JSON.stringify({ idToken }),
+            body: JSON.stringify({ idToken })
         });
 
         const data = await response.json();
@@ -498,16 +473,16 @@ class PhoneVerification {
      */
     async checkStatus() {
         try {
-            const response = await fetch("/api/phone/status/", {
-                method: "GET",
+            const response = await fetch('/api/phone/status/', {
+                method: 'GET',
                 headers: {
-                    "X-CSRFToken": this.csrfToken,
-                },
+                    'X-CSRFToken': this.csrfToken
+                }
             });
 
             return await response.json();
         } catch (error) {
-            console.error("Failed to check phone status:", error);
+            console.error('Failed to check phone status:', error);
             return { phone_verified: false };
         }
     }
@@ -517,7 +492,7 @@ class PhoneVerification {
      */
     reset() {
         this.confirmationResult = null;
-        this.setState("idle");
+        this.setState('idle');
 
         try {
             if (this.recaptchaVerifier) {
@@ -538,9 +513,9 @@ class PhoneVerification {
         this.onStateChange(newState);
 
         // Persist state changes to localStorage
-        if (newState === "code_sent") {
+        if (newState === 'code_sent') {
             this.saveState();
-        } else if (newState === "verified" || newState === "idle") {
+        } else if (newState === 'verified' || newState === 'idle') {
             // Clear stored state on completion or reset
             this.clearStoredState();
         }
@@ -551,31 +526,15 @@ class PhoneVerification {
      */
     formatFirebaseError(error) {
         const errorMap = {
-            "auth/invalid-phone-number": gettext(
-                "Invalid phone number format. Please use international format (e.g., +352 XXX XXX)",
-            ),
-            "auth/too-many-requests": gettext(
-                "Too many attempts. Please wait a few minutes and try again.",
-            ),
-            "auth/captcha-check-failed": gettext(
-                "Security check failed. Please refresh the page and try again.",
-            ),
-            "auth/invalid-verification-code": gettext(
-                "Invalid code. Please check the code and try again.",
-            ),
-            "auth/code-expired": gettext("Code expired. Please request a new code."),
-            "auth/quota-exceeded": gettext(
-                "SMS quota exceeded. Please try again later.",
-            ),
-            "auth/user-disabled": gettext(
-                "This phone number has been disabled. Please contact support.",
-            ),
-            "auth/operation-not-allowed": gettext(
-                "Phone authentication is not enabled. Please contact support.",
-            ),
-            "auth/error-code:-39": gettext(
-                "SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.",
-            ),
+            'auth/invalid-phone-number': gettext('Invalid phone number format. Please use international format (e.g., +352 XXX XXX)'),
+            'auth/too-many-requests': gettext('Too many attempts. Please wait a few minutes and try again.'),
+            'auth/captcha-check-failed': gettext('Security check failed. Please refresh the page and try again.'),
+            'auth/invalid-verification-code': gettext('Invalid code. Please check the code and try again.'),
+            'auth/code-expired': gettext('Code expired. Please request a new code.'),
+            'auth/quota-exceeded': gettext('SMS quota exceeded. Please try again later.'),
+            'auth/user-disabled': gettext('This phone number has been disabled. Please contact support.'),
+            'auth/operation-not-allowed': gettext('Phone authentication is not enabled. Please contact support.'),
+            'auth/error-code:-39': gettext('SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.'),
         };
 
         if (error.code && errorMap[error.code]) {
@@ -583,17 +542,15 @@ class PhoneVerification {
         }
 
         // Check for error code -39 in the message (sometimes formatted differently)
-        if (error.message && error.message.includes("error-code:-39")) {
-            return gettext(
-                "SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.",
-            );
+        if (error.message && error.message.includes('error-code:-39')) {
+            return gettext('SMS service temporarily unavailable. Please try again in a few minutes. If the problem persists, contact us via WhatsApp.');
         }
 
-        return error.message || gettext("An error occurred. Please try again.");
+        return error.message || gettext('An error occurred. Please try again.');
     }
 }
 
 // Export for module systems
-if (typeof module !== "undefined" && module.exports) {
+if (typeof module !== 'undefined' && module.exports) {
     module.exports = PhoneVerification;
 }

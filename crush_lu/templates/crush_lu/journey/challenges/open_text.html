@@ -1,5 +1,9 @@
-{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
-extra_journey_css %}{% endblock %} {% block journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block extra_journey_css %}{% endblock %}
+
+{% block journey_content %}
 <div class="journey-container-content journey-animate-fade-in">
     {% include "crush_lu/journey/partials/challenge_header.html" %}
 
@@ -19,39 +23,34 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
     >
         <!-- Challenge Type Badge -->
         <div class="journey-badge mb-6">
-            {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Open
-            Response" %}
+            {% include "shared/icons/pencil.html" with class="w-5 h-5" %}
+            {% trans "Open Response" %}
         </div>
 
         <!-- Points Display -->
-        <div
-            class="journey-points-display"
-            aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}"
-        >
+        <div class="journey-points-display" aria-label="{% blocktrans with points=challenge.points_awarded %}{{ points }} points available{% endblocktrans %}">
             <span aria-hidden="true">&#128142;</span>
-            {{ challenge.points_awarded }} {% trans "Points" %}
+            {{ challenge.points_awarded }}
+            {% trans "Points" %}
         </div>
 
         <!-- Question -->
-        <h2 class="journey-open-question">{{ challenge.question }}</h2>
+        <h2 class="journey-open-question">
+            {{ challenge.question }}
+        </h2>
 
-        <p class="mb-8 text-center text-white/80 italic">
-            {% trans "Share your thoughts freely - there are no wrong answers" %}
-            &#10024;
+        <p class="text-center text-white/80 italic mb-8">
+            {% trans "Share your thoughts freely - there are no wrong answers" %} &#10024;
         </p>
 
         {% if existing_attempt %}
         <!-- Already Completed -->
         <div class="journey-message-success p-6 text-center">
-            <h3 class="mb-3 flex items-center justify-center gap-2 text-lg font-bold">
-                {% include "shared/icons/check-circle.html" with class="w-6 h-6" %} {%
-                trans "Already Submitted!" %}
+            <h3 class="flex items-center justify-center gap-2 text-lg font-bold mb-3">
+                {% include "shared/icons/check-circle.html" with class="w-6 h-6" %}
+                {% trans "Already Submitted!" %}
             </h3>
-            <p>
-                {% blocktrans with points=existing_attempt.points_earned %}You've
-                already shared your response and earned
-                <strong>{{ points }} points</strong>.{% endblocktrans %}
-            </p>
+            <p>{% blocktrans with points=existing_attempt.points_earned %}You've already shared your response and earned <strong>{{ points }} points</strong>.{% endblocktrans %}</p>
 
             <div class="journey-personal-message">
                 {{ challenge.success_message|linebreaks }}
@@ -62,12 +61,9 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
                 <p class="mt-2">"{{ existing_attempt.user_answer }}"</p>
             </div>
 
-            <a
-                href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
-                class="journey-btn-primary mt-6"
-            >
-                {% trans "Continue to Next Challenge" %} {% include
-                "shared/icons/arrow-right.html" with class="w-5 h-5" %}
+            <a href="{% url 'crush_lu:chapter_view' chapter.chapter_number %}" class="journey-btn-primary mt-6">
+                {% trans "Continue to Next Challenge" %}
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}
             </a>
         </div>
         {% else %}
@@ -77,9 +73,7 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
             <ul>
                 <li>{% trans "What immediately comes to mind?" %}</li>
                 <li>{% trans "How does this question make you feel?" %}</li>
-                <li>
-                    {% trans "What would you want someone to know about your answer?" %}
-                </li>
+                <li>{% trans "What would you want someone to know about your answer?" %}</li>
             </ul>
         </div>
 
@@ -96,9 +90,7 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
                 rows="8"
                 aria-describedby="charCounter inputHelp"
             ></textarea>
-            <p id="inputHelp" class="sr-only">
-                {% trans "Write at least 10 characters to submit your response" %}
-            </p>
+            <p id="inputHelp" class="sr-only">{% trans "Write at least 10 characters to submit your response" %}</p>
             <div x-bind:class="charCounterClass">
                 <span x-text="charCount">0</span> / {% trans "2000 characters" %}
             </div>
@@ -109,7 +101,7 @@ extra_journey_css %}{% endblock %} {% block journey_content %}
             x-cloak
             @click="submitAnswer"
             x-bind:disabled="submitBtnDisabled"
-            class="journey-btn-primary mt-6 w-full py-4 text-lg"
+            class="journey-btn-primary w-full text-lg py-4 mt-6"
         >
             {% include "shared/icons/paper-airplane.html" with class="w-5 h-5" %}
             <span x-show="isNotSubmitting">{% trans "Submit Response" %}</span>

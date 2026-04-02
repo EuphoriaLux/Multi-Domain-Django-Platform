@@ -7,14 +7,14 @@
  * Escape HTML to prevent XSS (including quotes for attribute safety)
  */
 function escapeHtml(text) {
-    if (text === null || text === undefined) return "";
+    if (text === null || text === undefined) return '';
     const str = String(text);
     return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#x27;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
 }
 
 class EnhancedProducerSidebar {
@@ -25,175 +25,166 @@ class EnhancedProducerSidebar {
     }
 
     init() {
-        console.log("🎯 Initializing Enhanced Producer Sidebar...");
-
+        console.log('🎯 Initializing Enhanced Producer Sidebar...');
+        
         // Override existing producer selection handlers
         this.interceptProducerSelection();
-
+        
         // Listen for producer selection events
-        document.addEventListener("producer:selected", (e) => {
+        document.addEventListener('producer:selected', (e) => {
             this.handleProducerSelection(e.detail.producer);
         });
-
+        
         // Intercept all producer button clicks
         this.setupClickInterceptors();
     }
 
     setupClickInterceptors() {
         // Use event delegation to catch all clicks
-        document.addEventListener(
-            "click",
-            (e) => {
-                const target = e.target;
-
-                // Check if it's a producer selection button
-                if (
-                    target.matches(
-                        '.select-producer-btn, .view-adoption-plans, [onclick*="loadAdoptionPlans"]',
-                    ) ||
-                    target.closest(".select-producer-btn, .view-adoption-plans")
-                ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-
-                    console.log("🍷 Producer button intercepted:", target);
-
-                    // Extract producer information
-                    const producerData = this.extractProducerData(target);
-                    if (producerData) {
-                        this.handleProducerSelection(producerData);
-                    }
-
-                    return false;
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            // Check if it's a producer selection button
+            if (target.matches('.select-producer-btn, .view-adoption-plans, [onclick*="loadAdoptionPlans"]') || 
+                target.closest('.select-producer-btn, .view-adoption-plans')) {
+                
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                console.log('🍷 Producer button intercepted:', target);
+                
+                // Extract producer information
+                const producerData = this.extractProducerData(target);
+                if (producerData) {
+                    this.handleProducerSelection(producerData);
                 }
-            },
-            true,
-        ); // Use capture phase to intercept before other handlers
+                
+                return false;
+            }
+        }, true); // Use capture phase to intercept before other handlers
     }
 
     extractProducerData(element) {
         let producerName = null;
         let producerId = null;
         let planId = null;
-
+        
         // Try to get from data attributes
         if (element.dataset.producer) {
             producerName = element.dataset.producer;
             planId = element.dataset.planId;
         }
-
+        
         // Try from onclick attribute
-        const onclickAttr = element.getAttribute("onclick");
-        if (onclickAttr && onclickAttr.includes("loadAdoptionPlans")) {
+        const onclickAttr = element.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes('loadAdoptionPlans')) {
             const match = onclickAttr.match(/loadAdoptionPlans\(['"]([^'"]+)['"]\)/);
             if (match) producerName = match[1];
         }
-
+        
         // Try from popup content
-        const popup = element.closest(".leaflet-popup-content, .producer-popup");
+        const popup = element.closest('.leaflet-popup-content, .producer-popup');
         if (popup) {
-            const heading = popup.querySelector("h3, h4, h5, h6");
+            const heading = popup.querySelector('h3, h4, h5, h6');
             if (heading) producerName = heading.textContent.trim();
         }
-
+        
         if (!producerName) return null;
-
+        
         // Map producer name to ID (based on your database)
         const producerIdMap = {
-            "Château Margaux": 1,
-            "Domaine de la Romanée-Conti": 2,
-            Penfolds: 3,
-            Antinori: 4,
-            "Catena Zapata": 5,
+            'Château Margaux': 1,
+            'Domaine de la Romanée-Conti': 2,
+            'Penfolds': 3,
+            'Antinori': 4,
+            'Catena Zapata': 5
         };
-
-        producerId =
-            producerIdMap[producerName] ||
-            producerName.toLowerCase().replace(/\s+/g, "-");
-
+        
+        producerId = producerIdMap[producerName] || producerName.toLowerCase().replace(/\s+/g, '-');
+        
         return {
             name: producerName,
             id: producerId,
             planId: planId,
             region: this.getProducerRegion(producerName),
-            description: this.getProducerDescription(producerName),
+            description: this.getProducerDescription(producerName)
         };
     }
 
     handleProducerSelection(producer) {
-        console.log("📍 Handling producer selection in sidebar:", producer);
-
+        console.log('📍 Handling producer selection in sidebar:', producer);
+        
         this.currentProducer = producer;
-
+        
         // Hide the empty selection message
-        const emptySelection = document.getElementById("empty-selection");
+        const emptySelection = document.getElementById('empty-selection');
         if (emptySelection) {
-            emptySelection.style.display = "none";
+            emptySelection.style.display = 'none';
         }
-
+        
         // Update the sidebar header
         this.updateSidebarHeader(producer);
-
+        
         // Show producer details in the plot details panel
         this.showProducerInSidebar(producer);
-
+        
         // Load available plots for this producer
         this.loadProducerPlots(producer);
-
+        
         // Scroll sidebar into view on mobile
         if (window.innerWidth < 768) {
-            const sidebar = document.querySelector(".vdl-sidebar");
+            const sidebar = document.querySelector('.vdl-sidebar');
             if (sidebar) {
-                sidebar.classList.add("expanded");
-                sidebar.scrollIntoView({ behavior: "smooth", block: "start" });
+                sidebar.classList.add('expanded');
+                sidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
     }
 
     updateSidebarHeader(producer) {
-        const sidebarTitle = document.getElementById("sidebar-title");
+        const sidebarTitle = document.getElementById('sidebar-title');
         if (sidebarTitle) {
             // Clear existing content
-            sidebarTitle.textContent = "";
+            sidebarTitle.textContent = '';
 
             // Create and append icon
-            const icon = document.createElement("i");
-            icon.className = "fas fa-wine-bottle";
-            icon.style.color = "var(--vdl-gold)";
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-wine-bottle';
+            icon.style.color = 'var(--vdl-gold)';
             sidebarTitle.appendChild(icon);
 
             // Add producer name as text
-            sidebarTitle.appendChild(document.createTextNode(" " + producer.name));
+            sidebarTitle.appendChild(document.createTextNode(' ' + producer.name));
         }
-
+        
         // Update the counter to show producer selection
-        const selectedCount = document.getElementById("selected-count");
-        const selectedLabel = document.getElementById("selected-count-label");
+        const selectedCount = document.getElementById('selected-count');
+        const selectedLabel = document.getElementById('selected-count-label');
         if (selectedCount && selectedLabel) {
-            selectedCount.textContent = "1";
-            selectedLabel.textContent = "producer selected";
+            selectedCount.textContent = '1';
+            selectedLabel.textContent = 'producer selected';
         }
     }
 
     showProducerInSidebar(producer) {
         // Get or create the producer details section
-        let plotDetails = document.getElementById("plot-details");
+        let plotDetails = document.getElementById('plot-details');
         if (!plotDetails) {
             // Create it if it doesn't exist
-            plotDetails = document.createElement("div");
-            plotDetails.id = "plot-details";
-            plotDetails.className = "vdl-card vdl-card-premium";
-
-            const sidebar = document.querySelector(".vdl-sidebar");
+            plotDetails = document.createElement('div');
+            plotDetails.id = 'plot-details';
+            plotDetails.className = 'vdl-card vdl-card-premium';
+            
+            const sidebar = document.querySelector('.vdl-sidebar');
             if (sidebar) {
                 sidebar.appendChild(plotDetails);
             }
         }
-
+        
         // Show the details panel
-        plotDetails.style.display = "block";
-
+        plotDetails.style.display = 'block';
+        
         // Update with producer information (using escapeHtml for XSS protection)
         plotDetails.innerHTML = `
             <div class="vdl-card-header" style="background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-deep-burgundy) 100%); color: white; border-radius: 12px 12px 0 0;">
@@ -265,17 +256,17 @@ class EnhancedProducerSidebar {
                 </button>
             </div>
         `;
-
+        
         // Load the plots after a short delay
         setTimeout(() => this.loadProducerPlots(producer), 500);
     }
 
     loadProducerPlots(producer) {
-        console.log("📦 Loading plots for producer:", producer.name);
-
-        const plotsList = document.getElementById("producer-plots-list");
+        console.log('📦 Loading plots for producer:', producer.name);
+        
+        const plotsList = document.getElementById('producer-plots-list');
         if (!plotsList) return;
-
+        
         // Show loading state
         plotsList.innerHTML = `
             <div class="text-center py-3">
@@ -285,17 +276,17 @@ class EnhancedProducerSidebar {
                 <p class="vdl-caption mt-2">Loading available plots...</p>
             </div>
         `;
-
+        
         // Fetch real plots from the API
-        const langCode = document.documentElement.lang || "en";
+        const langCode = document.documentElement.lang || 'en';
         fetch(`/${langCode}/vinsdelux/api/plots/?producer_id=${producer.id}`)
-            .then((response) => response.json())
-            .then((data) => {
-                console.log("📍 Received plot data from API:", data);
-
+            .then(response => response.json())
+            .then(data => {
+                console.log('📍 Received plot data from API:', data);
+                
                 // Store the real plots
                 this.availablePlots = data.results || data;
-
+                
                 if (this.availablePlots.length === 0) {
                     plotsList.innerHTML = `
                         <div class="alert alert-info">
@@ -305,22 +296,19 @@ class EnhancedProducerSidebar {
                     `;
                     return;
                 }
-
+                
                 // Display the real plots (with XSS protection)
-                plotsList.innerHTML = this.availablePlots
-                    .map((plot) => {
-                        const plotName = escapeHtml(plot.name || plot.plot_identifier);
-                        const plotSize = escapeHtml(plot.plot_size || "Size N/A");
-                        const grapeVarieties = plot.grape_varieties
-                            ? escapeHtml(plot.grape_varieties.join(", "))
-                            : "Varieties N/A";
-                        const elevation = escapeHtml(plot.elevation || "N/A");
-                        const sunExposure = escapeHtml(plot.sun_exposure || "N/A");
-                        const soilType = escapeHtml(plot.soil_type || "Soil type N/A");
-                        const basePrice = (plot.base_price || 0).toLocaleString();
-                        const plotId = escapeHtml(String(plot.id));
+                plotsList.innerHTML = this.availablePlots.map(plot => {
+                    const plotName = escapeHtml(plot.name || plot.plot_identifier);
+                    const plotSize = escapeHtml(plot.plot_size || 'Size N/A');
+                    const grapeVarieties = plot.grape_varieties ? escapeHtml(plot.grape_varieties.join(', ')) : 'Varieties N/A';
+                    const elevation = escapeHtml(plot.elevation || 'N/A');
+                    const sunExposure = escapeHtml(plot.sun_exposure || 'N/A');
+                    const soilType = escapeHtml(plot.soil_type || 'Soil type N/A');
+                    const basePrice = (plot.base_price || 0).toLocaleString();
+                    const plotId = escapeHtml(String(plot.id));
 
-                        return `
+                    return `
             <div class="vdl-plot-card" style="background: white; border: 1px solid var(--vdl-gold-alpha-25); border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease;"
                  onclick="enhancedProducerSidebar.selectPlot('${plotId}')"
                  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(114, 47, 55, 0.1)';"
@@ -354,14 +342,13 @@ class EnhancedProducerSidebar {
                 </div>
             </div>
         `;
-                    })
-                    .join("");
-
+                }).join('');
+                
                 // Update selection list with real plots
                 this.updateSelectionList(producer, this.availablePlots);
             })
-            .catch((error) => {
-                console.error("Error loading plots:", error);
+            .catch(error => {
+                console.error('Error loading plots:', error);
                 plotsList.innerHTML = `
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle"></i>
@@ -372,15 +359,14 @@ class EnhancedProducerSidebar {
                 const mockPlots = this.getProducerPlots(producer.name);
                 this.availablePlots = mockPlots;
                 // Display mock plots (with XSS protection)
-                plotsList.innerHTML = mockPlots
-                    .map((plot) => {
-                        const plotName = escapeHtml(plot.name);
-                        const plotSize = escapeHtml(plot.size);
-                        const grapeVariety = escapeHtml(plot.grapeVariety);
-                        const plotPrice = plot.price.toLocaleString();
-                        const plotId = escapeHtml(String(plot.id));
+                plotsList.innerHTML = mockPlots.map(plot => {
+                    const plotName = escapeHtml(plot.name);
+                    const plotSize = escapeHtml(plot.size);
+                    const grapeVariety = escapeHtml(plot.grapeVariety);
+                    const plotPrice = plot.price.toLocaleString();
+                    const plotId = escapeHtml(String(plot.id));
 
-                        return `
+                    return `
                     <div class="vdl-plot-card" style="background: white; border: 1px solid var(--vdl-gold-alpha-25); border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease;"
                          onclick="enhancedProducerSidebar.selectPlot('${plotId}')"
                          onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(114, 47, 55, 0.1)';"
@@ -405,16 +391,15 @@ class EnhancedProducerSidebar {
                         </div>
                     </div>
                 `;
-                    })
-                    .join("");
+                }).join('');
                 this.updateSelectionList(producer, mockPlots);
             });
     }
 
     updateSelectionList(producer, plots) {
-        const selectionList = document.getElementById("selection-list");
+        const selectionList = document.getElementById('selection-list');
         if (!selectionList) return;
-
+        
         selectionList.innerHTML = `
             <div class="vdl-producer-selected" style="background: linear-gradient(135deg, var(--vdl-pearl) 0%, white 100%); border: 2px solid var(--vdl-gold); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
                 <div class="d-flex justify-content-between align-items-center">
@@ -436,95 +421,92 @@ class EnhancedProducerSidebar {
                 Select a plot above to continue
             </div>
         `;
-
+        
         // Show proceed section
-        const proceedSection = document.getElementById("proceed-section");
+        const proceedSection = document.getElementById('proceed-section');
         if (proceedSection) {
-            proceedSection.style.display = "block";
+            proceedSection.style.display = 'block';
         }
     }
 
     selectPlot(plotId) {
-        console.log("🎯 Plot selected:", plotId);
-
+        console.log('🎯 Plot selected:', plotId);
+        
         // Find the plot
-        const plot = this.availablePlots.find((p) => p.id === plotId);
+        const plot = this.availablePlots.find(p => p.id === plotId);
         if (!plot) return;
-
+        
         // Trigger plot selection event
-        const event = new CustomEvent("plotSelected", {
+        const event = new CustomEvent('plotSelected', {
             detail: {
                 id: plotId,
                 name: plot.name,
                 producer: this.currentProducer.name,
                 price: plot.price,
-                ...plot,
-            },
+                ...plot
+            }
         });
         document.dispatchEvent(event);
-
+        
         // Update UI to show selection
         this.highlightSelectedPlot(plotId);
     }
 
     highlightSelectedPlot(plotId) {
         // Remove previous selections
-        document.querySelectorAll(".vdl-plot-card").forEach((card) => {
-            card.style.border = "1px solid var(--vdl-gold-alpha-25)";
-            card.style.background = "white";
+        document.querySelectorAll('.vdl-plot-card').forEach(card => {
+            card.style.border = '1px solid var(--vdl-gold-alpha-25)';
+            card.style.background = 'white';
         });
-
+        
         // Highlight selected plot
-        const selectedCard = document.querySelector(
-            `[onclick="enhancedProducerSidebar.selectPlot('${plotId}')"]`,
-        );
+        const selectedCard = document.querySelector(`[onclick="enhancedProducerSidebar.selectPlot('${plotId}')"]`);
         if (selectedCard) {
-            selectedCard.style.border = "2px solid var(--vdl-gold)";
-            selectedCard.style.background =
-                "linear-gradient(135deg, var(--vdl-champagne) 0%, white 100%)";
+            selectedCard.style.border = '2px solid var(--vdl-gold)';
+            selectedCard.style.background = 'linear-gradient(135deg, var(--vdl-champagne) 0%, white 100%)';
         }
     }
 
     viewAllPlots() {
-        console.log("Viewing all plots for:", this.currentProducer?.name);
+        console.log('Viewing all plots for:', this.currentProducer?.name);
         // Scroll to map or expand plot view
-        const mapSection = document.getElementById("vineyard-map");
+        const mapSection = document.getElementById('vineyard-map');
         if (mapSection) {
-            mapSection.scrollIntoView({ behavior: "smooth", block: "center" });
+            mapSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 
     clearSelection() {
         this.currentProducer = null;
         this.availablePlots = [];
-
+        
         // Reset sidebar
-        const sidebarTitle = document.getElementById("sidebar-title");
+        const sidebarTitle = document.getElementById('sidebar-title');
         if (sidebarTitle) {
-            sidebarTitle.textContent = "Your Selection";
+            sidebarTitle.textContent = 'Your Selection';
         }
-
-        const selectedCount = document.getElementById("selected-count");
-        const selectedLabel = document.getElementById("selected-count-label");
+        
+        const selectedCount = document.getElementById('selected-count');
+        const selectedLabel = document.getElementById('selected-count-label');
         if (selectedCount && selectedLabel) {
-            selectedCount.textContent = "0";
-            selectedLabel.textContent = "plots selected";
+            selectedCount.textContent = '0';
+            selectedLabel.textContent = 'plots selected';
         }
-
+        
         // Hide plot details
-        const plotDetails = document.getElementById("plot-details");
+        const plotDetails = document.getElementById('plot-details');
         if (plotDetails) {
-            plotDetails.style.display = "none";
+            plotDetails.style.display = 'none';
         }
-
+        
         // Show empty selection
-        const emptySelection = document.getElementById("empty-selection");
+        const emptySelection = document.getElementById('empty-selection');
         if (emptySelection) {
-            emptySelection.style.display = "block";
+            emptySelection.style.display = 'block';
         }
-
+        
         // Reset selection list
-        const selectionList = document.getElementById("selection-list");
+        const selectionList = document.getElementById('selection-list');
         if (selectionList) {
             selectionList.innerHTML = `
                 <div class="text-center vdl-text-muted" id="empty-selection">
@@ -533,104 +515,96 @@ class EnhancedProducerSidebar {
                 </div>
             `;
         }
-
+        
         // Hide proceed section
-        const proceedSection = document.getElementById("proceed-section");
+        const proceedSection = document.getElementById('proceed-section');
         if (proceedSection) {
-            proceedSection.style.display = "none";
+            proceedSection.style.display = 'none';
         }
     }
 
     getProducerRegion(producerName) {
         const regions = {
-            "Château Margaux": "Bordeaux, France",
-            "Domaine de la Romanée-Conti": "Burgundy, France",
-            Antinori: "Tuscany, Italy",
-            Penfolds: "Barossa Valley, Australia",
-            "Catena Zapata": "Mendoza, Argentina",
+            'Château Margaux': 'Bordeaux, France',
+            'Domaine de la Romanée-Conti': 'Burgundy, France',
+            'Antinori': 'Tuscany, Italy',
+            'Penfolds': 'Barossa Valley, Australia',
+            'Catena Zapata': 'Mendoza, Argentina'
         };
-        return regions[producerName] || "Luxembourg";
+        return regions[producerName] || 'Luxembourg';
     }
 
     getProducerDescription(producerName) {
         const descriptions = {
-            "Château Margaux":
-                "One of Bordeaux's most prestigious estates, producing exceptional wines since 1572. Known for elegant, refined wines with extraordinary aging potential.",
-            "Domaine de la Romanée-Conti":
-                "The pinnacle of Burgundy wine, crafting the world's most sought-after Pinot Noir from meticulously tended Grand Cru vineyards.",
-            Antinori:
-                "Six centuries of Italian winemaking excellence, pioneering Super Tuscans while honoring ancient traditions.",
-            Penfolds:
-                "Australia's most iconic wine producer, home of the legendary Grange and innovative winemaking techniques.",
-            "Catena Zapata":
-                "Argentina's leading wine estate, elevating Malbec to world-class status through high-altitude viticulture.",
+            'Château Margaux': 'One of Bordeaux\'s most prestigious estates, producing exceptional wines since 1572. Known for elegant, refined wines with extraordinary aging potential.',
+            'Domaine de la Romanée-Conti': 'The pinnacle of Burgundy wine, crafting the world\'s most sought-after Pinot Noir from meticulously tended Grand Cru vineyards.',
+            'Antinori': 'Six centuries of Italian winemaking excellence, pioneering Super Tuscans while honoring ancient traditions.',
+            'Penfolds': 'Australia\'s most iconic wine producer, home of the legendary Grange and innovative winemaking techniques.',
+            'Catena Zapata': 'Argentina\'s leading wine estate, elevating Malbec to world-class status through high-altitude viticulture.'
         };
-        return (
-            descriptions[producerName] ||
-            "Premium wine producer with exceptional terroir and centuries of winemaking tradition."
-        );
+        return descriptions[producerName] || 'Premium wine producer with exceptional terroir and centuries of winemaking tradition.';
     }
 
     getProducerPlots(producerName) {
         // Store plots for later reference
         this.availablePlots = [
             {
-                id: `${producerName.toLowerCase().replace(/\s+/g, "-")}-plot-1`,
-                name: "Hillside Reserve",
-                size: "0.25 hectares",
-                grapeVariety: "Cabernet Sauvignon",
+                id: `${producerName.toLowerCase().replace(/\s+/g, '-')}-plot-1`,
+                name: 'Hillside Reserve',
+                size: '0.25 hectares',
+                grapeVariety: 'Cabernet Sauvignon',
                 price: 2500,
                 availability: 75,
-                elevation: "450m",
-                soil: "Gravel & Clay",
+                elevation: '450m',
+                soil: 'Gravel & Clay'
             },
             {
-                id: `${producerName.toLowerCase().replace(/\s+/g, "-")}-plot-2`,
-                name: "Valley Premium",
-                size: "0.30 hectares",
-                grapeVariety: "Merlot",
+                id: `${producerName.toLowerCase().replace(/\s+/g, '-')}-plot-2`,
+                name: 'Valley Premium',
+                size: '0.30 hectares',
+                grapeVariety: 'Merlot',
                 price: 2200,
                 availability: 60,
-                elevation: "380m",
-                soil: "Limestone",
+                elevation: '380m',
+                soil: 'Limestone'
             },
             {
-                id: `${producerName.toLowerCase().replace(/\s+/g, "-")}-plot-3`,
-                name: "Heritage Block",
-                size: "0.20 hectares",
-                grapeVariety: "Pinot Noir",
+                id: `${producerName.toLowerCase().replace(/\s+/g, '-')}-plot-3`,
+                name: 'Heritage Block',
+                size: '0.20 hectares',
+                grapeVariety: 'Pinot Noir',
                 price: 2800,
                 availability: 90,
-                elevation: "520m",
-                soil: "Clay-limestone",
-            },
+                elevation: '520m',
+                soil: 'Clay-limestone'
+            }
         ];
-
+        
         return this.availablePlots;
     }
 
     interceptProducerSelection() {
         // Override the global loadAdoptionPlans function
         window.loadAdoptionPlans = (producerName) => {
-            console.log("Intercepted loadAdoptionPlans:", producerName);
+            console.log('Intercepted loadAdoptionPlans:', producerName);
             const producerData = {
                 name: producerName,
-                id: producerName.toLowerCase().replace(/\s+/g, "-"),
+                id: producerName.toLowerCase().replace(/\s+/g, '-'),
                 region: this.getProducerRegion(producerName),
-                description: this.getProducerDescription(producerName),
+                description: this.getProducerDescription(producerName)
             };
             this.handleProducerSelection(producerData);
         };
-
+        
         // Override any other global functions that might open modals
         if (window.showProducerModal) {
             window.showProducerModal = (producerName) => {
-                console.log("Intercepted showProducerModal:", producerName);
+                console.log('Intercepted showProducerModal:', producerName);
                 this.handleProducerSelection({
                     name: producerName,
-                    id: producerName.toLowerCase().replace(/\s+/g, "-"),
+                    id: producerName.toLowerCase().replace(/\s+/g, '-'),
                     region: this.getProducerRegion(producerName),
-                    description: this.getProducerDescription(producerName),
+                    description: this.getProducerDescription(producerName)
                 });
             };
         }
@@ -638,12 +612,12 @@ class EnhancedProducerSidebar {
 }
 
 // Initialize when DOM is ready
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
         window.enhancedProducerSidebar = new EnhancedProducerSidebar();
-        console.log("✅ Enhanced Producer Sidebar initialized");
+        console.log('✅ Enhanced Producer Sidebar initialized');
     });
 } else {
     window.enhancedProducerSidebar = new EnhancedProducerSidebar();
-    console.log("✅ Enhanced Producer Sidebar initialized");
+    console.log('✅ Enhanced Producer Sidebar initialized');
 }

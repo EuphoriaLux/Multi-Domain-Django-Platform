@@ -1,5 +1,8 @@
-{% extends "delegations/base.html" %} {% block title %}Dashboard - Delegations.lu{%
-endblock %} {% block content %}
+{% extends "delegations/base.html" %}
+
+{% block title %}Dashboard - Delegations.lu{% endblock %}
+
+{% block content %}
 <div class="container py-5">
     <div class="row">
         <!-- Welcome Card -->
@@ -8,19 +11,10 @@ endblock %} {% block content %}
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center">
                         {% if profile.profile_photo %}
-                        <img
-                            src="{{ profile.profile_photo.url }}"
-                            class="profile-photo-large me-4"
-                            alt="Profile"
-                        />
+                        <img src="{{ profile.profile_photo.url }}" class="profile-photo-large me-4" alt="Profile">
                         {% else %}
-                        <div
-                            class="profile-photo-large bg-light d-flex align-items-center justify-content-center me-4"
-                        >
-                            <i
-                                class="bi bi-person"
-                                style="font-size: 48px; color: #9b59b6"
-                            ></i>
+                        <div class="profile-photo-large me-4 bg-light d-flex align-items-center justify-content-center">
+                            <i class="bi bi-person" style="font-size: 48px; color: #9B59B6;"></i>
                         </div>
                         {% endif %}
                         <div>
@@ -45,56 +39,31 @@ endblock %} {% block content %}
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <div class="card h-100">
-                        <div class="card-body py-4 text-center">
-                            <i
-                                class="bi bi-calendar-event text-delegation"
-                                style="font-size: 36px"
-                            ></i>
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-calendar-event text-delegation" style="font-size: 36px;"></i>
                             <h6 class="mt-3 mb-2">Events</h6>
-                            <p class="text-muted small mb-3">
-                                View upcoming staff events
-                            </p>
-                            <a
-                                href="#"
-                                class="btn btn-sm btn-outline-secondary disabled"
-                                >Coming Soon</a
-                            >
+                            <p class="text-muted small mb-3">View upcoming staff events</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="card h-100">
-                        <div class="card-body py-4 text-center">
-                            <i
-                                class="bi bi-chat-dots text-delegation"
-                                style="font-size: 36px"
-                            ></i>
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-chat-dots text-delegation" style="font-size: 36px;"></i>
                             <h6 class="mt-3 mb-2">Requests</h6>
-                            <p class="text-muted small mb-3">
-                                Submit and track requests
-                            </p>
-                            <a
-                                href="#"
-                                class="btn btn-sm btn-outline-secondary disabled"
-                                >Coming Soon</a
-                            >
+                            <p class="text-muted small mb-3">Submit and track requests</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="card h-100">
-                        <div class="card-body py-4 text-center">
-                            <i
-                                class="bi bi-megaphone text-delegation"
-                                style="font-size: 36px"
-                            ></i>
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-megaphone text-delegation" style="font-size: 36px;"></i>
                             <h6 class="mt-3 mb-2">Announcements</h6>
                             <p class="text-muted small mb-3">Latest updates and news</p>
-                            <a
-                                href="#"
-                                class="btn btn-sm btn-outline-secondary disabled"
-                                >Coming Soon</a
-                            >
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled">Coming Soon</a>
                         </div>
                     </div>
                 </div>
@@ -108,9 +77,9 @@ endblock %} {% block content %}
                     <h6 class="mb-0"><i class="bi bi-person me-2"></i>Your Profile</h6>
                 </div>
                 <div class="card-body">
-                    <table class="table-borderless mb-0 table">
+                    <table class="table table-borderless mb-0">
                         <tr>
-                            <td class="text-muted" style="width: 40%">Name</td>
+                            <td class="text-muted" style="width: 40%;">Name</td>
                             <td>{{ user.get_full_name|default:"-" }}</td>
                         </tr>
                         <tr>
@@ -122,7 +91,8 @@ endblock %} {% block content %}
                             <td class="text-muted">Job Title</td>
                             <td>{{ profile.job_title }}</td>
                         </tr>
-                        {% endif %} {% if profile.department %}
+                        {% endif %}
+                        {% if profile.department %}
                         <tr>
                             <td class="text-muted">Department</td>
                             <td>{{ profile.department }}</td>
@@ -135,10 +105,7 @@ endblock %} {% block content %}
                     </table>
                 </div>
                 <div class="card-footer bg-white">
-                    <a
-                        href="{% url 'delegations:profile' %}"
-                        class="btn btn-sm btn-delegation"
-                    >
+                    <a href="{% url 'delegations:profile' %}" class="btn btn-sm btn-delegation">
                         <i class="bi bi-pencil me-1"></i>View Full Profile
                     </a>
                 </div>
@@ -150,28 +117,19 @@ endblock %} {% block content %}
         <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-white">
-                    <h6 class="mb-0">
-                        <i class="bi bi-building me-2"></i>Company Information
-                    </h6>
+                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Company Information</h6>
                 </div>
                 <div class="card-body">
                     <div class="d-flex align-items-center mb-3">
                         {% if company.logo %}
-                        <img
-                            src="{{ company.logo.url }}"
-                            alt="{{ company.name }}"
-                            style="max-height: 50px; max-width: 100px"
-                            class="me-3"
-                        />
+                        <img src="{{ company.logo.url }}" alt="{{ company.name }}" style="max-height: 50px; max-width: 100px;" class="me-3">
                         {% endif %}
                         <div>
                             <h5 class="mb-0">{{ company.name }}</h5>
                         </div>
                     </div>
                     {% if company.description %}
-                    <p class="text-muted small">
-                        {{ company.description|truncatewords:30 }}
-                    </p>
+                    <p class="text-muted small">{{ company.description|truncatewords:30 }}</p>
                     {% endif %}
                 </div>
             </div>

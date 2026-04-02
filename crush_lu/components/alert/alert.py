@@ -1,6 +1,5 @@
 from django_components import Component, register
 
-
 @register("alert")
 class Alert(Component):
     template_name = "alert/alert.html"

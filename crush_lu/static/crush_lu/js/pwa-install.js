@@ -13,10 +13,10 @@ class PWAInstaller {
 
     init() {
         // Listen once for dismiss event emitted by Alpine component
-        window.addEventListener("pwa-dismiss-install", this.handleDismissEvent);
+        window.addEventListener('pwa-dismiss-install', this.handleDismissEvent);
 
         // Listen for the beforeinstallprompt event
-        window.addEventListener("beforeinstallprompt", (e) => {
+        window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
             // Stash the event so it can be triggered later
@@ -26,38 +26,38 @@ class PWAInstaller {
         });
 
         // Listen for successful installation
-        window.addEventListener("appinstalled", () => {
+        window.addEventListener('appinstalled', () => {
             this.hideInstallButton();
             this.deferredPrompt = null;
             this.showInstallSuccess();
         });
 
         // Check if already installed
-        if (window.matchMedia("(display-mode: standalone)").matches) {
+        if (window.matchMedia('(display-mode: standalone)').matches) {
             this.hideInstallButton();
         }
     }
 
     showInstallButton() {
         // Check if user has dismissed the banner (re-show after 30 days)
-        var dismissed = localStorage.getItem("crush-pwa-install-dismissed");
+        var dismissed = localStorage.getItem('crush-pwa-install-dismissed');
         if (dismissed) {
             var dismissedAt = parseInt(dismissed, 10);
             var thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-            if (!isNaN(dismissedAt) && Date.now() - dismissedAt < thirtyDaysMs) {
+            if (!isNaN(dismissedAt) && (Date.now() - dismissedAt) < thirtyDaysMs) {
                 return;
             }
             // Expired or legacy 'true' value — remove and continue showing
-            localStorage.removeItem("crush-pwa-install-dismissed");
+            localStorage.removeItem('crush-pwa-install-dismissed');
         }
 
         // Dispatch event to show banner (Alpine.js handles visibility)
-        window.dispatchEvent(new CustomEvent("pwa-show-install"));
+        window.dispatchEvent(new CustomEvent('pwa-show-install'));
 
         // Set up install button listener
-        this.installButton = document.getElementById("pwa-install-button");
+        this.installButton = document.getElementById('pwa-install-button');
         if (this.installButton && !this.installButton.__pwaInstallBound) {
-            this.installButton.addEventListener("click", () => this.handleInstall());
+            this.installButton.addEventListener('click', () => this.handleInstall());
             this.installButton.__pwaInstallBound = true;
         }
     }
@@ -80,28 +80,28 @@ class PWAInstaller {
 
     hideInstallButton() {
         // Dispatch event to hide banner (Alpine.js handles visibility)
-        window.dispatchEvent(new CustomEvent("pwa-hide-install"));
+        window.dispatchEvent(new CustomEvent('pwa-hide-install'));
     }
 
     dismissBanner() {
         // Remember user dismissed the banner
-        localStorage.setItem("crush-pwa-install-dismissed", Date.now().toString());
+        localStorage.setItem('crush-pwa-install-dismissed', Date.now().toString());
         this.hideInstallButton();
     }
 
     showInstallSuccess() {
         // Dispatch event to show success toast (Alpine.js handles visibility and auto-hide)
-        window.dispatchEvent(new CustomEvent("pwa-install-success"));
+        window.dispatchEvent(new CustomEvent('pwa-install-success'));
     }
 }
 
 // Initialize the PWA installer
-if ("serviceWorker" in navigator) {
+if ('serviceWorker' in navigator) {
     const pwaInstaller = new PWAInstaller();
 }
 
 // Add CSS styles
-const style = document.createElement("style");
+const style = document.createElement('style');
 style.textContent = `
     .pwa-install-banner {
         background: var(--gradient-subtle, linear-gradient(135deg, rgba(155, 89, 182, 0.1) 0%, rgba(255, 107, 157, 0.1) 100%));

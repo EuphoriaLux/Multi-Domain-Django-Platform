@@ -52,7 +52,7 @@
 }
 
 .marker-cluster-large div {
-    background-color: #9c27b0;
+    background-color: #9C27B0;
 }
 
 /* Custom Controls */
@@ -283,7 +283,7 @@
     height: 16px;
     border-radius: 50%;
     display: inline-block;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 /* Plot Popup */
@@ -335,7 +335,7 @@
 }
 
 .status-reserved {
-    background: #ff9800;
+    background: #FF9800;
     color: white;
 }
 
@@ -439,19 +439,19 @@
 }
 
 .notification-success {
-    color: #2e7d32;
+    color: #2E7D32;
 }
 
 .notification-error {
-    color: #c62828;
+    color: #C62828;
 }
 
 .notification-warning {
-    color: #f57c00;
+    color: #F57C00;
 }
 
 .notification-info {
-    color: #1565c0;
+    color: #1565C0;
 }
 
 /* Responsive Design */
@@ -460,27 +460,27 @@
         height: 400px;
         border-radius: 0;
     }
-
+    
     .filter-panel {
         width: 90vw;
         right: -45vw;
         left: 50%;
         transform: translateX(-50%);
     }
-
+    
     #map-search {
         width: 180px;
     }
-
+    
     .map-legend {
         margin: 5px;
         padding: 10px;
     }
-
+    
     .legend-content h4 {
         font-size: 14px;
     }
-
+    
     .legend-item {
         font-size: 12px;
     }

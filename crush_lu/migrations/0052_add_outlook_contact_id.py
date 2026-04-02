@@ -6,17 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0051_increase_journey_file_max_length"),
+        ('crush_lu', '0051_increase_journey_file_max_length'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="crushprofile",
-            name="outlook_contact_id",
-            field=models.CharField(
-                blank=True,
-                help_text="Microsoft Graph contact ID for Outlook sync",
-                max_length=255,
-            ),
+            model_name='crushprofile',
+            name='outlook_contact_id',
+            field=models.CharField(blank=True, help_text='Microsoft Graph contact ID for Outlook sync', max_length=255),
         ),
     ]

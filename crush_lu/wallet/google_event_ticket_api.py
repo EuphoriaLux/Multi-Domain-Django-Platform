@@ -43,17 +43,21 @@ def create_event_ticket_class(event):
     # Logo URL
     logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
     if not logo_url:
-        logo_url = (
-            "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
-        )
+        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
 
     class_payload = {
         "id": class_id,
         "issuerName": "Crush.lu",
-        "eventName": {"defaultValue": {"language": "en-US", "value": event.title}},
+        "eventName": {
+            "defaultValue": {"language": "en-US", "value": event.title}
+        },
         "venue": {
-            "name": {"defaultValue": {"language": "en-US", "value": event.location}},
-            "address": {"defaultValue": {"language": "en-US", "value": event.address}},
+            "name": {
+                "defaultValue": {"language": "en-US", "value": event.location}
+            },
+            "address": {
+                "defaultValue": {"language": "en-US", "value": event.address}
+            },
         },
         "dateTime": {
             "start": event.date_time.isoformat(),
@@ -94,11 +98,7 @@ def create_event_ticket_class(event):
                     class_id,
                     event.id,
                 )
-                return {
-                    "success": True,
-                    "message": "Class created",
-                    "class_id": class_id,
-                }
+                return {"success": True, "message": "Class created", "class_id": class_id}
 
             elif response.status_code == 409:
                 # Class already exists - update it
@@ -109,11 +109,7 @@ def create_event_ticket_class(event):
                     class_id,
                     event.id,
                 )
-                return {
-                    "success": True,
-                    "message": "Class already exists",
-                    "class_id": class_id,
-                }
+                return {"success": True, "message": "Class already exists", "class_id": class_id}
 
             else:
                 logger.error(
@@ -122,16 +118,10 @@ def create_event_ticket_class(event):
                     response.status_code,
                     response.text,
                 )
-                return {
-                    "success": False,
-                    "message": f"API error: {response.status_code}",
-                    "class_id": None,
-                }
+                return {"success": False, "message": f"API error: {response.status_code}", "class_id": None}
 
     except Exception as e:
-        logger.exception(
-            "Error creating EventTicketClass for event %s: %s", event.id, e
-        )
+        logger.exception("Error creating EventTicketClass for event %s: %s", event.id, e)
         return {"success": False, "message": str(e), "class_id": None}
 
 
@@ -161,11 +151,7 @@ def update_event_ticket(registration):
             "textModulesData": [
                 {"id": "date", "header": "Date", "body": event_date},
                 {"id": "time", "header": "Time", "body": event_time},
-                {
-                    "id": "location",
-                    "header": "Location",
-                    "body": f"{event.location}\n{event.address}",
-                },
+                {"id": "location", "header": "Location", "body": f"{event.location}\n{event.address}"},
             ],
         }
 
@@ -190,15 +176,10 @@ def update_event_ticket(registration):
                     registration.id,
                     response.status_code,
                 )
-                return {
-                    "success": False,
-                    "message": f"API error: {response.status_code}",
-                }
+                return {"success": False, "message": f"API error: {response.status_code}"}
 
     except Exception as e:
-        logger.exception(
-            "Error updating event ticket for registration %s: %s", registration.id, e
-        )
+        logger.exception("Error updating event ticket for registration %s: %s", registration.id, e)
         return {"success": False, "message": str(e)}
 
 
@@ -272,10 +253,7 @@ def _patch_ticket_state(registration, state):
                     registration.id,
                     response.status_code,
                 )
-                return {
-                    "success": False,
-                    "message": f"API error: {response.status_code}",
-                }
+                return {"success": False, "message": f"API error: {response.status_code}"}
 
     except Exception as e:
         logger.exception(

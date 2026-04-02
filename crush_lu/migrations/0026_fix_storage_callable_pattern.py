@@ -7,93 +7,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0025_add_oauth_result_fields"),
+        ('crush_lu', '0025_add_oauth_result_fields'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="adventcalendar",
-            name="background_image",
-            field=models.ImageField(
-                blank=True,
-                help_text="Custom background image for the calendar",
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="advent_backgrounds/",
-            ),
+            model_name='adventcalendar',
+            name='background_image',
+            field=models.ImageField(blank=True, help_text='Custom background image for the calendar', null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='advent_backgrounds/'),
         ),
         migrations.AlterField(
-            model_name="adventdoorcontent",
-            name="audio_file",
-            field=models.FileField(
-                blank=True,
-                help_text="Audio message",
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="advent_doors/audio/",
-            ),
+            model_name='adventdoorcontent',
+            name='audio_file',
+            field=models.FileField(blank=True, help_text='Audio message', null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='advent_doors/audio/'),
         ),
         migrations.AlterField(
-            model_name="adventdoorcontent",
-            name="bonus_photo",
-            field=models.ImageField(
-                blank=True,
-                help_text="Bonus photo unlocked via QR code",
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="advent_doors/bonus/",
-            ),
+            model_name='adventdoorcontent',
+            name='bonus_photo',
+            field=models.ImageField(blank=True, help_text='Bonus photo unlocked via QR code', null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='advent_doors/bonus/'),
         ),
         migrations.AlterField(
-            model_name="adventdoorcontent",
-            name="photo",
-            field=models.ImageField(
-                blank=True,
-                help_text="Main photo for this door",
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="advent_doors/",
-            ),
+            model_name='adventdoorcontent',
+            name='photo',
+            field=models.ImageField(blank=True, help_text='Main photo for this door', null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='advent_doors/'),
         ),
         migrations.AlterField(
-            model_name="adventdoorcontent",
-            name="video_file",
-            field=models.FileField(
-                blank=True,
-                help_text="Video message",
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="advent_doors/video/",
-            ),
+            model_name='adventdoorcontent',
+            name='video_file',
+            field=models.FileField(blank=True, help_text='Video message', null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='advent_doors/video/'),
         ),
         migrations.AlterField(
-            model_name="journeyreward",
-            name="audio_file",
-            field=models.FileField(
-                blank=True,
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="journey_rewards/audio/",
-            ),
+            model_name='journeyreward',
+            name='audio_file',
+            field=models.FileField(blank=True, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='journey_rewards/audio/'),
         ),
         migrations.AlterField(
-            model_name="journeyreward",
-            name="photo",
-            field=models.ImageField(
-                blank=True,
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="journey_rewards/",
-            ),
+            model_name='journeyreward',
+            name='photo',
+            field=models.ImageField(blank=True, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='journey_rewards/'),
         ),
         migrations.AlterField(
-            model_name="journeyreward",
-            name="video_file",
-            field=models.FileField(
-                blank=True,
-                null=True,
-                storage=crush_lu.models.profiles.get_crush_photo_storage,
-                upload_to="journey_rewards/video/",
-            ),
+            model_name='journeyreward',
+            name='video_file',
+            field=models.FileField(blank=True, null=True, storage=crush_lu.models.profiles.get_crush_photo_storage, upload_to='journey_rewards/video/'),
         ),
     ]

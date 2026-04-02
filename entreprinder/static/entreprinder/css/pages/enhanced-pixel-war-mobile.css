@@ -89,24 +89,13 @@
 }
 
 @keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 @keyframes blink {
-    0%,
-    50% {
-        opacity: 1;
-    }
-    51%,
-    100% {
-        opacity: 0;
-    }
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
 }
 
 .pixel-counter {
@@ -346,8 +335,7 @@
     gap: 8px;
 }
 
-.confirm-btn,
-.cancel-btn {
+.confirm-btn, .cancel-btn {
     flex: 1;
     padding: 10px;
     border: none;
@@ -388,14 +376,8 @@
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Mobile Color Palette */
@@ -509,7 +491,7 @@
 }
 
 .color-btn.selected::after {
-    content: "✓";
+    content: '✓';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -612,40 +594,40 @@
     .mobile-game-controls {
         padding: 0.5rem; /* Even smaller in landscape */
     }
-
+    
     .status-bar {
         margin-bottom: 0.25rem; /* Minimal margin */
         font-size: 0.8rem;
     }
-
+    
     .control-bar {
         gap: 0.4rem; /* Tighter spacing */
     }
-
+    
     .color-btn-preview,
     .mode-btn,
     .cooldown-indicator {
         height: 38px; /* Smaller in landscape */
     }
-
+    
     .color-btn-preview {
         width: 38px;
     }
-
+    
     .mobile-canvas-container {
         padding: 0.25rem; /* Minimal padding */
         gap: 0.25rem; /* Minimal gap */
     }
-
+    
     .mobile-canvas-container canvas {
         max-height: calc(100vh - 70px); /* Even more space for canvas in landscape */
     }
-
+    
     .mobile-canvas-info {
         padding: 0.25rem 0.5rem; /* Smaller info bar */
         font-size: 0.7rem;
     }
-
+    
     .mobile-zoom-controls .zoom-btn {
         width: 38px;
         height: 38px;
@@ -658,29 +640,29 @@
     .mobile-game-controls {
         padding: 0.75rem;
     }
-
+    
     .control-bar {
         gap: 0.5rem;
     }
-
+    
     .color-btn-preview {
         width: 40px;
         height: 40px;
     }
-
+    
     .mode-btn,
     .cooldown-indicator {
         height: 40px;
     }
-
+    
     .mode-label {
         display: none;
     }
-
+    
     .color-grid {
         grid-template-columns: repeat(5, 1fr);
     }
-
+    
     .color-btn {
         width: 40px;
         height: 40px;
@@ -703,19 +685,19 @@
     .color-btn-preview {
         transition: none;
     }
-
+    
     .status-dot.connected {
         animation: none;
     }
-
+    
     .status-dot.error {
         animation: none;
     }
-
+    
     .error-toast {
         animation: none;
     }
-
+    
     .preview-hint {
         animation: none;
     }
@@ -725,12 +707,12 @@
     .enhanced-mobile-pixel-war {
         background: #000;
     }
-
+    
     .mobile-game-controls {
         background: #fff;
         border: 2px solid #000;
     }
-
+    
     .mode-btn,
     .color-btn-preview,
     .cooldown-indicator {

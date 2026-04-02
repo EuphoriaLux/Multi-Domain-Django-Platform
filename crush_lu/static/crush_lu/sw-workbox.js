@@ -14,81 +14,82 @@
 // the request, preventing any Workbox routes, offline fallbacks, or caching
 // from processing it. The SW still responds, but with a direct network fetch.
 
-self.addEventListener("fetch", (event) => {
-    const url = new URL(event.request.url);
-    const acceptHeader = event.request.headers.get("accept") || "";
-    const isGoogleWalletSaveUrl =
-        (url.hostname === "pay.google.com" && url.pathname.startsWith("/gp/v/save")) ||
-        (url.hostname === "wallet.google.com" && url.pathname.startsWith("/save"));
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  const acceptHeader = event.request.headers.get('accept') || '';
+  const isGoogleWalletSaveUrl =
+    (url.hostname === 'pay.google.com' && url.pathname.startsWith('/gp/v/save')) ||
+    (url.hostname === 'wallet.google.com' && url.pathname.startsWith('/save'));
 
-    // TRUE HARD BYPASS: Apple Wallet pkpass downloads & Google Wallet save URLs
-    if (
-        acceptHeader.includes("application/vnd.apple.pkpass") ||
-        isGoogleWalletSaveUrl
-    ) {
-        event.respondWith(fetch(event.request));
-        return;
-    }
+  // TRUE HARD BYPASS: Apple Wallet pkpass downloads & Google Wallet save URLs
+  if (
+    acceptHeader.includes('application/vnd.apple.pkpass') ||
+    isGoogleWalletSaveUrl
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
-    // TRUE HARD BYPASS: External CDN resources (cross-origin)
-    // These cause "opaque" response errors when cached by service worker
-    if (url.origin !== self.location.origin) {
-        // Don't intercept cross-origin requests at all - let browser handle them
-        return;
-    }
+  // TRUE HARD BYPASS: External CDN resources (cross-origin)
+  // These cause "opaque" response errors when cached by service worker
+  if (url.origin !== self.location.origin) {
+    // Don't intercept cross-origin requests at all - let browser handle them
+    return;
+  }
 
-    // TRUE HARD BYPASS: OAuth and auth-related URLs
-    // Using event.respondWith(fetch()) ensures NO other handler can intercept
-    if (
-        url.pathname.startsWith("/accounts/") || // All OAuth/auth routes
-        url.pathname.startsWith("/oauth/") || // OAuth landing and callbacks
-        url.pathname.includes("/login/callback") || // Explicit callback match
-        url.pathname.startsWith("/api/auth/") || // Auth status API
-        url.pathname.startsWith("/wallet/") || // Wallet pass endpoints
-        url.pathname.includes("/login") || // Login page (incl. /fr/login/, /de/login/)
-        url.pathname.includes("/logout") || // Logout page (incl. language prefixes)
-        url.pathname.includes("/signup") || // Signup page (incl. language prefixes)
-        url.pathname.includes("/api/csrf-token") // CSRF token refresh endpoint
-    ) {
-        // Direct network fetch - prevents any Workbox handler from intercepting
-        event.respondWith(fetch(event.request));
-        return;
-    }
+  // TRUE HARD BYPASS: OAuth and auth-related URLs
+  // Using event.respondWith(fetch()) ensures NO other handler can intercept
+  if (
+    url.pathname.startsWith('/accounts/') ||   // All OAuth/auth routes
+    url.pathname.startsWith('/oauth/') ||      // OAuth landing and callbacks
+    url.pathname.includes('/login/callback') ||// Explicit callback match
+    url.pathname.startsWith('/api/auth/') ||   // Auth status API
+    url.pathname.startsWith('/wallet/') ||     // Wallet pass endpoints
+    url.pathname.includes('/login') ||         // Login page (incl. /fr/login/, /de/login/)
+    url.pathname.includes('/logout') ||        // Logout page (incl. language prefixes)
+    url.pathname.includes('/signup') ||        // Signup page (incl. language prefixes)
+    url.pathname.includes('/api/csrf-token')   // CSRF token refresh endpoint
+  ) {
+    // Direct network fetch - prevents any Workbox handler from intercepting
+    event.respondWith(fetch(event.request));
+    return;
+  }
 });
 
 // Import Workbox from LOCAL static files (not CDN) to enable offline installation
-importScripts("/static/crush_lu/workbox/workbox-sw.js");
+importScripts('/static/crush_lu/workbox/workbox-sw.js');
 
 // Check if Workbox loaded successfully
 if (workbox) {
-    // ============================================================================
-    // Configuration - MUST BE SET FIRST
-    // ============================================================================
 
-    // Configure Workbox to load modules from local static files
-    workbox.setConfig({
-        debug: location.hostname === "localhost" || location.hostname === "127.0.0.1",
-        modulePathPrefix: "/static/crush_lu/workbox/",
-    });
+  // ============================================================================
+  // Configuration - MUST BE SET FIRST
+  // ============================================================================
 
-    const CACHE_VERSION = "crush-v29-push-subscription-refresh";
+  // Configure Workbox to load modules from local static files
+  workbox.setConfig({
+    debug: location.hostname === 'localhost' || location.hostname === '127.0.0.1',
+    modulePathPrefix: '/static/crush_lu/workbox/'
+  });
 
-    // Set cache name prefix - AFTER setConfig()
-    workbox.core.setCacheNameDetails({
-        prefix: "crush-lu",
-        suffix: CACHE_VERSION,
-        precache: "precache",
-        runtime: "runtime",
-    });
+  const CACHE_VERSION = 'crush-v29-push-subscription-refresh';
 
-    // ============================================================================
-    // Offline Fallback Constants - MUST BE DEFINED BEFORE activate handler
-    // ============================================================================
-    // These constants are used in the activate handler below, so they must be
-    // defined first to avoid "Cannot access before initialization" ReferenceError.
+  // Set cache name prefix - AFTER setConfig()
+  workbox.core.setCacheNameDetails({
+    prefix: 'crush-lu',
+    suffix: CACHE_VERSION,
+    precache: 'precache',
+    runtime: 'runtime'
+  });
 
-    const OFFLINE_PAGE = "/offline/";
-    const OFFLINE_FALLBACK_HTML = `
+  // ============================================================================
+  // Offline Fallback Constants - MUST BE DEFINED BEFORE activate handler
+  // ============================================================================
+  // These constants are used in the activate handler below, so they must be
+  // defined first to avoid "Cannot access before initialization" ReferenceError.
+
+  const OFFLINE_PAGE = '/offline/';
+  const OFFLINE_FALLBACK_HTML = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -140,297 +141,282 @@ if (workbox) {
 </body>
 </html>`;
 
-    // ============================================================================
-    // Cache Cleanup on Activation - Clean up old caches from previous versions
-    // ============================================================================
+  // ============================================================================
+  // Cache Cleanup on Activation - Clean up old caches from previous versions
+  // ============================================================================
 
-    self.addEventListener("activate", (event) => {
-        event.waitUntil(
-            (async () => {
-                // Clean up old caches (cache names start with 'crush-lu-')
-                const cacheNames = await caches.keys();
-                await Promise.all(
-                    cacheNames
-                        .filter(
-                            (name) =>
-                                name.startsWith("crush-lu-") &&
-                                !name.includes(CACHE_VERSION),
-                        )
-                        .map((name) => caches.delete(name)),
-                );
-
-                // Cache the offline page
-                const cache = await caches.open(workbox.core.cacheNames.runtime);
-                try {
-                    const response = await fetch(OFFLINE_PAGE);
-                    if (response.ok) {
-                        await cache.put(OFFLINE_PAGE, response);
-                    } else {
-                        throw new Error("Offline page not available");
-                    }
-                } catch (error) {
-                    await cache.put(
-                        OFFLINE_PAGE,
-                        new Response(OFFLINE_FALLBACK_HTML, {
-                            headers: { "Content-Type": "text/html" },
-                        }),
-                    );
-                }
-            })(),
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      (async () => {
+        // Clean up old caches (cache names start with 'crush-lu-')
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames
+            .filter(name => name.startsWith('crush-lu-') && !name.includes(CACHE_VERSION))
+            .map(name => caches.delete(name))
         );
-    });
 
-    // ============================================================================
-    // Precaching - Files to cache on service worker installation
-    // ============================================================================
-
-    // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
-    // Expanded for v21 performance optimization
-    workbox.precaching.precacheAndRoute([
-        // Critical pages
-        { url: "/offline/", revision: CACHE_VERSION },
-
-        // CSS (critical for rendering)
-        { url: "/static/crush_lu/css/tailwind.css", revision: CACHE_VERSION },
-
-        // Core JavaScript
-        { url: "/static/crush_lu/js/page-loading.js", revision: CACHE_VERSION },
-        { url: "/static/crush_lu/js/utils.js", revision: CACHE_VERSION },
-        { url: "/static/crush_lu/js/pwa-detector.js", revision: CACHE_VERSION },
-        { url: "/static/crush_lu/js/sw-register.js", revision: CACHE_VERSION },
-
-        // PWA icons (most commonly used sizes)
-        { url: "/static/crush_lu/icons/icon-192x192.png", revision: CACHE_VERSION },
-        {
-            url: "/static/crush_lu/icons/android-launchericon-512-512.png",
-            revision: CACHE_VERSION,
-        },
-        { url: "/static/crush_lu/icons/ios/180.png", revision: CACHE_VERSION },
-
-        // Favicon
-        { url: "/static/crush_lu/crush_favicon.ico", revision: CACHE_VERSION },
-    ]);
-
-    // ============================================================================
-    // Offline Fallback
-    // ============================================================================
-
-    // Set offline page as fallback for navigation requests
-    workbox.recipes.offlineFallback({
-        pageFallback: OFFLINE_PAGE,
-    });
-
-    // CRITICAL: Immediately exclude auth navigations from offline fallback
-    // offlineFallback() wraps navigation requests and can interfere with OAuth
-    // This route MUST be registered immediately after offlineFallback()
-    workbox.routing.registerRoute(
-        ({ request, url }) =>
-            request.mode === "navigate" &&
-            (url.pathname.startsWith("/accounts/") ||
-                url.pathname.startsWith("/oauth/") ||
-                url.pathname.startsWith("/login") ||
-                url.pathname.startsWith("/logout") ||
-                url.pathname.startsWith("/wallet/")),
-        new workbox.strategies.NetworkOnly(),
-    );
-
-    // ============================================================================
-    // Caching Strategies
-    // ============================================================================
-
-    // Custom plugin to notify clients when server is unreachable
-    class ServerUnreachablePlugin {
-        async fetchDidFail({ request }) {
-            const clients = await self.clients.matchAll({ type: "window" });
-            clients.forEach((client) => {
-                client.postMessage({
-                    type: "SERVER_UNREACHABLE",
-                    url: request.url,
-                    timestamp: Date.now(),
-                });
-            });
+        // Cache the offline page
+        const cache = await caches.open(workbox.core.cacheNames.runtime);
+        try {
+          const response = await fetch(OFFLINE_PAGE);
+          if (response.ok) {
+            await cache.put(OFFLINE_PAGE, response);
+          } else {
+            throw new Error('Offline page not available');
+          }
+        } catch (error) {
+          await cache.put(
+            OFFLINE_PAGE,
+            new Response(OFFLINE_FALLBACK_HTML, {
+              headers: { 'Content-Type': 'text/html' }
+            })
+          );
         }
+      })()
+    );
+  });
+
+  // ============================================================================
+  // Precaching - Files to cache on service worker installation
+  // ============================================================================
+
+  // Precache essential assets (REMOVED '/' to allow dynamic auth redirect)
+  // Expanded for v21 performance optimization
+  workbox.precaching.precacheAndRoute([
+    // Critical pages
+    { url: '/offline/', revision: CACHE_VERSION },
+
+    // CSS (critical for rendering)
+    { url: '/static/crush_lu/css/tailwind.css', revision: CACHE_VERSION },
+
+    // Core JavaScript
+    { url: '/static/crush_lu/js/page-loading.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/utils.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/pwa-detector.js', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/js/sw-register.js', revision: CACHE_VERSION },
+
+    // PWA icons (most commonly used sizes)
+    { url: '/static/crush_lu/icons/icon-192x192.png', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/android-launchericon-512-512.png', revision: CACHE_VERSION },
+    { url: '/static/crush_lu/icons/ios/180.png', revision: CACHE_VERSION },
+
+    // Favicon
+    { url: '/static/crush_lu/crush_favicon.ico', revision: CACHE_VERSION },
+  ]);
+
+  // ============================================================================
+  // Offline Fallback
+  // ============================================================================
+
+  // Set offline page as fallback for navigation requests
+  workbox.recipes.offlineFallback({
+    pageFallback: OFFLINE_PAGE,
+  });
+
+  // CRITICAL: Immediately exclude auth navigations from offline fallback
+  // offlineFallback() wraps navigation requests and can interfere with OAuth
+  // This route MUST be registered immediately after offlineFallback()
+  workbox.routing.registerRoute(
+    ({ request, url }) =>
+      request.mode === 'navigate' &&
+      (
+        url.pathname.startsWith('/accounts/') ||
+        url.pathname.startsWith('/oauth/') ||
+        url.pathname.startsWith('/login') ||
+        url.pathname.startsWith('/logout') ||
+        url.pathname.startsWith('/wallet/')
+      ),
+    new workbox.strategies.NetworkOnly()
+  );
+
+  // ============================================================================
+  // Caching Strategies
+  // ============================================================================
+
+  // Custom plugin to notify clients when server is unreachable
+  class ServerUnreachablePlugin {
+    async fetchDidFail({ request }) {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'SERVER_UNREACHABLE',
+          url: request.url,
+          timestamp: Date.now()
+        });
+      });
     }
+  }
 
-    // ============================================================================
-    // OAuth/Auth Routes - NetworkOnly as backup (primary bypass is in fetch handler above)
-    // ============================================================================
-    // The fetch event handler above does a HARD BYPASS for /accounts/ routes.
-    // This Workbox route is a backup that ensures no caching if something slips through.
+  // ============================================================================
+  // OAuth/Auth Routes - NetworkOnly as backup (primary bypass is in fetch handler above)
+  // ============================================================================
+  // The fetch event handler above does a HARD BYPASS for /accounts/ routes.
+  // This Workbox route is a backup that ensures no caching if something slips through.
 
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/accounts/"),
-        new workbox.strategies.NetworkOnly(),
-    );
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/accounts/'),
+    new workbox.strategies.NetworkOnly()
+  );
 
-    // Wallet routes - NetworkOnly to prevent pass caching
-    workbox.routing.registerRoute(
-        ({ url, request }) =>
-            url.pathname.startsWith("/wallet/") ||
-            (request.headers.get("accept") || "").includes(
-                "application/vnd.apple.pkpass",
-            ) ||
-            (url.hostname === "pay.google.com" &&
-                url.pathname.startsWith("/gp/v/save")) ||
-            (url.hostname === "wallet.google.com" && url.pathname.startsWith("/save")),
-        new workbox.strategies.NetworkOnly(),
-    );
+  // Wallet routes - NetworkOnly to prevent pass caching
+  workbox.routing.registerRoute(
+    ({ url, request }) =>
+      url.pathname.startsWith('/wallet/') ||
+      (request.headers.get('accept') || '').includes('application/vnd.apple.pkpass') ||
+      (url.hostname === 'pay.google.com' && url.pathname.startsWith('/gp/v/save')) ||
+      (url.hostname === 'wallet.google.com' && url.pathname.startsWith('/save')),
+    new workbox.strategies.NetworkOnly()
+  );
 
-    // Helper function to check if path matches authenticated routes (with i18n support)
-    function isAuthenticatedRoute(pathname) {
-        const authPaths = [
-            "/admin",
-            "/accounts",
-            "/coach",
-            "/dashboard",
-            "/login",
-            "/logout",
-            "/profile",
-            "/connections",
-            "/journey",
-            "/create-profile",
-            "/edit",
-            "/signup",
-            "/wallet", // Wallet pass endpoints - must never be cached
-            "/oauth-complete", // PWA OAuth return handler - must never be cached
-            "/oauth/popup-callback", // Popup OAuth callback - must never be cached
-            "/oauth/popup-error", // Popup OAuth error - must never be cached
-            "/api/auth/status", // Auth status API - must never be cached
-            "/api/csrf-token", // CSRF token refresh - must never be cached
-        ];
+  // Helper function to check if path matches authenticated routes (with i18n support)
+  function isAuthenticatedRoute(pathname) {
+    const authPaths = [
+      '/admin', '/accounts', '/coach', '/dashboard',
+      '/login', '/logout', '/profile', '/connections',
+      '/journey', '/create-profile', '/edit', '/signup',
+      '/wallet',           // Wallet pass endpoints - must never be cached
+      '/oauth-complete',   // PWA OAuth return handler - must never be cached
+      '/oauth/popup-callback',  // Popup OAuth callback - must never be cached
+      '/oauth/popup-error',     // Popup OAuth error - must never be cached
+      '/api/auth/status',       // Auth status API - must never be cached
+      '/api/csrf-token'         // CSRF token refresh - must never be cached
+    ];
 
-        // Check with and without language prefix (en, fr, de)
-        for (const authPath of authPaths) {
-            if (pathname.includes(authPath)) {
-                return true;
-            }
-            // Check with language prefixes
-            if (pathname.match(new RegExp(`^/(en|fr|de)${authPath}`))) {
-                return true;
-            }
-        }
-        return false;
+    // Check with and without language prefix (en, fr, de)
+    for (const authPath of authPaths) {
+      if (pathname.includes(authPath)) {
+        return true;
+      }
+      // Check with language prefixes
+      if (pathname.match(new RegExp(`^/(en|fr|de)${authPath}`))) {
+        return true;
+      }
     }
+    return false;
+  }
 
-    // Strategy 1: Network Only for authenticated/user-specific pages (MUST BE FIRST after OAuth)
-    // This prevents caching of login redirects which cause the black screen issue
-    workbox.routing.registerRoute(
-        ({ url }) => isAuthenticatedRoute(url.pathname),
-        new workbox.strategies.NetworkOnly(),
-    );
+  // Strategy 1: Network Only for authenticated/user-specific pages (MUST BE FIRST after OAuth)
+  // This prevents caching of login redirects which cause the black screen issue
+  workbox.routing.registerRoute(
+    ({ url }) => isAuthenticatedRoute(url.pathname),
+    new workbox.strategies.NetworkOnly()
+  );
 
-    // Strategy 2: Network Only for health checks (never cache - used for reconnection detection)
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/healthz"),
-        new workbox.strategies.NetworkOnly(),
-    );
+  // Strategy 2: Network Only for health checks (never cache - used for reconnection detection)
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/healthz'),
+    new workbox.strategies.NetworkOnly()
+  );
 
-    // Strategy 3: Network Only for API calls (never cache)
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/api/"),
-        new workbox.strategies.NetworkOnly(),
-    );
+  // Strategy 3: Network Only for API calls (never cache)
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/api/'),
+    new workbox.strategies.NetworkOnly()
+  );
 
-    // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
-    // IMPORTANT: Explicitly exclude auth paths to prevent any OAuth interference
-    workbox.routing.registerRoute(
-        ({ request, url }) =>
-            request.mode === "navigate" &&
-            !url.pathname.startsWith("/accounts/") &&
-            !url.pathname.startsWith("/oauth/") &&
-            !url.pathname.startsWith("/login") &&
-            !url.pathname.startsWith("/logout"),
-        new workbox.strategies.NetworkFirst({
-            cacheName: "crush-pages",
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 50,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
-                }),
-                new workbox.cacheableResponse.CacheableResponsePlugin({
-                    statuses: [200], // Only cache successful responses (not redirects!)
-                }),
-                new ServerUnreachablePlugin(),
-            ],
+  // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
+  // IMPORTANT: Explicitly exclude auth paths to prevent any OAuth interference
+  workbox.routing.registerRoute(
+    ({ request, url }) =>
+      request.mode === 'navigate' &&
+      !url.pathname.startsWith('/accounts/') &&
+      !url.pathname.startsWith('/oauth/') &&
+      !url.pathname.startsWith('/login') &&
+      !url.pathname.startsWith('/logout'),
+    new workbox.strategies.NetworkFirst({
+      cacheName: 'crush-pages',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 50,
+          maxAgeSeconds: 24 * 60 * 60, // 24 hours
         }),
-    );
-
-    // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
-    // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
-    workbox.routing.registerRoute(
-        ({ request }) =>
-            request.destination === "style" || request.destination === "script",
-        new workbox.strategies.StaleWhileRevalidate({
-            cacheName: "crush-static",
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 60,
-                    maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days (reduced from 30)
-                }),
-            ],
+        new workbox.cacheableResponse.CacheableResponsePlugin({
+          statuses: [200], // Only cache successful responses (not redirects!)
         }),
-    );
+        new ServerUnreachablePlugin(),
+      ],
+    })
+  );
 
-    // Strategy 6a: Icons - StaleWhileRevalidate (update quickly, don't pin for 30 days)
-    // MUST be registered BEFORE the general image CacheFirst route
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/static/crush_lu/icons/"),
-        new workbox.strategies.StaleWhileRevalidate({
-            cacheName: "crush-icons",
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 60,
-                    maxAgeSeconds: 24 * 60 * 60, // 1 day - allows icons to update quickly
-                }),
-                new workbox.cacheableResponse.CacheableResponsePlugin({
-                    statuses: [200],
-                }),
-            ],
+  // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
+  // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
+  workbox.routing.registerRoute(
+    ({ request }) =>
+      request.destination === 'style' ||
+      request.destination === 'script',
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'crush-static',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 60,
+          maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days (reduced from 30)
         }),
-    );
+      ],
+    })
+  );
 
-    // Strategy 6b: Cache First for same-origin images only (long cache)
-    // External images (Facebook profile pics, etc.) are not cached to avoid CSP connect-src issues
-    workbox.routing.registerRoute(
-        ({ request, url }) =>
-            request.destination === "image" && url.origin === self.location.origin,
-        new workbox.strategies.CacheFirst({
-            cacheName: "crush-images",
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 100,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                }),
-                new workbox.cacheableResponse.CacheableResponsePlugin({
-                    statuses: [0, 200],
-                }),
-            ],
+  // Strategy 6a: Icons - StaleWhileRevalidate (update quickly, don't pin for 30 days)
+  // MUST be registered BEFORE the general image CacheFirst route
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/static/crush_lu/icons/'),
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'crush-icons',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 60,
+          maxAgeSeconds: 24 * 60 * 60, // 1 day - allows icons to update quickly
         }),
-    );
-
-    // Strategy 7: Stale While Revalidate for fonts
-    workbox.routing.registerRoute(
-        ({ request }) => request.destination === "font",
-        new workbox.strategies.StaleWhileRevalidate({
-            cacheName: "crush-fonts",
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 20,
-                    maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
-                }),
-            ],
+        new workbox.cacheableResponse.CacheableResponsePlugin({
+          statuses: [200],
         }),
-    );
+      ],
+    })
+  );
 
-    // ============================================================================
-    // Offline Fallback Handler
-    // ============================================================================
-    // Provides graceful fallbacks when requests fail (e.g., offline)
+  // Strategy 6b: Cache First for same-origin images only (long cache)
+  // External images (Facebook profile pics, etc.) are not cached to avoid CSP connect-src issues
+  workbox.routing.registerRoute(
+    ({ request, url }) =>
+      request.destination === 'image' &&
+      url.origin === self.location.origin,
+    new workbox.strategies.CacheFirst({
+      cacheName: 'crush-images',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 100,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        }),
+        new workbox.cacheableResponse.CacheableResponsePlugin({
+          statuses: [0, 200],
+        }),
+      ],
+    })
+  );
 
-    workbox.routing.setCatchHandler(async ({ event }) => {
-        // Return fallback SVG for failed image requests
-        if (event.request.destination === "image") {
-            const fallbackSvg = `
+  // Strategy 7: Stale While Revalidate for fonts
+  workbox.routing.registerRoute(
+    ({ request }) => request.destination === 'font',
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'crush-fonts',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({
+          maxEntries: 20,
+          maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+        }),
+      ],
+    })
+  );
+
+  // ============================================================================
+  // Offline Fallback Handler
+  // ============================================================================
+  // Provides graceful fallbacks when requests fail (e.g., offline)
+
+  workbox.routing.setCatchHandler(async ({ event }) => {
+    // Return fallback SVG for failed image requests
+    if (event.request.destination === 'image') {
+      const fallbackSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
           <defs>
             <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -447,219 +433,207 @@ if (workbox) {
           </text>
         </svg>`;
 
-            return new Response(fallbackSvg, {
-                headers: { "Content-Type": "image/svg+xml" },
-            });
-        }
+      return new Response(fallbackSvg, {
+        headers: { 'Content-Type': 'image/svg+xml' }
+      });
+    }
 
-        // For navigation requests that fail, the offlineFallback() handles it
-        // For other requests, return an error
-        return Response.error();
-    });
+    // For navigation requests that fail, the offlineFallback() handles it
+    // For other requests, return an error
+    return Response.error();
+  });
 
-    // ============================================================================
-    // Background Sync (for future offline form submissions)
-    // ============================================================================
+  // ============================================================================
+  // Background Sync (for future offline form submissions)
+  // ============================================================================
 
-    const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin(
-        "crush-queue",
-        {
-            maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
-            onSync: async ({ queue }) => {
-                let entry;
-                while ((entry = await queue.shiftRequest())) {
-                    try {
-                        await fetch(entry.request);
-                    } catch (error) {
-                        await queue.unshiftRequest(entry);
-                        throw error;
-                    }
-                }
-            },
-        },
-    );
-
-    // Use background sync for POST requests (event registrations, etc.)
-    // IMPORTANT: Exclude auth-related POSTs - they have CSRF tokens that can't be replayed
-    workbox.routing.registerRoute(
-        ({ url, request }) =>
-            request.method === "POST" &&
-            !url.pathname.startsWith("/api/") &&
-            !url.pathname.startsWith("/admin/") &&
-            !url.pathname.startsWith("/login") &&
-            !url.pathname.startsWith("/logout") &&
-            !url.pathname.startsWith("/accounts/") &&
-            !url.pathname.startsWith("/signup"),
-        new workbox.strategies.NetworkOnly({
-            plugins: [bgSyncPlugin],
-        }),
-        "POST",
-    );
-
-    // ============================================================================
-    // Push Notifications
-    // ============================================================================
-
-    self.addEventListener("push", (event) => {
-        if (Notification.permission !== "granted") {
-            return;
-        }
-
-        let data = {};
+  const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin('crush-queue', {
+    maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
+    onSync: async ({ queue }) => {
+      let entry;
+      while ((entry = await queue.shiftRequest())) {
         try {
-            data = event.data ? event.data.json() : {};
-        } catch (e) {
-            data = {
-                title: "Crush.lu",
-                body: event.data ? event.data.text() : "New notification",
-            };
+          await fetch(entry.request);
+        } catch (error) {
+          await queue.unshiftRequest(entry);
+          throw error;
         }
+      }
+    },
+  });
 
-        const options = {
-            body: data.body || "New notification from Crush.lu",
-            icon: "/static/crush_lu/icons/icon-192x192.png",
-            badge: "/static/crush_lu/icons/icon-72x72.png",
-            vibrate: [200, 100, 200],
-            tag: data.tag || "crush-notification",
-            data: data.url || "/",
-        };
+  // Use background sync for POST requests (event registrations, etc.)
+  // IMPORTANT: Exclude auth-related POSTs - they have CSRF tokens that can't be replayed
+  workbox.routing.registerRoute(
+    ({ url, request }) =>
+      request.method === 'POST' &&
+      !url.pathname.startsWith('/api/') &&
+      !url.pathname.startsWith('/admin/') &&
+      !url.pathname.startsWith('/login') &&
+      !url.pathname.startsWith('/logout') &&
+      !url.pathname.startsWith('/accounts/') &&
+      !url.pathname.startsWith('/signup'),
+    new workbox.strategies.NetworkOnly({
+      plugins: [bgSyncPlugin],
+    }),
+    'POST'
+  );
 
-        event.waitUntil(
-            self.registration.showNotification(data.title || "Crush.lu", options),
-        );
-    });
+  // ============================================================================
+  // Push Notifications
+  // ============================================================================
 
-    self.addEventListener("notificationclick", (event) => {
-        event.notification.close();
-        const urlToOpen = new URL(event.notification.data || "/", self.location.origin);
+  self.addEventListener('push', (event) => {
+    if (Notification.permission !== 'granted') {
+      return;
+    }
 
-        event.waitUntil(
-            clients
-                .matchAll({ type: "window", includeUncontrolled: true })
-                .then((clientList) => {
-                    // Find any client on same origin and focus/navigate it
-                    for (const client of clientList) {
-                        const clientUrl = new URL(client.url);
-                        if (
-                            clientUrl.origin === urlToOpen.origin &&
-                            "focus" in client
-                        ) {
-                            // Navigate existing client to the target URL and focus
-                            client.navigate(urlToOpen.href);
-                            return client.focus();
-                        }
-                    }
-                    // No existing client found, open new window
-                    if (clients.openWindow) {
-                        return clients.openWindow(urlToOpen.href);
-                    }
-                }),
-        );
-    });
+    let data = {};
+    try {
+      data = event.data ? event.data.json() : {};
+    } catch (e) {
+      data = {
+        title: 'Crush.lu',
+        body: event.data ? event.data.text() : 'New notification'
+      };
+    }
 
-    // ============================================================================
-    // Push Subscription Change Handler
-    // ============================================================================
-    // Fired when browser refreshes/expires the push subscription
-    // This is the standard way to handle subscription expiration in 2026
+    const options = {
+      body: data.body || 'New notification from Crush.lu',
+      icon: '/static/crush_lu/icons/icon-192x192.png',
+      badge: '/static/crush_lu/icons/icon-72x72.png',
+      vibrate: [200, 100, 200],
+      tag: data.tag || 'crush-notification',
+      data: data.url || '/',
+    };
 
-    self.addEventListener("pushsubscriptionchange", (event) => {
-        event.waitUntil(
-            (async () => {
-                try {
-                    // Get VAPID public key from server
-                    const vapidResponse = await fetch("/api/push/vapid-public-key/");
-                    if (!vapidResponse.ok) throw new Error("Failed to get VAPID key");
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Crush.lu', options)
+    );
+  });
 
-                    const { publicKey } = await vapidResponse.json();
+  self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const urlToOpen = new URL(event.notification.data || '/', self.location.origin);
 
-                    // Re-subscribe with same options
-                    const newSubscription =
-                        await self.registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(publicKey),
-                        });
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clientList) => {
+          // Find any client on same origin and focus/navigate it
+          for (const client of clientList) {
+            const clientUrl = new URL(client.url);
+            if (clientUrl.origin === urlToOpen.origin && 'focus' in client) {
+              // Navigate existing client to the target URL and focus
+              client.navigate(urlToOpen.href);
+              return client.focus();
+            }
+          }
+          // No existing client found, open new window
+          if (clients.openWindow) {
+            return clients.openWindow(urlToOpen.href);
+          }
+        })
+    );
+  });
 
-                    // Send new subscription to server (will match by device fingerprint)
-                    const updateResponse = await fetch(
-                        "/api/push/refresh-subscription/",
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({
-                                oldEndpoint: event.oldSubscription?.endpoint,
-                                subscription: {
-                                    endpoint: newSubscription.endpoint,
-                                    keys: {
-                                        p256dh: arrayBufferToBase64(
-                                            newSubscription.getKey("p256dh"),
-                                        ),
-                                        auth: arrayBufferToBase64(
-                                            newSubscription.getKey("auth"),
-                                        ),
-                                    },
-                                },
-                            }),
-                        },
-                    );
+  // ============================================================================
+  // Push Subscription Change Handler
+  // ============================================================================
+  // Fired when browser refreshes/expires the push subscription
+  // This is the standard way to handle subscription expiration in 2026
 
-                    if (!updateResponse.ok) {
-                        throw new Error("Failed to update subscription on server");
-                    }
+  self.addEventListener('pushsubscriptionchange', (event) => {
+    event.waitUntil(
+      (async () => {
+        try {
+          // Get VAPID public key from server
+          const vapidResponse = await fetch('/api/push/vapid-public-key/');
+          if (!vapidResponse.ok) throw new Error('Failed to get VAPID key');
 
-                    // Notify all clients that subscription was refreshed
-                    const clients = await self.clients.matchAll({ type: "window" });
-                    clients.forEach((client) => {
-                        client.postMessage({
-                            type: "PUSH_SUBSCRIPTION_REFRESHED",
-                            timestamp: Date.now(),
-                        });
-                    });
-                } catch (error) {
-                    // Log error but don't crash service worker
-                    console.error("Failed to handle pushsubscriptionchange:", error);
+          const { publicKey } = await vapidResponse.json();
+
+          // Re-subscribe with same options
+          const newSubscription = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          });
+
+          // Send new subscription to server (will match by device fingerprint)
+          const updateResponse = await fetch('/api/push/refresh-subscription/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              oldEndpoint: event.oldSubscription?.endpoint,
+              subscription: {
+                endpoint: newSubscription.endpoint,
+                keys: {
+                  p256dh: arrayBufferToBase64(newSubscription.getKey('p256dh')),
+                  auth: arrayBufferToBase64(newSubscription.getKey('auth'))
                 }
-            })(),
-        );
-    });
+              }
+            })
+          });
 
-    // Helper function to convert VAPID key
-    function urlBase64ToUint8Array(base64String) {
-        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-        const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
-        const rawData = atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
+          if (!updateResponse.ok) {
+            throw new Error('Failed to update subscription on server');
+          }
+
+          // Notify all clients that subscription was refreshed
+          const clients = await self.clients.matchAll({ type: 'window' });
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'PUSH_SUBSCRIPTION_REFRESHED',
+              timestamp: Date.now()
+            });
+          });
+
+        } catch (error) {
+          // Log error but don't crash service worker
+          console.error('Failed to handle pushsubscriptionchange:', error);
         }
-        return outputArray;
+      })()
+    );
+  });
+
+  // Helper function to convert VAPID key
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
     }
+    return outputArray;
+  }
 
-    // Helper to convert ArrayBuffer to Base64
-    function arrayBufferToBase64(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
+  // Helper to convert ArrayBuffer to Base64
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
+    return btoa(binary);
+  }
 
-    // ============================================================================
-    // Update Handling
-    // ============================================================================
+  // ============================================================================
+  // Update Handling
+  // ============================================================================
 
-    self.addEventListener("message", (event) => {
-        if (event.data && event.data.type === "SKIP_WAITING") {
-            self.skipWaiting();
-        }
-    });
+  self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+  });
+
 } else {
-    // Fallback: Basic service worker without Workbox
-    self.addEventListener("fetch", (event) => {
-        // Just pass through to network if Workbox failed
-        event.respondWith(fetch(event.request));
-    });
+
+  // Fallback: Basic service worker without Workbox
+  self.addEventListener('fetch', (event) => {
+    // Just pass through to network if Workbox failed
+    event.respondWith(fetch(event.request));
+  });
 }

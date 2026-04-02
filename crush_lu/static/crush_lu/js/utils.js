@@ -9,9 +9,7 @@
  */
 function getCsrfToken() {
     // First try dedicated hidden inputs (works with CSRF_COOKIE_HTTPONLY=True)
-    const hiddenInput =
-        document.getElementById("csrf-token-input") ||
-        document.getElementById("csrf-token");
+    const hiddenInput = document.getElementById('csrf-token-input') || document.getElementById('csrf-token');
     if (hiddenInput && hiddenInput.value) {
         return hiddenInput.value;
     }
@@ -22,9 +20,9 @@ function getCsrfToken() {
     }
     // Fallback to cookie (if CSRF_COOKIE_HTTPONLY=False)
     const cookie = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrftoken="));
-    return cookie ? cookie.split("=")[1] : "";
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='));
+    return cookie ? cookie.split('=')[1] : '';
 }
 
 /**
@@ -33,8 +31,8 @@ function getCsrfToken() {
  * @returns {string} Sanitized HTML string
  */
 function sanitizeHTML(str) {
-    if (!str) return "";
-    const div = document.createElement("div");
+    if (!str) return '';
+    const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
 }
@@ -43,17 +41,16 @@ function sanitizeHTML(str) {
  * Logger utility - only logs in development environment
  */
 const Logger = {
-    isDevelopment:
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        window.location.hostname.includes("localhost"),
+    isDevelopment: window.location.hostname === 'localhost' ||
+                   window.location.hostname === '127.0.0.1' ||
+                   window.location.hostname.includes('localhost'),
 
     /**
      * Log informational message (development only)
      */
     log(...args) {
         if (this.isDevelopment) {
-            console.log("[CRUSH]", ...args);
+            console.log('[CRUSH]', ...args);
         }
     },
 
@@ -63,7 +60,7 @@ const Logger = {
      */
     error(...args) {
         if (this.isDevelopment) {
-            console.error("[CRUSH ERROR]", ...args);
+            console.error('[CRUSH ERROR]', ...args);
         }
         // TODO: In production, send to error tracking service
         // if (!this.isDevelopment && window.errorTracker) {
@@ -76,7 +73,7 @@ const Logger = {
      */
     warn(...args) {
         if (this.isDevelopment) {
-            console.warn("[CRUSH WARN]", ...args);
+            console.warn('[CRUSH WARN]', ...args);
         }
     },
 
@@ -85,9 +82,9 @@ const Logger = {
      */
     info(...args) {
         if (this.isDevelopment) {
-            console.info("[CRUSH INFO]", new Date().toISOString(), ...args);
+            console.info('[CRUSH INFO]', new Date().toISOString(), ...args);
         }
-    },
+    }
 };
 
 /**
@@ -97,7 +94,7 @@ const Logger = {
  */
 function showError(message, container) {
     if (!container) {
-        Logger.warn("showError called without container element");
+        Logger.warn('showError called without container element');
         return;
     }
 
@@ -116,7 +113,7 @@ function showError(message, container) {
  */
 function showSuccess(message, container) {
     if (!container) {
-        Logger.warn("showSuccess called without container element");
+        Logger.warn('showSuccess called without container element');
         return;
     }
 
@@ -154,13 +151,13 @@ function debounce(func, wait) {
 function formatDate(date) {
     const d = new Date(date);
     const options = {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     };
-    return d.toLocaleDateString("en-US", options);
+    return d.toLocaleDateString('en-US', options);
 }
 
 // Export utilities to global scope
@@ -171,7 +168,7 @@ window.CrushUtils = {
     showError,
     showSuccess,
     debounce,
-    formatDate,
+    formatDate
 };
 
-Logger.info("Crush.lu utilities loaded");
+Logger.info('Crush.lu utilities loaded');

@@ -1,10 +1,15 @@
-{% extends "admin/base_site.html" %} {% load static i18n %} {% block title %}{% trans
-"Profile Reminders" %} - Crush.lu{% endblock %} {% block extrastyle %} {{ block.super }}
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Profile Reminders" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
 <style>
     /* Theme-aware CSS variables */
     :root {
         --card-bg: #ffffff;
-        --card-shadow: rgba(0, 0, 0, 0.1);
+        --card-shadow: rgba(0,0,0,0.1);
         --text-primary: #333333;
         --text-secondary: #666666;
         --text-muted: #999999;
@@ -25,7 +30,7 @@
     @media (prefers-color-scheme: dark) {
         :root {
             --card-bg: #1e1e2e;
-            --card-shadow: rgba(0, 0, 0, 0.3);
+            --card-shadow: rgba(0,0,0,0.3);
             --text-primary: #e0e0e0;
             --text-secondary: #b0b0b0;
             --text-muted: #888888;
@@ -46,7 +51,7 @@
 
     [data-theme="dark"] {
         --card-bg: #1e1e2e;
-        --card-shadow: rgba(0, 0, 0, 0.3);
+        --card-shadow: rgba(0,0,0,0.3);
         --text-primary: #e0e0e0;
         --text-secondary: #b0b0b0;
         --text-muted: #888888;
@@ -105,9 +110,7 @@
 
     .summary-card.clickable {
         cursor: pointer;
-        transition:
-            transform 0.2s,
-            box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .summary-card.clickable:hover {
@@ -207,7 +210,7 @@
     .form-group select:focus,
     .form-group input:focus {
         outline: none;
-        border-color: #9b59b6;
+        border-color: #9B59B6;
         box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.2);
     }
 
@@ -231,16 +234,14 @@
 
     .btn-submit {
         padding: 12px 24px;
-        background: linear-gradient(135deg, #9b59b6, #ff6b9d);
+        background: linear-gradient(135deg, #9B59B6, #FF6B9D);
         color: white;
         border: none;
         border-radius: 6px;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        transition:
-            transform 0.2s,
-            box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .btn-submit:hover {
@@ -376,7 +377,7 @@
     }
 
     .preview-count {
-        background: #9b59b6;
+        background: #9B59B6;
         color: white;
         padding: 2px 10px;
         border-radius: 12px;
@@ -468,7 +469,9 @@
         }
     }
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <div class="reminders-container">
     <a href="{% url 'crush_admin_dashboard' %}" class="back-link">
         &larr; {% trans "Back to Dashboard" %}
@@ -476,10 +479,7 @@
 
     <div class="page-header">
         <h1>{% trans "Profile Reminder Panel" %}</h1>
-        <p>
-            {% trans "Send profile completion reminder emails to users who haven't
-            finished their profiles." %}
-        </p>
+        <p>{% trans "Send profile completion reminder emails to users who haven't finished their profiles." %}</p>
     </div>
 
     <!-- Summary Cards -->
@@ -522,22 +522,17 @@
             <h2>{% trans "Execution Results" %}</h2>
         </div>
 
-        <div
-            class="results-banner {% if results.dry_run %}info{% elif results.failed > 0 %}warning{% else %}success{% endif %}"
-        >
+        <div class="results-banner {% if results.dry_run %}info{% elif results.failed > 0 %}warning{% else %}success{% endif %}">
             {% if results.dry_run %}
-            <strong>{% trans "Dry Run Complete" %}</strong> - {% trans "No emails were
-            actually sent." %} {% else %}
-            <strong>{% trans "Reminders Sent!" %}</strong> - {% trans "Execution
-            completed at" %} {{ results.executed_at|date:"H:i:s" }}. {% endif %}
+            <strong>{% trans "Dry Run Complete" %}</strong> - {% trans "No emails were actually sent." %}
+            {% else %}
+            <strong>{% trans "Reminders Sent!" %}</strong> - {% trans "Execution completed at" %} {{ results.executed_at|date:"H:i:s" }}.
+            {% endif %}
 
             <div class="results-stats">
                 <div class="stat-item">
                     <span class="stat-value">{{ results.sent }}</span>
-                    <span class="stat-label"
-                        >{% if results.dry_run %}{% trans "Would Send" %}{% else %}{%
-                        trans "Sent" %}{% endif %}</span
-                    >
+                    <span class="stat-label">{% if results.dry_run %}{% trans "Would Send" %}{% else %}{% trans "Sent" %}{% endif %}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-value">{{ results.skipped }}</span>
@@ -565,18 +560,11 @@
                     {% for detail in results.details %}
                     <tr>
                         <td>{{ detail.user_email }}</td>
-                        <td>
-                            <span class="type-badge type-{{ detail.reminder_type }}"
-                                >{{ detail.reminder_type }}</span
-                            >
-                        </td>
+                        <td><span class="type-badge type-{{ detail.reminder_type }}">{{ detail.reminder_type }}</span></td>
                         <td>{{ detail.status }}</td>
                         <td>
-                            <span class="result-badge {{ detail.result }}"
-                                >{{ detail.result }}</span
-                            >
-                            {% if detail.error %}<br /><small>{{ detail.error }}</small
-                            >{% endif %}
+                            <span class="result-badge {{ detail.result }}">{{ detail.result }}</span>
+                            {% if detail.error %}<br><small>{{ detail.error }}</small>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -601,51 +589,26 @@
                 <label for="reminder_type">{% trans "Reminder Type" %}</label>
                 <select name="reminder_type" id="reminder_type">
                     <option value="all">{% trans "All Types" %}</option>
-                    <option value="24h">
-                        {% trans "24h Only" %} ({{ preview.24h.count }})
-                    </option>
-                    <option value="72h">
-                        {% trans "72h Only" %} ({{ preview.72h.count }})
-                    </option>
-                    <option value="7d">
-                        {% trans "7d Final" %} ({{ preview.7d.count }})
-                    </option>
+                    <option value="24h">{% trans "24h Only" %} ({{ preview.24h.count }})</option>
+                    <option value="72h">{% trans "72h Only" %} ({{ preview.72h.count }})</option>
+                    <option value="7d">{% trans "7d Final" %} ({{ preview.7d.count }})</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="limit">{% trans "Max Emails to Send" %}</label>
-                <input
-                    type="number"
-                    name="limit"
-                    id="limit"
-                    value="100"
-                    min="1"
-                    max="500"
-                />
+                <input type="number" name="limit" id="limit" value="100" min="1" max="500">
             </div>
 
             <div class="form-group">
                 <div class="checkbox-group">
-                    <input type="checkbox" name="dry_run" id="dry_run" />
-                    <label for="dry_run"
-                        >{% trans "Dry Run (preview without sending)" %}</label
-                    >
+                    <input type="checkbox" name="dry_run" id="dry_run">
+                    <label for="dry_run">{% trans "Dry Run (preview without sending)" %}</label>
                 </div>
             </div>
 
             <div class="form-group">
-                <button
-                    type="submit"
-                    class="btn-submit"
-                    {%
-                    if
-                    total_eligible=""
-                    ="0"
-                    %}disabled{%
-                    endif
-                    %}
-                >
+                <button type="submit" class="btn-submit" {% if total_eligible == 0 %}disabled{% endif %}>
                     {% trans "Send Reminders" %}
                 </button>
             </div>
@@ -668,13 +631,10 @@
                 {% if preview.24h.users %}
                 <ul class="preview-list">
                     {% for user in preview.24h.users %}
-                    <li>
-                        {{ user.email }} ({{ user.crushprofile.completion_status }})
-                    </li>
-                    {% endfor %} {% if preview.24h.count > 10 %}
-                    <li class="no-users">
-                        ... and {{ preview.24h.count|add:"-10" }} more
-                    </li>
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.24h.count > 10 %}
+                    <li class="no-users">... and {{ preview.24h.count|add:"-10" }} more</li>
                     {% endif %}
                 </ul>
                 {% else %}
@@ -690,13 +650,10 @@
                 {% if preview.72h.users %}
                 <ul class="preview-list">
                     {% for user in preview.72h.users %}
-                    <li>
-                        {{ user.email }} ({{ user.crushprofile.completion_status }})
-                    </li>
-                    {% endfor %} {% if preview.72h.count > 10 %}
-                    <li class="no-users">
-                        ... and {{ preview.72h.count|add:"-10" }} more
-                    </li>
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.72h.count > 10 %}
+                    <li class="no-users">... and {{ preview.72h.count|add:"-10" }} more</li>
                     {% endif %}
                 </ul>
                 {% else %}
@@ -712,13 +669,10 @@
                 {% if preview.7d.users %}
                 <ul class="preview-list">
                     {% for user in preview.7d.users %}
-                    <li>
-                        {{ user.email }} ({{ user.crushprofile.completion_status }})
-                    </li>
-                    {% endfor %} {% if preview.7d.count > 10 %}
-                    <li class="no-users">
-                        ... and {{ preview.7d.count|add:"-10" }} more
-                    </li>
+                    <li>{{ user.email }} ({{ user.crushprofile.completion_status }})</li>
+                    {% endfor %}
+                    {% if preview.7d.count > 10 %}
+                    <li class="no-users">... and {{ preview.7d.count|add:"-10" }} more</li>
                     {% endif %}
                 </ul>
                 {% else %}
@@ -748,11 +702,7 @@
                 {% for reminder in recent_reminders %}
                 <tr>
                     <td>{{ reminder.user.email }}</td>
-                    <td>
-                        <span class="type-badge type-{{ reminder.reminder_type }}"
-                            >{{ reminder.get_reminder_type_display }}</span
-                        >
-                    </td>
+                    <td><span class="type-badge type-{{ reminder.reminder_type }}">{{ reminder.get_reminder_type_display }}</span></td>
                     <td>{{ reminder.sent_at|date:"M d, Y H:i" }}</td>
                 </tr>
                 {% endfor %}

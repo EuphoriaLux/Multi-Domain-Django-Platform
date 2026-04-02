@@ -1,8 +1,16 @@
-{% extends "crush_lu/base.html" %} {% load static i18n %} {% block title %}{{
-journey.journey_name }} - Crush.lu{% endblock %} {% block extra_css %} {% block
-extra_journey_css %}{% endblock %} {% endblock %} {% block body_class %}journey-bg{%
-block journey_body_class %}{% endblock %}{% endblock %} {% block content %} {# Journey
-State Manager - Alpine.js component for auto-save and time tracking #}
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ journey.journey_name }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+{% block extra_journey_css %}{% endblock %}
+{% endblock %}
+
+{% block body_class %}journey-bg{% block journey_body_class %}{% endblock %}{% endblock %}
+
+{% block content %}
+{# Journey State Manager - Alpine.js component for auto-save and time tracking #}
 <div
     x-data="journeyState"
     data-save-url="{% url 'crush_lu:api_save_state' %}"
@@ -16,6 +24,7 @@ State Manager - Alpine.js component for auto-save and time tracking #}
 </div>
 
 <!-- CSRF Token for AJAX requests (hidden, works with CSRF_COOKIE_HTTPONLY=True) -->
-<input type="hidden" id="csrf-token" value="{{ csrf_token }}" />
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
 
-{% block extra_journey_js %}{% endblock %} {% endblock %}
+{% block extra_journey_js %}{% endblock %}
+{% endblock %}

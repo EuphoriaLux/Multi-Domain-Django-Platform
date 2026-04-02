@@ -23,7 +23,6 @@ Usage:
         # Token invalid
         pass
 """
-
 import time
 import logging
 import jwt

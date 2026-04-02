@@ -35,7 +35,7 @@ def is_valid_language(lang_code):
     return lang_code in get_supported_language_codes()
 
 
-def validate_language(lang_code, default="en"):
+def validate_language(lang_code, default='en'):
     """
     Validate a language code and return it if valid, otherwise return default.
 
@@ -51,7 +51,7 @@ def validate_language(lang_code, default="en"):
     return default
 
 
-def get_user_preferred_language(user=None, request=None, default="en"):
+def get_user_preferred_language(user=None, request=None, default='en'):
     """
     Get the preferred language for a user, with fallback priority:
     1. User's CrushProfile.preferred_language
@@ -68,14 +68,14 @@ def get_user_preferred_language(user=None, request=None, default="en"):
         str: Valid language code
     """
     # Priority 1: User's profile preferred language
-    if user and hasattr(user, "crushprofile") and user.crushprofile:
-        profile_lang = getattr(user.crushprofile, "preferred_language", None)
+    if user and hasattr(user, 'crushprofile') and user.crushprofile:
+        profile_lang = getattr(user.crushprofile, 'preferred_language', None)
         if is_valid_language(profile_lang):
             return profile_lang
 
     # Priority 2: Request's LANGUAGE_CODE
     if request:
-        request_lang = getattr(request, "LANGUAGE_CODE", None)
+        request_lang = getattr(request, 'LANGUAGE_CODE', None)
         if is_valid_language(request_lang):
             return request_lang
 
@@ -101,17 +101,17 @@ def get_og_locale(lang_code=None):
         str: og:locale formatted string (e.g., 'en_US', 'de_DE', 'fr_FR')
     """
     if lang_code is None:
-        lang_code = get_language() or "en"
+        lang_code = get_language() or 'en'
 
     locale_map = {
-        "en": "en_US",
-        "de": "de_DE",
-        "fr": "fr_FR",
+        'en': 'en_US',
+        'de': 'de_DE',
+        'fr': 'fr_FR',
     }
-    return locale_map.get(lang_code, "en_US")
+    return locale_map.get(lang_code, 'en_US')
 
 
-def build_absolute_url(url_name, lang=None, domain="crush.lu", https=True, **kwargs):
+def build_absolute_url(url_name, lang=None, domain='crush.lu', https=True, **kwargs):
     """
     Build an absolute URL with language prefix for use in emails (without request).
 
@@ -128,14 +128,14 @@ def build_absolute_url(url_name, lang=None, domain="crush.lu", https=True, **kwa
         str: Absolute URL with language prefix
     """
     if lang is None:
-        lang = "en"
+        lang = 'en'
     lang = validate_language(lang)
 
     # Use override() to ensure reverse() generates the correct language-prefixed URL
     # Must specify urlconf because this may run outside a request (e.g., newsletters)
     # where ROOT_URLCONF doesn't have the crush_lu namespace.
     with override(lang):
-        path = reverse(url_name, urlconf="azureproject.urls_crush", **kwargs)
+        path = reverse(url_name, urlconf='azureproject.urls_crush', **kwargs)
 
-    protocol = "https" if https else "http"
+    protocol = 'https' if https else 'http'
     return f"{protocol}://{domain}{path}"

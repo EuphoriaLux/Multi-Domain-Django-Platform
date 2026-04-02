@@ -1,150 +1,94 @@
-{% extends 'crush_lu/base.html' %} {% load static i18n %} {% block title %}{% trans
-"Membership - Crush.lu" %}{% endblock %} {% block og_title %}{% trans "Crush.lu
-Membership Program" %}{% endblock %} {% block og_description %}{% trans "Join the
-Crush.lu membership program. Earn points, unlock rewards, and get your digital
-membership card in your wallet." %}{% endblock %} {% block meta_description %}{% trans
-"Crush.lu Membership: Install our app to unlock your digital membership card. Earn
-points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %} {%
-block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program,
-membership card, pwa app" %}{% endblock %} {% block content %}
-<div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Membership - Crush.lu" %}{% endblock %}
+
+{% block og_title %}{% trans "Crush.lu Membership Program" %}{% endblock %}
+{% block og_description %}{% trans "Join the Crush.lu membership program. Earn points, unlock rewards, and get your digital membership card in your wallet." %}{% endblock %}
+
+{% block meta_description %}{% trans "Crush.lu Membership: Install our app to unlock your digital membership card. Earn points by inviting friends and climb the tiers from Basic to Gold." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush.lu membership, dating rewards, referral program, membership card, pwa app" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Hero Section -->
-    <div class="mb-12 py-8 text-center">
-        <div class="mb-4 inline-block">
+    <div class="text-center mb-12 py-8">
+        <div class="inline-block mb-4">
             <span class="text-5xl">🎭</span>
         </div>
-        <h1
-            class="from-crush-purple to-crush-pink mb-4 bg-gradient-to-r bg-clip-text text-4xl font-bold text-transparent md:text-5xl"
-        >
+        <h1 class="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-crush-purple to-crush-pink bg-clip-text text-transparent">
             {% trans "Crush.lu Membership" %}
         </h1>
-        <p
-            class="mx-auto max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl dark:text-gray-300"
-        >
-            {% trans "Get your digital membership card, earn rewards, and unlock
-            exclusive benefits by inviting friends." %}
+        <p class="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            {% trans "Get your digital membership card, earn rewards, and unlock exclusive benefits by inviting friends." %}
         </p>
     </div>
 
     <!-- Membership Card Preview -->
     <div class="card-accent mb-10">
         <div class="card-body md:p-8">
-            <div class="mb-6 flex items-center gap-3">
-                <div
-                    class="from-crush-purple to-crush-pink flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br"
-                >
-                    <span class="text-lg text-white">🎫</span>
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🎫</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {% trans "Your Membership Card" %}
-                </h2>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your Membership Card" %}</h2>
             </div>
 
-            {% if user.is_authenticated %} {# Full membership card #}
-            <div
-                class="from-crush-purple/10 to-crush-pink/10 mb-4 rounded-xl bg-gradient-to-br p-6"
-            >
-                <div class="mb-4 flex items-center gap-4">
-                    <div
-                        class="bg-crush-purple flex h-12 w-12 items-center justify-center rounded-xl text-xl text-white"
-                    >
-                        {% for tier in tiers %}{% if tier.key == current_tier %}{{
-                        tier.emoji }}{% endif %}{% endfor %}
+            {% if user.is_authenticated %}
+            {# Full membership card #}
+            <div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 rounded-xl p-6 mb-4">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 bg-crush-purple rounded-xl flex items-center justify-center text-white text-xl">
+                        {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.emoji }}{% endif %}{% endfor %}
                     </div>
                     <div>
-                        <p class="text-lg font-semibold">{{ profile.display_name }}</p>
+                        <p class="font-semibold text-lg">{{ profile.display_name }}</p>
                         <p class="text-gray-600 dark:text-gray-300">
-                            {% for tier in tiers %}{% if tier.key == current_tier %}{{
-                            tier.name }}{% endif %}{% endfor %} {% trans "Member" %}
+                            {% for tier in tiers %}{% if tier.key == current_tier %}{{ tier.name }}{% endif %}{% endfor %} {% trans "Member" %}
                         </p>
                     </div>
                 </div>
                 <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-600 dark:text-gray-300"
-                        >{% trans "Points:" %}
-                        <strong class="text-crush-purple"
-                            >{{ current_points }}</strong
-                        ></span
-                    >
+                    <span class="text-gray-600 dark:text-gray-300">{% trans "Points:" %} <strong class="text-crush-purple">{{ current_points }}</strong></span>
                 </div>
             </div>
 
-            <div class="flex flex-col flex-wrap gap-3 sm:flex-row">
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 {# Apple Wallet - Coming Soon #}
-                <button
-                    type="button"
-                    disabled
-                    class="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-400 dark:bg-gray-700 dark:text-gray-500"
-                    title="{% trans 'Coming soon' %}"
-                >
-                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4"
-                    %} {% trans "Apple Wallet" %}
-                    <span
-                        class="rounded-full bg-gray-200 px-2 py-0.5 text-xs dark:bg-gray-600"
-                        >{% trans "Soon" %}</span
-                    >
+                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
+                    {% trans "Apple Wallet" %}
+                    <span class="text-xs bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
                 </button>
-                <button
-                    type="button"
-                    id="save-google-wallet-btn"
-                    data-jwt-url="/wallet/google/jwt/"
-                    class="google-wallet-btn rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                    {% get_current_language as LANGUAGE_CODE %} {% if LANGUAGE_CODE ==
-                    'de' %}
-                    <img
-                        src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}"
-                        alt="{% trans 'Add to Google Wallet' %}"
-                        class="h-12 w-auto"
-                        id="google-wallet-img"
-                    />
+                <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {% get_current_language as LANGUAGE_CODE %}
+                    {% if LANGUAGE_CODE == 'de' %}
+                    <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
                     {% elif LANGUAGE_CODE == 'fr' %}
-                    <img
-                        src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}"
-                        alt="{% trans 'Add to Google Wallet' %}"
-                        class="h-12 w-auto"
-                        id="google-wallet-img"
-                    />
+                    <img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
                     {% else %}
-                    <img
-                        src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}"
-                        alt="{% trans 'Add to Google Wallet' %}"
-                        class="h-12 w-auto"
-                        id="google-wallet-img"
-                    />
+                    <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
                     {% endif %}
                 </button>
             </div>
             {% if referral_url %}
             <div class="mt-4">
-                <button
-                    type="button"
-                    id="share-referral-btn"
-                    data-referral-url="{{ referral_url }}"
-                    class="inline-flex items-center gap-2 rounded-lg border border-purple-300 px-4 py-2 text-sm font-medium text-purple-600 transition-colors hover:bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:hover:bg-purple-900/30"
-                >
-                    {% include "shared/icons/link.html" with class="w-4 h-4" %} {% trans
-                    "Share Referral Link" %}
+                <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
+                    {% include "shared/icons/link.html" with class="w-4 h-4" %}
+                    {% trans "Share Referral Link" %}
                 </button>
-                <p
-                    id="share-referral-status"
-                    class="mt-2 hidden text-sm text-green-600 dark:text-green-300"
-                ></p>
+                <p id="share-referral-status" class="text-sm text-green-600 dark:text-green-300 mt-2 hidden"></p>
             </div>
-            {% endif %} {% else %} {# Not logged in - show login CTA #}
-            <div class="px-4 py-12 text-center">
-                <div
-                    class="from-crush-purple/20 to-crush-pink/20 mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br"
-                >
+            {% endif %}
+
+            {% else %}
+            {# Not logged in - show login CTA #}
+            <div class="text-center py-12 px-4">
+                <div class="w-20 h-20 bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 rounded-full mx-auto mb-6 flex items-center justify-center">
                     <span class="text-4xl">👋</span>
                 </div>
-                <p class="mb-6 text-lg text-gray-600 dark:text-gray-300">
-                    {% trans "Sign in to access your membership card" %}
-                </p>
-                <a
-                    href="{% url 'crush_lu:login' %}"
-                    class="btn-crush-primary inline-flex transform items-center gap-2 px-8 py-4 text-lg font-semibold shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl dark:shadow-gray-900/50"
-                >
+                <p class="text-gray-600 dark:text-gray-300 text-lg mb-6">{% trans "Sign in to access your membership card" %}</p>
+                <a href="{% url 'crush_lu:login' %}" class="btn-crush-primary inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl dark:shadow-gray-900/50 transform hover:scale-105 transition-all duration-300">
                     {% trans "Sign In" %}
                 </a>
             </div>
@@ -155,67 +99,47 @@ membership card, pwa app" %}{% endblock %} {% block content %}
     <!-- Membership Tiers -->
     <div class="card-accent mb-10">
         <div class="card-body md:p-8">
-            <div class="mb-8 flex items-center gap-3">
-                <div
-                    class="from-crush-purple to-crush-pink flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br"
-                >
-                    <span class="text-lg text-white">🏆</span>
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">🏆</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {% trans "Membership Tiers" %}
-                </h2>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Membership Tiers" %}</h2>
             </div>
 
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {% for tier in tiers %}
-                <div
-                    class="group {% if tier.key == current_tier %}ring-2 ring-crush-purple shadow-crush-purple{% endif %} {% if tier.key == current_tier %}border-crush-purple from-crush-purple/5 to-crush-pink/5{% else %}border-gray-200 hover:border-crush-purple/30{% endif %} relative rounded-2xl border-2 bg-white bg-gradient-to-br p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:hover:shadow-gray-900/50"
-                >
+                <div class="relative group {% if tier.key == current_tier %}ring-2 ring-crush-purple shadow-crush-purple{% endif %} border-2 {% if tier.key == current_tier %}border-crush-purple bg-gradient-to-br from-crush-purple/5 to-crush-pink/5{% else %}border-gray-200 dark:border-gray-700 hover:border-crush-purple/30{% endif %} rounded-2xl p-5 transition-all duration-300 hover:shadow-lg dark:hover:shadow-gray-900/50 hover:-translate-y-1 bg-white dark:bg-gray-900">
                     <!-- Tier Icon Background -->
-                    <div
-                        class="from-crush-purple/5 to-crush-pink/5 {% if tier.key != current_tier %}opacity-0 group-hover:opacity-100{% endif %} absolute top-0 right-0 h-24 w-24 rounded-bl-[60px] bg-gradient-to-br transition-opacity"
-                    ></div>
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 rounded-bl-[60px] {% if tier.key != current_tier %}opacity-0 group-hover:opacity-100{% endif %} transition-opacity"></div>
 
-                    <div class="relative mb-4 text-center">
-                        <div
-                            class="{% if tier.key == current_tier %}from-crush-purple/10 to-crush-pink/10{% endif %} mb-3 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-sm dark:from-gray-800 dark:to-gray-700"
-                        >
+                    <div class="relative text-center mb-4">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 {% if tier.key == current_tier %}from-crush-purple/10 to-crush-pink/10{% endif %} rounded-2xl mb-3 shadow-sm">
                             <span class="text-4xl">{{ tier.emoji }}</span>
                         </div>
-                        <h3
-                            class="{% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-900 dark:text-white{% endif %} mb-1 text-xl font-bold"
-                        >
-                            {{ tier.name }}
-                        </h3>
-                        <p
-                            class="{% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-500 dark:text-gray-400{% endif %} text-sm font-semibold"
-                        >
-                            {% if tier.points == 0 %} {% trans "Starting tier" %} {%
-                            else %} {{ tier.points }} {% trans "points" %} {% endif %}
+                        <h3 class="font-bold text-xl mb-1 {% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-900 dark:text-white{% endif %}">{{ tier.name }}</h3>
+                        <p class="text-sm font-semibold {% if tier.key == current_tier %}text-crush-purple{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                            {% if tier.points == 0 %}
+                            {% trans "Starting tier" %}
+                            {% else %}
+                            {{ tier.points }} {% trans "points" %}
+                            {% endif %}
                         </p>
                     </div>
 
-                    <ul class="mb-4 space-y-2.5 text-sm">
+                    <ul class="text-sm space-y-2.5 mb-4">
                         {% for benefit in tier.benefits %}
                         <li class="flex items-start gap-2">
-                            <span
-                                class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
-                            >
-                                {% include "shared/icons/check.html" with class="w-3 h-3
-                                text-green-600 dark:text-green-400" %}
+                            <span class="flex-shrink-0 w-5 h-5 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mt-0.5">
+                                {% include "shared/icons/check.html" with class="w-3 h-3 text-green-600 dark:text-green-400" %}
                             </span>
-                            <span class="text-gray-700 dark:text-gray-300"
-                                >{{ benefit }}</span
-                            >
+                            <span class="text-gray-700 dark:text-gray-300">{{ benefit }}</span>
                         </li>
                         {% endfor %}
                     </ul>
 
                     {% if tier.key == current_tier and user.is_authenticated %}
                     <div class="text-center">
-                        <span
-                            class="from-crush-purple to-crush-pink inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r px-4 py-2 text-xs font-bold text-white shadow-md"
-                        >
+                        <span class="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs font-bold rounded-full shadow-md">
                             <span>✨</span>
                             {% trans "Current" %}
                         </span>
@@ -230,100 +154,51 @@ membership card, pwa app" %}{% endblock %} {% block content %}
     <!-- How to Earn Points -->
     <div class="card-accent mb-10">
         <div class="card-body md:p-8">
-            <div class="mb-8 flex items-center gap-3">
-                <div
-                    class="from-crush-purple to-crush-pink flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br"
-                >
-                    <span class="text-lg text-white">💎</span>
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+                    <span class="text-white text-lg">💎</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {% trans "How to Earn Points" %}
-                </h2>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "How to Earn Points" %}</h2>
             </div>
 
             <div class="space-y-5">
-                <div
-                    class="group hover:border-crush-purple/30 hover:from-crush-purple/5 flex items-start gap-5 rounded-xl border-2 border-gray-100 bg-white p-5 transition-all duration-300 hover:bg-gradient-to-r hover:to-transparent dark:border-gray-700 dark:bg-gray-900"
-                >
-                    <div
-                        class="from-crush-purple flex h-14 w-14 flex-shrink-0 transform items-center justify-center rounded-xl bg-gradient-to-br to-purple-600 shadow-md transition-transform duration-300 group-hover:scale-110"
-                    >
-                        {% include "shared/icons/user-plus.html" with class="w-7 h-7
-                        text-white" %}
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-crush-purple/30 hover:bg-gradient-to-r hover:from-crush-purple/5 hover:to-transparent transition-all duration-300 bg-white dark:bg-gray-900">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-crush-purple to-purple-600 rounded-xl flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300">
+                        {% include "shared/icons/user-plus.html" with class="w-7 h-7 text-white" %}
                     </div>
                     <div class="flex-1">
-                        <h3
-                            class="mb-1 text-lg font-bold text-gray-900 dark:text-white"
-                        >
-                            {% trans "Invite Friends" %}
-                        </h3>
-                        <p class="leading-relaxed text-gray-600 dark:text-gray-300">
-                            {% trans "Earn 100 points when a friend signs up using your
-                            referral link." %}
-                        </p>
-                        <div
-                            class="text-crush-purple mt-2 inline-flex items-center gap-1.5 text-sm font-semibold"
-                        >
+                        <h3 class="font-bold text-lg mb-1 text-gray-900 dark:text-white">{% trans "Invite Friends" %}</h3>
+                        <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{% trans "Earn 100 points when a friend signs up using your referral link." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-crush-purple font-semibold text-sm">
                             <span class="text-xl">+100</span>
                             <span>{% trans "points" %}</span>
                         </div>
                     </div>
                 </div>
 
-                <div
-                    class="group hover:border-crush-purple/30 hover:from-crush-purple/5 flex items-start gap-5 rounded-xl border-2 border-gray-100 bg-white p-5 transition-all duration-300 hover:bg-gradient-to-r hover:to-transparent dark:border-gray-700 dark:bg-gray-900"
-                >
-                    <div
-                        class="from-crush-pink flex h-14 w-14 flex-shrink-0 transform items-center justify-center rounded-xl bg-gradient-to-br to-pink-600 shadow-md transition-transform duration-300 group-hover:scale-110"
-                    >
-                        {% include "shared/icons/check-badge.html" with class="w-7 h-7
-                        text-white" %}
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-crush-purple/30 hover:bg-gradient-to-r hover:from-crush-purple/5 hover:to-transparent transition-all duration-300 bg-white dark:bg-gray-900">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-crush-pink to-pink-600 rounded-xl flex items-center justify-center shadow-md transform group-hover:scale-110 transition-transform duration-300">
+                        {% include "shared/icons/check-badge.html" with class="w-7 h-7 text-white" %}
                     </div>
                     <div class="flex-1">
-                        <h3
-                            class="mb-1 text-lg font-bold text-gray-900 dark:text-white"
-                        >
-                            {% trans "Profile Approved" %}
-                        </h3>
-                        <p class="leading-relaxed text-gray-600 dark:text-gray-300">
-                            {% trans "Earn 50 bonus points when your referred friend's
-                            profile is approved." %}
-                        </p>
-                        <div
-                            class="text-crush-pink mt-2 inline-flex items-center gap-1.5 text-sm font-semibold"
-                        >
+                        <h3 class="font-bold text-lg mb-1 text-gray-900 dark:text-white">{% trans "Profile Approved" %}</h3>
+                        <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{% trans "Earn 50 bonus points when your referred friend's profile is approved." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-crush-pink font-semibold text-sm">
                             <span class="text-xl">+50</span>
                             <span>{% trans "points" %}</span>
                         </div>
                     </div>
                 </div>
 
-                <div
-                    class="group flex items-start gap-5 rounded-xl border-2 border-gray-100 bg-gray-50/50 p-5 transition-all duration-300 hover:border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:hover:border-gray-600"
-                >
-                    <div
-                        class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gray-300 to-gray-400 shadow-sm dark:from-gray-600 dark:to-gray-700"
-                    >
-                        {% include "shared/icons/calendar.html" with class="w-7 h-7
-                        text-white" %}
+                <div class="group flex items-start gap-5 p-5 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 bg-gray-50/50 dark:bg-gray-900/50 transition-all duration-300">
+                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-gray-300 dark:from-gray-600 to-gray-400 dark:to-gray-700 rounded-xl flex items-center justify-center shadow-sm">
+                        {% include "shared/icons/calendar.html" with class="w-7 h-7 text-white" %}
                     </div>
                     <div class="flex-1">
-                        <h3
-                            class="mb-1 text-lg font-bold text-gray-900 dark:text-white"
-                        >
-                            {% trans "Attend Events" %}
-                        </h3>
-                        <p class="leading-relaxed text-gray-600 dark:text-gray-300">
-                            {% trans "Coming soon: Earn points by attending Crush.lu
-                            events." %}
-                        </p>
-                        <div
-                            class="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400"
-                        >
-                            <span
-                                class="rounded-full bg-gray-200 px-2 py-1 dark:bg-gray-700"
-                                >{% trans "Coming Soon" %}</span
-                            >
+                        <h3 class="font-bold text-lg mb-1 text-gray-900 dark:text-white">{% trans "Attend Events" %}</h3>
+                        <p class="text-gray-600 dark:text-gray-300 leading-relaxed">{% trans "Coming soon: Earn points by attending Crush.lu events." %}</p>
+                        <div class="mt-2 inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 text-sm font-medium">
+                            <span class="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full">{% trans "Coming Soon" %}</span>
                         </div>
                     </div>
                 </div>
@@ -336,60 +211,25 @@ membership card, pwa app" %}{% endblock %} {% block content %}
     <div class="cta-gradient">
         <!-- Decorative elements -->
         <div class="cta-gradient-decorations">
-            <div
-                class="absolute top-0 right-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white blur-3xl"
-            ></div>
-            <div
-                class="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/2 translate-y-1/2 transform rounded-full bg-white blur-3xl"
-            ></div>
+            <div class="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+            <div class="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
         </div>
 
         <!-- Floating emoji decorations -->
-        <div class="absolute top-8 left-8 animate-pulse text-4xl opacity-20">🎉</div>
-        <div
-            class="absolute top-12 right-12 animate-pulse text-3xl opacity-20"
-            style="animation-delay: 0.5s"
-        >
-            ✨
-        </div>
-        <div
-            class="absolute bottom-8 left-16 animate-pulse text-3xl opacity-20"
-            style="animation-delay: 1s"
-        >
-            🎁
-        </div>
+        <div class="absolute top-8 left-8 text-4xl opacity-20 animate-pulse">🎉</div>
+        <div class="absolute top-12 right-12 text-3xl opacity-20 animate-pulse" style="animation-delay: 0.5s">✨</div>
+        <div class="absolute bottom-8 left-16 text-3xl opacity-20 animate-pulse" style="animation-delay: 1s">🎁</div>
 
-        <div class="relative px-6 py-16 text-center md:py-20">
-            <div
-                class="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-white/20 shadow-lg backdrop-blur-sm"
-            >
+        <div class="relative text-center px-6 py-16 md:py-20">
+            <div class="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full mx-auto mb-6 flex items-center justify-center shadow-lg">
                 <span class="text-5xl">🚀</span>
             </div>
-            <h2 class="mb-4 text-3xl font-bold text-white md:text-4xl">
-                {% trans "Ready to Join?" %}
-            </h2>
-            <p
-                class="mx-auto mb-8 max-w-md text-lg leading-relaxed text-white/95 md:text-xl"
-            >
-                {% trans "Create your account and start earning rewards today." %}
-            </p>
-            <a
-                href="{% url 'crush_lu:signup' %}"
-                class="text-crush-purple inline-flex transform items-center gap-3 rounded-xl bg-white px-10 py-5 text-lg font-bold shadow-xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 hover:shadow-2xl"
-            >
+            <h2 class="text-3xl md:text-4xl font-bold mb-4 text-white">{% trans "Ready to Join?" %}</h2>
+            <p class="text-white/95 text-lg md:text-xl mb-8 max-w-md mx-auto leading-relaxed">{% trans "Create your account and start earning rewards today." %}</p>
+            <a href="{% url 'crush_lu:signup' %}" class="inline-flex items-center gap-3 bg-white text-crush-purple font-bold px-10 py-5 rounded-xl text-lg shadow-xl hover:shadow-2xl hover:bg-gray-50 transform hover:scale-105 transition-all duration-300">
                 <span>{% trans "Sign Up Now" %}</span>
-                <svg
-                    class="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.5"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    ></path>
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                 </svg>
             </a>
         </div>
@@ -400,85 +240,80 @@ membership card, pwa app" %}{% endblock %} {% block content %}
 {% if user.is_authenticated %}
 <!-- Google Wallet and Referral JavaScript -->
 <script nonce="{{ csp_nonce }}">
-    document.addEventListener("DOMContentLoaded", function () {
-        // Google Wallet handler
-        var googleWalletBtn = document.getElementById("save-google-wallet-btn");
-        if (googleWalletBtn) {
-            var googleWalletImg = document.getElementById("google-wallet-img");
-            var jwtUrl = googleWalletBtn.dataset.jwtUrl;
+document.addEventListener('DOMContentLoaded', function() {
+    // Google Wallet handler
+    var googleWalletBtn = document.getElementById('save-google-wallet-btn');
+    if (googleWalletBtn) {
+        var googleWalletImg = document.getElementById('google-wallet-img');
+        var jwtUrl = googleWalletBtn.dataset.jwtUrl;
 
-            googleWalletBtn.addEventListener("click", async function () {
-                googleWalletBtn.disabled = true;
-                if (googleWalletImg) googleWalletImg.style.opacity = "0.5";
+        googleWalletBtn.addEventListener('click', async function() {
+            googleWalletBtn.disabled = true;
+            if (googleWalletImg) googleWalletImg.style.opacity = '0.5';
 
-                try {
-                    var response = await fetch(jwtUrl);
-                    var data = await response.json();
+            try {
+                var response = await fetch(jwtUrl);
+                var data = await response.json();
 
-                    if (data.jwt) {
-                        window.location.href =
-                            "https://pay.google.com/gp/v/save/" + data.jwt;
-                    } else if (data.error) {
-                        alert(data.error);
-                        googleWalletBtn.disabled = false;
-                        if (googleWalletImg) googleWalletImg.style.opacity = "1";
-                    }
-                } catch (error) {
-                    alert(
-                        '{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}',
-                    );
+                if (data.jwt) {
+                    window.location.href = 'https://pay.google.com/gp/v/save/' + data.jwt;
+                } else if (data.error) {
+                    alert(data.error);
                     googleWalletBtn.disabled = false;
-                    if (googleWalletImg) googleWalletImg.style.opacity = "1";
+                    if (googleWalletImg) googleWalletImg.style.opacity = '1';
                 }
-            });
-        }
+            } catch (error) {
+                alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}');
+                googleWalletBtn.disabled = false;
+                if (googleWalletImg) googleWalletImg.style.opacity = '1';
+            }
+        });
+    }
 
-        // Referral share handler
-        var shareButton = document.getElementById("share-referral-btn");
-        if (shareButton) {
-            var statusElement = document.getElementById("share-referral-status");
-            var referralUrl = shareButton.dataset.referralUrl;
+    // Referral share handler
+    var shareButton = document.getElementById('share-referral-btn');
+    if (shareButton) {
+        var statusElement = document.getElementById('share-referral-status');
+        var referralUrl = shareButton.dataset.referralUrl;
 
-            shareButton.addEventListener("click", async function () {
-                if (!referralUrl) return;
+        shareButton.addEventListener('click', async function() {
+            if (!referralUrl) return;
 
-                if (navigator.share) {
-                    try {
-                        await navigator.share({
-                            title: "Crush.lu",
-                            text: '{% filter escapejs %}{% trans "Join me on Crush.lu" %}{% endfilter %}',
-                            url: referralUrl,
-                        });
-                        if (statusElement) {
-                            statusElement.textContent =
-                                '{% filter escapejs %}{% trans "Referral link shared!" %}{% endfilter %}';
-                            statusElement.classList.remove("hidden");
-                        }
-                        return;
-                    } catch (e) {
-                        if (e.name === "AbortError") return;
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Crush.lu',
+                        text: '{% filter escapejs %}{% trans "Join me on Crush.lu" %}{% endfilter %}',
+                        url: referralUrl,
+                    });
+                    if (statusElement) {
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Referral link shared!" %}{% endfilter %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback to clipboard
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(referralUrl);
+                    if (statusElement) {
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Referral link copied to clipboard." %}{% endfilter %}';
+                        statusElement.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    if (statusElement) {
+                        statusElement.textContent = '{% filter escapejs %}{% trans "Unable to copy referral link." %}{% endfilter %}';
+                        statusElement.classList.remove('hidden');
                     }
                 }
-
-                // Fallback to clipboard
-                if (navigator.clipboard) {
-                    try {
-                        await navigator.clipboard.writeText(referralUrl);
-                        if (statusElement) {
-                            statusElement.textContent =
-                                '{% filter escapejs %}{% trans "Referral link copied to clipboard." %}{% endfilter %}';
-                            statusElement.classList.remove("hidden");
-                        }
-                    } catch (e) {
-                        if (statusElement) {
-                            statusElement.textContent =
-                                '{% filter escapejs %}{% trans "Unable to copy referral link." %}{% endfilter %}';
-                            statusElement.classList.remove("hidden");
-                        }
-                    }
-                }
-            });
-        }
-    });
+            }
+        });
+    }
+});
 </script>
-{% endif %} {% endblock %}
+{% endif %}
+{% endblock %}

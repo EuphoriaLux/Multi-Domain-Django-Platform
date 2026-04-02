@@ -1,131 +1,47 @@
-{% extends "admin/base_site.html" %} {% load i18n static %} {% block title %}{% trans
-"Poll Analytics" %}{% endblock %} {% block extrahead %} {{ block.super }}
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Poll Analytics" %}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
 <style>
-    .poll-analytics {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-    .poll-analytics h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-    .poll-analytics .subtitle {
-        color: #666;
-        margin-bottom: 2rem;
-    }
+    .poll-analytics { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .poll-analytics h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .poll-analytics .subtitle { color: #666; margin-bottom: 2rem; }
 
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 16px;
-        margin-bottom: 2rem;
-    }
-    .summary-card {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-    }
-    .summary-card .value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #9b59b6;
-    }
-    .summary-card .label {
-        font-size: 0.85rem;
-        color: #666;
-        margin-top: 4px;
-    }
+    .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 2rem; }
+    .summary-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; text-align: center; }
+    .summary-card .value { font-size: 2rem; font-weight: 700; color: #9B59B6; }
+    .summary-card .label { font-size: 0.85rem; color: #666; margin-top: 4px; }
 
-    .poll-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: #fff;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #e5e7eb;
-    }
-    .poll-table th {
-        background: #f8f9fa;
-        padding: 12px 16px;
-        text-align: left;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        color: #666;
-        font-weight: 600;
-    }
-    .poll-table td {
-        padding: 14px 16px;
-        border-top: 1px solid #f0f0f0;
-    }
-    .poll-table tr:hover td {
-        background: #faf5ff;
-    }
+    .poll-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
+    .poll-table th { background: #f8f9fa; padding: 12px 16px; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #666; font-weight: 600; }
+    .poll-table td { padding: 14px 16px; border-top: 1px solid #f0f0f0; }
+    .poll-table tr:hover td { background: #faf5ff; }
 
-    .status-badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .status-active {
-        background: #d1fae5;
-        color: #065f46;
-    }
-    .status-closed {
-        background: #f3f4f6;
-        color: #4b5563;
-    }
-    .status-draft {
-        background: #fef3c7;
-        color: #92400e;
-    }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-closed { background: #f3f4f6; color: #4b5563; }
+    .status-draft { background: #fef3c7; color: #92400e; }
 
-    .btn-view {
-        display: inline-block;
-        padding: 6px 14px;
-        background: #9b59b6;
-        color: #fff;
-        border-radius: 8px;
-        text-decoration: none;
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
-    .btn-view:hover {
-        background: #8e44ad;
-        color: #fff;
-    }
+    .btn-view { display: inline-block; padding: 6px 14px; background: #9B59B6; color: #fff; border-radius: 8px; text-decoration: none; font-size: 0.8rem; font-weight: 500; }
+    .btn-view:hover { background: #8E44AD; color: #fff; }
 
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin: 2rem 0 1rem;
-        color: #333;
-    }
+    .section-title { font-size: 1.1rem; font-weight: 600; margin: 2rem 0 1rem; color: #333; }
 
     @media (max-width: 768px) {
-        .poll-table {
-            font-size: 0.85rem;
-        }
-        .poll-table th,
-        .poll-table td {
-            padding: 10px 12px;
-        }
-        .summary-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
+        .poll-table { font-size: 0.85rem; }
+        .poll-table th, .poll-table td { padding: 10px 12px; }
+        .summary-cards { grid-template-columns: repeat(2, 1fr); }
     }
 </style>
-{% endblock %} {% block content %}
+{% endblock %}
+
+{% block content %}
 <div class="poll-analytics">
     <h1>{% trans "Poll Analytics" %}</h1>
-    <p class="subtitle">
-        {% trans "Results and insights from event preference polls" %}
-    </p>
+    <p class="subtitle">{% trans "Results and insights from event preference polls" %}</p>
 
     <div class="summary-cards">
         <div class="summary-card">
@@ -167,16 +83,14 @@
                 <td>{{ poll.total_votes }}</td>
                 <td>{{ poll.unique_voters }}</td>
                 <td>{{ poll.end_date|date:"M d, Y" }}</td>
-                <td>
-                    <a href="{% url 'poll_analytics_detail' poll.id %}" class="btn-view"
-                        >{% trans "View Results" %}</a
-                    >
-                </td>
+                <td><a href="{% url 'poll_analytics_detail' poll.id %}" class="btn-view">{% trans "View Results" %}</a></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% endif %} {% if closed_polls %}
+    {% endif %}
+
+    {% if closed_polls %}
     <h2 class="section-title">{% trans "Closed Polls" %}</h2>
     <table class="poll-table">
         <thead>
@@ -197,16 +111,14 @@
                 <td>{{ poll.total_votes }}</td>
                 <td>{{ poll.unique_voters }}</td>
                 <td>{{ poll.end_date|date:"M d, Y" }}</td>
-                <td>
-                    <a href="{% url 'poll_analytics_detail' poll.id %}" class="btn-view"
-                        >{% trans "View Results" %}</a
-                    >
-                </td>
+                <td><a href="{% url 'poll_analytics_detail' poll.id %}" class="btn-view">{% trans "View Results" %}</a></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% endif %} {% if draft_polls %}
+    {% endif %}
+
+    {% if draft_polls %}
     <h2 class="section-title">{% trans "Drafts (Unpublished)" %}</h2>
     <table class="poll-table">
         <thead>
@@ -222,12 +134,8 @@
             <tr>
                 <td>{{ poll.title }}</td>
                 <td>{{ poll.option_count }}</td>
-                <td>
-                    {{ poll.start_date|date:"M d" }} - {{ poll.end_date|date:"M d, Y" }}
-                </td>
-                <td>
-                    <span class="status-badge status-draft">{% trans "Draft" %}</span>
-                </td>
+                <td>{{ poll.start_date|date:"M d" }} - {{ poll.end_date|date:"M d, Y" }}</td>
+                <td><span class="status-badge status-draft">{% trans "Draft" %}</span></td>
             </tr>
             {% endfor %}
         </tbody>

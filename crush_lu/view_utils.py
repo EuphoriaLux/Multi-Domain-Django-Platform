@@ -7,7 +7,7 @@ import json
 from django.http import HttpResponse
 
 
-def toast_response(message, toast_type="info", status=200, additional_triggers=None):
+def toast_response(message, toast_type='info', status=200, additional_triggers=None):
     """
     Create an HTMX response with toast notification.
 
@@ -24,17 +24,22 @@ def toast_response(message, toast_type="info", status=200, additional_triggers=N
     Returns:
         HttpResponse with HX-Trigger header for toast
     """
-    triggers = {"showToast": {"type": toast_type, "message": message}}
+    triggers = {
+        'showToast': {
+            'type': toast_type,
+            'message': message
+        }
+    }
 
     if additional_triggers:
         triggers.update(additional_triggers)
 
     response = HttpResponse(status=status)
-    response["HX-Trigger"] = json.dumps(triggers)
+    response['HX-Trigger'] = json.dumps(triggers)
     return response
 
 
-def add_toast_trigger(response, message, toast_type="info"):
+def add_toast_trigger(response, message, toast_type='info'):
     """
     Add toast trigger to existing HttpResponse.
 
@@ -50,19 +55,24 @@ def add_toast_trigger(response, message, toast_type="info"):
     Returns:
         Modified HttpResponse with HX-Trigger header
     """
-    toast_data = {"showToast": {"type": toast_type, "message": message}}
+    toast_data = {
+        'showToast': {
+            'type': toast_type,
+            'message': message
+        }
+    }
 
     # Check if HX-Trigger already exists
-    existing_trigger = response.get("HX-Trigger")
+    existing_trigger = response.get('HX-Trigger')
     if existing_trigger:
         try:
             triggers = json.loads(existing_trigger)
             triggers.update(toast_data)
-            response["HX-Trigger"] = json.dumps(triggers)
+            response['HX-Trigger'] = json.dumps(triggers)
         except json.JSONDecodeError:
             # If existing trigger is not JSON, replace it
-            response["HX-Trigger"] = json.dumps(toast_data)
+            response['HX-Trigger'] = json.dumps(toast_data)
     else:
-        response["HX-Trigger"] = json.dumps(toast_data)
+        response['HX-Trigger'] = json.dumps(toast_data)
 
     return response

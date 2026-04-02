@@ -7,14 +7,14 @@
  * Escape HTML to prevent XSS (including quotes for attribute safety)
  */
 function escapeHtml(text) {
-    if (text === null || text === undefined) return "";
+    if (text === null || text === undefined) return '';
     const str = String(text);
     return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#x27;");
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
 }
 
 class ProducerPlotSelector {
@@ -22,43 +22,43 @@ class ProducerPlotSelector {
         this.selectedProducer = null;
         this.selectedPlots = [];
         this.maxPlots = options.maxPlots || 3;
-
+        
         this.callbacks = {
             onProducerSelect: options.onProducerSelect || (() => {}),
             onPlotSelect: options.onPlotSelect || (() => {}),
-            onSelectionComplete: options.onSelectionComplete || (() => {}),
+            onSelectionComplete: options.onSelectionComplete || (() => {})
         };
-
+        
         this.init();
     }
-
+    
     init() {
         this.setupEventListeners();
         this.createProducerModal();
     }
-
+    
     setupEventListeners() {
         // Listen for producer selection from map
-        document.addEventListener("producer:selected", (e) => {
+        document.addEventListener('producer:selected', (e) => {
             this.showProducerDetails(e.detail.producer);
         });
-
+        
         // Listen for plot selection
-        document.addEventListener("click", (e) => {
-            if (e.target.matches(".select-plot-btn")) {
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.select-plot-btn')) {
                 const plotId = e.target.dataset.plotId;
                 this.togglePlotSelection(plotId);
             }
-
-            if (e.target.matches(".proceed-with-plots-btn")) {
+            
+            if (e.target.matches('.proceed-with-plots-btn')) {
                 this.proceedWithSelectedPlots();
             }
         });
     }
-
+    
     createProducerModal() {
         // Create modal HTML if it doesn't exist
-        if (!document.getElementById("producerDetailsModal")) {
+        if (!document.getElementById('producerDetailsModal')) {
             const modalHTML = `
                 <div class="modal fade" id="producerDetailsModal" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -141,63 +141,52 @@ class ProducerPlotSelector {
                     </div>
                 </div>
             `;
-
-            document.body.insertAdjacentHTML("beforeend", modalHTML);
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
         }
     }
-
+    
     async showProducerDetails(producer) {
         this.selectedProducer = producer;
         this.selectedPlots = [];
-
+        
         // Update modal with producer info
-        document.getElementById("producer-name").textContent = producer.name;
-        document.getElementById("producer-description").textContent =
-            producer.description || "Premium wine producer with exceptional terroir.";
-        document.getElementById("producer-region").textContent =
-            producer.region || "Luxembourg";
-        document.getElementById("producer-elevation").textContent =
-            producer.elevation || "Various elevations";
-        document.getElementById("producer-soil").textContent =
-            producer.soil_type || "Mixed soil types";
-        document.getElementById("producer-sun").textContent =
-            producer.sun_exposure || "Optimal exposure";
-
+        document.getElementById('producer-name').textContent = producer.name;
+        document.getElementById('producer-description').textContent = producer.description || 'Premium wine producer with exceptional terroir.';
+        document.getElementById('producer-region').textContent = producer.region || 'Luxembourg';
+        document.getElementById('producer-elevation').textContent = producer.elevation || 'Various elevations';
+        document.getElementById('producer-soil').textContent = producer.soil_type || 'Mixed soil types';
+        document.getElementById('producer-sun').textContent = producer.sun_exposure || 'Optimal exposure';
+        
         // Set producer image
-        const producerImage = document.getElementById("producer-image");
+        const producerImage = document.getElementById('producer-image');
         if (producer.logo || producer.producer_photo) {
             producerImage.src = producer.logo || producer.producer_photo;
             producerImage.alt = producer.name;
         } else {
-            producerImage.src =
-                "/static/vinsdelux/images/vineyard-defaults/producer-default.jpg";
+            producerImage.src = '/static/vinsdelux/images/vineyard-defaults/producer-default.jpg';
         }
-
+        
         // Load producer's plots
         await this.loadProducerPlots(producer.id);
-
+        
         // Show modal
-        const modal = new bootstrap.Modal(
-            document.getElementById("producerDetailsModal"),
-        );
+        const modal = new bootstrap.Modal(document.getElementById('producerDetailsModal'));
         modal.show();
-
+        
         // Trigger callback
         this.callbacks.onProducerSelect(producer);
     }
-
+    
     async loadProducerPlots(producerId) {
-        const plotsGrid = document.getElementById("producer-plots-grid");
-        plotsGrid.innerHTML =
-            '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading plots...</div>';
-
+        const plotsGrid = document.getElementById('producer-plots-grid');
+        plotsGrid.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading plots...</div>';
+        
         try {
             // Fetch plots for this producer
-            const response = await fetch(
-                `/en/vinsdelux/api/plots/?producer_id=${producerId}`,
-            );
+            const response = await fetch(`/en/vinsdelux/api/plots/?producer_id=${producerId}`);
             const plots = await response.json();
-
+            
             if (plots && plots.length > 0) {
                 this.renderPlots(plots);
             } else {
@@ -209,18 +198,16 @@ class ProducerPlotSelector {
                 `;
             }
         } catch (error) {
-            console.error("Error loading plots:", error);
+            console.error('Error loading plots:', error);
             // Use sample data if API fails
             this.renderSamplePlots(producerId);
         }
     }
-
+    
     renderPlots(plots) {
-        const plotsGrid = document.getElementById("producer-plots-grid");
-
-        plotsGrid.innerHTML = plots
-            .map(
-                (plot) => `
+        const plotsGrid = document.getElementById('producer-plots-grid');
+        
+        plotsGrid.innerHTML = plots.map(plot => `
             <div class="plot-card" data-plot-id="${escapeHtml(plot.id)}">
                 <div class="plot-card-header">
                     <h6>${escapeHtml(plot.name || `Plot ${plot.plot_identifier}`)}</h6>
@@ -230,209 +217,195 @@ class ProducerPlotSelector {
                     <div class="plot-details-grid">
                         <div class="plot-detail">
                             <i class="fas fa-ruler-combined"></i>
-                            <span>${escapeHtml(plot.plot_size || "N/A")}</span>
+                            <span>${escapeHtml(plot.plot_size || 'N/A')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-mountain"></i>
-                            <span>${escapeHtml(plot.elevation || "N/A")}</span>
+                            <span>${escapeHtml(plot.elevation || 'N/A')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-wine-bottle"></i>
-                            <span>${escapeHtml(plot.grape_varieties ? plot.grape_varieties[0] : "Mixed")}</span>
+                            <span>${escapeHtml(plot.grape_varieties ? plot.grape_varieties[0] : 'Mixed')}</span>
                         </div>
                         <div class="plot-detail">
                             <i class="fas fa-sun"></i>
-                            <span>${escapeHtml(plot.sun_exposure || "N/A")}</span>
+                            <span>${escapeHtml(plot.sun_exposure || 'N/A')}</span>
                         </div>
                     </div>
 
-                    ${
-                        plot.wine_profile
-                            ? `
+                    ${plot.wine_profile ? `
                     <div class="wine-profile mt-2">
                         <small class="text-muted">${escapeHtml(plot.wine_profile)}</small>
                     </div>
-                    `
-                            : ""
-                    }
+                    ` : ''}
 
                     <div class="plot-price mt-3">
-                        <strong>€${escapeHtml(plot.base_price || "0")}</strong>
+                        <strong>€${escapeHtml(plot.base_price || '0')}</strong>
                     </div>
 
                     <button class="btn btn-sm btn-outline-primary select-plot-btn mt-2"
                             data-plot-id="${escapeHtml(plot.id)}"
                             data-plot-price="${escapeHtml(plot.base_price || 0)}"
-                            ${plot.status !== "available" ? "disabled" : ""}>
+                            ${plot.status !== 'available' ? 'disabled' : ''}>
                         <i class="fas fa-check"></i> Select Plot
                     </button>
                 </div>
             </div>
-        `,
-            )
-            .join("");
+        `).join('');
     }
-
+    
     renderSamplePlots(producerId) {
         // Sample plots for demonstration
         const samplePlots = [
             {
                 id: `${producerId}-1`,
-                name: "Hillside Reserve",
-                plot_identifier: "PLT-001",
-                plot_size: "0.25 hectares",
-                elevation: "450m",
-                grape_varieties: ["Pinot Noir"],
-                sun_exposure: "South-facing",
-                wine_profile: "Elegant red with cherry notes",
+                name: 'Hillside Reserve',
+                plot_identifier: 'PLT-001',
+                plot_size: '0.25 hectares',
+                elevation: '450m',
+                grape_varieties: ['Pinot Noir'],
+                sun_exposure: 'South-facing',
+                wine_profile: 'Elegant red with cherry notes',
                 base_price: 2500,
-                status: "available",
+                status: 'available'
             },
             {
                 id: `${producerId}-2`,
-                name: "Valley Premium",
-                plot_identifier: "PLT-002",
-                plot_size: "0.30 hectares",
-                elevation: "380m",
-                grape_varieties: ["Chardonnay"],
-                sun_exposure: "East-facing",
-                wine_profile: "Crisp white with citrus notes",
+                name: 'Valley Premium',
+                plot_identifier: 'PLT-002',
+                plot_size: '0.30 hectares',
+                elevation: '380m',
+                grape_varieties: ['Chardonnay'],
+                sun_exposure: 'East-facing',
+                wine_profile: 'Crisp white with citrus notes',
                 base_price: 2200,
-                status: "available",
+                status: 'available'
             },
             {
                 id: `${producerId}-3`,
-                name: "Heritage Plot",
-                plot_identifier: "PLT-003",
-                plot_size: "0.20 hectares",
-                elevation: "420m",
-                grape_varieties: ["Riesling"],
-                sun_exposure: "Southeast",
-                wine_profile: "Aromatic white with mineral finish",
+                name: 'Heritage Plot',
+                plot_identifier: 'PLT-003',
+                plot_size: '0.20 hectares',
+                elevation: '420m',
+                grape_varieties: ['Riesling'],
+                sun_exposure: 'Southeast',
+                wine_profile: 'Aromatic white with mineral finish',
                 base_price: 2800,
-                status: "available",
-            },
+                status: 'available'
+            }
         ];
-
+        
         this.renderPlots(samplePlots);
     }
-
+    
     togglePlotSelection(plotId) {
         const plotCard = document.querySelector(`[data-plot-id="${plotId}"]`);
-        const button = plotCard.querySelector(".select-plot-btn");
+        const button = plotCard.querySelector('.select-plot-btn');
         const price = parseFloat(button.dataset.plotPrice);
-
-        const plotIndex = this.selectedPlots.findIndex((p) => p.id === plotId);
-
+        
+        const plotIndex = this.selectedPlots.findIndex(p => p.id === plotId);
+        
         if (plotIndex > -1) {
             // Deselect plot
             this.selectedPlots.splice(plotIndex, 1);
-            plotCard.classList.remove("selected");
+            plotCard.classList.remove('selected');
             button.innerHTML = '<i class="fas fa-check"></i> Select Plot';
-            button.classList.remove("btn-primary");
-            button.classList.add("btn-outline-primary");
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-outline-primary');
         } else {
             // Select plot (if under limit)
             if (this.selectedPlots.length >= this.maxPlots) {
                 alert(`You can select a maximum of ${this.maxPlots} plots.`);
                 return;
             }
-
+            
             this.selectedPlots.push({
                 id: plotId,
                 price: price,
-                card: plotCard,
+                card: plotCard
             });
-
-            plotCard.classList.add("selected");
+            
+            plotCard.classList.add('selected');
             button.innerHTML = '<i class="fas fa-times"></i> Deselect';
-            button.classList.remove("btn-outline-primary");
-            button.classList.add("btn-primary");
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-primary');
         }
-
+        
         this.updateSelectionSummary();
         this.callbacks.onPlotSelect(this.selectedPlots);
     }
-
+    
     updateSelectionSummary() {
         const count = this.selectedPlots.length;
-        document.getElementById("selected-plot-count").textContent = count;
-
-        const proceedBtn = document.querySelector(".proceed-with-plots-btn");
+        document.getElementById('selected-plot-count').textContent = count;
+        
+        const proceedBtn = document.querySelector('.proceed-with-plots-btn');
         proceedBtn.disabled = count === 0;
-
-        const summary = document.getElementById("selection-summary");
+        
+        const summary = document.getElementById('selection-summary');
         if (count > 0) {
-            summary.style.display = "block";
-
+            summary.style.display = 'block';
+            
             const total = this.selectedPlots.reduce((sum, plot) => sum + plot.price, 0);
-            document.getElementById("total-price").textContent =
-                `€${total.toLocaleString()}`;
-
-            const listHTML = this.selectedPlots
-                .map((plot) => {
-                    const plotCard = plot.card;
-                    const name = plotCard.querySelector("h6").textContent;
-                    return `
+            document.getElementById('total-price').textContent = `€${total.toLocaleString()}`;
+            
+            const listHTML = this.selectedPlots.map(plot => {
+                const plotCard = plot.card;
+                const name = plotCard.querySelector('h6').textContent;
+                return `
                     <div class="selected-plot-item">
                         <span>${name}</span>
                         <span>€${plot.price.toLocaleString()}</span>
                     </div>
                 `;
-                })
-                .join("");
-
-            document.getElementById("selected-plots-list").innerHTML = listHTML;
+            }).join('');
+            
+            document.getElementById('selected-plots-list').innerHTML = listHTML;
         } else {
-            summary.style.display = "none";
+            summary.style.display = 'none';
         }
     }
-
+    
     proceedWithSelectedPlots() {
         if (this.selectedPlots.length === 0) return;
-
+        
         // Store selection data
         const selectionData = {
             producer: this.selectedProducer,
             plots: this.selectedPlots,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString()
         };
-
-        sessionStorage.setItem("wine_selection", JSON.stringify(selectionData));
-
+        
+        sessionStorage.setItem('wine_selection', JSON.stringify(selectionData));
+        
         // Trigger completion callback
         this.callbacks.onSelectionComplete(selectionData);
-
+        
         // Close modal and proceed to adoption plans
-        const modal = bootstrap.Modal.getInstance(
-            document.getElementById("producerDetailsModal"),
-        );
+        const modal = bootstrap.Modal.getInstance(document.getElementById('producerDetailsModal'));
         modal.hide();
-
+        
         // Show success message
         this.showSuccessMessage();
-
+        
         // Redirect to the basic plot selector which shows adoption plans
         setTimeout(() => {
             // Store the selected producer and plots for the next page
             const selectionData = {
                 producer: this.selectedProducer,
                 plots: this.selectedPlots,
-                timestamp: new Date().toISOString(),
+                timestamp: new Date().toISOString()
             };
-            sessionStorage.setItem(
-                "selected_producer_plots",
-                JSON.stringify(selectionData),
-            );
-
+            sessionStorage.setItem('selected_producer_plots', JSON.stringify(selectionData));
+            
             // Redirect to the existing plot selector page which shows adoption plans
-            window.location.href = "/en/vinsdelux/journey/plot-selection/";
+            window.location.href = '/en/vinsdelux/journey/plot-selection/';
         }, 2000);
     }
-
+    
     showSuccessMessage() {
-        const message = document.createElement("div");
-        message.className = "selection-success-message";
+        const message = document.createElement('div');
+        message.className = 'selection-success-message';
         message.innerHTML = `
             <div class="success-content">
                 <i class="fas fa-check-circle"></i>
@@ -441,7 +414,7 @@ class ProducerPlotSelector {
                 <p>Proceeding to adoption plans...</p>
             </div>
         `;
-
+        
         message.style.cssText = `
             position: fixed;
             top: 50%;
@@ -454,7 +427,7 @@ class ProducerPlotSelector {
             z-index: 10000;
             text-align: center;
         `;
-
+        
         document.body.appendChild(message);
     }
 }
@@ -463,18 +436,18 @@ class ProducerPlotSelector {
 window.ProducerPlotSelector = ProducerPlotSelector;
 
 // Auto-initialize when DOM is ready
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener('DOMContentLoaded', function() {
     window.producerPlotSelector = new ProducerPlotSelector({
         maxPlots: 3,
         onProducerSelect: (producer) => {
-            console.log("Producer selected:", producer);
+            console.log('Producer selected:', producer);
         },
         onPlotSelect: (plots) => {
-            console.log("Plots selected:", plots);
+            console.log('Plots selected:', plots);
         },
         onSelectionComplete: (data) => {
-            console.log("Selection complete:", data);
-        },
+            console.log('Selection complete:', data);
+        }
     });
 });
 
@@ -639,4 +612,4 @@ const selectorStyles = `
 </style>
 `;
 
-document.head.insertAdjacentHTML("beforeend", selectorStyles);
+document.head.insertAdjacentHTML('beforeend', selectorStyles);

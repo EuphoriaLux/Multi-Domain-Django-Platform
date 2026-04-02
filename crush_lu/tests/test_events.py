@@ -9,10 +9,10 @@ Comprehensive tests for event functionality including:
 
 Run with: pytest crush_lu/tests/test_events.py -v
 """
-
 from datetime import date, timedelta
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.utils import timezone
 
 User = get_user_model()
@@ -28,63 +28,64 @@ class EventRegistrationTests(TestCase):
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username="testuser@example.com",
-            email="testuser@example.com",
-            password="testpass123",
-            first_name="Test",
-            last_name="User",
+            username='testuser@example.com',
+            email='testuser@example.com',
+            password='testpass123',
+            first_name='Test',
+            last_name='User'
         )
 
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender="M",
-            location="Luxembourg",
+            gender='M',
+            location='Luxembourg',
             is_approved=True,
-            is_active=True,
+            is_active=True
         )
 
         self.event = MeetupEvent.objects.create(
-            title="Test Speed Dating",
-            description="A test event",
-            event_type="speed_dating",
+            title='Test Speed Dating',
+            description='A test event',
+            event_type='speed_dating',
             date_time=timezone.now() + timedelta(days=7),
-            location="Luxembourg City",
-            address="123 Test Street",
+            location='Luxembourg City',
+            address='123 Test Street',
             max_participants=20,
             min_age=18,
             max_age=35,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True,
+            is_published=True
         )
 
     def test_registration_within_deadline(self):
         """Test user can register before deadline."""
         from crush_lu.models import EventRegistration
 
-        self.client.login(username="testuser@example.com", password="testpass123")
+        self.client.login(username='testuser@example.com', password='testpass123')
 
         registration = EventRegistration.objects.create(
-            event=self.event, user=self.user
+            event=self.event,
+            user=self.user
         )
 
         self.assertIsNotNone(registration)
-        self.assertEqual(registration.status, "pending")
+        self.assertEqual(registration.status, 'pending')
 
     def test_registration_after_deadline_not_open(self):
         """Test registration is not open after deadline."""
         from crush_lu.models import MeetupEvent
 
         past_deadline_event = MeetupEvent.objects.create(
-            title="Past Deadline Event",
-            description="Event with past deadline",
-            event_type="mixer",
+            title='Past Deadline Event',
+            description='Event with past deadline',
+            event_type='mixer',
             date_time=timezone.now() + timedelta(days=7),
-            location="Luxembourg",
-            address="123 Test Street",
+            location='Luxembourg',
+            address='123 Test Street',
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=1),  # Past deadline
-            is_published=True,
+            is_published=True
         )
 
         self.assertFalse(past_deadline_event.is_registration_open)
@@ -99,14 +100,16 @@ class EventRegistrationTests(TestCase):
 
         # Register first user
         EventRegistration.objects.create(
-            event=self.event, user=self.user, status="confirmed"
+            event=self.event,
+            user=self.user,
+            status='confirmed'
         )
 
         # Create second user
         user2 = User.objects.create_user(
-            username="user2@example.com",
-            email="user2@example.com",
-            password="testpass123",
+            username='user2@example.com',
+            email='user2@example.com',
+            password='testpass123'
         )
 
         # Second registration should recognize event is full
@@ -122,22 +125,26 @@ class EventRegistrationTests(TestCase):
 
         # Register first user as confirmed
         reg1 = EventRegistration.objects.create(
-            event=self.event, user=self.user, status="confirmed"
+            event=self.event,
+            user=self.user,
+            status='confirmed'
         )
 
         # Create and register second user on waitlist
         user2 = User.objects.create_user(
-            username="user2@example.com",
-            email="user2@example.com",
-            password="testpass123",
+            username='user2@example.com',
+            email='user2@example.com',
+            password='testpass123'
         )
 
         reg2 = EventRegistration.objects.create(
-            event=self.event, user=user2, status="waitlist"
+            event=self.event,
+            user=user2,
+            status='waitlist'
         )
 
         # Cancel first registration
-        reg1.status = "cancelled"
+        reg1.status = 'cancelled'
         reg1.save()
 
         # Event should no longer be full
@@ -153,15 +160,15 @@ class EventCapacityTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title="Capacity Test Event",
-            description="Testing capacity",
-            event_type="mixer",
+            title='Capacity Test Event',
+            description='Testing capacity',
+            event_type='mixer',
             date_time=timezone.now() + timedelta(days=7),
-            location="Luxembourg",
-            address="123 Test Street",
+            location='Luxembourg',
+            address='123 Test Street',
             max_participants=5,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True,
+            is_published=True
         )
 
     def test_spots_remaining_decreases(self):
@@ -171,13 +178,15 @@ class EventCapacityTests(TestCase):
         initial_spots = self.event.spots_remaining
 
         user = User.objects.create_user(
-            username="test@example.com",
-            email="test@example.com",
-            password="testpass123",
+            username='test@example.com',
+            email='test@example.com',
+            password='testpass123'
         )
 
         EventRegistration.objects.create(
-            event=self.event, user=user, status="confirmed"
+            event=self.event,
+            user=user,
+            status='confirmed'
         )
 
         self.assertEqual(self.event.spots_remaining, initial_spots - 1)
@@ -189,12 +198,14 @@ class EventCapacityTests(TestCase):
         # Create multiple users and registrations
         for i in range(3):
             user = User.objects.create_user(
-                username=f"user{i}@example.com",
-                email=f"user{i}@example.com",
-                password="testpass123",
+                username=f'user{i}@example.com',
+                email=f'user{i}@example.com',
+                password='testpass123'
             )
             EventRegistration.objects.create(
-                event=self.event, user=user, status="confirmed"
+                event=self.event,
+                user=user,
+                status='confirmed'
             )
 
         self.assertEqual(self.event.get_confirmed_count(), 3)
@@ -206,12 +217,14 @@ class EventCapacityTests(TestCase):
         # Create waitlist registrations
         for i in range(2):
             user = User.objects.create_user(
-                username=f"waitlist{i}@example.com",
-                email=f"waitlist{i}@example.com",
-                password="testpass123",
+                username=f'waitlist{i}@example.com',
+                email=f'waitlist{i}@example.com',
+                password='testpass123'
             )
             EventRegistration.objects.create(
-                event=self.event, user=user, status="waitlist"
+                event=self.event,
+                user=user,
+                status='waitlist'
             )
 
         self.assertEqual(self.event.get_waitlist_count(), 2)
@@ -223,44 +236,43 @@ class EventVotingTests(TestCase):
     def setUp(self):
         """Set up test data."""
         from crush_lu.models import (
-            MeetupEvent,
-            EventVotingSession,
-            GlobalActivityOption,
-            EventRegistration,
-            CrushProfile,
+            MeetupEvent, EventVotingSession, EventActivityOption,
+            GlobalActivityOption, EventRegistration, CrushProfile
         )
 
         self.user = User.objects.create_user(
-            username="voter@example.com",
-            email="voter@example.com",
-            password="testpass123",
-            first_name="Voter",
-            last_name="User",
+            username='voter@example.com',
+            email='voter@example.com',
+            password='testpass123',
+            first_name='Voter',
+            last_name='User'
         )
 
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender="M",
-            location="Luxembourg",
-            is_approved=True,
+            gender='M',
+            location='Luxembourg',
+            is_approved=True
         )
 
         self.event = MeetupEvent.objects.create(
-            title="Voting Test Event",
-            description="Testing voting",
-            event_type="speed_dating",
+            title='Voting Test Event',
+            description='Testing voting',
+            event_type='speed_dating',
             date_time=timezone.now() + timedelta(hours=1),  # Starts soon
-            location="Luxembourg",
-            address="123 Test Street",
+            location='Luxembourg',
+            address='123 Test Street',
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=1),  # Closed
-            is_published=True,
+            is_published=True
         )
 
         # Register user for event
         EventRegistration.objects.create(
-            event=self.event, user=self.user, status="confirmed"
+            event=self.event,
+            user=self.user,
+            status='confirmed'
         )
 
         # Create voting session
@@ -268,27 +280,26 @@ class EventVotingTests(TestCase):
             event=self.event,
             is_active=True,
             voting_start_time=timezone.now() - timedelta(minutes=5),  # Started
-            voting_end_time=timezone.now()
-            + timedelta(minutes=25),  # Open for 25 more mins
+            voting_end_time=timezone.now() + timedelta(minutes=25)  # Open for 25 more mins
         )
 
         # Create GlobalActivityOption instances (used for voting)
         self.option1, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant="spicy_questions",
+            activity_variant='spicy_questions',
             defaults={
-                "activity_type": "speed_dating_twist",
-                "display_name": "Spicy Questions First",
-                "description": "Break the ice with bold, fun questions right away",
-            },
+                'activity_type': 'speed_dating_twist',
+                'display_name': 'Spicy Questions First',
+                'description': 'Break the ice with bold, fun questions right away',
+            }
         )
 
         self.option2, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant="music",
+            activity_variant='music',
             defaults={
-                "activity_type": "presentation_style",
-                "display_name": "With Favorite Music",
-                "description": "Introduce yourself while your favorite song plays",
-            },
+                'activity_type': 'presentation_style',
+                'display_name': 'With Favorite Music',
+                'description': 'Introduce yourself while your favorite song plays',
+            }
         )
 
     def test_vote_submission(self):
@@ -296,7 +307,9 @@ class EventVotingTests(TestCase):
         from crush_lu.models import EventActivityVote
 
         vote = EventActivityVote.objects.create(
-            event=self.event, user=self.user, selected_option=self.option1
+            event=self.event,
+            user=self.user,
+            selected_option=self.option1
         )
 
         self.assertIsNotNone(vote)
@@ -308,12 +321,15 @@ class EventVotingTests(TestCase):
 
         # Create a vote
         EventActivityVote.objects.create(
-            event=self.event, user=self.user, selected_option=self.option1
+            event=self.event,
+            user=self.user,
+            selected_option=self.option1
         )
 
         # Count votes for this event and option
         vote_count = EventActivityVote.objects.filter(
-            event=self.event, selected_option=self.option1
+            event=self.event,
+            selected_option=self.option1
         ).count()
 
         self.assertEqual(vote_count, 1)
@@ -328,22 +344,22 @@ class EventVotingTests(TestCase):
 
         # Create a different event for this test to avoid unique constraint violation
         another_event = MeetupEvent.objects.create(
-            title="Another Event",
-            description="Testing closed session",
-            event_type="mixer",
+            title='Another Event',
+            description='Testing closed session',
+            event_type='mixer',
             date_time=timezone.now() + timedelta(hours=1),
-            location="Luxembourg",
-            address="456 Test Street",
+            location='Luxembourg',
+            address='456 Test Street',
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=1),
-            is_published=True,
+            is_published=True
         )
 
         closed_session = EventVotingSession.objects.create(
             event=another_event,
             is_active=True,
             voting_start_time=timezone.now() - timedelta(hours=2),
-            voting_end_time=timezone.now() - timedelta(hours=1),  # Ended
+            voting_end_time=timezone.now() - timedelta(hours=1)  # Ended
         )
 
         self.assertFalse(closed_session.is_voting_open)
@@ -355,12 +371,14 @@ class EventVotingTests(TestCase):
         # Create multiple votes
         for i in range(3):
             user = User.objects.create_user(
-                username=f"voter{i}@example.com",
-                email=f"voter{i}@example.com",
-                password="testpass123",
+                username=f'voter{i}@example.com',
+                email=f'voter{i}@example.com',
+                password='testpass123'
             )
             EventActivityVote.objects.create(
-                event=self.event, user=user, selected_option=self.option1
+                event=self.event,
+                user=user,
+                selected_option=self.option1
             )
 
         # Update total votes on session
@@ -369,7 +387,8 @@ class EventVotingTests(TestCase):
 
         # Count votes for this option
         vote_count = EventActivityVote.objects.filter(
-            event=self.event, selected_option=self.option1
+            event=self.event,
+            selected_option=self.option1
         ).count()
 
         # Calculate percentage
@@ -385,17 +404,17 @@ class EventAgeRestrictionTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title="Age Restricted Event",
-            description="For 25-35 only",
-            event_type="mixer",
+            title='Age Restricted Event',
+            description='For 25-35 only',
+            event_type='mixer',
             date_time=timezone.now() + timedelta(days=7),
-            location="Luxembourg",
-            address="123 Test Street",
+            location='Luxembourg',
+            address='123 Test Street',
             max_participants=20,
             min_age=25,
             max_age=35,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True,
+            is_published=True
         )
 
     def test_user_within_age_range(self):
@@ -405,17 +424,17 @@ class EventAgeRestrictionTests(TestCase):
         # User is 28 (within 25-35)
         today = date.today()
         user = User.objects.create_user(
-            username="test28@example.com",
-            email="test28@example.com",
-            password="testpass123",
+            username='test28@example.com',
+            email='test28@example.com',
+            password='testpass123'
         )
 
         profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(today.year - 28, 1, 1),
-            gender="M",
-            location="Luxembourg",
-            is_approved=True,
+            gender='M',
+            location='Luxembourg',
+            is_approved=True
         )
 
         # Age should be within range
@@ -429,17 +448,17 @@ class EventAgeRestrictionTests(TestCase):
         # User is 22 (below 25)
         today = date.today()
         user = User.objects.create_user(
-            username="test22@example.com",
-            email="test22@example.com",
-            password="testpass123",
+            username='test22@example.com',
+            email='test22@example.com',
+            password='testpass123'
         )
 
         profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(today.year - 22, 1, 1),
-            gender="M",
-            location="Luxembourg",
-            is_approved=True,
+            gender='M',
+            location='Luxembourg',
+            is_approved=True
         )
 
         # Age should be below minimum
@@ -454,50 +473,52 @@ class EventCancellationTests(TestCase):
         from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
 
         self.user = User.objects.create_user(
-            username="cancel@example.com",
-            email="cancel@example.com",
-            password="testpass123",
-            first_name="Cancel",
-            last_name="Test",
+            username='cancel@example.com',
+            email='cancel@example.com',
+            password='testpass123',
+            first_name='Cancel',
+            last_name='Test'
         )
 
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender="M",
-            location="Luxembourg",
-            is_approved=True,
+            gender='M',
+            location='Luxembourg',
+            is_approved=True
         )
 
         self.event = MeetupEvent.objects.create(
-            title="Cancellation Test Event",
-            description="Testing cancellation",
-            event_type="mixer",
+            title='Cancellation Test Event',
+            description='Testing cancellation',
+            event_type='mixer',
             date_time=timezone.now() + timedelta(days=7),
-            location="Luxembourg",
-            address="123 Test Street",
+            location='Luxembourg',
+            address='123 Test Street',
             max_participants=20,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True,
+            is_published=True
         )
 
         self.registration = EventRegistration.objects.create(
-            event=self.event, user=self.user, status="confirmed"
+            event=self.event,
+            user=self.user,
+            status='confirmed'
         )
 
     def test_user_can_cancel_registration(self):
         """Test user can cancel their registration."""
-        self.registration.status = "cancelled"
+        self.registration.status = 'cancelled'
         self.registration.save()
 
         self.registration.refresh_from_db()
-        self.assertEqual(self.registration.status, "cancelled")
+        self.assertEqual(self.registration.status, 'cancelled')
 
     def test_cancelled_registration_frees_spot(self):
         """Test cancelling registration frees up a spot."""
         initial_confirmed = self.event.get_confirmed_count()
 
-        self.registration.status = "cancelled"
+        self.registration.status = 'cancelled'
         self.registration.save()
 
         self.assertEqual(self.event.get_confirmed_count(), initial_confirmed - 1)

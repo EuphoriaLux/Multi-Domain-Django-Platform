@@ -1,41 +1,33 @@
-{% extends 'crush_lu/base.html' %} {% load static %} {% load i18n %} {% load crush_media
-%} {% block title %}{% trans "Presentation Control" %} - {{ event.title }} - Crush.lu{%
-endblock %} {% block extra_css %} {# Styles moved to
-static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block content %}
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+{% load crush_media %}
+
+{% block title %}{% trans "Presentation Control" %} - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block extra_css %}
+{# Styles moved to static/crush_lu/css/pages/coach-presentation.css #}
+{% endblock %}
+
+{% block content %}
 <div class="flex justify-center">
-    <div class="control-panel w-full max-w-6xl px-4">
-        <a
-            href="{% url 'crush_lu:event_detail' event.id %}"
-            class="mb-4 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-        >
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans
-            "Back to Event" %}
+    <div class="w-full max-w-6xl px-4 control-panel">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Event" %}
         </a>
 
-        <div
-            class="rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
             <div class="p-8">
-                <div class="mb-4 text-center">
-                    <h1 class="display-5 dark:text-white">
-                        🎬 {% trans "Coach Control Panel" %}
-                    </h1>
-                    <p class="text-lg text-gray-500 dark:text-gray-400">
-                        {% blocktrans with title=event.title %}{{ title }} -
-                        Presentation Round{% endblocktrans %}
-                    </p>
+                <div class="text-center mb-4">
+                    <h1 class="display-5 dark:text-white">🎬 {% trans "Coach Control Panel" %}</h1>
+                    <p class="text-lg text-gray-500 dark:text-gray-400">{% blocktrans with title=event.title %}{{ title }} - Presentation Round{% endblocktrans %}</p>
                 </div>
 
                 <!-- Progress Bar (only show when queue exists) -->
                 {% if total_presentations > 0 %}
                 <div class="progress-bar-container">
-                    <div
-                        class="progress-bar"
-                        style="width: {% widthratio completed_presentations total_presentations 100 %}%;"
-                    >
-                        {% blocktrans with completed=completed_presentations
-                        total=total_presentations %}{{ completed }} / {{ total }}
-                        Completed{% endblocktrans %}
+                    <div class="progress-bar" style="width: {% widthratio completed_presentations total_presentations 100 %}%;">
+                        {% blocktrans with completed=completed_presentations total=total_presentations %}{{ completed }} / {{ total }} Completed{% endblocktrans %}
                     </div>
                 </div>
                 {% endif %}
@@ -43,39 +35,27 @@ static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block cont
                 <!-- Winning Style -->
                 {% if winning_style %}
                 <div class="style-banner">
-                    <h4 class="mb-0">
-                        📋 {% blocktrans with style=winning_style.display_name
-                        %}Presentation Style: <strong>{{ style }}</strong>{%
-                        endblocktrans %}
-                    </h4>
+                    <h4 class="mb-0">📋 {% blocktrans with style=winning_style.display_name %}Presentation Style: <strong>{{ style }}</strong>{% endblocktrans %}</h4>
                     <small>{{ winning_style.description }}</small>
                 </div>
                 {% endif %}
 
                 <!-- Current Presenter -->
-                {% if current_presentation %} {% with
-                profile=current_presentation.user.crushprofile %}
+                {% if current_presentation %}
+                {% with profile=current_presentation.user.crushprofile %}
                 <div class="current-presenter-card">
-                    <h3 class="mb-2 text-gray-500 dark:text-gray-400">
-                        {% trans "Currently Presenting:" %}
-                    </h3>
+                    <h3 class="text-gray-500 dark:text-gray-400 mb-2">{% trans "Currently Presenting:" %}</h3>
 
                     <!-- Presenter Profile -->
-                    <div class="mb-4 flex flex-col items-center">
+                    <div class="flex flex-col items-center mb-4">
                         <!-- Photo -->
                         {% if profile|has_photo:'photo_1' %}
-                        <img
-                            src="{% profile_photo_url profile 'photo_1' %}"
-                            alt="{{ profile.display_name }}"
-                            class="ring-crush-purple mb-3 h-24 w-24 rounded-full object-cover shadow-lg ring-4 dark:ring-purple-500"
-                        />
+                        <img src="{% profile_photo_url profile 'photo_1' %}"
+                             alt="{{ profile.display_name }}"
+                             class="w-24 h-24 rounded-full object-cover ring-4 ring-crush-purple dark:ring-purple-500 shadow-lg mb-3">
                         {% else %}
-                        <div
-                            class="from-crush-purple to-crush-pink ring-crush-purple mb-3 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br shadow-lg ring-4 dark:ring-purple-500"
-                        >
-                            <span class="text-3xl font-bold text-white"
-                                >{{ profile.display_name|first }}</span
-                            >
+                        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center ring-4 ring-crush-purple dark:ring-purple-500 shadow-lg mb-3">
+                            <span class="text-white text-3xl font-bold">{{ profile.display_name|first }}</span>
                         </div>
                         {% endif %}
 
@@ -85,80 +65,54 @@ static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block cont
                         </div>
 
                         <!-- Age & Gender -->
-                        <div
-                            class="mt-1 flex items-center gap-2 text-gray-500 dark:text-gray-400"
-                        >
+                        <div class="flex items-center gap-2 mt-1 text-gray-500 dark:text-gray-400">
                             {% if profile.gender == 'F' %}
-                            <span class="text-pink-500" title="{% trans 'Female' %}"
-                                >&#9792;</span
-                            >
+                                <span class="text-pink-500" title="{% trans 'Female' %}">&#9792;</span>
                             {% elif profile.gender == 'M' %}
-                            <span class="text-blue-500" title="{% trans 'Male' %}"
-                                >&#9794;</span
-                            >
+                                <span class="text-blue-500" title="{% trans 'Male' %}">&#9794;</span>
                             {% elif profile.gender %}
-                            <span
-                                class="text-purple-500"
-                                title="{{ profile.get_gender_display }}"
-                                >&#9898;</span
-                            >
-                            {% endif %} {% if profile.show_exact_age and profile.age %}
-                            <span>{{ profile.age }} {% trans "years" %}</span>
+                                <span class="text-purple-500" title="{{ profile.get_gender_display }}">&#9898;</span>
+                            {% endif %}
+                            {% if profile.show_exact_age and profile.age %}
+                                <span>{{ profile.age }} {% trans "years" %}</span>
                             {% elif profile.age_range %}
-                            <span>{{ profile.age_range }}</span>
+                                <span>{{ profile.age_range }}</span>
                             {% endif %}
                         </div>
                     </div>
 
                     <!-- Bio -->
                     {% if profile.bio %}
-                    <div
-                        class="mx-auto mb-4 max-w-lg rounded-lg bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
-                    >
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 text-sm text-gray-700 dark:text-gray-300 max-w-lg mx-auto">
                         <p class="mb-0 italic">"{{ profile.bio|truncatewords:50 }}"</p>
                     </div>
                     {% endif %}
 
-                    <p class="text-gray-500 dark:text-gray-400">
-                        {% blocktrans with order=current_presentation.presentation_order
-                        total=total_presentations %}Presentation #{{ order }} of {{
-                        total }}{% endblocktrans %}
-                    </p>
+                    <p class="text-gray-500 dark:text-gray-400">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
 
                     <button class="btn advance-btn mt-4" id="advance-btn">
                         {% trans "Next Presenter →" %}
                     </button>
                 </div>
-                {% endwith %} {% else %}
+                {% endwith %}
+                {% else %}
                 <div class="current-presenter-card">
                     {% if next_presentation %}
-                    <h3 class="mb-3 text-gray-500 dark:text-gray-400">
-                        {% trans "Ready to Start Presentations" %}
-                    </h3>
+                    <h3 class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Ready to Start Presentations" %}</h3>
                     {% with p=next_presentation.user.crushprofile %}
-                    <div class="mb-4 flex items-center justify-center gap-3">
+                    <div class="flex items-center justify-center gap-3 mb-4">
                         {% if p|has_photo:'photo_1' %}
-                        <img
-                            src="{% profile_photo_url p 'photo_1' %}"
-                            alt="{{ p.display_name }}"
-                            class="ring-crush-purple h-14 w-14 rounded-full object-cover ring-2 dark:ring-purple-500"
-                        />
+                        <img src="{% profile_photo_url p 'photo_1' %}"
+                             alt="{{ p.display_name }}"
+                             class="w-14 h-14 rounded-full object-cover ring-2 ring-crush-purple dark:ring-purple-500">
                         {% else %}
-                        <div
-                            class="from-crush-purple to-crush-pink ring-crush-purple flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ring-2 dark:ring-purple-500"
-                        >
-                            <span class="text-xl font-bold text-white"
-                                >{{ p.display_name|first }}</span
-                            >
+                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center ring-2 ring-crush-purple dark:ring-purple-500">
+                            <span class="text-white text-xl font-bold">{{ p.display_name|first }}</span>
                         </div>
                         {% endif %}
                         <div class="text-left">
-                            <p class="mb-0 font-semibold dark:text-white">
-                                {{ p.display_name }}
-                            </p>
-                            <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
-                                {% trans "First up" %}
-                            </p>
+                            <p class="font-semibold dark:text-white mb-0">{{ p.display_name }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "First up" %}</p>
                         </div>
                     </div>
                     {% endwith %}
@@ -166,41 +120,20 @@ static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block cont
                         {% trans "Start Presentations →" %}
                     </button>
                     {% elif voting_session.is_voting_open %}
-                    <h3 class="text-blue-600 dark:text-blue-400">
-                        🗳️ {% trans "Voting Still in Progress" %}
-                    </h3>
-                    <p class="text-gray-500 dark:text-gray-400">
-                        {% trans "The presentation queue will be created once voting
-                        ends. Waiting for Phase 1 to complete..." %}
-                    </p>
-                    <a
-                        href="{% url 'crush_lu:event_voting_results' event.id %}"
-                        class="mt-3 inline-flex items-center gap-2 rounded-lg border border-blue-500 px-4 py-2 font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                    >
+                    <h3 class="text-blue-600 dark:text-blue-400">🗳️ {% trans "Voting Still in Progress" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "The presentation queue will be created once voting ends. Waiting for Phase 1 to complete..." %}</p>
+                    <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mt-3 border border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 font-medium rounded-lg transition-colors">
                         {% trans "View Voting Progress" %}
                     </a>
                     {% elif total_presentations == 0 %}
-                    <h3 class="text-yellow-600 dark:text-yellow-400">
-                        ⏳ {% trans "Waiting for Queue Initialization" %}
-                    </h3>
-                    <p class="text-gray-500 dark:text-gray-400">
-                        {% trans "Voting has ended but the presentation queue has not
-                        been created yet. Visit the voting results page to trigger queue
-                        creation." %}
-                    </p>
-                    <a
-                        href="{% url 'crush_lu:event_voting_results' event.id %}"
-                        class="mt-3 inline-flex items-center gap-2 rounded-lg border border-yellow-500 px-4 py-2 font-medium text-yellow-600 transition-colors hover:bg-yellow-50 dark:border-yellow-600 dark:text-yellow-400 dark:hover:bg-yellow-900/30"
-                    >
+                    <h3 class="text-yellow-600 dark:text-yellow-400">⏳ {% trans "Waiting for Queue Initialization" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Voting has ended but the presentation queue has not been created yet. Visit the voting results page to trigger queue creation." %}</p>
+                    <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center gap-2 px-4 py-2 mt-3 border border-yellow-500 dark:border-yellow-600 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 font-medium rounded-lg transition-colors">
                         {% trans "Go to Voting Results" %}
                     </a>
                     {% else %}
-                    <h3 class="text-green-600 dark:text-green-400">
-                        🎉 {% trans "All Presentations Completed!" %}
-                    </h3>
-                    <p class="text-gray-500 dark:text-gray-400">
-                        {% trans "Ready to move to Phase 3: Speed Dating" %}
-                    </p>
+                    <h3 class="text-green-600 dark:text-green-400">🎉 {% trans "All Presentations Completed!" %}</h3>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Ready to move to Phase 3: Speed Dating" %}</p>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -209,39 +142,32 @@ static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block cont
                 {% if presentations %}
                 <div class="mt-8">
                     <div class="w-full">
-                        <h3 class="mb-3 dark:text-white">
-                            {% trans "Presentation Queue" %}
-                        </h3>
+                        <h3 class="mb-3 dark:text-white">{% trans "Presentation Queue" %}</h3>
                         <ul class="queue-list">
                             {% for presentation in presentations %}
                             <li class="queue-item {{ presentation.status }}">
-                                <span class="queue-number"
-                                    >#{{ presentation.presentation_order }}</span
-                                >
-                                {% with p=presentation.user.crushprofile %} {% if
-                                p|has_photo:'photo_1' %}
-                                <img
-                                    src="{% profile_photo_url p 'photo_1' %}"
-                                    alt="{{ p.display_name }}"
-                                    class="h-8 w-8 flex-shrink-0 rounded-full object-cover"
-                                    loading="lazy"
-                                />
+                                <span class="queue-number">#{{ presentation.presentation_order }}</span>
+                                {% with p=presentation.user.crushprofile %}
+                                {% if p|has_photo:'photo_1' %}
+                                <img src="{% profile_photo_url p 'photo_1' %}"
+                                     alt="{{ p.display_name }}"
+                                     class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                                     loading="lazy">
                                 {% else %}
-                                <div
-                                    class="from-crush-purple to-crush-pink flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br"
-                                >
-                                    <span class="text-xs font-semibold text-white"
-                                        >{{ p.display_name|first }}</span
-                                    >
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center flex-shrink-0">
+                                    <span class="text-white text-xs font-semibold">{{ p.display_name|first }}</span>
                                 </div>
                                 {% endif %}
                                 <span class="queue-name">{{ p.display_name }}</span>
                                 {% endwith %}
                                 <span class="status-badge {{ presentation.status }}">
-                                    {% if presentation.status == 'presenting' %} 🔴 {%
-                                    trans "PRESENTING" %} {% elif presentation.status ==
-                                    'completed' %} ✓ {% trans "DONE" %} {% else %} {%
-                                    trans "Waiting" %} {% endif %}
+                                    {% if presentation.status == 'presenting' %}
+                                        🔴 {% trans "PRESENTING" %}
+                                    {% elif presentation.status == 'completed' %}
+                                        ✓ {% trans "DONE" %}
+                                    {% else %}
+                                        {% trans "Waiting" %}
+                                    {% endif %}
                                 </span>
                             </li>
                             {% endfor %}
@@ -253,89 +179,86 @@ static/crush_lu/css/pages/coach-presentation.css #} {% endblock %} {% block cont
         </div>
     </div>
 </div>
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script nonce="{{ csp_nonce }}">
-    // Pass CSRF token to JavaScript
-    const csrfToken = '{{ csrf_token }}';
-    // Store current presenter info for change detection
-    let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
-    let lastCompletedCount = {{ completed_presentations }};
+// Pass CSRF token to JavaScript
+const csrfToken = '{{ csrf_token }}';
+// Store current presenter info for change detection
+let currentPresenterId = {% if current_presentation %}{{ current_presentation.user.id }}{% else %}null{% endif %};
+let lastCompletedCount = {{ completed_presentations }};
 </script>
 <script nonce="{{ csp_nonce }}">
-    document.addEventListener("DOMContentLoaded", () => {
-        // Poll for updates every 5 seconds (coach panel updates less frequently)
-        const pollInterval = setInterval(async () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // Poll for updates every 5 seconds (coach panel updates less frequently)
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('{% url "get_current_presenter_api" event.id %}');
+            const data = await response.json();
+
+            // Check if presenter changed or completion count changed
+            let shouldReload = false;
+
+            if (data.has_presenter && currentPresenterId !== data.presenter_id) {
+                console.log('Presenter changed, reloading...');
+                shouldReload = true;
+            } else if (!data.has_presenter && currentPresenterId !== null) {
+                console.log('Presenter ended, reloading...');
+                shouldReload = true;
+            } else if (data.completed_count !== lastCompletedCount) {
+                console.log('Completion count changed, reloading...');
+                shouldReload = true;
+            }
+
+            if (shouldReload) {
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Error polling presenter status:', error);
+        }
+    }, 5000); // Poll every 5 seconds
+
+    const advanceBtn = document.getElementById('advance-btn');
+
+    if (advanceBtn) {
+        advanceBtn.addEventListener('click', async () => {
+            if (!confirm('Advance to the next presenter?')) {
+                return;
+            }
+
+            advanceBtn.disabled = true;
+            advanceBtn.textContent = 'Advancing...';
+
             try {
-                const response = await fetch(
-                    '{% url "get_current_presenter_api" event.id %}',
-                );
+                const response = await fetch('{% url "crush_lu:coach_advance_presentation" event.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
                 const data = await response.json();
 
-                // Check if presenter changed or completion count changed
-                let shouldReload = false;
-
-                if (data.has_presenter && currentPresenterId !== data.presenter_id) {
-                    console.log("Presenter changed, reloading...");
-                    shouldReload = true;
-                } else if (!data.has_presenter && currentPresenterId !== null) {
-                    console.log("Presenter ended, reloading...");
-                    shouldReload = true;
-                } else if (data.completed_count !== lastCompletedCount) {
-                    console.log("Completion count changed, reloading...");
-                    shouldReload = true;
-                }
-
-                if (shouldReload) {
+                if (data.success) {
+                    // Show success message
+                    alert(data.message);
+                    // Reload page to show next presenter
                     location.reload();
+                } else {
+                    alert(data.error || 'Failed to advance presentation');
+                    advanceBtn.disabled = false;
+                    advanceBtn.textContent = 'Next Presenter →';
                 }
             } catch (error) {
-                console.error("Error polling presenter status:", error);
+                console.error('Error advancing presentation:', error);
+                alert('Failed to advance presentation. Please try again.');
+                advanceBtn.disabled = false;
+                advanceBtn.textContent = 'Next Presenter →';
             }
-        }, 5000); // Poll every 5 seconds
-
-        const advanceBtn = document.getElementById("advance-btn");
-
-        if (advanceBtn) {
-            advanceBtn.addEventListener("click", async () => {
-                if (!confirm("Advance to the next presenter?")) {
-                    return;
-                }
-
-                advanceBtn.disabled = true;
-                advanceBtn.textContent = "Advancing...";
-
-                try {
-                    const response = await fetch(
-                        '{% url "crush_lu:coach_advance_presentation" event.id %}',
-                        {
-                            method: "POST",
-                            headers: {
-                                "X-CSRFToken": csrfToken,
-                                "Content-Type": "application/json",
-                            },
-                        },
-                    );
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        // Show success message
-                        alert(data.message);
-                        // Reload page to show next presenter
-                        location.reload();
-                    } else {
-                        alert(data.error || "Failed to advance presentation");
-                        advanceBtn.disabled = false;
-                        advanceBtn.textContent = "Next Presenter →";
-                    }
-                } catch (error) {
-                    console.error("Error advancing presentation:", error);
-                    alert("Failed to advance presentation. Please try again.");
-                    advanceBtn.disabled = false;
-                    advanceBtn.textContent = "Next Presenter →";
-                }
-            });
-        }
-    });
+        });
+    }
+});
 </script>
 {% endblock %}

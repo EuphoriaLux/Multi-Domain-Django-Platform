@@ -1,13 +1,17 @@
-{% extends "admin/base_site.html" %} {% load static math_filters i18n %} {% block title
-%}{% trans "Crush.lu Analytics Dashboard" %}{% endblock %} {% block content %}
+{% extends "admin/base_site.html" %}
+{% load static math_filters i18n %}
+
+{% block title %}{% trans "Crush.lu Analytics Dashboard" %}{% endblock %}
+
+{% block content %}
 <div class="dashboard-container" x-data="dashboardTabs">
-    <div class="dashboard-header">
+        <div class="dashboard-header">
         <h1>{% trans "Analytics Dashboard" %}</h1>
         <p>{% trans "Real-time insights and metrics for the Crush.lu platform" %}</p>
     </div>
 
-    {% if pending_actions.total_pending > 0 %}
-    <div class="action-center" style="margin-bottom: var(--spacing-lg)">
+        {% if pending_actions.total_pending > 0 %}
+    <div class="action-center" style="margin-bottom: var(--spacing-lg);">
         <div class="action-center-header">
             <h2 class="action-center-title">
                 <span>&#x26A1;</span> {% trans "Pending Actions" %}
@@ -15,40 +19,25 @@
         </div>
         <div class="action-center-grid">
             {% if pending_actions.urgent_reviews > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h"
-                class="action-item urgent"
-            >
-                <span class="action-item-count"
-                    >{{ pending_actions.urgent_reviews }}</span
-                >
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="action-item urgent">
+                <span class="action-item-count">{{ pending_actions.urgent_reviews }}</span>
                 <span class="action-item-label">{% trans "Urgent" %} (&gt;24h)</span>
             </a>
-            {% endif %} {% if pending_actions.awaiting_call > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call"
-                class="action-item warning"
-            >
-                <span class="action-item-count"
-                    >{{ pending_actions.awaiting_call }}</span
-                >
+            {% endif %}
+            {% if pending_actions.awaiting_call > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call" class="action-item warning">
+                <span class="action-item-count">{{ pending_actions.awaiting_call }}</span>
                 <span class="action-item-label">{% trans "Awaiting Call" %}</span>
             </a>
-            {% endif %} {% if pending_actions.ready_to_approve > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve"
-                class="action-item success"
-            >
-                <span class="action-item-count"
-                    >{{ pending_actions.ready_to_approve }}</span
-                >
+            {% endif %}
+            {% if pending_actions.ready_to_approve > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve" class="action-item success">
+                <span class="action-item-count">{{ pending_actions.ready_to_approve }}</span>
                 <span class="action-item-label">{% trans "Ready to Approve" %}</span>
             </a>
-            {% endif %} {% if pending_actions.unassigned > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending"
-                class="action-item"
-            >
+            {% endif %}
+            {% if pending_actions.unassigned > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending" class="action-item">
                 <span class="action-item-count">{{ pending_actions.unassigned }}</span>
                 <span class="action-item-label">{% trans "Unassigned" %}</span>
             </a>
@@ -57,7 +46,7 @@
     </div>
     {% endif %}
 
-    <div class="tab-nav">
+        <div class="tab-nav">
         <button class="tab-btn" :class="overviewTabClass" @click="setOverview">
             &#x1F4CA; {% trans "Overview" %}
         </button>
@@ -78,19 +67,9 @@
         </button>
     </div>
 
-    <div
-        class="date-filter-bar"
-        x-data="dateFilter"
-        x-show="isNotGrowth"
-        data-default-range="{{ date_range|default:'30d' }}"
-    >
+        <div class="date-filter-bar" x-data="dateFilter" x-show="isNotGrowth" data-default-range="{{ date_range|default:'30d' }}">
         <span class="date-filter-label">{% trans "Date Range:" %}</span>
-        <select
-            class="date-filter-select"
-            :value="selectedRange"
-            @change="onSelectChange"
-            x-ref="rangeSelect"
-        >
+        <select class="date-filter-select" :value="selectedRange" @change="onSelectChange" x-ref="rangeSelect">
             <option value="7d">{% trans "Last 7 Days" %}</option>
             <option value="30d">{% trans "Last 30 Days" %}</option>
             <option value="90d">{% trans "Last 90 Days" %}</option>
@@ -99,101 +78,49 @@
         <button class="date-filter-btn" @click="apply">{% trans "Apply" %}</button>
     </div>
 
-    <div class="tab-panel" :class="overviewTabClass" x-show="isOverview">
+        <div class="tab-panel" :class="overviewTabClass" x-show="isOverview">
         {# Key Metrics #}
         <div class="metric-grid">
-            <a
-                href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}"
-                class="metric-card purple"
-            >
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="metric-card purple">
                 <span class="metric-icon">&#x1F464;</span>
                 <div class="metric-label">{% trans "Total Profiles" %}</div>
                 <div class="metric-value">{{ total_profiles }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=active_profiles %}{{ count }} active{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=active_profiles %}{{ count }} active{% endblocktrans %}</div>
             </a>
-            <a
-                href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=1"
-                class="metric-card green"
-            >
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=1" class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Approved" %}</div>
                 <div class="metric-value">{{ approved_profiles }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{% endblocktrans %}</div>
             </a>
-            <a
-                href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}"
-                class="metric-card blue"
-            >
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
                 <div class="metric-label">{% trans "Upcoming Events" %}</div>
                 <div class="metric-value">{{ upcoming_events }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_events %}{{ count }} total{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_events %}{{ count }} total{% endblocktrans %}</div>
             </a>
-            <a
-                href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual"
-                class="metric-card pink"
-            >
+            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual" class="metric-card pink">
                 <span class="metric-icon">&#x1F495;</span>
                 <div class="metric-label">{% trans "Connections" %}</div>
                 <div class="metric-value">{{ mutual_connections }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=connection_rate %}{{ rate }}% match rate{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with rate=connection_rate %}{{ rate }}% match rate{% endblocktrans %}</div>
             </a>
         </div>
 
         {# Quick Actions #}
-        <div
-            style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: var(--spacing-sm);
-                margin-bottom: var(--spacing-lg);
-            "
-        >
-            <a
-                href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}"
-                class="btn btn-primary"
-                >&#x1F464; {% trans "All Profiles" %}</a
-            >
-            <a
-                href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending"
-                class="btn btn-primary"
-                >&#x1F4DD; {% blocktrans with count=pending_reviews %}Pending Reviews
-                ({{ count }}){% endblocktrans %}</a
-            >
-            <a
-                href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}"
-                class="btn btn-primary"
-                >&#x1F389; {% trans "Events" %}</a
-            >
-            <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary"
-                >&#x1F3AF; {% trans "User Segments" %}</a
-            >
-            <a href="{% url 'email_template_manager' %}" class="btn btn-secondary"
-                >&#x1F4E7; {% trans "Email Templates" %}</a
-            >
+        <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="btn btn-primary">&#x1F464; {% trans "All Profiles" %}</a>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="btn btn-primary">&#x1F4DD; {% blocktrans with count=pending_reviews %}Pending Reviews ({{ count }}){% endblocktrans %}</a>
+            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="btn btn-primary">&#x1F389; {% trans "Events" %}</a>
+            <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">&#x1F3AF; {% trans "User Segments" %}</a>
+            <a href="{% url 'email_template_manager' %}" class="btn btn-secondary">&#x1F4E7; {% trans "Email Templates" %}</a>
         </div>
 
-        {# Profile Completion Funnel (Simplified) #} {# Full funnel is shown in the
-        detailed section below #} {# Recent Activity (Combined) #}
-        <div
-            style="
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                gap: 20px;
-            "
-        >
+        {# Profile Completion Funnel (Simplified) #}
+        {# Full funnel is shown in the detailed section below #}
+
+        {# Recent Activity (Combined) #}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
             <div class="table-container">
                 <h3>{% trans "Recent Profile Submissions" %}</h3>
                 <table class="stats-table">
@@ -207,30 +134,13 @@
                     <tbody>
                         {% for submission in recent_submissions %}
                         <tr>
-                            <td>
-                                <a
-                                    href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}"
-                                    >{{
-                                    submission.profile.user.get_full_name|default:submission.profile.user.username
-                                    }}</a
-                                >
-                            </td>
-                            <td>
-                                <span class="badge badge-warning"
-                                    >{{ submission.get_status_display }}</span
-                                >
-                            </td>
-                            <td>
-                                {% blocktrans with
-                                time=submission.submitted_at|timesince %}{{ time }}
-                                ago{% endblocktrans %}
-                            </td>
+                            <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
+                            <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
+                            <td>{% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">
-                                {% trans "No recent submissions" %}
-                            </td>
+                            <td colspan="3" class="empty-state">{% trans "No recent submissions" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -250,28 +160,13 @@
                     <tbody>
                         {% for registration in recent_event_registrations %}
                         <tr>
-                            <td>
-                                {{
-                                registration.user.get_full_name|default:registration.user.username
-                                }}
-                            </td>
-                            <td>
-                                <a
-                                    href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}"
-                                    >{{ registration.event.title|truncatechars:25 }}</a
-                                >
-                            </td>
-                            <td>
-                                {% blocktrans with
-                                time=registration.registered_at|timesince %}{{ time }}
-                                ago{% endblocktrans %}
-                            </td>
+                            <td>{{ registration.user.get_full_name|default:registration.user.username }}</td>
+                            <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' registration.event.id %}">{{ registration.event.title|truncatechars:25 }}</a></td>
+                            <td>{% blocktrans with time=registration.registered_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">
-                                {% trans "No recent registrations" %}
-                            </td>
+                            <td colspan="3" class="empty-state">{% trans "No recent registrations" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -291,25 +186,13 @@
                     <tbody>
                         {% for connection in recent_connections %}
                         <tr>
-                            <td>
-                                {{
-                                connection.requester.get_full_name|default:connection.requester.username
-                                }} &amp; {{
-                                connection.recipient.get_full_name|default:connection.recipient.username
-                                }}
-                            </td>
+                            <td>{{ connection.requester.get_full_name|default:connection.requester.username }} &amp; {{ connection.recipient.get_full_name|default:connection.recipient.username }}</td>
                             <td>{{ connection.event.title|truncatechars:20 }}</td>
-                            <td>
-                                {% blocktrans with
-                                time=connection.requested_at|timesince %}{{ time }}
-                                ago{% endblocktrans %}
-                            </td>
+                            <td>{% blocktrans with time=connection.requested_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">
-                                {% trans "No recent connections" %}
-                            </td>
+                            <td colspan="3" class="empty-state">{% trans "No recent connections" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -318,26 +201,20 @@
         </div>
     </div>
 
-    <div class="tab-panel" :class="usersTabClass" x-show="isUsers">
+        <div class="tab-panel" :class="usersTabClass" x-show="isUsers">
         {# User Metrics #}
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F464;</span>
                 <div class="metric-label">{% trans "Total Profiles" %}</div>
                 <div class="metric-value">{{ total_profiles }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=active_profiles %}{{ count }} active{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=active_profiles %}{{ count }} active{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Approved" %}</div>
                 <div class="metric-value">{{ approved_profiles }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with rate=approval_rate %}{{ rate }}% approval rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F3;</span>
@@ -356,406 +233,164 @@
         {# Full Profile Funnel #}
         <div class="chart-container">
             <h3>{% trans "Profile Completion Funnel" %}</h3>
-            <p>
-                {% trans "Shows where users are currently stuck in the profile creation
-                process" %}
-            </p>
+            <p>{% trans "Shows where users are currently stuck in the profile creation process" %}</p>
 
             <div class="funnel-step not-started">
                 <div>
-                    <span class="funnel-step-name"
-                        >&#x274C; {% trans "Not Started" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"
-                        ></div>
+                    <span class="funnel-step-name">&#x274C; {% trans "Not Started" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started"
-                        class="funnel-step-value"
-                        style="color: var(--status-danger)"
-                        >{{ funnel_not_started }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_not_started_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_not_started }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step step1">
                 <div>
-                    <span class="funnel-step-name"
-                        >&#x1F4DD; {% trans "Step 1: Basic Info" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"
-                        ></div>
+                    <span class="funnel-step-name">&#x1F4DD; {% trans "Step 1: Basic Info" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1"
-                        class="funnel-step-value"
-                        style="color: #d39e00"
-                        >{{ funnel_step1 }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_step1_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1" class="funnel-step-value" style="color: #d39e00;">{{ funnel_step1 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step step2">
                 <div>
-                    <span class="funnel-step-name"
-                        >&#x1F4F7; {% trans "Step 2: Photos & Bio" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"
-                        ></div>
+                    <span class="funnel-step-name">&#x1F4F7; {% trans "Step 2: Photos & Bio" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2"
-                        class="funnel-step-value"
-                        style="color: var(--status-info)"
-                        >{{ funnel_step2 }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_step2_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2" class="funnel-step-value" style="color: var(--status-info);">{{ funnel_step2 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step step3">
                 <div>
-                    <span class="funnel-step-name"
-                        >&#x1F512; {% trans "Step 3: Privacy Settings" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"
-                        ></div>
+                    <span class="funnel-step-name">&#x1F512; {% trans "Step 3: Privacy Settings" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3"
-                        class="funnel-step-value"
-                        style="color: #6f42c1"
-                        >{{ funnel_step3 }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_step3_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3" class="funnel-step-value" style="color: #6f42c1;">{{ funnel_step3 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step step4">
                 <div>
-                    <span class="funnel-step-name"
-                        >🧑‍🏫 {% trans "Step 4: Coach Selected" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_step4_pct }}%; background: linear-gradient(90deg, #e83e8c, #f472b6);"
-                        ></div>
+                    <span class="funnel-step-name">🧑‍🏫 {% trans "Step 4: Coach Selected" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_step4_pct }}%; background: linear-gradient(90deg, #e83e8c, #f472b6);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step4"
-                        class="funnel-step-value"
-                        style="color: #e83e8c"
-                        >{{ funnel_step4 }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_step4_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step4" class="funnel-step-value" style="color: #e83e8c;">{{ funnel_step4 }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step4_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step submitted">
                 <div>
-                    <span class="funnel-step-name"
-                        >&#x2705; {% trans "Submitted for Review" %}</span
-                    >
-                    <div
-                        class="progress-bar-container progress-bar-sm"
-                        style="width: 200px; margin-top: 5px"
-                    >
-                        <div
-                            class="progress-bar"
-                            style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"
-                        ></div>
+                    <span class="funnel-step-name">&#x2705; {% trans "Submitted for Review" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
                     </div>
                 </div>
-                <div style="text-align: right">
-                    <a
-                        href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted"
-                        class="funnel-step-value"
-                        style="color: var(--status-success)"
-                        >{{ funnel_submitted }}</a
-                    >
-                    <div style="font-size: 12px; color: var(--text-muted)">
-                        {{ funnel_submitted_pct }}%
-                    </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_submitted }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
                 </div>
             </div>
 
             <div class="insight-box">
                 <strong>&#x1F4A1; {% trans "Insight:" %}</strong>
                 <span>
-                    {% if funnel_not_started > funnel_submitted %} {% blocktrans with
-                    count=funnel_not_started %}{{ count }} users haven't started their
-                    profile yet - consider sending reminder emails.{% endblocktrans %}
-                    {% elif funnel_step1 > 0 or funnel_step2 > 0 %} {% blocktrans with
-                    count=funnel_step1|add:funnel_step2 %}{{ count }} users are stuck in
-                    steps 1-2 - they may need help with photos or bio.{% endblocktrans
-                    %} {% else %} {% trans "Great progress! Most users are completing
-                    their profiles." %} {% endif %}
+                    {% if funnel_not_started > funnel_submitted %}
+                        {% blocktrans with count=funnel_not_started %}{{ count }} users haven't started their profile yet - consider sending reminder emails.{% endblocktrans %}
+                    {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
+                        {% blocktrans with count=funnel_step1|add:funnel_step2 %}{{ count }} users are stuck in steps 1-2 - they may need help with photos or bio.{% endblocktrans %}
+                    {% else %}
+                        {% trans "Great progress! Most users are completing their profiles." %}
+                    {% endif %}
                 </span>
             </div>
 
             {# Submission Pipeline Outcomes #}
-            <div class="chart-container" style="margin-top: 20px">
+            <div class="chart-container" style="margin-top: 20px;">
                 <h3>{% trans "Submission Pipeline Outcomes" %}</h3>
-                <p
-                    style="
-                        color: var(--text-muted);
-                        font-size: 13px;
-                        margin-bottom: 15px;
-                    "
-                >
-                    {% blocktrans with count=ever_submitted %}{{ count }} profiles ever
-                    submitted{% endblocktrans %}
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
+                    {% blocktrans with count=ever_submitted %}{{ count }} profiles ever submitted{% endblocktrans %}
                 </p>
 
                 {# Conversion rate arrows #}
-                <div
-                    style="
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        flex-wrap: wrap;
-                        margin-bottom: 20px;
-                        font-size: 12px;
-                    "
-                >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Registered" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.registered_to_step1 }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Step 1" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.step1_to_step2 }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Step 2" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.step2_to_step3 }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Step 3" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.step3_to_submitted }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Submitted" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.submitted_to_reviewed }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--bg-secondary);
-                            border-radius: 4px;
-                        "
-                        >{% trans "Reviewed" %}</span
-                    >
-                    <span style="color: var(--text-muted)"
-                        >&#x2192; {{ conversion_rates.reviewed_to_approved }}%</span
-                    >
-                    <span
-                        style="
-                            padding: 4px 8px;
-                            background: var(--status-success);
-                            color: white;
-                            border-radius: 4px;
-                        "
-                        >{% trans "Approved" %}</span
-                    >
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; font-size: 12px;">
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Registered" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.registered_to_step1 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 1" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step1_to_step2 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 2" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step2_to_step3 }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Step 3" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.step3_to_submitted }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Submitted" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.submitted_to_reviewed }}%</span>
+                    <span style="padding: 4px 8px; background: var(--bg-secondary); border-radius: 4px;">{% trans "Reviewed" %}</span>
+                    <span style="color: var(--text-muted);">&#x2192; {{ conversion_rates.reviewed_to_approved }}%</span>
+                    <span style="padding: 4px 8px; background: var(--status-success); color: white; border-radius: 4px;">{% trans "Approved" %}</span>
                 </div>
 
                 {# Outcome bars #}
-                <div style="display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     {# Approved #}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 100px; font-size: 13px"
-                            >&#x2705; {% trans "Approved" %}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {% widthratio pipeline_approved ever_submitted 100 %}%; background: linear-gradient(90deg, #28a745, #5cb85c);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x2705; {% trans "Approved" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_approved ever_submitted 100 %}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
                         </div>
-                        <a
-                            href="/crush-admin/crush_lu/approvedprofile/"
-                            style="
-                                min-width: 60px;
-                                text-align: right;
-                                font-weight: 600;
-                                color: var(--status-success);
-                            "
-                            >{{ pipeline_approved }}</a
-                        >
+                        <a href="/crush-admin/crush_lu/approvedprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-success);">{{ pipeline_approved }}</a>
                     </div>
                     {# Pending #}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 100px; font-size: 13px"
-                            >&#x23F3; {% trans "Pending" %}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {% widthratio pipeline_pending ever_submitted 100 %}%; background: linear-gradient(90deg, #ffc107, #ffdb4d);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x23F3; {% trans "Pending" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_pending ever_submitted 100 %}%; background: linear-gradient(90deg, #ffc107, #ffdb4d);"></div>
                         </div>
-                        <a
-                            href="/crush-admin/crush_lu/pendingreviewprofile/"
-                            style="
-                                min-width: 60px;
-                                text-align: right;
-                                font-weight: 600;
-                                color: var(--status-warning);
-                            "
-                            >{{ pipeline_pending }}</a
-                        >
+                        <a href="/crush-admin/crush_lu/pendingreviewprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-warning);">{{ pipeline_pending }}</a>
                     </div>
                     {# Revision #}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 100px; font-size: 13px"
-                            >&#x270F;&#xFE0F; {% trans "Revision" %}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {% widthratio pipeline_revision ever_submitted 100 %}%; background: linear-gradient(90deg, #17a2b8, #5bc0de);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x270F;&#xFE0F; {% trans "Revision" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_revision ever_submitted 100 %}%; background: linear-gradient(90deg, #17a2b8, #5bc0de);"></div>
                         </div>
-                        <a
-                            href="/crush-admin/crush_lu/revisionneededprofile/"
-                            style="
-                                min-width: 60px;
-                                text-align: right;
-                                font-weight: 600;
-                                color: #17a2b8;
-                            "
-                            >{{ pipeline_revision }}</a
-                        >
+                        <a href="/crush-admin/crush_lu/revisionneededprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: #17a2b8;">{{ pipeline_revision }}</a>
                     </div>
                     {# Recontact #}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 100px; font-size: 13px"
-                            >&#x1F4DE; {% trans "Recontact" %}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {% widthratio pipeline_recontact ever_submitted 100 %}%; background: linear-gradient(90deg, #6f42c1, #9b59b6);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x1F4DE; {% trans "Recontact" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_recontact ever_submitted 100 %}%; background: linear-gradient(90deg, #6f42c1, #9b59b6);"></div>
                         </div>
-                        <a
-                            href="/crush-admin/crush_lu/recontactcoachprofile/"
-                            style="
-                                min-width: 60px;
-                                text-align: right;
-                                font-weight: 600;
-                                color: #6f42c1;
-                            "
-                            >{{ pipeline_recontact }}</a
-                        >
+                        <a href="/crush-admin/crush_lu/recontactcoachprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: #6f42c1;">{{ pipeline_recontact }}</a>
                     </div>
                     {# Rejected #}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 100px; font-size: 13px"
-                            >&#x274C; {% trans "Rejected" %}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {% widthratio pipeline_rejected ever_submitted 100 %}%; background: linear-gradient(90deg, #dc3545, #e74c3c);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 100px; font-size: 13px;">&#x274C; {% trans "Rejected" %}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {% widthratio pipeline_rejected ever_submitted 100 %}%; background: linear-gradient(90deg, #dc3545, #e74c3c);"></div>
                         </div>
-                        <a
-                            href="/crush-admin/crush_lu/rejectedprofile/"
-                            style="
-                                min-width: 60px;
-                                text-align: right;
-                                font-weight: 600;
-                                color: var(--status-danger);
-                            "
-                            >{{ pipeline_rejected }}</a
-                        >
+                        <a href="/crush-admin/crush_lu/rejectedprofile/" style="min-width: 60px; text-align: right; font-weight: 600; color: var(--status-danger);">{{ pipeline_rejected }}</a>
                     </div>
                 </div>
             </div>
@@ -764,69 +399,38 @@
         {# Authentication Methods #}
         <div class="chart-container">
             <h3>&#x1F511; {% trans "Authentication Methods" %}</h3>
-            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px">
-                {% blocktrans with count=total_users %}How {{ count }} users signed up{%
-                endblocktrans %}
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
+                {% blocktrans with count=total_users %}How {{ count }} users signed up{% endblocktrans %}
             </p>
 
-            <div
-                class="metric-grid"
-                style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px"
-            >
+            <div class="metric-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px;">
                 <div class="metric-card blue">
                     <span class="metric-icon">&#x2709;</span>
                     <div class="metric-label">{% trans "Email Only" %}</div>
                     <div class="metric-value">{{ email_only_users }}</div>
-                    <div class="metric-subtitle">
-                        {% if total_users > 0 %}{% widthratio email_only_users
-                        total_users 100 %}%{% else %}0%{% endif %}
-                    </div>
+                    <div class="metric-subtitle">{% if total_users > 0 %}{% widthratio email_only_users total_users 100 %}%{% else %}0%{% endif %}</div>
                 </div>
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F310;</span>
                     <div class="metric-label">{% trans "Social Auth" %}</div>
                     <div class="metric-value">{{ social_users }}</div>
-                    <div class="metric-subtitle">
-                        {% if total_users > 0 %}{% widthratio social_users total_users
-                        100 %}%{% else %}0%{% endif %}
-                    </div>
+                    <div class="metric-subtitle">{% if total_users > 0 %}{% widthratio social_users total_users 100 %}%{% else %}0%{% endif %}</div>
                 </div>
             </div>
 
             {% if auth_provider_stats %}
-            <h4
-                style="
-                    margin-bottom: 10px;
-                    font-size: 14px;
-                    color: var(--text-secondary);
-                "
-            >
-                {% trans "Provider Breakdown" %}
-            </h4>
-            <div style="display: flex; flex-direction: column; gap: 10px">
+            <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-secondary);">{% trans "Provider Breakdown" %}</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
                 {% for stat in auth_provider_stats %}
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span
-                        style="
-                            min-width: 100px;
-                            font-size: 13px;
-                            text-transform: capitalize;
-                        "
-                    >
-                        {% if stat.provider == "google" %}&#x1F534;{% elif stat.provider
-                        == "facebook" %}&#x1F535;{% elif stat.provider == "microsoft"
-                        %}&#x1F7E2;{% elif stat.provider == "linkedin_oauth2"
-                        %}&#x1F7E1;{% else %}&#x26AA;{% endif %} {{ stat.provider }}
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 100px; font-size: 13px; text-transform: capitalize;">
+                        {% if stat.provider == "google" %}&#x1F534;{% elif stat.provider == "facebook" %}&#x1F535;{% elif stat.provider == "microsoft" %}&#x1F7E2;{% elif stat.provider == "linkedin_oauth2" %}&#x1F7E1;{% else %}&#x26AA;{% endif %}
+                        {{ stat.provider }}
                     </span>
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% if total_users > 0 %}{% widthratio stat.count total_users 100 %}{% else %}0{% endif %}%; background: linear-gradient(90deg, {% if stat.provider == 'google' %}#ea4335, #fbbc05{% elif stat.provider == 'facebook' %}#1877f2, #42b72a{% elif stat.provider == 'microsoft' %}#00a4ef, #7fba00{% elif stat.provider == 'linkedin_oauth2' %}#0077b5, #00a0dc{% else %}#6c757d, #adb5bd{% endif %});"
-                        ></div>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% if total_users > 0 %}{% widthratio stat.count total_users 100 %}{% else %}0{% endif %}%; background: linear-gradient(90deg, {% if stat.provider == 'google' %}#ea4335, #fbbc05{% elif stat.provider == 'facebook' %}#1877f2, #42b72a{% elif stat.provider == 'microsoft' %}#00a4ef, #7fba00{% elif stat.provider == 'linkedin_oauth2' %}#0077b5, #00a0dc{% else %}#6c757d, #adb5bd{% endif %});"></div>
                     </div>
-                    <span style="min-width: 60px; text-align: right; font-weight: 600"
-                        >{{ stat.count }}</span
-                    >
+                    <span style="min-width: 60px; text-align: right; font-weight: 600;">{{ stat.count }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -854,76 +458,46 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">
-                                {% trans "No data available" %}
-                            </td>
+                            <td colspan="3" class="empty-state">{% trans "No data available" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
 
-            <div
-                class="table-container"
-                style="border-left: 4px solid var(--crush-purple)"
-            >
+            <div class="table-container" style="border-left: 4px solid var(--crush-purple);">
                 <h3>&#x1F4CD; {% trans "Top 10 Locations" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
-                            <th style="width: 40px">#</th>
+                            <th style="width: 40px;">#</th>
                             <th>{% trans "Location" %}</th>
-                            <th style="width: 60px">{% trans "Count" %}</th>
-                            <th style="width: 150px">{% trans "Distribution" %}</th>
+                            <th style="width: 60px;">{% trans "Count" %}</th>
+                            <th style="width: 150px;">{% trans "Distribution" %}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for stat in location_stats %}
                         <tr>
-                            <td style="font-weight: bold; color: var(--crush-purple)">
-                                {{ forloop.counter }}
-                            </td>
+                            <td style="font-weight: bold; color: var(--crush-purple);">{{ forloop.counter }}</td>
                             <td>
-                                <a
-                                    href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}"
-                                >
+                                <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?location__exact={{ stat.location|urlencode }}">
                                     {{ stat.location|default:_("Not specified") }}
                                 </a>
                             </td>
                             <td>{{ stat.count }}</td>
                             <td>
-                                <div
-                                    style="display: flex; align-items: center; gap: 8px"
-                                >
-                                    <div
-                                        style="
-                                            flex: 1;
-                                            background: var(--progress-bg);
-                                            border-radius: 4px;
-                                            height: 12px;
-                                            overflow: hidden;
-                                        "
-                                    >
-                                        <div
-                                            style="width: {% widthratio stat.count max_location_count 100 %}%; height: 100%; background: var(--crush-gradient);"
-                                        ></div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
+                                        <div style="width: {% widthratio stat.count max_location_count 100 %}%; height: 100%; background: var(--crush-gradient);"></div>
                                     </div>
-                                    <span
-                                        style="
-                                            font-size: 11px;
-                                            color: var(--text-muted);
-                                            min-width: 35px;
-                                        "
-                                        >{{ stat.percentage }}%</span
-                                    >
+                                    <span style="font-size: 11px; color: var(--text-muted); min-width: 35px;">{{ stat.percentage }}%</span>
                                 </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="empty-state">
-                                {% trans "No data available" %}
-                            </td>
+                            <td colspan="4" class="empty-state">{% trans "No data available" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -931,8 +505,9 @@
             </div>
         </div>
 
-        {# Trending Locations (30 days) #} {% if location_recent %}
-        <div class="table-container" style="margin-top: 20px">
+        {# Trending Locations (30 days) #}
+        {% if location_recent %}
+        <div class="table-container" style="margin-top: 20px;">
             <h3>&#x1F4C8; {% trans "Trending Locations (Last 30 Days)" %}</h3>
             <table class="stats-table">
                 <thead>
@@ -945,34 +520,24 @@
                 <tbody>
                     {% for stat in location_recent %}
                     <tr>
-                        <td style="font-weight: bold; color: var(--crush-purple)">
-                            {{ forloop.counter }}
-                        </td>
+                        <td style="font-weight: bold; color: var(--crush-purple);">{{ forloop.counter }}</td>
                         <td>{{ stat.location|default:_("Not specified") }}</td>
-                        <td>
-                            <span class="badge badge-info" style="background: #17a2b8"
-                                >{{ stat.count }}</span
-                            >
-                        </td>
+                        <td><span class="badge badge-info" style="background: #17a2b8;">{{ stat.count }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% endif %} {# Coach Performance #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F3AF;</span> {% trans "Coach
-            Performance" %}
-        </h2>
+        {% endif %}
+
+        {# Coach Performance #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F3AF;</span> {% trans "Coach Performance" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F468;&#x200D;&#x1F3EB;</span>
                 <div class="metric-label">{% trans "Active Coaches" %}</div>
                 <div class="metric-value">{{ active_coaches }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_coaches %}Out of {{ count }} total{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_coaches %}Out of {{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
@@ -1003,31 +568,15 @@
                 <tbody>
                     {% for coach in coach_performance %}
                     <tr>
-                        <td>
-                            {{ coach.user.get_full_name|default:coach.user.username }}
-                        </td>
+                        <td>{{ coach.user.get_full_name|default:coach.user.username }}</td>
                         <td>{{ coach.total_reviews }}</td>
-                        <td>
-                            <span class="badge badge-warning"
-                                >{{ coach.pending_count }}</span
-                            >
-                        </td>
-                        <td>
-                            <span class="badge badge-success"
-                                >{{ coach.approved_count }}</span
-                            >
-                        </td>
-                        <td>
-                            <span class="badge badge-danger"
-                                >{{ coach.rejected_count }}</span
-                            >
-                        </td>
+                        <td><span class="badge badge-warning">{{ coach.pending_count }}</span></td>
+                        <td><span class="badge badge-success">{{ coach.approved_count }}</span></td>
+                        <td><span class="badge badge-danger">{{ coach.rejected_count }}</span></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="empty-state">
-                            {% trans "No coach performance data available" %}
-                        </td>
+                        <td colspan="5" class="empty-state">{% trans "No coach performance data available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -1035,9 +584,9 @@
         </div>
 
         {# Screening Call Summary #}
-        <div class="chart-container" style="margin-top: 20px">
+        <div class="chart-container" style="margin-top: 20px;">
             <h3>{% trans "Screening Call Summary" %}</h3>
-            <div class="metric-grid" style="margin-bottom: 15px">
+            <div class="metric-grid" style="margin-bottom: 15px;">
                 <div class="metric-card green">
                     <span class="metric-icon">&#x2705;</span>
                     <div class="metric-label">{% trans "Successful" %}</div>
@@ -1056,14 +605,12 @@
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4DE;</span>
                     <div class="metric-label">{% trans "Scheduled Callback" %}</div>
-                    <div class="metric-value">
-                        {{ call_summary.scheduled_callback }}
-                    </div>
+                    <div class="metric-value">{{ call_summary.scheduled_callback }}</div>
                 </div>
             </div>
 
             {% if call_summary.failed > 0 %}
-            <div class="table-container" style="margin-top: 10px">
+            <div class="table-container" style="margin-top: 10px;">
                 <h4>{% trans "Failed Call Reasons" %}</h4>
                 <table class="stats-table">
                     <thead>
@@ -1079,62 +626,41 @@
                             <td>{% trans "No answer" %}</td>
                             <td>{{ call_summary.no_answer }}</td>
                             <td>
-                                <div
-                                    class="progress-bar-container progress-bar-sm"
-                                    style="width: 150px"
-                                >
-                                    <div
-                                        class="progress-bar"
-                                        style="width: {% widthratio call_summary.no_answer call_summary.failed 100 %}%; background: #ffc107;"
-                                    ></div>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.no_answer call_summary.failed 100 %}%; background: #ffc107;"></div>
                                 </div>
                             </td>
                         </tr>
-                        {% endif %} {% if call_summary.voicemail %}
+                        {% endif %}
+                        {% if call_summary.voicemail %}
                         <tr>
                             <td>{% trans "Voicemail" %}</td>
                             <td>{{ call_summary.voicemail }}</td>
                             <td>
-                                <div
-                                    class="progress-bar-container progress-bar-sm"
-                                    style="width: 150px"
-                                >
-                                    <div
-                                        class="progress-bar"
-                                        style="width: {% widthratio call_summary.voicemail call_summary.failed 100 %}%; background: #17a2b8;"
-                                    ></div>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.voicemail call_summary.failed 100 %}%; background: #17a2b8;"></div>
                                 </div>
                             </td>
                         </tr>
-                        {% endif %} {% if call_summary.wrong_number %}
+                        {% endif %}
+                        {% if call_summary.wrong_number %}
                         <tr>
                             <td>{% trans "Wrong number" %}</td>
                             <td>{{ call_summary.wrong_number }}</td>
                             <td>
-                                <div
-                                    class="progress-bar-container progress-bar-sm"
-                                    style="width: 150px"
-                                >
-                                    <div
-                                        class="progress-bar"
-                                        style="width: {% widthratio call_summary.wrong_number call_summary.failed 100 %}%; background: #dc3545;"
-                                    ></div>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.wrong_number call_summary.failed 100 %}%; background: #dc3545;"></div>
                                 </div>
                             </td>
                         </tr>
-                        {% endif %} {% if call_summary.user_busy %}
+                        {% endif %}
+                        {% if call_summary.user_busy %}
                         <tr>
                             <td>{% trans "User busy" %}</td>
                             <td>{{ call_summary.user_busy }}</td>
                             <td>
-                                <div
-                                    class="progress-bar-container progress-bar-sm"
-                                    style="width: 150px"
-                                >
-                                    <div
-                                        class="progress-bar"
-                                        style="width: {% widthratio call_summary.user_busy call_summary.failed 100 %}%; background: #6f42c1;"
-                                    ></div>
+                                <div class="progress-bar-container progress-bar-sm" style="width: 150px;">
+                                    <div class="progress-bar" style="width: {% widthratio call_summary.user_busy call_summary.failed 100 %}%; background: #6f42c1;"></div>
                                 </div>
                             </td>
                         </tr>
@@ -1146,7 +672,7 @@
         </div>
 
         {# Coach Workload Detail #}
-        <div class="table-container" style="margin-top: 20px">
+        <div class="table-container" style="margin-top: 20px;">
             <h3>{% trans "Coach Workload Detail" %}</h3>
             <table class="stats-table">
                 <thead>
@@ -1167,39 +693,21 @@
                     <tr>
                         <td>{{ coach.name }}</td>
                         <td>
-                            <div
-                                class="progress-bar-container progress-bar-sm"
-                                style="width: 80px"
-                            >
-                                <div
-                                    class="progress-bar"
-                                    style="width: {% widthratio coach.total max_workload 100 %}%; background: linear-gradient(90deg, var(--crush-purple), var(--crush-pink));"
-                                ></div>
+                            <div class="progress-bar-container progress-bar-sm" style="width: 80px;">
+                                <div class="progress-bar" style="width: {% widthratio coach.total max_workload 100 %}%; background: linear-gradient(90deg, var(--crush-purple), var(--crush-pink));"></div>
                             </div>
                         </td>
                         <td>{{ coach.total }}</td>
-                        <td>
-                            <span class="badge badge-success"
-                                >{{ coach.approved }}</span
-                            >
-                        </td>
-                        <td>
-                            <span class="badge badge-info" style="background: #17a2b8"
-                                >{{ coach.revision }}</span
-                            >
-                        </td>
-                        <td>
-                            <span class="badge badge-danger">{{ coach.rejected }}</span>
-                        </td>
+                        <td><span class="badge badge-success">{{ coach.approved }}</span></td>
+                        <td><span class="badge badge-info" style="background: #17a2b8;">{{ coach.revision }}</span></td>
+                        <td><span class="badge badge-danger">{{ coach.rejected }}</span></td>
                         <td>{{ coach.approval_pct }}%</td>
                         <td>{{ coach.calls }}</td>
                         <td>{{ coach.call_success_pct }}%</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="empty-state">
-                            {% trans "No coach workload data available" %}
-                        </td>
+                        <td colspan="9" class="empty-state">{% trans "No coach workload data available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -1207,26 +715,20 @@
         </div>
     </div>
 
-    <div class="tab-panel" :class="eventsTabClass" x-show="isEvents">
+        <div class="tab-panel" :class="eventsTabClass" x-show="isEvents">
         {# Event Metrics #}
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
                 <div class="metric-label">{% trans "Upcoming Events" %}</div>
                 <div class="metric-value">{{ upcoming_events }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_events %}{{ count }} total events{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_events %}{{ count }} total events{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Confirmed Registrations" %}</div>
                 <div class="metric-value">{{ confirmed_registrations }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_registrations %}{{ count }} total{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_registrations %}{{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4B0;</span>
@@ -1263,28 +765,22 @@
                 <tbody>
                     {% for event in popular_events %}
                     <tr>
-                        <td>
-                            <a
-                                href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}"
-                                >{{ event.title }}</a
-                            >
-                        </td>
+                        <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
                         <td>{{ event.get_event_type_display }}</td>
                         <td>{{ event.date_time|date:"M d, Y" }}</td>
                         <td>{{ event.registration_count }}</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="empty-state">
-                            {% trans "No events available" %}
-                        </td>
+                        <td colspan="4" class="empty-state">{% trans "No events available" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        {# Event Type Distribution #} {% if event_type_stats %}
+        {# Event Type Distribution #}
+        {% if event_type_stats %}
         <div class="table-container">
             <h3>{% trans "Event Type Distribution" %}</h3>
             <table class="stats-table">
@@ -1301,28 +797,11 @@
                         <td>{{ stat.event_type }}</td>
                         <td>{{ stat.count }}</td>
                         <td>
-                            <div style="display: flex; align-items: center; gap: 8px">
-                                <div
-                                    style="
-                                        flex: 1;
-                                        background: var(--progress-bg);
-                                        border-radius: 4px;
-                                        height: 12px;
-                                        overflow: hidden;
-                                    "
-                                >
-                                    <div
-                                        style="width: {% widthratio stat.count total_events 100 %}%; height: 100%; background: var(--crush-gradient);"
-                                    ></div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; background: var(--progress-bg); border-radius: 4px; height: 12px; overflow: hidden;">
+                                    <div style="width: {% widthratio stat.count total_events 100 %}%; height: 100%; background: var(--crush-gradient);"></div>
                                 </div>
-                                <span
-                                    style="
-                                        font-size: 11px;
-                                        color: var(--text-muted);
-                                        min-width: 35px;
-                                    "
-                                    >{% widthratio stat.count total_events 100 %}%</span
-                                >
+                                <span style="font-size: 11px; color: var(--text-muted); min-width: 35px;">{% widthratio stat.count total_events 100 %}%</span>
                             </div>
                         </td>
                     </tr>
@@ -1330,42 +809,29 @@
                 </tbody>
             </table>
         </div>
-        {% endif %} {# Event Invitations #} {% if invitation_metrics.total_invitations >
-        0 %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F48C;</span> {% trans "Event
-            Invitations" %}
-        </h2>
+        {% endif %}
+
+        {# Event Invitations #}
+        {% if invitation_metrics.total_invitations > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F48C;</span> {% trans "Event Invitations" %}</h2>
         <div class="metric-grid">
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Accepted" %}</div>
-                <div class="metric-value">
-                    {{ invitation_metrics.accepted_invitations }}
-                </div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=invitation_metrics.acceptance_rate %}{{ rate
-                    }}% acceptance rate{% endblocktrans %}
-                </div>
+                <div class="metric-value">{{ invitation_metrics.accepted_invitations }}</div>
+                <div class="metric-subtitle">{% blocktrans with rate=invitation_metrics.acceptance_rate %}{{ rate }}% acceptance rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F3;</span>
                 <div class="metric-label">{% trans "Pending" %}</div>
-                <div class="metric-value">
-                    {{ invitation_metrics.pending_invitations }}
-                </div>
+                <div class="metric-value">{{ invitation_metrics.pending_invitations }}</div>
                 <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x274C;</span>
                 <div class="metric-label">{% trans "Declined" %}</div>
-                <div class="metric-value">
-                    {{ invitation_metrics.declined_invitations }}
-                </div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=invitation_metrics.expired_invitations %}{{
-                    count }} expired{% endblocktrans %}
-                </div>
+                <div class="metric-value">{{ invitation_metrics.declined_invitations }}</div>
+                <div class="metric-subtitle">{% blocktrans with count=invitation_metrics.expired_invitations %}{{ count }} expired{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F464;</span>
@@ -1377,20 +843,15 @@
         {% endif %}
     </div>
 
-    <div class="tab-panel" :class="engagementTabClass" x-show="isEngagement">
+        <div class="tab-panel" :class="engagementTabClass" x-show="isEngagement">
         {# Connection Metrics #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F495;</span> {% trans "Connections" %}
-        </h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Connections" %}</h2>
         <div class="metric-grid">
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F491;</span>
                 <div class="metric-label">{% trans "Mutual Connections" %}</div>
                 <div class="metric-value">{{ mutual_connections }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=connection_rate %}{{ rate }}% match rate{%
-                    endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with rate=connection_rate %}{{ rate }}% match rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F517;</span>
@@ -1406,19 +867,15 @@
             </div>
         </div>
 
-        {# Messages #} {% if message_metrics.total_messages > 0 %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F4AC;</span> {% trans "Messages" %}
-        </h2>
+        {# Messages #}
+        {% if message_metrics.total_messages > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4AC;</span> {% trans "Messages" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4AC;</span>
                 <div class="metric-label">{% trans "Total Messages" %}</div>
                 <div class="metric-value">{{ message_metrics.total_messages }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with avg=message_metrics.avg_messages_per_connection
-                    %}{{ avg }} avg per connection{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with avg=message_metrics.avg_messages_per_connection %}{{ avg }} avg per connection{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F465;</span>
@@ -1433,29 +890,22 @@
                 <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
             </div>
         </div>
-        {% endif %} {# Journey System #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x2728;</span> {% trans "Special Journey
-            System" %}
-        </h2>
+        {% endif %}
+
+        {# Journey System #}
+        <h2 class="section-header"><span class="section-header-icon">&#x2728;</span> {% trans "Special Journey System" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F3AD;</span>
                 <div class="metric-label">{% trans "Active Experiences" %}</div>
                 <div class="metric-value">{{ active_special_experiences }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_special_experiences %}{{ count }}
-                    total{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_special_experiences %}{{ count }} total{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F5FA;&#xFE0F;</span>
                 <div class="metric-label">{% trans "Active Journeys" %}</div>
                 <div class="metric-value">{{ total_journeys }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=completed_journeys %}{{ count }}
-                    completed{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=completed_journeys %}{{ count }} completed{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x1F3C6;</span>
@@ -1475,57 +925,37 @@
         <div class="chart-container">
             <h3>{% trans "Journey Completion Rate" %}</h3>
             <div class="progress-bar-container">
-                <div
-                    class="progress-bar"
-                    style="width: {{ journey_completion_rate }}%;"
-                >
-                    {% blocktrans with rate=journey_completion_rate %}{{ rate }}%
-                    Complete{% endblocktrans %}
+                <div class="progress-bar" style="width: {{ journey_completion_rate }}%;">
+                    {% blocktrans with rate=journey_completion_rate %}{{ rate }}% Complete{% endblocktrans %}
                 </div>
             </div>
-            <p style="margin-top: 10px">
-                {% blocktrans with completed=completed_journeys total=total_journeys
-                %}{{ completed }} out of {{ total }} journeys completed{% endblocktrans
-                %}
+            <p style="margin-top: 10px;">
+                {% blocktrans with completed=completed_journeys total=total_journeys %}{{ completed }} out of {{ total }} journeys completed{% endblocktrans %}
             </p>
         </div>
-        {% endif %} {# Referral Program #} {% if referral_metrics.total_codes > 0 or
-        referral_metrics.total_attributions > 0 %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F9F2;</span> {% trans "Referral
-            Program" %}
-        </h2>
+        {% endif %}
+
+        {# Referral Program #}
+        {% if referral_metrics.total_codes > 0 or referral_metrics.total_attributions > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F9F2;</span> {% trans "Referral Program" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F517;</span>
                 <div class="metric-label">{% trans "Active Codes" %}</div>
                 <div class="metric-value">{{ referral_metrics.active_codes }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=referral_metrics.total_codes %}{{ count }}
-                    total codes{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=referral_metrics.total_codes %}{{ count }} total codes{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Conversions" %}</div>
-                <div class="metric-value">
-                    {{ referral_metrics.converted_attributions }}
-                </div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=referral_metrics.conversion_rate %}{{ rate
-                    }}% conversion rate{% endblocktrans %}
-                </div>
+                <div class="metric-value">{{ referral_metrics.converted_attributions }}</div>
+                <div class="metric-subtitle">{% blocktrans with rate=referral_metrics.conversion_rate %}{{ rate }}% conversion rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F3C6;</span>
                 <div class="metric-label">{% trans "Reward Points Given" %}</div>
-                <div class="metric-value">
-                    {{ referral_metrics.total_reward_points }}
-                </div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=referral_metrics.rewards_applied %}{{ count
-                    }} rewards applied{% endblocktrans %}
-                </div>
+                <div class="metric-value">{{ referral_metrics.total_reward_points }}</div>
+                <div class="metric-subtitle">{% blocktrans with count=referral_metrics.rewards_applied %}{{ count }} rewards applied{% endblocktrans %}</div>
             </div>
         </div>
 
@@ -1543,45 +973,31 @@
                 <tbody>
                     {% for code in top_referrers %}
                     <tr>
-                        <td>
-                            {{
-                            code.referrer.user.get_full_name|default:code.referrer.user.email
-                            }}
-                        </td>
+                        <td>{{ code.referrer.user.get_full_name|default:code.referrer.user.email }}</td>
                         <td><code>{{ code.code }}</code></td>
-                        <td>
-                            <span class="badge badge-success"
-                                >{{ code.conversion_count }}</span
-                            >
-                        </td>
+                        <td><span class="badge badge-success">{{ code.conversion_count }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% endif %} {% endif %} {# Email Preferences #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F4E7;</span> {% trans "Email
-            Preferences" %}
-        </h2>
+        {% endif %}
+        {% endif %}
+
+        {# Email Preferences #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4E7;</span> {% trans "Email Preferences" %}</h2>
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4EC;</span>
                 <div class="metric-label">{% trans "Active Email Users" %}</div>
                 <div class="metric-value">{{ email_active_users }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=total_email_preferences %}{{ count }} total
-                    preferences{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=total_email_preferences %}{{ count }} total preferences{% endblocktrans %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4E2;</span>
                 <div class="metric-label">{% trans "Marketing Opt-ins" %}</div>
                 <div class="metric-value">{{ marketing_opted_in }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with rate=marketing_opt_in_rate %}{{ rate }}% opt-in
-                    rate{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with rate=marketing_opt_in_rate %}{{ rate }}% opt-in rate{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F6AB;</span>
@@ -1591,129 +1007,58 @@
             </div>
         </div>
 
-        {# Email Category Opt-in Breakdown #} {% if email_category_stats %}
+        {# Email Category Opt-in Breakdown #}
+        {% if email_category_stats %}
         <div class="chart-container">
-            <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600">
-                {% trans "Email Category Opt-ins" %}
-            </h3>
-            <div style="display: flex; flex-direction: column; gap: 10px">
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span style="min-width: 140px; font-size: 13px"
-                        >{% trans "Profile Updates" %}</span
-                    >
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% widthratio email_category_stats.profile_updates email_active_users 100 %}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"
-                        ></div>
+            <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Email Category Opt-ins" %}</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Profile Updates" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.profile_updates email_active_users 100 %}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
                     </div>
-                    <span
-                        style="
-                            min-width: 50px;
-                            text-align: right;
-                            font-weight: 600;
-                            font-size: 13px;
-                        "
-                        >{{ email_category_stats.profile_updates }}</span
-                    >
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.profile_updates }}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span style="min-width: 140px; font-size: 13px"
-                        >{% trans "Event Reminders" %}</span
-                    >
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% widthratio email_category_stats.event_reminders email_active_users 100 %}%; background: linear-gradient(90deg, #3498db, #2980b9);"
-                        ></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Event Reminders" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.event_reminders email_active_users 100 %}%; background: linear-gradient(90deg, #3498db, #2980b9);"></div>
                     </div>
-                    <span
-                        style="
-                            min-width: 50px;
-                            text-align: right;
-                            font-weight: 600;
-                            font-size: 13px;
-                        "
-                        >{{ email_category_stats.event_reminders }}</span
-                    >
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.event_reminders }}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span style="min-width: 140px; font-size: 13px"
-                        >{% trans "New Connections" %}</span
-                    >
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% widthratio email_category_stats.new_connections email_active_users 100 %}%; background: linear-gradient(90deg, #e91e63, #f06292);"
-                        ></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "New Connections" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.new_connections email_active_users 100 %}%; background: linear-gradient(90deg, #e91e63, #f06292);"></div>
                     </div>
-                    <span
-                        style="
-                            min-width: 50px;
-                            text-align: right;
-                            font-weight: 600;
-                            font-size: 13px;
-                        "
-                        >{{ email_category_stats.new_connections }}</span
-                    >
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.new_connections }}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span style="min-width: 140px; font-size: 13px"
-                        >{% trans "New Messages" %}</span
-                    >
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% widthratio email_category_stats.new_messages email_active_users 100 %}%; background: linear-gradient(90deg, #ff9800, #ffb74d);"
-                        ></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "New Messages" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.new_messages email_active_users 100 %}%; background: linear-gradient(90deg, #ff9800, #ffb74d);"></div>
                     </div>
-                    <span
-                        style="
-                            min-width: 50px;
-                            text-align: right;
-                            font-weight: 600;
-                            font-size: 13px;
-                        "
-                        >{{ email_category_stats.new_messages }}</span
-                    >
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.new_messages }}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px">
-                    <span style="min-width: 140px; font-size: 13px"
-                        >{% trans "Marketing" %}</span
-                    >
-                    <div class="progress-bar-container" style="flex: 1">
-                        <div
-                            class="progress-bar"
-                            style="width: {% widthratio email_category_stats.marketing email_active_users 100 %}%; background: linear-gradient(90deg, #4caf50, #81c784);"
-                        ></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="min-width: 140px; font-size: 13px;">{% trans "Marketing" %}</span>
+                    <div class="progress-bar-container" style="flex: 1;">
+                        <div class="progress-bar" style="width: {% widthratio email_category_stats.marketing email_active_users 100 %}%; background: linear-gradient(90deg, #4caf50, #81c784);"></div>
                     </div>
-                    <span
-                        style="
-                            min-width: 50px;
-                            text-align: right;
-                            font-weight: 600;
-                            font-size: 13px;
-                        "
-                        >{{ email_category_stats.marketing }}</span
-                    >
+                    <span style="min-width: 50px; text-align: right; font-weight: 600; font-size: 13px;">{{ email_category_stats.marketing }}</span>
                 </div>
             </div>
         </div>
-        {% endif %} {# Ideal Crush Preferences #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F495;</span> {% trans "Ideal Crush
-            Preferences" %}
-        </h2>
+        {% endif %}
+
+        {# Ideal Crush Preferences #}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Ideal Crush Preferences" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Preferences Set" %}</div>
-                <div class="metric-value">
-                    {{ preference_metrics.configured_count }}
-                </div>
-                <div class="metric-subtitle">
-                    {% trans "approved users configured" %}
-                </div>
+                <div class="metric-value">{{ preference_metrics.configured_count }}</div>
+                <div class="metric-subtitle">{% trans "approved users configured" %}</div>
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4C8;</span>
@@ -1724,21 +1069,13 @@
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F382;</span>
                 <div class="metric-label">{% trans "Avg Age Range" %}</div>
-                <div class="metric-value">
-                    {% if preference_metrics.avg_age_min %}{{
-                    preference_metrics.avg_age_min }}–{{ preference_metrics.avg_age_max
-                    }}{% else %}—{% endif %}
-                </div>
-                <div class="metric-subtitle">
-                    {% trans "among custom-range users" %}
-                </div>
+                <div class="metric-value">{% if preference_metrics.avg_age_min %}{{ preference_metrics.avg_age_min }}–{{ preference_metrics.avg_age_max }}{% else %}—{% endif %}</div>
+                <div class="metric-subtitle">{% trans "among custom-range users" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F451;</span>
                 <div class="metric-label">{% trans "Most Popular" %}</div>
-                <div class="metric-value" style="font-size: 1.4rem">
-                    {{ preference_metrics.most_popular_gender_label }}
-                </div>
+                <div class="metric-value" style="font-size: 1.4rem;">{{ preference_metrics.most_popular_gender_label }}</div>
                 <div class="metric-subtitle">{% trans "top gender preference" %}</div>
             </div>
         </div>
@@ -1746,65 +1083,33 @@
         <div class="two-col">
             {# Gender preference distribution #}
             <div class="chart-container">
-                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600">
-                    {% trans "Gender Preference Distribution" %}
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 10px">
+                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Gender Preference Distribution" %}</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     {% for stat in preference_metrics.gender_pref_stats %}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 120px; font-size: 13px"
-                            >{{ stat.label }}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {{ stat.pct }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 120px; font-size: 13px;">{{ stat.label }}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {{ stat.pct }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
                         </div>
-                        <span
-                            style="
-                                min-width: 70px;
-                                text-align: right;
-                                font-weight: 600;
-                                font-size: 13px;
-                            "
-                            >{{ stat.count }} ({{ stat.pct }}%)</span
-                        >
+                        <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ stat.count }} ({{ stat.pct }}%)</span>
                     </div>
                     {% empty %}
-                    <p style="color: var(--text-muted); font-size: 13px">
-                        {% trans "No gender preferences set yet." %}
-                    </p>
+                    <p style="color: var(--text-muted); font-size: 13px;">{% trans "No gender preferences set yet." %}</p>
                     {% endfor %}
                 </div>
             </div>
 
             {# Age range distribution #}
             <div class="chart-container">
-                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600">
-                    {% trans "Age Range Distribution" %}
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 10px">
+                <h3 style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600;">{% trans "Age Range Distribution" %}</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     {% for bracket in preference_metrics.age_distribution %}
-                    <div style="display: flex; align-items: center; gap: 10px">
-                        <span style="min-width: 120px; font-size: 13px"
-                            >{{ bracket.label }}</span
-                        >
-                        <div class="progress-bar-container" style="flex: 1">
-                            <div
-                                class="progress-bar"
-                                style="width: {{ bracket.pct }}%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"
-                            ></div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="min-width: 120px; font-size: 13px;">{{ bracket.label }}</span>
+                        <div class="progress-bar-container" style="flex: 1;">
+                            <div class="progress-bar" style="width: {{ bracket.pct }}%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div>
                         </div>
-                        <span
-                            style="
-                                min-width: 70px;
-                                text-align: right;
-                                font-weight: 600;
-                                font-size: 13px;
-                            "
-                            >{{ bracket.count }} ({{ bracket.pct }}%)</span
-                        >
+                        <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ bracket.count }} ({{ bracket.pct }}%)</span>
                     </div>
                     {% endfor %}
                 </div>
@@ -1812,48 +1117,27 @@
         </div>
 
         {# Adoption progress bar #}
-        <div class="chart-container" style="margin-top: 10px">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 600">
-                {% trans "Feature Adoption" %}
-            </h3>
-            <div style="display: flex; align-items: center; gap: 10px">
-                <span style="min-width: 120px; font-size: 13px"
-                    >{% trans "Adoption" %}</span
-                >
-                <div class="progress-bar-container" style="flex: 1">
-                    <div
-                        class="progress-bar"
-                        style="width: {{ preference_metrics.adoption_rate }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"
-                    ></div>
+        <div class="chart-container" style="margin-top: 10px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 600;">{% trans "Feature Adoption" %}</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="min-width: 120px; font-size: 13px;">{% trans "Adoption" %}</span>
+                <div class="progress-bar-container" style="flex: 1;">
+                    <div class="progress-bar" style="width: {{ preference_metrics.adoption_rate }}%; background: linear-gradient(90deg, #9b59b6, #e91e8c);"></div>
                 </div>
-                <span
-                    style="
-                        min-width: 70px;
-                        text-align: right;
-                        font-weight: 600;
-                        font-size: 13px;
-                    "
-                    >{{ preference_metrics.adoption_rate }}%</span
-                >
+                <span style="min-width: 70px; text-align: right; font-weight: 600; font-size: 13px;">{{ preference_metrics.adoption_rate }}%</span>
             </div>
         </div>
     </div>
 
-    <div class="tab-panel" :class="technicalTabClass" x-show="isTechnical">
+        <div class="tab-panel" :class="technicalTabClass" x-show="isTechnical">
         {# PWA Analytics #}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F4F1;</span> {% trans "PWA Analytics"
-            %}
-        </h2>
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4F1;</span> {% trans "PWA Analytics" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4F2;</span>
                 <div class="metric-label">{% trans "Total Installations" %}</div>
                 <div class="metric-value">{{ pwa_metrics.total_installations }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=pwa_metrics.unique_users %}{{ count }}
-                    unique users{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=pwa_metrics.unique_users %}{{ count }} unique users{% endblocktrans %}</div>
             </div>
             <div class="metric-card green">
                 <span class="metric-icon">&#x2705;</span>
@@ -1891,25 +1175,20 @@
                         {% for item in pwa_metrics.os_distribution %}
                         <tr>
                             <td>
-                                {% if item.os_type == 'ios' %}&#x1F34E; iOS {% elif
-                                item.os_type == 'android' %}&#x1F916; Android {% elif
-                                item.os_type == 'windows' %}&#x1FA9F; Windows {% elif
-                                item.os_type == 'macos' %}&#x1F34F; macOS {% elif
-                                item.os_type == 'linux' %}&#x1F427; Linux {% else
-                                %}&#x2753; {{ item.os_type|title }} {% endif %}
+                                {% if item.os_type == 'ios' %}&#x1F34E; iOS
+                                {% elif item.os_type == 'android' %}&#x1F916; Android
+                                {% elif item.os_type == 'windows' %}&#x1FA9F; Windows
+                                {% elif item.os_type == 'macos' %}&#x1F34F; macOS
+                                {% elif item.os_type == 'linux' %}&#x1F427; Linux
+                                {% else %}&#x2753; {{ item.os_type|title }}
+                                {% endif %}
                             </td>
                             <td>{{ item.count }}</td>
-                            <td>
-                                {% if pwa_metrics.total_installations > 0 %}{%
-                                widthratio item.count pwa_metrics.total_installations
-                                100 %}%{% else %}0%{% endif %}
-                            </td>
+                            <td>{% if pwa_metrics.total_installations > 0 %}{% widthratio item.count pwa_metrics.total_installations 100 %}%{% else %}0%{% endif %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">
-                                {% trans "No PWA installations yet" %}
-                            </td>
+                            <td colspan="3" class="empty-state">{% trans "No PWA installations yet" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1929,19 +1208,18 @@
                         {% for item in pwa_metrics.browser_distribution %}
                         <tr>
                             <td>
-                                {% if item.browser == 'Chrome' %}&#x1F7E2; Chrome {%
-                                elif item.browser == 'Safari' %}&#x1F535; Safari {% elif
-                                item.browser == 'Edge' %}&#x1F537; Edge {% elif
-                                item.browser == 'Firefox' %}&#x1F98A; Firefox {% else
-                                %}{{ item.browser|default:_("Unknown") }} {% endif %}
+                                {% if item.browser == 'Chrome' %}&#x1F7E2; Chrome
+                                {% elif item.browser == 'Safari' %}&#x1F535; Safari
+                                {% elif item.browser == 'Edge' %}&#x1F537; Edge
+                                {% elif item.browser == 'Firefox' %}&#x1F98A; Firefox
+                                {% else %}{{ item.browser|default:_("Unknown") }}
+                                {% endif %}
                             </td>
                             <td>{{ item.count }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="2" class="empty-state">
-                                {% trans "No data" %}
-                            </td>
+                            <td colspan="2" class="empty-state">{% trans "No data" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1949,11 +1227,9 @@
             </div>
         </div>
 
-        {# OAuth State (if data exists) #} {% if oauth_metrics.total_states > 0 %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F510;</span> {% trans "OAuth State
-            (Debugging)" %}
-        </h2>
+        {# OAuth State (if data exists) #}
+        {% if oauth_metrics.total_states > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F510;</span> {% trans "OAuth State (Debugging)" %}</h2>
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F504;</span>
@@ -1965,9 +1241,7 @@
                 <span class="metric-icon">&#x2705;</span>
                 <div class="metric-label">{% trans "Completed Auth" %}</div>
                 <div class="metric-value">{{ oauth_metrics.completed_auth }}</div>
-                <div class="metric-subtitle">
-                    {% trans "Successful authentications" %}
-                </div>
+                <div class="metric-subtitle">{% trans "Successful authentications" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
@@ -1982,19 +1256,16 @@
                 <div class="metric-subtitle">{% trans "Created in last hour" %}</div>
             </div>
         </div>
-        {% endif %} {# PassKit Device Registration (Apple Wallet) #} {% if
-        passkit_metrics.total_registrations > 0 %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F34E;</span> {% trans "Apple Wallet
-            Devices" %}
-        </h2>
+        {% endif %}
+
+        {# PassKit Device Registration (Apple Wallet) #}
+        {% if passkit_metrics.total_registrations > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F34E;</span> {% trans "Apple Wallet Devices" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4F2;</span>
                 <div class="metric-label">{% trans "Total Registrations" %}</div>
-                <div class="metric-value">
-                    {{ passkit_metrics.total_registrations }}
-                </div>
+                <div class="metric-value">{{ passkit_metrics.total_registrations }}</div>
                 <div class="metric-subtitle">{% trans "Device-pass pairings" %}</div>
             </div>
             <div class="metric-card blue">
@@ -2012,27 +1283,21 @@
             <div class="metric-card green">
                 <span class="metric-icon">&#x1F195;</span>
                 <div class="metric-label">{% trans "New This Month" %}</div>
-                <div class="metric-value">
-                    {{ passkit_metrics.recent_registrations }}
-                </div>
+                <div class="metric-value">{{ passkit_metrics.recent_registrations }}</div>
                 <div class="metric-subtitle">{% trans "Last 30 days" %}</div>
             </div>
         </div>
-        {% endif %} {# Profile Reminders #} {% if reminder_metrics.total_reminders > 0
-        %}
-        <h2 class="section-header">
-            <span class="section-header-icon">&#x1F4EC;</span> {% trans "Profile
-            Reminders" %}
-        </h2>
+        {% endif %}
+
+        {# Profile Reminders #}
+        {% if reminder_metrics.total_reminders > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F4EC;</span> {% trans "Profile Reminders" %}</h2>
         <div class="metric-grid">
             <div class="metric-card purple">
                 <span class="metric-icon">&#x1F4E7;</span>
                 <div class="metric-label">{% trans "Total Sent" %}</div>
                 <div class="metric-value">{{ reminder_metrics.total_reminders }}</div>
-                <div class="metric-subtitle">
-                    {% blocktrans with count=reminder_metrics.recent_reminders %}{{
-                    count }} this month{% endblocktrans %}
-                </div>
+                <div class="metric-subtitle">{% blocktrans with count=reminder_metrics.recent_reminders %}{{ count }} this month{% endblocktrans %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x23F0;</span>
@@ -2057,129 +1322,61 @@
         <div class="chart-container">
             <h3>&#x1F4C8; {% trans "Reminder Effectiveness" %}</h3>
             <div class="progress-bar-container">
-                <div
-                    class="progress-bar"
-                    style="width: {{ reminder_metrics.effectiveness_rate }}%;"
-                >
-                    {% blocktrans with rate=reminder_metrics.effectiveness_rate %}{{
-                    rate }}% Completed After Reminder{% endblocktrans %}
+                <div class="progress-bar" style="width: {{ reminder_metrics.effectiveness_rate }}%;">
+                    {% blocktrans with rate=reminder_metrics.effectiveness_rate %}{{ rate }}% Completed After Reminder{% endblocktrans %}
                 </div>
             </div>
-            <p style="margin-top: 10px">
-                {% trans "Percentage of users who completed their profile after
-                receiving a reminder" %}
+            <p style="margin-top: 10px;">
+                {% trans "Percentage of users who completed their profile after receiving a reminder" %}
             </p>
         </div>
-        {% endif %} {# Quick Links to Technical Admin Pages #}
-        <div
-            style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: var(--spacing-sm);
-                margin-top: var(--spacing-lg);
-            "
-        >
-            <a
-                href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}"
-                class="btn btn-secondary"
-                >{% trans "View All PWA Devices" %}</a
-            >
+        {% endif %}
+
+        {# Quick Links to Technical Admin Pages #}
+        <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
+            <a href="{% url 'crush_admin:crush_lu_pwadeviceinstallation_changelist' %}" class="btn btn-secondary">{% trans "View All PWA Devices" %}</a>
             {% if oauth_metrics.total_states > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}"
-                class="btn btn-secondary"
-                >{% trans "View OAuth States" %}</a
-            >
-            {% endif %} {% if passkit_metrics.total_registrations > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}"
-                class="btn btn-secondary"
-                >{% trans "View PassKit Devices" %}</a
-            >
-            {% endif %} {% if reminder_metrics.total_reminders > 0 %}
-            <a
-                href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}"
-                class="btn btn-secondary"
-                >{% trans "View All Reminders" %}</a
-            >
+            <a href="{% url 'crush_admin:crush_lu_oauthstate_changelist' %}" class="btn btn-secondary">{% trans "View OAuth States" %}</a>
+            {% endif %}
+            {% if passkit_metrics.total_registrations > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_passkitdeviceregistration_changelist' %}" class="btn btn-secondary">{% trans "View PassKit Devices" %}</a>
+            {% endif %}
+            {% if reminder_metrics.total_reminders > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_profilereminder_changelist' %}" class="btn btn-secondary">{% trans "View All Reminders" %}</a>
             {% endif %}
         </div>
     </div>
 
-    {# ================================================================== #} {# GROWTH
-    TAB #} {# ================================================================== #}
+    {# ================================================================== #}
+    {# GROWTH TAB                                                          #}
+    {# ================================================================== #}
     <div class="tab-panel" :class="growthTabClass" x-show="isGrowth">
         <div x-data="growthCharts">
+
             {# Controls: Range + Granularity #}
-            <div
-                style="
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: var(--spacing-sm);
-                    margin-bottom: var(--spacing-lg);
-                    align-items: center;
-                "
-            >
-                <span style="font-weight: 600; margin-right: var(--spacing-xs)"
-                    >{% trans "Range:" %}</span
-                >
-                <button class="btn btn-sm" :class="range7dClass" @click="setRange7d">
-                    {% trans "7 Days" %}
-                </button>
-                <button class="btn btn-sm" :class="range30dClass" @click="setRange30d">
-                    {% trans "30 Days" %}
-                </button>
-                <button class="btn btn-sm" :class="range90dClass" @click="setRange90d">
-                    {% trans "90 Days" %}
-                </button>
-                <button class="btn btn-sm" :class="rangeAllClass" @click="setRangeAll">
-                    {% trans "All Time" %}
-                </button>
-                <span
-                    style="
-                        margin-left: var(--spacing-md);
-                        font-weight: 600;
-                        margin-right: var(--spacing-xs);
-                    "
-                    >{% trans "Group by:" %}</span
-                >
-                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranDay">
-                    {% trans "Day" %}
-                </button>
-                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranWeek">
-                    {% trans "Week" %}
-                </button>
-                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranMonth">
-                    {% trans "Month" %}
-                </button>
+            <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg); align-items: center;">
+                <span style="font-weight: 600; margin-right: var(--spacing-xs);">{% trans "Range:" %}</span>
+                <button class="btn btn-sm" :class="range7dClass" @click="setRange7d">{% trans "7 Days" %}</button>
+                <button class="btn btn-sm" :class="range30dClass" @click="setRange30d">{% trans "30 Days" %}</button>
+                <button class="btn btn-sm" :class="range90dClass" @click="setRange90d">{% trans "90 Days" %}</button>
+                <button class="btn btn-sm" :class="rangeAllClass" @click="setRangeAll">{% trans "All Time" %}</button>
+                <span style="margin-left: var(--spacing-md); font-weight: 600; margin-right: var(--spacing-xs);">{% trans "Group by:" %}</span>
+                <button class="btn btn-sm" :class="dayBtnClass" @click="setGranDay">{% trans "Day" %}</button>
+                <button class="btn btn-sm" :class="weekBtnClass" @click="setGranWeek">{% trans "Week" %}</button>
+                <button class="btn btn-sm" :class="monthBtnClass" @click="setGranMonth">{% trans "Month" %}</button>
             </div>
 
             {# Loading / Error states #}
-            <div
-                x-show="isLoading"
-                style="text-align: center; padding: var(--spacing-xl)"
-            >
+            <div x-show="isLoading" style="text-align: center; padding: var(--spacing-xl);">
                 <p>{% trans "Loading chart data..." %}</p>
             </div>
-            <div
-                x-show="hasError"
-                style="
-                    color: var(--status-danger);
-                    padding: var(--spacing-md);
-                    background: #fef2f2;
-                    border-radius: 8px;
-                    margin-bottom: var(--spacing-md);
-                "
-            >
+            <div x-show="hasError" style="color: var(--status-danger); padding: var(--spacing-md); background: #fef2f2; border-radius: 8px; margin-bottom: var(--spacing-md);">
                 <p x-text="errorMessage"></p>
             </div>
 
             {# Section: Daily Active Users #}
-            <h2 class="section-header">
-                <span class="section-header-icon">&#x1F4E5;</span> {% trans "Daily
-                Active Users" %}
-            </h2>
-            <div class="metric-grid" style="margin-bottom: var(--spacing-md)">
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4E5;</span> {% trans "Daily Active Users" %}</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4CA;</span>
                     <div class="metric-label">{% trans "Avg DAU" %}</div>
@@ -2196,18 +1393,15 @@
                     <div class="metric-value" x-text="dauMin"></div>
                 </div>
             </div>
-            <div class="chart-container" style="margin-bottom: var(--spacing-xl)">
-                <div style="position: relative; height: 300px">
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
                     <canvas id="dauChart"></canvas>
                 </div>
             </div>
 
             {# Section A: Signup Trends #}
-            <h2 class="section-header">
-                <span class="section-header-icon">&#x1F4CA;</span> {% trans "Signup
-                Trends" %}
-            </h2>
-            <div class="metric-grid" style="margin-bottom: var(--spacing-md)">
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CA;</span> {% trans "Signup Trends" %}</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4DD;</span>
                     <div class="metric-label">{% trans "Total Signups" %}</div>
@@ -2229,18 +1423,15 @@
                     <div class="metric-value" x-text="signupAvgPerDay"></div>
                 </div>
             </div>
-            <div class="chart-container" style="margin-bottom: var(--spacing-xl)">
-                <div style="position: relative; height: 300px">
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
                     <canvas id="signupChart"></canvas>
                 </div>
             </div>
 
             {# Section B: Verification Pipeline #}
-            <h2 class="section-header">
-                <span class="section-header-icon">&#x1F50D;</span> {% trans
-                "Verification Pipeline" %}
-            </h2>
-            <div class="metric-grid" style="margin-bottom: var(--spacing-md)">
+            <h2 class="section-header"><span class="section-header-icon">&#x1F50D;</span> {% trans "Verification Pipeline" %}</h2>
+            <div class="metric-grid" style="margin-bottom: var(--spacing-md);">
                 <div class="metric-card purple">
                     <span class="metric-icon">&#x1F4CB;</span>
                     <div class="metric-label">{% trans "Reviews Completed" %}</div>
@@ -2251,10 +1442,7 @@
                     <div class="metric-label">{% trans "Approved" %}</div>
                     <div class="metric-value" x-text="verifyApproved"></div>
                 </div>
-                <div
-                    class="metric-card"
-                    style="border-left: 4px solid var(--status-danger)"
-                >
+                <div class="metric-card" style="border-left: 4px solid var(--status-danger);">
                     <span class="metric-icon">&#x274C;</span>
                     <div class="metric-label">{% trans "Rejected" %}</div>
                     <div class="metric-value" x-text="verifyRejected"></div>
@@ -2270,179 +1458,79 @@
                     <div class="metric-value" x-text="verifyRecontact"></div>
                 </div>
             </div>
-            <div class="chart-container" style="margin-bottom: var(--spacing-xl)">
-                <div style="position: relative; height: 300px">
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
                     <canvas id="verificationChart"></canvas>
                 </div>
             </div>
 
             {# Section C: Cumulative Growth #}
-            <h2 class="section-header">
-                <span class="section-header-icon">&#x1F4C8;</span> {% trans "Cumulative
-                Growth" %}
-            </h2>
-            <div class="chart-container" style="margin-bottom: var(--spacing-xl)">
-                <div style="position: relative; height: 300px">
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4C8;</span> {% trans "Cumulative Growth" %}</h2>
+            <div class="chart-container" style="margin-bottom: var(--spacing-xl);">
+                <div style="position: relative; height: 300px;">
                     <canvas id="cumulativeChart"></canvas>
                 </div>
             </div>
 
             {# Section D: Business Plan Summary #}
-            <h2 class="section-header">
-                <span class="section-header-icon">&#x1F4CB;</span> {% trans "Business
-                Plan Summary" %}
-            </h2>
-            <div class="chart-container" style="margin-bottom: var(--spacing-md)">
-                <div style="overflow-x: auto">
-                    <table
-                        style="width: 100%; border-collapse: collapse; font-size: 14px"
-                    >
+            <h2 class="section-header"><span class="section-header-icon">&#x1F4CB;</span> {% trans "Business Plan Summary" %}</h2>
+            <div class="chart-container" style="margin-bottom: var(--spacing-md);">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
-                            <tr style="border-bottom: 2px solid var(--border-color)">
-                                <th style="text-align: left; padding: 8px">
-                                    {% trans "Metric" %}
-                                </th>
-                                <th style="text-align: right; padding: 8px">
-                                    {% trans "Value" %}
-                                </th>
+                            <tr style="border-bottom: 2px solid var(--border-color);">
+                                <th style="text-align: left; padding: 8px;">{% trans "Metric" %}</th>
+                                <th style="text-align: right; padding: 8px;">{% trans "Value" %}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Total Signups (period)" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                    x-text="signupTotal"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Total Signups (period)" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupTotal"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Total Approved (period)" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                    x-text="signupApproved"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Total Approved (period)" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupApproved"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Approval Rate" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                >
-                                    <span x-text="signupRate"></span>%
-                                </td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Approval Rate" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="signupRate"></span>%</td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Avg Signups / Day" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                    x-text="signupAvgPerDay"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Avg Signups / Day" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="signupAvgPerDay"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Reviews Completed" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                    x-text="verifyTotal"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Reviews Completed" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;" x-text="verifyTotal"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Reviews - Approved" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                        color: var(--status-success);
-                                    "
-                                    x-text="verifyApproved"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Reviews - Approved" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-success);" x-text="verifyApproved"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Reviews - Rejected" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                        color: var(--status-danger);
-                                    "
-                                    x-text="verifyRejected"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Reviews - Rejected" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-danger);" x-text="verifyRejected"></td>
                             </tr>
-                            <tr style="border-bottom: 1px solid var(--border-light)">
-                                <td style="padding: 8px">
-                                    {% trans "Reviews - Revision" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                        color: var(--status-warning);
-                                    "
-                                    x-text="verifyRevision"
-                                ></td>
+                            <tr style="border-bottom: 1px solid var(--border-light);">
+                                <td style="padding: 8px;">{% trans "Reviews - Revision" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600; color: var(--status-warning);" x-text="verifyRevision"></td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px">
-                                    {% trans "Verification Approval Rate" %}
-                                </td>
-                                <td
-                                    style="
-                                        text-align: right;
-                                        padding: 8px;
-                                        font-weight: 600;
-                                    "
-                                >
-                                    <span x-text="verifyRate"></span>%
-                                </td>
+                                <td style="padding: 8px;">{% trans "Verification Approval Rate" %}</td>
+                                <td style="text-align: right; padding: 8px; font-weight: 600;"><span x-text="verifyRate"></span>%</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div style="margin-top: var(--spacing-md)">
-                    <button
-                        class="btn btn-primary"
-                        @click="copyToClipboard"
-                        x-text="copyButtonText"
-                    ></button>
+                <div style="margin-top: var(--spacing-md);">
+                    <button class="btn btn-primary" @click="copyToClipboard" x-text="copyButtonText"></button>
                 </div>
             </div>
+
         </div>
     </div>
+
 </div>
 
 <script src="{% static 'crush_lu/js/vendor/chart.umd.min.js' %}"></script>

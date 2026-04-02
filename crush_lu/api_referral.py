@@ -5,12 +5,12 @@ Provides endpoints for:
 - GET /api/referral/me/ - Get user's referral code, URL, stats, and points
 - POST /api/referral/redeem/ - Redeem points for rewards
 """
-
 import logging
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -78,15 +78,11 @@ def referral_me(request):
     stats = get_referral_stats(profile)
 
     # Calculate tier progress
-    thresholds = getattr(
-        settings,
-        "MEMBERSHIP_TIER_THRESHOLDS",
-        {
-            "bronze": 200,
-            "silver": 500,
-            "gold": 1000,
-        },
-    )
+    thresholds = getattr(settings, "MEMBERSHIP_TIER_THRESHOLDS", {
+        "bronze": 200,
+        "silver": 500,
+        "gold": 1000,
+    })
 
     tier_order = ["basic", "bronze", "silver", "gold"]
     current_tier_index = tier_order.index(profile.membership_tier)
@@ -101,25 +97,21 @@ def referral_me(request):
         next_tier = tier_order[current_tier_index + 1]
         next_threshold = thresholds.get(next_tier, 0)
         tier_progress["next_tier"] = next_tier
-        tier_progress["points_to_next"] = max(
-            0, next_threshold - profile.referral_points
-        )
+        tier_progress["points_to_next"] = max(0, next_threshold - profile.referral_points)
 
-    return Response(
-        {
-            "code": referral_code.code,
-            "url": referral_url,
-            "qr_code_base64": qr_code_base64,
-            "stats": {
-                "clicks": stats["clicks"],
-                "conversions": stats["conversions"],
-                "points_earned": stats["points_earned"],
-            },
-            "current_points": profile.referral_points,
-            "membership_tier": profile.membership_tier,
-            "tier_progress": tier_progress,
-        }
-    )
+    return Response({
+        "code": referral_code.code,
+        "url": referral_url,
+        "qr_code_base64": qr_code_base64,
+        "stats": {
+            "clicks": stats["clicks"],
+            "conversions": stats["conversions"],
+            "points_earned": stats["points_earned"],
+        },
+        "current_points": profile.referral_points,
+        "membership_tier": profile.membership_tier,
+        "tier_progress": tier_progress,
+    })
 
 
 @api_view(["POST"])
@@ -172,9 +164,7 @@ def redeem_points(request):
 
     if reward_type not in reward_costs:
         return Response(
-            {
-                "error": f"Invalid reward_type. Valid options: {list(reward_costs.keys())}"
-            },
+            {"error": f"Invalid reward_type. Valid options: {list(reward_costs.keys())}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -222,15 +212,13 @@ def redeem_points(request):
         else:
             reward_value = reward_type
 
-    return Response(
-        {
-            "success": True,
-            "message": "Reward redeemed successfully",
-            "reward": {
-                "type": reward_type,
-                "value": reward_value,
-                "points_spent": points_required,
-            },
-            "new_balance": profile.referral_points,
-        }
-    )
+    return Response({
+        "success": True,
+        "message": "Reward redeemed successfully",
+        "reward": {
+            "type": reward_type,
+            "value": reward_value,
+            "points_spent": points_required,
+        },
+        "new_balance": profile.referral_points,
+    })

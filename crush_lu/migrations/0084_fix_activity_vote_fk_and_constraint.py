@@ -8,21 +8,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0083_add_gender_capacity_fields"),
+        ('crush_lu', '0083_add_gender_capacity_fields'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name="eventactivityvote",
-            unique_together={("event", "user")},
+            name='eventactivityvote',
+            unique_together={('event', 'user')},
         ),
         migrations.AlterField(
-            model_name="eventactivityvote",
-            name="selected_option",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                to="crush_lu.eventactivityoption",
-            ),
+            model_name='eventactivityvote',
+            name='selected_option',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crush_lu.eventactivityoption'),
         ),
     ]

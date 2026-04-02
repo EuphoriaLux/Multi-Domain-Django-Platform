@@ -6,8 +6,9 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0112_crushcoach_phone_number"),
-        ("crush_lu", "0112_require_plus_prefix_phone_validator"),
+        ('crush_lu', '0112_crushcoach_phone_number'),
+        ('crush_lu', '0112_require_plus_prefix_phone_validator'),
     ]
 
-    operations = []
+    operations = [
+    ]

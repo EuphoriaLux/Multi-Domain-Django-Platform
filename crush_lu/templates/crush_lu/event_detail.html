@@ -1,203 +1,109 @@
-{% extends 'crush_lu/base.html' %} {% load static analytics %} {% load i18n %} {% block
-title %}{{ event.title }} - Crush.lu{% endblock %} {% block og_type %}article{% endblock
-%} {% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} |
-Crush.lu{% endblock %} {% block og_description %}{{ event.description|truncatewords:30
-}} Join us on {{ event.date_time|date:"F j, Y" }} in {{
-event.canton|default:"Luxembourg" }}.{% endblock %} {% block og_image %}{% if
-event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{%
-endblock %} {% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display
-}} | Crush.lu{% endblock %} {% block twitter_description %}{{
-event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in
-{{ event.canton|default:"Luxembourg" }}.{% endblock %} {% block twitter_image %}{% if
-event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{%
-endblock %} {% block meta_description %}{{ event.description|truncatewords:25 }} {{
-event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} in {{
-event.canton|default:"Luxembourg" }}, Luxembourg.{% endblock %} {% block meta_keywords
-%}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg,
-{{ event.canton|default:"luxembourg"|lower }}, singles event{% endblock %} {% block
-structured_data %} {{ block.super }}
+{% extends 'crush_lu/base.html' %}
+{% load static analytics %}
+{% load i18n %}
+
+{% block title %}{{ event.title }} - Crush.lu{% endblock %}
+
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
+{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
+{% block og_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
+
+{% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
+{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
+{% block twitter_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
+
+{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}, Luxembourg.{% endblock %}
+{% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.canton|default:"luxembourg"|lower }}, singles event{% endblock %}
+
+{% block structured_data %}
+{{ block.super }}
 <script type="application/ld+json">
-    {{ event_jsonld|safe }}
+{{ event_jsonld|safe }}
 </script>
 
 <!-- Breadcrumb Schema -->
 <script type="application/ld+json">
-    {{ breadcrumb_jsonld|safe }}
+{{ breadcrumb_jsonld|safe }}
 </script>
-{% endblock %} {% block content %} {% ga4_event "view_item" item_id=event.id
-item_name=event.title item_category=event.get_event_type_display %} {% fb_event
-"ViewContent" content_name=event.title content_category=event.get_event_type_display %}
+{% endblock %}
+
+{% block content %}
+{% ga4_event "view_item" item_id=event.id item_name=event.title item_category=event.get_event_type_display %}
+{% fb_event "ViewContent" content_name=event.title content_category=event.get_event_type_display %}
 <div class="flex justify-center">
     <div class="w-full lg:w-2/3">
-        <div class="mb-4 flex flex-wrap items-center gap-3 sm:mb-6">
-            <a
-                href="{% url 'crush_lu:event_list' %}"
-                class="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-                {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {%
-                trans "Back to Events" %}
+        <div class="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">
+            <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+                {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+                {% trans "Back to Events" %}
             </a>
 
-            <div class="ml-auto flex items-center gap-3">
+            <div class="flex items-center gap-3 ml-auto">
                 {% if user_registration and user_registration.status == 'confirmed' %}
-                <div
-                    class="relative"
-                    x-data="calendarDropdown"
-                    data-calendar-event-id="{{ event.id }}"
-                >
-                    <button
-                        @click="toggle"
-                        class="border-crush-purple text-crush-purple hover:bg-crush-purple inline-flex items-center gap-2 rounded-lg border-2 px-4 py-2 font-semibold transition-all duration-300 hover:text-white"
-                    >
-                        <svg
-                            class="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
+                <div class="relative" x-data="calendarDropdown" data-calendar-event-id="{{ event.id }}">
+                    <button @click="toggle" class="inline-flex items-center gap-2 px-4 py-2 border-2 border-crush-purple text-crush-purple hover:bg-crush-purple hover:text-white font-semibold rounded-lg transition-all duration-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                         </svg>
-                        <span class="hidden sm:inline"
-                            >{% trans "Add to Calendar" %}</span
-                        >
+                        <span class="hidden sm:inline">{% trans "Add to Calendar" %}</span>
                         <span class="sm:hidden">{% trans "Calendar" %}</span>
-                        <svg
-                            class="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7"
-                            />
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
 
-                    <div
-                        x-show="isOpen"
-                        @click.away="close"
-                        class="absolute right-0 z-50 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:shadow-gray-900/20"
-                        style="display: none"
-                    >
-                        <a
-                            href="#"
-                            data-calendar-service="google"
-                            target="_blank"
-                            rel="noopener"
-                            class="flex items-center gap-3 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
+                    <div x-show="isOpen" @click.away="close" class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900/20 border border-gray-200 dark:border-gray-700 py-2 z-50" style="display: none;">
+                        <a href="#" data-calendar-service="google" target="_blank" rel="noopener" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📗</span>
-                            <span class="font-medium"
-                                >{% trans "Google Calendar" %}</span
-                            >
+                            <span class="font-medium">{% trans "Google Calendar" %}</span>
                         </a>
-                        <a
-                            href="#"
-                            data-calendar-service="outlook"
-                            target="_blank"
-                            rel="noopener"
-                            class="flex items-center gap-3 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
+                        <a href="#" data-calendar-service="outlook" target="_blank" rel="noopener" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📘</span>
-                            <span class="font-medium"
-                                >{% trans "Outlook Calendar" %}</span
-                            >
+                            <span class="font-medium">{% trans "Outlook Calendar" %}</span>
                         </a>
-                        <a
-                            href="#"
-                            data-calendar-service="yahoo"
-                            target="_blank"
-                            rel="noopener"
-                            class="flex items-center gap-3 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
+                        <a href="#" data-calendar-service="yahoo" target="_blank" rel="noopener" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">📙</span>
-                            <span class="font-medium"
-                                >{% trans "Yahoo Calendar" %}</span
-                            >
+                            <span class="font-medium">{% trans "Yahoo Calendar" %}</span>
                         </a>
-                        <a
-                            href="{% url 'crush_lu:event_calendar_download' event.id %}"
-                            class="flex items-center gap-3 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
+                        <a href="{% url 'crush_lu:event_calendar_download' event.id %}" class="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <span class="text-2xl">🍎</span>
-                            <span class="font-medium"
-                                >{% trans "Apple Calendar (.ics)" %}</span
-                            >
+                            <span class="font-medium">{% trans "Apple Calendar (.ics)" %}</span>
                         </a>
                     </div>
                 </div>
                 {% endif %}
 
-                <button
-                    id="shareEventBtn"
-                    class="from-crush-purple to-crush-pink inline-flex items-center gap-2 rounded-lg bg-gradient-to-r px-4 py-2 font-semibold text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                >
-                    <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                        />
+                <button id="shareEventBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-crush-purple to-crush-pink text-white hover:shadow-lg font-semibold rounded-lg transition-all duration-300 hover:scale-105">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
                     </svg>
                     <span>{% trans "Share" %}</span>
                 </button>
             </div>
         </div>
 
-        <div
-            class="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
-            {# Event banner image or gradient placeholder #} {% if event.image %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+            {# Event banner image or gradient placeholder #}
+            {% if event.image %}
             <div class="w-full">
                 <img
                     src="{{ event.image.url }}"
                     alt="{{ event.title }}"
-                    class="h-auto max-h-96 w-full rounded-t-xl"
+                    class="w-full h-auto max-h-96 rounded-t-xl"
                     loading="lazy"
                 />
             </div>
             {% else %}
-            <div
-                class="from-crush-purple to-crush-pink relative flex h-48 w-full items-end overflow-hidden rounded-t-xl bg-gradient-to-br p-5 sm:h-56 sm:p-6 md:h-64"
-            >
-                <span
-                    class="absolute top-1/2 right-6 -translate-y-1/2 text-8xl opacity-20 select-none sm:text-9xl"
-                    aria-hidden="true"
-                    >{% if event.event_type == 'speed_dating' %}💘{% elif
-                    event.event_type == 'mixer' %}🥂{% elif event.event_type ==
-                    'activity' %}🎯{% elif event.event_type == 'themed' %}🎭{% elif
-                    event.event_type == 'quiz_night' %}🧠{% else %}💜{% endif %}</span
-                >
+            <div class="w-full h-48 sm:h-56 md:h-64 bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex items-end p-5 sm:p-6 relative overflow-hidden">
+                <span class="absolute right-6 top-1/2 -translate-y-1/2 text-8xl sm:text-9xl opacity-20 select-none" aria-hidden="true">{% if event.event_type == 'speed_dating' %}💘{% elif event.event_type == 'mixer' %}🥂{% elif event.event_type == 'activity' %}🎯{% elif event.event_type == 'themed' %}🎭{% elif event.event_type == 'quiz_night' %}🧠{% else %}💜{% endif %}</span>
                 <div class="relative z-10">
-                    <span
-                        class="mb-2 inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm sm:text-sm"
-                    >
+                    <span class="inline-block px-2.5 py-0.5 text-xs sm:text-sm font-semibold bg-white/20 text-white rounded-full mb-2 backdrop-blur-sm">
                         {{ event.get_event_type_display }}
                     </span>
-                    <h2
-                        class="line-clamp-2 text-2xl leading-tight font-bold text-white sm:text-3xl"
-                    >
-                        {{ event.title }}
-                    </h2>
-                    <p class="mt-1.5 text-sm text-white/80">
-                        {{ event.date_time|date:"l, F j, Y" }} · {{
-                        event.date_time|date:"g:i A" }} · {% if user.is_authenticated
-                        %}{{ event.location }}{% else %}{{
-                        event.canton|default:"Luxembourg" }}{% endif %}
+                    <h2 class="text-white font-bold text-2xl sm:text-3xl leading-tight line-clamp-2">{{ event.title }}</h2>
+                    <p class="text-white/80 text-sm mt-1.5">
+                        {{ event.date_time|date:"l, F j, Y" }} · {{ event.date_time|date:"g:i A" }} · {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
                     </p>
                 </div>
             </div>
@@ -206,17 +112,11 @@ item_name=event.title item_category=event.get_event_type_display %} {% fb_event
             <div class="px-4 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
                 {# Mobile-first header with responsive layout #}
                 <div class="mb-6 sm:mb-8">
-                    <div
-                        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                        <h1
-                            class="flex-1 text-xl font-bold text-gray-900 sm:text-2xl lg:text-3xl dark:text-white"
-                        >
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white flex-1">
                             {{ event.title }}
                         </h1>
-                        <span
-                            class="from-crush-purple to-crush-pink inline-flex flex-shrink-0 items-center self-start rounded-full bg-gradient-to-r px-3 py-1 text-xs font-medium text-white sm:self-center sm:text-sm"
-                        >
+                        <span class="inline-flex items-center self-start sm:self-center px-3 py-1 text-xs sm:text-sm font-medium bg-gradient-to-r from-crush-purple to-crush-pink text-white rounded-full flex-shrink-0">
                             {{ event.get_event_type_display }}
                         </span>
                     </div>
@@ -224,265 +124,128 @@ item_name=event.title item_category=event.get_event_type_display %} {% fb_event
 
                 {# Description section #}
                 <div class="mb-6 sm:mb-8">
-                    <div
-                        class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300"
-                    >
-                        {{ event.description|linebreaks }}
-                    </div>
+                    <div class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300">{{ event.description|linebreaks }}</div>
                 </div>
 
                 {# Event information grid with visual cards #}
-                <div
-                    class="mb-6 grid grid-cols-1 gap-4 sm:mb-8 sm:grid-cols-2 sm:gap-6"
-                >
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
                     {# Date & Time card #}
-                    <div
-                        class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <div class="mb-2 flex items-center gap-2">
-                            <svg
-                                class="text-crush-purple h-5 w-5 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                                    clip-rule="evenodd"
-                                />
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-crush-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                             </svg>
-                            <span
-                                class="text-sm font-semibold text-gray-700 sm:text-base dark:text-gray-200"
-                                >{% trans "Date & Time" %}</span
-                            >
+                            <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Date & Time" %}</span>
                         </div>
-                        <p
-                            class="ml-7 text-sm text-gray-600 sm:text-base dark:text-gray-300"
-                        >
-                            {{ event.date_time|date:"l, F j, Y" }}<br />
-                            <span class="text-gray-500 dark:text-gray-400"
-                                >{% blocktrans with time=event.date_time|date:"g:i A"
-                                duration=event.duration_minutes %}{{ time }} ({{
-                                duration }} minutes){% endblocktrans %}</span
-                            >
+                        <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
+                            {{ event.date_time|date:"l, F j, Y" }}<br>
+                            <span class="text-gray-500 dark:text-gray-400">{% blocktrans with time=event.date_time|date:"g:i A" duration=event.duration_minutes %}{{ time }} ({{ duration }} minutes){% endblocktrans %}</span>
                         </p>
                     </div>
 
                     {# Location card #}
-                    <div
-                        class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <div class="mb-2 flex items-center gap-2">
-                            <svg
-                                class="text-crush-purple h-5 w-5 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                                    clip-rule="evenodd"
-                                />
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-crush-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
                             </svg>
-                            <span
-                                class="text-sm font-semibold text-gray-700 sm:text-base dark:text-gray-200"
-                                >{% trans "Location" %}</span
-                            >
+                            <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Location" %}</span>
                         </div>
-                        {% if user.is_authenticated %} {# Authenticated users: Show full
-                        address #}
-                        <p
-                            class="ml-7 text-sm text-gray-600 sm:text-base dark:text-gray-300"
-                        >
-                            <strong>{{ event.location }}</strong><br />
-                            <span class="text-gray-500 dark:text-gray-400"
-                                >{{ event.address }}</span
-                            >
-                        </p>
-                        {% else %} {# Anonymous visitors: Show canton only #}
-                        <div class="ml-7">
-                            <p
-                                class="text-sm text-gray-600 sm:text-base dark:text-gray-300"
-                            >
-                                <strong>{{ event.canton|default:"Luxembourg" }}</strong>
+                        {% if user.is_authenticated %}
+                            {# Authenticated users: Show full address #}
+                            <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
+                                <strong>{{ event.location }}</strong><br>
+                                <span class="text-gray-500 dark:text-gray-400">{{ event.address }}</span>
                             </p>
-                            <a
-                                href="{% url 'crush_lu:signup' %}"
-                                class="from-crush-purple to-crush-pink mt-2 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r px-3 py-1.5 text-xs text-white transition-all duration-200 hover:scale-105 hover:shadow-lg sm:text-sm"
-                            >
-                                <svg
-                                    class="h-3.5 w-3.5"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                        clip-rule="evenodd"
-                                    />
-                                </svg>
-                                {% trans "Sign up to reveal the exact location" %}
-                            </a>
-                        </div>
+                        {% else %}
+                            {# Anonymous visitors: Show canton only #}
+                            <div class="ml-7">
+                                <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base">
+                                    <strong>{{ event.canton|default:"Luxembourg" }}</strong>
+                                </p>
+                                    <a href="{% url 'crush_lu:signup' %}" class="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-crush-purple to-crush-pink text-white text-xs sm:text-sm rounded-full px-3 py-1.5 hover:shadow-lg hover:scale-105 transition-all duration-200">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                        {% trans "Sign up to reveal the exact location" %}
+                                    </a>
+                            </div>
                         {% endif %}
                     </div>
                 </div>
 
-                {% if not is_past %} {# Capacity & Price grid - hidden for past events
-                #}
-                <div
-                    class="mb-6 grid grid-cols-1 gap-4 sm:mb-8 sm:grid-cols-2 sm:gap-6"
-                >
+                {% if not is_past %}
+                {# Capacity & Price grid - hidden for past events #}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
                     {# Capacity card #}
-                    <div
-                        class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <div class="mb-2 flex items-center gap-2">
-                            <svg
-                                class="text-crush-purple h-5 w-5 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"
-                                />
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-crush-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
                             </svg>
-                            <span
-                                class="text-sm font-semibold text-gray-700 sm:text-base dark:text-gray-200"
-                                >{% trans "Capacity" %}</span
-                            >
+                            <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Capacity" %}</span>
                         </div>
-                        <p
-                            class="ml-7 text-sm text-gray-600 sm:text-base dark:text-gray-300"
-                        >
-                            {% blocktrans with max=event.max_participants %}Max
-                            participants: {{ max }}{% endblocktrans %}
+                        <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
+                            {% blocktrans with max=event.max_participants %}Max participants: {{ max }}{% endblocktrans %}
                         </p>
-                        <div class="mt-1.5 ml-7 flex flex-wrap items-center gap-2">
+                        <div class="ml-7 mt-1.5 flex items-center gap-2 flex-wrap">
                             {% if event.spots_remaining <= 5 %}
-                            <span
-                                class="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 dark:text-rose-400"
-                            >
-                                <span
-                                    class="h-2 w-2 animate-pulse rounded-full bg-rose-500"
-                                ></span>
-                                {% blocktrans with spots=event.spots_remaining %}Spots
-                                remaining: {{ spots }}{% endblocktrans %}
-                            </span>
-                            <span
-                                class="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-bold text-white"
-                                >{% trans "Almost full!" %}</span
-                            >
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
+                                <span class="text-xs font-bold text-white bg-rose-500 rounded-full px-2 py-0.5">{% trans "Almost full!" %}</span>
                             {% elif event.spots_remaining <= 20 %}
-                            <span
-                                class="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
-                            >
-                                <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-                                {% blocktrans with spots=event.spots_remaining %}Spots
-                                remaining: {{ spots }}{% endblocktrans %}
-                            </span>
-                            <span
-                                class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                >{% trans "Filling up" %}</span
-                            >
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
+                                <span class="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 rounded-full px-2 py-0.5">{% trans "Filling up" %}</span>
                             {% else %}
-                            <span
-                                class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400"
-                            >
-                                <span
-                                    class="h-2 w-2 rounded-full bg-emerald-500"
-                                ></span>
-                                {% blocktrans with spots=event.spots_remaining %}Spots
-                                remaining: {{ spots }}{% endblocktrans %}
-                            </span>
+                                <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    {% blocktrans with spots=event.spots_remaining %}Spots remaining: {{ spots }}{% endblocktrans %}
+                                </span>
                             {% endif %}
                         </div>
                     </div>
 
                     {# Price card #}
-                    <div
-                        class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <div class="mb-2 flex items-center gap-2">
-                            <svg
-                                class="text-crush-purple h-5 w-5 flex-shrink-0"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"
-                                />
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
-                                    clip-rule="evenodd"
-                                />
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-crush-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
                             </svg>
-                            <span
-                                class="text-sm font-semibold text-gray-700 sm:text-base dark:text-gray-200"
-                                >{% trans "Price" %}</span
-                            >
+                            <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Price" %}</span>
                         </div>
                         <p class="ml-7">
                             {% if event.registration_fee > 0 %}
-                            <strong
-                                class="text-xl text-gray-900 sm:text-2xl dark:text-white"
-                                >€{{ event.registration_fee }}</strong
-                            >
+                                <strong class="text-xl sm:text-2xl text-gray-900 dark:text-white">€{{ event.registration_fee }}</strong>
                             {% else %}
-                            <strong
-                                class="text-xl text-green-600 sm:text-2xl dark:text-green-300"
-                                >{% trans "Free" %}</strong
-                            >
+                                <strong class="text-xl sm:text-2xl text-green-600 dark:text-green-300">{% trans "Free" %}</strong>
                             {% endif %}
                         </p>
                     </div>
                 </div>
-                {% endif %} {# Requirements section #}
-                <div
-                    class="mb-6 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:mb-8 dark:border-gray-700 dark:bg-gray-900"
-                >
-                    <div class="mb-2 flex items-center gap-2">
-                        <svg
-                            class="text-crush-purple h-5 w-5 flex-shrink-0"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                clip-rule="evenodd"
-                            />
+                {% endif %}
+
+                {# Requirements section #}
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-100 dark:border-gray-700 mb-6 sm:mb-8">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-5 h-5 text-crush-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                         </svg>
-                        <span
-                            class="text-sm font-semibold text-gray-700 sm:text-base dark:text-gray-200"
-                            >{% trans "Requirements" %}</span
-                        >
+                        <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Requirements" %}</span>
                     </div>
-                    <p
-                        class="ml-7 text-sm text-gray-600 sm:text-base dark:text-gray-300"
-                    >
-                        {% blocktrans with min=event.min_age max=event.max_age %}Ages {{
-                        min }}-{{ max }}{% endblocktrans %}<br />
-                        <span class="text-gray-500 dark:text-gray-400"
-                            >{% blocktrans with
-                            deadline=event.registration_deadline|date:"F j, Y g:i A"
-                            %}Registration deadline: {{ deadline }}{% endblocktrans
-                            %}</span
-                        >
+                    <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
+                        {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}<br>
+                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with deadline=event.registration_deadline|date:"F j, Y g:i A" %}Registration deadline: {{ deadline }}{% endblocktrans %}</span>
                     </p>
                     {% if event_languages_display %}
-                    <div class="mt-3 ml-7">
-                        <p
-                            class="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-200"
-                        >
-                            {% trans "Event languages:" %}
-                        </p>
+                    <div class="ml-7 mt-3">
+                        <p class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">{% trans "Event languages:" %}</p>
                         <div class="flex flex-wrap gap-1.5">
                             {% for lang in event_languages_display %}
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-sm font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                            >
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
                                 {{ lang.flag }} {{ lang.name }}
                             </span>
                             {% endfor %}
@@ -493,51 +256,33 @@ item_name=event.title item_category=event.get_event_type_display %} {% fb_event
 
                 {% if event_coaches %}
                 <div class="mb-6 sm:mb-8">
-                    <h3
-                        class="mb-3 flex items-center gap-2 text-base font-semibold sm:text-lg dark:text-white"
-                    >
-                        {% include "shared/icons/sparkles.html" with class="w-5 h-5
-                        text-crush-purple" %} {% trans "Your Event Coaches" %}
+                    <h3 class="text-base sm:text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+                        {% trans "Your Event Coaches" %}
                     </h3>
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {% for coach in event_coaches %}
-                        <div
-                            class="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20"
-                        >
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
                             <div class="flex items-center gap-3">
                                 <div class="shrink-0">
                                     {% if coach.photo %}
-                                    <img
-                                        src="{{ coach.photo.url }}"
-                                        alt="{{ coach.user.get_full_name }}"
-                                        class="border-crush-purple/30 h-14 w-14 rounded-full border-2 object-cover shadow-md"
-                                        loading="lazy"
-                                    />
+                                        <img src="{{ coach.photo.url }}"
+                                             alt="{{ coach.user.get_full_name }}"
+                                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md"
+                                             loading="lazy">
                                     {% else %}
-                                    <div
-                                        class="from-crush-purple to-crush-pink flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br"
-                                    >
-                                        <span class="text-xl font-semibold text-white">
-                                            {{ coach.user.first_name|first }}
-                                        </span>
-                                    </div>
+                                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                                            <span class="text-white text-xl font-semibold">
+                                                {{ coach.user.first_name|first }}
+                                            </span>
+                                        </div>
                                     {% endif %}
                                 </div>
                                 <div class="min-w-0">
-                                    <h5 class="font-semibold dark:text-white">
-                                        {{ coach.user.get_full_name }}
-                                    </h5>
-                                    <p
-                                        class="text-crush-purple text-xs font-medium dark:text-purple-400"
-                                    >
-                                        {% trans "Crush Coach" %}
-                                    </p>
+                                    <h5 class="font-semibold dark:text-white">{{ coach.user.get_full_name }}</h5>
+                                    <p class="text-xs text-crush-purple dark:text-purple-400 font-medium">{% trans "Crush Coach" %}</p>
                                     {% if coach.specializations %}
-                                    <p
-                                        class="truncate text-xs text-gray-500 dark:text-gray-400"
-                                    >
-                                        {{ coach.specializations }}
-                                    </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ coach.specializations }}</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -545,608 +290,324 @@ item_name=event.title item_category=event.get_event_type_display %} {% fb_event
                         {% endfor %}
                     </div>
                 </div>
-                {% endif %} {% if not is_past and event.enable_activity_voting %}
+                {% endif %}
+
+                {% if not is_past and event.enable_activity_voting %}
                 <div class="mb-6 sm:mb-8">
-                    <div
-                        class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800 sm:p-4 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                    >
+                    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4">
                         <div class="flex items-start gap-2">
-                            <svg
-                                class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
-                                    clip-rule="evenodd"
-                                />
+                            <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
                             </svg>
                             <div class="flex-1">
-                                <p class="mb-2 text-sm font-semibold sm:text-base">
-                                    {% trans "How The Event Works" %}
-                                </p>
-                                <p class="mb-2 text-xs sm:text-sm">
-                                    {% trans "Interactive Activity Voting:" %}
-                                </p>
-                                <ul
-                                    class="mb-0 list-inside list-disc space-y-1 text-xs sm:text-sm"
-                                >
-                                    <li>
-                                        {% trans "15 minutes after the event starts,
-                                        you'll vote on which activity format to do" %}
-                                    </li>
-                                    <li>
-                                        {% trans "Choose from Speed Dating, 90-Second
-                                        Presentations, or Mystery Event" %}
-                                    </li>
-                                    <li>
-                                        {% trans "Voting lasts 30 minutes - everyone
-                                        participates!" %}
-                                    </li>
-                                    <li>
-                                        {% trans "The winning activity determines how
-                                        the event flows" %}
-                                    </li>
-                                    <li>
-                                        {% trans "After the event, connect with people
-                                        you clicked with" %}
-                                    </li>
+                                <p class="font-semibold text-sm sm:text-base mb-2">{% trans "How The Event Works" %}</p>
+                                <p class="text-xs sm:text-sm mb-2">{% trans "Interactive Activity Voting:" %}</p>
+                                <ul class="list-disc list-inside mb-0 space-y-1 text-xs sm:text-sm">
+                                    <li>{% trans "15 minutes after the event starts, you'll vote on which activity format to do" %}</li>
+                                    <li>{% trans "Choose from Speed Dating, 90-Second Presentations, or Mystery Event" %}</li>
+                                    <li>{% trans "Voting lasts 30 minutes - everyone participates!" %}</li>
+                                    <li>{% trans "The winning activity determines how the event flows" %}</li>
+                                    <li>{% trans "After the event, connect with people you clicked with" %}</li>
                                 </ul>
-                                {% if user.is_authenticated and user_registration %} {%
-                                if user_registration.status == 'attended' %}
-                                <div class="mt-3 sm:mt-4">
-                                    <a
-                                        href="{% url 'crush_lu:event_voting_lobby' event.id %}"
-                                        class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:text-base"
-                                    >
-                                        {% trans "Access Voting Lobby" %}
-                                    </a>
-                                </div>
-                                {% endif %} {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <hr class="my-6 border-gray-200 sm:my-8 dark:border-gray-700" />
-                {% endif %} {% if not is_past and event.event_type == 'quiz_night' %}
-                <div class="mb-6 sm:mb-8">
-                    <div
-                        class="rounded-lg border border-purple-200 bg-purple-50 p-3 text-purple-800 sm:p-4 dark:border-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                    >
-                        <div class="flex items-start gap-2">
-                            <span
-                                class="mt-0.5 flex-shrink-0 text-2xl"
-                                aria-hidden="true"
-                                >🧠</span
-                            >
-                            <div class="flex-1">
-                                <p class="mb-2 text-sm font-semibold sm:text-base">
-                                    {% trans "Quiz Night Format" %}
-                                </p>
-                                <ul
-                                    class="mb-0 list-inside list-disc space-y-1 text-xs sm:text-sm"
-                                >
-                                    <li>
-                                        {% trans "Teams of 4 at each table (2 men + 2
-                                        women)" %}
-                                    </li>
-                                    <li>
-                                        {% trans "Women rotate between tables after each
-                                        round" %}
-                                    </li>
-                                    <li>
-                                        {% trans "The host reads questions and scores
-                                        each table" %}
-                                    </li>
-                                    <li>
-                                        {% trans "Your personal score follows you when
-                                        you switch tables" %}
-                                    </li>
-                                    <li>
-                                        {% trans "After the quiz, connect with people
-                                        you clicked with!" %}
-                                    </li>
-                                </ul>
-                                {% if user.is_authenticated and user_registration and
-                                user_registration.status == 'attended' %}
-                                <div class="mt-3 sm:mt-4">
-                                    <a
-                                        href="{% url 'crush_lu:quiz_live' event.id %}"
-                                        class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:text-base"
-                                    >
-                                        {% trans "Join Quiz" %}
-                                    </a>
-                                </div>
+                                {% if user.is_authenticated and user_registration %}
+                                    {% if user_registration.status == 'attended' %}
+                                    <div class="mt-3 sm:mt-4">
+                                        <a href="{% url 'crush_lu:event_voting_lobby' event.id %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:text-base">
+                                            {% trans "Access Voting Lobby" %}
+                                        </a>
+                                    </div>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <hr class="my-6 border-gray-200 sm:my-8 dark:border-gray-700" />
-                {% endif %} {% if is_past %} {# Past event: show connections button if
-                user attended #} {% if user.is_authenticated and user_registration and
-                user_registration.status == 'attended' %}
-                <a
-                    href="{% url 'crush_lu:event_attendees' event.id %}"
-                    class="from-crush-purple to-crush-pink flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r px-4 py-3 text-sm font-semibold text-white transition-all hover:shadow-lg sm:py-4 sm:text-base"
-                >
-                    <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
+                <hr class="my-6 sm:my-8 border-gray-200 dark:border-gray-700">
+                {% endif %}
+
+                {% if not is_past and event.event_type == 'quiz_night' %}
+                <div class="mb-6 sm:mb-8">
+                    <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-300 rounded-lg p-3 sm:p-4">
+                        <div class="flex items-start gap-2">
+                            <span class="text-2xl flex-shrink-0 mt-0.5" aria-hidden="true">🧠</span>
+                            <div class="flex-1">
+                                <p class="font-semibold text-sm sm:text-base mb-2">{% trans "Quiz Night Format" %}</p>
+                                <ul class="list-disc list-inside mb-0 space-y-1 text-xs sm:text-sm">
+                                    <li>{% trans "Teams of 4 at each table (2 men + 2 women)" %}</li>
+                                    <li>{% trans "Women rotate between tables after each round" %}</li>
+                                    <li>{% trans "The host reads questions and scores each table" %}</li>
+                                    <li>{% trans "Your personal score follows you when you switch tables" %}</li>
+                                    <li>{% trans "After the quiz, connect with people you clicked with!" %}</li>
+                                </ul>
+                                {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
+                                    <div class="mt-3 sm:mt-4">
+                                        <a href="{% url 'crush_lu:quiz_live' event.id %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:text-base">
+                                            {% trans "Join Quiz" %}
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-6 sm:my-8 border-gray-200 dark:border-gray-700">
+                {% endif %}
+
+                {% if is_past %}
+                {# Past event: show connections button if user attended #}
+                {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
+                <a href="{% url 'crush_lu:event_attendees' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                     {% trans "View Attendees & Connections" %}
                 </a>
-                {% endif %} {% elif user.is_authenticated %} {% if user_registration %}
-                {# Already registered - show status #}
-                <div
-                    class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800 sm:p-4 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="mb-1 text-sm font-semibold sm:text-base">
-                                {% trans "You're registered for this event!" %}
-                            </p>
-                            <p class="text-xs sm:text-sm">
-                                {% blocktrans with
-                                status=user_registration.get_status_display %}Status: {{
-                                status }}{% endblocktrans %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% if user_registration.status == 'confirmed' or
-                user_registration.status == 'attended' %}
-                <a
-                    href="{% url 'crush_lu:event_ticket' event.id %}"
-                    class="from-crush-purple to-crush-pink mb-3 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r px-4 py-3 text-sm font-semibold text-white transition-all hover:shadow-lg sm:py-4 sm:text-base"
-                >
-                    <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-                        />
-                    </svg>
-                    {% trans "View My Ticket" %}
-                </a>
                 {% endif %}
-                <a
-                    href="{% url 'crush_lu:event_cancel' event.id %}"
-                    class="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 sm:py-4 sm:text-base dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/30"
-                >
-                    {% trans "Cancel Registration" %}
-                </a>
-                {% else %} {% if event_languages_display and not
-                language_requirement_met %}
-                <div
-                    class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="mb-1 text-sm font-semibold sm:text-base">
-                                {% trans "Language Requirement" %}
-                            </p>
-                            <p class="mb-2 text-xs sm:text-sm">
-                                {% trans "This event requires specific language skills
-                                that don't match your profile." %}
-                            </p>
-                            <div class="mb-2 flex flex-wrap gap-1.5">
-                                {% for lang in event_languages_display %}
-                                <span
-                                    class="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-yellow-800 dark:text-yellow-200"
-                                >
-                                    {{ lang.flag }} {{ lang.name }}
-                                </span>
-                                {% endfor %}
+                {% elif user.is_authenticated %}
+                    {% if user_registration %}
+                        {# Already registered - show status #}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4 mb-4">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're registered for this event!" %}</p>
+                                    <p class="text-xs sm:text-sm">{% blocktrans with status=user_registration.get_status_display %}Status: {{ status }}{% endblocktrans %}</p>
+                                </div>
                             </div>
-                            <a
-                                href="{% url 'crush_lu:edit_profile' %}"
-                                class="bg-crush-purple hover:bg-crush-pink inline-block rounded-lg px-4 py-2 text-sm text-white transition"
-                            >
-                                {% trans "Update Profile Languages" %}
-                            </a>
                         </div>
-                    </div>
-                </div>
-                {% endif %} {% if event.profile_requirement == "approved" %} {# Strict
-                event: Need approved profile #} {% if not user_profile %}
-                <div
-                    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="mb-1 text-sm font-semibold sm:text-base">
-                                {% trans "Profile Required" %}
-                            </p>
-                            <p class="mb-3 text-xs sm:text-sm">
-                                {% trans "This event requires a Crush profile." %}
-                            </p>
-                            <a
-                                href="{% url 'crush_lu:create_profile' %}"
-                                class="bg-crush-purple hover:bg-crush-pink inline-block rounded-lg px-4 py-2 text-sm text-white transition sm:text-base"
-                            >
-                                {% trans "Create Profile" %}
-                            </a>
+                        {% if user_registration.status == 'confirmed' or user_registration.status == 'attended' %}
+                        <a href="{% url 'crush_lu:event_ticket' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
+                            </svg>
+                            {% trans "View My Ticket" %}
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'crush_lu:event_cancel' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 border border-red-500 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 font-medium rounded-lg transition-colors text-sm sm:text-base">
+                            {% trans "Cancel Registration" %}
+                        </a>
+                    {% else %}
+                        {% if event_languages_display and not language_requirement_met %}
+                        <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4 mb-4">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Language Requirement" %}</p>
+                                    <p class="text-xs sm:text-sm mb-2">{% trans "This event requires specific language skills that don't match your profile." %}</p>
+                                    <div class="flex flex-wrap gap-1.5 mb-2">
+                                        {% for lang in event_languages_display %}
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-amber-200 dark:bg-yellow-800 text-amber-900 dark:text-yellow-200 rounded-full">
+                                            {{ lang.flag }} {{ lang.name }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                    <a href="{% url 'crush_lu:edit_profile' %}" class="inline-block px-4 py-2 bg-crush-purple text-white rounded-lg hover:bg-crush-pink transition text-sm">
+                                        {% trans "Update Profile Languages" %}
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                {% elif not user_profile.is_approved %}
-                <div
-                    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "This event requires an approved profile. Your
-                                profile is currently under review by our coaches." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% elif event.is_registration_accepting %}
-                <a
-                    href="{% url 'crush_lu:event_register' event.id %}"
-                    class="btn-crush-primary block w-full py-3 text-center text-base font-semibold sm:py-4 sm:text-lg"
-                >
-                    {% if event.is_full %} {% trans "Join Waitlist" %} {% else %} {%
-                    trans "Register for This Event" %} {% endif %}
-                </a>
+                        {% endif %}
+
+                        {% if event.profile_requirement == "approved" %}
+                            {# Strict event: Need approved profile #}
+                            {% if not user_profile %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Profile Required" %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event requires a Crush profile." %}</p>
+                                            <a href="{% url 'crush_lu:create_profile' %}" class="inline-block px-4 py-2 bg-crush-purple text-white rounded-lg hover:bg-crush-pink transition text-sm sm:text-base">
+                                                {% trans "Create Profile" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif not user_profile.is_approved %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "This event requires an approved profile. Your profile is currently under review by our coaches." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif event.is_registration_accepting %}
+                                <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
+                                    {% if event.is_full %}
+                                        {% trans "Join Waitlist" %}
+                                    {% else %}
+                                        {% trans "Register for This Event" %}
+                                    {% endif %}
+                                </a>
+                            {% else %}
+                                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "Registration is closed for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% elif event.profile_requirement == "unverified" %}
+                            {# Unverified-only event: must have profile but NOT be approved #}
+                            {% if not user_profile %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Profile Required" %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event requires a Crush profile." %}</p>
+                                            <a href="{% url 'crush_lu:create_profile' %}" class="inline-block px-4 py-2 bg-crush-purple text-white rounded-lg hover:bg-crush-pink transition text-sm sm:text-base">
+                                                {% trans "Create Profile" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif user_profile.is_approved %}
+                                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "This event is exclusively for members whose profile has not yet been verified by a coach. Since your profile is already approved, you are not eligible for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif event.is_registration_accepting %}
+                                <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
+                                    {% if event.is_full %}
+                                        {% trans "Join Waitlist" %}
+                                    {% else %}
+                                        {% trans "Register for This Event" %}
+                                    {% endif %}
+                                </a>
+                            {% else %}
+                                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "Registration is closed for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% elif event.profile_requirement == "profile_exists" %}
+                            {# Profile required but approval not needed #}
+                            {% if not user_profile %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Profile Required" %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event requires a Crush profile." %}</p>
+                                            <a href="{% url 'crush_lu:create_profile' %}" class="inline-block px-4 py-2 bg-crush-purple text-white rounded-lg hover:bg-crush-pink transition text-sm sm:text-base">
+                                                {% trans "Create Profile" %}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif user_profile.is_approved %}
+                                {# Approved users cannot register for unverified-only events #}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "This event is exclusively for members whose profile has not yet been verified by a coach. Since your profile is already approved, you are not eligible for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif event.is_registration_accepting %}
+                                <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4 mb-3">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "Your profile is still being reviewed, but you can already register for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
+                                    {% if event.is_full %}
+                                        {% trans "Join Waitlist" %}
+                                    {% else %}
+                                        {% trans "Register for This Event" %}
+                                    {% endif %}
+                                </a>
+                            {% else %}
+                                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "Registration is closed for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            {# Open event: No profile required #}
+                            {% if event.is_registration_accepting %}
+                                <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary w-full py-3 sm:py-4 text-base sm:text-lg text-center block font-semibold">
+                                    {% if event.is_full %}
+                                        {% trans "Join Waitlist" %}
+                                    {% else %}
+                                        {% trans "Register for This Event" %}
+                                    {% endif %}
+                                </a>
+                            {% else %}
+                                <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm">{% trans "Registration is closed for this event." %}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
                 {% else %}
-                <div
-                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "Registration is closed for this event." %}
-                            </p>
+                    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-3 sm:p-4">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clip-rule="evenodd"/>
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-xs sm:text-sm">
+                                    <a href="{% url 'crush_lu:login' %}?next={{ request.path }}" class="font-semibold underline">{% trans "Log in" %}</a> {% trans "or" %}
+                                    <a href="{% url 'crush_lu:signup' %}" class="font-semibold underline">{% trans "sign up" %}</a> {% trans "to register for this event." %}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endif %} {% elif event.profile_requirement == "unverified" %} {#
-                Unverified-only event: must have profile but NOT be approved #} {% if
-                not user_profile %}
-                <div
-                    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="mb-1 text-sm font-semibold sm:text-base">
-                                {% trans "Profile Required" %}
-                            </p>
-                            <p class="mb-3 text-xs sm:text-sm">
-                                {% trans "This event requires a Crush profile." %}
-                            </p>
-                            <a
-                                href="{% url 'crush_lu:create_profile' %}"
-                                class="bg-crush-purple hover:bg-crush-pink inline-block rounded-lg px-4 py-2 text-sm text-white transition sm:text-base"
-                            >
-                                {% trans "Create Profile" %}
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% elif user_profile.is_approved %}
-                <div
-                    class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800 sm:p-4 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "This event is exclusively for members whose
-                                profile has not yet been verified by a coach. Since your
-                                profile is already approved, you are not eligible for
-                                this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% elif event.is_registration_accepting %}
-                <a
-                    href="{% url 'crush_lu:event_register' event.id %}"
-                    class="btn-crush-primary block w-full py-3 text-center text-base font-semibold sm:py-4 sm:text-lg"
-                >
-                    {% if event.is_full %} {% trans "Join Waitlist" %} {% else %} {%
-                    trans "Register for This Event" %} {% endif %}
-                </a>
-                {% else %}
-                <div
-                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "Registration is closed for this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %} {% elif event.profile_requirement == "profile_exists" %} {#
-                Profile required but approval not needed #} {% if not user_profile %}
-                <div
-                    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="mb-1 text-sm font-semibold sm:text-base">
-                                {% trans "Profile Required" %}
-                            </p>
-                            <p class="mb-3 text-xs sm:text-sm">
-                                {% trans "This event requires a Crush profile." %}
-                            </p>
-                            <a
-                                href="{% url 'crush_lu:create_profile' %}"
-                                class="bg-crush-purple hover:bg-crush-pink inline-block rounded-lg px-4 py-2 text-sm text-white transition sm:text-base"
-                            >
-                                {% trans "Create Profile" %}
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% elif user_profile.is_approved %} {# Approved users cannot register
-                for unverified-only events #}
-                <div
-                    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "This event is exclusively for members whose
-                                profile has not yet been verified by a coach. Since your
-                                profile is already approved, you are not eligible for
-                                this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% elif event.is_registration_accepting %}
-                <div
-                    class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800 sm:p-4 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "Your profile is still being reviewed, but you
-                                can already register for this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <a
-                    href="{% url 'crush_lu:event_register' event.id %}"
-                    class="btn-crush-primary block w-full py-3 text-center text-base font-semibold sm:py-4 sm:text-lg"
-                >
-                    {% if event.is_full %} {% trans "Join Waitlist" %} {% else %} {%
-                    trans "Register for This Event" %} {% endif %}
-                </a>
-                {% else %}
-                <div
-                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "Registration is closed for this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %} {% else %} {# Open event: No profile required #} {% if
-                event.is_registration_accepting %}
-                <a
-                    href="{% url 'crush_lu:event_register' event.id %}"
-                    class="btn-crush-primary block w-full py-3 text-center text-base font-semibold sm:py-4 sm:text-lg"
-                >
-                    {% if event.is_full %} {% trans "Join Waitlist" %} {% else %} {%
-                    trans "Register for This Event" %} {% endif %}
-                </a>
-                {% else %}
-                <div
-                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 sm:p-4 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                {% trans "Registration is closed for this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %} {% endif %} {% endif %} {% else %}
-                <div
-                    class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-800 sm:p-4 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                >
-                    <div class="flex items-start gap-2">
-                        <svg
-                            class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm">
-                                <a
-                                    href="{% url 'crush_lu:login' %}?next={{ request.path }}"
-                                    class="font-semibold underline"
-                                    >{% trans "Log in" %}</a
-                                >
-                                {% trans "or" %}
-                                <a
-                                    href="{% url 'crush_lu:signup' %}"
-                                    class="font-semibold underline"
-                                    >{% trans "sign up" %}</a
-                                >
-                                {% trans "to register for this event." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
                 {% endif %}
             </div>
         </div>
@@ -1154,32 +615,34 @@ item_name=event.title item_category=event.get_event_type_display %} {% fb_event
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Web Share functionality
-        const shareBtn = document.getElementById("shareEventBtn");
+document.addEventListener('DOMContentLoaded', function() {
+    // Web Share functionality
+    const shareBtn = document.getElementById('shareEventBtn');
 
-        // Hide share button if Web Share API is not supported
-        if (!navigator.share) {
-            shareBtn.style.display = "none";
-        } else {
-            shareBtn.addEventListener("click", async function () {
-                const shareData = {
-                    title: "{{ event.title|escapejs }}",
-                    text: "{{ event.description|truncatewords:20|escapejs }} - {{ event.get_event_type_display|escapejs }}",
-                    url: window.location.href,
-                };
+    // Hide share button if Web Share API is not supported
+    if (!navigator.share) {
+        shareBtn.style.display = 'none';
+    } else {
+        shareBtn.addEventListener('click', async function() {
+            const shareData = {
+                title: '{{ event.title|escapejs }}',
+                text: '{{ event.description|truncatewords:20|escapejs }} - {{ event.get_event_type_display|escapejs }}',
+                url: window.location.href
+            };
 
-                try {
-                    await navigator.share(shareData);
-                    console.log("Event shared successfully");
-                } catch (err) {
-                    // User cancelled or error occurred
-                    if (err.name !== "AbortError") {
-                        console.error("Error sharing:", err);
-                    }
+            try {
+                await navigator.share(shareData);
+                console.log('Event shared successfully');
+            } catch (err) {
+                // User cancelled or error occurred
+                if (err.name !== 'AbortError') {
+                    console.error('Error sharing:', err);
                 }
-            });
-        }
-    });
+            }
+        });
+    }
+
+});
 </script>
-{% include "crush_lu/partials/_add_to_calendar_js.html" %} {% endblock %}
+{% include "crush_lu/partials/_add_to_calendar_js.html" %}
+{% endblock %}

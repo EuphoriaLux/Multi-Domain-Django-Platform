@@ -6,32 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0029_add_unique_email_constraint"),
+        ('crush_lu', '0029_add_unique_email_constraint'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="crushprofile",
-            name="phone_verification_uid",
-            field=models.CharField(
-                blank=True,
-                help_text="Firebase UID from phone verification (for audit/anti-replay)",
-                max_length=128,
-                null=True,
-            ),
+            model_name='crushprofile',
+            name='phone_verification_uid',
+            field=models.CharField(blank=True, help_text='Firebase UID from phone verification (for audit/anti-replay)', max_length=128, null=True),
         ),
         migrations.AddField(
-            model_name="crushprofile",
-            name="phone_verified",
-            field=models.BooleanField(
-                default=False, help_text="Whether phone was verified via SMS OTP"
-            ),
+            model_name='crushprofile',
+            name='phone_verified',
+            field=models.BooleanField(default=False, help_text='Whether phone was verified via SMS OTP'),
         ),
         migrations.AddField(
-            model_name="crushprofile",
-            name="phone_verified_at",
-            field=models.DateTimeField(
-                blank=True, help_text="When phone was verified", null=True
-            ),
+            model_name='crushprofile',
+            name='phone_verified_at',
+            field=models.DateTimeField(blank=True, help_text='When phone was verified', null=True),
         ),
     ]

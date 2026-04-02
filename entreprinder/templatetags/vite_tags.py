@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 register = template.Library()
 
-
 @register.simple_tag
 def vite_asset(entry_name):
     """
@@ -25,42 +24,33 @@ def vite_asset(entry_name):
     # This allows us to use the build system during development
     manifest_path = os.path.join(
         settings.BASE_DIR,
-        "entreprinder",
-        "vibe",
-        "static",
-        "vibe",
-        "js",
-        "dist",
-        "manifest.json",
+        'entreprinder', 'vibe', 'static', 'vibe', 'js', 'dist', 'manifest.json'
     )
 
     try:
-        with open(manifest_path, "r") as f:
+        with open(manifest_path, 'r') as f:
             manifest = json.load(f)
 
         if entry_name in manifest:
             built_filename = manifest[entry_name]
-            asset_url = static(f"vibe/js/dist/{built_filename}")
+            asset_url = static(f'vibe/js/dist/{built_filename}')
             return mark_safe(f'<script type="module" src="{asset_url}"></script>')
         else:
             # Fallback to original file if not in manifest
             if settings.DEBUG:
-                asset_url = static(f"vibe/js/{entry_name}.js")
+                asset_url = static(f'vibe/js/{entry_name}.js')
                 return mark_safe(f'<script type="module" src="{asset_url}"></script>')
             else:
-                return mark_safe(
-                    f"<!-- Vite asset {entry_name} not found in manifest -->"
-                )
+                return mark_safe(f'<!-- Vite asset {entry_name} not found in manifest -->')
 
     except (FileNotFoundError, json.JSONDecodeError) as e:
         # Fallback to original file if manifest not found (dev mode only)
         if settings.DEBUG:
-            asset_url = static(f"vibe/js/{entry_name}.js")
+            asset_url = static(f'vibe/js/{entry_name}.js')
             return mark_safe(f'<script type="module" src="{asset_url}"></script>')
         else:
             logger.warning("Vite manifest error for entry '%s': %s", entry_name, e)
-            return mark_safe("<!-- Vite asset unavailable -->")
-
+            return mark_safe('<!-- Vite asset unavailable -->')
 
 @register.simple_tag
 def vite_chunk_asset(chunk_name):
@@ -71,48 +61,43 @@ def vite_chunk_asset(chunk_name):
     {% vite_chunk_asset 'pixi-core' %}
     """
     if settings.DEBUG:
-        return ""  # Chunks are handled automatically in development
+        return ''  # Chunks are handled automatically in development
 
     manifest_path = os.path.join(
         settings.BASE_DIR,
-        "entreprinder",
-        "vibe",
-        "static",
-        "vibe",
-        "js",
-        "dist",
-        "manifest.json",
+        'entreprinder', 'vibe', 'static', 'vibe', 'js', 'dist', 'manifest.json'
     )
 
     try:
-        with open(manifest_path, "r") as f:
+        with open(manifest_path, 'r') as f:
             manifest = json.load(f)
 
         # Look for chunk files
-        chunk_files = [
-            f for f in manifest.values() if chunk_name in f and f.endswith(".chunk.js")
-        ]
+        chunk_files = [f for f in manifest.values() if chunk_name in f and f.endswith('.chunk.js')]
 
         scripts = []
         for chunk_file in chunk_files:
-            asset_url = static(f"vibe/js/dist/{chunk_file}")
+            asset_url = static(f'vibe/js/dist/{chunk_file}')
             scripts.append(f'<link rel="modulepreload" href="{asset_url}">')
 
-        return mark_safe("".join(scripts))
+        return mark_safe(''.join(scripts))
 
     except (FileNotFoundError, json.JSONDecodeError):
-        return ""
-
+        return ''
 
 @register.simple_tag
 def vite_preload_deps():
     """
     Preload critical dependencies for better performance.
     """
-    deps = ["pixi-core", "pixi-viewport", "mobile-helpers"]
+    deps = [
+        'pixi-core',
+        'pixi-viewport',
+        'mobile-helpers'
+    ]
 
     preload_tags = []
     for dep in deps:
         preload_tags.append(vite_chunk_asset(dep))
 
-    return mark_safe("".join(preload_tags))
+    return mark_safe(''.join(preload_tags))

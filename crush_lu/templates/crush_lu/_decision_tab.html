@@ -1,29 +1,24 @@
-{% load i18n %} {# Prerequisite warning #} {% if not submission.review_call_completed %}
-<div
-    class="mb-6 rounded-xl border-2 border-amber-400 bg-amber-50 p-6 dark:border-yellow-600 dark:bg-yellow-900/30"
->
-    <div class="flex items-center gap-3">
-        {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8
-        text-amber-600 dark:text-amber-400" %}
-        <div>
-            <h3 class="text-lg font-bold text-amber-900 dark:text-yellow-300">
-                {% trans "Screening Call Required" %}
-            </h3>
-            <p class="mt-1 text-sm text-amber-800 dark:text-yellow-300">
-                {% trans "You must complete the screening call before submitting a
-                review decision" %}
-            </p>
+{% load i18n %}
+
+{# Prerequisite warning #}
+{% if not submission.review_call_completed %}
+    <div class="bg-amber-50 dark:bg-yellow-900/30 border-2 border-amber-400 dark:border-yellow-600 rounded-xl p-6 mb-6">
+        <div class="flex items-center gap-3">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-amber-600 dark:text-amber-400" %}
+            <div>
+                <h3 class="text-lg font-bold text-amber-900 dark:text-yellow-300">{% trans "Screening Call Required" %}</h3>
+                <p class="text-sm text-amber-800 dark:text-yellow-300 mt-1">{% trans "You must complete the screening call before submitting a review decision" %}</p>
+            </div>
         </div>
     </div>
-</div>
-{% endif %} {# Review Decision Form #}
-<div
-    class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
->
+{% endif %}
+
+{# Review Decision Form #}
+<div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
     <div class="bg-gradient-to-r from-purple-600 to-pink-500 px-6 py-4">
-        <h3 class="flex items-center gap-2 text-lg font-semibold text-white">
-            {% include "shared/icons/clipboard-document-check.html" with class="w-6 h-6"
-            %} {% trans "Review Decision" %}
+        <h3 class="font-semibold text-white flex items-center gap-2 text-lg">
+            {% include "shared/icons/clipboard-document-check.html" with class="w-6 h-6" %}
+            {% trans "Review Decision" %}
         </h3>
     </div>
 
@@ -31,39 +26,21 @@
         <form method="post" id="review-decision-form">
             {% csrf_token %}
 
-            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {# LEFT COLUMN: Internal/Coach-Only Content #}
                 <div class="space-y-5">
-                    <div
-                        class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <h4
-                            class="mb-4 flex items-center gap-2 text-sm font-bold tracking-wide text-gray-900 uppercase dark:text-gray-100"
-                        >
-                            <svg
-                                class="h-5 w-5 text-gray-600 dark:text-gray-300"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                                />
+                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <h4 class="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                             </svg>
                             {% trans "Coach-Only Section" %}
                         </h4>
 
                         {# Decision Status #}
                         <div class="mb-5">
-                            <label
-                                for="{{ form.status.id_for_label }}"
-                                class="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200"
-                            >
-                                {% trans "Decision" %}
-                                <span class="text-red-500">*</span>
+                            <label for="{{ form.status.id_for_label }}" class="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                                {% trans "Decision" %} <span class="text-red-500">*</span>
                             </label>
                             {{ form.status }}
                             <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -73,55 +50,28 @@
 
                         {# Internal Notes #}
                         <div>
-                            <label
-                                for="{{ form.coach_notes.id_for_label }}"
-                                class="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200"
-                            >
+                            <label for="{{ form.coach_notes.id_for_label }}" class="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
                                 {% trans "Internal Notes" %}
-                                <span
-                                    class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400"
-                                    >({% trans "not visible to user" %})</span
-                                >
+                                <span class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">({% trans "not visible to user" %})</span>
                             </label>
-                            {{ form.coach_notes }} {# Quick note chips #}
+                            {{ form.coach_notes }}
+
+                            {# Quick note chips #}
                             <div class="mt-3 flex flex-wrap gap-2">
-                                <span
-                                    class="mr-1 text-xs text-gray-500 dark:text-gray-400"
-                                    >{% trans "Quick notes:" %}</span
-                                >
-                                <button
-                                    type="button"
-                                    class="coach-note-chip rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                                    data-note="✓ Identity verified via call"
-                                >
+                                <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">{% trans "Quick notes:" %}</span>
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full transition-colors font-medium" data-note="✓ Identity verified via call">
                                     ✓ {% trans "ID verified" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="coach-note-chip rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                                    data-note="✓ Photos match person on call"
-                                >
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full transition-colors font-medium" data-note="✓ Photos match person on call">
                                     ✓ {% trans "Photos match" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="coach-note-chip rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                                    data-note="✓ Genuine dating interest"
-                                >
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full transition-colors font-medium" data-note="✓ Genuine dating interest">
                                     ✓ {% trans "Genuine" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="coach-note-chip rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
-                                    data-note="⚠ Suspicious behavior"
-                                >
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-full transition-colors font-medium" data-note="⚠ Suspicious behavior">
                                     ⚠ {% trans "Suspicious" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="coach-note-chip rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
-                                    data-note="⚠ Photos unclear/edited"
-                                >
+                                <button type="button" class="coach-note-chip px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-full transition-colors font-medium" data-note="⚠ Photos unclear/edited">
                                     ⚠ {% trans "Photo issues" %}
                                 </button>
                             </div>
@@ -131,95 +81,66 @@
 
                 {# RIGHT COLUMN: User-Facing Content #}
                 <div class="space-y-5">
-                    <div
-                        class="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-700 dark:bg-purple-900/30"
-                    >
-                        <h4
-                            class="mb-4 flex items-center gap-2 text-sm font-bold tracking-wide text-purple-900 uppercase dark:text-purple-300"
-                        >
-                            <svg
-                                class="h-5 w-5 text-purple-600 dark:text-purple-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                />
+                    <div class="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+                        <h4 class="text-sm font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wide mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                             </svg>
                             {% trans "User-Visible Section" %}
                         </h4>
 
                         {# Reminder about language #}
-                        <div
-                            class="mb-4 rounded-lg border border-purple-300 bg-white p-3 dark:border-purple-600 dark:bg-gray-800"
-                        >
+                        <div class="mb-4 bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-300 dark:border-purple-600">
                             <div class="flex items-center gap-2 text-sm">
                                 <span class="text-2xl">
-                                    {% if profile.preferred_language == 'en' %} 🇬🇧 {%
-                                    elif profile.preferred_language == 'de' %} 🇩🇪 {%
-                                    elif profile.preferred_language == 'fr' %} 🇫🇷 {%
-                                    endif %}
-                                </span>
-                                <span
-                                    class="font-semibold text-gray-700 dark:text-gray-200"
-                                    >{% trans "Write feedback in:" %}</span
-                                >
-                                <span
-                                    class="font-bold text-purple-700 dark:text-purple-300"
-                                >
-                                    {% if profile.preferred_language == 'en' %} English
+                                    {% if profile.preferred_language == 'en' %}
+                                        🇬🇧
                                     {% elif profile.preferred_language == 'de' %}
-                                    Deutsch {% elif profile.preferred_language == 'fr'
-                                    %} Français {% endif %}
+                                        🇩🇪
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        🇫🇷
+                                    {% endif %}
+                                </span>
+                                <span class="font-semibold text-gray-700 dark:text-gray-200">{% trans "Write feedback in:" %}</span>
+                                <span class="font-bold text-purple-700 dark:text-purple-300">
+                                    {% if profile.preferred_language == 'en' %}
+                                        English
+                                    {% elif profile.preferred_language == 'de' %}
+                                        Deutsch
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        Français
+                                    {% endif %}
                                 </span>
                             </div>
                         </div>
 
                         {# Feedback to User #}
                         <div>
-                            <label
-                                for="{{ form.feedback_to_user.id_for_label }}"
-                                class="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200"
-                            >
+                            <label for="{{ form.feedback_to_user.id_for_label }}" class="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
                                 {% trans "Feedback to User" %}
-                                <span
-                                    class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400"
-                                    >({% trans "visible if rejected/revision" %})</span
-                                >
+                                <span class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">({% trans "visible if rejected/revision" %})</span>
                             </label>
-                            {{ form.feedback_to_user }} {# Template chips #}
+                            {{ form.feedback_to_user }}
+
+                            {# Template chips #}
                             <div class="mt-3 flex flex-wrap gap-2">
-                                <span
-                                    class="mr-1 text-xs text-gray-600 dark:text-gray-300"
-                                >
-                                    {% trans "Templates" %} {% if
-                                    profile.preferred_language == 'de' %} (🇩🇪 Deutsch):
-                                    {% elif profile.preferred_language == 'fr' %} (🇫🇷
-                                    Français): {% else %} (🇬🇧 English): {% endif %}
+                                <span class="text-xs text-gray-600 dark:text-gray-300 mr-1">
+                                    {% trans "Templates" %}
+                                    {% if profile.preferred_language == 'de' %}
+                                        (🇩🇪 Deutsch):
+                                    {% elif profile.preferred_language == 'fr' %}
+                                        (🇫🇷 Français):
+                                    {% else %}
+                                        (🇬🇧 English):
+                                    {% endif %}
                                 </span>
-                                <button
-                                    type="button"
-                                    class="feedback-chip rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                                    data-template-key="welcome"
-                                >
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full transition-colors font-medium" data-template-key="welcome">
                                     ✓ {% trans "Welcome" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="feedback-chip rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 dark:hover:bg-yellow-900/50"
-                                    data-template-key="better_photo"
-                                >
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-amber-50 dark:bg-yellow-900/30 hover:bg-amber-100 dark:hover:bg-yellow-900/50 text-amber-700 dark:text-yellow-300 border border-amber-200 dark:border-yellow-700 rounded-full transition-colors font-medium" data-template-key="better_photo">
                                     📷 {% trans "Better photo" %}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="feedback-chip rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 dark:hover:bg-yellow-900/50"
-                                    data-template-key="more_bio"
-                                >
+                                <button type="button" class="feedback-chip px-2.5 py-1 text-xs bg-amber-50 dark:bg-yellow-900/30 hover:bg-amber-100 dark:hover:bg-yellow-900/50 text-amber-700 dark:text-yellow-300 border border-amber-200 dark:border-yellow-700 rounded-full transition-colors font-medium" data-template-key="more_bio">
                                     ✏️ {% trans "More bio" %}
                                 </button>
                             </div>
@@ -229,7 +150,7 @@
             </div>
 
             {# Action Buttons #}
-            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div class="mt-8 flex flex-col sm:flex-row gap-3">
                 {# Preview Button #}
                 <button
                     type="button"
@@ -238,16 +159,16 @@
                     hx-include="[name='status'], [name='feedback_to_user'], [name='coach_notes']"
                     hx-target="#preview-content"
                     hx-swap="innerHTML"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-purple-600 bg-white px-6 py-3 font-semibold text-purple-600 shadow-sm transition-all hover:bg-purple-50 hover:shadow-md dark:border-purple-500 dark:bg-gray-800 dark:text-purple-400 dark:shadow-gray-900/20 dark:hover:bg-purple-900/30"
+                    class="flex-1 bg-white dark:bg-gray-800 border-2 border-purple-600 dark:border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold py-3 px-6 rounded-lg transition-all shadow-sm dark:shadow-gray-900/20 hover:shadow-md flex items-center justify-center gap-2"
                 >
-                    {% include "shared/icons/eye.html" with class="w-5 h-5" %} {% trans
-                    "Preview Email" %}
+                    {% include "shared/icons/eye.html" with class="w-5 h-5" %}
+                    {% trans "Preview Email" %}
                 </button>
 
                 {# Submit Button #}
                 <button
                     type="submit"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-500 px-6 py-3 font-semibold text-white shadow-md transition-all hover:from-purple-700 hover:to-pink-600 hover:shadow-lg"
+                    class="flex-1 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                 >
                     {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
                     {% trans "Submit Review" %}

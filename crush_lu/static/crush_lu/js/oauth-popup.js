@@ -17,16 +17,16 @@
  *   });
  */
 
-(function () {
-    "use strict";
+(function() {
+    'use strict';
 
     var CrushOAuthPopup = {
         // Configuration
         config: {
             popupWidth: 600,
             popupHeight: 700,
-            checkInterval: 500, // ms between popup closed checks
-            timeout: 300000, // 5 minute timeout
+            checkInterval: 500,  // ms between popup closed checks
+            timeout: 300000,     // 5 minute timeout
         },
 
         // State
@@ -44,13 +44,13 @@
          * @param {string} provider - OAuth provider ('facebook', 'google', etc.)
          * @param {Object} options - Optional callbacks and settings
          */
-        login: function (provider, options) {
+        login: function(provider, options) {
             var self = this;
             options = options || {};
 
             // Set default callbacks
-            this.onSuccess = options.onSuccess || function () {};
-            this.onError = options.onError || function () {};
+            this.onSuccess = options.onSuccess || function() {};
+            this.onError = options.onError || function() {};
 
             // Build OAuth URL with popup indicator
             var oauthUrl = this.buildOAuthUrl(provider);
@@ -62,27 +62,15 @@
             // Open popup
             this.popup = window.open(
                 oauthUrl,
-                "crush_oauth_popup",
-                "width=" +
-                    this.config.popupWidth +
-                    "," +
-                    "height=" +
-                    this.config.popupHeight +
-                    "," +
-                    "left=" +
-                    left +
-                    ",top=" +
-                    top +
-                    "," +
-                    "scrollbars=yes,status=yes,resizable=yes,toolbar=no,menubar=no",
+                'crush_oauth_popup',
+                'width=' + this.config.popupWidth + ',' +
+                'height=' + this.config.popupHeight + ',' +
+                'left=' + left + ',top=' + top + ',' +
+                'scrollbars=yes,status=yes,resizable=yes,toolbar=no,menubar=no'
             );
 
             // Check if popup was blocked
-            if (
-                !this.popup ||
-                this.popup.closed ||
-                typeof this.popup.closed === "undefined"
-            ) {
+            if (!this.popup || this.popup.closed || typeof this.popup.closed === 'undefined') {
                 if (options.onPopupBlocked) {
                     options.onPopupBlocked();
                 } else {
@@ -110,9 +98,10 @@
             this.lastAuthCheck = 0;
 
             // Set timeout for OAuth completion
-            this.timeoutTimer = setTimeout(function () {
+            this.timeoutTimer = setTimeout(function() {
                 self.handleTimeout();
             }, this.config.timeout);
+
         },
 
         /**
@@ -120,35 +109,35 @@
          * @param {string} provider - OAuth provider name
          * @returns {string} - Full OAuth URL
          */
-        buildOAuthUrl: function (provider) {
+        buildOAuthUrl: function(provider) {
             // Try to get URL from button data attribute first
-            var loginBtn = document.querySelector("[data-" + provider + "-url]");
+            var loginBtn = document.querySelector('[data-' + provider + '-url]');
             var url;
 
             if (loginBtn) {
-                url = loginBtn.getAttribute("data-" + provider + "-url");
+                url = loginBtn.getAttribute('data-' + provider + '-url');
             } else {
                 // Fallback to standard Allauth URL pattern
-                url = "/accounts/" + provider + "/login/";
+                url = '/accounts/' + provider + '/login/';
             }
 
             // Add popup mode parameter (server will store in session)
-            var separator = url.indexOf("?") >= 0 ? "&" : "?";
-            return url + separator + "popup=1";
+            var separator = url.indexOf('?') >= 0 ? '&' : '?';
+            return url + separator + 'popup=1';
         },
 
         /**
          * Fall back to redirect-based OAuth
          * @param {string} provider - OAuth provider name
          */
-        fallbackToRedirect: function (provider) {
-            var loginBtn = document.querySelector("[data-" + provider + "-url]");
+        fallbackToRedirect: function(provider) {
+            var loginBtn = document.querySelector('[data-' + provider + '-url]');
             var url;
 
             if (loginBtn) {
-                url = loginBtn.getAttribute("data-" + provider + "-url");
+                url = loginBtn.getAttribute('data-' + provider + '-url');
             } else {
-                url = "/accounts/" + provider + "/login/";
+                url = '/accounts/' + provider + '/login/';
             }
 
             window.location.href = url;
@@ -157,28 +146,28 @@
         /**
          * Start listening for postMessage from popup
          */
-        startListening: function () {
+        startListening: function() {
             var self = this;
 
             // Remove any existing handler
             if (this.messageHandler) {
-                window.removeEventListener("message", this.messageHandler);
+                window.removeEventListener('message', this.messageHandler);
             }
 
             // Create new handler
-            this.messageHandler = function (event) {
+            this.messageHandler = function(event) {
                 self.handleMessage(event);
             };
 
-            window.addEventListener("message", this.messageHandler);
+            window.addEventListener('message', this.messageHandler);
         },
 
         /**
          * Stop listening for postMessage
          */
-        stopListening: function () {
+        stopListening: function() {
             if (this.messageHandler) {
-                window.removeEventListener("message", this.messageHandler);
+                window.removeEventListener('message', this.messageHandler);
                 this.messageHandler = null;
             }
         },
@@ -187,7 +176,7 @@
          * Handle postMessage from popup
          * @param {MessageEvent} event - The message event
          */
-        handleMessage: function (event) {
+        handleMessage: function(event) {
             // Validate origin - must match our domain
             if (event.origin !== window.location.origin) {
                 return;
@@ -196,17 +185,14 @@
             var data = event.data;
             if (!data || !data.type) return;
 
-            if (data.type === "CRUSH_OAUTH_COMPLETE") {
+            if (data.type === 'CRUSH_OAUTH_COMPLETE') {
                 if (data.success) {
                     // Send acknowledgment to popup (optional)
                     if (this.popup && !this.popup.closed) {
                         try {
-                            this.popup.postMessage(
-                                {
-                                    type: "CRUSH_OAUTH_ACKNOWLEDGED",
-                                },
-                                window.location.origin,
-                            );
+                            this.popup.postMessage({
+                                type: 'CRUSH_OAUTH_ACKNOWLEDGED'
+                            }, window.location.origin);
                         } catch (e) {
                             // Ignore errors
                         }
@@ -222,9 +208,7 @@
                     if (this.popup && !this.popup.closed) {
                         try {
                             this.popup.close();
-                        } catch (e) {
-                            /* ignore */
-                        }
+                        } catch (e) { /* ignore */ }
                     }
 
                     this.cleanup();
@@ -233,58 +217,43 @@
                     if (data.redirectUrl) {
                         try {
                             // Validate URL is from same origin
-                            const redirectUrl = new URL(
-                                data.redirectUrl,
-                                window.location.origin,
-                            );
+                            const redirectUrl = new URL(data.redirectUrl, window.location.origin);
 
                             // Only allow same-origin redirects
                             if (redirectUrl.origin === window.location.origin) {
                                 // Additional validation: check against allowlist of safe paths
-                                const allowedPaths = [
-                                    "/dashboard/",
-                                    "/events/",
-                                    "/profile/",
-                                    "/connections/",
-                                    "/journey/",
-                                ];
-                                const isSafePath = allowedPaths.some((path) =>
-                                    redirectUrl.pathname.startsWith(path),
-                                );
+                                const allowedPaths = ['/dashboard/', '/events/', '/profile/', '/connections/', '/journey/'];
+                                const isSafePath = allowedPaths.some(path => redirectUrl.pathname.startsWith(path));
 
                                 if (isSafePath) {
                                     window.location.href = redirectUrl.href;
                                 } else {
-                                    console.warn(
-                                        "[OAuth Popup] Redirect path not in allowlist, using fallback",
-                                    );
-                                    window.location.href = "/dashboard/";
+                                    console.warn('[OAuth Popup] Redirect path not in allowlist, using fallback');
+                                    window.location.href = '/dashboard/';
                                 }
                             } else {
-                                console.error(
-                                    "[OAuth Popup] Cross-origin redirect blocked",
-                                );
-                                window.location.href = "/dashboard/";
+                                console.error('[OAuth Popup] Cross-origin redirect blocked');
+                                window.location.href = '/dashboard/';
                             }
                         } catch (error) {
-                            console.error("[OAuth Popup] Invalid redirect URL:", error);
-                            window.location.href = "/dashboard/";
+                            console.error('[OAuth Popup] Invalid redirect URL:', error);
+                            window.location.href = '/dashboard/';
                         }
                     }
                 } else {
                     this.cleanup();
                     this.onError({
-                        error: data.error || "unknown",
-                        description: data.errorDescription || "Login failed",
+                        error: data.error || 'unknown',
+                        description: data.errorDescription || 'Login failed',
                     });
                 }
-            } else if (data.type === "CRUSH_OAUTH_ERROR") {
+            } else if (data.type === 'CRUSH_OAUTH_ERROR') {
                 this.cleanup();
                 this.onError({
-                    error: data.error || "unknown",
-                    description: data.errorDescription || "Authentication failed",
+                    error: data.error || 'unknown',
+                    description: data.errorDescription || 'Authentication failed',
                 });
-            } else if (data.type === "CRUSH_OAUTH_RETRY") {
+            } else if (data.type === 'CRUSH_OAUTH_RETRY') {
                 // Just cleanup - user can click button again
                 this.cleanup();
             }
@@ -293,14 +262,14 @@
         /**
          * Start checking if popup was closed manually
          */
-        startPopupCheck: function () {
+        startPopupCheck: function() {
             var self = this;
 
             if (this.checkTimer) {
                 clearInterval(this.checkTimer);
             }
 
-            this.checkTimer = setInterval(function () {
+            this.checkTimer = setInterval(function() {
                 if (self.popup && self.popup.closed) {
                     self.handlePopupClosed();
                     return;
@@ -315,10 +284,7 @@
 
                     if (timeSinceOpen > 2000 && timeSinceLastCheck > 2000) {
                         self.lastAuthCheck = now;
-                        self.checkAuthStatus({
-                            closePopupOnSuccess: true,
-                            fromOpenPopup: true,
-                        });
+                        self.checkAuthStatus({ closePopupOnSuccess: true, fromOpenPopup: true });
                     }
                 }
             }, this.config.checkInterval);
@@ -327,13 +293,13 @@
         /**
          * Handle popup being closed (user cancelled or completed)
          */
-        handlePopupClosed: function () {
+        handlePopupClosed: function() {
             var self = this;
             this.cleanup();
 
             // Check auth status via API (fallback if postMessage failed)
             // Small delay to ensure session is updated
-            setTimeout(function () {
+            setTimeout(function() {
                 self.checkAuthStatus();
             }, 500);
         },
@@ -341,58 +307,52 @@
         /**
          * Check authentication status via API
          */
-        checkAuthStatus: function (options) {
+        checkAuthStatus: function(options) {
             var self = this;
             options = options || {};
 
-            fetch("/api/auth/status/", {
-                method: "GET",
-                credentials: "same-origin",
+            fetch('/api/auth/status/', {
+                method: 'GET',
+                credentials: 'same-origin',
                 headers: {
-                    "X-Requested-With": "XMLHttpRequest",
-                    Accept: "application/json",
-                },
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                }
             })
-                .then(function (response) {
-                    return response.json();
-                })
-                .then(function (data) {
-                    if (data.authenticated) {
-                        // Close popup if we still have a handle and were polling while open
-                        if (
-                            options.closePopupOnSuccess &&
-                            self.popup &&
-                            !self.popup.closed
-                        ) {
-                            try {
-                                self.popup.close();
-                            } catch (e) {
-                                /* ignore */
-                            }
-                        }
-
-                        self.cleanup();
-
-                        self.onSuccess({
-                            hasProfile: data.has_profile,
-                            redirectUrl: data.redirect_url,
-                            userName: data.user_name,
-                        });
-
-                        window.location.href = data.redirect_url;
-                    } else {
-                        // User cancelled or OAuth failed - don't show error, just reset
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.authenticated) {
+                    // Close popup if we still have a handle and were polling while open
+                    if (options.closePopupOnSuccess && self.popup && !self.popup.closed) {
+                        try {
+                            self.popup.close();
+                        } catch (e) { /* ignore */ }
                     }
-                })
-                .catch(function (error) {
-                    console.error("[OAuth Popup] Error checking auth status:", error);
-                });
+
+                    self.cleanup();
+
+                    self.onSuccess({
+                        hasProfile: data.has_profile,
+                        redirectUrl: data.redirect_url,
+                        userName: data.user_name,
+                    });
+
+                    window.location.href = data.redirect_url;
+                } else {
+                    // User cancelled or OAuth failed - don't show error, just reset
+                }
+            })
+            .catch(function(error) {
+                console.error('[OAuth Popup] Error checking auth status:', error);
+            });
         },
 
         /**
          * Handle timeout
          */
-        handleTimeout: function () {
+        handleTimeout: function() {
             this.cleanup();
 
             if (this.popup && !this.popup.closed) {
@@ -404,15 +364,15 @@
             }
 
             this.onError({
-                error: "timeout",
-                description: "Login timed out. Please try again.",
+                error: 'timeout',
+                description: 'Login timed out. Please try again.',
             });
         },
 
         /**
          * Cleanup timers and listeners
          */
-        cleanup: function () {
+        cleanup: function() {
             if (this.checkTimer) {
                 clearInterval(this.checkTimer);
                 this.checkTimer = null;
@@ -432,7 +392,7 @@
          * (Not 100% reliable, but helps with UX decisions)
          * @returns {boolean}
          */
-        arePopupsLikelyBlocked: function () {
+        arePopupsLikelyBlocked: function() {
             // Safari on iOS always blocks popups not triggered by user action
             var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             if (isIOS) return false; // Let it try, iOS handles gracefully
@@ -440,7 +400,7 @@
             // Check if browser has popup blocker indicators
             // This is a best-effort check
             return false; // Assume popups work, fallback will handle
-        },
+        }
     };
 
     // Expose globally

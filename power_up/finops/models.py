@@ -14,12 +14,9 @@ import hashlib
 
 class CostExport(models.Model):
     """Track processed Azure cost export files to avoid re-processing"""
-
     blob_path = models.CharField(max_length=500, unique=True, db_index=True)
     subscription_name = models.CharField(max_length=200, db_index=True)
-    subscription_id = models.CharField(
-        max_length=100, null=True, blank=True, db_index=True
-    )
+    subscription_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)
     billing_period_start = models.DateField(db_index=True)
     billing_period_end = models.DateField()
     file_size_bytes = models.BigIntegerField(null=True, blank=True)
@@ -29,14 +26,14 @@ class CostExport(models.Model):
     import_status = models.CharField(
         max_length=20,
         choices=[
-            ("pending", "Pending"),
-            ("processing", "Processing"),
-            ("completed", "Completed"),
-            ("failed", "Failed"),
-            ("superseded", "Superseded"),
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('completed', 'Completed'),
+            ('failed', 'Failed'),
+            ('superseded', 'Superseded'),
         ],
-        default="pending",
-        db_index=True,
+        default='pending',
+        db_index=True
     )
     error_message = models.TextField(null=True, blank=True)
     needs_subscription_id = models.BooleanField(default=False, db_index=True)
@@ -46,11 +43,11 @@ class CostExport(models.Model):
     blob_etag = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
-        db_table = "finops_hub_costexport"
-        ordering = ["-billing_period_start", "-import_started_at"]
+        db_table = 'finops_hub_costexport'
+        ordering = ['-billing_period_start', '-import_started_at']
         indexes = [
-            models.Index(fields=["subscription_name", "billing_period_start"]),
-            models.Index(fields=["import_status", "import_completed_at"]),
+            models.Index(fields=['subscription_name', 'billing_period_start']),
+            models.Index(fields=['import_status', 'import_completed_at']),
         ]
 
     def __str__(self):
@@ -60,30 +57,33 @@ class CostExport(models.Model):
         """Mark export as successfully imported"""
         self.records_imported = records_count
         self.import_completed_at = timezone.now()
-        self.import_status = "completed"
+        self.import_status = 'completed'
         self.save()
 
     def mark_failed(self, error):
         """Mark export as failed with error message"""
         self.error_message = str(error)
-        self.import_status = "failed"
+        self.import_status = 'failed'
         self.import_completed_at = timezone.now()
         self.save()
 
     def is_incomplete(self):
         """Check if export is complete but has no records (needs subscription ID)"""
         return (
-            self.import_status == "completed"
-            and self.records_imported == 0
-            and not self.subscription_id
+            self.import_status == 'completed' and
+            self.records_imported == 0 and
+            not self.subscription_id
         )
 
     @classmethod
     def get_incomplete_exports(cls):
         """Get all exports that completed but imported 0 records"""
         return cls.objects.filter(
-            import_status="completed", records_imported=0
-        ).exclude(subscription_id__isnull=False)
+            import_status='completed',
+            records_imported=0
+        ).exclude(
+            subscription_id__isnull=False
+        )
 
     def has_been_updated(self, blob_last_modified, blob_etag=None):
         """Check if the blob has been updated since last import"""
@@ -107,10 +107,7 @@ class CostExport(models.Model):
 
 class CostRecord(models.Model):
     """Store individual cost records from FOCUS exports"""
-
-    cost_export = models.ForeignKey(
-        CostExport, on_delete=models.CASCADE, related_name="records"
-    )
+    cost_export = models.ForeignKey(CostExport, on_delete=models.CASCADE, related_name='records')
 
     # Financial fields
     billed_cost = models.DecimalField(max_digits=12, decimal_places=4, db_index=True)
@@ -132,24 +129,16 @@ class CostRecord(models.Model):
 
     # Resource fields
     resource_id = models.TextField(db_index=True)
-    resource_name = models.CharField(
-        max_length=300, db_index=True, null=True, blank=True
-    )
-    resource_type = models.CharField(
-        max_length=200, db_index=True, null=True, blank=True
-    )
-    resource_group_name = models.CharField(
-        max_length=200, db_index=True, null=True, blank=True
-    )
+    resource_name = models.CharField(max_length=300, db_index=True, null=True, blank=True)
+    resource_type = models.CharField(max_length=200, db_index=True, null=True, blank=True)
+    resource_group_name = models.CharField(max_length=200, db_index=True, null=True, blank=True)
 
     # Service fields
     service_name = models.CharField(max_length=200, db_index=True)
-    service_category = models.CharField(
-        max_length=100, db_index=True, null=True, blank=True
-    )
+    service_category = models.CharField(max_length=100, db_index=True, null=True, blank=True)
 
     # Provider/Region fields
-    provider_name = models.CharField(max_length=100, default="Microsoft")
+    provider_name = models.CharField(max_length=100, default='Microsoft')
     region_id = models.CharField(max_length=100, db_index=True, null=True, blank=True)
     region_name = models.CharField(max_length=100, null=True, blank=True)
 
@@ -183,14 +172,14 @@ class CostRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "finops_hub_costrecord"
-        ordering = ["-charge_period_start"]
+        db_table = 'finops_hub_costrecord'
+        ordering = ['-charge_period_start']
         indexes = [
-            models.Index(fields=["billing_period_start", "sub_account_name"]),
-            models.Index(fields=["service_name", "billing_period_start"]),
-            models.Index(fields=["resource_group_name", "billing_period_start"]),
-            models.Index(fields=["charge_period_start", "billed_cost"]),
-            models.Index(fields=["resource_name", "service_name"]),
+            models.Index(fields=['billing_period_start', 'sub_account_name']),
+            models.Index(fields=['service_name', 'billing_period_start']),
+            models.Index(fields=['resource_group_name', 'billing_period_start']),
+            models.Index(fields=['charge_period_start', 'billed_cost']),
+            models.Index(fields=['resource_name', 'service_name']),
         ]
 
     def __str__(self):
@@ -199,72 +188,63 @@ class CostRecord(models.Model):
     def calculate_hash(self):
         """Calculate unique hash for this cost record based on key fields."""
         key_data = {
-            "sub_account_id": self.sub_account_id or "",
-            "resource_id": self.resource_id or "",
-            "charge_period_start": (
-                str(self.charge_period_start) if self.charge_period_start else ""
-            ),
-            "charge_period_end": (
-                str(self.charge_period_end) if self.charge_period_end else ""
-            ),
-            "billed_cost": str(self.billed_cost),
-            "billing_currency": self.billing_currency or "",
-            "service_name": self.service_name or "",
-            "charge_category": self.charge_category or "",
-            "consumed_quantity": str(self.consumed_quantity),
+            'sub_account_id': self.sub_account_id or '',
+            'resource_id': self.resource_id or '',
+            'charge_period_start': str(self.charge_period_start) if self.charge_period_start else '',
+            'charge_period_end': str(self.charge_period_end) if self.charge_period_end else '',
+            'billed_cost': str(self.billed_cost),
+            'billing_currency': self.billing_currency or '',
+            'service_name': self.service_name or '',
+            'charge_category': self.charge_category or '',
+            'consumed_quantity': str(self.consumed_quantity),
         }
         hash_input = json.dumps(key_data, sort_keys=True, ensure_ascii=True)
-        return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+        return hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
 
     @staticmethod
     def generate_hash_from_dict(data):
         """Generate hash from parsed record dictionary (before model creation)."""
         key_data = {
-            "sub_account_id": data.get("sub_account_id", ""),
-            "resource_id": data.get("resource_id", ""),
-            "charge_period_start": str(data.get("charge_period_start", "")),
-            "charge_period_end": str(data.get("charge_period_end", "")),
-            "billed_cost": str(data.get("billed_cost", 0)),
-            "billing_currency": data.get("billing_currency", ""),
-            "service_name": data.get("service_name", ""),
-            "charge_category": data.get("charge_category", ""),
-            "consumed_quantity": str(data.get("consumed_quantity", 0)),
+            'sub_account_id': data.get('sub_account_id', ''),
+            'resource_id': data.get('resource_id', ''),
+            'charge_period_start': str(data.get('charge_period_start', '')),
+            'charge_period_end': str(data.get('charge_period_end', '')),
+            'billed_cost': str(data.get('billed_cost', 0)),
+            'billing_currency': data.get('billing_currency', ''),
+            'service_name': data.get('service_name', ''),
+            'charge_category': data.get('charge_category', ''),
+            'consumed_quantity': str(data.get('consumed_quantity', 0)),
         }
         hash_input = json.dumps(key_data, sort_keys=True, ensure_ascii=True)
-        return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+        return hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
 
 
 class CostAggregation(models.Model):
     """Pre-computed cost aggregations for faster dashboard queries"""
-
     AGGREGATION_TYPES = [
-        ("daily", "Daily"),
-        ("weekly", "Weekly"),
-        ("monthly", "Monthly"),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
     ]
 
     DIMENSION_TYPES = [
-        ("overall", "Overall"),
-        ("subscription", "By Subscription"),
-        ("service", "By Service"),
-        ("resource_group", "By Resource Group"),
-        ("region", "By Region"),
-        ("resource", "By Resource"),
+        ('overall', 'Overall'),
+        ('subscription', 'By Subscription'),
+        ('service', 'By Service'),
+        ('resource_group', 'By Resource Group'),
+        ('region', 'By Region'),
+        ('resource', 'By Resource'),
     ]
 
-    aggregation_type = models.CharField(
-        max_length=20, choices=AGGREGATION_TYPES, db_index=True
-    )
-    dimension_type = models.CharField(
-        max_length=50, choices=DIMENSION_TYPES, db_index=True
-    )
+    aggregation_type = models.CharField(max_length=20, choices=AGGREGATION_TYPES, db_index=True)
+    dimension_type = models.CharField(max_length=50, choices=DIMENSION_TYPES, db_index=True)
     dimension_value = models.CharField(max_length=300, db_index=True)
 
     period_start = models.DateField(db_index=True)
     period_end = models.DateField()
 
     total_cost = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=10, default="EUR")
+    currency = models.CharField(max_length=10, default='EUR')
 
     record_count = models.IntegerField(default=0)
 
@@ -281,20 +261,14 @@ class CostAggregation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "finops_hub_costaggregation"
-        ordering = ["-period_start", "dimension_type", "dimension_value"]
+        db_table = 'finops_hub_costaggregation'
+        ordering = ['-period_start', 'dimension_type', 'dimension_value']
         unique_together = [
-            [
-                "aggregation_type",
-                "dimension_type",
-                "dimension_value",
-                "period_start",
-                "currency",
-            ]
+            ['aggregation_type', 'dimension_type', 'dimension_value', 'period_start', 'currency']
         ]
         indexes = [
-            models.Index(fields=["aggregation_type", "period_start"]),
-            models.Index(fields=["dimension_type", "dimension_value", "period_start"]),
+            models.Index(fields=['aggregation_type', 'period_start']),
+            models.Index(fields=['dimension_type', 'dimension_value', 'period_start']),
         ]
 
     def __str__(self):
@@ -310,17 +284,17 @@ class CostAnomaly(models.Model):
     """
 
     SEVERITY_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-        ("critical", "Critical"),
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
     ]
 
     ANOMALY_TYPES = [
-        ("spike", "Cost Spike"),
-        ("sudden_service", "New Service Detected"),
-        ("unusual_resource", "Unusual Resource Cost"),
-        ("sustained_increase", "Sustained Cost Increase"),
+        ('spike', 'Cost Spike'),
+        ('sudden_service', 'New Service Detected'),
+        ('unusual_resource', 'Unusual Resource Cost'),
+        ('sustained_increase', 'Sustained Cost Increase'),
     ]
 
     # When and what
@@ -335,12 +309,8 @@ class CostAnomaly(models.Model):
     # Cost details
     actual_cost = models.DecimalField(max_digits=12, decimal_places=2)
     expected_cost = models.DecimalField(max_digits=12, decimal_places=2)
-    deviation_percent = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Percentage deviation from expected cost (supports extreme spikes up to 99,999,999.99%)",
-    )
-    currency = models.CharField(max_length=10, default="EUR")
+    deviation_percent = models.DecimalField(max_digits=10, decimal_places=2, help_text="Percentage deviation from expected cost (supports extreme spikes up to 99,999,999.99%)")
+    currency = models.CharField(max_length=10, default='EUR')
 
     # Context
     description = models.TextField()
@@ -355,12 +325,12 @@ class CostAnomaly(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "finops_hub_costanomaly"
-        ordering = ["-detected_date", "-severity"]
+        db_table = 'finops_hub_costanomaly'
+        ordering = ['-detected_date', '-severity']
         indexes = [
-            models.Index(fields=["detected_date", "severity"]),
-            models.Index(fields=["dimension_type", "dimension_value"]),
-            models.Index(fields=["is_acknowledged", "detected_date"]),
+            models.Index(fields=['detected_date', 'severity']),
+            models.Index(fields=['dimension_type', 'dimension_value']),
+            models.Index(fields=['is_acknowledged', 'detected_date']),
         ]
 
     def __str__(self):
@@ -388,10 +358,10 @@ class CostForecast(models.Model):
     lower_bound = models.DecimalField(max_digits=12, decimal_places=2)  # 95% CI
     upper_bound = models.DecimalField(max_digits=12, decimal_places=2)  # 95% CI
     confidence = models.DecimalField(max_digits=5, decimal_places=2)  # 0-100%
-    currency = models.CharField(max_length=10, default="EUR")
+    currency = models.CharField(max_length=10, default='EUR')
 
     # Model metadata
-    model_type = models.CharField(max_length=50, default="linear_regression")
+    model_type = models.CharField(max_length=50, default='linear_regression')
     training_period_start = models.DateField()
     training_period_end = models.DateField()
     training_days = models.IntegerField()
@@ -400,12 +370,14 @@ class CostForecast(models.Model):
     metadata = models.JSONField(default=dict, blank=True)  # R², RMSE, slope, intercept
 
     class Meta:
-        db_table = "finops_hub_costforecast"
-        ordering = ["forecast_date"]
-        unique_together = [["forecast_date", "dimension_type", "dimension_value"]]
+        db_table = 'finops_hub_costforecast'
+        ordering = ['forecast_date']
+        unique_together = [
+            ['forecast_date', 'dimension_type', 'dimension_value']
+        ]
         indexes = [
-            models.Index(fields=["forecast_date", "dimension_type"]),
-            models.Index(fields=["generated_at", "dimension_type"]),
+            models.Index(fields=['forecast_date', 'dimension_type']),
+            models.Index(fields=['generated_at', 'dimension_type']),
         ]
 
     def __str__(self):
@@ -435,21 +407,17 @@ class ReservationCost(models.Model):
     purchase_date = models.DateField(db_index=True)
     expiry_date = models.DateField()
     term_months = models.IntegerField()  # 12 for 1-year, 36 for 3-year
-    billing_plan = models.CharField(
-        max_length=20, default="Monthly"
-    )  # Monthly, Upfront
+    billing_plan = models.CharField(max_length=20, default='Monthly')  # Monthly, Upfront
     quantity = models.IntegerField(default=1)
 
     # Cost details
     total_cost = models.DecimalField(max_digits=12, decimal_places=2)
     monthly_amortization = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=10, default="EUR")
+    currency = models.CharField(max_length=10, default='EUR')
 
     # Data source tracking
-    is_estimate = models.BooleanField(
-        default=True, db_index=True
-    )  # True = from Retail API, False = from invoice
-    pricing_source = models.CharField(max_length=50, default="Azure Retail Prices API")
+    is_estimate = models.BooleanField(default=True, db_index=True)  # True = from Retail API, False = from invoice
+    pricing_source = models.CharField(max_length=50, default='Azure Retail Prices API')
     last_synced = models.DateTimeField(auto_now=True)
 
     # Metadata
@@ -458,12 +426,12 @@ class ReservationCost(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "finops_hub_reservationcost"
-        ordering = ["-purchase_date"]
+        db_table = 'finops_hub_reservationcost'
+        ordering = ['-purchase_date']
         indexes = [
-            models.Index(fields=["reservation_id", "is_estimate"]),
-            models.Index(fields=["service_name", "region"]),
-            models.Index(fields=["purchase_date", "expiry_date"]),
+            models.Index(fields=['reservation_id', 'is_estimate']),
+            models.Index(fields=['service_name', 'region']),
+            models.Index(fields=['purchase_date', 'expiry_date']),
         ]
 
     def __str__(self):
@@ -472,7 +440,6 @@ class ReservationCost(models.Model):
     def is_active(self, check_date=None):
         """Check if reservation is active on given date"""
         from django.utils import timezone
-
         if check_date is None:
             check_date = timezone.now().date()
         return self.purchase_date <= check_date <= self.expiry_date
@@ -499,7 +466,7 @@ class ReservationCost(models.Model):
             return 0  # No overlap
 
         # Calculate cost day-by-day, using the correct daily rate for each month
-        total_cost = Decimal("0.00")
+        total_cost = Decimal('0.00')
         current_date = overlap_start
 
         while current_date <= overlap_end:
@@ -520,36 +487,34 @@ class ReservationCost(models.Model):
 
 class CostBudget(models.Model):
     """Monthly cost budget with alerting thresholds"""
-
     name = models.CharField(max_length=200)
     dimension_type = models.CharField(
         max_length=30,
         choices=[
-            ("overall", "Overall"),
-            ("subscription", "Subscription"),
-            ("service", "Service"),
-            ("resource_group", "Resource Group"),
+            ('overall', 'Overall'),
+            ('subscription', 'Subscription'),
+            ('service', 'Service'),
+            ('resource_group', 'Resource Group'),
         ],
-        default="overall",
+        default='overall'
     )
     dimension_value = models.CharField(
-        max_length=200,
-        blank=True,
-        default="",
-        help_text="Leave blank for overall budget",
+        max_length=200, blank=True, default='',
+        help_text='Leave blank for overall budget'
     )
     monthly_budget = models.DecimalField(max_digits=12, decimal_places=2)
     alert_threshold = models.IntegerField(
-        default=80, help_text="Alert when utilization exceeds this percentage"
+        default=80,
+        help_text='Alert when utilization exceeds this percentage'
     )
-    currency = models.CharField(max_length=10, default="EUR")
+    currency = models.CharField(max_length=10, default='EUR')
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "finops_hub_costbudget"
-        ordering = ["name"]
+        db_table = 'finops_hub_costbudget'
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name}: {self.monthly_budget} {self.currency}/month"
@@ -558,24 +523,23 @@ class CostBudget(models.Model):
         """Get current month's spend for this budget's dimension."""
         from django.utils import timezone
         from django.db.models import Sum
-
         now = timezone.now().date()
         month_start = now.replace(day=1)
 
         filters = {
-            "charge_period_start__date__gte": month_start,
-            "charge_period_start__date__lte": now,
-            "billing_currency": self.currency,
+            'charge_period_start__date__gte': month_start,
+            'charge_period_start__date__lte': now,
+            'billing_currency': self.currency,
         }
 
-        if self.dimension_type == "subscription" and self.dimension_value:
-            filters["sub_account_name"] = self.dimension_value
-        elif self.dimension_type == "service" and self.dimension_value:
-            filters["service_name"] = self.dimension_value
-        elif self.dimension_type == "resource_group" and self.dimension_value:
-            filters["resource_group_name"] = self.dimension_value
+        if self.dimension_type == 'subscription' and self.dimension_value:
+            filters['sub_account_name'] = self.dimension_value
+        elif self.dimension_type == 'service' and self.dimension_value:
+            filters['service_name'] = self.dimension_value
+        elif self.dimension_type == 'resource_group' and self.dimension_value:
+            filters['resource_group_name'] = self.dimension_value
 
         result = CostRecord.objects.filter(**filters).aggregate(
-            total=Sum("billed_cost")
+            total=Sum('billed_cost')
         )
-        return result["total"] or 0
+        return result['total'] or 0

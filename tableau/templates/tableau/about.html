@@ -1,50 +1,46 @@
-{% extends "tableau/base.html" %} {% load static %} {% block content %}
+{% extends "tableau/base.html" %}
+{% load static %}
+
+{% block content %}
 <!-- Hero Section -->
-<section
-    class="relative bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 py-24"
->
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="mx-auto max-w-3xl text-center">
-            <h1 class="mb-6 text-4xl font-bold text-white sm:text-5xl">
+<section class="relative py-24 bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto">
+            <h1 class="text-4xl sm:text-5xl font-bold text-white mb-6">
                 The Future of Art
             </h1>
             <p class="text-xl text-gray-300">
-                Where artificial intelligence meets human emotion to create something
-                truly extraordinary.
+                Where artificial intelligence meets human emotion to create something truly extraordinary.
             </p>
         </div>
     </div>
 </section>
 
 <!-- Vision Section -->
-<section class="bg-gray-900 py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
+<section class="py-24 bg-gray-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-                <h2 class="mb-6 text-3xl font-bold text-white">Our Vision</h2>
-                <p class="mb-4 text-gray-400">
-                    Tableau was born from a simple idea: what if we could harness the
-                    power of artificial intelligence to create art that truly moves
-                    people? Not just pretty pictures, but artwork that evokes deep
+                <h2 class="text-3xl font-bold text-white mb-6">Our Vision</h2>
+                <p class="text-gray-400 mb-4">
+                    Tableau was born from a simple idea: what if we could harness the power of artificial intelligence
+                    to create art that truly moves people? Not just pretty pictures, but artwork that evokes deep
                     emotional responses.
                 </p>
-                <p class="mb-4 text-gray-400">
-                    We believe that AI can be a creative partner, not a replacement for
-                    human creativity. Our algorithms are trained on millions of
-                    artworks, learning patterns of color, composition, and emotional
-                    resonance that have moved humans for centuries.
+                <p class="text-gray-400 mb-4">
+                    We believe that AI can be a creative partner, not a replacement for human creativity.
+                    Our algorithms are trained on millions of artworks, learning patterns of color, composition,
+                    and emotional resonance that have moved humans for centuries.
                 </p>
                 <p class="text-gray-400">
-                    The result? Unique, never-before-seen artwork that feels both
-                    familiar and entirely new. Art that speaks to your soul.
+                    The result? Unique, never-before-seen artwork that feels both familiar and entirely new.
+                    Art that speaks to your soul.
                 </p>
             </div>
             <div class="relative">
-                <div
-                    class="aspect-square rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 opacity-80"
-                ></div>
+                <div class="aspect-square rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 opacity-80"></div>
                 <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-8xl text-white opacity-30">AI</span>
+                    <span class="text-8xl opacity-30 text-white">AI</span>
                 </div>
             </div>
         </div>
@@ -52,61 +48,48 @@
 </section>
 
 <!-- How It Works Section -->
-<section class="bg-gray-950 py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div class="mb-16 text-center">
-            <h2 class="mb-4 text-3xl font-bold text-white sm:text-4xl">How It Works</h2>
-            <p class="mx-auto max-w-2xl text-lg text-gray-400">
+<section class="py-24 bg-gray-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">
+                How It Works
+            </h2>
+            <p class="text-lg text-gray-400 max-w-2xl mx-auto">
                 From algorithm to artwork: the journey of creating AI-generated art.
             </p>
         </div>
 
-        <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Step 1 -->
-            <div class="relative rounded-2xl border border-gray-800 bg-gray-900 p-8">
-                <div
-                    class="absolute -top-4 left-8 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 font-bold text-white"
-                >
+            <div class="relative p-8 rounded-2xl bg-gray-900 border border-gray-800">
+                <div class="absolute -top-4 left-8 w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
                     1
                 </div>
-                <h3 class="mt-2 mb-3 text-xl font-semibold text-white">
-                    AI Generation
-                </h3>
+                <h3 class="text-xl font-semibold text-white mb-3 mt-2">AI Generation</h3>
                 <p class="text-gray-400">
-                    Our advanced AI models generate unique artwork based on learned
-                    patterns of beauty, emotion, and composition.
+                    Our advanced AI models generate unique artwork based on learned patterns of beauty, emotion, and composition.
                 </p>
             </div>
 
             <!-- Step 2 -->
-            <div class="relative rounded-2xl border border-gray-800 bg-gray-900 p-8">
-                <div
-                    class="absolute -top-4 left-8 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 font-bold text-white"
-                >
+            <div class="relative p-8 rounded-2xl bg-gray-900 border border-gray-800">
+                <div class="absolute -top-4 left-8 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                     2
                 </div>
-                <h3 class="mt-2 mb-3 text-xl font-semibold text-white">
-                    Human Curation
-                </h3>
+                <h3 class="text-xl font-semibold text-white mb-3 mt-2">Human Curation</h3>
                 <p class="text-gray-400">
-                    Each piece is carefully reviewed by our team to ensure it meets our
-                    standards for emotional impact and quality.
+                    Each piece is carefully reviewed by our team to ensure it meets our standards for emotional impact and quality.
                 </p>
             </div>
 
             <!-- Step 3 -->
-            <div class="relative rounded-2xl border border-gray-800 bg-gray-900 p-8">
-                <div
-                    class="absolute -top-4 left-8 flex h-8 w-8 items-center justify-center rounded-full bg-pink-600 font-bold text-white"
-                >
+            <div class="relative p-8 rounded-2xl bg-gray-900 border border-gray-800">
+                <div class="absolute -top-4 left-8 w-8 h-8 bg-pink-600 rounded-full flex items-center justify-center text-white font-bold">
                     3
                 </div>
-                <h3 class="mt-2 mb-3 text-xl font-semibold text-white">
-                    Premium Printing
-                </h3>
+                <h3 class="text-xl font-semibold text-white mb-3 mt-2">Premium Printing</h3>
                 <p class="text-gray-400">
-                    Selected artwork is printed using museum-quality materials, ensuring
-                    your piece lasts for generations.
+                    Selected artwork is printed using museum-quality materials, ensuring your piece lasts for generations.
                 </p>
             </div>
         </div>
@@ -114,18 +97,15 @@
 </section>
 
 <!-- CTA Section -->
-<section class="bg-gray-900 py-24">
-    <div class="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-        <h2 class="mb-4 text-3xl font-bold text-white sm:text-4xl">
+<section class="py-24 bg-gray-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">
             Ready to Explore?
         </h2>
-        <p class="mx-auto mb-8 max-w-2xl text-xl text-gray-400">
+        <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
             Browse our collection and find the piece that speaks to you.
         </p>
-        <a
-            href="{% url 'tableau:home' %}#gallery"
-            class="inline-flex items-center justify-center rounded-xl border border-transparent bg-indigo-600 px-8 py-4 text-lg font-medium text-white transition-colors duration-200 hover:bg-indigo-700"
-        >
+        <a href="{% url 'tableau:home' %}#gallery" class="inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200">
             View Gallery
         </a>
     </div>

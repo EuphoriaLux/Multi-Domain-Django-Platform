@@ -1,5 +1,7 @@
-{% extends "crush_lu/journey/journey_base.html" %} {% load static i18n %} {% block
-journey_content %}
+{% extends "crush_lu/journey/journey_base.html" %}
+{% load static i18n %}
+
+{% block journey_content %}
 <div class="certificate-container animate-fade-in">
     <div class="certificate-confetti" aria-hidden="true">
         <div class="certificate-confetti-piece confetti-1"></div>
@@ -34,24 +36,23 @@ journey_content %}
         <div class="certificate-confetti-piece confetti-30"></div>
     </div>
     <!-- Back Button -->
-    <div class="certificate-back mb-4 text-center">
+    <div class="certificate-back text-center mb-4">
         <a href="{% url 'crush_lu:journey_map' %}" class="nav-btn">
-            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans
-            "Back to Journey Map" %}
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journey Map" %}
         </a>
     </div>
 
     <div class="certificate">
         <!-- Decorative Seal -->
-        <div class="certificate-seal">🏆</div>
+        <div class="certificate-seal">
+            🏆
+        </div>
 
         <!-- Header -->
         <div class="certificate-header">
             <div class="certificate-ornament">🌟 ✨ 🌟</div>
             <h1 class="certificate-title">{% trans "CERTIFICATE OF COMPLETION" %}</h1>
-            <p class="certificate-subtitle">
-                {% trans "For extraordinary courage and dedication" %}
-            </p>
+            <p class="certificate-subtitle">{% trans "For extraordinary courage and dedication" %}</p>
         </div>
 
         <!-- Body -->
@@ -66,11 +67,12 @@ journey_content %}
                 {% trans "has successfully completed the journey through" %}
             </p>
 
-            <div class="certificate-journey-title">"{{ journey.journey_name }}"</div>
+            <div class="certificate-journey-title">
+                "{{ journey.journey_name }}"
+            </div>
 
             <p class="achievement-text">
-                {% trans "Demonstrating courage, wisdom, and the ability to see magic in
-                the everyday." %}
+                {% trans "Demonstrating courage, wisdom, and the ability to see magic in the everyday." %}
             </p>
 
             <!-- Stats -->
@@ -91,17 +93,14 @@ journey_content %}
 
             {% if hours_spent > 0 %}
             <p class="achievement-text">
-                {% blocktrans with hours=hours_spent minutes=minutes_spent %}Time
-                invested in this journey: <strong>{{ hours }}h {{ minutes }}m</strong>{%
-                endblocktrans %}
+                {% blocktrans with hours=hours_spent minutes=minutes_spent %}Time invested in this journey: <strong>{{ hours }}h {{ minutes }}m</strong>{% endblocktrans %}
             </p>
             {% endif %}
 
             <!-- Quote -->
             <div class="quote-section">
                 <p class="quote-text">
-                    {% trans "Not all who wander are lost, but some wander straight into
-                    each other's hearts." %}
+                    {% trans "Not all who wander are lost, but some wander straight into each other's hearts." %}
                 </p>
             </div>
 
@@ -134,25 +133,18 @@ journey_content %}
     <!-- Action Buttons -->
     <div class="action-buttons">
         <button type="button" class="action-btn" data-certificate-print>
-            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans
-            "Print Certificate" %}
+            {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Certificate" %}
         </button>
-        <a
-            href="{% url 'crush_lu:journey_map' %}"
-            class="action-btn action-btn-secondary"
-        >
-            {% include "shared/icons/map.html" with class="w-5 h-5" %} {% trans "View
-            Journey Map" %}
+        <a href="{% url 'crush_lu:journey_map' %}" class="action-btn action-btn-secondary">
+            {% include "shared/icons/map.html" with class="w-5 h-5" %} {% trans "View Journey Map" %}
         </a>
-        <a
-            href="{% url 'crush_lu:dashboard' %}"
-            class="action-btn action-btn-secondary"
-        >
-            {% include "shared/icons/home.html" with class="w-5 h-5" %} {% trans
-            "Dashboard" %}
+        <a href="{% url 'crush_lu:dashboard' %}" class="action-btn action-btn-secondary">
+            {% include "shared/icons/home.html" with class="w-5 h-5" %} {% trans "Dashboard" %}
         </a>
     </div>
 </div>
-{% endblock %} {% block extra_journey_js %}
+{% endblock %}
+
+{% block extra_journey_js %}
 <script defer src="{% static 'crush_lu/js/journey-certificate.js' %}"></script>
 {% endblock %}

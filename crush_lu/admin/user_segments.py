@@ -14,9 +14,10 @@ Provides admin dashboard for viewing and managing user segments:
 Access: Superadmins only (due to bulk email capability)
 """
 
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, Exists, OuterRef, Case, When, Value, CharField
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
@@ -27,8 +28,15 @@ import csv
 from crush_lu.models import (
     CrushProfile,
     ProfileSubmission,
+    MeetupEvent,
+    EventRegistration,
+    EventConnection,
+    ConnectionMessage,
     UserActivity,
     EmailPreference,
+    PushSubscription,
+    ProfileReminder,
+    PWADeviceInstallation,
 )
 
 
@@ -1131,13 +1139,9 @@ def user_segments_dashboard(request):
     for gender_code, gender_label in [("F", "Women"), ("M", "Men"), ("other", "Other")]:
         row = {"label": gender_label, "cells": [], "total": 0}
         if gender_code == "other":
-            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(
-                event_languages=[]
-            )
+            qs = approved_profiles.exclude(gender__in=["F", "M"]).exclude(event_languages=[])
         else:
-            qs = approved_profiles.filter(gender=gender_code).exclude(
-                event_languages=[]
-            )
+            qs = approved_profiles.filter(gender=gender_code).exclude(event_languages=[])
         gender_lang_counts = {}
         for langs_list in qs.values_list("event_languages", flat=True):
             if isinstance(langs_list, list):
@@ -1167,11 +1171,9 @@ def user_segments_dashboard(request):
         {"label": ar["label"], "cells": [0] * len(lang_codes), "total": 0}
         for ar in age_ranges
     ]
-    for dob, langs_list in (
-        approved_profiles.exclude(date_of_birth__isnull=True)
-        .exclude(event_languages=[])
-        .values_list("date_of_birth", "event_languages")
-    ):
+    for dob, langs_list in approved_profiles.exclude(
+        date_of_birth__isnull=True
+    ).exclude(event_languages=[]).values_list("date_of_birth", "event_languages"):
         age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         if isinstance(langs_list, list):
             for idx, ar in enumerate(age_ranges):
@@ -1182,7 +1184,8 @@ def user_segments_dashboard(request):
                             age_lang_matrix[idx]["total"] += 1
                     break
     age_lang_col_totals = [
-        sum(row["cells"][i] for row in age_lang_matrix) for i in range(len(lang_codes))
+        sum(row["cells"][i] for row in age_lang_matrix)
+        for i in range(len(lang_codes))
     ]
 
     # Calculate totals
@@ -1247,9 +1250,7 @@ def segment_detail(request, segment_key):
             break
 
     if not target_segment:
-        messages.error(
-            request, _("Segment '%(key)s' not found.") % {"key": segment_key}
-        )
+        messages.error(request, _("Segment '%(key)s' not found.") % {"key": segment_key})
         return redirect("user_segments_dashboard")
 
     # Get the queryset

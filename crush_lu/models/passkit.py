@@ -4,16 +4,20 @@ from django.utils.translation import gettext_lazy as _
 
 class PasskitDeviceRegistration(models.Model):
     device_library_identifier = models.CharField(
-        max_length=255, help_text=_("Apple Wallet device library identifier.")
+        max_length=255,
+        help_text=_("Apple Wallet device library identifier.")
     )
     pass_type_identifier = models.CharField(
-        max_length=255, help_text=_("Pass type identifier used for APNS topic.")
+        max_length=255,
+        help_text=_("Pass type identifier used for APNS topic.")
     )
     serial_number = models.CharField(
-        max_length=64, help_text=_("Pass serial number used to target updates.")
+        max_length=64,
+        help_text=_("Pass serial number used to target updates.")
     )
     push_token = models.CharField(
-        max_length=255, help_text=_("APNS push token for the device.")
+        max_length=255,
+        help_text=_("APNS push token for the device.")
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

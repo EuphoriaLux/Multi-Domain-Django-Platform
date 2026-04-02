@@ -8,18 +8,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0060_add_call_attempt_tracking"),
+        ('crush_lu', '0060_add_call_attempt_tracking'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="journeygift",
-            name="qr_code_image",
-            field=models.ImageField(
-                blank=True,
-                help_text="Generated QR code image",
-                storage=crush_lu.storage.get_crush_media_storage,
-                upload_to=crush_lu.models.journey_gift.gift_qr_code_path,
-            ),
+            model_name='journeygift',
+            name='qr_code_image',
+            field=models.ImageField(blank=True, help_text='Generated QR code image', storage=crush_lu.storage.get_crush_media_storage, upload_to=crush_lu.models.journey_gift.gift_qr_code_path),
         ),
     ]

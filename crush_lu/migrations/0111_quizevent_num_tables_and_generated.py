@@ -6,26 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0110_change_question_index_to_integer"),
+        ('crush_lu', '0110_change_question_index_to_integer'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="quizevent",
-            name="num_tables",
-            field=models.PositiveIntegerField(
-                blank=True,
-                help_text="Number of physical tables available. Leave blank to auto-calculate from participant count.",
-                null=True,
-            ),
+            model_name='quizevent',
+            name='num_tables',
+            field=models.PositiveIntegerField(blank=True, help_text='Number of physical tables available. Leave blank to auto-calculate from participant count.', null=True),
         ),
         migrations.AddField(
-            model_name="quizevent",
-            name="tables_generated_at",
-            field=models.DateTimeField(
-                blank=True,
-                help_text="When table assignments were last generated.",
-                null=True,
-            ),
+            model_name='quizevent',
+            name='tables_generated_at',
+            field=models.DateTimeField(blank=True, help_text='When table assignments were last generated.', null=True),
         ),
     ]

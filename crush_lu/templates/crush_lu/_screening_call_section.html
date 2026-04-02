@@ -1,794 +1,547 @@
 {% load i18n %}
 
-<div
-    id="screening-call-section"
-    class="mb-4 overflow-hidden rounded-xl bg-white shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
->
-    {% if submission.review_call_completed %} {# Completed state - show summary #}
-    <div class="bg-green-500 px-6 py-4 text-white dark:bg-green-600">
-        <h6 class="flex items-center gap-2 font-semibold">
-            {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans
-            "Screening Call Completed" %}
-        </h6>
-    </div>
-    <div class="p-6">
-        <p class="mb-2 text-sm">
-            <strong>{% trans "Completed:" %}</strong> {{
-            submission.review_call_date|date:"M d, Y g:i A" }}
-        </p>
-
-        {% if submission.review_call_checklist %}
-        <div class="mt-4 space-y-2">
-            <p class="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {% trans "Checklist Summary:" %}
-            </p>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.introduction_complete %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Introduction" %}
-                </div>
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.language_confirmed %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Language" %}
-                </div>
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.residence_confirmed %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Residence" %}
-                </div>
-                {% if submission.review_call_checklist.expectations_discussed is not
-                None %}
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.expectations_discussed %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Expectations" %}
-                </div>
-                {% endif %} {% if
-                submission.review_call_checklist.dating_preference_asked is not None %}
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.dating_preference_asked %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Dating Preference" %}
-                </div>
-                {% endif %}
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.crush_meaning_asked %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Crush Meaning" %}
-                </div>
-                <div class="flex items-center gap-2">
-                    {% if submission.review_call_checklist.questions_answered %} {%
-                    include "shared/icons/check-circle.html" with class="w-4 h-4
-                    text-green-500" %} {% else %} {% include
-                    "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
-                    {% endif %} {% trans "Questions" %}
-                </div>
-            </div>
-
-            {% if submission.review_call_checklist.dating_preference_value %}
-            <p class="mt-3 text-sm">
-                <strong>{% trans "Dating Preference:" %}</strong>
-                {% if submission.review_call_checklist.dating_preference_value ==
-                'opposite_gender' %} {% trans "Opposite gender" %} {% elif
-                submission.review_call_checklist.dating_preference_value ==
-                'same_gender' %} {% trans "Same gender" %} {% elif
-                submission.review_call_checklist.dating_preference_value == 'both' %} {%
-                trans "Both" %} {% endif %}
-            </p>
-            {% endif %} {% if submission.review_call_checklist.residence_notes %}
-            <p class="text-sm">
-                <strong>{% trans "Residence Notes:" %}</strong> {{
-                submission.review_call_checklist.residence_notes }}
-            </p>
-            {% endif %} {% if submission.review_call_checklist.expectations_notes %}
-            <p class="text-sm">
-                <strong>{% trans "Expectations Notes:" %}</strong> {{
-                submission.review_call_checklist.expectations_notes }}
-            </p>
-            {% endif %} {% if submission.review_call_checklist.crush_meaning_notes %}
-            <p class="text-sm">
-                <strong>{% trans "Crush Meaning:" %}</strong> {{
-                submission.review_call_checklist.crush_meaning_notes }}
-            </p>
-            {% endif %} {% if submission.review_call_checklist.questions_notes %}
-            <p class="text-sm">
-                <strong>{% trans "Questions Asked:" %}</strong> {{
-                submission.review_call_checklist.questions_notes }}
-            </p>
-            {% endif %}
+<div id="screening-call-section" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/20 mb-4 overflow-hidden">
+    {% if submission.review_call_completed %}
+        {# Completed state - show summary #}
+        <div class="bg-green-500 dark:bg-green-600 text-white px-6 py-4">
+            <h6 class="font-semibold flex items-center gap-2">
+                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                {% trans "Screening Call Completed" %}
+            </h6>
         </div>
-        {% endif %} {% if submission.review_call_notes %}
-        <p class="mt-4 text-sm">
-            <strong>{% trans "Final Notes:" %}</strong> {{ submission.review_call_notes
-            }}
-        </p>
-        {% endif %} {% if submission.call_attempts.exists %}
-        <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-            <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                {% trans "Call Attempt History:" %}
+        <div class="p-6">
+            <p class="text-sm mb-2">
+                <strong>{% trans "Completed:" %}</strong> {{ submission.review_call_date|date:"M d, Y g:i A" }}
             </p>
-            <div class="space-y-2">
-                {% for attempt in submission.call_attempts.all|slice:":5" %}
-                <div
-                    class="flex items-start gap-2 rounded bg-gray-50 p-2 text-xs text-gray-600 dark:bg-gray-900 dark:text-gray-300"
-                >
-                    {% if attempt.result == 'failed' %}
-                    <span class="text-red-500"
-                        >{% include "shared/icons/x-circle.html" with class="w-4 h-4
-                        flex-shrink-0" %}</span
-                    >
-                    {% elif attempt.result == 'sms_sent' %}
-                    <span class="text-blue-500"
-                        ><svg
-                            class="h-4 w-4 flex-shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                            /></svg
-                    ></span>
-                    {% else %}
-                    <span class="text-green-500"
-                        >{% include "shared/icons/check-circle.html" with class="w-4 h-4
-                        flex-shrink-0" %}</span
-                    >
-                    {% endif %}
-                    <div class="flex-1">
-                        <p class="font-medium">
-                            {{ attempt.attempt_date|date:"M d, Y g:i A" }}
-                        </p>
-                        {% if attempt.result == 'failed' %}
-                        <p>
-                            {% trans "Failed:" %} {{ attempt.get_failure_reason_display
-                            }}
-                        </p>
-                        {% elif attempt.result == 'sms_sent' %}
-                        <p>{% trans "SMS template sent" %}</p>
-                        {% else %}
-                        <p>{% trans "Call completed successfully" %}</p>
-                        {% endif %} {% if attempt.notes %}
-                        <p class="text-gray-500 italic dark:text-gray-400">
-                            {{ attempt.notes|truncatewords:15 }}
-                        </p>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    {% else %} {# Not completed - show guideline accordion #}
-    <div
-        class="bg-yellow-500 px-6 py-4 text-gray-900 dark:bg-yellow-600 dark:text-gray-100"
-    >
-        <h6 class="flex items-center gap-2 font-semibold">
-            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-            {% trans "Screening Call Required" %}
-        </h6>
-    </div>
 
-    <div class="p-6" x-data="screeningCallGuideline">
-        {# Initial data for pre-population #}
-        <div
-            data-checklist-initial='{{ submission.review_call_checklist|default:"{}" | escapejs }}'
-            class="hidden"
-        ></div>
-
-        {# Contact info #}
-        <div class="mb-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-900">
-            <p class="mb-2 flex items-center gap-2 text-sm">
-                {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-600
-                dark:text-gray-300" %}
-                <strong>{% trans "Phone:" %}</strong> {{ profile.phone_number }}
-            </p>
-            <p class="flex items-center gap-2 text-sm">
-                {% include "shared/icons/user.html" with class="w-4 h-4 text-gray-600
-                dark:text-gray-300" %}
-                <strong>{% trans "Name:" %}</strong> {{ profile.user.first_name }} {{
-                profile.user.last_name }}
-            </p>
-        </div>
-
-        {# Progress bar #}
-        <div class="mb-4">
-            <div
-                class="mb-1 flex justify-between text-sm text-gray-600 dark:text-gray-300"
-            >
-                <span>{% trans "Progress" %}</span>
-                <span x-text="completedCount"></span>/5 {% trans "steps" %}
-            </div>
-            <div class="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                    class="h-2 rounded-full bg-purple-500 transition-all duration-300 dark:bg-purple-600"
-                    x-bind:style="progressWidth"
-                ></div>
-            </div>
-        </div>
-
-        {# Accordion sections #}
-        <div class="space-y-2">
-            {# Section 1: Introduction #}
-            <div class="overflow-hidden rounded-lg border dark:border-gray-700">
-                <button
-                    type="button"
-                    @click="openSection1"
-                    x-bind:class="section1HeaderClass"
-                    class="flex w-full items-center justify-between border-b px-4 py-3 text-left transition-colors dark:border-gray-700"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white dark:bg-purple-600"
-                            >1</span
-                        >
-                        <span class="font-medium">{% trans "Introduction" %}</span>
-                        <span
-                            x-show="section1Required"
-                            class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                            >{% trans "Required" %}</span
-                        >
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="section1Complete" class="text-green-500">
-                            {% include "shared/icons/check-circle.html" with class="w-5
-                            h-5" %}
-                        </span>
-                        {% include "shared/icons/chevron-down.html" with class="w-5 h-5
-                        text-gray-400 transition-transform" %}
-                    </div>
-                </button>
-                <div x-show="section1Open" class="bg-white p-4 dark:bg-gray-800">
-                    <div
-                        class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/30"
-                    >
-                        <p class="text-sm text-blue-800 dark:text-blue-300">
-                            <strong>{% trans "Script:" %}</strong><br />
-                            {% blocktrans with name=profile.user.first_name %} "Hello {{
-                            name }}, this is [your name] from Crush.lu. I'm your
-                            onboarding coach. Do you have 5-10 minutes for a quick call
-                            to discuss your profile and answer any questions?" {%
-                            endblocktrans %}
-                        </p>
-                    </div>
-                    <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            x-bind:checked="introductionComplete"
-                            @change="toggleIntroduction"
-                            class="h-5 w-5 rounded text-purple-500 focus:ring-purple-500"
-                        />
-                        <span class="text-sm"
-                            >{% trans "Introduction completed, user has time to talk"
-                            %}</span
-                        >
-                    </label>
-                    <button
-                        type="button"
-                        @click="goToNextSection"
-                        class="mt-3 flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800"
-                    >
-                        {% trans "Next step" %} {% include
-                        "shared/icons/chevron-right.html" with class="w-4 h-4" %}
-                    </button>
-                </div>
-            </div>
-
-            {# Section 2: Language Clarification #}
-            <div class="overflow-hidden rounded-lg border dark:border-gray-700">
-                <button
-                    type="button"
-                    @click="openSection2"
-                    x-bind:class="section2HeaderClass"
-                    class="flex w-full items-center justify-between border-b px-4 py-3 text-left transition-colors dark:border-gray-700"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white dark:bg-purple-600"
-                            >2</span
-                        >
-                        <span class="font-medium"
-                            >{% trans "Language Clarification" %}</span
-                        >
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="section2Complete" class="text-green-500">
-                            {% include "shared/icons/check-circle.html" with class="w-5
-                            h-5" %}
-                        </span>
-                        {% include "shared/icons/chevron-down.html" with class="w-5 h-5
-                        text-gray-400" %}
-                    </div>
-                </button>
-                <div x-show="section2Open" class="bg-white p-4 dark:bg-gray-800">
-                    <div
-                        class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/30"
-                    >
-                        <p class="text-sm text-blue-800 dark:text-blue-300">
-                            <strong>{% trans "Script:" %}</strong><br />
-                            {% trans "\"I see you've selected some event languages. Can
-                            you confirm which languages you're comfortable speaking at
-                            events?\"" %}
-                        </p>
-                    </div>
-
-                    {# Profile context: languages #}
-                    <div
-                        class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <p
-                            class="mb-2 text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
-                        >
-                            {% trans "Profile Info" %}
-                        </p>
-                        <p class="mb-2 flex flex-wrap items-center gap-2 text-sm">
-                            <strong>{% trans "Preferred:" %}</strong>
-                            {% if profile.preferred_language == 'de' %}
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700"
-                                >🇩🇪 Deutsch</span
-                            >
-                            {% elif profile.preferred_language == 'fr' %}
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700"
-                                >🇫🇷 Français</span
-                            >
+            {% if submission.review_call_checklist %}
+                <div class="mt-4 space-y-2">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Checklist Summary:" %}</p>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.introduction_complete %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
                             {% else %}
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700"
-                                >🇬🇧 English</span
-                            >
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Introduction" %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.language_confirmed %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Language" %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.residence_confirmed %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Residence" %}
+                        </div>
+                        {% if submission.review_call_checklist.expectations_discussed is not None %}
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.expectations_discussed %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Expectations" %}
+                        </div>
+                        {% endif %}
+                        {% if submission.review_call_checklist.dating_preference_asked is not None %}
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.dating_preference_asked %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Dating Preference" %}
+                        </div>
+                        {% endif %}
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.crush_meaning_asked %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Crush Meaning" %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if submission.review_call_checklist.questions_answered %}
+                                {% include "shared/icons/check-circle.html" with class="w-4 h-4 text-green-500" %}
+                            {% else %}
+                                {% include "shared/icons/x-circle.html" with class="w-4 h-4 text-gray-300" %}
+                            {% endif %}
+                            {% trans "Questions" %}
+                        </div>
+                    </div>
+
+                    {% if submission.review_call_checklist.dating_preference_value %}
+                        <p class="text-sm mt-3">
+                            <strong>{% trans "Dating Preference:" %}</strong>
+                            {% if submission.review_call_checklist.dating_preference_value == 'opposite_gender' %}
+                                {% trans "Opposite gender" %}
+                            {% elif submission.review_call_checklist.dating_preference_value == 'same_gender' %}
+                                {% trans "Same gender" %}
+                            {% elif submission.review_call_checklist.dating_preference_value == 'both' %}
+                                {% trans "Both" %}
                             {% endif %}
                         </p>
-                        <p class="flex flex-wrap items-center gap-2 text-sm">
-                            <strong>{% trans "Event Languages:" %}</strong>
-                            {% for lang in profile.event_languages %}
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                            >
-                                {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪
-                                Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang ==
-                                'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
-                            </span>
-                            {% empty %}
-                            <span class="text-sm text-gray-400 italic"
-                                >{% trans "Not set" %}</span
-                            >
-                            {% endfor %}
-                        </p>
-                    </div>
-
-                    <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            x-bind:checked="languageConfirmed"
-                            @change="toggleLanguage"
-                            class="h-5 w-5 rounded text-purple-500 focus:ring-purple-500"
-                        />
-                        <span class="text-sm"
-                            >{% trans "Language capability confirmed" %}</span
-                        >
-                    </label>
-                    <button
-                        type="button"
-                        @click="goToNextSection"
-                        class="mt-3 flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800"
-                    >
-                        {% trans "Next step" %} {% include
-                        "shared/icons/chevron-right.html" with class="w-4 h-4" %}
-                    </button>
-                </div>
-            </div>
-
-            {# Section 3: Residence Check #}
-            <div class="overflow-hidden rounded-lg border dark:border-gray-700">
-                <button
-                    type="button"
-                    @click="openSection3"
-                    x-bind:class="section3HeaderClass"
-                    class="flex w-full items-center justify-between border-b px-4 py-3 text-left transition-colors dark:border-gray-700"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white dark:bg-purple-600"
-                            >3</span
-                        >
-                        <span class="font-medium">{% trans "Residence Check" %}</span>
-                        <span
-                            x-show="section3Required"
-                            class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                            >{% trans "Required" %}</span
-                        >
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="section3Complete" class="text-green-500">
-                            {% include "shared/icons/check-circle.html" with class="w-5
-                            h-5" %}
-                        </span>
-                        {% include "shared/icons/chevron-down.html" with class="w-5 h-5
-                        text-gray-400" %}
-                    </div>
-                </button>
-                <div x-show="section3Open" class="bg-white p-4 dark:bg-gray-800">
-                    <div
-                        class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/30"
-                    >
-                        <p class="text-sm text-blue-800 dark:text-blue-300">
-                            <strong>{% trans "Script:" %}</strong><br />
-                            {% trans "\"Can you confirm you live in Luxembourg or a
-                            neighboring country? Our events are held in Luxembourg, so
-                            we want to make sure you can attend.\"" %}
-                        </p>
-                    </div>
-
-                    {# Profile context: location #}
-                    <div
-                        class="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900"
-                    >
-                        <p
-                            class="mb-2 text-xs font-semibold text-gray-500 uppercase dark:text-gray-400"
-                        >
-                            {% trans "Profile Info" %}
-                        </p>
-                        <p class="flex items-center gap-2 text-sm">
-                            {% include "shared/icons/map-pin.html" with class="w-4 h-4
-                            text-gray-500 dark:text-gray-400" %}
-                            <strong>{% trans "Location:" %}</strong>
-                            {% trans "Not specified" as not_specified %}{{
-                            profile.location|default:not_specified }}
-                        </p>
-                    </div>
-
-                    <label class="mb-3 flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            x-bind:checked="residenceConfirmed"
-                            @change="toggleResidence"
-                            class="h-5 w-5 rounded text-purple-500 focus:ring-purple-500"
-                        />
-                        <span class="text-sm"
-                            >{% trans "Residence in Luxembourg or neighbor country
-                            confirmed" %}</span
-                        >
-                    </label>
-
-                    <div class="mt-2">
-                        <label
-                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-                            >{% trans "Location notes (optional):" %}</label
-                        >
-                        <input
-                            type="text"
-                            x-bind:value="residenceNotes"
-                            @input="updateResidenceNotes"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            placeholder="{% trans 'e.g., Lives in Trier, 30 min from Luxembourg City' %}"
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        @click="goToNextSection"
-                        class="mt-3 flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800"
-                    >
-                        {% trans "Next step" %} {% include
-                        "shared/icons/chevron-right.html" with class="w-4 h-4" %}
-                    </button>
-                </div>
-            </div>
-
-            {# Section 4: Crush Definition #}
-            <div class="overflow-hidden rounded-lg border dark:border-gray-700">
-                <button
-                    type="button"
-                    @click="openSection4"
-                    x-bind:class="section4HeaderClass"
-                    class="flex w-full items-center justify-between border-b px-4 py-3 text-left transition-colors dark:border-gray-700"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white dark:bg-purple-600"
-                            >4</span
-                        >
-                        <span class="font-medium">{% trans "Crush Definition" %}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="section4Complete" class="text-green-500">
-                            {% include "shared/icons/check-circle.html" with class="w-5
-                            h-5" %}
-                        </span>
-                        {% include "shared/icons/chevron-down.html" with class="w-5 h-5
-                        text-gray-400" %}
-                    </div>
-                </button>
-                <div x-show="section4Open" class="bg-white p-4 dark:bg-gray-800">
-                    <div
-                        class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/30"
-                    >
-                        <p class="text-sm text-blue-800 dark:text-blue-300">
-                            <strong>{% trans "Script:" %}</strong><br />
-                            {% trans "\"What does 'Crush' mean to you? What would your
-                            ideal crush be like?\"" %}
-                        </p>
-                        <p class="mt-2 text-xs text-blue-600 italic dark:text-blue-400">
-                            {% trans "This open question helps gauge their mindset and
-                            expectations about romantic connections." %}
-                        </p>
-                    </div>
-
-                    <label class="mb-3 flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            x-bind:checked="crushMeaningAsked"
-                            @change="toggleCrushMeaning"
-                            class="h-5 w-5 rounded text-purple-500 focus:ring-purple-500"
-                        />
-                        <span class="text-sm"
-                            >{% trans "Asked about their crush definition" %}</span
-                        >
-                    </label>
-
-                    <div class="mt-2">
-                        <label
-                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-                            >{% trans "Their response (optional):" %}</label
-                        >
-                        <textarea
-                            x-bind:value="crushMeaningNotes"
-                            @input="updateCrushMeaningNotes"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            rows="2"
-                            placeholder="{% trans 'e.g., Someone kind, adventurous, ready for commitment' %}"
-                        ></textarea>
-                    </div>
-                    <button
-                        type="button"
-                        @click="goToNextSection"
-                        class="mt-3 flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800"
-                    >
-                        {% trans "Next step" %} {% include
-                        "shared/icons/chevron-right.html" with class="w-4 h-4" %}
-                    </button>
-                </div>
-            </div>
-
-            {# Section 5: Open Questions #}
-            <div class="overflow-hidden rounded-lg border dark:border-gray-700">
-                <button
-                    type="button"
-                    @click="openSection5"
-                    x-bind:class="section5HeaderClass"
-                    class="flex w-full items-center justify-between border-b px-4 py-3 text-left transition-colors dark:border-gray-700"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white dark:bg-purple-600"
-                            >5</span
-                        >
-                        <span class="font-medium">{% trans "Open Questions" %}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span x-show="section5Complete" class="text-green-500">
-                            {% include "shared/icons/check-circle.html" with class="w-5
-                            h-5" %}
-                        </span>
-                        {% include "shared/icons/chevron-down.html" with class="w-5 h-5
-                        text-gray-400" %}
-                    </div>
-                </button>
-                <div x-show="section5Open" class="bg-white p-4 dark:bg-gray-800">
-                    <div
-                        class="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/30"
-                    >
-                        <p class="text-sm text-blue-800 dark:text-blue-300">
-                            <strong>{% trans "Script:" %}</strong><br />
-                            {% trans "\"Do you have any questions about Crush.lu, our
-                            events, or how everything works?\"" %}
-                        </p>
-                    </div>
-
-                    <label class="mb-3 flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            x-bind:checked="questionsAnswered"
-                            @change="toggleQuestions"
-                            class="h-5 w-5 rounded text-purple-500 focus:ring-purple-500"
-                        />
-                        <span class="text-sm"
-                            >{% trans "Addressed their questions" %}</span
-                        >
-                    </label>
-
-                    <div class="mt-2">
-                        <label
-                            class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-                            >{% trans "Questions they asked (optional):" %}</label
-                        >
-                        <textarea
-                            x-bind:value="questionsNotes"
-                            @input="updateQuestionsNotes"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            rows="2"
-                            placeholder="{% trans 'e.g., Asked about event frequency, pricing, privacy' %}"
-                        ></textarea>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {# Validation message #}
-        <div
-            x-show="isInvalid"
-            class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-yellow-700 dark:bg-yellow-900/30"
-        >
-            <p
-                class="flex items-center gap-2 text-sm text-amber-800 dark:text-yellow-300"
-            >
-                {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4"
-                %} {% trans "Please complete all required steps (Introduction and
-                Residence Check) before submitting." %}
-            </p>
-        </div>
-
-        {# Log Failed Call Attempt #}
-        <div class="mt-4 mb-4">
-            <button
-                type="button"
-                @click="toggleFailedCallForm"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 px-4 py-2 font-medium text-amber-800 transition-colors hover:border-amber-400 hover:bg-amber-100 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300 dark:hover:border-yellow-500 dark:hover:bg-yellow-900/50"
-            >
-                {% include "shared/icons/phone-x-mark.html" with class="w-5 h-5" %}
-                <span x-show="showFailedCallForm">{% trans "Cancel" %}</span>
-                <span x-show="hideFailedCallForm"
-                    >{% trans "Unable to Reach User? Log Failed Call" %}</span
-                >
-            </button>
-
-            {# Failed call form (shown on button click) #}
-            <div x-show="showFailedCallForm" class="mt-3">
-                {% include 'crush_lu/_call_attempt_form.html' %}
-            </div>
-        </div>
-
-        {# Call Attempt History (in-progress view) #} {% if
-        submission.call_attempts.exists %}
-        <div
-            class="mt-4 mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
-        >
-            <p
-                class="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"
-            >
-                {% include "shared/icons/clock.html" with class="w-4 h-4 text-gray-500
-                dark:text-gray-400" %} {% trans "Call Attempt History:" %}
-            </p>
-            <div class="space-y-2">
-                {% for attempt in submission.call_attempts.all|slice:":5" %}
-                <div
-                    class="flex items-start gap-2 rounded border border-gray-100 bg-white p-3 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                    {% if attempt.result == 'failed' %}
-                    <span class="text-red-500"
-                        >{% include "shared/icons/x-circle.html" with class="w-4 h-4
-                        flex-shrink-0" %}</span
-                    >
-                    {% elif attempt.result == 'sms_sent' %}
-                    <span class="text-blue-500"
-                        ><svg
-                            class="h-4 w-4 flex-shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                            /></svg
-                    ></span>
-                    {% else %}
-                    <span class="text-green-500"
-                        >{% include "shared/icons/check-circle.html" with class="w-4 h-4
-                        flex-shrink-0" %}</span
-                    >
                     {% endif %}
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-900 dark:text-gray-100">
-                            {{ attempt.attempt_date|date:"M d, Y g:i A" }}
-                        </p>
-                        {% if attempt.result == 'failed' %}
-                        <p class="text-gray-700 dark:text-gray-200">
-                            {% trans "Failed:" %} {{ attempt.get_failure_reason_display
-                            }}
-                        </p>
-                        {% elif attempt.result == 'sms_sent' %}
-                        <p class="text-blue-700 dark:text-blue-300">
-                            {% trans "SMS template sent" %}
-                        </p>
-                        {% else %}
-                        <p class="text-green-700 dark:text-green-300">
-                            {% trans "Call completed successfully" %}
-                        </p>
-                        {% endif %} {% if attempt.notes %}
-                        <p class="mt-1 text-gray-500 italic dark:text-gray-400">
-                            {{ attempt.notes|truncatewords:15 }}
-                        </p>
-                        {% endif %}
+
+                    {% if submission.review_call_checklist.residence_notes %}
+                        <p class="text-sm"><strong>{% trans "Residence Notes:" %}</strong> {{ submission.review_call_checklist.residence_notes }}</p>
+                    {% endif %}
+                    {% if submission.review_call_checklist.expectations_notes %}
+                        <p class="text-sm"><strong>{% trans "Expectations Notes:" %}</strong> {{ submission.review_call_checklist.expectations_notes }}</p>
+                    {% endif %}
+                    {% if submission.review_call_checklist.crush_meaning_notes %}
+                        <p class="text-sm"><strong>{% trans "Crush Meaning:" %}</strong> {{ submission.review_call_checklist.crush_meaning_notes }}</p>
+                    {% endif %}
+                    {% if submission.review_call_checklist.questions_notes %}
+                        <p class="text-sm"><strong>{% trans "Questions Asked:" %}</strong> {{ submission.review_call_checklist.questions_notes }}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if submission.review_call_notes %}
+                <p class="text-sm mt-4">
+                    <strong>{% trans "Final Notes:" %}</strong> {{ submission.review_call_notes }}
+                </p>
+            {% endif %}
+
+            {% if submission.call_attempts.exists %}
+                <div class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Call Attempt History:" %}</p>
+                    <div class="space-y-2">
+                        {% for attempt in submission.call_attempts.all|slice:":5" %}
+                            <div class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                                {% if attempt.result == 'failed' %}
+                                    <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% elif attempt.result == 'sms_sent' %}
+                                    <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
+                                {% else %}
+                                    <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% endif %}
+                                <div class="flex-1">
+                                    <p class="font-medium">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
+                                    {% if attempt.result == 'failed' %}
+                                        <p>{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                                    {% elif attempt.result == 'sms_sent' %}
+                                        <p>{% trans "SMS template sent" %}</p>
+                                    {% else %}
+                                        <p>{% trans "Call completed successfully" %}</p>
+                                    {% endif %}
+                                    {% if attempt.notes %}
+                                        <p class="text-gray-500 dark:text-gray-400 italic">{{ attempt.notes|truncatewords:15 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-            {% if submission.call_attempts.count > 5 %}
-            <p class="mt-2 text-xs text-gray-500 italic dark:text-gray-400">
-                {% blocktrans count counter=submission.call_attempts.count|add:"-5" %}
-                ... and {{ counter }} more attempt {% plural %} ... and {{ counter }}
-                more attempts {% endblocktrans %}
-            </p>
             {% endif %}
         </div>
-        {% endif %} {# Form submission #}
-        <form
-            hx-post="{% url 'crush_lu:coach_mark_review_call_complete' submission.id %}"
-            hx-target="#screening-call-section"
-            hx-swap="outerHTML transition:false"
-            hx-indicator="#screening-call-indicator"
-            class="mt-6"
-        >
-            {% csrf_token %}
-            <input
-                type="hidden"
-                name="checklist_data"
-                x-bind:value="checklistDataJson"
-            />
+    {% else %}
+        {# Not completed - show guideline accordion #}
+        <div class="bg-yellow-500 dark:bg-yellow-600 text-gray-900 dark:text-gray-100 px-6 py-4">
+            <h6 class="font-semibold flex items-center gap-2">
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+                {% trans "Screening Call Required" %}
+            </h6>
+        </div>
 
-            <div class="mb-4">
-                <label
-                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-                    >{% trans "Final Call Notes (optional):" %}</label
-                >
-                <textarea
-                    name="call_notes"
-                    x-bind:value="finalNotes"
-                    @input="updateFinalNotes"
-                    class="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    rows="3"
-                    placeholder="{% trans 'Any additional observations or notes from the call...' %}"
-                ></textarea>
+        <div class="p-6" x-data="screeningCallGuideline">
+            {# Initial data for pre-population #}
+            <div data-checklist-initial='{{ submission.review_call_checklist|default:"{}" | escapejs }}' class="hidden"></div>
+
+            {# Contact info #}
+            <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <p class="text-sm flex items-center gap-2 mb-2">
+                    {% include "shared/icons/phone.html" with class="w-4 h-4 text-gray-600 dark:text-gray-300" %}
+                    <strong>{% trans "Phone:" %}</strong> {{ profile.phone_number }}
+                </p>
+                <p class="text-sm flex items-center gap-2">
+                    {% include "shared/icons/user.html" with class="w-4 h-4 text-gray-600 dark:text-gray-300" %}
+                    <strong>{% trans "Name:" %}</strong> {{ profile.user.first_name }} {{ profile.user.last_name }}
+                </p>
             </div>
 
-            <button
-                type="submit"
-                x-bind:disabled="submitDisabled"
-                x-bind:class="submitButtonClass"
-                class="no-loading inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold text-white transition-colors"
-            >
-                <span id="screening-call-indicator" class="htmx-indicator">
-                    {% include "shared/icons/loading.html" with class="w-4 h-4
-                    animate-spin" %}
-                </span>
-                <span class="htmx-hide-on-request">
-                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    {% trans "Mark Screening Call Complete" %}
-                </span>
-            </button>
-        </form>
-    </div>
+            {# Progress bar #}
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    <span>{% trans "Progress" %}</span>
+                    <span x-text="completedCount"></span>/5 {% trans "steps" %}
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="bg-purple-500 dark:bg-purple-600 h-2 rounded-full transition-all duration-300" x-bind:style="progressWidth"></div>
+                </div>
+            </div>
+
+            {# Accordion sections #}
+            <div class="space-y-2">
+
+                {# Section 1: Introduction #}
+                <div class="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <button type="button"
+                            @click="openSection1"
+                            x-bind:class="section1HeaderClass"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left border-b dark:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 dark:bg-purple-600 text-white text-xs font-bold">1</span>
+                            <span class="font-medium">{% trans "Introduction" %}</span>
+                            <span x-show="section1Required" class="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">{% trans "Required" %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span x-show="section1Complete" class="text-green-500">
+                                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            </span>
+                            {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400 transition-transform" %}
+                        </div>
+                    </button>
+                    <div x-show="section1Open" class="p-4 bg-white dark:bg-gray-800">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% blocktrans with name=profile.user.first_name %}
+                                "Hello {{ name }}, this is [your name] from Crush.lu. I'm your onboarding coach. Do you have 5-10 minutes for a quick call to discuss your profile and answer any questions?"
+                                {% endblocktrans %}
+                            </p>
+                        </div>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox"
+                                   x-bind:checked="introductionComplete"
+                                   @change="toggleIntroduction"
+                                   class="w-5 h-5 rounded text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm">{% trans "Introduction completed, user has time to talk" %}</span>
+                        </label>
+                        <button type="button" @click="goToNextSection" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                            {% trans "Next step" %} {% include "shared/icons/chevron-right.html" with class="w-4 h-4" %}
+                        </button>
+                    </div>
+                </div>
+
+                {# Section 2: Language Clarification #}
+                <div class="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <button type="button"
+                            @click="openSection2"
+                            x-bind:class="section2HeaderClass"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left border-b dark:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 dark:bg-purple-600 text-white text-xs font-bold">2</span>
+                            <span class="font-medium">{% trans "Language Clarification" %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span x-show="section2Complete" class="text-green-500">
+                                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            </span>
+                            {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400" %}
+                        </div>
+                    </button>
+                    <div x-show="section2Open" class="p-4 bg-white dark:bg-gray-800">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"I see you've selected some event languages. Can you confirm which languages you're comfortable speaking at events?\"" %}
+                            </p>
+                        </div>
+
+                        {# Profile context: languages #}
+                        <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold mb-2">{% trans "Profile Info" %}</p>
+                            <p class="text-sm flex items-center gap-2 flex-wrap mb-2">
+                                <strong>{% trans "Preferred:" %}</strong>
+                                {% if profile.preferred_language == 'de' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">🇩🇪 Deutsch</span>
+                                {% elif profile.preferred_language == 'fr' %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">🇫🇷 Français</span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">🇬🇧 English</span>
+                                {% endif %}
+                            </p>
+                            <p class="text-sm flex items-center gap-2 flex-wrap">
+                                <strong>{% trans "Event Languages:" %}</strong>
+                                {% for lang in profile.event_languages %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs">
+                                        {% if lang == 'en' %}🇬🇧 English{% elif lang == 'de' %}🇩🇪 Deutsch{% elif lang == 'fr' %}🇫🇷 Français{% elif lang == 'lu' %}🇱🇺 Lëtzebuergesch{% endif %}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-gray-400 text-sm italic">{% trans "Not set" %}</span>
+                                {% endfor %}
+                            </p>
+                        </div>
+
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox"
+                                   x-bind:checked="languageConfirmed"
+                                   @change="toggleLanguage"
+                                   class="w-5 h-5 rounded text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm">{% trans "Language capability confirmed" %}</span>
+                        </label>
+                        <button type="button" @click="goToNextSection" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                            {% trans "Next step" %} {% include "shared/icons/chevron-right.html" with class="w-4 h-4" %}
+                        </button>
+                    </div>
+                </div>
+
+                {# Section 3: Residence Check #}
+                <div class="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <button type="button"
+                            @click="openSection3"
+                            x-bind:class="section3HeaderClass"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left border-b dark:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 dark:bg-purple-600 text-white text-xs font-bold">3</span>
+                            <span class="font-medium">{% trans "Residence Check" %}</span>
+                            <span x-show="section3Required" class="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded">{% trans "Required" %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span x-show="section3Complete" class="text-green-500">
+                                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            </span>
+                            {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400" %}
+                        </div>
+                    </button>
+                    <div x-show="section3Open" class="p-4 bg-white dark:bg-gray-800">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"Can you confirm you live in Luxembourg or a neighboring country? Our events are held in Luxembourg, so we want to make sure you can attend.\"" %}
+                            </p>
+                        </div>
+
+                        {# Profile context: location #}
+                        <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold mb-2">{% trans "Profile Info" %}</p>
+                            <p class="text-sm flex items-center gap-2">
+                                {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
+                                <strong>{% trans "Location:" %}</strong>
+                                {% trans "Not specified" as not_specified %}{{ profile.location|default:not_specified }}
+                            </p>
+                        </div>
+
+                        <label class="flex items-center gap-3 cursor-pointer mb-3">
+                            <input type="checkbox"
+                                   x-bind:checked="residenceConfirmed"
+                                   @change="toggleResidence"
+                                   class="w-5 h-5 rounded text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm">{% trans "Residence in Luxembourg or neighbor country confirmed" %}</span>
+                        </label>
+
+                        <div class="mt-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Location notes (optional):" %}</label>
+                            <input type="text"
+                                   x-bind:value="residenceNotes"
+                                   @input="updateResidenceNotes"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                   placeholder="{% trans 'e.g., Lives in Trier, 30 min from Luxembourg City' %}">
+                        </div>
+                        <button type="button" @click="goToNextSection" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                            {% trans "Next step" %} {% include "shared/icons/chevron-right.html" with class="w-4 h-4" %}
+                        </button>
+                    </div>
+                </div>
+
+                {# Section 4: Crush Definition #}
+                <div class="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <button type="button"
+                            @click="openSection4"
+                            x-bind:class="section4HeaderClass"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left border-b dark:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 dark:bg-purple-600 text-white text-xs font-bold">4</span>
+                            <span class="font-medium">{% trans "Crush Definition" %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span x-show="section4Complete" class="text-green-500">
+                                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            </span>
+                            {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400" %}
+                        </div>
+                    </button>
+                    <div x-show="section4Open" class="p-4 bg-white dark:bg-gray-800">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"What does 'Crush' mean to you? What would your ideal crush be like?\"" %}
+                            </p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 italic">
+                                {% trans "This open question helps gauge their mindset and expectations about romantic connections." %}
+                            </p>
+                        </div>
+
+                        <label class="flex items-center gap-3 cursor-pointer mb-3">
+                            <input type="checkbox"
+                                   x-bind:checked="crushMeaningAsked"
+                                   @change="toggleCrushMeaning"
+                                   class="w-5 h-5 rounded text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm">{% trans "Asked about their crush definition" %}</span>
+                        </label>
+
+                        <div class="mt-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Their response (optional):" %}</label>
+                            <textarea x-bind:value="crushMeaningNotes"
+                                      @input="updateCrushMeaningNotes"
+                                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                      rows="2"
+                                      placeholder="{% trans 'e.g., Someone kind, adventurous, ready for commitment' %}"></textarea>
+                        </div>
+                        <button type="button" @click="goToNextSection" class="mt-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                            {% trans "Next step" %} {% include "shared/icons/chevron-right.html" with class="w-4 h-4" %}
+                        </button>
+                    </div>
+                </div>
+
+                {# Section 5: Open Questions #}
+                <div class="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <button type="button"
+                            @click="openSection5"
+                            x-bind:class="section5HeaderClass"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left border-b dark:border-gray-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 dark:bg-purple-600 text-white text-xs font-bold">5</span>
+                            <span class="font-medium">{% trans "Open Questions" %}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span x-show="section5Complete" class="text-green-500">
+                                {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                            </span>
+                            {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400" %}
+                        </div>
+                    </button>
+                    <div x-show="section5Open" class="p-4 bg-white dark:bg-gray-800">
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"Do you have any questions about Crush.lu, our events, or how everything works?\"" %}
+                            </p>
+                        </div>
+
+                        <label class="flex items-center gap-3 cursor-pointer mb-3">
+                            <input type="checkbox"
+                                   x-bind:checked="questionsAnswered"
+                                   @change="toggleQuestions"
+                                   class="w-5 h-5 rounded text-purple-500 focus:ring-purple-500">
+                            <span class="text-sm">{% trans "Addressed their questions" %}</span>
+                        </label>
+
+                        <div class="mt-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Questions they asked (optional):" %}</label>
+                            <textarea x-bind:value="questionsNotes"
+                                      @input="updateQuestionsNotes"
+                                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                      rows="2"
+                                      placeholder="{% trans 'e.g., Asked about event frequency, pricing, privacy' %}"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Validation message #}
+            <div x-show="isInvalid" class="mt-4 p-3 bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 rounded-lg">
+                <p class="text-sm text-amber-800 dark:text-yellow-300 flex items-center gap-2">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
+                    {% trans "Please complete all required steps (Introduction and Residence Check) before submitting." %}
+                </p>
+            </div>
+
+            {# Log Failed Call Attempt #}
+            <div class="mt-4 mb-4">
+                <button type="button"
+                        @click="toggleFailedCallForm"
+                        class="w-full border-2 border-dashed border-amber-300 dark:border-yellow-600 hover:border-amber-400 dark:hover:border-yellow-500 bg-amber-50 dark:bg-yellow-900/30 hover:bg-amber-100 dark:hover:bg-yellow-900/50 text-amber-800 dark:text-yellow-300 font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center justify-center gap-2">
+                    {% include "shared/icons/phone-x-mark.html" with class="w-5 h-5" %}
+                    <span x-show="showFailedCallForm">{% trans "Cancel" %}</span>
+                    <span x-show="hideFailedCallForm">{% trans "Unable to Reach User? Log Failed Call" %}</span>
+                </button>
+
+                {# Failed call form (shown on button click) #}
+                <div x-show="showFailedCallForm" class="mt-3">
+                    {% include 'crush_lu/_call_attempt_form.html' %}
+                </div>
+            </div>
+
+            {# Call Attempt History (in-progress view) #}
+            {% if submission.call_attempts.exists %}
+                <div class="mt-4 mb-4 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">
+                        {% include "shared/icons/clock.html" with class="w-4 h-4 text-gray-500 dark:text-gray-400" %}
+                        {% trans "Call Attempt History:" %}
+                    </p>
+                    <div class="space-y-2">
+                        {% for attempt in submission.call_attempts.all|slice:":5" %}
+                            <div class="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 p-3 rounded border border-gray-100 dark:border-gray-700">
+                                {% if attempt.result == 'failed' %}
+                                    <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% elif attempt.result == 'sms_sent' %}
+                                    <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
+                                {% else %}
+                                    <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
+                                {% endif %}
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ attempt.attempt_date|date:"M d, Y g:i A" }}</p>
+                                    {% if attempt.result == 'failed' %}
+                                        <p class="text-gray-700 dark:text-gray-200">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
+                                    {% elif attempt.result == 'sms_sent' %}
+                                        <p class="text-blue-700 dark:text-blue-300">{% trans "SMS template sent" %}</p>
+                                    {% else %}
+                                        <p class="text-green-700 dark:text-green-300">{% trans "Call completed successfully" %}</p>
+                                    {% endif %}
+                                    {% if attempt.notes %}
+                                        <p class="text-gray-500 dark:text-gray-400 italic mt-1">{{ attempt.notes|truncatewords:15 }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% if submission.call_attempts.count > 5 %}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                            {% blocktrans count counter=submission.call_attempts.count|add:"-5" %}
+                                ... and {{ counter }} more attempt
+                            {% plural %}
+                                ... and {{ counter }} more attempts
+                            {% endblocktrans %}
+                        </p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {# Form submission #}
+            <form hx-post="{% url 'crush_lu:coach_mark_review_call_complete' submission.id %}"
+                  hx-target="#screening-call-section"
+                  hx-swap="outerHTML transition:false"
+                  hx-indicator="#screening-call-indicator"
+                  class="mt-6">
+                {% csrf_token %}
+                <input type="hidden" name="checklist_data" x-bind:value="checklistDataJson">
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Final Call Notes (optional):" %}</label>
+                    <textarea name="call_notes"
+                              x-bind:value="finalNotes"
+                              @input="updateFinalNotes"
+                              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                              rows="3"
+                              placeholder="{% trans 'Any additional observations or notes from the call...' %}"></textarea>
+                </div>
+
+                <button type="submit"
+                        x-bind:disabled="submitDisabled"
+                        x-bind:class="submitButtonClass"
+                        class="w-full text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center justify-center gap-2 no-loading">
+                    <span id="screening-call-indicator" class="htmx-indicator">
+                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
+                    </span>
+                    <span class="htmx-hide-on-request">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                        {% trans "Mark Screening Call Complete" %}
+                    </span>
+                </button>
+            </form>
+        </div>
     {% endif %}
 </div>

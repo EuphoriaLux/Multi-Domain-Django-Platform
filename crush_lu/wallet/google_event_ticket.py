@@ -13,6 +13,7 @@ import secrets
 import time
 
 from django.conf import settings
+from django.core.signing import Signer
 
 from .google_wallet import _base64url_encode, _load_private_key, _require_setting
 from cryptography.hazmat.primitives import hashes
@@ -30,9 +31,7 @@ def _ensure_ticket_object_id(registration):
 
     issuer_id = _require_setting("WALLET_GOOGLE_ISSUER_ID")
     suffix = secrets.token_hex(8)
-    object_id = (
-        f"{issuer_id}.event-{registration.event_id}-reg-{registration.id}-{suffix}"
-    )
+    object_id = f"{issuer_id}.event-{registration.event_id}-reg-{registration.id}-{suffix}"
     registration.google_wallet_ticket_object_id = object_id
     registration.save(update_fields=["google_wallet_ticket_object_id"])
     return object_id
@@ -92,9 +91,7 @@ def build_google_event_ticket_jwt(registration, request=None):
     # Logo URL
     logo_url = getattr(settings, "WALLET_GOOGLE_LOGO_URL", None)
     if not logo_url:
-        logo_url = (
-            "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
-        )
+        logo_url = "https://crush.lu/static/crush_lu/icons/android-launchericon-192-192.png"
 
     # Build event detail URL
     base_url = "https://crush.lu"
@@ -149,7 +146,9 @@ def build_google_event_ticket_jwt(registration, request=None):
             "value": checkin_url,
             "alternateText": "Scan at entrance",
         },
-        "cardTitle": {"defaultValue": {"language": "en-US", "value": "Crush.lu Event"}},
+        "cardTitle": {
+            "defaultValue": {"language": "en-US", "value": "Crush.lu Event"}
+        },
         "logo": {
             "sourceUri": {"uri": logo_url},
             "contentDescription": {
@@ -187,10 +186,16 @@ def build_google_event_ticket_jwt(registration, request=None):
     event_ticket_class = {
         "id": class_id,
         "issuerName": "Crush.lu",
-        "eventName": {"defaultValue": {"language": "en-US", "value": event.title}},
+        "eventName": {
+            "defaultValue": {"language": "en-US", "value": event.title}
+        },
         "venue": {
-            "name": {"defaultValue": {"language": "en-US", "value": event.location}},
-            "address": {"defaultValue": {"language": "en-US", "value": event.address}},
+            "name": {
+                "defaultValue": {"language": "en-US", "value": event.location}
+            },
+            "address": {
+                "defaultValue": {"language": "en-US", "value": event.address}
+            },
         },
         "dateTime": {
             "start": event.date_time.isoformat(),
@@ -227,16 +232,10 @@ def build_google_event_ticket_jwt(registration, request=None):
     if key_id:
         header["kid"] = key_id
 
-    signing_input = b".".join(
-        [
-            _base64url_encode(
-                json.dumps(header, separators=(",", ":")).encode("utf-8")
-            ),
-            _base64url_encode(
-                json.dumps(payload, separators=(",", ":")).encode("utf-8")
-            ),
-        ]
-    )
+    signing_input = b".".join([
+        _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8")),
+        _base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")),
+    ])
 
     private_key = _load_private_key()
     signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())

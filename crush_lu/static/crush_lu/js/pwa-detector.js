@@ -4,15 +4,15 @@
  * and sends a header with requests to track PWA usage
  */
 
-(function () {
-    "use strict";
+(function() {
+    'use strict';
 
     /**
      * Detect if app is running in standalone mode (PWA)
      */
     function isPWAMode() {
         // Method 1: Check display-mode media query (most reliable)
-        if (window.matchMedia("(display-mode: standalone)").matches) {
+        if (window.matchMedia('(display-mode: standalone)').matches) {
             return true;
         }
 
@@ -22,7 +22,7 @@
         }
 
         // Method 3: Check if opened from home screen (Android)
-        if (document.referrer.includes("android-app://")) {
+        if (document.referrer.includes('android-app://')) {
             return true;
         }
 
@@ -33,25 +33,26 @@
     const isRunningAsPWA = isPWAMode();
 
     if (isRunningAsPWA) {
+
         // Store PWA status in sessionStorage
-        sessionStorage.setItem("isPWA", "true");
+        sessionStorage.setItem('isPWA', 'true');
 
         // Add custom header to all fetch requests to track PWA usage
         const originalFetch = window.fetch;
-        window.fetch = function (...args) {
+        window.fetch = function(...args) {
             // Add custom header
             if (args[1]) {
                 args[1].headers = args[1].headers || {};
                 if (args[1].headers instanceof Headers) {
-                    args[1].headers.append("X-Requested-With", "Crush-PWA");
+                    args[1].headers.append('X-Requested-With', 'Crush-PWA');
                 } else {
-                    args[1].headers["X-Requested-With"] = "Crush-PWA";
+                    args[1].headers['X-Requested-With'] = 'Crush-PWA';
                 }
             } else {
                 args[1] = {
                     headers: {
-                        "X-Requested-With": "Crush-PWA",
-                    },
+                        'X-Requested-With': 'Crush-PWA'
+                    }
                 };
             }
 
@@ -59,19 +60,20 @@
         };
 
         // Log PWA usage (analytics)
-        if (typeof gtag !== "undefined") {
-            gtag("event", "pwa_usage", {
-                event_category: "PWA",
-                event_label: "Standalone Mode Detected",
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'pwa_usage', {
+                'event_category': 'PWA',
+                'event_label': 'Standalone Mode Detected'
             });
         }
 
         // Mark user as PWA user, then register device installation
-        markPWAUser().then(function () {
+        markPWAUser().then(function() {
             registerPWAInstallation();
         });
+
     } else {
-        sessionStorage.setItem("isPWA", "false");
+        sessionStorage.setItem('isPWA', 'false');
     }
 
     /**
@@ -80,31 +82,31 @@
      */
     async function markPWAUser() {
         // Only mark if not already marked in this session
-        if (sessionStorage.getItem("pwaUserMarked") === "true") {
+        if (sessionStorage.getItem('pwaUserMarked') === 'true') {
             return;
         }
 
         try {
             // Get CSRF token from cookie
-            const csrfToken = getCookie("csrftoken");
+            const csrfToken = getCookie('csrftoken');
             if (!csrfToken) {
                 return;
             }
 
-            const response = await fetch("/api/push/mark-pwa-user/", {
-                method: "POST",
+            const response = await fetch('/api/push/mark-pwa-user/', {
+                method: 'POST',
                 headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrfToken,
-                    "X-Requested-With": "Crush-PWA",
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'Crush-PWA'
                 },
-                credentials: "same-origin",
+                credentials: 'same-origin'
             });
 
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
-                    sessionStorage.setItem("pwaUserMarked", "true");
+                    sessionStorage.setItem('pwaUserMarked', 'true');
                 }
             }
         } catch (error) {
@@ -117,11 +119,11 @@
      */
     function getCookie(name) {
         let cookieValue = null;
-        if (document.cookie && document.cookie !== "") {
-            const cookies = document.cookie.split(";");
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
             for (let i = 0; i < cookies.length; i++) {
                 const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === name + "=") {
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
                 }
@@ -141,30 +143,24 @@
         // Modern API (Chrome 90+)
         if (navigator.userAgentData && navigator.userAgentData.platform) {
             var platform = navigator.userAgentData.platform.toLowerCase();
-            if (platform.includes("android")) return "android";
-            if (
-                platform.includes("ios") ||
-                platform === "iphone" ||
-                platform === "ipad"
-            )
-                return "ios";
-            if (platform.includes("windows")) return "windows";
-            if (platform.includes("mac") || platform.includes("macos")) return "macos";
-            if (platform.includes("linux")) return "linux";
-            if (platform.includes("chrome os") || platform.includes("chromeos"))
-                return "chromeos";
+            if (platform.includes('android')) return 'android';
+            if (platform.includes('ios') || platform === 'iphone' || platform === 'ipad') return 'ios';
+            if (platform.includes('windows')) return 'windows';
+            if (platform.includes('mac') || platform.includes('macos')) return 'macos';
+            if (platform.includes('linux')) return 'linux';
+            if (platform.includes('chrome os') || platform.includes('chromeos')) return 'chromeos';
         }
 
         // Fallback to userAgent parsing
         var ua = navigator.userAgent.toLowerCase();
-        if (/iphone|ipad|ipod/.test(ua)) return "ios";
-        if (/android/.test(ua)) return "android";
-        if (/windows/.test(ua)) return "windows";
-        if (/macintosh|mac os/.test(ua)) return "macos";
-        if (/cros/.test(ua)) return "chromeos";
-        if (/linux/.test(ua)) return "linux";
+        if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+        if (/android/.test(ua)) return 'android';
+        if (/windows/.test(ua)) return 'windows';
+        if (/macintosh|mac os/.test(ua)) return 'macos';
+        if (/cros/.test(ua)) return 'chromeos';
+        if (/linux/.test(ua)) return 'linux';
 
-        return "unknown";
+        return 'unknown';
     }
 
     /**
@@ -174,18 +170,15 @@
         var ua = navigator.userAgent.toLowerCase();
         var minDimension = Math.min(window.screen.width, window.screen.height);
 
-        var isMobileUA =
-            /mobile|android.*mobile|iphone|ipod|blackberry|opera mini|iemobile/i.test(
-                ua,
-            );
+        var isMobileUA = /mobile|android.*mobile|iphone|ipod|blackberry|opera mini|iemobile/i.test(ua);
         var isTabletUA = /ipad|android(?!.*mobile)|tablet/i.test(ua);
 
-        if (isMobileUA) return "phone";
-        if (isTabletUA) return "tablet";
-        if (minDimension <= 480) return "phone";
-        if (minDimension <= 1024 && "ontouchstart" in window) return "tablet";
+        if (isMobileUA) return 'phone';
+        if (isTabletUA) return 'tablet';
+        if (minDimension <= 480) return 'phone';
+        if (minDimension <= 1024 && 'ontouchstart' in window) return 'tablet';
 
-        return "desktop";
+        return 'desktop';
     }
 
     /**
@@ -193,13 +186,13 @@
      */
     function detectBrowser() {
         var ua = navigator.userAgent;
-        if (/Edg\//.test(ua)) return "Edge";
-        if (/OPR\/|Opera/.test(ua)) return "Opera";
-        if (/Firefox\//.test(ua)) return "Firefox";
-        if (/SamsungBrowser\//.test(ua)) return "Samsung Internet";
-        if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return "Chrome";
-        if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return "Safari";
-        return "Unknown";
+        if (/Edg\//.test(ua)) return 'Edge';
+        if (/OPR\/|Opera/.test(ua)) return 'Opera';
+        if (/Firefox\//.test(ua)) return 'Firefox';
+        if (/SamsungBrowser\//.test(ua)) return 'Samsung Internet';
+        if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return 'Chrome';
+        if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) return 'Safari';
+        return 'Unknown';
     }
 
     /**
@@ -207,26 +200,18 @@
      */
     function getDeviceCategory(os, formFactor) {
         var osNames = {
-            ios: "iOS",
-            android: "Android",
-            windows: "Windows",
-            macos: "macOS",
-            linux: "Linux",
-            chromeos: "ChromeOS",
-            unknown: "Unknown",
+            'ios': 'iOS', 'android': 'Android', 'windows': 'Windows',
+            'macos': 'macOS', 'linux': 'Linux', 'chromeos': 'ChromeOS', 'unknown': 'Unknown'
         };
         var formNames = {
-            phone: "Phone",
-            tablet: "Tablet",
-            desktop: "Desktop",
-            unknown: "Device",
+            'phone': 'Phone', 'tablet': 'Tablet', 'desktop': 'Desktop', 'unknown': 'Device'
         };
 
         // Special cases for better readability
-        if (os === "ios" && formFactor === "phone") return "iPhone";
-        if (os === "ios" && formFactor === "tablet") return "iPad";
+        if (os === 'ios' && formFactor === 'phone') return 'iPhone';
+        if (os === 'ios' && formFactor === 'tablet') return 'iPad';
 
-        return osNames[os] + " " + formNames[formFactor];
+        return osNames[os] + ' ' + formNames[formFactor];
     }
 
     // ========================================================================
@@ -242,15 +227,15 @@
             screen.height,
             window.devicePixelRatio || 1,
             new Date().getTimezoneOffset(),
-            navigator.language || "",
-            navigator.platform || "",
+            navigator.language || '',
+            navigator.platform || '',
             navigator.hardwareConcurrency || 0,
             navigator.deviceMemory || 0,
-            "ontouchstart" in window ? 1 : 0,
+            ('ontouchstart' in window) ? 1 : 0,
             screen.colorDepth || 0,
-            getCanvasFingerprint(),
+            getCanvasFingerprint()
         ];
-        return simpleHash(components.join("|"));
+        return simpleHash(components.join('|'));
     }
 
     /**
@@ -258,21 +243,21 @@
      */
     function getCanvasFingerprint() {
         try {
-            var canvas = document.createElement("canvas");
+            var canvas = document.createElement('canvas');
             canvas.width = 200;
             canvas.height = 50;
-            var ctx = canvas.getContext("2d");
-            ctx.textBaseline = "top";
-            ctx.font = "14px Arial";
-            ctx.fillStyle = "#f60";
+            var ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
             ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = "#069";
-            ctx.fillText("Crush.lu PWA", 2, 15);
-            ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-            ctx.fillText("Crush.lu PWA", 4, 17);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Crush.lu PWA', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('Crush.lu PWA', 4, 17);
             return canvas.toDataURL().slice(-50);
         } catch (e) {
-            return "no-canvas";
+            return 'no-canvas';
         }
     }
 
@@ -282,10 +267,10 @@
     function simpleHash(str) {
         var hash = 5381;
         for (var i = 0; i < str.length; i++) {
-            hash = (hash << 5) + hash + str.charCodeAt(i);
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
             hash = hash & hash; // Convert to 32-bit integer
         }
-        return Math.abs(hash).toString(16).padStart(8, "0");
+        return Math.abs(hash).toString(16).padStart(8, '0');
     }
 
     // ========================================================================
@@ -302,12 +287,12 @@
         }
 
         // Only register once per session
-        if (sessionStorage.getItem("pwaInstallationRegistered") === "true") {
+        if (sessionStorage.getItem('pwaInstallationRegistered') === 'true') {
             return;
         }
 
         // Get CSRF token
-        var csrfToken = getCookie("csrftoken");
+        var csrfToken = getCookie('csrftoken');
         if (!csrfToken) {
             return;
         }
@@ -317,28 +302,28 @@
         var fingerprint = generateDeviceFingerprint();
 
         try {
-            var response = await fetch("/api/pwa/register-installation/", {
-                method: "POST",
+            var response = await fetch('/api/pwa/register-installation/', {
+                method: 'POST',
                 headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrfToken,
-                    "X-Requested-With": "Crush-PWA",
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'Crush-PWA'
                 },
-                credentials: "same-origin",
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     deviceFingerprint: fingerprint,
                     osType: os,
                     formFactor: formFactor,
                     browser: detectBrowser(),
                     deviceCategory: getDeviceCategory(os, formFactor),
-                    userAgent: navigator.userAgent,
-                }),
+                    userAgent: navigator.userAgent
+                })
             });
 
             if (response.ok) {
                 var data = await response.json();
                 if (data.success) {
-                    sessionStorage.setItem("pwaInstallationRegistered", "true");
+                    sessionStorage.setItem('pwaInstallationRegistered', 'true');
                 }
             }
         } catch (error) {
@@ -353,24 +338,23 @@
     // Expose detection function globally
     window.CrushPWA = {
         isStandalone: isRunningAsPWA,
-        isPWAInstalled: function () {
+        isPWAInstalled: function() {
             return isRunningAsPWA;
         },
-        getDisplayMode: function () {
-            if (isPWAMode()) return "standalone";
-            if (window.matchMedia("(display-mode: fullscreen)").matches)
-                return "fullscreen";
-            if (window.matchMedia("(display-mode: minimal-ui)").matches)
-                return "minimal-ui";
-            return "browser";
+        getDisplayMode: function() {
+            if (isPWAMode()) return 'standalone';
+            if (window.matchMedia('(display-mode: fullscreen)').matches) return 'fullscreen';
+            if (window.matchMedia('(display-mode: minimal-ui)').matches) return 'minimal-ui';
+            return 'browser';
         },
         // Expose device detection for external use
         detectOS: detectOS,
         detectFormFactor: detectFormFactor,
         detectBrowser: detectBrowser,
-        getDeviceCategory: function () {
+        getDeviceCategory: function() {
             return getDeviceCategory(detectOS(), detectFormFactor());
         },
-        getDeviceFingerprint: generateDeviceFingerprint,
+        getDeviceFingerprint: generateDeviceFingerprint
     };
+
 })();

@@ -7,53 +7,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0012_make_correct_answer_optional"),
+        ('crush_lu', '0012_make_correct_answer_optional'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="RewardProgress",
+            name='RewardProgress',
             fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "unlocked_pieces",
-                    models.JSONField(
-                        default=list,
-                        help_text="List of unlocked piece indices [0, 1, 5, 7, ...]",
-                    ),
-                ),
-                ("points_spent", models.IntegerField(default=0)),
-                ("is_completed", models.BooleanField(default=False)),
-                ("started_at", models.DateTimeField(auto_now_add=True)),
-                ("completed_at", models.DateTimeField(blank=True, null=True)),
-                (
-                    "journey_progress",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="reward_progress",
-                        to="crush_lu.journeyprogress",
-                    ),
-                ),
-                (
-                    "reward",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        to="crush_lu.journeyreward",
-                    ),
-                ),
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('unlocked_pieces', models.JSONField(default=list, help_text='List of unlocked piece indices [0, 1, 5, 7, ...]')),
+                ('points_spent', models.IntegerField(default=0)),
+                ('is_completed', models.BooleanField(default=False)),
+                ('started_at', models.DateTimeField(auto_now_add=True)),
+                ('completed_at', models.DateTimeField(blank=True, null=True)),
+                ('journey_progress', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='reward_progress', to='crush_lu.journeyprogress')),
+                ('reward', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='crush_lu.journeyreward')),
             ],
             options={
-                "verbose_name": "Reward Progress",
-                "verbose_name_plural": "Reward Progress Records",
-                "unique_together": {("journey_progress", "reward")},
+                'verbose_name': 'Reward Progress',
+                'verbose_name_plural': 'Reward Progress Records',
+                'unique_together': {('journey_progress', 'reward')},
             },
         ),
     ]

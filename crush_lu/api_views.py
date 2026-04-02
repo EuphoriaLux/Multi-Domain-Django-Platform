@@ -2,14 +2,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
 from .models import (
-    MeetupEvent,
-    EventRegistration,
-    EventVotingSession,
-    GlobalActivityOption,
-    EventActivityVote,
+    MeetupEvent, EventRegistration, EventVotingSession,
+    GlobalActivityOption, EventActivityVote
 )
 from .decorators import ratelimit
 
@@ -29,69 +27,66 @@ def voting_status_api(request, event_id):
         # Verify user is registered
         try:
             user_registration = EventRegistration.objects.get(
-                event=event, user=request.user
+                event=event,
+                user=request.user
             )
-            if user_registration.status not in ["confirmed", "attended"]:
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": "Only confirmed attendees can access voting",
-                    },
-                    status=403,
-                )
+            if user_registration.status not in ['confirmed', 'attended']:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only confirmed attendees can access voting'
+                }, status=403)
         except EventRegistration.DoesNotExist:
-            return JsonResponse(
-                {"success": False, "error": "You are not registered for this event"},
-                status=403,
-            )
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not registered for this event'
+            }, status=403)
 
     # Get voting session
     try:
         voting_session = EventVotingSession.objects.get(event=event)
     except EventVotingSession.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "error": "No voting session found for this event"},
-            status=404,
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'No voting session found for this event'
+        }, status=404)
 
     # Check if user has voted
-    user_vote = EventActivityVote.objects.filter(event=event, user=request.user).first()
+    user_vote = EventActivityVote.objects.filter(
+        event=event,
+        user=request.user
+    ).first()
 
     # Determine voting phase
     now = timezone.now()
     if now < voting_session.voting_start_time:
-        phase = "waiting"
+        phase = 'waiting'
         time_value = voting_session.time_until_start
     elif now > voting_session.voting_end_time:
-        phase = "ended"
+        phase = 'ended'
         time_value = 0
     else:
-        phase = "active"
+        phase = 'active'
         time_value = voting_session.time_remaining
 
-    return JsonResponse(
-        {
-            "success": True,
-            "data": {
-                "is_active": voting_session.is_active,
-                "is_voting_open": voting_session.is_voting_open,
-                "phase": phase,
-                "voting_start_time": voting_session.voting_start_time.isoformat(),
-                "voting_end_time": voting_session.voting_end_time.isoformat(),
-                "time_until_start": voting_session.time_until_start,
-                "time_remaining": time_value,
-                "total_votes": voting_session.total_votes,
-                "has_voted": user_vote is not None,
-                "user_vote_option_id": (
-                    user_vote.selected_option.id if user_vote else None
-                ),
-            },
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'is_active': voting_session.is_active,
+            'is_voting_open': voting_session.is_voting_open,
+            'phase': phase,
+            'voting_start_time': voting_session.voting_start_time.isoformat(),
+            'voting_end_time': voting_session.voting_end_time.isoformat(),
+            'time_until_start': voting_session.time_until_start,
+            'time_remaining': time_value,
+            'total_votes': voting_session.total_votes,
+            'has_voted': user_vote is not None,
+            'user_vote_option_id': user_vote.selected_option.id if user_vote else None,
         }
-    )
+    })
 
 
 @login_required
-@ratelimit(key="user", rate="30/m", method="POST")
+@ratelimit(key='user', rate='30/m', method='POST')
 @require_http_methods(["POST"])
 def submit_vote_api(request, event_id):
     """
@@ -105,64 +100,70 @@ def submit_vote_api(request, event_id):
     # Verify user is registered
     try:
         user_registration = EventRegistration.objects.get(
-            event=event, user=request.user
+            event=event,
+            user=request.user
         )
-        if user_registration.status not in ["confirmed", "attended"]:
-            return JsonResponse(
-                {"success": False, "error": "Only confirmed attendees can vote"},
-                status=403,
-            )
-        if user_registration.status == "confirmed":
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": "You must check in at the event before you can vote",
-                },
-                status=403,
-            )
+        if user_registration.status not in ['confirmed', 'attended']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only confirmed attendees can vote'
+            }, status=403)
+        if user_registration.status == 'confirmed':
+            return JsonResponse({
+                'success': False,
+                'error': 'You must check in at the event before you can vote'
+            }, status=403)
     except EventRegistration.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "error": "You are not registered for this event"},
-            status=403,
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'You are not registered for this event'
+        }, status=403)
 
     # Get voting session
     try:
         voting_session = EventVotingSession.objects.get(event=event)
     except EventVotingSession.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "error": "No voting session found"}, status=404
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'No voting session found'
+        }, status=404)
 
     # Check if voting is open
     if not voting_session.is_voting_open:
-        return JsonResponse(
-            {"success": False, "error": "Voting is not currently open"}, status=400
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Voting is not currently open'
+        }, status=400)
 
     # Parse request body
     try:
         data = json.loads(request.body)
-        option_id = data.get("option_id")
+        option_id = data.get('option_id')
     except json.JSONDecodeError:
-        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
 
     if not option_id:
-        return JsonResponse(
-            {"success": False, "error": "option_id is required"}, status=400
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'option_id is required'
+        }, status=400)
 
     # Get the selected option (GlobalActivityOption - shared across all events)
     try:
         selected_option = GlobalActivityOption.objects.get(id=option_id, is_active=True)
     except GlobalActivityOption.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "error": "Invalid activity option"}, status=400
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid activity option'
+        }, status=400)
 
     # Check for existing vote
     existing_vote = EventActivityVote.objects.filter(
-        event=event, user=request.user
+        event=event,
+        user=request.user
     ).first()
 
     if existing_vote:
@@ -170,35 +171,35 @@ def submit_vote_api(request, event_id):
         existing_vote.selected_option = selected_option
         existing_vote.save()
 
-        action = "updated"
+        action = 'updated'
     else:
         # Create new vote
         EventActivityVote.objects.create(
-            event=event, user=request.user, selected_option=selected_option
+            event=event,
+            user=request.user,
+            selected_option=selected_option
         )
 
         voting_session.total_votes += 1
         voting_session.save()
 
-        action = "created"
+        action = 'created'
 
     # Get current vote count from actual votes
     vote_count = EventActivityVote.objects.filter(
         event=event, selected_option=selected_option
     ).count()
 
-    return JsonResponse(
-        {
-            "success": True,
-            "message": f"Vote {action} successfully",
-            "data": {
-                "action": action,
-                "selected_option_id": selected_option.id,
-                "selected_option_name": selected_option.display_name,
-                "vote_count": vote_count,
-            },
+    return JsonResponse({
+        'success': True,
+        'message': f'Vote {action} successfully',
+        'data': {
+            'action': action,
+            'selected_option_id': selected_option.id,
+            'selected_option_name': selected_option.display_name,
+            'vote_count': vote_count,
         }
-    )
+    })
 
 
 @login_required
@@ -216,35 +217,32 @@ def voting_results_api(request, event_id):
         # Verify user is registered
         try:
             user_registration = EventRegistration.objects.get(
-                event=event, user=request.user
+                event=event,
+                user=request.user
             )
-            if user_registration.status not in ["confirmed", "attended"]:
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": "Only confirmed attendees can view results",
-                    },
-                    status=403,
-                )
+            if user_registration.status not in ['confirmed', 'attended']:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only confirmed attendees can view results'
+                }, status=403)
         except EventRegistration.DoesNotExist:
-            return JsonResponse(
-                {"success": False, "error": "You are not registered for this event"},
-                status=403,
-            )
+            return JsonResponse({
+                'success': False,
+                'error': 'You are not registered for this event'
+            }, status=403)
 
     # Get voting session
     try:
         voting_session = EventVotingSession.objects.get(event=event)
     except EventVotingSession.DoesNotExist:
-        return JsonResponse(
-            {"success": False, "error": "No voting session found"}, status=404
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'No voting session found'
+        }, status=404)
 
     # Get all global activity options with vote counts for this event
     results = []
-    for option in GlobalActivityOption.objects.filter(is_active=True).order_by(
-        "activity_type", "sort_order"
-    ):
+    for option in GlobalActivityOption.objects.filter(is_active=True).order_by('activity_type', 'sort_order'):
         vote_count = EventActivityVote.objects.filter(
             event=event, selected_option=option
         ).count()
@@ -258,27 +256,23 @@ def voting_results_api(request, event_id):
             or option == voting_session.winning_speed_dating_twist
         )
 
-        results.append(
-            {
-                "id": option.id,
-                "display_name": option.display_name,
-                "activity_type": option.activity_type,
-                "activity_variant": option.activity_variant,
-                "vote_count": vote_count,
-                "percentage": round(percentage, 1),
-                "is_winner": is_winner,
-            }
-        )
+        results.append({
+            'id': option.id,
+            'display_name': option.display_name,
+            'activity_type': option.activity_type,
+            'activity_variant': option.activity_variant,
+            'vote_count': vote_count,
+            'percentage': round(percentage, 1),
+            'is_winner': is_winner,
+        })
 
-    return JsonResponse(
-        {
-            "success": True,
-            "data": {
-                "total_votes": voting_session.total_votes,
-                "is_voting_open": voting_session.is_voting_open,
-                "winning_presentation_style_id": voting_session.winning_presentation_style_id,
-                "winning_speed_dating_twist_id": voting_session.winning_speed_dating_twist_id,
-                "options": results,
-            },
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'total_votes': voting_session.total_votes,
+            'is_voting_open': voting_session.is_voting_open,
+            'winning_presentation_style_id': voting_session.winning_presentation_style_id,
+            'winning_speed_dating_twist_id': voting_session.winning_speed_dating_twist_id,
+            'options': results,
         }
-    )
+    })

@@ -7,23 +7,23 @@
  * Triggers haptic feedback on supported devices
  * @param {string} type - Type of haptic feedback: 'light', 'medium', or 'heavy'
  */
-export function triggerHapticFeedback(type = "light") {
-    if ("vibrate" in navigator) {
+export function triggerHapticFeedback(type = 'light') {
+    if ('vibrate' in navigator) {
         try {
-            switch (type) {
-                case "light":
+            switch(type) {
+                case 'light':
                     navigator.vibrate(10);
                     break;
-                case "medium":
+                case 'medium':
                     navigator.vibrate(20);
                     break;
-                case "heavy":
+                case 'heavy':
                     navigator.vibrate([30, 10, 30]);
                     break;
             }
         } catch (error) {
             // Silently handle vibration errors (user interaction required, etc.)
-            console.debug("Haptic feedback not available:", error.message);
+            console.debug('Haptic feedback not available:', error.message);
         }
     }
 }
@@ -34,9 +34,9 @@ export function triggerHapticFeedback(type = "light") {
  */
 export function getDeviceType() {
     const width = window.innerWidth;
-    if (width < 768) return "mobile";
-    if (width < 1024) return "tablet";
-    return "desktop";
+    if (width < 768) return 'mobile';
+    if (width < 1024) return 'tablet';
+    return 'desktop';
 }
 
 /**
@@ -44,7 +44,7 @@ export function getDeviceType() {
  * @returns {boolean} True if mobile or touch device
  */
 export function isMobileDevice() {
-    return window.innerWidth < 768 || "ontouchstart" in window;
+    return window.innerWidth < 768 || 'ontouchstart' in window;
 }
 
 /**
@@ -54,12 +54,12 @@ export function isMobileDevice() {
  */
 export function trackEvent(eventName, properties) {
     // Analytics tracking (implement based on your analytics system)
-    console.log("📊 Mobile UX Event:", eventName, properties);
-
+    console.log('📊 Mobile UX Event:', eventName, properties);
+    
     // Example integration with Google Analytics
-    if (typeof gtag !== "undefined") {
-        gtag("event", eventName, {
-            custom_map: properties,
+    if (typeof gtag !== 'undefined') {
+        gtag('event', eventName, {
+            custom_map: properties
         });
     }
 }
@@ -69,25 +69,19 @@ export function trackEvent(eventName, properties) {
  */
 export function debugMobileViewport() {
     if (!window.pixelWar) {
-        console.log("❌ PixelWar not initialized");
+        console.log('❌ PixelWar not initialized');
         return;
     }
-
+    
     const pixelWar = window.pixelWar;
     const rect = pixelWar.canvas.getBoundingClientRect();
-    const {
-        width: effectiveWidth,
-        height: effectiveHeight,
-        isMobile,
-    } = pixelWar.getEffectiveViewport(true);
+    const { width: effectiveWidth, height: effectiveHeight, isMobile } = pixelWar.getEffectiveViewport(true);
     const minZoom = pixelWar.calculateMinZoom();
-
-    console.log("🔍 MOBILE VIEWPORT DEBUG:", {
-        userAgent: navigator.userAgent.substring(0, 100) + "...",
+    
+    console.log('🔍 MOBILE VIEWPORT DEBUG:', {
+        userAgent: navigator.userAgent.substring(0, 100) + '...',
         screen: `${window.innerWidth}x${window.innerHeight}`,
-        visualViewport: window.visualViewport
-            ? `${window.visualViewport.width}x${window.visualViewport.height}`
-            : "N/A",
+        visualViewport: window.visualViewport ? `${window.visualViewport.width}x${window.visualViewport.height}` : 'N/A',
         canvasRect: `${rect.width}x${rect.height}`,
         canvasInternal: `${pixelWar.canvas.width}x${pixelWar.canvas.height}`,
         effectiveViewport: `${effectiveWidth}x${effectiveHeight}`,
@@ -98,7 +92,7 @@ export function debugMobileViewport() {
         devicePixelRatio: window.devicePixelRatio,
         isMobile: isMobile,
         offsetX: pixelWar.offsetX.toFixed(2),
-        offsetY: pixelWar.offsetY.toFixed(2),
+        offsetY: pixelWar.offsetY.toFixed(2)
     });
 }
 
@@ -106,18 +100,18 @@ export function debugMobileViewport() {
  * Resets mobile onboarding data for testing
  */
 export function resetMobileOnboarding() {
-    localStorage.removeItem("pixelWarOnboardingCompleted");
-    localStorage.removeItem("pixelWarTouchMode");
-    localStorage.removeItem("pixelWarRecentColors");
-    console.log("🔄 Mobile onboarding reset. Reload page to see onboarding.");
-    return "Onboarding reset complete. Reload the page.";
+    localStorage.removeItem('pixelWarOnboardingCompleted');
+    localStorage.removeItem('pixelWarTouchMode');
+    localStorage.removeItem('pixelWarRecentColors');
+    console.log('🔄 Mobile onboarding reset. Reload page to see onboarding.');
+    return 'Onboarding reset complete. Reload the page.';
 }
 
 /**
  * Forces mobile mode for testing purposes
  */
 export function forceMobileMode() {
-    localStorage.setItem("forceMobileMode", "true");
+    localStorage.setItem('forceMobileMode', 'true');
     location.reload();
 }
 
@@ -126,18 +120,12 @@ export function forceMobileMode() {
  */
 export function testMobileNavigation() {
     if (window.pixelWar) {
-        console.log("🧪 Testing mobile navigation...");
-
+        console.log('🧪 Testing mobile navigation...');
+        
         // Test each corner
-        const corners = [
-            "top-left",
-            "top-right",
-            "bottom-left",
-            "bottom-right",
-            "center",
-        ];
+        const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
         let index = 0;
-
+        
         const testNext = () => {
             if (index < corners.length) {
                 const corner = corners[index];
@@ -146,13 +134,13 @@ export function testMobileNavigation() {
                 index++;
                 setTimeout(testNext, 2000); // Wait 2 seconds between moves
             } else {
-                console.log("✅ Navigation test complete!");
+                console.log('✅ Navigation test complete!');
             }
         };
-
+        
         testNext();
     } else {
-        console.log("❌ PixelWar not initialized");
+        console.log('❌ PixelWar not initialized');
     }
 }
 
@@ -162,24 +150,24 @@ export function testMobileNavigation() {
  * @param {Function} callback - Optional callback function when element is activated
  */
 export function addElementTouchFeedback(element, callback) {
-    element.classList.add("touch-feedback");
-
+    element.classList.add('touch-feedback');
+    
     const addFeedback = (e) => {
-        element.classList.add("active");
-        triggerHapticFeedback("light");
-
-        if (callback && typeof callback === "function") {
+        element.classList.add('active');
+        triggerHapticFeedback('light');
+        
+        if (callback && typeof callback === 'function') {
             callback(e);
         }
-
+        
         setTimeout(() => {
-            element.classList.remove("active");
+            element.classList.remove('active');
         }, 150);
     };
-
+    
     // Handle both mouse and touch events
-    element.addEventListener("mousedown", addFeedback);
-    element.addEventListener("touchstart", addFeedback, { passive: true });
+    element.addEventListener('mousedown', addFeedback);
+    element.addEventListener('touchstart', addFeedback, { passive: true });
 }
 
 /**
@@ -187,7 +175,7 @@ export function addElementTouchFeedback(element, callback) {
  * @param {string} message - Message to display
  * @param {string} type - Type of notification ('success', 'info', 'warning', 'error')
  */
-export function showNotification(message, type = "info") {
+export function showNotification(message, type = 'info') {
     if (window.pixelWar && window.pixelWar.notifications) {
         window.pixelWar.notifications.show(message, type);
     }
@@ -199,8 +187,8 @@ export function showNotification(message, type = "info") {
  * @param {number} duration - Duration of animation in milliseconds
  */
 export function addPulseAnimation(element, duration = 300) {
-    element.classList.add("haptic-pulse");
+    element.classList.add('haptic-pulse');
     setTimeout(() => {
-        element.classList.remove("haptic-pulse");
+        element.classList.remove('haptic-pulse');
     }, duration);
 }

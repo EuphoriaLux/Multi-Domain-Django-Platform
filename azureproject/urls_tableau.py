@@ -21,8 +21,10 @@ def health_check(request):
 urlpatterns = [
     # Health check (required for Azure App Service)
     path("healthz/", health_check, name="health_check"),
+
     # SEO - robots.txt
     path("robots.txt", robots_txt_tableau, name="robots_txt"),
+
     # Tableau AI art site pages
     path("", include("tableau.urls", namespace="tableau")),
 ]

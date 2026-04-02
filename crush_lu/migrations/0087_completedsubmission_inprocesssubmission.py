@@ -6,32 +6,34 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0086_approvedprofile_awaitingreviewprofile_and_more"),
+        ('crush_lu', '0086_approvedprofile_awaitingreviewprofile_and_more'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="CompletedSubmission",
-            fields=[],
+            name='CompletedSubmission',
+            fields=[
+            ],
             options={
-                "verbose_name": "Completed Submission",
-                "verbose_name_plural": "Completed Submissions",
-                "proxy": True,
-                "indexes": [],
-                "constraints": [],
+                'verbose_name': 'Completed Submission',
+                'verbose_name_plural': 'Completed Submissions',
+                'proxy': True,
+                'indexes': [],
+                'constraints': [],
             },
-            bases=("crush_lu.profilesubmission",),
+            bases=('crush_lu.profilesubmission',),
         ),
         migrations.CreateModel(
-            name="InProcessSubmission",
-            fields=[],
+            name='InProcessSubmission',
+            fields=[
+            ],
             options={
-                "verbose_name": "In-Process Submission",
-                "verbose_name_plural": "In-Process Submissions",
-                "proxy": True,
-                "indexes": [],
-                "constraints": [],
+                'verbose_name': 'In-Process Submission',
+                'verbose_name_plural': 'In-Process Submissions',
+                'proxy': True,
+                'indexes': [],
+                'constraints': [],
             },
-            bases=("crush_lu.profilesubmission",),
+            bases=('crush_lu.profilesubmission',),
         ),
     ]

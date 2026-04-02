@@ -4,7 +4,6 @@ Advent Calendar Models for Crush.lu
 This module contains all models for the Advent Calendar feature,
 which extends the Journey system to provide a 24-door December experience.
 """
-
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
@@ -24,43 +23,48 @@ class AdventCalendar(models.Model):
     Main Advent Calendar configuration for a user.
     Links to JourneyConfiguration with journey_type='advent_calendar'.
     """
-
     journey = models.OneToOneField(
-        "JourneyConfiguration",
+        'JourneyConfiguration',
         on_delete=models.CASCADE,
-        related_name="advent_calendar",
-        help_text=_("The journey configuration for this advent calendar"),
+        related_name='advent_calendar',
+        help_text=_("The journey configuration for this advent calendar")
     )
     year = models.PositiveIntegerField(
-        default=2024, help_text=_("Year for this advent calendar (e.g., 2024)")
+        default=2024,
+        help_text=_("Year for this advent calendar (e.g., 2024)")
     )
-    start_date = models.DateField(help_text=_("Start date (usually December 1)"))
-    end_date = models.DateField(help_text=_("End date (usually December 24)"))
+    start_date = models.DateField(
+        help_text=_("Start date (usually December 1)")
+    )
+    end_date = models.DateField(
+        help_text=_("End date (usually December 24)")
+    )
     allow_catch_up = models.BooleanField(
         default=True,
-        help_text=_("Allow users to open past doors (accumulating access)"),
+        help_text=_("Allow users to open past doors (accumulating access)")
     )
     timezone_name = models.CharField(
         max_length=50,
-        default="Europe/Luxembourg",
-        help_text=_("Timezone for date calculations"),
+        default='Europe/Luxembourg',
+        help_text=_("Timezone for date calculations")
     )
 
     # Customization
     calendar_title = models.CharField(
         max_length=200,
         default="Your Advent Calendar",
-        help_text=_("Title displayed on the calendar"),
+        help_text=_("Title displayed on the calendar")
     )
     calendar_description = models.TextField(
-        blank=True, help_text=_("Description shown on the calendar page")
+        blank=True,
+        help_text=_("Description shown on the calendar page")
     )
     background_image = models.ImageField(
-        upload_to="advent_backgrounds/",
+        upload_to='advent_backgrounds/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Custom background image for the calendar"),
+        help_text=_("Custom background image for the calendar")
     )
 
     # Timestamps
@@ -72,14 +76,11 @@ class AdventCalendar(models.Model):
         verbose_name_plural = _("🎄 1. Advent Calendars")
 
     def __str__(self):
-        return (
-            f"{self.calendar_title} ({self.year}) - {self.journey.special_experience}"
-        )
+        return f"{self.calendar_title} ({self.year}) - {self.journey.special_experience}"
 
     def is_december(self):
         """Check if we're currently in December of the calendar year"""
         import pytz
-
         tz = pytz.timezone(self.timezone_name)
         now = timezone.now().astimezone(tz)
         return now.year == self.year and now.month == 12
@@ -87,7 +88,6 @@ class AdventCalendar(models.Model):
     def get_current_day(self):
         """Get the current day in December (1-31) or None if not December"""
         import pytz
-
         tz = pytz.timezone(self.timezone_name)
         now = timezone.now().astimezone(tz)
         if now.year == self.year and now.month == 12:
@@ -108,7 +108,6 @@ class AdventCalendar(models.Model):
             return False
 
         import pytz
-
         tz = pytz.timezone(self.timezone_name)
         now = timezone.now().astimezone(tz)
         current_date = now.date()
@@ -143,54 +142,59 @@ class AdventDoor(models.Model):
     When content_type='challenge', use challenge_type to specify which
     of the 11 Wonderland challenge types to use (riddle, word_scramble, etc.)
     """
-
     CONTENT_TYPES = [
-        ("challenge", "🎯 Interactive Challenge"),
-        ("poem", "📜 Poem/Letter"),
-        ("photo", "📷 Photo Reveal"),
-        ("video", "🎥 Video Message"),
-        ("audio", "🎵 Audio Message"),
-        ("gift_teaser", "🎁 Physical Gift Teaser"),
-        ("memory", "💭 Shared Memory"),
-        ("quiz", "❓ Fun Quiz"),
-        ("countdown", "⏰ Countdown Special"),
+        ('challenge', '🎯 Interactive Challenge'),
+        ('poem', '📜 Poem/Letter'),
+        ('photo', '📷 Photo Reveal'),
+        ('video', '🎥 Video Message'),
+        ('audio', '🎵 Audio Message'),
+        ('gift_teaser', '🎁 Physical Gift Teaser'),
+        ('memory', '💭 Shared Memory'),
+        ('quiz', '❓ Fun Quiz'),
+        ('countdown', '⏰ Countdown Special'),
     ]
 
     # Import challenge types from JourneyChallenge for consistency
     CHALLENGE_TYPES = [
-        ("riddle", "🧩 Riddle"),
-        ("word_scramble", "🔤 Word Scramble"),
-        ("multiple_choice", "📝 Multiple Choice"),
-        ("memory_match", "🃏 Memory Matching Game"),
-        ("photo_puzzle", "🖼️ Photo Jigsaw Puzzle"),
-        ("timeline_sort", "📅 Timeline Sorting"),
-        ("interactive_story", "📖 Interactive Story Choice"),
-        ("open_text", "✍️ Open Text Response"),
-        ("would_you_rather", "🤔 Would You Rather"),
-        ("constellation", "⭐ Constellation Drawing"),
-        ("star_catcher", "🌟 Star Catcher Mini-Game"),
+        ('riddle', '🧩 Riddle'),
+        ('word_scramble', '🔤 Word Scramble'),
+        ('multiple_choice', '📝 Multiple Choice'),
+        ('memory_match', '🃏 Memory Matching Game'),
+        ('photo_puzzle', '🖼️ Photo Jigsaw Puzzle'),
+        ('timeline_sort', '📅 Timeline Sorting'),
+        ('interactive_story', '📖 Interactive Story Choice'),
+        ('open_text', '✍️ Open Text Response'),
+        ('would_you_rather', '🤔 Would You Rather'),
+        ('constellation', '⭐ Constellation Drawing'),
+        ('star_catcher', '🌟 Star Catcher Mini-Game'),
     ]
 
     QR_MODES = [
-        ("none", "No QR Required"),
-        ("required", "QR Required to Open Door"),
-        ("bonus", "QR Unlocks Bonus Content"),
+        ('none', 'No QR Required'),
+        ('required', 'QR Required to Open Door'),
+        ('bonus', 'QR Unlocks Bonus Content'),
     ]
 
     calendar = models.ForeignKey(
-        AdventCalendar, on_delete=models.CASCADE, related_name="doors"
+        AdventCalendar,
+        on_delete=models.CASCADE,
+        related_name='doors'
     )
     chapter = models.OneToOneField(
-        "JourneyChapter",
+        'JourneyChapter',
         on_delete=models.CASCADE,
-        related_name="advent_door",
+        related_name='advent_door',
         null=True,
         blank=True,
-        help_text=_("Optional link to a JourneyChapter for challenge content"),
+        help_text=_("Optional link to a JourneyChapter for challenge content")
     )
-    door_number = models.PositiveIntegerField(help_text=_("Door number (1-24)"))
+    door_number = models.PositiveIntegerField(
+        help_text=_("Door number (1-24)")
+    )
     content_type = models.CharField(
-        max_length=20, choices=CONTENT_TYPES, default="poem"
+        max_length=20,
+        choices=CONTENT_TYPES,
+        default='poem'
     )
 
     # Challenge type (only used when content_type='challenge')
@@ -199,32 +203,32 @@ class AdventDoor(models.Model):
         choices=CHALLENGE_TYPES,
         blank=True,
         null=True,
-        help_text=_("Type of challenge (only used when content_type is 'challenge')"),
+        help_text=_("Type of challenge (only used when content_type is 'challenge')")
     )
 
     # QR Code settings (configurable per door)
     qr_mode = models.CharField(
         max_length=10,
         choices=QR_MODES,
-        default="none",
-        help_text=_("How QR codes work for this door"),
+        default='none',
+        help_text=_("How QR codes work for this door")
     )
 
     # Visual customization
     door_color = models.CharField(
         max_length=7,
-        default="#C41E3A",
-        help_text=_("Hex color for the door (e.g., #C41E3A for Christmas red)"),
+        default='#C41E3A',
+        help_text=_("Hex color for the door (e.g., #C41E3A for Christmas red)")
     )
     door_icon = models.CharField(
         max_length=50,
         blank=True,
-        help_text=_("Emoji or icon class for the door (e.g., 🎁, 🎄, ⭐)"),
+        help_text=_("Emoji or icon class for the door (e.g., 🎁, 🎄, ⭐)")
     )
     teaser_text = models.CharField(
         max_length=200,
         blank=True,
-        help_text=_("Short teaser text shown on the closed door"),
+        help_text=_("Short teaser text shown on the closed door")
     )
 
     # Timestamps
@@ -232,8 +236,8 @@ class AdventDoor(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["door_number"]
-        unique_together = ("calendar", "door_number")
+        ordering = ['door_number']
+        unique_together = ('calendar', 'door_number')
         verbose_name = _("Advent Door")
         verbose_name_plural = _("🚪 2. Advent Doors")
 
@@ -246,11 +250,11 @@ class AdventDoor(models.Model):
 
     def requires_qr_to_open(self):
         """Check if QR scan is required to open this door"""
-        return self.qr_mode == "required"
+        return self.qr_mode == 'required'
 
     def has_qr_bonus(self):
         """Check if this door has QR-locked bonus content"""
-        return self.qr_mode == "bonus"
+        return self.qr_mode == 'bonus'
 
 
 class AdventDoorContent(models.Model):
@@ -259,17 +263,20 @@ class AdventDoorContent(models.Model):
     Supports various content types: poems, photos, videos, audio, gift teasers,
     and interactive challenges (using the same 11 challenge types as Wonderland).
     """
-
     door = models.OneToOneField(
-        AdventDoor, on_delete=models.CASCADE, related_name="content"
+        AdventDoor,
+        on_delete=models.CASCADE,
+        related_name='content'
     )
 
     # Main content
     title = models.CharField(
-        max_length=200, help_text=_("Title shown when door is opened")
+        max_length=200,
+        help_text=_("Title shown when door is opened")
     )
     message = models.TextField(
-        blank=True, help_text=_("Main text content (poem, letter, description, etc.)")
+        blank=True,
+        help_text=_("Main text content (poem, letter, description, etc.)")
     )
 
     # =========================================================================
@@ -277,70 +284,83 @@ class AdventDoorContent(models.Model):
     # Same structure as JourneyChallenge for consistency
     # =========================================================================
     challenge_question = models.TextField(
-        blank=True, help_text=_("The question/prompt/instructions for the challenge")
+        blank=True,
+        help_text=_("The question/prompt/instructions for the challenge")
     )
     challenge_options = models.JSONField(
         default=dict,
         blank=True,
-        help_text=_('JSON data for options/choices: {"A": "option1", "B": "option2"}'),
+        help_text=_('JSON data for options/choices: {"A": "option1", "B": "option2"}')
     )
     challenge_correct_answer = models.TextField(
         blank=True,
-        help_text=_(
-            "The correct answer. Leave blank for questionnaire mode (all answers accepted)."
-        ),
+        help_text=_("The correct answer. Leave blank for questionnaire mode (all answers accepted).")
     )
     challenge_alternative_answers = models.JSONField(
         default=list,
         blank=True,
-        help_text=_('Alternative acceptable answers: ["answer1", "answer2"]'),
+        help_text=_('Alternative acceptable answers: ["answer1", "answer2"]')
     )
 
     # Hints system (matching Wonderland)
-    hint_1 = models.TextField(blank=True, help_text=_("First hint (easiest)"))
+    hint_1 = models.TextField(
+        blank=True,
+        help_text=_("First hint (easiest)")
+    )
     hint_1_cost = models.IntegerField(
-        default=20, help_text=_("Points deducted for using hint 1")
+        default=20,
+        help_text=_("Points deducted for using hint 1")
     )
-    hint_2 = models.TextField(blank=True, help_text=_("Second hint (medium)"))
+    hint_2 = models.TextField(
+        blank=True,
+        help_text=_("Second hint (medium)")
+    )
     hint_2_cost = models.IntegerField(
-        default=50, help_text=_("Points deducted for using hint 2")
+        default=50,
+        help_text=_("Points deducted for using hint 2")
     )
-    hint_3 = models.TextField(blank=True, help_text=_("Third hint (biggest reveal)"))
+    hint_3 = models.TextField(
+        blank=True,
+        help_text=_("Third hint (biggest reveal)")
+    )
     hint_3_cost = models.IntegerField(
-        default=80, help_text=_("Points deducted for using hint 3")
+        default=80,
+        help_text=_("Points deducted for using hint 3")
     )
 
     # Challenge scoring
     points_awarded = models.IntegerField(
-        default=100, help_text=_("Points for correct answer (before hint deductions)")
+        default=100,
+        help_text=_("Points for correct answer (before hint deductions)")
     )
     success_message = models.TextField(
-        blank=True, help_text=_("Personal message shown when user answers correctly")
+        blank=True,
+        help_text=_("Personal message shown when user answers correctly")
     )
 
     # =========================================================================
     # MEDIA CONTENT (using private storage in production)
     # =========================================================================
     photo = models.ImageField(
-        upload_to="advent_doors/",
+        upload_to='advent_doors/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Main photo for this door"),
+        help_text=_("Main photo for this door")
     )
     video_file = models.FileField(
-        upload_to="advent_doors/video/",
+        upload_to='advent_doors/video/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Video message"),
+        help_text=_("Video message")
     )
     audio_file = models.FileField(
-        upload_to="advent_doors/audio/",
+        upload_to='advent_doors/audio/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Audio message"),
+        help_text=_("Audio message")
     )
 
     # =========================================================================
@@ -349,27 +369,32 @@ class AdventDoorContent(models.Model):
     bonus_title = models.CharField(
         max_length=200,
         blank=True,
-        help_text=_("Title for bonus content unlocked via QR"),
+        help_text=_("Title for bonus content unlocked via QR")
     )
     bonus_content = models.TextField(
-        blank=True, help_text=_("Bonus text content unlocked via QR code")
+        blank=True,
+        help_text=_("Bonus text content unlocked via QR code")
     )
     bonus_photo = models.ImageField(
-        upload_to="advent_doors/bonus/",
+        upload_to='advent_doors/bonus/',
         blank=True,
         null=True,
         storage=crush_photo_storage,
-        help_text=_("Bonus photo unlocked via QR code"),
+        help_text=_("Bonus photo unlocked via QR code")
     )
 
     # =========================================================================
     # PHYSICAL GIFT TEASER FIELDS
     # =========================================================================
     gift_hint = models.CharField(
-        max_length=500, blank=True, help_text=_("Hint about the physical gift")
+        max_length=500,
+        blank=True,
+        help_text=_("Hint about the physical gift")
     )
     gift_location_clue = models.CharField(
-        max_length=500, blank=True, help_text=_("Clue about where to find the gift")
+        max_length=500,
+        blank=True,
+        help_text=_("Clue about where to find the gift")
     )
 
     # Timestamps
@@ -401,9 +426,7 @@ class AdventDoorContent(models.Model):
 
     def is_questionnaire_mode(self):
         """Check if this challenge is in questionnaire mode (no correct answer)"""
-        return (
-            self.door.content_type == "challenge" and not self.challenge_correct_answer
-        )
+        return self.door.content_type == 'challenge' and not self.challenge_correct_answer
 
     def check_answer(self, user_answer):
         """
@@ -440,30 +463,37 @@ class AdventProgress(models.Model):
     """
     Tracks user's progress through their Advent Calendar.
     """
-
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="advent_progress"
+        User,
+        on_delete=models.CASCADE,
+        related_name='advent_progress'
     )
     calendar = models.ForeignKey(
-        AdventCalendar, on_delete=models.CASCADE, related_name="user_progress"
+        AdventCalendar,
+        on_delete=models.CASCADE,
+        related_name='user_progress'
     )
 
     # Progress tracking
     doors_opened = models.JSONField(
         default=list,
-        help_text=_("List of door numbers that have been opened [1, 2, 3, ...]"),
+        help_text=_("List of door numbers that have been opened [1, 2, 3, ...]")
     )
     qr_scans = models.JSONField(
         default=list,
-        help_text=_("List of door numbers where QR was scanned [1, 5, 12, ...]"),
+        help_text=_("List of door numbers where QR was scanned [1, 5, 12, ...]")
     )
 
     # Last activity
     last_door_opened = models.PositiveIntegerField(
-        null=True, blank=True, help_text=_("Last door number opened")
+        null=True,
+        blank=True,
+        help_text=_("Last door number opened")
     )
     last_opened_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("When the last door was opened")
+        null=True,
+        blank=True,
+        help_text=_("When the last door was opened")
     )
 
     # Timestamps
@@ -471,7 +501,7 @@ class AdventProgress(models.Model):
     last_visit = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("user", "calendar")
+        unique_together = ('user', 'calendar')
         verbose_name = _("Advent Progress")
         verbose_name_plural = _("📊 4. Advent Progress")
 
@@ -545,35 +575,45 @@ class QRCodeToken(models.Model):
     Per-user, per-door QR code tokens for physical gift unlocking.
     Each token is unique and can only be used once.
     """
-
     door = models.ForeignKey(
-        AdventDoor, on_delete=models.CASCADE, related_name="qr_tokens"
+        AdventDoor,
+        on_delete=models.CASCADE,
+        related_name='qr_tokens'
     )
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="advent_qr_tokens"
+        User,
+        on_delete=models.CASCADE,
+        related_name='advent_qr_tokens'
     )
     token = models.UUIDField(
-        default=uuid.uuid4, unique=True, help_text=_("Unique token for QR code")
+        default=uuid.uuid4,
+        unique=True,
+        help_text=_("Unique token for QR code")
     )
 
     # Usage tracking
     is_used = models.BooleanField(
-        default=False, help_text=_("Has this token been redeemed?")
+        default=False,
+        help_text=_("Has this token been redeemed?")
     )
     used_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("When the token was redeemed")
+        null=True,
+        blank=True,
+        help_text=_("When the token was redeemed")
     )
 
     # Optional expiration
     expires_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("Optional expiration time for this token")
+        null=True,
+        blank=True,
+        help_text=_("Optional expiration time for this token")
     )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("door", "user")
+        unique_together = ('door', 'user')
         verbose_name = _("QR Code Token")
         verbose_name_plural = _("🔑 5. QR Code Tokens")
 

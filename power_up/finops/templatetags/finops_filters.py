@@ -30,9 +30,9 @@ def percentage(value, total):
     try:
         # Convert to Decimal for precise calculation
         if isinstance(value, str):
-            value = value.replace(",", ".")
+            value = value.replace(',', '.')
         if isinstance(total, str):
-            total = total.replace(",", ".")
+            total = total.replace(',', '.')
 
         value = float(value)
         total = float(total)
@@ -42,7 +42,7 @@ def percentage(value, total):
 
         pct = (value / total) * 100
         # Format with period as decimal separator for CSS
-        return "{:.10f}".format(pct).rstrip("0").rstrip(".")
+        return "{:.10f}".format(pct).rstrip('0').rstrip('.')
     except (ValueError, TypeError, ZeroDivisionError):
         return "0"
 
@@ -58,9 +58,9 @@ def format_percentage(value, total):
     try:
         # Convert to float, handling comma decimal separators
         if isinstance(value, str):
-            value = value.replace(",", ".")
+            value = value.replace(',', '.')
         if isinstance(total, str):
-            total = total.replace(",", ".")
+            total = total.replace(',', '.')
 
         value = float(value)
         total = float(total)

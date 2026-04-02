@@ -23,50 +23,44 @@ logger = logging.getLogger(__name__)
 @require_http_methods(["POST"])
 def trigger_cost_sync(request):
     """Webhook endpoint to trigger cost data sync"""
-    sync_token = request.headers.get("X-Sync-Token")
-    expected_token = os.getenv("SECRET_SYNC_TOKEN") or getattr(
-        settings, "SECRET_SYNC_TOKEN", None
-    )
+    sync_token = request.headers.get('X-Sync-Token')
+    expected_token = os.getenv('SECRET_SYNC_TOKEN') or getattr(settings, 'SECRET_SYNC_TOKEN', None)
 
     if not expected_token:
-        return JsonResponse(
-            {"success": False, "error": "Sync token not configured on server"},
-            status=500,
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Sync token not configured on server'
+        }, status=500)
 
     if not sync_token or not secrets.compare_digest(sync_token, expected_token):
-        return JsonResponse(
-            {"success": False, "error": "Invalid sync token"}, status=403
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid sync token'
+        }, status=403)
 
     try:
         output_stream = io.StringIO()
         error_stream = io.StringIO()
 
-        call_command("sync_daily_costs", stdout=output_stream, stderr=error_stream)
+        call_command('sync_daily_costs', stdout=output_stream, stderr=error_stream)
 
         output = output_stream.getvalue()
         errors = error_stream.getvalue()
 
-        return JsonResponse(
-            {
-                "success": True,
-                "message": "Cost sync completed successfully",
-                "output": output,
-                "errors": errors if errors else None,
-            }
-        )
+        return JsonResponse({
+            'success': True,
+            'message': 'Cost sync completed successfully',
+            'output': output,
+            'errors': errors if errors else None
+        })
 
     except Exception:
         logger.exception("Error during cost sync triggered via webhook")
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Internal server error during cost sync",
-                "message": "Cost sync failed",
-            },
-            status=500,
-        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error during cost sync',
+            'message': 'Cost sync failed'
+        }, status=500)
 
 
 @require_http_methods(["GET"])
@@ -76,55 +70,32 @@ def sync_status(request):
 
     try:
         total_exports = CostExport.objects.count()
-        completed_exports = CostExport.objects.filter(import_status="completed").count()
-        failed_exports = CostExport.objects.filter(import_status="failed").count()
-        processing_exports = CostExport.objects.filter(
-            import_status="processing"
-        ).count()
+        completed_exports = CostExport.objects.filter(import_status='completed').count()
+        failed_exports = CostExport.objects.filter(import_status='failed').count()
+        processing_exports = CostExport.objects.filter(import_status='processing').count()
 
-        latest_export = CostExport.objects.filter(import_status="completed").first()
+        latest_export = CostExport.objects.filter(import_status='completed').first()
 
-        return JsonResponse(
-            {
-                "success": True,
-                "stats": {
-                    "total_exports": total_exports,
-                    "completed": completed_exports,
-                    "failed": failed_exports,
-                    "processing": processing_exports,
-                },
-                "latest_export": (
-                    {
-                        "subscription": (
-                            latest_export.subscription_name if latest_export else None
-                        ),
-                        "billing_period_start": (
-                            latest_export.billing_period_start
-                            if latest_export
-                            else None
-                        ),
-                        "billing_period_end": (
-                            latest_export.billing_period_end if latest_export else None
-                        ),
-                        "records_imported": (
-                            latest_export.records_imported if latest_export else 0
-                        ),
-                        "import_completed_at": (
-                            latest_export.import_completed_at if latest_export else None
-                        ),
-                    }
-                    if latest_export
-                    else None
-                ),
-            }
-        )
-
-    except Exception:
-        logger.exception("Error while fetching sync status")
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Internal server error while fetching sync status",
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total_exports': total_exports,
+                'completed': completed_exports,
+                'failed': failed_exports,
+                'processing': processing_exports,
             },
-            status=500,
-        )
+            'latest_export': {
+                'subscription': latest_export.subscription_name if latest_export else None,
+                'billing_period_start': latest_export.billing_period_start if latest_export else None,
+                'billing_period_end': latest_export.billing_period_end if latest_export else None,
+                'records_imported': latest_export.records_imported if latest_export else 0,
+                'import_completed_at': latest_export.import_completed_at if latest_export else None,
+            } if latest_export else None
+        })
+
+    except Exception as e:
+        logger.exception("Error while fetching sync status")
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error while fetching sync status'
+        }, status=500)

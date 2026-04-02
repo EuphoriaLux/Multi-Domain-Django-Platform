@@ -11,55 +11,55 @@ class ImmersiveFeatures {
             enableSeasonalTimeline: options.enableSeasonalTimeline !== false,
             enablePlotComparison: options.enablePlotComparison !== false,
             enablePhotoGallery: options.enablePhotoGallery !== false,
-            ...options,
+            ...options
         };
-
+        
         this.state = {
             currentSeason: this.getCurrentSeason(),
             tourActive: false,
             galleryOpen: false,
             comparisonMode: false,
-            selectedPlotsForComparison: [],
+            selectedPlotsForComparison: []
         };
-
+        
         this.seasonalData = this.getSeasonalData();
         this.tourStops = [];
         this.galleryImages = [];
-
+        
         this.init();
     }
-
+    
     init() {
         if (this.config.enableSeasonalTimeline) {
             this.initializeSeasonalTimeline();
         }
-
+        
         if (this.config.enableVirtualTour) {
             this.initializeVirtualTour();
         }
-
+        
         if (this.config.enablePlotComparison) {
             this.initializePlotComparison();
         }
-
+        
         if (this.config.enablePhotoGallery) {
             this.initializePhotoGallery();
         }
-
+        
         this.setupEventListeners();
-        this.log("ImmersiveFeatures initialized");
+        this.log('ImmersiveFeatures initialized');
     }
-
+    
     // Seasonal Timeline Implementation
     initializeSeasonalTimeline() {
-        const container = document.getElementById("seasonal-timeline");
+        const container = document.getElementById('seasonal-timeline');
         if (!container) return;
-
+        
         container.innerHTML = this.createSeasonalTimelineHTML();
         this.setupSeasonalTimelineEvents();
         this.updateSeasonalContent(this.state.currentSeason);
     }
-
+    
     createSeasonalTimelineHTML() {
         return `
             <div class="seasonal-timeline-container">
@@ -73,9 +73,7 @@ class ImmersiveFeatures {
                         <div class="timeline-progress" id="timelineProgress"></div>
                     </div>
                     <div class="timeline-seasons">
-                        ${this.seasonalData
-                            .map(
-                                (season, index) => `
+                        ${this.seasonalData.map((season, index) => `
                             <div class="season-marker" data-season="${season.key}" data-index="${index}">
                                 <div class="marker-dot">
                                     <i class="fas ${season.icon}"></i>
@@ -83,9 +81,7 @@ class ImmersiveFeatures {
                                 <div class="marker-label">${season.name}</div>
                                 <div class="marker-month">${season.months}</div>
                             </div>
-                        `,
-                            )
-                            .join("")}
+                        `).join('')}
                     </div>
                 </div>
                 
@@ -115,265 +111,254 @@ class ImmersiveFeatures {
             </div>
         `;
     }
-
+    
     getSeasonalData() {
         return [
             {
-                key: "spring",
-                name: "Spring Awakening",
-                months: "Mar - May",
-                icon: "fa-seedling",
-                description:
-                    "The vineyard awakens from winter dormancy. New shoots emerge, and the cycle of life begins anew.",
+                key: 'spring',
+                name: 'Spring Awakening',
+                months: 'Mar - May',
+                icon: 'fa-seedling',
+                description: 'The vineyard awakens from winter dormancy. New shoots emerge, and the cycle of life begins anew.',
                 activities: [
-                    "Pruning and training vines",
-                    "Soil preparation and fertilization",
-                    "Pest and disease prevention",
-                    "Equipment maintenance",
+                    'Pruning and training vines',
+                    'Soil preparation and fertilization',
+                    'Pest and disease prevention',
+                    'Equipment maintenance'
                 ],
                 process: [
-                    "Budbreak occurs when temperatures rise",
-                    "First leaves appear on the vines",
-                    "Flowering begins in late spring",
-                    "Early shoot positioning",
+                    'Budbreak occurs when temperatures rise',
+                    'First leaves appear on the vines',
+                    'Flowering begins in late spring',
+                    'Early shoot positioning'
                 ],
-                weather: "Mild temperatures, increasing daylight",
-                image: "/static/vinsdelux/images/vineyard-defaults/spring-vineyard.jpg",
-                color: "#9CCC65",
+                weather: 'Mild temperatures, increasing daylight',
+                image: '/static/vinsdelux/images/vineyard-defaults/spring-vineyard.jpg',
+                color: '#9CCC65'
             },
             {
-                key: "summer",
-                name: "Summer Growth",
-                months: "Jun - Aug",
-                icon: "fa-sun",
-                description:
-                    "The vines flourish under warm sunshine. Grapes develop and begin their journey to maturity.",
+                key: 'summer',
+                name: 'Summer Growth',
+                months: 'Jun - Aug',
+                icon: 'fa-sun',
+                description: 'The vines flourish under warm sunshine. Grapes develop and begin their journey to maturity.',
                 activities: [
-                    "Canopy management",
-                    "Fruit thinning for quality",
-                    "Irrigation management",
-                    "Continuous monitoring",
+                    'Canopy management',
+                    'Fruit thinning for quality',
+                    'Irrigation management',
+                    'Continuous monitoring'
                 ],
                 process: [
-                    "Fruit set occurs after flowering",
-                    "Grapes begin to grow and cluster",
-                    "Véraison starts (color change)",
-                    "Sugar development begins",
+                    'Fruit set occurs after flowering',
+                    'Grapes begin to grow and cluster',
+                    'Véraison starts (color change)',
+                    'Sugar development begins'
                 ],
-                weather: "Warm days, mild nights",
-                image: "/static/vinsdelux/images/vineyard-defaults/summer-vineyard.jpg",
-                color: "#FF9800",
+                weather: 'Warm days, mild nights',
+                image: '/static/vinsdelux/images/vineyard-defaults/summer-vineyard.jpg',
+                color: '#FF9800'
             },
             {
-                key: "autumn",
-                name: "Harvest Time",
-                months: "Sep - Nov",
-                icon: "fa-wine-glass",
-                description:
-                    "The culmination of a year of care. Grapes reach perfect ripeness for harvest.",
+                key: 'autumn',
+                name: 'Harvest Time',
+                months: 'Sep - Nov',
+                icon: 'fa-wine-glass',
+                description: 'The culmination of a year of care. Grapes reach perfect ripeness for harvest.',
                 activities: [
-                    "Harvest planning and timing",
-                    "Hand-picking premium grapes",
-                    "Quality selection and sorting",
-                    "Immediate processing",
+                    'Harvest planning and timing',
+                    'Hand-picking premium grapes',
+                    'Quality selection and sorting',
+                    'Immediate processing'
                 ],
                 process: [
-                    "Final ripening of grapes",
-                    "Sugar and acid balance perfected",
-                    "Harvest begins at optimal timing",
-                    "Crushing and fermentation starts",
+                    'Final ripening of grapes',
+                    'Sugar and acid balance perfected',
+                    'Harvest begins at optimal timing',
+                    'Crushing and fermentation starts'
                 ],
-                weather: "Crisp mornings, warm afternoons",
-                image: "/static/vinsdelux/images/vineyard-defaults/autumn-vineyard.jpg",
-                color: "#D4AF37",
+                weather: 'Crisp mornings, warm afternoons',
+                image: '/static/vinsdelux/images/vineyard-defaults/autumn-vineyard.jpg',
+                color: '#D4AF37'
             },
             {
-                key: "winter",
-                name: "Winter Rest",
-                months: "Dec - Feb",
-                icon: "fa-snowflake",
-                description:
-                    "The vineyard enters dormancy. A time for planning, maintenance, and anticipation.",
+                key: 'winter',
+                name: 'Winter Rest',
+                months: 'Dec - Feb',
+                icon: 'fa-snowflake',
+                description: 'The vineyard enters dormancy. A time for planning, maintenance, and anticipation.',
                 activities: [
-                    "Vine dormancy management",
-                    "Cellar work and wine aging",
-                    "Equipment overhaul",
-                    "Planning for next season",
+                    'Vine dormancy management',
+                    'Cellar work and wine aging',
+                    'Equipment overhaul',
+                    'Planning for next season'
                 ],
                 process: [
-                    "Fermentation continues in cellar",
-                    "Wine aging and development",
-                    "Blending decisions made",
-                    "Bottling of previous vintages",
+                    'Fermentation continues in cellar',
+                    'Wine aging and development',
+                    'Blending decisions made',
+                    'Bottling of previous vintages'
                 ],
-                weather: "Cold temperatures, frost protection",
-                image: "/static/vinsdelux/images/vineyard-defaults/winter-vineyard.jpg",
-                color: "#42A5F5",
-            },
+                weather: 'Cold temperatures, frost protection',
+                image: '/static/vinsdelux/images/vineyard-defaults/winter-vineyard.jpg',
+                color: '#42A5F5'
+            }
         ];
     }
-
+    
     setupSeasonalTimelineEvents() {
-        const markers = document.querySelectorAll(".season-marker");
-        const slider = document.getElementById("timelineSlider");
-
-        markers.forEach((marker) => {
-            marker.addEventListener("click", () => {
+        const markers = document.querySelectorAll('.season-marker');
+        const slider = document.getElementById('timelineSlider');
+        
+        markers.forEach(marker => {
+            marker.addEventListener('click', () => {
                 const season = marker.dataset.season;
                 this.updateSeasonalContent(season);
                 this.updateTimelineProgress(parseInt(marker.dataset.index));
             });
-
-            marker.addEventListener("mouseenter", () => {
-                marker.style.transform = "scale(1.1)";
+            
+            marker.addEventListener('mouseenter', () => {
+                marker.style.transform = 'scale(1.1)';
             });
-
-            marker.addEventListener("mouseleave", () => {
-                marker.style.transform = "scale(1)";
+            
+            marker.addEventListener('mouseleave', () => {
+                marker.style.transform = 'scale(1)';
             });
         });
-
+        
         // Auto-advance timeline
         this.startSeasonalAutoplay();
     }
-
+    
     updateSeasonalContent(seasonKey) {
-        const season = this.seasonalData.find((s) => s.key === seasonKey);
+        const season = this.seasonalData.find(s => s.key === seasonKey);
         if (!season) return;
-
+        
         this.state.currentSeason = seasonKey;
-
+        
         // Update visual elements
-        const seasonImage = document.getElementById("seasonImage");
-        const seasonName = document.getElementById("seasonName");
-        const seasonDescription = document.getElementById("seasonDescription");
-        const activitiesList = document.getElementById("activitiesList");
-        const processSteps = document.getElementById("processSteps");
-        const seasonWeather = document.getElementById("seasonWeather");
-
+        const seasonImage = document.getElementById('seasonImage');
+        const seasonName = document.getElementById('seasonName');
+        const seasonDescription = document.getElementById('seasonDescription');
+        const activitiesList = document.getElementById('activitiesList');
+        const processSteps = document.getElementById('processSteps');
+        const seasonWeather = document.getElementById('seasonWeather');
+        
         if (seasonImage) {
             seasonImage.style.backgroundImage = `url(${season.image})`;
             seasonImage.style.borderColor = season.color;
         }
-
+        
         if (seasonName) seasonName.textContent = season.name;
         if (seasonDescription) seasonDescription.textContent = season.description;
         if (seasonWeather) seasonWeather.textContent = season.weather;
-
+        
         if (activitiesList) {
-            activitiesList.innerHTML = season.activities
-                .map((activity) => `<li><i class="fas fa-check"></i> ${activity}</li>`)
-                .join("");
+            activitiesList.innerHTML = season.activities.map(activity => 
+                `<li><i class="fas fa-check"></i> ${activity}</li>`
+            ).join('');
         }
-
+        
         if (processSteps) {
-            processSteps.innerHTML = season.process
-                .map(
-                    (step, index) =>
-                        `<div class="process-step">
+            processSteps.innerHTML = season.process.map((step, index) => 
+                `<div class="process-step">
                     <div class="step-number">${index + 1}</div>
                     <div class="step-text">${step}</div>
-                </div>`,
-                )
-                .join("");
+                </div>`
+            ).join('');
         }
-
+        
         // Update marker states
-        document.querySelectorAll(".season-marker").forEach((marker) => {
-            marker.classList.toggle("active", marker.dataset.season === seasonKey);
+        document.querySelectorAll('.season-marker').forEach(marker => {
+            marker.classList.toggle('active', marker.dataset.season === seasonKey);
         });
-
+        
         // Trigger animation
         this.animateSeasonalTransition();
     }
-
+    
     updateTimelineProgress(index) {
-        const progress = document.getElementById("timelineProgress");
+        const progress = document.getElementById('timelineProgress');
         if (progress) {
             const percentage = (index / (this.seasonalData.length - 1)) * 100;
             progress.style.width = `${percentage}%`;
         }
     }
-
+    
     startSeasonalAutoplay() {
         setInterval(() => {
             if (this.state.tourActive) return;
-
-            const currentIndex = this.seasonalData.findIndex(
-                (s) => s.key === this.state.currentSeason,
-            );
+            
+            const currentIndex = this.seasonalData.findIndex(s => s.key === this.state.currentSeason);
             const nextIndex = (currentIndex + 1) % this.seasonalData.length;
             const nextSeason = this.seasonalData[nextIndex];
-
+            
             this.updateSeasonalContent(nextSeason.key);
             this.updateTimelineProgress(nextIndex);
         }, 10000); // Change season every 10 seconds
     }
-
+    
     animateSeasonalTransition() {
-        const content = document.getElementById("seasonalContent");
+        const content = document.getElementById('seasonalContent');
         if (!content) return;
-
+        
         // Add transition effect
-        content.style.opacity = "0.8";
-        content.style.transform = "scale(0.98)";
-
+        content.style.opacity = '0.8';
+        content.style.transform = 'scale(0.98)';
+        
         setTimeout(() => {
-            content.style.opacity = "1";
-            content.style.transform = "scale(1)";
+            content.style.opacity = '1';
+            content.style.transform = 'scale(1)';
         }, 300);
     }
-
+    
     getCurrentSeason() {
         const month = new Date().getMonth();
-        if (month >= 2 && month <= 4) return "spring";
-        if (month >= 5 && month <= 7) return "summer";
-        if (month >= 8 && month <= 10) return "autumn";
-        return "winter";
+        if (month >= 2 && month <= 4) return 'spring';
+        if (month >= 5 && month <= 7) return 'summer';
+        if (month >= 8 && month <= 10) return 'autumn';
+        return 'winter';
     }
-
+    
     // Virtual Tour Implementation
     initializeVirtualTour() {
         this.tourStops = [
             {
-                id: "vineyard-overview",
-                title: "Vineyard Overview",
-                description:
-                    "Welcome to our prestigious vineyard in Luxembourg's wine region.",
-                position: [49.5441, 6.375],
-                image: "/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg",
-                duration: 5000,
+                id: 'vineyard-overview',
+                title: 'Vineyard Overview',
+                description: 'Welcome to our prestigious vineyard in Luxembourg\'s wine region.',
+                position: [49.5441, 6.3750],
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg',
+                duration: 5000
             },
             {
-                id: "premium-plots",
-                title: "Premium Plot Selection",
-                description:
-                    "Our finest plots with optimal sun exposure and soil conditions.",
-                position: [49.5461, 6.377],
-                image: "/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg",
-                duration: 4000,
+                id: 'premium-plots',
+                title: 'Premium Plot Selection',
+                description: 'Our finest plots with optimal sun exposure and soil conditions.',
+                position: [49.5461, 6.3770],
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg',
+                duration: 4000
             },
             {
-                id: "wine-cellar",
-                title: "Wine Cellar",
-                description: "Where tradition meets modern winemaking techniques.",
-                position: [49.5421, 6.373],
-                image: "/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg",
-                duration: 6000,
+                id: 'wine-cellar',
+                title: 'Wine Cellar',
+                description: 'Where tradition meets modern winemaking techniques.',
+                position: [49.5421, 6.3730],
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg',
+                duration: 6000
             },
             {
-                id: "tasting-room",
-                title: "Tasting Experience",
-                description: "Discover the unique flavors of our terroir.",
-                position: [49.5451, 6.376],
-                image: "/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg",
-                duration: 4000,
-            },
+                id: 'tasting-room',
+                title: 'Tasting Experience',
+                description: 'Discover the unique flavors of our terroir.',
+                position: [49.5451, 6.3760],
+                image: '/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg',
+                duration: 4000
+            }
         ];
-
+        
         this.createVirtualTourInterface();
     }
-
+    
     createVirtualTourInterface() {
         const tourHTML = `
             <div class="virtual-tour-overlay" id="virtualTourOverlay">
@@ -410,62 +395,61 @@ class ImmersiveFeatures {
                 </div>
             </div>
         `;
-
-        document.body.insertAdjacentHTML("beforeend", tourHTML);
+        
+        document.body.insertAdjacentHTML('beforeend', tourHTML);
         this.setupVirtualTourEvents();
     }
-
+    
     setupVirtualTourEvents() {
-        const startBtn = document.getElementById("startTourBtn");
-        const stopBtn = document.getElementById("stopTourBtn");
-        const prevBtn = document.getElementById("prevStopBtn");
-        const nextBtn = document.getElementById("nextStopBtn");
-
-        startBtn?.addEventListener("click", () => this.startVirtualTour());
-        stopBtn?.addEventListener("click", () => this.stopVirtualTour());
-        prevBtn?.addEventListener("click", () => this.previousTourStop());
-        nextBtn?.addEventListener("click", () => this.nextTourStop());
+        const startBtn = document.getElementById('startTourBtn');
+        const stopBtn = document.getElementById('stopTourBtn');
+        const prevBtn = document.getElementById('prevStopBtn');
+        const nextBtn = document.getElementById('nextStopBtn');
+        
+        startBtn?.addEventListener('click', () => this.startVirtualTour());
+        stopBtn?.addEventListener('click', () => this.stopVirtualTour());
+        prevBtn?.addEventListener('click', () => this.previousTourStop());
+        nextBtn?.addEventListener('click', () => this.nextTourStop());
     }
-
+    
     startVirtualTour() {
         this.state.tourActive = true;
         this.currentTourStop = 0;
-
-        document.getElementById("startTourBtn").style.display = "none";
-        document.getElementById("stopTourBtn").style.display = "block";
-        document.getElementById("tourContent").style.display = "block";
-
+        
+        document.getElementById('startTourBtn').style.display = 'none';
+        document.getElementById('stopTourBtn').style.display = 'block';
+        document.getElementById('tourContent').style.display = 'block';
+        
         this.showTourStop(0);
     }
-
+    
     stopVirtualTour() {
         this.state.tourActive = false;
-
-        document.getElementById("startTourBtn").style.display = "block";
-        document.getElementById("stopTourBtn").style.display = "none";
-        document.getElementById("tourContent").style.display = "none";
-
+        
+        document.getElementById('startTourBtn').style.display = 'block';
+        document.getElementById('stopTourBtn').style.display = 'none';
+        document.getElementById('tourContent').style.display = 'none';
+        
         if (this.tourTimer) {
             clearTimeout(this.tourTimer);
         }
     }
-
+    
     showTourStop(index) {
         if (index < 0 || index >= this.tourStops.length) return;
-
+        
         const stop = this.tourStops[index];
         this.currentTourStop = index;
-
+        
         // Update tour content
-        document.getElementById("tourImage").src = stop.image;
-        document.getElementById("tourStopTitle").textContent = stop.title;
-        document.getElementById("tourStopDescription").textContent = stop.description;
-        document.getElementById("stopCounter").textContent =
-            `${index + 1} / ${this.tourStops.length}`;
-
+        document.getElementById('tourImage').src = stop.image;
+        document.getElementById('tourStopTitle').textContent = stop.title;
+        document.getElementById('tourStopDescription').textContent = stop.description;
+        document.getElementById('stopCounter').textContent = `${index + 1} / ${this.tourStops.length}`;
+        
         // Start progress animation
         this.animateTourProgress(stop.duration);
-
+        
         // Auto-advance to next stop
         this.tourTimer = setTimeout(() => {
             if (this.state.tourActive) {
@@ -474,41 +458,38 @@ class ImmersiveFeatures {
             }
         }, stop.duration);
     }
-
+    
     animateTourProgress(duration) {
-        const progressBar = document.getElementById("tourProgress");
+        const progressBar = document.getElementById('tourProgress');
         if (!progressBar) return;
-
-        progressBar.style.transition = "none";
-        progressBar.style.width = "0%";
-
+        
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '0%';
+        
         setTimeout(() => {
             progressBar.style.transition = `width ${duration}ms linear`;
-            progressBar.style.width = "100%";
+            progressBar.style.width = '100%';
         }, 50);
     }
-
+    
     previousTourStop() {
         if (this.tourTimer) clearTimeout(this.tourTimer);
-        const prevIndex =
-            this.currentTourStop > 0
-                ? this.currentTourStop - 1
-                : this.tourStops.length - 1;
+        const prevIndex = this.currentTourStop > 0 ? this.currentTourStop - 1 : this.tourStops.length - 1;
         this.showTourStop(prevIndex);
     }
-
+    
     nextTourStop() {
         if (this.tourTimer) clearTimeout(this.tourTimer);
         const nextIndex = (this.currentTourStop + 1) % this.tourStops.length;
         this.showTourStop(nextIndex);
     }
-
+    
     // Plot Comparison Implementation
     initializePlotComparison() {
         this.createPlotComparisonInterface();
         this.setupPlotComparisonEvents();
     }
-
+    
     createPlotComparisonInterface() {
         const comparisonHTML = `
             <div class="plot-comparison-modal" id="plotComparisonModal">
@@ -546,60 +527,60 @@ class ImmersiveFeatures {
                 </div>
             </div>
         `;
-
-        document.body.insertAdjacentHTML("beforeend", comparisonHTML);
+        
+        document.body.insertAdjacentHTML('beforeend', comparisonHTML);
     }
-
+    
     setupPlotComparisonEvents() {
-        document.getElementById("closeComparison")?.addEventListener("click", () => {
+        document.getElementById('closeComparison')?.addEventListener('click', () => {
             this.closePlotComparison();
         });
-
+        
         // Listen for plot comparison requests
-        document.addEventListener("plot:compare", (e) => {
+        document.addEventListener('plot:compare', (e) => {
             this.addPlotToComparison(e.detail.plot);
         });
     }
-
+    
     openPlotComparison() {
-        document.getElementById("plotComparisonModal").style.display = "flex";
+        document.getElementById('plotComparisonModal').style.display = 'flex';
         this.state.comparisonMode = true;
     }
-
+    
     closePlotComparison() {
-        document.getElementById("plotComparisonModal").style.display = "none";
+        document.getElementById('plotComparisonModal').style.display = 'none';
         this.state.comparisonMode = false;
         this.clearComparison();
     }
-
+    
     addPlotToComparison(plot) {
         if (this.state.selectedPlotsForComparison.length >= 2) {
             this.clearComparison();
         }
-
+        
         this.state.selectedPlotsForComparison.push(plot);
         this.updateComparisonDisplay();
-
+        
         if (!this.state.comparisonMode) {
             this.openPlotComparison();
         }
     }
-
+    
     updateComparisonDisplay() {
         const plots = this.state.selectedPlotsForComparison;
-
+        
         plots.forEach((plot, index) => {
             const slot = document.getElementById(`plotSlot${index + 1}`);
             if (slot) {
                 slot.innerHTML = this.createPlotComparisonCard(plot);
             }
         });
-
+        
         if (plots.length === 2) {
             this.generateComparisonTable(plots[0], plots[1]);
         }
     }
-
+    
     createPlotComparisonCard(plot) {
         return `
             <div class="comparison-plot-card">
@@ -610,7 +591,7 @@ class ImmersiveFeatures {
                     <h4>${plot.name}</h4>
                     <p class="producer">${plot.producer}</p>
                     <p class="region">${plot.region}</p>
-                    <p class="price">€${plot.price?.toLocaleString() || "N/A"}</p>
+                    <p class="price">€${plot.price?.toLocaleString() || 'N/A'}</p>
                 </div>
                 <button class="remove-from-comparison" onclick="this.closest('.comparison-plot-card').parentElement.innerHTML = '<div class=\\'slot-placeholder\\'><i class=\\'fas fa-plus\\'></i><span>Select plot</span></div>'">
                     <i class="fas fa-times"></i>
@@ -618,49 +599,21 @@ class ImmersiveFeatures {
             </div>
         `;
     }
-
+    
     generateComparisonTable(plot1, plot2) {
-        const table = document.getElementById("comparisonTable");
+        const table = document.getElementById('comparisonTable');
         if (!table) return;
-
+        
         const comparisonData = [
-            {
-                label: "Price",
-                plot1: `€${plot1.price?.toLocaleString() || "N/A"}`,
-                plot2: `€${plot2.price?.toLocaleString() || "N/A"}`,
-            },
-            {
-                label: "Region",
-                plot1: plot1.region || "N/A",
-                plot2: plot2.region || "N/A",
-            },
-            {
-                label: "Wine Type",
-                plot1: plot1.wine_type || plot1.wineType || "N/A",
-                plot2: plot2.wine_type || plot2.wineType || "N/A",
-            },
-            {
-                label: "Elevation",
-                plot1: plot1.elevation || "N/A",
-                plot2: plot2.elevation || "N/A",
-            },
-            {
-                label: "Soil Type",
-                plot1: plot1.soil_type || plot1.soilType || "N/A",
-                plot2: plot2.soil_type || plot2.soilType || "N/A",
-            },
-            {
-                label: "Sun Exposure",
-                plot1: plot1.sun_exposure || plot1.sunExposure || "N/A",
-                plot2: plot2.sun_exposure || plot2.sunExposure || "N/A",
-            },
-            {
-                label: "Features",
-                plot1: (plot1.features || []).join(", ") || "N/A",
-                plot2: (plot2.features || []).join(", ") || "N/A",
-            },
+            { label: 'Price', plot1: `€${plot1.price?.toLocaleString() || 'N/A'}`, plot2: `€${plot2.price?.toLocaleString() || 'N/A'}` },
+            { label: 'Region', plot1: plot1.region || 'N/A', plot2: plot2.region || 'N/A' },
+            { label: 'Wine Type', plot1: plot1.wine_type || plot1.wineType || 'N/A', plot2: plot2.wine_type || plot2.wineType || 'N/A' },
+            { label: 'Elevation', plot1: plot1.elevation || 'N/A', plot2: plot2.elevation || 'N/A' },
+            { label: 'Soil Type', plot1: plot1.soil_type || plot1.soilType || 'N/A', plot2: plot2.soil_type || plot2.soilType || 'N/A' },
+            { label: 'Sun Exposure', plot1: plot1.sun_exposure || plot1.sunExposure || 'N/A', plot2: plot2.sun_exposure || plot2.sunExposure || 'N/A' },
+            { label: 'Features', plot1: (plot1.features || []).join(', ') || 'N/A', plot2: (plot2.features || []).join(', ') || 'N/A' }
         ];
-
+        
         table.innerHTML = `
             <table class="comparison-data-table">
                 <thead>
@@ -671,39 +624,33 @@ class ImmersiveFeatures {
                     </tr>
                 </thead>
                 <tbody>
-                    ${comparisonData
-                        .map(
-                            (row) => `
+                    ${comparisonData.map(row => `
                         <tr>
                             <td class="feature-label">${row.label}</td>
                             <td class="plot-value">${row.plot1}</td>
                             <td class="plot-value">${row.plot2}</td>
                         </tr>
-                    `,
-                        )
-                        .join("")}
+                    `).join('')}
                 </tbody>
             </table>
         `;
-
-        table.style.display = "block";
+        
+        table.style.display = 'block';
     }
-
+    
     clearComparison() {
         this.state.selectedPlotsForComparison = [];
-        document.getElementById("plotSlot1").innerHTML =
-            '<div class="slot-placeholder"><i class="fas fa-plus"></i><span>Select first plot</span></div>';
-        document.getElementById("plotSlot2").innerHTML =
-            '<div class="slot-placeholder"><i class="fas fa-plus"></i><span>Select second plot</span></div>';
-        document.getElementById("comparisonTable").style.display = "none";
+        document.getElementById('plotSlot1').innerHTML = '<div class="slot-placeholder"><i class="fas fa-plus"></i><span>Select first plot</span></div>';
+        document.getElementById('plotSlot2').innerHTML = '<div class="slot-placeholder"><i class="fas fa-plus"></i><span>Select second plot</span></div>';
+        document.getElementById('comparisonTable').style.display = 'none';
     }
-
+    
     // Photo Gallery Implementation
     initializePhotoGallery() {
         this.createPhotoGallery();
         this.setupPhotoGalleryEvents();
     }
-
+    
     createPhotoGallery() {
         // Photo gallery will be triggered by vineyard/plot images
         const galleryHTML = `
@@ -739,230 +686,223 @@ class ImmersiveFeatures {
                 </div>
             </div>
         `;
-
-        document.body.insertAdjacentHTML("beforeend", galleryHTML);
+        
+        document.body.insertAdjacentHTML('beforeend', galleryHTML);
     }
-
+    
     setupPhotoGalleryEvents() {
-        document.getElementById("closeGallery")?.addEventListener("click", () => {
+        document.getElementById('closeGallery')?.addEventListener('click', () => {
             this.closePhotoGallery();
         });
-
-        document.getElementById("prevImage")?.addEventListener("click", () => {
+        
+        document.getElementById('prevImage')?.addEventListener('click', () => {
             this.showPreviousImage();
         });
-
-        document.getElementById("nextImage")?.addEventListener("click", () => {
+        
+        document.getElementById('nextImage')?.addEventListener('click', () => {
             this.showNextImage();
         });
-
+        
         // Handle image clicks to open gallery
-        document.addEventListener("click", (e) => {
-            if (e.target.matches(".vineyard-image, .plot-image, .gallery-trigger")) {
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.vineyard-image, .plot-image, .gallery-trigger')) {
                 this.openPhotoGallery(e.target);
             }
         });
-
+        
         // Keyboard navigation
-        document.addEventListener("keydown", (e) => {
+        document.addEventListener('keydown', (e) => {
             if (!this.state.galleryOpen) return;
-
+            
             switch (e.key) {
-                case "ArrowLeft":
+                case 'ArrowLeft':
                     this.showPreviousImage();
                     break;
-                case "ArrowRight":
+                case 'ArrowRight':
                     this.showNextImage();
                     break;
-                case "Escape":
+                case 'Escape':
                     this.closePhotoGallery();
                     break;
             }
         });
     }
-
+    
     openPhotoGallery(triggerElement) {
         const galleryData = this.getGalleryData(triggerElement);
         this.galleryImages = galleryData.images;
         this.currentImageIndex = galleryData.startIndex || 0;
-
-        document.getElementById("galleryTitle").textContent =
-            galleryData.title || "Vineyard Gallery";
-
+        
+        document.getElementById('galleryTitle').textContent = galleryData.title || 'Vineyard Gallery';
+        
         this.populateGalleryThumbnails();
         this.showGalleryImage(this.currentImageIndex);
-
-        document.getElementById("photoGalleryLightbox").style.display = "flex";
+        
+        document.getElementById('photoGalleryLightbox').style.display = 'flex';
         this.state.galleryOpen = true;
     }
-
+    
     closePhotoGallery() {
-        document.getElementById("photoGalleryLightbox").style.display = "none";
+        document.getElementById('photoGalleryLightbox').style.display = 'none';
         this.state.galleryOpen = false;
     }
-
+    
     getGalleryData(triggerElement) {
         // Default vineyard images
         const defaultImages = [
             {
-                src: "/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg",
-                title: "Vineyard Overview",
-                description: "Panoramic view of our Luxembourg vineyard",
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_01.jpg',
+                title: 'Vineyard Overview',
+                description: 'Panoramic view of our Luxembourg vineyard'
             },
             {
-                src: "/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg",
-                title: "Premium Plots",
-                description: "Our finest wine-producing plots",
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_02.jpg',
+                title: 'Premium Plots',
+                description: 'Our finest wine-producing plots'
             },
             {
-                src: "/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg",
-                title: "Harvest Season",
-                description: "Hand-picking grapes at optimal ripeness",
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_03.jpg',
+                title: 'Harvest Season',
+                description: 'Hand-picking grapes at optimal ripeness'
             },
             {
-                src: "/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg",
-                title: "Wine Cellar",
-                description: "Traditional aging process in oak barrels",
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_04.jpg',
+                title: 'Wine Cellar',
+                description: 'Traditional aging process in oak barrels'
             },
             {
-                src: "/static/vinsdelux/images/vineyard-defaults/vineyard_05.jpg",
-                title: "Tasting Room",
-                description: "Experience our wines in elegant surroundings",
-            },
+                src: '/static/vinsdelux/images/vineyard-defaults/vineyard_05.jpg',
+                title: 'Tasting Room',
+                description: 'Experience our wines in elegant surroundings'
+            }
         ];
-
+        
         return {
-            title: triggerElement.dataset.galleryTitle || "Vineyard Gallery",
+            title: triggerElement.dataset.galleryTitle || 'Vineyard Gallery',
             images: defaultImages,
-            startIndex: 0,
+            startIndex: 0
         };
     }
-
+    
     populateGalleryThumbnails() {
-        const container = document.getElementById("galleryThumbnails");
+        const container = document.getElementById('galleryThumbnails');
         if (!container) return;
-
-        container.innerHTML = this.galleryImages
-            .map(
-                (image, index) => `
-            <div class="gallery-thumbnail ${index === this.currentImageIndex ? "active" : ""}" 
+        
+        container.innerHTML = this.galleryImages.map((image, index) => `
+            <div class="gallery-thumbnail ${index === this.currentImageIndex ? 'active' : ''}" 
                  data-index="${index}"
                  onclick="window.immersiveFeatures && window.immersiveFeatures.showGalleryImage(${index})">
                 <img src="${image.src}" alt="${image.title}">
             </div>
-        `,
-            )
-            .join("");
+        `).join('');
     }
-
+    
     showGalleryImage(index) {
         if (index < 0 || index >= this.galleryImages.length) return;
-
+        
         this.currentImageIndex = index;
         const image = this.galleryImages[index];
-
-        document.getElementById("galleryMainImage").src = image.src;
-        document.getElementById("imageTitle").textContent = image.title;
-        document.getElementById("imageDescription").textContent = image.description;
-
+        
+        document.getElementById('galleryMainImage').src = image.src;
+        document.getElementById('imageTitle').textContent = image.title;
+        document.getElementById('imageDescription').textContent = image.description;
+        
         // Update thumbnail active state
-        document.querySelectorAll(".gallery-thumbnail").forEach((thumb, i) => {
-            thumb.classList.toggle("active", i === index);
+        document.querySelectorAll('.gallery-thumbnail').forEach((thumb, i) => {
+            thumb.classList.toggle('active', i === index);
         });
     }
-
+    
     showPreviousImage() {
-        const prevIndex =
-            this.currentImageIndex > 0
-                ? this.currentImageIndex - 1
-                : this.galleryImages.length - 1;
+        const prevIndex = this.currentImageIndex > 0 
+            ? this.currentImageIndex - 1 
+            : this.galleryImages.length - 1;
         this.showGalleryImage(prevIndex);
     }
-
+    
     showNextImage() {
         const nextIndex = (this.currentImageIndex + 1) % this.galleryImages.length;
         this.showGalleryImage(nextIndex);
     }
-
+    
     // Utility methods
     getPlotImage(plot) {
         if (plot.image) return plot.image;
         if (plot.producer_image) return plot.producer_image;
-
-        const wineTypes = ["red", "white", "rose", "burgundy", "bordeaux"];
-        const type =
-            plot.wine_type?.toLowerCase() || plot.wineType?.toLowerCase() || "red";
-        const imageType = wineTypes.includes(type) ? type : "vineyard";
+        
+        const wineTypes = ['red', 'white', 'rose', 'burgundy', 'bordeaux'];
+        const type = plot.wine_type?.toLowerCase() || plot.wineType?.toLowerCase() || 'red';
+        const imageType = wineTypes.includes(type) ? type : 'vineyard';
         const imageNum = (plot.id % 5) + 1;
-
+        
         return `/static/vinsdelux/images/vineyard-defaults/${imageType}_0${imageNum}.jpg`;
     }
-
+    
     setupEventListeners() {
         // Global event listeners for immersive features
-        document.addEventListener("click", (e) => {
+        document.addEventListener('click', (e) => {
             // Virtual tour trigger
-            if (e.target.matches(".virtual-tour-trigger")) {
+            if (e.target.matches('.virtual-tour-trigger')) {
                 if (!this.state.tourActive) {
                     this.startVirtualTour();
                 }
             }
-
+            
             // Comparison trigger
-            if (e.target.matches(".compare-plot-btn")) {
-                const plotData = JSON.parse(e.target.dataset.plot || "{}");
+            if (e.target.matches('.compare-plot-btn')) {
+                const plotData = JSON.parse(e.target.dataset.plot || '{}');
                 this.addPlotToComparison(plotData);
             }
-
+            
             // Seasonal timeline trigger
-            if (e.target.matches(".seasonal-timeline-trigger")) {
+            if (e.target.matches('.seasonal-timeline-trigger')) {
                 this.showSeasonalTimeline();
             }
         });
     }
-
+    
     showSeasonalTimeline() {
-        const timeline = document.getElementById("seasonal-timeline");
+        const timeline = document.getElementById('seasonal-timeline');
         if (timeline) {
-            timeline.scrollIntoView({ behavior: "smooth" });
+            timeline.scrollIntoView({ behavior: 'smooth' });
         }
     }
-
+    
     log(...args) {
         if (this.config.debug) {
-            console.log("[ImmersiveFeatures]", ...args);
+            console.log('[ImmersiveFeatures]', ...args);
         }
     }
-
+    
     // Public API
     getCurrentSeason() {
         return this.state.currentSeason;
     }
-
+    
     isTourActive() {
         return this.state.tourActive;
     }
-
+    
     isGalleryOpen() {
         return this.state.galleryOpen;
     }
-
+    
     isComparisonMode() {
         return this.state.comparisonMode;
     }
-
+    
     destroy() {
         // Clean up timers and event listeners
         if (this.tourTimer) {
             clearTimeout(this.tourTimer);
         }
-
+        
         // Remove created elements
-        document.getElementById("virtualTourOverlay")?.remove();
-        document.getElementById("plotComparisonModal")?.remove();
-        document.getElementById("photoGalleryLightbox")?.remove();
-
-        this.log("ImmersiveFeatures destroyed");
+        document.getElementById('virtualTourOverlay')?.remove();
+        document.getElementById('plotComparisonModal')?.remove();
+        document.getElementById('photoGalleryLightbox')?.remove();
+        
+        this.log('ImmersiveFeatures destroyed');
     }
 }
 
@@ -1308,8 +1248,8 @@ const immersiveStyles = `
 `;
 
 // Inject styles
-if (typeof document !== "undefined") {
-    document.head.insertAdjacentHTML("beforeend", immersiveStyles);
+if (typeof document !== 'undefined') {
+    document.head.insertAdjacentHTML('beforeend', immersiveStyles);
 }
 
 export default ImmersiveFeatures;

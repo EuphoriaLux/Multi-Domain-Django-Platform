@@ -131,11 +131,9 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
             if num_tables == 2:
                 # 2 tables: all women in one group, rotating +1
                 for offset in range(2):
-                    w_idx = (
-                        (table_idx * 2 + offset + round_num) % len(group_a)
-                        if group_a
-                        else -1
-                    )
+                    w_idx = (table_idx * 2 + offset + round_num) % len(
+                        group_a
+                    ) if group_a else -1
                     if 0 <= w_idx < len(group_a):
                         schedule.append(
                             {

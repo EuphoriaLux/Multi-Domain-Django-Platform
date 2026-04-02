@@ -8,9 +8,9 @@ Run with: pytest crush_lu/tests/test_visual_regression.py -v
 Requires: pip install pytest-playwright playwright
           playwright install chromium
 """
-
 import pytest
 from pathlib import Path
+
 
 # Skip all tests if playwright is not installed
 pytest.importorskip("playwright")
@@ -51,15 +51,11 @@ class TestResponsiveLayouts:
 
         # Check if page loaded successfully (no error page)
         page_content = page.content()
-        assert (
-            "Server Error" not in page_content
-        ), f"Page shows error: {page_content[:500]}"
+        assert "Server Error" not in page_content, f"Page shows error: {page_content[:500]}"
 
         # Verify navigation or header is visible (be flexible with element name)
         nav = page.locator("nav, header, .navbar, .navigation")
-        assert (
-            nav.count() > 0
-        ), f"No navigation element found. Page content: {page_content[:500]}"
+        assert nav.count() > 0, f"No navigation element found. Page content: {page_content[:500]}"
 
         # Verify main content container (be flexible)
         main = page.locator("main, .main-content, #main, [role='main']")
@@ -72,9 +68,7 @@ class TestResponsiveLayouts:
         page.wait_for_load_state("networkidle")
 
         # Mobile menu button should be visible
-        mobile_menu_btn = page.locator(
-            "[data-mobile-menu-button], button[aria-label*='menu']"
-        )
+        mobile_menu_btn = page.locator("[data-mobile-menu-button], button[aria-label*='menu']")
 
         # Take screenshot
         page.screenshot(path=str(screenshot_dir / "home_mobile.png"))
@@ -124,13 +118,13 @@ class TestAlpineJSComponents:
 
             # Menu should now be visible
             mobile_menu = page.locator(
-                "[data-mobile-menu], " "[x-show], " "nav [x-transition]"
+                "[data-mobile-menu], "
+                "[x-show], "
+                "nav [x-transition]"
             ).first
 
             # Verify menu is displayed (Alpine.js x-show should make it visible)
-            assert (
-                mobile_menu.is_visible() or True
-            )  # Soft assertion if selector doesn't match
+            assert mobile_menu.is_visible() or True  # Soft assertion if selector doesn't match
 
     def test_alert_dismissal(self, page, live_server):
         """Test Alpine.js alert dismissal without Bootstrap."""
@@ -142,9 +136,7 @@ class TestAlpineJSComponents:
 
         for alert in alerts:
             # If there's a close button, test dismissal
-            close_btn = alert.locator(
-                "button[\\@click*='show'], button[x-on\\:click*='show']"
-            ).first
+            close_btn = alert.locator("button[\\@click*='show'], button[x-on\\:click*='show']").first
             if close_btn.is_visible():
                 close_btn.click()
                 page.wait_for_timeout(300)
@@ -178,9 +170,7 @@ class TestHTMXInteractions:
 
         # Filter for Bootstrap-related errors
         bootstrap_errors = [e for e in errors if "bootstrap" in e.lower()]
-        assert (
-            len(bootstrap_errors) == 0
-        ), f"Bootstrap JS errors found: {bootstrap_errors}"
+        assert len(bootstrap_errors) == 0, f"Bootstrap JS errors found: {bootstrap_errors}"
 
     def test_htmx_loaded(self, page, live_server):
         """Verify HTMX is loaded and initialized."""
@@ -212,7 +202,7 @@ class TestFormStyling:
         user = django_user_model.objects.create_user(
             username="testuser@example.com",
             email="testuser@example.com",
-            password="testpass123",
+            password="testpass123"
         )
 
         # Login
@@ -230,20 +220,20 @@ class TestFormStyling:
         page.wait_for_load_state("networkidle")
 
         # Find form inputs
-        inputs = page.locator(
-            "input[type='text'], input[type='email'], input[type='password']"
-        )
+        inputs = page.locator("input[type='text'], input[type='email'], input[type='password']")
 
         for input_el in inputs.all()[:3]:  # Check first 3 inputs
             # Verify input has some styling (border, padding, etc.)
-            styles = input_el.evaluate("""el => {
+            styles = input_el.evaluate(
+                """el => {
                     const cs = window.getComputedStyle(el);
                     return {
                         borderRadius: cs.borderRadius,
                         padding: cs.padding,
                         fontSize: cs.fontSize
                     };
-                }""")
+                }"""
+            )
             # Should have some styling applied
             assert styles["padding"] != "0px", "Form input lacks padding"
 
@@ -259,17 +249,19 @@ class TestTailwindClasses:
 
         # Find gradient buttons (btn-crush-primary or gradient classes)
         gradient_btns = page.locator(
-            ".btn-crush-primary, " "[class*='from-purple'], " "[class*='bg-gradient']"
+            ".btn-crush-primary, "
+            "[class*='from-purple'], "
+            "[class*='bg-gradient']"
         )
 
         if gradient_btns.count() > 0:
             btn = gradient_btns.first
             # Get computed background
-            bg = btn.evaluate("el => window.getComputedStyle(el).backgroundImage")
+            bg = btn.evaluate(
+                "el => window.getComputedStyle(el).backgroundImage"
+            )
             # Should have a gradient (linear-gradient or custom)
-            assert (
-                "gradient" in bg.lower() or bg != "none"
-            ), "Gradient not applied to button"
+            assert "gradient" in bg.lower() or bg != "none", "Gradient not applied to button"
 
     def test_tailwind_colors_applied(self, page, live_server):
         """Verify Tailwind custom colors are applied."""
@@ -280,28 +272,22 @@ class TestTailwindClasses:
         page_html = page.content()
 
         # Should have Tailwind utility classes
-        has_tailwind_classes = any(
-            [
-                "text-purple" in page_html,
-                "bg-purple" in page_html,
-                "text-pink" in page_html,
-                "bg-pink" in page_html,
-                "from-purple" in page_html,
-                "to-pink" in page_html,
-            ]
-        )
+        has_tailwind_classes = any([
+            "text-purple" in page_html,
+            "bg-purple" in page_html,
+            "text-pink" in page_html,
+            "bg-pink" in page_html,
+            "from-purple" in page_html,
+            "to-pink" in page_html,
+        ])
 
         # Or custom crush classes
-        has_custom_classes = any(
-            [
-                "btn-crush" in page_html,
-                "text-crush" in page_html,
-            ]
-        )
+        has_custom_classes = any([
+            "btn-crush" in page_html,
+            "text-crush" in page_html,
+        ])
 
-        assert (
-            has_tailwind_classes or has_custom_classes
-        ), "Tailwind/custom colors not found"
+        assert has_tailwind_classes or has_custom_classes, "Tailwind/custom colors not found"
 
 
 @pytest.mark.playwright
@@ -321,20 +307,22 @@ class TestAccessibility:
             focusable.focus()
 
             # Check if focus ring is visible
-            outline = focusable.evaluate("""el => {
+            outline = focusable.evaluate(
+                """el => {
                     const cs = window.getComputedStyle(el);
                     return {
                         outline: cs.outline,
                         boxShadow: cs.boxShadow,
                         ring: cs.getPropertyValue('--tw-ring-color')
                     };
-                }""")
+                }"""
+            )
 
             # Should have some focus indication (outline, box-shadow, or ring)
             has_focus_style = (
-                outline["outline"] != "none"
-                or "rgb" in outline["boxShadow"]
-                or outline["ring"]
+                outline["outline"] != "none" or
+                "rgb" in outline["boxShadow"] or
+                outline["ring"]
             )
 
             # Soft assertion - focus styles are important but might vary
@@ -351,14 +339,14 @@ class TestAccessibility:
 
         for btn in buttons[:3]:  # Check first 3 buttons
             if btn.is_visible():
-                colors = btn.evaluate("""el => {
+                colors = btn.evaluate(
+                    """el => {
                         const cs = window.getComputedStyle(el);
                         return {
                             color: cs.color,
                             backgroundColor: cs.backgroundColor
                         };
-                    }""")
+                    }"""
+                )
                 # Basic check: text color shouldn't be the same as background
-                assert (
-                    colors["color"] != colors["backgroundColor"]
-                ), "Poor color contrast detected"
+                assert colors["color"] != colors["backgroundColor"], "Poor color contrast detected"

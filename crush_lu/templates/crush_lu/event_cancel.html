@@ -1,44 +1,35 @@
-{% extends 'crush_lu/base.html' %} {% load i18n %} {% block title %}Cancel Registration
-- Crush.lu{% endblock %} {% block content %}
-<div class="flex min-h-[60vh] items-center justify-center px-4 py-12">
-    <div class="w-full max-w-lg">
-        <div
-            class="rounded-2xl bg-white p-8 text-center shadow-lg dark:bg-gray-800 dark:shadow-gray-900/20"
-        >
-            <h2 class="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
-                {% trans "Cancel Event Registration" %}
-            </h2>
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
 
-            <div
-                class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-left text-amber-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-            >
-                <h5 class="mb-2 font-semibold">{{ event.title }}</h5>
+{% block title %}Cancel Registration - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-lg">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20 p-8 text-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">{% trans "Cancel Event Registration" %}</h2>
+
+            <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-4 mb-6 text-left">
+                <h5 class="font-semibold mb-2">{{ event.title }}</h5>
                 <p class="text-sm">
-                    {% blocktrans with date=event.date_time|date:"D, M j, Y"
-                    time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{%
-                    endblocktrans %}<br />
+                    {% blocktrans with date=event.date_time|date:"D, M j, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}<br>
                     {{ event.location }}
                 </p>
             </div>
 
-            <p class="mb-6 text-gray-600 dark:text-gray-300">
-                {% trans "Are you sure you want to cancel your registration for this
-                event?" %}
+            <p class="text-gray-600 dark:text-gray-300 mb-6">
+                {% trans "Are you sure you want to cancel your registration for this event?" %}
             </p>
 
             <form method="post">
                 {% csrf_token %}
                 <div class="space-y-3">
-                    <button
-                        type="submit"
-                        class="w-full rounded-lg bg-red-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-600"
-                    >
+                    <button type="submit"
+                            class="w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors">
                         {% trans "Yes, Cancel Registration" %}
                     </button>
-                    <a
-                        href="{% url 'crush_lu:dashboard' %}"
-                        class="block w-full rounded-lg border border-gray-300 px-6 py-3 text-center font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                    >
+                    <a href="{% url 'crush_lu:dashboard' %}"
+                       class="block w-full py-3 px-6 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg text-center transition-colors">
                         {% trans "No, Keep Registration" %}
                     </a>
                 </div>

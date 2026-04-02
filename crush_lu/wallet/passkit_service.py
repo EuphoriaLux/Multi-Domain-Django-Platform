@@ -46,18 +46,14 @@ def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
         if profile and profile.apple_auth_token:
             return profile.apple_auth_token
     except Exception as e:
-        logger.error(
-            "Error resolving PassKit auth token for serial %s: %s", serial_number, e
-        )
+        logger.error("Error resolving PassKit auth token for serial %s: %s", serial_number, e)
 
     return None
 
 
 def _get_expected_auth_token(pass_type_identifier, serial_number):
     # First, try to resolve from CrushProfile (per-pass tokens)
-    profile_token = _resolve_auth_token_from_profile(
-        pass_type_identifier, serial_number
-    )
+    profile_token = _resolve_auth_token_from_profile(pass_type_identifier, serial_number)
     if profile_token:
         return profile_token
 
@@ -128,9 +124,7 @@ def _load_pass_package_builder():
     return _load_callable(builder_path)
 
 
-def _register_device(
-    request, device_library_identifier, pass_type_identifier, serial_number
-):
+def _register_device(request, device_library_identifier, pass_type_identifier, serial_number):
     auth_response = _require_authorization(request, pass_type_identifier, serial_number)
     if auth_response:
         return auth_response
@@ -157,9 +151,7 @@ def _register_device(
     return HttpResponse(status=status_code)
 
 
-def _unregister_device(
-    request, device_library_identifier, pass_type_identifier, serial_number
-):
+def _unregister_device(request, device_library_identifier, pass_type_identifier, serial_number):
     auth_response = _require_authorization(request, pass_type_identifier, serial_number)
     if auth_response:
         return auth_response
@@ -178,9 +170,7 @@ def _unregister_device(
 
 @csrf_exempt
 @require_http_methods(["POST", "DELETE"])
-def device_registration(
-    request, device_library_identifier, pass_type_identifier, serial_number
-):
+def device_registration(request, device_library_identifier, pass_type_identifier, serial_number):
     if request.method == "POST":
         return _register_device(
             request,
@@ -200,9 +190,7 @@ def device_registration(
 @require_http_methods(["GET"])
 def list_device_registrations(request, device_library_identifier, pass_type_identifier):
     passes_updated_since = request.GET.get("passesUpdatedSince")
-    auth_response = _require_authorization(
-        request, pass_type_identifier, serial_number=None
-    )
+    auth_response = _require_authorization(request, pass_type_identifier, serial_number=None)
     if auth_response:
         return auth_response
 

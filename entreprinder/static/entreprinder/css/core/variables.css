@@ -14,30 +14,30 @@
        ========================================== */
 
     /* PowerUP Blue - Primary brand color */
-    --powerup-blue: #0066cc;
-    --powerup-blue-light: #3399ff;
-    --powerup-blue-dark: #004d99;
+    --powerup-blue: #0066CC;
+    --powerup-blue-light: #3399FF;
+    --powerup-blue-dark: #004D99;
     --powerup-blue-alpha-90: rgba(0, 102, 204, 0.9);
     --powerup-blue-alpha-50: rgba(0, 102, 204, 0.5);
     --powerup-blue-alpha-20: rgba(0, 102, 204, 0.2);
     --powerup-blue-alpha-10: rgba(0, 102, 204, 0.1);
 
     /* PowerUP Orange - Accent/Action color */
-    --powerup-orange: #ff6b00;
-    --powerup-orange-light: #ff8533;
-    --powerup-orange-dark: #cc5500;
+    --powerup-orange: #FF6B00;
+    --powerup-orange-light: #FF8533;
+    --powerup-orange-dark: #CC5500;
     --powerup-orange-alpha-50: rgba(255, 107, 0, 0.5);
     --powerup-orange-alpha-20: rgba(255, 107, 0, 0.2);
 
     /* Success/Match Green */
-    --powerup-success: #4caf50;
-    --powerup-success-light: #81c784;
-    --powerup-success-dark: #388e3c;
+    --powerup-success: #4CAF50;
+    --powerup-success-light: #81C784;
+    --powerup-success-dark: #388E3C;
 
     /* Dislike/Pass Red */
-    --powerup-danger: #ff4d4d;
-    --powerup-danger-light: #ff8080;
-    --powerup-danger-dark: #cc3d3d;
+    --powerup-danger: #FF4D4D;
+    --powerup-danger-light: #FF8080;
+    --powerup-danger-dark: #CC3D3D;
 
     /* ==========================================
        NEUTRAL COLORS
@@ -46,10 +46,10 @@
     --powerup-charcoal: #333333;
     --powerup-gray: #666666;
     --powerup-gray-light: #999999;
-    --powerup-gray-lighter: #cccccc;
-    --powerup-silver: #e8e8e8;
-    --powerup-pearl: #f5f5f5;
-    --powerup-white: #ffffff;
+    --powerup-gray-lighter: #CCCCCC;
+    --powerup-silver: #E8E8E8;
+    --powerup-pearl: #F5F5F5;
+    --powerup-white: #FFFFFF;
 
     /* ==========================================
        SEMANTIC COLORS
@@ -65,19 +65,18 @@
        TYPOGRAPHY
        ========================================== */
 
-    --powerup-font-sans:
-        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --powerup-font-display: "Poppins", var(--powerup-font-sans);
+    --powerup-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --powerup-font-display: 'Poppins', var(--powerup-font-sans);
 
     /* Font sizes - modular scale (1.25) */
-    --powerup-text-xs: 0.75rem; /* 12px */
-    --powerup-text-sm: 0.875rem; /* 14px */
-    --powerup-text-base: 1rem; /* 16px */
-    --powerup-text-lg: 1.125rem; /* 18px */
-    --powerup-text-xl: 1.25rem; /* 20px */
-    --powerup-text-2xl: 1.5rem; /* 24px */
-    --powerup-text-3xl: 1.875rem; /* 30px */
-    --powerup-text-4xl: 2.25rem; /* 36px */
+    --powerup-text-xs: 0.75rem;    /* 12px */
+    --powerup-text-sm: 0.875rem;   /* 14px */
+    --powerup-text-base: 1rem;     /* 16px */
+    --powerup-text-lg: 1.125rem;   /* 18px */
+    --powerup-text-xl: 1.25rem;    /* 20px */
+    --powerup-text-2xl: 1.5rem;    /* 24px */
+    --powerup-text-3xl: 1.875rem;  /* 30px */
+    --powerup-text-4xl: 2.25rem;   /* 36px */
 
     /* Font weights */
     --powerup-font-normal: 400;
@@ -94,13 +93,13 @@
        SPACING
        ========================================== */
 
-    --powerup-space-xs: 0.25rem; /* 4px */
-    --powerup-space-sm: 0.5rem; /* 8px */
-    --powerup-space-md: 1rem; /* 16px */
-    --powerup-space-lg: 1.5rem; /* 24px */
-    --powerup-space-xl: 2rem; /* 32px */
-    --powerup-space-2xl: 3rem; /* 48px */
-    --powerup-space-3xl: 4rem; /* 64px */
+    --powerup-space-xs: 0.25rem;   /* 4px */
+    --powerup-space-sm: 0.5rem;    /* 8px */
+    --powerup-space-md: 1rem;      /* 16px */
+    --powerup-space-lg: 1.5rem;    /* 24px */
+    --powerup-space-xl: 2rem;      /* 32px */
+    --powerup-space-2xl: 3rem;     /* 48px */
+    --powerup-space-3xl: 4rem;     /* 64px */
 
     /* ==========================================
        BORDERS & RADIUS

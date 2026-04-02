@@ -9,35 +9,22 @@
 
 .vdl-map-section {
     padding: var(--vdl-space-3xl) 0;
-    background: linear-gradient(
-        165deg,
-        var(--vdl-cream) 0%,
-        var(--vdl-pearl) 35%,
-        var(--vdl-mist) 100%
-    );
+    background: linear-gradient(165deg, var(--vdl-cream) 0%, var(--vdl-pearl) 35%, var(--vdl-mist) 100%);
     position: relative;
     overflow: hidden;
 }
 
 /* Subtle texture overlay for premium feel */
 .vdl-map-section::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     background-image:
-        radial-gradient(
-            circle at 25% 25%,
-            var(--vdl-gold-alpha-10) 0%,
-            transparent 50%
-        ),
-        radial-gradient(
-            circle at 75% 75%,
-            var(--vdl-burgundy-alpha-05) 0%,
-            transparent 50%
-        );
+        radial-gradient(circle at 25% 25%, var(--vdl-gold-alpha-10) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, var(--vdl-burgundy-alpha-05) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
 }
@@ -68,20 +55,18 @@
 /* Elegant top border accent */
 .vdl-map-wrapper::before,
 .map-container::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(
-        90deg,
+    background: linear-gradient(90deg,
         var(--vdl-burgundy) 0%,
         var(--vdl-gold) 25%,
         var(--vdl-gold-light) 50%,
         var(--vdl-gold) 75%,
-        var(--vdl-burgundy) 100%
-    );
+        var(--vdl-burgundy) 100%);
     border-radius: var(--vdl-radius-xl) var(--vdl-radius-xl) 0 0;
 }
 
@@ -131,24 +116,12 @@
 }
 
 .map-placeholder::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     background-image:
-        repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 35px,
-            rgba(255, 255, 255, 0.1) 35px,
-            rgba(255, 255, 255, 0.1) 70px
-        ),
-        repeating-linear-gradient(
-            -45deg,
-            transparent,
-            transparent 35px,
-            rgba(0, 0, 0, 0.03) 35px,
-            rgba(0, 0, 0, 0.03) 70px
-        );
+        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px),
+        repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(0,0,0,.03) 35px, rgba(0,0,0,.03) 70px);
     pointer-events: none;
 }
 
@@ -199,11 +172,7 @@
     margin-bottom: var(--vdl-space-lg);
     position: relative;
     display: inline-block;
-    background: linear-gradient(
-        135deg,
-        var(--vdl-burgundy) 0%,
-        var(--vdl-burgundy-light) 100%
-    );
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-light) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -211,35 +180,26 @@
 
 /* Sophisticated underline with golden ratio proportions */
 .vdl-map-header h2::after {
-    content: "";
+    content: '';
     position: absolute;
     bottom: calc(-1 * var(--vdl-space-sm));
     left: 50%;
     transform: translateX(-50%);
     width: 89px;
     height: 4px;
-    background: linear-gradient(
-        90deg,
+    background: linear-gradient(90deg,
         transparent 0%,
         var(--vdl-gold-dark) 15%,
         var(--vdl-gold) 50%,
         var(--vdl-gold-light) 85%,
-        transparent 100%
-    );
+        transparent 100%);
     border-radius: var(--vdl-radius-sm);
     animation: subtle-glow 3s ease-in-out infinite;
 }
 
 @keyframes subtle-glow {
-    0%,
-    100% {
-        opacity: 0.8;
-        transform: translateX(-50%) scaleX(1);
-    }
-    50% {
-        opacity: 1;
-        transform: translateX(-50%) scaleX(1.05);
-    }
+    0%, 100% { opacity: 0.8; transform: translateX(-50%) scaleX(1); }
+    50% { opacity: 1; transform: translateX(-50%) scaleX(1.05); }
 }
 
 .vdl-map-header p {
@@ -367,18 +327,16 @@
 }
 
 .vdl-legend-item::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(
-        90deg,
+    background: linear-gradient(90deg,
         transparent,
         var(--vdl-gold-alpha-10),
-        transparent
-    );
+        transparent);
     transition: left var(--vdl-transition-slow);
 }
 
@@ -417,53 +375,42 @@
 }
 
 .vdl-legend-marker::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 15%;
     left: 15%;
     right: 15%;
     bottom: 15%;
     border-radius: inherit;
-    background: linear-gradient(
-        135deg,
+    background: linear-gradient(135deg,
         rgba(255, 255, 255, 0.3) 0%,
         transparent 50%,
-        rgba(0, 0, 0, 0.1) 100%
-    );
+        rgba(0, 0, 0, 0.1) 100%);
     pointer-events: none;
 }
 
 .vdl-legend-marker.available,
 .legend-marker.available {
-    background: linear-gradient(
-        135deg,
+    background: linear-gradient(135deg,
         var(--vdl-gold) 0%,
         var(--vdl-gold-dark) 50%,
-        var(--vdl-gold-light) 100%
-    );
+        var(--vdl-gold-light) 100%);
     border: 2px solid var(--vdl-burgundy);
 }
 
 .vdl-legend-marker.selected,
 .legend-marker.selected {
-    background: linear-gradient(
-        135deg,
+    background: linear-gradient(135deg,
         var(--vdl-burgundy) 0%,
         var(--vdl-burgundy-dark) 50%,
-        var(--vdl-burgundy-light) 100%
-    );
+        var(--vdl-burgundy-light) 100%);
     border: 2px solid var(--vdl-gold);
     animation: gentle-pulse 2s ease-in-out infinite;
 }
 
 @keyframes gentle-pulse {
-    0%,
-    100% {
-        transform: rotate(-45deg) scale(1);
-    }
-    50% {
-        transform: rotate(-45deg) scale(1.05);
-    }
+    0%, 100% { transform: rotate(-45deg) scale(1); }
+    50% { transform: rotate(-45deg) scale(1.05); }
 }
 
 .vdl-legend-text {
@@ -505,11 +452,7 @@
     width: 50px;
     height: 50px;
     margin: 0 auto var(--vdl-space-md);
-    background: linear-gradient(
-        135deg,
-        var(--vdl-burgundy) 0%,
-        var(--vdl-burgundy-dark) 100%
-    );
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -624,11 +567,7 @@
     width: 60px;
     height: 60px;
     margin: 0 auto var(--vdl-space-lg);
-    background: linear-gradient(
-        135deg,
-        var(--vdl-burgundy) 0%,
-        var(--vdl-burgundy-dark) 100%
-    );
+    background: linear-gradient(135deg, var(--vdl-burgundy) 0%, var(--vdl-burgundy-dark) 100%);
     border-radius: 50% 50% 50% 0;
     transform: rotate(-45deg);
     display: flex;
@@ -670,11 +609,7 @@
 }
 
 .vdl-producer-card:hover .vdl-producer-card-price {
-    background: linear-gradient(
-        135deg,
-        var(--vdl-gold-alpha-10) 0%,
-        var(--vdl-gold-alpha-25) 100%
-    );
+    background: linear-gradient(135deg, var(--vdl-gold-alpha-10) 0%, var(--vdl-gold-alpha-25) 100%);
     border-color: var(--vdl-gold);
     transform: scale(1.05);
 }

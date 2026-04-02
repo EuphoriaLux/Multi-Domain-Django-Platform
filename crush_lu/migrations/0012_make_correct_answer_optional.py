@@ -6,16 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0011_add_journey_system"),
+        ('crush_lu', '0011_add_journey_system'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="journeychallenge",
-            name="correct_answer",
-            field=models.TextField(
-                blank=True,
-                help_text="The correct answer (leave blank for open-ended/questionnaire challenges)",
-            ),
+            model_name='journeychallenge',
+            name='correct_answer',
+            field=models.TextField(blank=True, help_text='The correct answer (leave blank for open-ended/questionnaire challenges)'),
         ),
     ]

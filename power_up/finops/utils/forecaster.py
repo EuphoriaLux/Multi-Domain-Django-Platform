@@ -7,6 +7,7 @@ Predicts future costs using linear regression with weekly seasonality adjustment
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
+from django.db.models import Sum
 from power_up.finops.models import CostAggregation, CostForecast
 
 
@@ -16,11 +17,11 @@ class CostForecaster:
     @classmethod
     def forecast_costs(
         cls,
-        dimension_type="overall",
-        dimension_value="all",
+        dimension_type='overall',
+        dimension_value='all',
         forecast_days=30,
         training_days=90,
-        currency="EUR",
+        currency='EUR'
     ):
         """
         Generate cost forecast using linear regression with seasonality
@@ -40,13 +41,13 @@ class CostForecaster:
         start_date = end_date - timedelta(days=training_days)
 
         historical = CostAggregation.objects.filter(
-            aggregation_type="daily",
+            aggregation_type='daily',
             dimension_type=dimension_type,
             dimension_value=dimension_value,
             period_start__gte=start_date,
             period_start__lte=end_date,
-            currency=currency,
-        ).order_by("period_start")
+            currency=currency
+        ).order_by('period_start')
 
         if historical.count() < 30:
             return []  # Not enough data for reliable forecast
@@ -83,29 +84,27 @@ class CostForecaster:
             # 95% Confidence interval (1.96 * standard error)
             margin = 1.96 * std_error
 
-            forecasts.append(
-                CostForecast(
-                    forecast_date=forecast_date,
-                    dimension_type=dimension_type,
-                    dimension_value=dimension_value,
-                    forecast_cost=Decimal(str(round(max(0, forecast_value), 2))),
-                    lower_bound=Decimal(str(round(max(0, forecast_value - margin), 2))),
-                    upper_bound=Decimal(str(round(forecast_value + margin, 2))),
-                    confidence=Decimal("95.0"),
-                    currency=currency,
-                    model_type="linear_regression_with_seasonality",
-                    training_period_start=start_date,
-                    training_period_end=end_date,
-                    training_days=training_days,
-                    metadata={
-                        "slope": slope,
-                        "intercept": intercept,
-                        "r_squared": cls._calculate_r_squared(costs, slope, intercept),
-                        "rmse": cls._calculate_rmse(costs, slope, intercept),
-                        "std_error": std_error,
-                    },
-                )
-            )
+            forecasts.append(CostForecast(
+                forecast_date=forecast_date,
+                dimension_type=dimension_type,
+                dimension_value=dimension_value,
+                forecast_cost=Decimal(str(round(max(0, forecast_value), 2))),
+                lower_bound=Decimal(str(round(max(0, forecast_value - margin), 2))),
+                upper_bound=Decimal(str(round(forecast_value + margin, 2))),
+                confidence=Decimal('95.0'),
+                currency=currency,
+                model_type='linear_regression_with_seasonality',
+                training_period_start=start_date,
+                training_period_end=end_date,
+                training_days=training_days,
+                metadata={
+                    'slope': slope,
+                    'intercept': intercept,
+                    'r_squared': cls._calculate_r_squared(costs, slope, intercept),
+                    'rmse': cls._calculate_rmse(costs, slope, intercept),
+                    'std_error': std_error
+                }
+            ))
 
         return forecasts
 
@@ -154,7 +153,8 @@ class CostForecaster:
 
         # Calculate average for each day
         avg_by_day = {
-            day: sum(vals) / len(vals) if vals else 0 for day, vals in by_day.items()
+            day: sum(vals) / len(vals) if vals else 0
+            for day, vals in by_day.items()
         }
 
         overall_avg = sum(avg_by_day.values()) / 7 if avg_by_day else 1
@@ -173,7 +173,7 @@ class CostForecaster:
             return 0
         mean = sum(values) / n
         variance = sum((x - mean) ** 2 for x in values) / (n - 1)
-        return variance**0.5
+        return variance ** 0.5
 
     @staticmethod
     def _calculate_r_squared(y_actual, slope, intercept):
@@ -191,7 +191,8 @@ class CostForecaster:
         y_mean = sum(y_actual) / len(y_actual)
         ss_tot = sum((y - y_mean) ** 2 for y in y_actual)
         ss_res = sum(
-            (y_actual[i] - (slope * i + intercept)) ** 2 for i in range(len(y_actual))
+            (y_actual[i] - (slope * i + intercept)) ** 2
+            for i in range(len(y_actual))
         )
         return 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
@@ -209,5 +210,8 @@ class CostForecaster:
             float: RMSE value (lower is better)
         """
         n = len(y_actual)
-        mse = sum((y_actual[i] - (slope * i + intercept)) ** 2 for i in range(n)) / n
-        return mse**0.5
+        mse = sum(
+            (y_actual[i] - (slope * i + intercept)) ** 2
+            for i in range(n)
+        ) / n
+        return mse ** 0.5

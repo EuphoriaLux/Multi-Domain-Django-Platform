@@ -1,9 +1,13 @@
+from django.contrib.auth.decorators import login_required as django_login_required
 from functools import wraps
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.contrib import messages
+from django.conf import settings
+from django.utils.http import url_has_allowed_host_and_scheme
+from urllib.parse import quote
 
 
 def crush_login_required(function):
@@ -11,18 +15,15 @@ def crush_login_required(function):
     Custom login_required decorator that redirects to Crush.lu's login page
     instead of the default Django/Allauth login page.
     """
-
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             # Redirect to Crush.lu login with validated next parameter
             from django.contrib.auth.views import redirect_to_login
-
-            login_url = reverse("crush_lu:login")
+            login_url = reverse('crush_lu:login')
             # Use Django's redirect_to_login which safely handles the next parameter
             return redirect_to_login(request.get_full_path(), login_url)
         return function(request, *args, **kwargs)
-
     return wrapper
 
 
@@ -33,36 +34,32 @@ def coach_required(function):
 
     Redirects non-coaches to the dashboard with an error message.
     """
-
     @wraps(function)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             from django.contrib.auth.views import redirect_to_login
-
-            login_url = reverse("crush_lu:login")
+            login_url = reverse('crush_lu:login')
             return redirect_to_login(request.get_full_path(), login_url)
 
         from crush_lu.models import CrushCoach
-
         try:
             coach = CrushCoach.objects.get(user=request.user)
             if not coach.is_active:
                 messages.error(
                     request,
-                    "Your coach account has been deactivated. Please contact an administrator.",
+                    'Your coach account has been deactivated. Please contact an administrator.',
                 )
-                return redirect("crush_lu:dashboard")
+                return redirect('crush_lu:dashboard')
         except CrushCoach.DoesNotExist:
-            messages.error(request, "You do not have coach access.")
-            return redirect("crush_lu:dashboard")
+            messages.error(request, 'You do not have coach access.')
+            return redirect('crush_lu:dashboard')
 
         request.coach = coach
         return function(request, *args, **kwargs)
-
     return wrapper
 
 
-def ratelimit(key="ip", rate="5/15m", method="POST", block=True):
+def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
     """
     Simple rate limiting decorator using Django's cache framework.
 
@@ -80,17 +77,16 @@ def ratelimit(key="ip", rate="5/15m", method="POST", block=True):
             # This view will be rate limited to 5 POST requests per 15 minutes per IP
             ...
     """
-
     def decorator(func):
         @wraps(func)
         def wrapper(request, *args, **kwargs):
             # Check if method matches
-            if method != "ALL" and request.method != method:
+            if method != 'ALL' and request.method != method:
                 return func(request, *args, **kwargs)
 
             # Parse rate limit
             try:
-                count, period = rate.split("/")
+                count, period = rate.split('/')
                 count = int(count)
             except (ValueError, AttributeError):
                 # Invalid rate format, skip rate limiting
@@ -114,10 +110,12 @@ def ratelimit(key="ip", rate="5/15m", method="POST", block=True):
                 request.limited = True
                 if block:
                     messages.error(
-                        request, "Too many attempts. Please try again later."
+                        request,
+                        f'Too many attempts. Please try again later.'
                     )
                     return HttpResponse(
-                        "Rate limit exceeded. Please try again later.", status=429
+                        'Rate limit exceeded. Please try again later.',
+                        status=429
                     )
             else:
                 # Increment counter (gracefully handle cache errors)
@@ -139,7 +137,6 @@ def ratelimit(key="ip", rate="5/15m", method="POST", block=True):
             return func(request, *args, **kwargs)
 
         return wrapper
-
     return decorator
 
 
@@ -153,51 +150,51 @@ def _parse_period(period_str):
 
     # Extract number and unit
     num_str = period_str[:-1] if period_str[-1].isalpha() else period_str
-    unit = period_str[-1] if period_str[-1].isalpha() else "m"
+    unit = period_str[-1] if period_str[-1].isalpha() else 'm'
 
     try:
         num = int(num_str)
     except ValueError:
         num = 15
-        unit = "m"
+        unit = 'm'
 
     multipliers = {
-        "s": 1,  # seconds
-        "m": 60,  # minutes
-        "h": 3600,  # hours
-        "d": 86400,  # days
+        's': 1,        # seconds
+        'm': 60,       # minutes
+        'h': 3600,     # hours
+        'd': 86400,    # days
     }
 
     return num * multipliers.get(unit, 60)
 
 
-def _get_cache_key(request, key, view_name=""):
+def _get_cache_key(request, key, view_name=''):
     """
     Generate cache key based on key type.
     """
     if callable(key):
         key_value = key(request)
-    elif key == "ip":
+    elif key == 'ip':
         # Get IP address (handle proxy headers)
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            key_value = x_forwarded_for.split(",")[0].strip()
+            key_value = x_forwarded_for.split(',')[0].strip()
         else:
-            key_value = request.META.get("REMOTE_ADDR", "unknown")
-    elif key == "user":
+            key_value = request.META.get('REMOTE_ADDR', 'unknown')
+    elif key == 'user':
         if request.user.is_authenticated:
-            key_value = f"user_{request.user.id}"
+            key_value = f'user_{request.user.id}'
         else:
             # Fall back to IP for anonymous users
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
             if x_forwarded_for:
-                key_value = x_forwarded_for.split(",")[0].strip()
+                key_value = x_forwarded_for.split(',')[0].strip()
             else:
-                key_value = request.META.get("REMOTE_ADDR", "unknown")
+                key_value = request.META.get('REMOTE_ADDR', 'unknown')
     else:
         key_value = str(key)
 
     # Sanitize key (cache keys can't have spaces or dots)
-    key_value = key_value.replace(" ", "_").replace(".", "_").replace(":", "_")
+    key_value = key_value.replace(' ', '_').replace('.', '_').replace(':', '_')
 
-    return f"ratelimit:{view_name}:{key_value}"
+    return f'ratelimit:{view_name}:{key_value}'

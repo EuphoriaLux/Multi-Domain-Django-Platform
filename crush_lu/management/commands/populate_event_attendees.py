@@ -66,13 +66,19 @@ class Command(BaseCommand):
 
         # Get profiles with photos first, then without
         profiles_with_photos = list(
-            CrushProfile.objects.filter(photo_1__isnull=False, is_approved=True)
+            CrushProfile.objects.filter(
+                photo_1__isnull=False, is_approved=True
+            )
             .exclude(photo_1="")
             .select_related("user")
         )
         profiles_without_photos = list(
-            CrushProfile.objects.filter(is_approved=True)
-            .exclude(pk__in=[p.pk for p in profiles_with_photos])
+            CrushProfile.objects.filter(
+                is_approved=True
+            )
+            .exclude(
+                pk__in=[p.pk for p in profiles_with_photos]
+            )
             .select_related("user")
         )
 
@@ -109,10 +115,10 @@ class Command(BaseCommand):
         # Also add the specified user if provided
         if include_user:
             try:
-                user = (
-                    User.objects.get(username=include_user)
-                    if "@" not in include_user
-                    else User.objects.get(email=include_user)
+                user = User.objects.get(
+                    username=include_user
+                ) if "@" not in include_user else User.objects.get(
+                    email=include_user
                 )
                 reg, was_created = EventRegistration.objects.get_or_create(
                     event=event,
@@ -133,7 +139,9 @@ class Command(BaseCommand):
             except User.DoesNotExist:
                 self.stderr.write(f"  Warning: User '{include_user}' not found")
 
-        total = EventRegistration.objects.filter(event=event, status="attended").count()
+        total = EventRegistration.objects.filter(
+            event=event, status="attended"
+        ).count()
 
         self.stdout.write(
             self.style.SUCCESS(

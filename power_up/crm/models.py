@@ -9,7 +9,6 @@ class CustomerGroup(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
-
     class OnboardingStatus(models.TextChoices):
         NONE = "none", "Not Started"
         IN_PROGRESS = "in_progress", "In Progress"

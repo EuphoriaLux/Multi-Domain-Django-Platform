@@ -1,73 +1,35 @@
 {% load i18n %}
 
-<div
-    class="mb-6 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-5 dark:border-purple-700/50 dark:from-purple-900/20 dark:to-pink-900/20"
->
-    <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <div
-            class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800/40"
-        >
-            <svg
-                class="h-6 w-6 text-purple-600 dark:text-purple-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
+<div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-700/50 rounded-xl p-5 mb-6">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div class="flex-shrink-0 w-12 h-12 bg-purple-100 dark:bg-purple-800/40 rounded-full flex items-center justify-center">
+            <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
         </div>
-        <div class="min-w-0 flex-1">
+        <div class="flex-1 min-w-0">
             <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-200">
                 {% trans "Help shape our next events!" %}
             </h3>
-            <p class="mt-0.5 text-sm text-purple-700 dark:text-purple-300">
+            <p class="text-sm text-purple-700 dark:text-purple-300 mt-0.5">
                 {% trans "Vote on what kind of event you'd like to see next." %}
             </p>
         </div>
-        <div class="w-full flex-shrink-0 sm:w-auto">
+        <div class="flex-shrink-0 w-full sm:w-auto">
             {% if active_polls|length == 1 %}
-            <a
-                href="{% url 'crush_lu:poll_detail' active_polls.0.id %}"
-                class="inline-flex w-full items-center justify-center rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 sm:w-auto dark:bg-purple-500 dark:hover:bg-purple-600"
-            >
+            <a href="{% url 'crush_lu:poll_detail' active_polls.0.id %}"
+               class="inline-flex items-center justify-center w-full sm:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors">
                 {% trans "Vote now" %}
-                <svg
-                    class="ml-1.5 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
+                <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
             </a>
             {% else %}
-            <a
-                href="{% url 'crush_lu:poll_list' %}"
-                class="inline-flex w-full items-center justify-center rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 sm:w-auto dark:bg-purple-500 dark:hover:bg-purple-600"
-            >
+            <a href="{% url 'crush_lu:poll_list' %}"
+               class="inline-flex items-center justify-center w-full sm:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors">
                 {% trans "View polls" %}
-                <svg
-                    class="ml-1.5 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
+                <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
             </a>
             {% endif %}
