@@ -221,10 +221,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_rotate(self):
         rotation_data = await self.advance_round_and_rotate()
-        await self.channel_layer.group_send(
-            self.quiz_group,
-            {"type": "quiz.rotate", "data": rotation_data},
-        )
+        if rotation_data.get("finished"):
+            # No more rounds — broadcast finished status with leaderboard
+            leaderboard = await self.get_leaderboard()
+            rotation_data["leaderboard"] = leaderboard
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.status", "data": rotation_data},
+            )
+        else:
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.rotate", "data": rotation_data},
+            )
 
     async def handle_leaderboard(self):
         leaderboard = await self.get_leaderboard()
@@ -365,6 +374,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         question = quiz.get_current_question()
         current_sort = quiz.current_round.sort_order if quiz.current_round else -1
+        current_pk = quiz.current_round.pk if quiz.current_round else -1
         data = {
             "status": quiz.status,
             "event_type": quiz.event.event_type,
@@ -390,10 +400,17 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     "status": (
                         "current"
                         if quiz.current_round_id == r.id
-                        else ("done" if r.sort_order < current_sort else "upcoming")
+                        else (
+                            "done"
+                            if (
+                                r.sort_order < current_sort
+                                or (r.sort_order == current_sort and r.pk < current_pk)
+                            )
+                            else "upcoming"
+                        )
                     ),
                 }
-                for r in quiz.rounds.order_by("sort_order")
+                for r in quiz.rounds.order_by("sort_order", "pk")
             ],
         }
         if question and quiz.is_active:
@@ -656,19 +673,32 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         except QuizEvent.DoesNotExist:
             return {}
 
-        # Find next round by sort_order
+        # Find next round by (sort_order, pk) — handles duplicate sort_orders
         current_sort = quiz.current_round.sort_order if quiz.current_round else -1
+        current_pk = quiz.current_round.pk if quiz.current_round else -1
         next_round = (
             quiz.rounds.filter(sort_order__gt=current_sort)
-            .order_by("sort_order")
+            .order_by("sort_order", "pk")
             .first()
         )
+        # Same sort_order: advance by pk within that group
+        if not next_round and quiz.current_round:
+            next_round = (
+                quiz.rounds.filter(
+                    sort_order=current_sort, pk__gt=current_pk
+                )
+                .order_by("pk")
+                .first()
+            )
 
         if next_round:
             quiz.current_round = next_round
             # Set to -1 so first next_question lands on Q0 (Issue #2)
             quiz.current_question_index = -1
-            quiz.save(update_fields=["current_round", "current_question_index"])
+            quiz.status = "active"
+            quiz.save(
+                update_fields=["current_round", "current_question_index", "status"]
+            )
 
             # Get the round_number for rotation lookup
             round_number = quiz.get_round_number(next_round)
@@ -687,6 +717,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     "role": r.role,
                     "display_name": (profile.display_name if profile else "Anonymous"),
                 }
+
+            if not assignments:
+                logger.warning(
+                    "No rotation assignments for quiz %s round_number %d. "
+                    "Rotation schedule may need regeneration.",
+                    quiz.id,
+                    round_number,
+                )
 
             return {
                 "round_title": next_round.title,

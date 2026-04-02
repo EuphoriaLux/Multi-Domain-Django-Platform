@@ -311,6 +311,17 @@ document.addEventListener("alpine:init", function () {
                     this._renderTableLeaderboard();
                     this._renderIndividualLeaderboard();
                 } else if (type === "quiz.rotate") {
+                    // Defensive: finished state may arrive via quiz.rotate
+                    if (data.finished || data.status === "finished") {
+                        if (data.leaderboard) {
+                            this.tables = data.leaderboard.tables || [];
+                            this.individuals = data.leaderboard.individuals || [];
+                        }
+                        this.screen = "finished";
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
+                        return;
+                    }
                     // Re-fetch assignment to get new table number
                     if (this.isQuizNight) {
                         this.fetchAssignment();
@@ -952,6 +963,11 @@ document.addEventListener("alpine:init", function () {
                         this._updateRoundCurrent(data.current_round.id);
                     }
                 } else if (type === "quiz.rotate") {
+                    // Defensive: finished state may arrive via quiz.rotate
+                    if (data.finished || data.status === "finished") {
+                        this.status = "finished";
+                        return;
+                    }
                     // Rebuild table overview from rotation assignments
                     if (data.assignments) {
                         this._rebuildTableMembersFromAssignments(data.assignments);

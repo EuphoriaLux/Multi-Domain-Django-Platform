@@ -65,9 +65,10 @@ class QuizEvent(models.Model):
     def get_round_number(self, round_obj=None):
         """Get the 0-indexed rotation round_number for a given round.
 
-        round_number in QuizRotationSchedule is the count of rounds
-        with sort_order less than the target round (0, 1, 2, ...).
-        This is NOT the sort_order value itself.
+        round_number in QuizRotationSchedule is the positional index
+        of the round in (sort_order, pk) ordering (0, 1, 2, ...).
+        This handles duplicate sort_order values correctly by using
+        pk as a tiebreaker.
 
         Args:
             round_obj: The round to compute for. Defaults to current_round.
@@ -78,7 +79,10 @@ class QuizEvent(models.Model):
         target = round_obj or self.current_round
         if not target:
             return 0
-        return self.rounds.filter(sort_order__lt=target.sort_order).count()
+        return self.rounds.filter(
+            models.Q(sort_order__lt=target.sort_order)
+            | models.Q(sort_order=target.sort_order, pk__lt=target.pk)
+        ).count()
 
     def get_current_question(self):
         """Return the current question based on round and index."""
