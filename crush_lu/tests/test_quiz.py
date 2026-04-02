@@ -426,15 +426,15 @@ class TestRotationAlgorithm:
             tables = set(e["table_number"] for e in man_entries)
             assert len(tables) == 1
 
-    def test_validation_too_few_men(self):
-        """Need at least 2 tables."""
+    def test_validation_too_few_tables_explicit(self):
+        """Explicitly requesting 1 table should fail."""
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
-        men = self._make_users("m", 2)
-        women = self._make_users("w", 2)
+        men = self._make_users("m", 4)
+        women = self._make_users("w", 4)
 
         with pytest.raises(ValidationError, match="at least 2 tables"):
-            generate_rotation_schedule(men, women)
+            generate_rotation_schedule(men, women, num_tables=1)
 
     def test_validation_too_few_participants(self):
         """Need at least 4 participants."""
@@ -446,15 +446,44 @@ class TestRotationAlgorithm:
         with pytest.raises(ValidationError, match="at least 4 participants"):
             generate_rotation_schedule(men, women, num_tables=2)
 
-    def test_extra_women_produce_warning(self):
-        """Extra women beyond num_tables * 2 produce a warning, not an error."""
+    def test_extra_women_all_seated(self):
+        """Extra women beyond groups A/B are seated in spillover group C."""
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
         men = self._make_users("m", 4)
         women = self._make_users("w", 6)
 
         result = generate_rotation_schedule(men, women)
-        assert any("could not be seated" in w for w in result["warnings"])
+        schedule = result["schedule"]
+        # All 6 women should appear in the schedule
+        scheduled_women = set(
+            e["user"] for e in schedule if e["role"] == "rotator"
+        )
+        assert len(scheduled_women) == 6
+        assert any("spillover" in w for w in result["warnings"])
+
+    def test_all_14_participants_seated(self):
+        """7 anchors + 7 rotators with 3 tables → all 14 distributed."""
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        men = self._make_users("m14", 7)
+        women = self._make_users("w14", 7)
+
+        result = generate_rotation_schedule(men, women, num_rounds=3)
+        schedule = result["schedule"]
+        all_users = set(e["user"] for e in schedule)
+        assert len(all_users) == 14
+        assert result["num_tables"] == 3
+
+    def test_num_tables_zero_fallback(self):
+        """num_tables=0 should auto-calculate, not error."""
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        men = self._make_users("mz", 6)
+        women = self._make_users("wz", 6)
+
+        result = generate_rotation_schedule(men, women, num_tables=0)
+        assert result["num_tables"] == 3  # 6 // 2 = 3
 
     def test_split_participants_by_gender(self):
         """NB/O/P genders go to whichever pool is smaller."""
