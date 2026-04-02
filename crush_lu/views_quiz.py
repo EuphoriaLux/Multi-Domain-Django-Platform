@@ -145,6 +145,7 @@ def quiz_live_view(request, event_id):
         "quiz": quiz,
         "event": quiz.event,
         "is_quiz_night": is_quiz_night,
+        "quiz_status": quiz.status,
         "user_table_number": user_table_number,
         "user_role": user_role,
         "tablemates_json": json.dumps(tablemates),

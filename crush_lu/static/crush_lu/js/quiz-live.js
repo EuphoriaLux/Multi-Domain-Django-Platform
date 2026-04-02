@@ -67,6 +67,7 @@ document.addEventListener('alpine:init', function () {
             get isQuestion() { return this.screen === 'question'; },
             get isLeaderboard() { return this.screen === 'leaderboard'; },
             get isRotate() { return this.screen === 'rotate'; },
+            get isFinished() { return this.screen === 'finished'; },
             get isConnected() { return this.connected; },
             get isDisconnected() { return !this.connected; },
             get hasAnswered() { return this.answered; },
@@ -168,6 +169,11 @@ document.addEventListener('alpine:init', function () {
                 if (tmAttr) {
                     try { this.tablemates = JSON.parse(tmAttr); } catch (e) {}
                 }
+                // Check if quiz is already finished (server-side status)
+                var initStatus = this.$el.getAttribute('data-quiz-status');
+                if (initStatus === 'finished') {
+                    this.screen = 'finished';
+                }
                 this.connectWebSocket();
                 if (this.isQuizNight) {
                     this._renderRoleBadge();
@@ -231,7 +237,16 @@ document.addEventListener('alpine:init', function () {
 
                 if (type === 'quiz.state') {
                     if (data.event_type) this.isQuizNight = data.event_type === 'quiz_night';
-                    if (data.status === 'active' && data.question) {
+                    if (data.status === 'finished') {
+                        // Quiz already finished — show finished screen with leaderboard
+                        if (data.leaderboard) {
+                            this.tables = data.leaderboard.tables || [];
+                            this.individuals = data.leaderboard.individuals || [];
+                        }
+                        this.screen = 'finished';
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
+                    } else if (data.status === 'active' && data.question) {
                         this.showQuestion(data);
                     } else if (data.current_round) {
                         this.roundName = data.current_round.title;
@@ -256,7 +271,15 @@ document.addEventListener('alpine:init', function () {
                     if (data.is_bonus !== undefined) this.isBonusRound = data.is_bonus;
                     this.screen = 'rotate';
                 } else if (type === 'quiz.status') {
-                    if (data.status === 'round_complete') {
+                    if (data.status === 'finished') {
+                        if (data.leaderboard) {
+                            this.tables = data.leaderboard.tables || [];
+                            this.individuals = data.leaderboard.individuals || [];
+                        }
+                        this.screen = 'finished';
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
+                    } else if (data.status === 'round_complete') {
                         this.screen = 'waiting';
                     }
                 } else if (type === 'quiz.table_scored') {
@@ -638,7 +661,7 @@ document.addEventListener('alpine:init', function () {
             get isFinished() { return this.status === 'finished'; },
             get isRoundComplete() { return this.roundComplete; },
             get canRotate() { return this.isQuizNight && this.roundComplete; },
-            get showNextQuestion() { return !this.roundComplete; },
+            get showNextQuestion() { return !this.roundComplete && !this.isFinished; },
             get hasCurrentQuestion() { return this.currentQuestion !== null; },
             get hasLeaderboard() { return this.tables.length > 0; },
             get showScoringGrid() { return this.isQuizNight && this.hasCurrentQuestion; },

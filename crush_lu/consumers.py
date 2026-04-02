@@ -67,6 +67,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
             state = None
         if state:
+            # Include leaderboard for finished quizzes so attendees see final results
+            if state.get("status") == "finished":
+                try:
+                    state["leaderboard"] = await self.get_leaderboard()
+                except Exception:
+                    logger.exception(
+                        "Failed to get leaderboard for finished quiz %s",
+                        self.quiz_id,
+                    )
             await self.send_json({"type": "quiz.state", "data": state})
 
     async def disconnect(self, close_code):
@@ -184,6 +193,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def handle_end_quiz(self):
         result = await self.set_quiz_status("finished")
         if result:
+            # Include final leaderboard so attendees see results on the finished screen
+            leaderboard = await self.get_leaderboard()
+            result["leaderboard"] = leaderboard
             await self.channel_layer.group_send(
                 self.quiz_group,
                 {"type": "quiz.status", "data": result},
