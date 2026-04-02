@@ -11,3 +11,10 @@ migrations/
 dist/
 build/
 *.egg-info/
+
+# Django templates — prettier's HTML parser cannot handle Django template syntax
+# ({% if %} inside attributes, {% blocktrans %} blocks, etc.)
+**/templates/**/*.html
+
+# JS files with syntax prettier cannot parse
+vinsdelux/static/vinsdelux/js/enhanced-map.js

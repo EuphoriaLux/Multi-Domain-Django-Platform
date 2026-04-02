@@ -11,7 +11,8 @@
          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
          {% if user_table_number %}data-table-number="{{ user_table_number }}"{% endif %}
          {% if user_role %}data-user-role="{{ user_role }}"{% endif %}
-         data-tablemates="{{ tablemates_json }}">
+         data-tablemates="{{ tablemates_json }}"
+         data-quiz-status="{{ quiz_status }}">
 
         {# --- Header --- #}
         <div class="mb-6 text-center">
@@ -125,6 +126,38 @@
             <div x-show="hasIndividualScores">
                 <h3 class="mb-2 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Top Players" %}</h3>
                 <div class="space-y-1" x-ref="playerboard"></div>
+            </div>
+        </div>
+
+        {# --- Finished Screen --- #}
+        <div x-show="isFinished" class="space-y-4">
+            <div class="rounded-xl bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 p-8 text-center shadow-lg ring-1 ring-crush-purple/30">
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+                    <svg class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white">{% trans "Quiz Complete!" %}</h2>
+                <p class="mt-2 text-gray-400">{% trans "Thanks for playing!" %}</p>
+                <div x-show="personalScore > 0" class="mt-4">
+                    <p class="text-sm text-gray-400">{% trans "Your Score" %}</p>
+                    <p class="text-3xl font-bold text-crush-pink" x-text="personalScore + ' pts'"></p>
+                </div>
+            </div>
+
+            {# Final leaderboard #}
+            <h2 class="text-center text-xl font-bold text-white">{% trans "Final Results" %}</h2>
+            <div class="space-y-2" x-ref="tableboard"></div>
+            <div x-show="hasIndividualScores">
+                <h3 class="mb-2 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Top Players" %}</h3>
+                <div class="space-y-1" x-ref="playerboard"></div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="{% url 'crush_lu:event_detail' event.id %}"
+                   class="inline-block rounded-xl bg-slate-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-600">
+                    {% trans "Back to Event" %}
+                </a>
             </div>
         </div>
 

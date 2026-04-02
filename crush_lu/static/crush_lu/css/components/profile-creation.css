@@ -7,7 +7,11 @@
    Profile Creation Wrapper
    =================== */
 .profile-creation-wrapper {
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    background: linear-gradient(
+        135deg,
+        rgba(155, 89, 182, 0.05),
+        rgba(255, 107, 157, 0.05)
+    );
     min-height: 100vh;
     padding-bottom: var(--space-12);
 }
@@ -236,7 +240,11 @@
 
 .looking-radio:checked + .looking-card {
     border-color: var(--crush-pink);
-    background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(155, 89, 182, 0.1));
+    background: linear-gradient(
+        135deg,
+        rgba(255, 107, 157, 0.1),
+        rgba(155, 89, 182, 0.1)
+    );
     box-shadow: var(--shadow-pink);
 }
 
@@ -281,7 +289,11 @@
 
 .interest-checkbox:checked + .interest-card {
     border-color: var(--crush-purple);
-    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+    background: linear-gradient(
+        135deg,
+        rgba(155, 89, 182, 0.15),
+        rgba(255, 107, 157, 0.15)
+    );
     box-shadow: var(--shadow-purple);
 }
 
@@ -507,7 +519,7 @@
 }
 
 .timeline-item:not(:last-child)::after {
-    content: '';
+    content: "";
     position: absolute;
     left: 16px;
     top: 40px;
@@ -862,7 +874,7 @@ html.dark .photo-badge {
 }
 
 .privacy-toggle-track::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 3px;
     left: 3px;
@@ -912,7 +924,7 @@ html.dark .photo-badge {
 
 .privacy-toggle-label-hint {
     font-size: var(--text-sm);
-    color: var(--crush-gray-dark, #4b5563);  /* Darker gray for WCAG AA compliance */
+    color: var(--crush-gray-dark, #4b5563); /* Darker gray for WCAG AA compliance */
 }
 
 /* Mobile: Stack toggle and label vertically for better readability */
@@ -1069,7 +1081,9 @@ html.dark .photo-badge {
     height: 100%;
     background: var(--crush-purple);
     border-radius: 2px;
-    transition: width var(--transition-fast), background var(--transition-fast);
+    transition:
+        width var(--transition-fast),
+        background var(--transition-fast);
 }
 
 .char-counter--warning .char-counter-bar-fill {
@@ -1085,11 +1099,16 @@ html.dark .photo-badge {
    Draws attention to the verify button
    =================== */
 @keyframes pulse-subtle {
-    0%, 100% {
-        box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.3), 0 4px 6px -4px rgba(147, 51, 234, 0.3);
+    0%,
+    100% {
+        box-shadow:
+            0 10px 15px -3px rgba(147, 51, 234, 0.3),
+            0 4px 6px -4px rgba(147, 51, 234, 0.3);
     }
     50% {
-        box-shadow: 0 10px 20px -3px rgba(147, 51, 234, 0.5), 0 4px 10px -4px rgba(236, 72, 153, 0.4);
+        box-shadow:
+            0 10px 20px -3px rgba(147, 51, 234, 0.5),
+            0 4px 10px -4px rgba(236, 72, 153, 0.4);
     }
 }
 
@@ -1126,8 +1145,12 @@ html.dark .photo-badge {
 
     /* Disable keyframe animations */
     @keyframes fadeIn {
-        from { opacity: 1; }
-        to { opacity: 1; }
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 1;
+        }
     }
 }
 

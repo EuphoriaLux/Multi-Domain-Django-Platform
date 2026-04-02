@@ -28,8 +28,9 @@
     overflow: hidden;
     box-shadow: var(--powerup-shadow-card);
     position: relative;
-    transition: transform var(--powerup-transition-normal),
-                box-shadow var(--powerup-transition-normal);
+    transition:
+        transform var(--powerup-transition-normal),
+        box-shadow var(--powerup-transition-normal);
     background: var(--powerup-white);
     cursor: grab;
 }
@@ -171,7 +172,11 @@
 
 /* Dislike Button */
 .swipe-btn-dislike {
-    background: linear-gradient(135deg, var(--powerup-danger) 0%, var(--powerup-danger-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-danger) 0%,
+        var(--powerup-danger-dark) 100%
+    );
     color: var(--powerup-white);
 }
 
@@ -181,7 +186,11 @@
 
 /* Like Button */
 .swipe-btn-like {
-    background: linear-gradient(135deg, var(--powerup-success) 0%, var(--powerup-success-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-success) 0%,
+        var(--powerup-success-dark) 100%
+    );
     color: var(--powerup-white);
 }
 
@@ -191,7 +200,11 @@
 
 /* Super Like (optional) */
 .swipe-btn-super {
-    background: linear-gradient(135deg, var(--powerup-blue) 0%, var(--powerup-blue-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-blue) 0%,
+        var(--powerup-blue-dark) 100%
+    );
     color: var(--powerup-white);
     width: 50px;
     height: 50px;
@@ -272,8 +285,9 @@
     max-width: 400px;
     width: 90%;
     opacity: 0;
-    transition: opacity var(--powerup-transition-normal),
-                transform var(--powerup-transition-bounce);
+    transition:
+        opacity var(--powerup-transition-normal),
+        transform var(--powerup-transition-bounce);
 }
 
 .match-popup.show {
@@ -305,8 +319,13 @@
 }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
 }
 
 .match-popup .match-photos {
@@ -354,7 +373,11 @@
 }
 
 .match-popup .btn-primary {
-    background: linear-gradient(135deg, var(--powerup-success) 0%, var(--powerup-success-dark) 100%);
+    background: linear-gradient(
+        135deg,
+        var(--powerup-success) 0%,
+        var(--powerup-success-dark) 100%
+    );
     color: var(--powerup-white);
 }
 

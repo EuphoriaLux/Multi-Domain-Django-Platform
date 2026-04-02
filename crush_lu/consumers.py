@@ -52,9 +52,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 table_id = None
             if table_id:
                 self.table_group = f"quiz_{self.quiz_id}_table_{table_id}"
-                await self.channel_layer.group_add(
-                    self.table_group, self.channel_name
-                )
+                await self.channel_layer.group_add(self.table_group, self.channel_name)
 
         await self.accept()
 
@@ -62,21 +60,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         try:
             state = await self.get_quiz_state()
         except Exception:
-            logger.exception(
-                "Failed to get quiz state for quiz %s", self.quiz_id
-            )
+            logger.exception("Failed to get quiz state for quiz %s", self.quiz_id)
             state = None
         if state:
+            # Include leaderboard for finished quizzes so attendees see final results
+            if state.get("status") == "finished":
+                try:
+                    state["leaderboard"] = await self.get_leaderboard()
+                except Exception:
+                    logger.exception(
+                        "Failed to get leaderboard for finished quiz %s",
+                        self.quiz_id,
+                    )
             await self.send_json({"type": "quiz.state", "data": state})
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.quiz_group, self.channel_name
-        )
+        await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
         if self.table_group:
-            await self.channel_layer.group_discard(
-                self.table_group, self.channel_name
-            )
+            await self.channel_layer.group_discard(self.table_group, self.channel_name)
 
     async def receive_json(self, content):
         action = content.get("action")
@@ -124,9 +125,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def send_error(self, message):
         """Send an error message back to the client."""
-        await self.send_json(
-            {"type": "quiz.error", "data": {"message": message}}
-        )
+        await self.send_json({"type": "quiz.error", "data": {"message": message}})
 
     # --- Host actions ---
 
@@ -184,6 +183,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def handle_end_quiz(self):
         result = await self.set_quiz_status("finished")
         if result:
+            # Include final leaderboard so attendees see results on the finished screen
+            leaderboard = await self.get_leaderboard()
+            result["leaderboard"] = leaderboard
             await self.channel_layer.group_send(
                 self.quiz_group,
                 {"type": "quiz.status", "data": result},
@@ -198,9 +200,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if table_id is None or question_id is None:
             return
 
-        result = await self.score_table_for_question(
-            table_id, question_id, is_correct
-        )
+        result = await self.score_table_for_question(table_id, question_id, is_correct)
         if result is None:
             return
 
@@ -257,40 +257,28 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     # --- Group message handlers ---
 
     async def quiz_question(self, event):
-        await self.send_json(
-            {"type": "quiz.question", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.question", "data": event["data"]})
 
     async def quiz_rotate(self, event):
         await self.send_json({"type": "quiz.rotate", "data": event["data"]})
 
     async def quiz_leaderboard(self, event):
-        await self.send_json(
-            {"type": "quiz.leaderboard", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.leaderboard", "data": event["data"]})
 
     async def quiz_status(self, event):
         await self.send_json({"type": "quiz.status", "data": event["data"]})
 
     async def quiz_table_score(self, event):
-        await self.send_json(
-            {"type": "quiz.table_score", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.table_score", "data": event["data"]})
 
     async def quiz_table_scored(self, event):
-        await self.send_json(
-            {"type": "quiz.table_scored", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.table_scored", "data": event["data"]})
 
     async def quiz_answer_result(self, event):
-        await self.send_json(
-            {"type": "quiz.answer_result", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.answer_result", "data": event["data"]})
 
     async def quiz_error(self, event):
-        await self.send_json(
-            {"type": "quiz.error", "data": event["data"]}
-        )
+        await self.send_json({"type": "quiz.error", "data": event["data"]})
 
     # --- Database helpers ---
 
@@ -341,17 +329,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models.quiz import QuizEvent
 
         try:
-            quiz = QuizEvent.objects.select_related("event").get(
-                id=self.quiz_id
-            )
+            quiz = QuizEvent.objects.select_related("event").get(id=self.quiz_id)
             if quiz.created_by_id == user.id or user.is_staff:
                 return True
             # Active coaches can also host
             from crush_lu.models import CrushCoach
 
-            return CrushCoach.objects.filter(
-                user=user, is_active=True
-            ).exists()
+            return CrushCoach.objects.filter(user=user, is_active=True).exists()
         except QuizEvent.DoesNotExist:
             return False
 
@@ -363,9 +347,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models.quiz import QuizEvent
 
         try:
-            quiz = QuizEvent.objects.select_related("event").get(
-                id=self.quiz_id
-            )
+            quiz = QuizEvent.objects.select_related("event").get(id=self.quiz_id)
             return quiz.event.event_type == "quiz_night"
         except QuizEvent.DoesNotExist:
             return False
@@ -375,16 +357,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models.quiz import QuizEvent
 
         try:
-            quiz = QuizEvent.objects.select_related(
-                "current_round", "event"
-            ).get(id=self.quiz_id)
+            quiz = QuizEvent.objects.select_related("current_round", "event").get(
+                id=self.quiz_id
+            )
         except QuizEvent.DoesNotExist:
             return None
 
         question = quiz.get_current_question()
-        current_sort = (
-            quiz.current_round.sort_order if quiz.current_round else -1
-        )
+        current_sort = quiz.current_round.sort_order if quiz.current_round else -1
         data = {
             "status": quiz.status,
             "event_type": quiz.event.event_type,
@@ -410,11 +390,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     "status": (
                         "current"
                         if quiz.current_round_id == r.id
-                        else (
-                            "done"
-                            if r.sort_order < current_sort
-                            else "upcoming"
-                        )
+                        else ("done" if r.sort_order < current_sort else "upcoming")
                     ),
                 }
                 for r in quiz.rounds.order_by("sort_order")
@@ -452,9 +428,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.current_round = first_round
         quiz.current_question_index = 0
         quiz.status = "active"
-        quiz.save(
-            update_fields=["current_round", "current_question_index", "status"]
-        )
+        quiz.save(update_fields=["current_round", "current_question_index", "status"])
 
         round_info = {
             "status": "active",
@@ -508,9 +482,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.current_round = round_obj
         # Set to -1 so the first next_question lands on index 0 (Issue #2)
         quiz.current_question_index = -1
-        quiz.save(
-            update_fields=["current_round", "current_question_index"]
-        )
+        quiz.save(update_fields=["current_round", "current_question_index"])
 
         return {
             "status": quiz.status,
@@ -685,9 +657,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return {}
 
         # Find next round by sort_order
-        current_sort = (
-            quiz.current_round.sort_order if quiz.current_round else -1
-        )
+        current_sort = quiz.current_round.sort_order if quiz.current_round else -1
         next_round = (
             quiz.rounds.filter(sort_order__gt=current_sort)
             .order_by("sort_order")
@@ -698,9 +668,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             quiz.current_round = next_round
             # Set to -1 so first next_question lands on Q0 (Issue #2)
             quiz.current_question_index = -1
-            quiz.save(
-                update_fields=["current_round", "current_question_index"]
-            )
+            quiz.save(update_fields=["current_round", "current_question_index"])
 
             # Get the round_number for rotation lookup
             round_number = quiz.get_round_number(next_round)
@@ -717,9 +685,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 assignments[str(r.user_id)] = {
                     "table_number": r.table.table_number,
                     "role": r.role,
-                    "display_name": (
-                        profile.display_name if profile else "Anonymous"
-                    ),
+                    "display_name": (profile.display_name if profile else "Anonymous"),
                 }
 
             return {
@@ -772,11 +738,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "is_correct": is_correct,
             "points_earned": points,
             "correct_answer": next(
-                (
-                    c["text"]
-                    for c in question.choices
-                    if c.get("is_correct")
-                ),
+                (c["text"] for c in question.choices if c.get("is_correct")),
                 None,
             ),
         }
@@ -815,9 +777,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     def get_leaderboard(self):
         from crush_lu.models.quiz import IndividualScore, QuizTable
 
-        tables = QuizTable.objects.filter(quiz_id=self.quiz_id).order_by(
-            "table_number"
-        )
+        tables = QuizTable.objects.filter(quiz_id=self.quiz_id).order_by("table_number")
         leaderboard = []
         for table in tables:
             score = table.get_total_score()
@@ -854,4 +814,3 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "tables": leaderboard,
             "individuals": individual_scores,
         }
-

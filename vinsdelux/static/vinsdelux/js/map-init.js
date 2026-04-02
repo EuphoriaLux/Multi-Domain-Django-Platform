@@ -3,85 +3,85 @@
  * This initializes the Leaflet map without ES6 modules
  */
 
-(function() {
-    'use strict';
+(function () {
+    "use strict";
 
     // Wait for DOM to be ready
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('🗺️ Initializing VinsDelux vineyard map...');
-        
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("🗺️ Initializing VinsDelux vineyard map...");
+
         // Check if Leaflet is loaded
-        if (typeof L === 'undefined') {
-            console.error('❌ Leaflet.js is not loaded');
+        if (typeof L === "undefined") {
+            console.error("❌ Leaflet.js is not loaded");
             return;
         }
 
         // Find the map container
-        const mapContainer = document.getElementById('vineyard-map');
+        const mapContainer = document.getElementById("vineyard-map");
         if (!mapContainer) {
-            console.warn('⚠️ Map container not found on this page');
+            console.warn("⚠️ Map container not found on this page");
             return;
         }
 
         // Initialize the map centered on Luxembourg's Moselle wine region
-        const map = L.map('vineyard-map', {
-            center: [49.5700, 6.3700], // Luxembourg Moselle wine region
+        const map = L.map("vineyard-map", {
+            center: [49.57, 6.37], // Luxembourg Moselle wine region
             zoom: 11,
             scrollWheelZoom: false, // Disable scroll zoom for better UX
-            zoomControl: true
+            zoomControl: true,
         });
 
         // Add map tiles (OpenStreetMap)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 18
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap contributors",
+            maxZoom: 18,
         }).addTo(map);
 
         // Enable scroll zoom when user focuses on map
-        map.on('focus', function() {
+        map.on("focus", function () {
             map.scrollWheelZoom.enable();
         });
 
-        map.on('blur', function() {
+        map.on("blur", function () {
             map.scrollWheelZoom.disable();
         });
 
         // Add custom styles for luxury appearance
         const luxuryIcon = L.divIcon({
-            className: 'luxury-plot-marker',
+            className: "luxury-plot-marker",
             html: '<div class="marker-inner"><i class="fas fa-wine-bottle"></i></div>',
             iconSize: [40, 40],
-            iconAnchor: [20, 40]
+            iconAnchor: [20, 40],
         });
 
         // Load plot data from API (with language prefix)
-        const langCode = document.documentElement.lang || 'en';
+        const langCode = document.documentElement.lang || "en";
         fetch(`/${langCode}/vinsdelux/api/plots/availability/?include_plots=true`)
-            .then(response => response.json())
-            .then(data => {
-                console.log('📍 Loading plot data:', data);
-                
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("📍 Loading plot data:", data);
+
                 // Add sample plots if API returns data
                 if (data.available_plots && Array.isArray(data.available_plots)) {
-                    data.available_plots.forEach(plot => {
+                    data.available_plots.forEach((plot) => {
                         // Check for latitude/longitude fields (API response format)
                         if (plot.latitude && plot.longitude) {
                             const marker = L.marker([plot.latitude, plot.longitude], {
                                 icon: luxuryIcon,
-                                title: plot.name || 'Vineyard Plot'
+                                title: plot.name || "Vineyard Plot",
                             }).addTo(map);
-                            
+
                             // Add popup with plot details
                             const popupContent = `
                                 <div class="plot-popup">
-                                    <h5>${plot.name || 'Vineyard Plot'}</h5>
-                                    <p><strong>Producer:</strong> ${plot.producer_name || 'Unknown'}</p>
-                                    <p><strong>Region:</strong> ${plot.producer_region || 'Luxembourg'}</p>
-                                    <p><strong>Size:</strong> ${plot.plot_size || 'N/A'}</p>
-                                    <p><strong>Grapes:</strong> ${plot.grape_varieties ? plot.grape_varieties.join(', ') : 'Various'}</p>
-                                    <p><strong>Soil:</strong> ${plot.soil_type || 'N/A'}</p>
-                                    <p><strong>Price:</strong> €${plot.base_price || 'Contact us'}</p>
-                                    ${plot.is_premium ? '<span class="badge bg-warning text-dark">Premium Plot</span>' : ''}
+                                    <h5>${plot.name || "Vineyard Plot"}</h5>
+                                    <p><strong>Producer:</strong> ${plot.producer_name || "Unknown"}</p>
+                                    <p><strong>Region:</strong> ${plot.producer_region || "Luxembourg"}</p>
+                                    <p><strong>Size:</strong> ${plot.plot_size || "N/A"}</p>
+                                    <p><strong>Grapes:</strong> ${plot.grape_varieties ? plot.grape_varieties.join(", ") : "Various"}</p>
+                                    <p><strong>Soil:</strong> ${plot.soil_type || "N/A"}</p>
+                                    <p><strong>Price:</strong> €${plot.base_price || "Contact us"}</p>
+                                    ${plot.is_premium ? '<span class="badge bg-warning text-dark">Premium Plot</span>' : ""}
                                     <button class="btn btn-sm btn-primary select-plot-btn mt-2" data-plot-id="${plot.id}">
                                         <i class="fas fa-wine-bottle"></i> Select This Plot
                                     </button>
@@ -97,15 +97,15 @@
                         { lat: 49.6216, lng: 6.1419, name: "Valley Reserve 2" },
                         { lat: 49.6016, lng: 6.1219, name: "Sunset Terrace 3" },
                         { lat: 49.6316, lng: 6.1519, name: "Heritage Block 4" },
-                        { lat: 49.5916, lng: 6.1119, name: "Premium Estate 5" }
+                        { lat: 49.5916, lng: 6.1119, name: "Premium Estate 5" },
                     ];
-                    
-                    samplePlots.forEach(plot => {
+
+                    samplePlots.forEach((plot) => {
                         const marker = L.marker([plot.lat, plot.lng], {
                             icon: luxuryIcon,
-                            title: plot.name
+                            title: plot.name,
                         }).addTo(map);
-                        
+
                         marker.bindPopup(`
                             <div class="plot-popup">
                                 <h5>${plot.name}</h5>
@@ -116,43 +116,45 @@
                     });
                 }
             })
-            .catch(error => {
-                console.error('❌ Error loading plot data:', error);
-                
+            .catch((error) => {
+                console.error("❌ Error loading plot data:", error);
+
                 // Add fallback sample markers
                 const fallbackPlots = [
                     { lat: 49.6116, lng: 6.1319, name: "Sample Plot 1" },
                     { lat: 49.6216, lng: 6.1419, name: "Sample Plot 2" },
-                    { lat: 49.6016, lng: 6.1219, name: "Sample Plot 3" }
+                    { lat: 49.6016, lng: 6.1219, name: "Sample Plot 3" },
                 ];
-                
-                fallbackPlots.forEach(plot => {
+
+                fallbackPlots.forEach((plot) => {
                     L.marker([plot.lat, plot.lng], {
                         icon: luxuryIcon,
-                        title: plot.name
-                    }).addTo(map).bindPopup(`<h5>${plot.name}</h5>`);
+                        title: plot.name,
+                    })
+                        .addTo(map)
+                        .bindPopup(`<h5>${plot.name}</h5>`);
                 });
             });
 
         // Handle plot selection clicks
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('select-plot-btn')) {
+        document.addEventListener("click", function (e) {
+            if (e.target.classList.contains("select-plot-btn")) {
                 const plotId = e.target.dataset.plotId;
-                console.log('🍷 Plot selected:', plotId);
-                
+                console.log("🍷 Plot selected:", plotId);
+
                 // Add visual feedback
-                e.target.textContent = 'Selected ✓';
-                e.target.classList.remove('btn-primary');
-                e.target.classList.add('btn-success');
+                e.target.textContent = "Selected ✓";
+                e.target.classList.remove("btn-primary");
+                e.target.classList.add("btn-success");
                 e.target.disabled = true;
-                
+
                 // You can add more selection logic here
                 // For example, updating a cart or sending to API
             }
         });
 
         // Add custom CSS for luxury markers
-        const style = document.createElement('style');
+        const style = document.createElement("style");
         style.textContent = `
             .luxury-plot-marker {
                 background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
@@ -189,8 +191,8 @@
         `;
         document.head.appendChild(style);
 
-        console.log('✅ VinsDelux vineyard map initialized successfully');
-        
+        console.log("✅ VinsDelux vineyard map initialized successfully");
+
         // Store map instance globally for debugging
         window.vinsDeluxMap = map;
     });

@@ -13,13 +13,13 @@
     --journey-bg-medium: #2c1810;
     --journey-bg-light: #3d2418;
     --journey-wine-primary: var(--vdl-burgundy);
-    --journey-wine-secondary: #DC143C;
-    --journey-wine-tertiary: #B22222;
-    --journey-wine-light: #CD5C5C;
-    --journey-wine-dark: #4B0000;
+    --journey-wine-secondary: #dc143c;
+    --journey-wine-tertiary: #b22222;
+    --journey-wine-light: #cd5c5c;
+    --journey-wine-dark: #4b0000;
     --journey-gold: var(--vdl-gold);
-    --journey-silver: #C0C0C0;
-    --journey-bronze: #CD7F32;
+    --journey-silver: #c0c0c0;
+    --journey-bronze: #cd7f32;
     --journey-success: #28a745;
     --journey-warning: #ffc107;
     --journey-danger: #dc3545;
@@ -65,16 +65,20 @@
 }
 
 .parallax-layer.layer-1 {
-    background: linear-gradient(135deg,
+    background: linear-gradient(
+        135deg,
         rgba(114, 47, 55, 0.1) 0%,
-        rgba(75, 0, 0, 0.2) 100%);
+        rgba(75, 0, 0, 0.2) 100%
+    );
     animation: float 20s ease-in-out infinite;
 }
 
 .parallax-layer.layer-2 {
-    background: radial-gradient(circle at 50% 50%,
+    background: radial-gradient(
+        circle at 50% 50%,
         rgba(220, 20, 60, 0.05) 0%,
-        transparent 70%);
+        transparent 70%
+    );
     animation: float 25s ease-in-out infinite reverse;
 }
 
@@ -85,7 +89,9 @@
     background-image:
         radial-gradient(circle, rgba(212, 175, 55, 0.1) 2px, transparent 2px),
         radial-gradient(circle, rgba(212, 175, 55, 0.05) 1px, transparent 1px);
-    background-size: 50px 50px, 25px 25px;
+    background-size:
+        50px 50px,
+        25px 25px;
     animation: particleFloat 30s linear infinite;
 }
 
@@ -94,34 +100,71 @@
    ========================================== */
 
 @keyframes float {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(-20px, -20px) scale(1.05); }
-    66% { transform: translate(20px, -10px) scale(0.95); }
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(-20px, -20px) scale(1.05);
+    }
+    66% {
+        transform: translate(20px, -10px) scale(0.95);
+    }
 }
 
 @keyframes particleFloat {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-100px); }
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-100px);
+    }
 }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.05); opacity: 0.9; }
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
 }
 
 @keyframes slideInRight {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 @keyframes slideInUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes glow {
-    0%, 100% { box-shadow: 0 0 5px var(--journey-wine-primary); }
-    50% { box-shadow: 0 0 20px var(--journey-wine-primary), 0 0 40px var(--journey-wine-secondary); }
+    0%,
+    100% {
+        box-shadow: 0 0 5px var(--journey-wine-primary);
+    }
+    50% {
+        box-shadow:
+            0 0 20px var(--journey-wine-primary),
+            0 0 40px var(--journey-wine-secondary);
+    }
 }
 
 /* ==========================================
@@ -133,11 +176,17 @@
     top: 100px;
     right: -400px;
     width: 350px;
-    background: linear-gradient(135deg, var(--journey-bg-medium), var(--journey-bg-dark));
+    background: linear-gradient(
+        135deg,
+        var(--journey-bg-medium),
+        var(--journey-bg-dark)
+    );
     border: 2px solid var(--journey-gold);
     border-radius: var(--vdl-radius-xl);
     padding: var(--vdl-space-xl);
-    box-shadow: var(--vdl-shadow-elevated), 0 0 30px rgba(212, 175, 55, 0.3);
+    box-shadow:
+        var(--vdl-shadow-elevated),
+        0 0 30px rgba(212, 175, 55, 0.3);
     transition: right 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     z-index: 1000;
 }
@@ -242,7 +291,11 @@
     left: 0;
     top: 0;
     height: 100%;
-    background: linear-gradient(90deg, var(--journey-wine-primary), var(--journey-wine-secondary));
+    background: linear-gradient(
+        90deg,
+        var(--journey-wine-primary),
+        var(--journey-wine-secondary)
+    );
     border-radius: var(--vdl-radius-xl);
     transition: width 0.5s ease;
     box-shadow: 0 0 20px rgba(114, 47, 55, 0.5);
@@ -392,7 +445,11 @@
     font-size: clamp(2rem, 5vw, 3rem);
     font-weight: bold;
     font-family: var(--vdl-font-display);
-    background: linear-gradient(135deg, var(--journey-wine-primary), var(--journey-wine-secondary));
+    background: linear-gradient(
+        135deg,
+        var(--journey-wine-primary),
+        var(--journey-wine-secondary)
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

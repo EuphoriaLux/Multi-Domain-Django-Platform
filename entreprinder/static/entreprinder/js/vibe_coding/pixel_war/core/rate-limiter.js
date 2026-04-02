@@ -32,7 +32,7 @@ export class RateLimiter {
     checkReset() {
         const now = Date.now();
         const timeSinceReset = (now - this.lastResetTime) / 1000;
-        
+
         if (timeSinceReset >= 60) {
             this.pixelsRemaining = this.maxPixelsPerMinute;
             this.lastResetTime = now;
@@ -51,7 +51,9 @@ export class RateLimiter {
             // Update server-side cooldown status
             if (cooldownInfo.cooldown_remaining > 0) {
                 this.cooldownActive = true;
-                this.lastPlacementTime = Date.now() - ((this.cooldownSeconds - cooldownInfo.cooldown_remaining) * 1000);
+                this.lastPlacementTime =
+                    Date.now() -
+                    (this.cooldownSeconds - cooldownInfo.cooldown_remaining) * 1000;
             }
         }
     }
@@ -59,16 +61,16 @@ export class RateLimiter {
     // Get remaining cooldown time in seconds
     getCooldownRemaining() {
         if (!this.cooldownActive) return 0;
-        
+
         const now = Date.now();
         const timeSincePlacement = (now - this.lastPlacementTime) / 1000;
         const remaining = this.cooldownSeconds - timeSincePlacement;
-        
+
         if (remaining <= 0) {
             this.cooldownActive = false;
             return 0;
         }
-        
+
         return remaining;
     }
 

@@ -47,7 +47,9 @@ canvas {
 }
 
 .cost-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 /* Loading spinner for charts */
@@ -68,7 +70,9 @@ canvas {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Hidden scrollbar for nav overflow */

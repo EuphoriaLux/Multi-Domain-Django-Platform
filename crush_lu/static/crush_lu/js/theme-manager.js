@@ -6,8 +6,8 @@
  *
  * Priority: localStorage > system preference > default (light)
  */
-(function() {
-    'use strict';
+(function () {
+    "use strict";
 
     /**
      * Get initial theme preference
@@ -15,18 +15,21 @@
      */
     function getInitialTheme() {
         // Check localStorage first
-        const saved = localStorage.getItem('theme');
-        if (saved === 'dark' || saved === 'light') {
+        const saved = localStorage.getItem("theme");
+        if (saved === "dark" || saved === "light") {
             return saved;
         }
 
         // Fall back to system preference
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark';
+        if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+        ) {
+            return "dark";
         }
 
         // Default to light mode
-        return 'light';
+        return "light";
     }
 
     /**
@@ -34,14 +37,14 @@
      * @param {string} theme - 'dark' or 'light'
      */
     function applyTheme(theme) {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-            document.documentElement.style.colorScheme = 'dark';
+        if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+            document.documentElement.style.colorScheme = "dark";
         } else {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.style.colorScheme = 'light';
+            document.documentElement.classList.remove("dark");
+            document.documentElement.style.colorScheme = "light";
         }
-        localStorage.setItem('theme', theme);
+        localStorage.setItem("theme", theme);
     }
 
     /**
@@ -49,7 +52,7 @@
      */
     function toggleTheme() {
         const current = getInitialTheme();
-        applyTheme(current === 'dark' ? 'light' : 'dark');
+        applyTheme(current === "dark" ? "light" : "dark");
     }
 
     // Initialize theme immediately (blocking execution)
@@ -58,24 +61,24 @@
 
     // Listen for system preference changes
     if (window.matchMedia) {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
         // Modern browsers
         if (mediaQuery.addEventListener) {
-            mediaQuery.addEventListener('change', (e) => {
+            mediaQuery.addEventListener("change", (e) => {
                 // Only auto-switch if user hasn't manually set preference
-                const saved = localStorage.getItem('theme');
+                const saved = localStorage.getItem("theme");
                 if (!saved) {
-                    applyTheme(e.matches ? 'dark' : 'light');
+                    applyTheme(e.matches ? "dark" : "light");
                 }
             });
         }
         // Legacy browsers
         else if (mediaQuery.addListener) {
             mediaQuery.addListener((e) => {
-                const saved = localStorage.getItem('theme');
+                const saved = localStorage.getItem("theme");
                 if (!saved) {
-                    applyTheme(e.matches ? 'dark' : 'light');
+                    applyTheme(e.matches ? "dark" : "light");
                 }
             });
         }
@@ -83,8 +86,8 @@
 
     // Expose API for Alpine.js component
     window.themeManager = {
-        getTheme: () => localStorage.getItem('theme') || getInitialTheme(),
+        getTheme: () => localStorage.getItem("theme") || getInitialTheme(),
         setTheme: applyTheme,
-        toggleTheme: toggleTheme
+        toggleTheme: toggleTheme,
     };
 })();

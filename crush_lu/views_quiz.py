@@ -20,32 +20,39 @@ def _get_table_members_json(quiz, round_number=0):
     for table in tables:
         members = []
         # Try rotation schedule first
-        rotations = (
-            QuizRotationSchedule.objects.filter(
-                quiz=quiz, round_number=round_number, table=table
-            )
-            .select_related("user__crushprofile")
-        )
+        rotations = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number, table=table
+        ).select_related("user__crushprofile")
         if rotations.exists():
             for r in rotations:
                 profile = getattr(r.user, "crushprofile", None)
-                members.append({
-                    "display_name": profile.display_name if profile else "Anonymous",
-                    "role": r.role,
-                })
+                members.append(
+                    {
+                        "display_name": (
+                            profile.display_name if profile else "Anonymous"
+                        ),
+                        "role": r.role,
+                    }
+                )
         else:
             # Fall back to static membership
             for m in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(m.user, "crushprofile", None)
-                members.append({
-                    "display_name": profile.display_name if profile else "Anonymous",
-                    "role": "",
-                })
-        result.append({
-            "table_number": table.table_number,
-            "members": members,
-            "total_score": table.get_total_score(),
-        })
+                members.append(
+                    {
+                        "display_name": (
+                            profile.display_name if profile else "Anonymous"
+                        ),
+                        "role": "",
+                    }
+                )
+        result.append(
+            {
+                "table_number": table.table_number,
+                "members": members,
+                "total_score": table.get_total_score(),
+            }
+        )
     return result
 
 
@@ -89,9 +96,7 @@ def quiz_live_view(request, event_id):
         user_table = rotation.table
     elif is_quiz_night:
         membership = (
-            QuizTableMembership.objects.filter(
-                table__quiz=quiz, user=request.user
-            )
+            QuizTableMembership.objects.filter(table__quiz=quiz, user=request.user)
             .select_related("table")
             .first()
         )
@@ -112,22 +117,28 @@ def quiz_live_view(request, event_id):
             )
             for r in mates:
                 profile = getattr(r.user, "crushprofile", None)
-                tablemates.append({
-                    "display_name": profile.display_name if profile else "Anonymous",
-                    "role": r.role,
-                })
+                tablemates.append(
+                    {
+                        "display_name": (
+                            profile.display_name if profile else "Anonymous"
+                        ),
+                        "role": r.role,
+                    }
+                )
         else:
-            mates = (
-                user_table.memberships
-                .exclude(user=request.user)
-                .select_related("user__crushprofile")
+            mates = user_table.memberships.exclude(user=request.user).select_related(
+                "user__crushprofile"
             )
             for m in mates:
                 profile = getattr(m.user, "crushprofile", None)
-                tablemates.append({
-                    "display_name": profile.display_name if profile else "Anonymous",
-                    "role": "",
-                })
+                tablemates.append(
+                    {
+                        "display_name": (
+                            profile.display_name if profile else "Anonymous"
+                        ),
+                        "role": "",
+                    }
+                )
 
     # For coaches/staff who aren't assigned to a table, provide the full
     # table overview so they can see the setup from the participant view
@@ -137,14 +148,13 @@ def quiz_live_view(request, event_id):
     )
     all_tables_json = ""
     if is_coach_viewer and is_quiz_night:
-        all_tables_json = json.dumps(
-            _get_table_members_json(quiz, round_number)
-        )
+        all_tables_json = json.dumps(_get_table_members_json(quiz, round_number))
 
     context = {
         "quiz": quiz,
         "event": quiz.event,
         "is_quiz_night": is_quiz_night,
+        "quiz_status": quiz.status,
         "user_table_number": user_table_number,
         "user_role": user_role,
         "tablemates_json": json.dumps(tablemates),
@@ -162,14 +172,8 @@ def quiz_coach_view(request, event_id):
         event_id=event_id,
     )
     # Quiz creator, staff, or assigned coaches can access host view
-    is_coach = CrushCoach.objects.filter(
-        user=request.user, is_active=True
-    ).exists()
-    if (
-        quiz.created_by != request.user
-        and not request.user.is_staff
-        and not is_coach
-    ):
+    is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
+    if quiz.created_by != request.user and not request.user.is_staff and not is_coach:
         raise Http404
 
     rounds = quiz.rounds.prefetch_related("questions").order_by("sort_order")
