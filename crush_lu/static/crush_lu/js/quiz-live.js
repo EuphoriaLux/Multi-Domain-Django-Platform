@@ -966,6 +966,8 @@ document.addEventListener("alpine:init", function () {
                     this.scoredTables = {};
                     this.scoredCount = 0;
                     this.scoringQuestionId = data.id;
+                    // Re-enable table buttons for the new question
+                    this._updateTableButtons();
                 } else if (type === "quiz.leaderboard") {
                     this.tables = data.tables || [];
                     this._renderTableLeaderboard();
