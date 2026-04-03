@@ -345,21 +345,29 @@ document.addEventListener("alpine:init", function () {
                         this.screen = "waiting";
                     }
                 } else if (type === "quiz.table_scored") {
-                    // Show feedback when host scores our table
-                    if (data.table_number === this.tableNumber) {
-                        this._tableScoredCorrect = data.is_correct;
-                        if (data.is_correct) {
-                            var pts = data.points_awarded || 0;
-                            this.tableScoredFeedback = "+" + pts + " pts!";
-                            this.personalScore += pts;
-                        } else {
-                            this.tableScoredFeedback = "Incorrect";
+                    // Scoring in progress — no correctness info yet (deferred until all tables scored)
+                    this.tableScoredFeedback = "";
+                } else if (type === "quiz.reveal_scores") {
+                    // All tables scored — reveal correct/incorrect to attendees
+                    var results = data.results || [];
+                    for (var ri = 0; ri < results.length; ri++) {
+                        if (results[ri].table_number === this.tableNumber) {
+                            var r = results[ri];
+                            this._tableScoredCorrect = r.is_correct;
+                            if (r.is_correct) {
+                                var pts = r.points_awarded || 0;
+                                this.tableScoredFeedback = "+" + pts + " pts!";
+                                this.personalScore += pts;
+                            } else {
+                                this.tableScoredFeedback = "Incorrect";
+                            }
+                            var self = this;
+                            if (this.tableScoredTimer) clearTimeout(this.tableScoredTimer);
+                            this.tableScoredTimer = setTimeout(function () {
+                                self.tableScoredFeedback = "";
+                            }, 3000);
+                            break;
                         }
-                        var self = this;
-                        if (this.tableScoredTimer) clearTimeout(this.tableScoredTimer);
-                        this.tableScoredTimer = setTimeout(function () {
-                            self.tableScoredFeedback = "";
-                        }, 3000);
                     }
                 } else if (type === "quiz.table_score") {
                     // Legacy table score update
@@ -727,8 +735,10 @@ document.addEventListener("alpine:init", function () {
 
             // Scoring
             tableCount: 0,
-            scoredTables: {}, // { tableId: true/false }
+            scoredTables: {}, // { tableId: "pending"|"scored"|true|false }
             scoringQuestionId: null,
+            scoredCount: 0,
+            totalTables: 0,
 
             // Table overview (who sits where)
             tableMembers: [], // [{ table_number, members: [{display_name, role}], total_score }]
@@ -787,6 +797,9 @@ document.addEventListener("alpine:init", function () {
             },
             get hasLeaderboard() {
                 return this.tables.length > 0;
+            },
+            get scoringProgress() {
+                return this.scoredCount + " / " + this.totalTables;
             },
             get showScoringGrid() {
                 return this.isQuizNight && this.hasCurrentQuestion;
@@ -948,6 +961,7 @@ document.addEventListener("alpine:init", function () {
                     this.roundComplete = false;
                     // Reset scoring state for new question
                     this.scoredTables = {};
+                    this.scoredCount = 0;
                     this.scoringQuestionId = data.id;
                 } else if (type === "quiz.leaderboard") {
                     this.tables = data.tables || [];
@@ -990,11 +1004,20 @@ document.addEventListener("alpine:init", function () {
                         this._advanceRoundsByNumber(data.round_number);
                     }
                 } else if (type === "quiz.table_scored") {
-                    // Track which tables have been scored
+                    // Track which tables have been scored (no correctness info yet)
                     if (data.table_id) {
-                        this.scoredTables[data.table_id] = data.is_correct;
+                        this.scoredTables[data.table_id] = "scored";
+                        if (data.scored_count !== undefined) this.scoredCount = data.scored_count;
+                        if (data.total_tables !== undefined) this.totalTables = data.total_tables;
                         this._updateTableButtons();
                     }
+                } else if (type === "quiz.reveal_scores") {
+                    // All tables scored — reveal correct/incorrect
+                    var results = data.results || [];
+                    for (var i = 0; i < results.length; i++) {
+                        this.scoredTables[results[i].table_id] = results[i].is_correct;
+                    }
+                    this._updateTableButtons();
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -1120,6 +1143,8 @@ document.addEventListener("alpine:init", function () {
 
             _scoreTable: function (tableId, isCorrect) {
                 if (!this.ws || !this.connected || !this.currentQuestion) return;
+                // Prevent re-scoring a table that has already been scored
+                if (this.scoredTables[tableId] !== undefined) return;
                 this.ws.send(
                     JSON.stringify({
                         action: "score_table",
@@ -1128,7 +1153,7 @@ document.addEventListener("alpine:init", function () {
                         is_correct: isCorrect,
                     }),
                 );
-                this.scoredTables[tableId] = isCorrect;
+                this.scoredTables[tableId] = "pending";
                 this._updateTableButtons();
             },
 
@@ -1153,10 +1178,7 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
-            clearScoring: function () {
-                this.scoredTables = {};
-                this._updateTableButtons();
-            },
+            // clearScoring removed — scoring is locked after reveal
 
             _updateTableButtons: function () {
                 var root = this._root;
@@ -1168,19 +1190,37 @@ document.addEventListener("alpine:init", function () {
                         .replace(/ring-\S+/g, "")
                         .replace(/text-\S+/g, "")
                         .replace(/hover:\S+/g, "")
+                        .replace(/opacity-\S+/g, "")
+                        .replace(/cursor-\S+/g, "")
                         .replace(/\s+/g, " ")
                         .trim();
+                    var state = this.scoredTables[tid];
                     var cls;
-                    if (this.scoredTables[tid] === true) {
-                        cls = "bg-green-700 ring-2 ring-green-400 text-white";
-                    } else if (this.scoredTables[tid] === false) {
-                        cls = "bg-red-700 ring-2 ring-red-400 text-white";
+                    if (state === true) {
+                        cls = "bg-green-700 ring-2 ring-green-400 text-white opacity-60 cursor-not-allowed";
+                    } else if (state === false) {
+                        cls = "bg-red-700 ring-2 ring-red-400 text-white opacity-60 cursor-not-allowed";
+                    } else if (state === "pending" || state === "scored") {
+                        cls = "bg-amber-700 ring-2 ring-amber-400 text-white opacity-60 cursor-not-allowed";
                     } else {
                         cls = "bg-slate-700 text-gray-300 hover:bg-slate-600";
                     }
                     var parts = cls.split(" ");
                     for (var j = 0; j < parts.length; j++) {
                         buttons[i].classList.add(parts[j]);
+                    }
+                    // Disable buttons for already-scored tables
+                    buttons[i].disabled = state !== undefined;
+                }
+                // Also disable the wrong (✗) buttons for scored tables
+                var wrongBtns = root.querySelectorAll("button[x-on\\:click='scoreTableWrongFromEl'][data-table-id]");
+                for (var k = 0; k < wrongBtns.length; k++) {
+                    var wtid = parseInt(wrongBtns[k].getAttribute("data-table-id"), 10);
+                    wrongBtns[k].disabled = this.scoredTables[wtid] !== undefined;
+                    if (wrongBtns[k].disabled) {
+                        wrongBtns[k].classList.add("opacity-30", "cursor-not-allowed");
+                    } else {
+                        wrongBtns[k].classList.remove("opacity-30", "cursor-not-allowed");
                     }
                 }
             },

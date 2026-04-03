@@ -115,8 +115,11 @@
 
         {# --- Table Scoring Grid (Quiz Night) --- #}
         <div x-show="showScoringGrid" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
-            <p class="mb-3 text-xs text-gray-500">{% trans "Click table to mark correct, click again for incorrect" %}</p>
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
+                <span x-show="totalTables > 0" x-text="scoringProgress" class="text-sm font-medium text-amber-400"></span>
+            </div>
+            <p class="mb-3 text-xs text-gray-500">{% trans "Click table to mark correct, ✗ for incorrect. Results reveal when all tables are scored." %}</p>
 
             <div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
                 {% for table in tables %}
@@ -137,15 +140,11 @@
                 {% endfor %}
             </div>
 
-            {# Convenience buttons #}
-            <div class="mt-4 flex gap-3">
+            {# Convenience button #}
+            <div class="mt-4">
                 <button x-on:click="scoreAllCorrect"
-                        class="flex-1 rounded-lg bg-green-700 py-2 text-sm font-medium text-white hover:bg-green-600 transition-all">
+                        class="w-full rounded-lg bg-green-700 py-2 text-sm font-medium text-white hover:bg-green-600 transition-all">
                     {% trans "Score All Correct" %}
-                </button>
-                <button x-on:click="clearScoring"
-                        class="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all">
-                    {% trans "Clear" %}
                 </button>
             </div>
         </div>
