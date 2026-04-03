@@ -79,6 +79,9 @@ document.addEventListener("alpine:init", function () {
             get isFinished() {
                 return this.screen === "finished";
             },
+            get isReview() {
+                return this.screen === "review";
+            },
             get isConnected() {
                 return this.connected;
             },
@@ -349,6 +352,11 @@ document.addEventListener("alpine:init", function () {
                     this.tableScoredFeedback = "";
                 } else if (type === "quiz.reveal_scores") {
                     // All tables scored — reveal correct/incorrect to attendees
+                    // Stop the countdown timer
+                    if (this.countdownTimer) {
+                        clearInterval(this.countdownTimer);
+                        this.countdownTimer = null;
+                    }
                     var results = data.results || [];
                     for (var ri = 0; ri < results.length; ri++) {
                         if (results[ri].table_number === this.tableNumber) {
@@ -361,13 +369,15 @@ document.addEventListener("alpine:init", function () {
                             } else {
                                 this.tableScoredFeedback = "Incorrect";
                             }
-                            var self = this;
-                            if (this.tableScoredTimer) clearTimeout(this.tableScoredTimer);
-                            this.tableScoredTimer = setTimeout(function () {
-                                self.tableScoredFeedback = "";
-                            }, 3000);
                             break;
                         }
+                    }
+                    // Transition to review screen — persistent until next question
+                    this.screen = "review";
+                    // Clear any previous auto-hide timer (feedback stays until next question)
+                    if (this.tableScoredTimer) {
+                        clearTimeout(this.tableScoredTimer);
+                        this.tableScoredTimer = null;
                     }
                 } else if (type === "quiz.table_score") {
                     // Legacy table score update
@@ -400,6 +410,12 @@ document.addEventListener("alpine:init", function () {
                 this.answered = false;
                 this.lastResult = null;
                 this.isBonusRound = data.is_bonus || false;
+                // Clear review screen feedback from previous question
+                this.tableScoredFeedback = "";
+                if (this.tableScoredTimer) {
+                    clearTimeout(this.tableScoredTimer);
+                    this.tableScoredTimer = null;
+                }
                 this.screen = "question";
                 this._renderChoices();
                 this.startCountdown();
@@ -562,7 +578,12 @@ document.addEventListener("alpine:init", function () {
             },
 
             _renderTableLeaderboard: function () {
-                var container = this.$refs.tableboard;
+                // Render into both live leaderboard and finished screen containers
+                this._renderTableLeaderboardInto(this.$refs.tableboard_live);
+                this._renderTableLeaderboardInto(this.$refs.tableboard);
+            },
+
+            _renderTableLeaderboardInto: function (container) {
                 if (!container) return;
                 container.innerHTML = "";
                 for (var i = 0; i < this.tables.length; i++) {
@@ -596,7 +617,12 @@ document.addEventListener("alpine:init", function () {
             },
 
             _renderIndividualLeaderboard: function () {
-                var container = this.$refs.playerboard;
+                // Render into both live leaderboard and finished screen containers
+                this._renderIndividualLeaderboardInto(this.$refs.playerboard_live);
+                this._renderIndividualLeaderboardInto(this.$refs.playerboard);
+            },
+
+            _renderIndividualLeaderboardInto: function (container) {
                 if (!container) return;
                 container.innerHTML = "";
                 for (var i = 0; i < this.individuals.length; i++) {
@@ -789,8 +815,14 @@ document.addEventListener("alpine:init", function () {
             get canRotate() {
                 return this.isQuizNight && this.roundComplete;
             },
+            get allTablesScored() {
+                return this.totalTables > 0 && this.scoredCount >= this.totalTables;
+            },
             get showNextQuestion() {
-                return !this.roundComplete && !this.isFinished;
+                if (this.roundComplete || this.isFinished) return false;
+                // In quiz night mode, block advancing until all tables are scored
+                if (this.isQuizNight && this.hasCurrentQuestion && !this.allTablesScored) return false;
+                return true;
             },
             get hasCurrentQuestion() {
                 return this.currentQuestion !== null;
@@ -947,6 +979,17 @@ document.addEventListener("alpine:init", function () {
                     if (data.question) {
                         this.currentQuestion = data.question;
                         this.roundComplete = false;
+                        // Restore scoring state for reconnecting coach
+                        this.scoringQuestionId = data.question.id;
+                        this.questionCount = data.question_count || data.total || 0;
+                        this.scoredCount = data.scored_count || 0;
+                        this.totalTables = data.total_tables || 0;
+                        if (data.scored_tables) {
+                            this.scoredTables = data.scored_tables;
+                        } else {
+                            this.scoredTables = {};
+                        }
+                        this._updateTableButtons();
                     } else {
                         this.currentQuestion = null;
                         // Round complete only if active AND we've gone past index 0
@@ -1237,6 +1280,10 @@ document.addEventListener("alpine:init", function () {
                     if (this.rounds[i].id === roundId && this.rounds[i].status === "done") {
                         return;
                     }
+                }
+                // Prevent skipping to other rounds during active play
+                if (this.status === "active" && this.currentQuestion !== null && roundId !== this.selectedRoundId) {
+                    return;
                 }
                 this.selectedRoundId = roundId;
                 this.roundComplete = false;
