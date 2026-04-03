@@ -205,7 +205,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if result is None:
             return
 
-        # Broadcast table scored event
+        # Already scored — silently ignore re-scores
+        if result.get("already_scored"):
+            return
+
+        # Broadcast table scored event (no correctness info — deferred until all scored)
         await self.channel_layer.group_send(
             self.quiz_group,
             {
@@ -214,11 +218,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     "table_id": table_id,
                     "table_number": result["table_number"],
                     "question_id": question_id,
-                    "is_correct": is_correct,
-                    "points_awarded": result["points_awarded"],
+                    "scored_count": result["scored_count"],
+                    "total_tables": result["total_tables"],
                 },
             },
         )
+
+        # When all tables scored, reveal results to everyone
+        if result.get("all_scored"):
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {
+                    "type": "quiz.reveal_scores",
+                    "data": {
+                        "question_id": question_id,
+                        "results": result["reveal_results"],
+                    },
+                },
+            )
 
     async def handle_rotate(self):
         rotation_data = await self.advance_round_and_rotate()
@@ -283,6 +300,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def quiz_table_scored(self, event):
         await self.send_json({"type": "quiz.table_scored", "data": event["data"]})
+
+    async def quiz_reveal_scores(self, event):
+        await self.send_json({"type": "quiz.reveal_scores", "data": event["data"]})
 
     async def quiz_answer_result(self, event):
         await self.send_json({"type": "quiz.answer_result", "data": event["data"]})
@@ -603,7 +623,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def score_table_for_question(self, table_id, question_id, is_correct):
-        """Host scores a table. Creates IndividualScores for all table members."""
+        """Host scores a table. Creates IndividualScores for all table members.
+
+        Returns None on error, {"already_scored": True} if table was already
+        scored for this question, or a dict with scoring results including
+        whether all tables have now been scored.
+        """
         from crush_lu.models.quiz import (
             IndividualScore,
             QuizEvent,
@@ -629,13 +654,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         ):
             return None
 
-        # Create or update TableRoundScore
-        TableRoundScore.objects.update_or_create(
+        # Only allow scoring once per table per question (no re-scores)
+        _obj, created = TableRoundScore.objects.get_or_create(
             quiz=quiz,
             table=table,
             question=question,
             defaults={"is_correct": is_correct},
         )
+        if not created:
+            return {"already_scored": True}
 
         # Issue #4: Read bonus from question's own round, not quiz.current_round
         points = question.points if is_correct else 0
@@ -676,11 +703,43 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 },
             )
 
-        return {
+        # Check if all tables have been scored for this question
+        total_tables = QuizTable.objects.filter(quiz=quiz).count()
+        scored_count = TableRoundScore.objects.filter(
+            quiz=quiz, question=question
+        ).count()
+        all_scored = scored_count >= total_tables
+
+        result = {
             "table_number": table.table_number,
             "points_awarded": points,
             "members_scored": len(rotation_users),
+            "scored_count": scored_count,
+            "total_tables": total_tables,
+            "all_scored": all_scored,
         }
+
+        # When all tables scored, include full results for the reveal
+        if all_scored:
+            all_scores = TableRoundScore.objects.filter(
+                quiz=quiz, question=question
+            ).select_related("table", "question", "question__round")
+            reveal_results = []
+            for score in all_scores:
+                pts = score.question.points if score.is_correct else 0
+                if score.is_correct and score.question.round.is_bonus:
+                    pts *= 2
+                reveal_results.append(
+                    {
+                        "table_id": score.table_id,
+                        "table_number": score.table.table_number,
+                        "is_correct": score.is_correct,
+                        "points_awarded": pts,
+                    }
+                )
+            result["reveal_results"] = reveal_results
+
+        return result
 
     @database_sync_to_async
     def advance_round_and_rotate(self):
