@@ -148,6 +148,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def handle_next_question(self):
+        # For quiz night events, ensure all tables are scored before advancing
+        unscored = await self.check_all_tables_scored()
+        if unscored is not None and not unscored:
+            await self.send_error("All tables must be scored before advancing.")
+            return
+
         question_data = await self.advance_question()
         if question_data:
             await self.channel_layer.group_send(
@@ -167,6 +173,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return
 
         result = await self.set_current_round(round_id)
+        if result and result.get("error"):
+            await self.send_error(result["error"])
+            return
         if result:
             await self.channel_layer.group_send(
                 self.quiz_group,
@@ -435,6 +444,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             ],
         }
         if question and quiz.is_active:
+            from crush_lu.models.quiz import QuizTable, TableRoundScore
+
             questions = quiz.current_round.questions.order_by("sort_order")
             total = questions.count()
 
@@ -459,6 +470,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             data["time"] = quiz.current_round.time_per_question
             data["index"] = quiz.current_question_index
             data["total"] = total
+            data["question_count"] = total
             data["is_bonus"] = quiz.current_round.is_bonus
 
             # Calculate remaining time so refreshing doesn't reset the timer
@@ -468,6 +480,29 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 data["time_remaining"] = int(remaining)
             else:
                 data["time_remaining"] = quiz.current_round.time_per_question
+
+            # Include scoring state so coach can resume after reconnect
+            total_tables = QuizTable.objects.filter(quiz=quiz).count()
+            scored_qs = TableRoundScore.objects.filter(
+                quiz=quiz, question=question
+            ).select_related("table")
+            scored_count = scored_qs.count()
+            all_scored = scored_count >= total_tables and total_tables > 0
+
+            data["total_tables"] = total_tables
+            data["scored_count"] = scored_count
+
+            # Build scored_tables map: {table_id: is_correct} if revealed,
+            # otherwise {table_id: "scored"}
+            scored_tables = {}
+            if all_scored:
+                for s in scored_qs:
+                    scored_tables[str(s.table_id)] = s.is_correct
+            else:
+                for s in scored_qs:
+                    scored_tables[str(s.table_id)] = "scored"
+            data["scored_tables"] = scored_tables
+
         return data
 
     @database_sync_to_async
@@ -539,6 +574,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         except (QuizEvent.DoesNotExist, QuizRound.DoesNotExist):
             return None
 
+        # Block round changes during active play with a current question
+        if (
+            quiz.status == "active"
+            and quiz.current_question_index >= 0
+            and quiz.current_round_id != round_obj.id
+        ):
+            return {"error": "Cannot change rounds while a question is active."}
+
         quiz.current_round = round_obj
         # Set to -1 so the first next_question lands on index 0 (Issue #2)
         quiz.current_question_index = -1
@@ -569,6 +612,37 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.question_started_at = None
         quiz.save(update_fields=["status", "question_started_at"])
         return {"status": status}
+
+    @database_sync_to_async
+    def check_all_tables_scored(self):
+        """Return True if all tables scored for current question, False if not.
+
+        Returns None for non-quiz-night events or if no active question.
+        """
+        from crush_lu.models.quiz import QuizEvent, QuizTable, TableRoundScore
+
+        try:
+            quiz = QuizEvent.objects.select_related("current_round", "event").get(
+                id=self.quiz_id
+            )
+        except QuizEvent.DoesNotExist:
+            return None
+
+        if quiz.event.event_type != "quiz_night":
+            return None  # No table scoring for non-quiz-night events
+
+        question = quiz.get_current_question()
+        if not question:
+            return None
+
+        total_tables = QuizTable.objects.filter(quiz=quiz).count()
+        if total_tables == 0:
+            return None
+
+        scored_count = TableRoundScore.objects.filter(
+            quiz=quiz, question=question
+        ).count()
+        return scored_count >= total_tables
 
     @database_sync_to_async
     def advance_question(self):
