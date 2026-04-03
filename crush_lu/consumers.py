@@ -449,6 +449,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 q_data["choices"] = [
                     {"text": c["text"]} for c in choices if isinstance(c, dict)
                 ]
+                # Host needs correct answers to display reference answer
+                q_data["choices_with_answers"] = choices
+            elif question.question_type == "open_ended":
+                q_data["correct_answer"] = question.correct_answer
             data["question"] = q_data
 
             # Include fields that showQuestion() expects at top level

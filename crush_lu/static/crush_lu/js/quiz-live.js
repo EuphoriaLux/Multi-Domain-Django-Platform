@@ -804,6 +804,9 @@ document.addEventListener("alpine:init", function () {
             get showScoringGrid() {
                 return this.isQuizNight && this.hasCurrentQuestion;
             },
+            get hasTables() {
+                return this.totalTables > 0;
+            },
             get isBonusLabel() {
                 return this.isBonusRound ? "BONUS x2" : "";
             },
@@ -963,6 +966,8 @@ document.addEventListener("alpine:init", function () {
                     this.scoredTables = {};
                     this.scoredCount = 0;
                     this.scoringQuestionId = data.id;
+                    // Re-enable table buttons for the new question
+                    this._updateTableButtons();
                 } else if (type === "quiz.leaderboard") {
                     this.tables = data.tables || [];
                     this._renderTableLeaderboard();
