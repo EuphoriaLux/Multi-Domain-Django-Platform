@@ -804,6 +804,9 @@ document.addEventListener("alpine:init", function () {
             get showScoringGrid() {
                 return this.isQuizNight && this.hasCurrentQuestion;
             },
+            get hasTables() {
+                return this.totalTables > 0;
+            },
             get isBonusLabel() {
                 return this.isBonusRound ? "BONUS x2" : "";
             },

@@ -117,7 +117,7 @@
         <div x-show="showScoringGrid" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
-                <span x-show="totalTables > 0" x-text="scoringProgress" class="text-sm font-medium text-amber-400"></span>
+                <span x-show="hasTables" x-text="scoringProgress" class="text-sm font-medium text-amber-400"></span>
             </div>
             <p class="mb-3 text-xs text-gray-500">{% trans "Click table to mark correct, ✗ for incorrect. Results reveal when all tables are scored." %}</p>
 
