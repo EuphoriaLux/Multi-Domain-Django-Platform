@@ -153,6 +153,9 @@ document.addEventListener("alpine:init", function () {
             get personalScoreLabel() {
                 return this.personalScore + " pts";
             },
+            get hasPersonalScore() {
+                return this.personalScore > 0;
+            },
             get nextTableLabel() {
                 if (!this.nextTable) return "";
                 return "Next: Table " + this.nextTable;
@@ -380,7 +383,11 @@ document.addEventListener("alpine:init", function () {
                 this.questionIndex = data.index || 0;
                 this.questionTotal = data.total || 0;
                 this.countdownTotal = data.time || 30;
-                this.countdown = this.countdownTotal;
+                if (data.time_remaining !== undefined) {
+                    this.countdown = data.time_remaining;
+                } else {
+                    this.countdown = this.countdownTotal;
+                }
                 this.selectedIndex = null;
                 this.answered = false;
                 this.lastResult = null;

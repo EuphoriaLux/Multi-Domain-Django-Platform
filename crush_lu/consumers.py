@@ -4,6 +4,7 @@ import logging
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db.models import Sum
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +415,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             ],
         }
         if question and quiz.is_active:
+            questions = quiz.current_round.questions.order_by("sort_order")
+            total = questions.count()
+
             q_data = {
                 "id": question.id,
                 "text": question.text,
@@ -426,6 +430,20 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     {"text": c["text"]} for c in choices if isinstance(c, dict)
                 ]
             data["question"] = q_data
+
+            # Include fields that showQuestion() expects at top level
+            data["time"] = quiz.current_round.time_per_question
+            data["index"] = quiz.current_question_index
+            data["total"] = total
+            data["is_bonus"] = quiz.current_round.is_bonus
+
+            # Calculate remaining time so refreshing doesn't reset the timer
+            if quiz.question_started_at:
+                elapsed = (timezone.now() - quiz.question_started_at).total_seconds()
+                remaining = max(0, quiz.current_round.time_per_question - elapsed)
+                data["time_remaining"] = int(remaining)
+            else:
+                data["time_remaining"] = quiz.current_round.time_per_question
         return data
 
     @database_sync_to_async
@@ -445,7 +463,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.current_round = first_round
         quiz.current_question_index = 0
         quiz.status = "active"
-        quiz.save(update_fields=["current_round", "current_question_index", "status"])
+        quiz.question_started_at = timezone.now()
+        quiz.save(update_fields=["current_round", "current_question_index", "status", "question_started_at"])
 
         round_info = {
             "status": "active",
@@ -523,7 +542,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return None
 
         quiz.status = status
-        quiz.save(update_fields=["status"])
+        quiz.question_started_at = None
+        quiz.save(update_fields=["status", "question_started_at"])
         return {"status": status}
 
     @database_sync_to_async
@@ -554,7 +574,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         quiz.current_question_index = next_index
         quiz.status = "active"
-        quiz.save(update_fields=["current_question_index", "status"])
+        quiz.question_started_at = timezone.now()
+        quiz.save(update_fields=["current_question_index", "status", "question_started_at"])
 
         question = questions[next_index]
         q_data = {

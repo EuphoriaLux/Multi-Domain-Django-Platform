@@ -47,6 +47,11 @@ class QuizEvent(models.Model):
         blank=True,
         help_text=_("When table assignments were last generated."),
     )
+    question_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the current question was first displayed."),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
