@@ -9,6 +9,9 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+_QUIZ_LANGUAGES = ("en", "de", "fr")
+
+
 def _parse_choices(choices):
     """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
     if isinstance(choices, str):
@@ -26,6 +29,73 @@ def _parse_choices(choices):
         elif isinstance(c, str):
             result.append({"text": c, "is_correct": False})
     return result
+
+
+def _build_question_data(question, include_answers=False):
+    """Build multilingual question data dict for WebSocket broadcast.
+
+    Includes ``text_<lang>`` and ``choices_<lang>`` for each configured language
+    so the JS client can pick the correct translation at display time.
+    The default ``text`` and ``choices`` fields use the current active language
+    (fallback for backwards compatibility).
+    """
+    q_data = {
+        "id": question.id,
+        "text": question.text,
+        "question_type": question.question_type,
+        "points": question.points,
+    }
+
+    # Add per-language text
+    for lang in _QUIZ_LANGUAGES:
+        val = getattr(question, f"text_{lang}", None)
+        if val:
+            q_data[f"text_{lang}"] = val
+
+    if question.question_type in ("multiple_choice", "true_false"):
+        # Default choices (active language)
+        choices = _parse_choices(question.choices)
+        q_data["choices"] = [
+            {"text": c["text"]} for c in choices if isinstance(c, dict)
+        ]
+        if include_answers:
+            q_data["choices_with_answers"] = choices
+
+        # Per-language choices
+        for lang in _QUIZ_LANGUAGES:
+            lang_choices = getattr(question, f"choices_{lang}", None)
+            if lang_choices:
+                parsed = _parse_choices(lang_choices)
+                q_data[f"choices_{lang}"] = [
+                    {"text": c["text"]} for c in parsed if isinstance(c, dict)
+                ]
+                if include_answers:
+                    q_data[f"choices_with_answers_{lang}"] = parsed
+
+    elif question.question_type == "open_ended":
+        q_data["correct_answer"] = question.correct_answer
+        if include_answers:
+            for lang in _QUIZ_LANGUAGES:
+                val = getattr(question, f"correct_answer_{lang}", None)
+                if val:
+                    q_data[f"correct_answer_{lang}"] = val
+
+    return q_data
+
+
+def _build_round_data(round_obj):
+    """Build multilingual round data dict for WebSocket broadcast."""
+    data = {
+        "id": round_obj.id,
+        "title": round_obj.title,
+        "time_per_question": round_obj.time_per_question,
+        "is_bonus": round_obj.is_bonus,
+    }
+    for lang in _QUIZ_LANGUAGES:
+        val = getattr(round_obj, f"title_{lang}", None)
+        if val:
+            data[f"title_{lang}"] = val
+    return data
 
 
 class QuizConsumer(AsyncJsonWebsocketConsumer):
@@ -409,61 +479,39 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "status": quiz.status,
             "event_type": quiz.event.event_type,
             "current_round": (
-                {
-                    "id": quiz.current_round.id,
-                    "title": quiz.current_round.title,
-                    "time_per_question": quiz.current_round.time_per_question,
-                    "is_bonus": quiz.current_round.is_bonus,
-                }
+                _build_round_data(quiz.current_round)
                 if quiz.current_round
                 else None
             ),
             "question_index": quiz.current_question_index,
             # Round list with status for guided flow
-            "rounds": [
-                {
-                    "id": r.id,
-                    "title": r.title,
-                    "sort_order": r.sort_order,
-                    "is_bonus": r.is_bonus,
-                    "question_count": r.questions.count(),
-                    "status": (
-                        "current"
-                        if quiz.current_round_id == r.id
-                        else (
-                            "done"
-                            if (
-                                r.sort_order < current_sort
-                                or (r.sort_order == current_sort and r.pk < current_pk)
-                            )
-                            else "upcoming"
-                        )
-                    ),
-                }
-                for r in quiz.rounds.order_by("sort_order", "pk")
-            ],
+            "rounds": [],
         }
+        for r in quiz.rounds.order_by("sort_order", "pk"):
+            r_data = _build_round_data(r)
+            r_data["sort_order"] = r.sort_order
+            r_data["question_count"] = r.questions.count()
+            r_data["status"] = (
+                "current"
+                if quiz.current_round_id == r.id
+                else (
+                    "done"
+                    if (
+                        r.sort_order < current_sort
+                        or (r.sort_order == current_sort and r.pk < current_pk)
+                    )
+                    else "upcoming"
+                )
+            )
+            data["rounds"].append(r_data)
+
         if question and quiz.is_active:
             from crush_lu.models.quiz import QuizTable, TableRoundScore
 
             questions = quiz.current_round.questions.order_by("sort_order")
             total = questions.count()
 
-            q_data = {
-                "id": question.id,
-                "text": question.text,
-                "question_type": question.question_type,
-                "points": question.points,
-            }
-            if question.question_type in ("multiple_choice", "true_false"):
-                choices = _parse_choices(question.choices)
-                q_data["choices"] = [
-                    {"text": c["text"]} for c in choices if isinstance(c, dict)
-                ]
-                # Host needs correct answers to display reference answer
-                q_data["choices_with_answers"] = choices
-            elif question.question_type == "open_ended":
-                q_data["correct_answer"] = question.correct_answer
+            q_data = _build_question_data(question, include_answers=True)
             data["question"] = q_data
 
             # Include fields that showQuestion() expects at top level
@@ -527,12 +575,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         round_info = {
             "status": "active",
-            "current_round": {
-                "id": first_round.id,
-                "title": first_round.title,
-                "time_per_question": first_round.time_per_question,
-                "is_bonus": first_round.is_bonus,
-            },
+            "current_round": _build_round_data(first_round),
             "message": f"Quiz started: {first_round.title}",
         }
 
@@ -542,24 +585,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         question_data = None
         if total > 0:
             question = questions[0]
-            question_data = {
-                "id": question.id,
-                "text": question.text,
-                "question_type": question.question_type,
-                "points": question.points,
-                "time": first_round.time_per_question,
-                "index": 0,
-                "total": total,
-                "is_bonus": first_round.is_bonus,
-            }
-            if question.question_type in ("multiple_choice", "true_false"):
-                choices = _parse_choices(question.choices)
-                question_data["choices"] = [
-                    {"text": c["text"]} for c in choices if isinstance(c, dict)
-                ]
-                question_data["choices_with_answers"] = choices
-            elif question.question_type == "open_ended":
-                question_data["correct_answer"] = question.correct_answer
+            question_data = _build_question_data(question, include_answers=True)
+            question_data["time"] = first_round.time_per_question
+            question_data["index"] = 0
+            question_data["total"] = total
+            question_data["is_bonus"] = first_round.is_bonus
 
         return {"round_info": round_info, "question_data": question_data}
 
@@ -589,12 +619,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         return {
             "status": quiz.status,
-            "current_round": {
-                "id": round_obj.id,
-                "title": round_obj.title,
-                "time_per_question": round_obj.time_per_question,
-                "is_bonus": round_obj.is_bonus,
-            },
+            "current_round": _build_round_data(round_obj),
             "message": f"Round set: {round_obj.title}",
         }
 
@@ -676,26 +701,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         quiz.save(update_fields=["current_question_index", "status", "question_started_at"])
 
         question = questions[next_index]
-        q_data = {
-            "id": question.id,
-            "text": question.text,
-            "question_type": question.question_type,
-            "points": question.points,
-            "time": quiz.current_round.time_per_question,
-            "index": next_index,
-            "total": total,
-            "is_bonus": quiz.current_round.is_bonus,
-        }
-
-        if question.question_type in ("multiple_choice", "true_false"):
-            choices = _parse_choices(question.choices)
-            q_data["choices"] = [
-                {"text": c["text"]} for c in choices if isinstance(c, dict)
-            ]
-            # Host gets correct answer info
-            q_data["choices_with_answers"] = choices
-        elif question.question_type == "open_ended":
-            q_data["correct_answer"] = question.correct_answer
+        q_data = _build_question_data(question, include_answers=True)
+        q_data["time"] = quiz.current_round.time_per_question
+        q_data["index"] = next_index
+        q_data["total"] = total
+        q_data["is_bonus"] = quiz.current_round.is_bonus
 
         return q_data
 
@@ -914,10 +924,21 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return None
 
         is_correct = False
-        for choice in question.choices:
-            if choice["text"] == answer and choice.get("is_correct"):
-                is_correct = True
+        # Check answer against all language variants of choices
+        for lang in _QUIZ_LANGUAGES:
+            lang_choices = getattr(question, f"choices_{lang}", None) or []
+            for choice in lang_choices:
+                if isinstance(choice, dict) and choice.get("text") == answer and choice.get("is_correct"):
+                    is_correct = True
+                    break
+            if is_correct:
                 break
+        # Fallback: check the default choices field too
+        if not is_correct:
+            for choice in (question.choices or []):
+                if isinstance(choice, dict) and choice.get("text") == answer and choice.get("is_correct"):
+                    is_correct = True
+                    break
 
         points = question.points if is_correct else 0
 
@@ -930,13 +951,16 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             points_earned=points,
         )
 
+        # Return correct answer in default language
+        correct_text = next(
+            (c["text"] for c in (question.choices or []) if isinstance(c, dict) and c.get("is_correct")),
+            None,
+        )
+
         return {
             "is_correct": is_correct,
             "points_earned": points,
-            "correct_answer": next(
-                (c["text"] for c in question.choices if c.get("is_correct")),
-                None,
-            ),
+            "correct_answer": correct_text,
         }
 
     @database_sync_to_async

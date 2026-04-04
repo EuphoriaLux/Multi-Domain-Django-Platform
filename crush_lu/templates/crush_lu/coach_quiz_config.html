@@ -1,0 +1,201 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Quiz Configuration" %} - {{ event.title }} - Crush.lu{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% trans "Quiz Configuration" %}</span>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "Quiz Configuration" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ event.title }} &mdash; {{ event.date_time|date:"D, M j, Y" }}</p>
+        </div>
+        {% if quiz %}
+        <div class="flex flex-wrap gap-2 self-start">
+            {% if quiz.status == "draft" %}
+                <span class="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full">{% trans "Draft" %}</span>
+            {% elif quiz.status == "active" %}
+                <span class="inline-flex items-center px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded-full">{% trans "Active" %}</span>
+            {% elif quiz.status == "paused" %}
+                <span class="inline-flex items-center px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-full">{% trans "Paused" %}</span>
+            {% elif quiz.status == "finished" %}
+                <span class="inline-flex items-center px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium rounded-full">{% trans "Finished" %}</span>
+            {% endif %}
+            <a href="{% url 'crush_lu:quiz_coach' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>{% trans "Quiz Host Panel" %}</span>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if not quiz %}
+<!-- No quiz yet -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+    <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">{% trans "No quiz configured for this event" %}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{% trans "Create a quiz to add rounds and questions." %}</p>
+    <form method="post" action="{% url 'crush_lu:coach_quiz_create' event.id %}">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-crush-purple text-white hover:bg-purple-700 rounded-lg transition-colors font-medium">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            {% trans "Create Quiz" %}
+        </button>
+    </form>
+</div>
+
+{% else %}
+
+<!-- Warning banner for non-draft quizzes -->
+{% if quiz.status == "active" or quiz.status == "finished" %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+        <div>
+            <p class="font-semibold text-amber-800 dark:text-amber-300">{% trans "Quiz is" %} {{ quiz.get_status_display|lower }}</p>
+            <p class="text-sm text-amber-700 dark:text-amber-400 mt-1">{% trans "Editing content is possible, but deleting rounds or questions is restricted to avoid score inconsistencies." %}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Stats summary -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-crush-purple">{{ rounds|length }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Rounds" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-crush-purple">{{ total_questions }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Questions" %}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-crush-purple">{{ quiz.get_status_display }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Status" %}</p>
+    </div>
+</div>
+
+<!-- Rounds -->
+{% for round in rounds %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4" id="round-{{ round.id }}">
+    <!-- Round header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 bg-crush-purple/10 dark:bg-crush-purple/20 text-crush-purple text-sm font-bold rounded-lg">{{ forloop.counter }}</span>
+            <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">{{ round.title }}</h3>
+                <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <span>{{ round.time_per_question }}s {% trans "per question" %}</span>
+                    <span>{{ round.questions.count }} {% trans "questions" %}</span>
+                    {% if round.is_bonus %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs font-medium">{% trans "Bonus" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'crush_lu:coach_quiz_round_edit' event.id round.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                {% trans "Edit" %}
+            </a>
+            {% if quiz.status == "draft" or quiz.status == "paused" %}
+            <form method="post" action="{% url 'crush_lu:coach_quiz_round_delete' event.id round.id %}" x-data="confirmAction">
+                {% csrf_token %}
+                <button type="button" @click="requestConfirm" x-show="isIdle" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    {% trans "Delete" %}
+                </button>
+                <div x-show="isConfirming" class="inline-flex items-center gap-2">
+                    <span class="text-xs text-red-600 dark:text-red-400">{% trans "Sure?" %}</span>
+                    <button type="submit" class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">{% trans "Yes" %}</button>
+                    <button type="button" @click="cancel" class="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700">{% trans "No" %}</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Questions list -->
+    <div class="p-4">
+        {% if round.questions.all %}
+        <div class="space-y-2">
+            {% for question in round.questions.all %}
+            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="text-xs text-gray-400 dark:text-gray-500 font-mono w-5 shrink-0">{{ forloop.counter }}</span>
+                    {% if question.question_type == "multiple_choice" %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium shrink-0" title="{% trans 'Multiple Choice' %}">MC</span>
+                    {% elif question.question_type == "true_false" %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-xs font-medium shrink-0" title="{% trans 'True / False' %}">T/F</span>
+                    {% elif question.question_type == "open_ended" %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded text-xs font-medium shrink-0" title="{% trans 'Open Ended' %}">OE</span>
+                    {% endif %}
+                    <span class="text-sm text-gray-800 dark:text-gray-200 truncate">{{ question.text }}</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ question.points }} {% trans "pts" %}</span>
+                    <a href="{% url 'crush_lu:coach_quiz_question_edit' event.id question.id %}" class="p-1.5 text-gray-400 hover:text-crush-purple dark:text-gray-500 dark:hover:text-crush-purple transition-colors" title="{% trans 'Edit' %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </a>
+                    {% if quiz.status == "draft" or quiz.status == "paused" %}
+                    <form method="post" action="{% url 'crush_lu:coach_quiz_question_delete' event.id question.id %}" x-data="confirmAction" class="inline">
+                        {% csrf_token %}
+                        <button type="button" @click="requestConfirm" x-show="isIdle" class="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors" title="{% trans 'Delete' %}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                        <span x-show="isConfirming" class="inline-flex items-center gap-1">
+                            <button type="submit" class="px-1.5 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700">{% trans "Yes" %}</button>
+                            <button type="button" @click="cancel" class="px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded">{% trans "No" %}</button>
+                        </span>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-3">{% trans "No questions yet" %}</p>
+        {% endif %}
+
+        <div class="mt-3 text-center">
+            <a href="{% url 'crush_lu:coach_quiz_question_add' event.id round.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-crush-purple hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                {% trans "Add Question" %}
+            </a>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6 text-center mb-4">
+    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No rounds yet. Add your first round to get started." %}</p>
+</div>
+{% endfor %}
+
+<!-- Add Round button -->
+<div class="text-center mt-4">
+    <a href="{% url 'crush_lu:coach_quiz_round_add' event.id %}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-crush-purple text-white hover:bg-purple-700 rounded-lg transition-colors font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        {% trans "Add Round" %}
+    </a>
+</div>
+
+{% endif %}
+
+<!-- Back link -->
+<div class="mt-6 text-center">
+    <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple transition-colors">
+        &larr; {% trans "Back to Event" %}
+    </a>
+</div>
+{% endblock %}

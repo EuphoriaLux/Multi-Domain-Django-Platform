@@ -1,0 +1,248 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% if question %}{% trans "Edit Question" %}{% else %}{% trans "Add Question" %}{% endif %} - {% trans "Quiz Configuration" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:20 }}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_quiz_config' event.id %}" class="hover:text-crush-purple transition-colors">{% trans "Quiz" %}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{{ quiz_round.title|truncatechars:20 }}</span>
+    </div>
+    <h2 class="text-2xl font-bold dark:text-white">{% if question %}{% trans "Edit Question" %}{% else %}{% trans "Add Question" %}{% endif %}</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ quiz_round.title }}</p>
+</div>
+
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6"
+         x-data="quizQuestionForm"
+         data-question-type="{{ question.question_type|default:'multiple_choice' }}"
+         data-choices-en="{{ choices_json_en|default:'[]' }}"
+         data-choices-de="{{ choices_json_de|default:'[]' }}"
+         data-choices-fr="{{ choices_json_fr|default:'[]' }}">
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Question type (shared across languages) -->
+            <div class="mb-5">
+                <label for="question_type" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{% trans "Question Type" %}</label>
+                <select name="question_type" id="question_type" x-ref="typeSelect" @change="selectType"
+                        class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                    <option value="multiple_choice" {% if question.question_type == "multiple_choice" or not question %}selected{% endif %}>{% trans "Multiple Choice" %}</option>
+                    <option value="true_false" {% if question.question_type == "true_false" %}selected{% endif %}>{% trans "True / False" %}</option>
+                    <option value="open_ended" {% if question.question_type == "open_ended" %}selected{% endif %}>{% trans "Open Ended" %}</option>
+                </select>
+            </div>
+
+            <!-- Points & Sort Order (shared) -->
+            <div class="grid grid-cols-2 gap-4 mb-5">
+                <div>
+                    <label for="points" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{% trans "Points" %}</label>
+                    <input type="number" name="points" id="points" min="1" max="100"
+                           value="{{ question.points|default:'10' }}"
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+                {% if question %}
+                <div>
+                    <label for="sort_order" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{% trans "Sort Order" %}</label>
+                    <input type="number" name="sort_order" id="sort_order" min="0"
+                           value="{{ question.sort_order }}"
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- True/False correct answer (shared across languages) -->
+            <div x-show="isTrueFalse" class="mb-5">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Correct Answer" %}</label>
+                <div class="flex items-center gap-3">
+                    <button type="button" @click="setTrueFalseTrue"
+                            class="px-6 py-2.5 text-sm font-medium border-2 rounded-lg transition-colors"
+                            x-bind:class="trueFalseTrueClass">
+                        {% trans "True" %}
+                    </button>
+                    <button type="button" @click="setTrueFalseFalse"
+                            class="px-6 py-2.5 text-sm font-medium border-2 rounded-lg transition-colors"
+                            x-bind:class="trueFalseFalseClass">
+                        {% trans "False" %}
+                    </button>
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+            <!-- Language Tabs -->
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">{% trans "Content by Language" %}</label>
+                <div class="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+                    <button type="button" @click="setLangEn" x-bind:class="langEnClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">EN</button>
+                    <button type="button" @click="setLangDe" x-bind:class="langDeClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">DE</button>
+                    <button type="button" @click="setLangFr" x-bind:class="langFrClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">FR</button>
+                </div>
+            </div>
+
+            <!-- Hidden choices JSON (all 3 languages always submitted) -->
+            <input type="hidden" name="choices_json_en" x-bind:value="choicesJsonEn">
+            <input type="hidden" name="choices_json_de" x-bind:value="choicesJsonDe">
+            <input type="hidden" name="choices_json_fr" x-bind:value="choicesJsonFr">
+
+            <!-- ==================== ENGLISH ==================== -->
+            <div x-show="isLangEn" class="space-y-4">
+                <!-- Question text EN -->
+                <div>
+                    <label for="text_en" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Question Text" %} (EN)</label>
+                    <textarea name="text_en" id="text_en" rows="2" maxlength="500"
+                              placeholder="Enter the question in English..."
+                              class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">{{ question.text_en|default:'' }}</textarea>
+                </div>
+
+                <!-- MC choices EN -->
+                <div x-show="isMultipleChoice">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% trans "Answer Choices" %} (EN)</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Click the circle to mark the correct answer. Add/remove syncs across all languages." %}</p>
+                    <template x-for="(choice, index) in choicesEn" x-bind:key="index">
+                        <div class="flex items-center gap-2 mb-2">
+                            <button type="button" @click="setCorrect" x-bind:data-index="index"
+                                    class="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                                    x-bind:class="choice.isCorrect ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'">
+                                <svg x-show="choice.isCorrect" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                            <input type="text" x-bind:data-index="index" @input="updateChoiceText"
+                                   x-bind:value="choice.text"
+                                   placeholder="Choice text..."
+                                   class="flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                            <button type="button" @click="removeChoice" x-bind:data-index="index"
+                                    class="shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                    <button type="button" @click="addChoice"
+                            class="mt-1 inline-flex items-center gap-1 px-3 py-1.5 text-sm text-crush-purple hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        {% trans "Add Choice" %}
+                    </button>
+                </div>
+
+                <!-- Open-ended answer EN -->
+                <div x-show="isOpenEnded">
+                    <label for="correct_answer_en" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Reference Answer" %} (EN)</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Shown to the host for manual grading." %}</p>
+                    <input type="text" name="correct_answer_en" id="correct_answer_en" maxlength="500"
+                           value="{{ question.correct_answer_en|default:'' }}"
+                           placeholder="Expected answer..."
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- ==================== GERMAN ==================== -->
+            <div x-show="isLangDe" class="space-y-4">
+                <div>
+                    <label for="text_de" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Question Text" %} (DE)</label>
+                    <textarea name="text_de" id="text_de" rows="2" maxlength="500"
+                              placeholder="Frage auf Deutsch eingeben..."
+                              class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">{{ question.text_de|default:'' }}</textarea>
+                </div>
+
+                <div x-show="isMultipleChoice">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% trans "Answer Choices" %} (DE)</label>
+                    <template x-for="(choice, index) in choicesDe" x-bind:key="index">
+                        <div class="flex items-center gap-2 mb-2">
+                            <button type="button" @click="setCorrect" x-bind:data-index="index"
+                                    class="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                                    x-bind:class="choice.isCorrect ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'">
+                                <svg x-show="choice.isCorrect" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                            <input type="text" x-bind:data-index="index" @input="updateChoiceText"
+                                   x-bind:value="choice.text"
+                                   placeholder="Antworttext..."
+                                   class="flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                            <button type="button" @click="removeChoice" x-bind:data-index="index"
+                                    class="shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                    <button type="button" @click="addChoice"
+                            class="mt-1 inline-flex items-center gap-1 px-3 py-1.5 text-sm text-crush-purple hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        {% trans "Add Choice" %}
+                    </button>
+                </div>
+
+                <div x-show="isOpenEnded">
+                    <label for="correct_answer_de" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Reference Answer" %} (DE)</label>
+                    <input type="text" name="correct_answer_de" id="correct_answer_de" maxlength="500"
+                           value="{{ question.correct_answer_de|default:'' }}"
+                           placeholder="Erwartete Antwort..."
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- ==================== FRENCH ==================== -->
+            <div x-show="isLangFr" class="space-y-4">
+                <div>
+                    <label for="text_fr" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Question Text" %} (FR)</label>
+                    <textarea name="text_fr" id="text_fr" rows="2" maxlength="500"
+                              placeholder="Saisir la question en fran&ccedil;ais..."
+                              class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">{{ question.text_fr|default:'' }}</textarea>
+                </div>
+
+                <div x-show="isMultipleChoice">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{% trans "Answer Choices" %} (FR)</label>
+                    <template x-for="(choice, index) in choicesFr" x-bind:key="index">
+                        <div class="flex items-center gap-2 mb-2">
+                            <button type="button" @click="setCorrect" x-bind:data-index="index"
+                                    class="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                                    x-bind:class="choice.isCorrect ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'">
+                                <svg x-show="choice.isCorrect" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                            <input type="text" x-bind:data-index="index" @input="updateChoiceText"
+                                   x-bind:value="choice.text"
+                                   placeholder="Texte du choix..."
+                                   class="flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                            <button type="button" @click="removeChoice" x-bind:data-index="index"
+                                    class="shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                    <button type="button" @click="addChoice"
+                            class="mt-1 inline-flex items-center gap-1 px-3 py-1.5 text-sm text-crush-purple hover:bg-crush-purple/10 dark:hover:bg-crush-purple/20 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        {% trans "Add Choice" %}
+                    </button>
+                </div>
+
+                <div x-show="isOpenEnded">
+                    <label for="correct_answer_fr" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Reference Answer" %} (FR)</label>
+                    <input type="text" name="correct_answer_fr" id="correct_answer_fr" maxlength="500"
+                           value="{{ question.correct_answer_fr|default:'' }}"
+                           placeholder="R&eacute;ponse attendue..."
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+            </div>
+
+            <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3">
+                <button type="submit" class="px-5 py-2 text-sm font-medium rounded-lg transition-colors"
+                        x-bind:class="submitClass">
+                    {% if question %}{% trans "Save Changes" %}{% else %}{% trans "Add Question" %}{% endif %}
+                </button>
+                <a href="{% url 'crush_lu:coach_quiz_config' event.id %}" class="px-5 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% trans "Cancel" %}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

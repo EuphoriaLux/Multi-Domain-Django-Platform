@@ -94,6 +94,7 @@ from . import views_crush_spark
 from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
+from . import views_quiz_config
 
 app_name = 'crush_lu'
 
@@ -287,6 +288,16 @@ urlpatterns = [
     path('coach/events/<int:event_id>/sms-invite/', views_coach_module.coach_event_sms_invite, name='coach_event_sms_invite'),
     path('coach/events/<int:event_id>/sms-invite/<int:submission_id>/log/', views_coach_module.coach_log_event_sms_sent, name='coach_log_event_sms_sent'),
     path('coach/events/<int:event_id>/sms-invite/profile/<int:profile_id>/log/', views_coach_module.coach_log_event_sms_sent_by_profile, name='coach_log_event_sms_sent_by_profile'),
+
+    # Coach quiz configuration
+    path('coach/events/<int:event_id>/quiz/config/', views_quiz_config.coach_quiz_config, name='coach_quiz_config'),
+    path('coach/events/<int:event_id>/quiz/config/create/', views_quiz_config.coach_quiz_create, name='coach_quiz_create'),
+    path('coach/events/<int:event_id>/quiz/config/round/add/', views_quiz_config.coach_quiz_round_add, name='coach_quiz_round_add'),
+    path('coach/events/<int:event_id>/quiz/config/round/<int:round_id>/edit/', views_quiz_config.coach_quiz_round_edit, name='coach_quiz_round_edit'),
+    path('coach/events/<int:event_id>/quiz/config/round/<int:round_id>/delete/', views_quiz_config.coach_quiz_round_delete, name='coach_quiz_round_delete'),
+    path('coach/events/<int:event_id>/quiz/config/round/<int:round_id>/question/add/', views_quiz_config.coach_quiz_question_add, name='coach_quiz_question_add'),
+    path('coach/events/<int:event_id>/quiz/config/question/<int:question_id>/edit/', views_quiz_config.coach_quiz_question_edit, name='coach_quiz_question_edit'),
+    path('coach/events/<int:event_id>/quiz/config/question/<int:question_id>/delete/', views_quiz_config.coach_quiz_question_delete, name='coach_quiz_question_delete'),
 
     # Coach connection management
     path('coach/connections/', views.coach_connections, name='coach_connections'),

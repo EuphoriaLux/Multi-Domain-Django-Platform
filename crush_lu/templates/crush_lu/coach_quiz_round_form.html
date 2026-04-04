@@ -1,0 +1,107 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% if quiz_round %}{% trans "Edit Round" %}{% else %}{% trans "Add Round" %}{% endif %} - {% trans "Quiz Configuration" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_event_list' %}" class="hover:text-crush-purple transition-colors">{% trans "Events" %}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:20 }}</a>
+        <span>/</span>
+        <a href="{% url 'crush_lu:coach_quiz_config' event.id %}" class="hover:text-crush-purple transition-colors">{% trans "Quiz" %}</a>
+        <span>/</span>
+        <span class="text-gray-700 dark:text-gray-300">{% if quiz_round %}{% trans "Edit Round" %}{% else %}{% trans "Add Round" %}{% endif %}</span>
+    </div>
+    <h2 class="text-2xl font-bold dark:text-white">{% if quiz_round %}{% trans "Edit Round" %}{% else %}{% trans "Add Round" %}{% endif %}</h2>
+</div>
+
+<div class="max-w-xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Round Title with Language Tabs -->
+            <div class="mb-5" x-data="languageTabs">
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">{% trans "Round Title" %} *</label>
+
+                <!-- Language tab buttons -->
+                <div class="flex gap-1 mb-3 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+                    <button type="button" @click="setEnglish" x-bind:class="englishTabClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">EN</button>
+                    <button type="button" @click="setGerman" x-bind:class="germanTabClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">DE</button>
+                    <button type="button" @click="setFrench" x-bind:class="frenchTabClass" class="px-3 py-1 text-xs font-medium rounded-md transition-all">FR</button>
+                </div>
+
+                <!-- English -->
+                <div x-show="isEnglish">
+                    <input type="text" name="title_en" maxlength="200"
+                           value="{{ quiz_round.title_en|default:'' }}"
+                           placeholder="{% trans 'e.g. Round 1: General Knowledge' %}"
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+                <!-- German -->
+                <div x-show="isGerman">
+                    <input type="text" name="title_de" maxlength="200"
+                           value="{{ quiz_round.title_de|default:'' }}"
+                           placeholder="z.B. Runde 1: Allgemeinwissen"
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+                <!-- French -->
+                <div x-show="isFrench">
+                    <input type="text" name="title_fr" maxlength="200"
+                           value="{{ quiz_round.title_fr|default:'' }}"
+                           placeholder="ex. Tour 1 : Culture g&eacute;n&eacute;rale"
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- Time per question -->
+            <div class="mb-5">
+                <label for="time_per_question" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{% trans "Time per Question" %}</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="time_per_question" id="time_per_question" min="5" max="300"
+                           value="{{ quiz_round.time_per_question|default:'30' }}"
+                           class="w-24 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "seconds" %}</span>
+                </div>
+            </div>
+
+            <!-- Sort order (only for edit) -->
+            {% if quiz_round %}
+            <div class="mb-5">
+                <label for="sort_order" class="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">{% trans "Sort Order" %}</label>
+                <input type="number" name="sort_order" id="sort_order" min="0"
+                       value="{{ quiz_round.sort_order }}"
+                       class="w-24 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+            </div>
+            {% endif %}
+
+            <!-- Bonus round -->
+            <div class="mb-6">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="is_bonus" {% if quiz_round.is_bonus %}checked{% endif %}
+                           class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple">
+                    <div>
+                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">{% trans "Bonus Round" %}</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Points are doubled for this round" %}</p>
+                    </div>
+                </label>
+            </div>
+
+            <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3">
+                <button type="submit" class="px-5 py-2 text-sm font-medium bg-crush-purple text-white hover:bg-purple-700 rounded-lg transition-colors">
+                    {% if quiz_round %}{% trans "Save Changes" %}{% else %}{% trans "Add Round" %}{% endif %}
+                </button>
+                <a href="{% url 'crush_lu:coach_quiz_config' event.id %}" class="px-5 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% trans "Cancel" %}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

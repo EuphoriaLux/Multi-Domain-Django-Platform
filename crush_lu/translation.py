@@ -12,6 +12,7 @@ from .models.matching import Trait
 from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
+from .models.quiz import QuizRound, QuizQuestion
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -94,6 +95,23 @@ class TraitTranslationOptions(TranslationOptions):
     fields = ('label',)
 
 
+class QuizRoundTranslationOptions(TranslationOptions):
+    """Translatable fields for quiz rounds."""
+
+    fields = ('title',)
+
+
+class QuizQuestionTranslationOptions(TranslationOptions):
+    """Translatable fields for quiz questions.
+
+    The 'choices' JSONField is translated because it contains display text
+    (answer options) that participants see. Same pattern as JourneyChallenge.options.
+    The 'correct_answer' is translated for open-ended reference answers.
+    """
+
+    fields = ('text', 'choices', 'correct_answer')
+
+
 # Register models with translation options
 translator.register(Trait, TraitTranslationOptions)
 translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
@@ -106,3 +124,5 @@ translator.register(JourneyChallenge, JourneyChallengeTranslationOptions)
 translator.register(JourneyReward, JourneyRewardTranslationOptions)
 translator.register(EventPoll, EventPollTranslationOptions)
 translator.register(EventPollOption, EventPollOptionTranslationOptions)
+translator.register(QuizRound, QuizRoundTranslationOptions)
+translator.register(QuizQuestion, QuizQuestionTranslationOptions)

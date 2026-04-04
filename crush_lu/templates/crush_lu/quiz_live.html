@@ -12,7 +12,8 @@
          {% if user_table_number %}data-table-number="{{ user_table_number }}"{% endif %}
          {% if user_role %}data-user-role="{{ user_role }}"{% endif %}
          data-tablemates="{{ tablemates_json }}"
-         data-quiz-status="{{ quiz_status }}">
+         data-quiz-status="{{ quiz_status }}"
+         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","anchorStay":"{% trans "Anchor (stay at table)" %}","rotatorMove":"{% trans "Rotator (you move!)" %}","anchorHere":"{% trans "Anchor – stay here" %}","rotatorYouMove":"{% trans "Rotator – you move!" %}","yourTablemates":"{% trans "Your tablemates" %}","table":"{% trans "Table" %}"}'>
 
         {# --- Header --- #}
         <div class="mb-6 text-center">

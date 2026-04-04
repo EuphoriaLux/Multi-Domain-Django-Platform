@@ -11313,4 +11313,248 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
+    // -----------------------------------------------------------------------
+    // Quiz Question Form – coach quiz configuration (multilingual)
+    // -----------------------------------------------------------------------
+    Alpine.data("quizQuestionForm", function () {
+        return {
+            questionType: "multiple_choice",
+            activeLang: "en",
+            // Per-language choices arrays
+            choicesEn: [],
+            choicesDe: [],
+            choicesFr: [],
+            correctTrueFalse: "true",
+
+            init: function () {
+                var el = this.$el;
+                this.questionType =
+                    el.getAttribute("data-question-type") || "multiple_choice";
+
+                var langs = ["en", "de", "fr"];
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var i = 0; i < langs.length; i++) {
+                    var raw = el.getAttribute("data-choices-" + langs[i]);
+                    if (raw) {
+                        try {
+                            this[props[i]] = JSON.parse(raw);
+                        } catch (e) {
+                            this[props[i]] = [];
+                        }
+                    }
+                }
+
+                if (this.questionType === "multiple_choice") {
+                    for (var j = 0; j < props.length; j++) {
+                        if (this[props[j]].length === 0) {
+                            this[props[j]] = [
+                                { text: "", isCorrect: false },
+                                { text: "", isCorrect: false },
+                            ];
+                        }
+                    }
+                }
+
+                if (this.questionType === "true_false") {
+                    var ref = this.choicesEn;
+                    var correct = null;
+                    for (var k = 0; k < ref.length; k++) {
+                        if (ref[k].isCorrect) {
+                            correct = ref[k];
+                            break;
+                        }
+                    }
+                    this.correctTrueFalse = correct
+                        ? correct.text.toLowerCase()
+                        : "true";
+                }
+            },
+
+            // Current language's choices (getter)
+            get currentChoices() {
+                if (this.activeLang === "de") return this.choicesDe;
+                if (this.activeLang === "fr") return this.choicesFr;
+                return this.choicesEn;
+            },
+
+            get isMultipleChoice() {
+                return this.questionType === "multiple_choice";
+            },
+            get isTrueFalse() {
+                return this.questionType === "true_false";
+            },
+            get isOpenEnded() {
+                return this.questionType === "open_ended";
+            },
+
+            // Language tab switching
+            get isLangEn() {
+                return this.activeLang === "en";
+            },
+            get isLangDe() {
+                return this.activeLang === "de";
+            },
+            get isLangFr() {
+                return this.activeLang === "fr";
+            },
+            setLangEn: function () {
+                this.activeLang = "en";
+            },
+            setLangDe: function () {
+                this.activeLang = "de";
+            },
+            setLangFr: function () {
+                this.activeLang = "fr";
+            },
+            get langEnClass() {
+                return this.activeLang === "en"
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+            },
+            get langDeClass() {
+                return this.activeLang === "de"
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+            },
+            get langFrClass() {
+                return this.activeLang === "fr"
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+            },
+
+            selectType: function () {
+                var sel = this.$refs.typeSelect;
+                if (!sel) return;
+                this.questionType = sel.value;
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                if (this.questionType === "true_false") {
+                    for (var i = 0; i < props.length; i++) {
+                        this[props[i]] = [
+                            { text: "True", isCorrect: true },
+                            { text: "False", isCorrect: false },
+                        ];
+                    }
+                    this.correctTrueFalse = "true";
+                } else if (this.questionType === "multiple_choice") {
+                    for (var j = 0; j < props.length; j++) {
+                        if (this[props[j]].length < 2) {
+                            this[props[j]] = [
+                                { text: "", isCorrect: false },
+                                { text: "", isCorrect: false },
+                            ];
+                        }
+                    }
+                }
+            },
+
+            addChoice: function () {
+                this.choicesEn.push({ text: "", isCorrect: false });
+                this.choicesDe.push({ text: "", isCorrect: false });
+                this.choicesFr.push({ text: "", isCorrect: false });
+            },
+
+            removeChoice: function () {
+                var btn = this.$el;
+                var idx = parseInt(btn.getAttribute("data-index"), 10);
+                if (isNaN(idx)) return;
+                this.choicesEn.splice(idx, 1);
+                this.choicesDe.splice(idx, 1);
+                this.choicesFr.splice(idx, 1);
+            },
+
+            setCorrect: function () {
+                var btn = this.$el;
+                var idx = parseInt(btn.getAttribute("data-index"), 10);
+                if (isNaN(idx)) return;
+                // Sync is_correct across all languages
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var p = 0; p < props.length; p++) {
+                    var arr = this[props[p]];
+                    for (var i = 0; i < arr.length; i++) {
+                        arr[i].isCorrect = i === idx;
+                    }
+                }
+            },
+
+            setTrueFalseTrue: function () {
+                this.correctTrueFalse = "true";
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var i = 0; i < props.length; i++) {
+                    this[props[i]] = [
+                        { text: "True", isCorrect: true },
+                        { text: "False", isCorrect: false },
+                    ];
+                }
+            },
+
+            setTrueFalseFalse: function () {
+                this.correctTrueFalse = "false";
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var i = 0; i < props.length; i++) {
+                    this[props[i]] = [
+                        { text: "True", isCorrect: false },
+                        { text: "False", isCorrect: true },
+                    ];
+                }
+            },
+
+            updateChoiceText: function () {
+                var input = this.$el;
+                var idx = parseInt(input.getAttribute("data-index"), 10);
+                var choices = this.currentChoices;
+                if (isNaN(idx) || !choices[idx]) return;
+                choices[idx].text = input.value;
+            },
+
+            get choicesJsonEn() {
+                return JSON.stringify(this.choicesEn);
+            },
+            get choicesJsonDe() {
+                return JSON.stringify(this.choicesDe);
+            },
+            get choicesJsonFr() {
+                return JSON.stringify(this.choicesFr);
+            },
+
+            get trueFalseTrueClass() {
+                return this.correctTrueFalse === "true"
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600";
+            },
+
+            get trueFalseFalseClass() {
+                return this.correctTrueFalse === "false"
+                    ? "bg-red-600 text-white border-red-600"
+                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600";
+            },
+
+            get canSubmit() {
+                if (this.questionType === "open_ended") return true;
+                if (this.questionType === "true_false") return true;
+                // At least one language must have valid choices
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var p = 0; p < props.length; p++) {
+                    var arr = this[props[p]];
+                    if (arr.length >= 2) {
+                        var hasCorrect = false;
+                        var allFilled = true;
+                        for (var i = 0; i < arr.length; i++) {
+                            if (arr[i].isCorrect) hasCorrect = true;
+                            if (!arr[i].text || !arr[i].text.trim())
+                                allFilled = false;
+                        }
+                        if (hasCorrect && allFilled) return true;
+                    }
+                }
+                return false;
+            },
+
+            get submitClass() {
+                return this.canSubmit
+                    ? "bg-crush-purple hover:bg-purple-700 text-white"
+                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed";
+            },
+        };
+    });
 });

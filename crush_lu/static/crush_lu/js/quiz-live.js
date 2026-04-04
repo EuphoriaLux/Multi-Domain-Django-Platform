@@ -8,6 +8,75 @@
  * Both use the native WebSocket API – no external libraries.
  */
 document.addEventListener("alpine:init", function () {
+    // Detect user's language from URL prefix or html lang attribute
+    var _quizLang = (function () {
+        var match = window.location.pathname.match(/^\/(en|de|fr)\//);
+        if (match) return match[1];
+        var htmlLang = document.documentElement.lang || "en";
+        if (htmlLang.indexOf("de") === 0) return "de";
+        if (htmlLang.indexOf("fr") === 0) return "fr";
+        return "en";
+    })();
+
+    /**
+     * Pick the best localized value from a data object.
+     * Tries ``key_<lang>`` first, then falls back to ``key``.
+     */
+    function _localized(obj, key) {
+        if (!obj) return "";
+        var langKey = key + "_" + _quizLang;
+        if (obj[langKey] !== undefined && obj[langKey] !== null) return obj[langKey];
+        return obj[key] !== undefined ? obj[key] : "";
+    }
+
+    /**
+     * Pick the best localized choices array from a data object.
+     * Tries ``choices_<lang>`` first, then falls back to ``choices``.
+     */
+    function _localizedChoices(obj) {
+        if (!obj) return [];
+        var langKey = "choices_" + _quizLang;
+        if (obj[langKey] && obj[langKey].length > 0) return obj[langKey];
+        return obj.choices || [];
+    }
+
+    /**
+     * Load i18n strings from data-i18n attribute on the component root.
+     * Falls back to English defaults if not present.
+     */
+    function _loadI18n(el) {
+        var raw = el.getAttribute("data-i18n");
+        var defaults = {
+            pts: "pts",
+            anchor: "Anchor",
+            rotator: "Rotator",
+            anchorStay: "Anchor (stay at table)",
+            rotatorMove: "Rotator (you move!)",
+            anchorHere: "Anchor \u2013 stay here",
+            rotatorYouMove: "Rotator \u2013 you move!",
+            yourTablemates: "Your tablemates",
+            table: "Table",
+            complete: "complete",
+            noMembers: "No members assigned",
+            now: "NOW",
+            done: "DONE",
+            draft: "Draft",
+            active: "Active",
+            paused: "Paused",
+            finished: "Finished",
+        };
+        if (!raw) return defaults;
+        try {
+            var parsed = JSON.parse(raw);
+            for (var k in defaults) {
+                if (!parsed[k]) parsed[k] = defaults[k];
+            }
+            return parsed;
+        } catch (e) {
+            return defaults;
+        }
+    }
+
     // ========================================================================
     // ATTENDEE COMPONENT
     // ========================================================================
@@ -108,11 +177,11 @@ document.addEventListener("alpine:init", function () {
             },
 
             get questionText() {
-                return this.question ? this.question.text : "";
+                return this.question ? _localized(this.question, "text") : "";
             },
             get pointsLabel() {
                 if (!this.question) return "";
-                var pts = this.question.points + " pts";
+                var pts = this.question.points + " " + this._i18n.pts;
                 if (this.isBonusRound) return pts + " (x2 BONUS)";
                 return pts;
             },
@@ -154,7 +223,7 @@ document.addEventListener("alpine:init", function () {
                 return "T" + this.tableNumber;
             },
             get personalScoreLabel() {
-                return this.personalScore + " pts";
+                return this.personalScore + " " + this._i18n.pts;
             },
             get hasPersonalScore() {
                 return this.personalScore > 0;
@@ -164,8 +233,8 @@ document.addEventListener("alpine:init", function () {
                 return "Next: Table " + this.nextTable;
             },
             get roleLabel() {
-                if (this.userRole === "anchor") return "Anchor (stay at table)";
-                if (this.userRole === "rotator") return "Rotator (you move!)";
+                if (this.userRole === "anchor") return this._i18n.anchorStay;
+                if (this.userRole === "rotator") return this._i18n.rotatorMove;
                 return "";
             },
             get rotateDestination() {
@@ -194,6 +263,7 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 this._root = this.$el;
+                this._i18n = _loadI18n(this.$el);
                 this.quizId = this.$el.getAttribute("data-quiz-id");
                 this.isQuizNight = this.$el.getAttribute("data-quiz-night") === "true";
                 var tn = this.$el.getAttribute("data-table-number");
@@ -303,7 +373,7 @@ document.addEventListener("alpine:init", function () {
                     } else if (data.status === "active" && data.question) {
                         this.showQuestion(data);
                     } else if (data.current_round) {
-                        this.roundName = data.current_round.title;
+                        this.roundName = _localized(data.current_round, "title");
                         this.isBonusRound = data.current_round.is_bonus || false;
                     }
                 } else if (type === "quiz.question") {
@@ -332,7 +402,7 @@ document.addEventListener("alpine:init", function () {
                     if (this.isQuizNight) {
                         this.fetchAssignment();
                     }
-                    if (data.round_title) this.roundName = data.round_title;
+                    if (data.round_title) this.roundName = _localized(data, "round_title");
                     if (data.is_bonus !== undefined) this.isBonusRound = data.is_bonus;
                     this.screen = "rotate";
                 } else if (type === "quiz.status") {
@@ -364,7 +434,7 @@ document.addEventListener("alpine:init", function () {
                             this._tableScoredCorrect = r.is_correct;
                             if (r.is_correct) {
                                 var pts = r.points_awarded || 0;
-                                this.tableScoredFeedback = "+" + pts + " pts!";
+                                this.tableScoredFeedback = "+" + pts + " " + this._i18n.pts + "!";
                                 this.personalScore += pts;
                             } else {
                                 this.tableScoredFeedback = "Incorrect";
@@ -397,7 +467,7 @@ document.addEventListener("alpine:init", function () {
 
             showQuestion: function (data) {
                 this.question = data.question || data;
-                this.choices = this.question.choices || [];
+                this.choices = _localizedChoices(this.question);
                 this.questionIndex = data.index || 0;
                 this.questionTotal = data.total || 0;
                 this.countdownTotal = data.time || 30;
@@ -524,11 +594,11 @@ document.addEventListener("alpine:init", function () {
                 if (this.userRole === "anchor") {
                     badge.className =
                         "inline-flex items-center gap-1 rounded-full bg-blue-900/40 px-3 py-1 text-xs font-medium text-blue-300";
-                    badge.textContent = "\u{1F4CC} Anchor \u2013 stay here";
+                    badge.textContent = "\u{1F4CC} " + this._i18n.anchorHere;
                 } else {
                     badge.className =
                         "inline-flex items-center gap-1 rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300";
-                    badge.textContent = "\u{1F504} Rotator \u2013 you move!";
+                    badge.textContent = "\u{1F504} " + this._i18n.rotatorYouMove;
                 }
                 container.appendChild(badge);
             },
@@ -542,7 +612,7 @@ document.addEventListener("alpine:init", function () {
                 var label = document.createElement("p");
                 label.className =
                     "mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500";
-                label.textContent = "Your tablemates";
+                label.textContent = this._i18n.yourTablemates;
                 container.appendChild(label);
 
                 var list = document.createElement("div");
@@ -563,11 +633,11 @@ document.addEventListener("alpine:init", function () {
                         if (m.role === "anchor") {
                             roleBadge.className =
                                 "rounded-full bg-blue-900/30 px-2 py-0.5 text-xs text-blue-400";
-                            roleBadge.textContent = "\u{1F4CC} Anchor";
+                            roleBadge.textContent = "\u{1F4CC} " + this._i18n.anchor;
                         } else {
                             roleBadge.className =
                                 "rounded-full bg-amber-900/30 px-2 py-0.5 text-xs text-amber-400";
-                            roleBadge.textContent = "\u{1F504} Rotator";
+                            roleBadge.textContent = "\u{1F504} " + this._i18n.rotator;
                         }
                         row.appendChild(roleBadge);
                     }
@@ -601,14 +671,14 @@ document.addEventListener("alpine:init", function () {
 
                     var label = document.createElement("span");
                     label.className = "font-medium text-white";
-                    label.textContent = "Table " + this.tables[i].table_number;
+                    label.textContent = this._i18n.table + " " + this.tables[i].table_number;
 
                     left.appendChild(rank);
                     left.appendChild(label);
 
                     var score = document.createElement("span");
                     score.className = "font-bold text-crush-pink";
-                    score.textContent = this.tables[i].total_score + " pts";
+                    score.textContent = this.tables[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(left);
                     row.appendChild(score);
@@ -636,7 +706,7 @@ document.addEventListener("alpine:init", function () {
 
                     var score = document.createElement("span");
                     score.className = "text-sm font-medium text-crush-pink";
-                    score.textContent = this.individuals[i].total_score + " pts";
+                    score.textContent = this.individuals[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(name);
                     row.appendChild(score);
@@ -675,7 +745,7 @@ document.addEventListener("alpine:init", function () {
 
                     var title = document.createElement("span");
                     title.className = "font-semibold text-white";
-                    title.textContent = "Table " + t.table_number;
+                    title.textContent = this._i18n.table + " " + t.table_number;
 
                     titleWrap.appendChild(numBadge);
                     titleWrap.appendChild(title);
@@ -683,7 +753,7 @@ document.addEventListener("alpine:init", function () {
                     var scoreBadge = document.createElement("span");
                     scoreBadge.className =
                         "rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-medium text-crush-pink";
-                    scoreBadge.textContent = t.total_score + " pts";
+                    scoreBadge.textContent = t.total_score + " " + this._i18n.pts;
 
                     header.appendChild(titleWrap);
                     header.appendChild(scoreBadge);
@@ -708,11 +778,11 @@ document.addEventListener("alpine:init", function () {
                             if (m.role === "anchor") {
                                 roleBadge.className =
                                     "rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300";
-                                roleBadge.textContent = "\u{1F4CC} Anchor";
+                                roleBadge.textContent = "\u{1F4CC} " + this._i18n.anchor;
                             } else {
                                 roleBadge.className =
                                     "rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300";
-                                roleBadge.textContent = "\u{1F504} Rotator";
+                                roleBadge.textContent = "\u{1F504} " + this._i18n.rotator;
                             }
                             memberRow.appendChild(roleBadge);
                         }
@@ -848,10 +918,10 @@ document.addEventListener("alpine:init", function () {
 
             get statusText() {
                 var map = {
-                    draft: "Draft",
-                    active: "Active",
-                    paused: "Paused",
-                    finished: "Finished",
+                    draft: this._i18n.draft,
+                    active: this._i18n.active,
+                    paused: this._i18n.paused,
+                    finished: this._i18n.finished,
                 };
                 return map[this.status] || this.status;
             },
@@ -867,13 +937,13 @@ document.addEventListener("alpine:init", function () {
                 return "bg-gray-400";
             },
             get currentQuestionText() {
-                return this.currentQuestion ? this.currentQuestion.text : "";
+                return this.currentQuestion ? _localized(this.currentQuestion, "text") : "";
             },
             get currentQuestionType() {
                 return this.currentQuestion ? this.currentQuestion.question_type : "";
             },
             get currentRoundTitle() {
-                return this.currentRound ? this.currentRound.title : "";
+                return this.currentRound ? _localized(this.currentRound, "title") : "";
             },
             get questionProgress() {
                 if (!this.questionCount) return "";
@@ -881,23 +951,20 @@ document.addEventListener("alpine:init", function () {
             },
             get correctAnswerText() {
                 if (!this.currentQuestion) return "";
-                // For multiple choice / true false
-                if (this.currentQuestion.choices_with_answers) {
+                // For multiple choice / true false - try localized choices first
+                var answersKey = "choices_with_answers_" + _quizLang;
+                var answers = this.currentQuestion[answersKey] || this.currentQuestion.choices_with_answers;
+                if (answers) {
                     var correct = [];
-                    for (
-                        var i = 0;
-                        i < this.currentQuestion.choices_with_answers.length;
-                        i++
-                    ) {
-                        var c = this.currentQuestion.choices_with_answers[i];
+                    for (var i = 0; i < answers.length; i++) {
+                        var c = answers[i];
                         if (c.is_correct) correct.push(c.text);
                     }
                     return correct.join(", ");
                 }
                 // For open ended
-                if (this.currentQuestion.correct_answer) {
-                    return this.currentQuestion.correct_answer;
-                }
+                var ca = _localized(this.currentQuestion, "correct_answer");
+                if (ca) return ca;
                 return "";
             },
             get hasCorrectAnswer() {
@@ -907,6 +974,7 @@ document.addEventListener("alpine:init", function () {
 
             init: function () {
                 this._root = this.$el;
+                this._i18n = _loadI18n(this.$el);
                 this.quizId = this.$el.getAttribute("data-quiz-id");
                 this.isQuizNight = this.$el.getAttribute("data-quiz-night") === "true";
                 var tc = this.$el.getAttribute("data-table-count");
@@ -1329,11 +1397,7 @@ document.addEventListener("alpine:init", function () {
                     } else if (i === roundNumber) {
                         this.rounds[i].status = "current";
                         this.selectedRoundId = this.rounds[i].id;
-                        this.currentRound = {
-                            id: this.rounds[i].id,
-                            title: this.rounds[i].title,
-                            is_bonus: this.rounds[i].is_bonus,
-                        };
+                        this.currentRound = this.rounds[i];
                     } else {
                         this.rounds[i].status = "upcoming";
                     }
@@ -1415,11 +1479,11 @@ document.addEventListener("alpine:init", function () {
                         }
                     }
                     if (status === "current") {
-                        badge.textContent = "\u25B6 NOW";
+                        badge.textContent = "\u25B6 " + this._i18n.now;
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-crush-purple text-white";
                     } else if (status === "done") {
-                        badge.textContent = "\u2713 DONE";
+                        badge.textContent = "\u2713 " + this._i18n.done;
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full bg-green-700 text-green-200";
                     } else {
@@ -1446,7 +1510,7 @@ document.addEventListener("alpine:init", function () {
                 // Update progress text
                 var progressText = root.querySelector(".quiz-round-progress-text");
                 if (progressText) {
-                    progressText.textContent = done + " / " + total + " complete";
+                    progressText.textContent = done + " / " + total + " " + this._i18n.complete;
                 }
                 // Update progress bar width
                 var progressBar = root.querySelector(".quiz-round-progress-bar");
@@ -1476,14 +1540,14 @@ document.addEventListener("alpine:init", function () {
 
                     var label = document.createElement("span");
                     label.className = "text-sm text-white";
-                    label.textContent = "Table " + this.tables[i].table_number;
+                    label.textContent = this._i18n.table + " " + this.tables[i].table_number;
 
                     left.appendChild(rank);
                     left.appendChild(label);
 
                     var score = document.createElement("span");
                     score.className = "text-sm font-medium text-crush-pink";
-                    score.textContent = this.tables[i].total_score + " pts";
+                    score.textContent = this.tables[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(left);
                     row.appendChild(score);
@@ -1561,7 +1625,7 @@ document.addEventListener("alpine:init", function () {
 
                     var title = document.createElement("span");
                     title.className = "font-semibold text-white";
-                    title.textContent = "Table " + t.table_number;
+                    title.textContent = this._i18n.table + " " + t.table_number;
 
                     titleWrap.appendChild(numBadge);
                     titleWrap.appendChild(title);
@@ -1569,7 +1633,7 @@ document.addEventListener("alpine:init", function () {
                     var scoreBadge = document.createElement("span");
                     scoreBadge.className =
                         "rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-medium text-crush-pink";
-                    scoreBadge.textContent = t.total_score + " pts";
+                    scoreBadge.textContent = t.total_score + " " + this._i18n.pts;
 
                     header.appendChild(titleWrap);
                     header.appendChild(scoreBadge);
@@ -1596,11 +1660,11 @@ document.addEventListener("alpine:init", function () {
                             if (m.role === "anchor") {
                                 roleBadge.className =
                                     "rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300";
-                                roleBadge.textContent = "\u{1F4CC} Anchor";
+                                roleBadge.textContent = "\u{1F4CC} " + this._i18n.anchor;
                             } else {
                                 roleBadge.className =
                                     "rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300";
-                                roleBadge.textContent = "\u{1F504} Rotator";
+                                roleBadge.textContent = "\u{1F504} " + this._i18n.rotator;
                             }
                             memberRow.appendChild(roleBadge);
                         }
@@ -1611,7 +1675,7 @@ document.addEventListener("alpine:init", function () {
                     if (t.members.length === 0) {
                         var emptyMsg = document.createElement("p");
                         emptyMsg.className = "text-xs italic text-gray-500";
-                        emptyMsg.textContent = "No members assigned";
+                        emptyMsg.textContent = this._i18n.noMembers;
                         memberList.appendChild(emptyMsg);
                     }
 

@@ -10,7 +10,8 @@
          data-quiz-id="{{ quiz.id }}"
          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
          data-table-count="{{ tables.count }}"
-         data-table-members="{{ table_members_json }}">
+         data-table-members="{{ table_members_json }}"
+         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}"}'>
 
         {# --- Header --- #}
         <div class="mb-6">
