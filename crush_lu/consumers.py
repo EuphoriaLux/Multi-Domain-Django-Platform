@@ -154,45 +154,51 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         action = content.get("action")
         user = self.scope.get("user")
 
+        # Host-only actions
+        host_actions = {
+            "start_quiz", "next_question", "set_round", "pause_quiz",
+            "end_quiz", "score_table", "rotate", "show_leaderboard",
+        }
+
+        if action in host_actions:
+            if not await self.is_host(user):
+                await self.send_error("Not authorized. Only the host can perform this action.")
+                return
+
         if action == "start_quiz":
-            if await self.is_host(user):
-                await self.handle_start_quiz()
+            await self.handle_start_quiz()
 
         elif action == "next_question":
-            if await self.is_host(user):
-                await self.handle_next_question()
+            await self.handle_next_question()
 
         elif action == "set_round":
-            if await self.is_host(user):
-                await self.handle_set_round(content)
+            await self.handle_set_round(content)
 
         elif action == "pause_quiz":
-            if await self.is_host(user):
-                await self.handle_pause_quiz()
+            await self.handle_pause_quiz()
 
         elif action == "end_quiz":
-            if await self.is_host(user):
-                await self.handle_end_quiz()
+            await self.handle_end_quiz()
 
         elif action == "table_answer":
             # Legacy: individual answer submission (non-quiz-night events)
-            if user and user.is_authenticated:
-                is_quiz_night = await self.is_quiz_night_event()
-                if not is_quiz_night:
-                    await self.handle_table_answer(user, content)
+            if not user or not user.is_authenticated:
+                await self.send_error("You must be logged in to submit answers.")
+                return
+            is_quiz_night = await self.is_quiz_night_event()
+            if is_quiz_night:
+                await self.send_error("Individual answers are not used in quiz night events.")
+                return
+            await self.handle_table_answer(user, content)
 
         elif action == "score_table":
-            # Host scores a table for a question
-            if await self.is_host(user):
-                await self.handle_score_table(content)
+            await self.handle_score_table(content)
 
         elif action == "rotate":
-            if await self.is_host(user):
-                await self.handle_rotate()
+            await self.handle_rotate()
 
         elif action == "show_leaderboard":
-            if await self.is_host(user):
-                await self.handle_leaderboard()
+            await self.handle_leaderboard()
 
     async def send_error(self, message):
         """Send an error message back to the client."""
@@ -349,6 +355,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         result = await self.score_answer(user.id, question_id, answer)
         if result is None:
+            return
+
+        if result.get("already_answered"):
+            await self.send_error("You have already answered this question.")
             return
 
         await self.send_json({"type": "quiz.answer_result", "data": result})
@@ -918,11 +928,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         except QuizQuestion.DoesNotExist:
             return None
 
-        if IndividualScore.objects.filter(
-            quiz_id=self.quiz_id, user_id=user_id, question_id=question_id
-        ).exists():
-            return None
-
         is_correct = False
         # Check answer against all language variants of choices
         for lang in _QUIZ_LANGUAGES:
@@ -942,14 +947,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         points = question.points if is_correct else 0
 
-        IndividualScore.objects.create(
+        # Atomic get_or_create to prevent race conditions on duplicate submissions
+        _obj, created = IndividualScore.objects.get_or_create(
             quiz_id=self.quiz_id,
             user_id=user_id,
             question_id=question_id,
-            answer=answer,
-            is_correct=is_correct,
-            points_earned=points,
+            defaults={
+                "answer": answer,
+                "is_correct": is_correct,
+                "points_earned": points,
+            },
         )
+        if not created:
+            return {"already_answered": True}
 
         # Return correct answer in default language
         correct_text = next(

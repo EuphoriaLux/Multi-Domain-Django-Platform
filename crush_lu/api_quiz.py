@@ -299,13 +299,21 @@ def score_table(request, quiz_id):
             {"error": "Table or question not found"}, status=404
         )
 
-    # Create or update TableRoundScore
-    TableRoundScore.objects.update_or_create(
+    # Only allow scoring once per table per question (consistent with WebSocket path)
+    _obj, created = TableRoundScore.objects.get_or_create(
         quiz=quiz,
         table=table,
         question=question,
         defaults={"is_correct": is_correct},
     )
+    if not created:
+        return JsonResponse(
+            {
+                "table_number": table.table_number,
+                "already_scored": True,
+            },
+            status=409,
+        )
 
     # Issue #4: Read bonus from question's own round, not quiz.current_round
     points = question.points if is_correct else 0
@@ -332,7 +340,7 @@ def score_table(request, quiz_id):
 
     # Create IndividualScore for each table member
     for user_id in rotation_users:
-        IndividualScore.objects.update_or_create(
+        IndividualScore.objects.get_or_create(
             quiz=quiz,
             user_id=user_id,
             question=question,
@@ -366,6 +374,12 @@ def regenerate_tables(request, quiz_id):
 
     if not _is_quiz_host(quiz, request.user):
         return JsonResponse({"error": "Not authorized"}, status=403)
+
+    if quiz.status == "active":
+        return JsonResponse(
+            {"error": "Cannot regenerate tables while quiz is active. Pause or end the quiz first."},
+            status=409,
+        )
 
     from django.utils import timezone
 
