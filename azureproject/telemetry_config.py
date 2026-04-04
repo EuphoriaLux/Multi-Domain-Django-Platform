@@ -234,7 +234,7 @@ def configure_azure_monitor_telemetry(environment="production"):
         return False
 
     # Allow disabling Live Metrics to avoid timeout issues during deployment
-    enable_live_metrics = os.environ.get('ENABLE_LIVE_METRICS', 'true').lower() != 'false'
+    enable_live_metrics = os.environ.get('ENABLE_LIVE_METRICS', 'false').lower() == 'true'
 
     # Sampling rate: 0.1 = 10% (keep 10% of traces, drop 90%)
     # This can reduce costs by 90% while maintaining statistical visibility

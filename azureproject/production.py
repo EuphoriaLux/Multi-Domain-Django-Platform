@@ -486,6 +486,11 @@ LOGGING = {
             "level": "ERROR",
             "propagate": False,
         },
+        "azure.monitor.opentelemetry.exporter._quickpulse": {
+            "handlers": [],
+            "level": "CRITICAL",
+            "propagate": False,
+        },
         "Microsoft": {
             "handlers": [],
             "level": "ERROR",
