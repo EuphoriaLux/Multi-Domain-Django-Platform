@@ -21,11 +21,11 @@
                 {% trans "Are you sure you want to cancel your registration for this event?" %}
             </p>
 
-            <form method="post">
+            <form method="post" onsubmit="var btn=this.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='{% trans "Cancelling..." %}';">
                 {% csrf_token %}
                 <div class="space-y-3">
                     <button type="submit"
-                            class="w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors">
+                            class="w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         {% trans "Yes, Cancel Registration" %}
                     </button>
                     <a href="{% url 'crush_lu:dashboard' %}"

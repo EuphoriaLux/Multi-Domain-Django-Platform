@@ -44,9 +44,12 @@ def _promote_from_waitlist(event, cancelled_user=None):
 
     Returns the promoted EventRegistration, or None.
     """
+    # NOTE: Do NOT use select_related("user__crushprofile") here — it creates
+    # a LEFT OUTER JOIN, and PostgreSQL forbids FOR UPDATE on the nullable
+    # side of an outer join.  Profiles are fetched in a separate query below.
     waitlisted = EventRegistration.objects.select_for_update().filter(
         event=event, status="waitlist"
-    ).select_related("user__crushprofile").order_by("registered_at")
+    ).order_by("registered_at")
 
     if not waitlisted.exists():
         return None
@@ -67,15 +70,25 @@ def _promote_from_waitlist(event, cancelled_user=None):
         if cancelled_profile:
             cancelled_gender = cancelled_profile.gender
 
+    # Prefetch profiles in a separate query (no FOR UPDATE conflict)
+    waitlisted_list = list(waitlisted)
+    user_ids = [reg.user_id for reg in waitlisted_list]
+    profiles_by_user = {
+        p.user_id: p
+        for p in CrushProfile.objects.filter(user_id__in=user_ids)
+    }
+
+    def _get_gender(reg):
+        profile = profiles_by_user.get(reg.user_id)
+        return profile.gender if profile else None
+
     # 1. Try same-pool candidates first
     if cancelled_gender:
         pool = event.get_gender_pool(cancelled_gender)
         if pool:
             pool_codes = event.POOL_TO_CODES.get(pool, [])
-            for candidate in waitlisted:
-                cand_gender = getattr(
-                    getattr(candidate.user, "crushprofile", None), "gender", None
-                )
+            for candidate in waitlisted_list:
+                cand_gender = _get_gender(candidate)
                 if cand_gender in pool_codes:
                     if (
                         not event.is_full
@@ -86,13 +99,11 @@ def _promote_from_waitlist(event, cancelled_user=None):
                         return candidate
 
     # 2. Try any waitlisted user whose pool has room
-    for candidate in waitlisted:
+    for candidate in waitlisted_list:
         if event.is_full:
             break
-        cand_gender = getattr(
-            getattr(candidate.user, "crushprofile", None), "gender", None
-        )
-        if cand_gender and event.is_gender_pool_full(cand_gender):
+        cand_gender = _get_gender(candidate)
+        if not cand_gender or event.is_gender_pool_full(cand_gender):
             continue
         candidate.status = "confirmed"
         candidate.save()
@@ -751,6 +762,8 @@ def event_register(request, event_id):
                     registration.dietary_restrictions = form.cleaned_data.get('dietary_restrictions', '')
                     registration.bringing_guest = form.cleaned_data.get('bringing_guest', False)
                     registration.guest_name = form.cleaned_data.get('guest_name', '')
+                    # Reset timestamp so re-registration gets a fair waitlist position
+                    registration.registered_at = timezone.now()
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -839,6 +852,8 @@ def event_cancel(request, event_id):
     registration = get_object_or_404(EventRegistration, event=event, user=request.user)
 
     if request.method == "POST":
+        promoted = None
+
         with transaction.atomic():
             locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
             registration = EventRegistration.objects.select_for_update().get(
@@ -852,18 +867,21 @@ def event_cancel(request, event_id):
 
             messages.success(request, _("Your registration has been cancelled."))
 
-            try:
-                send_event_cancellation_confirmation(request.user, locked_event, request)
-            except Exception as e:
-                logger.error(f"Failed to send event cancellation email: {e}")
-
-            # Gender-aware waitlist promotion
+            # Gender-aware waitlist promotion (DB only, inside transaction)
             promoted = _promote_from_waitlist(locked_event, request.user)
-            if promoted:
-                try:
-                    send_event_registration_confirmation(promoted, request)
-                except Exception as e:
-                    logger.error(f"Failed to send waitlist promotion email: {e}")
+
+        # Send emails OUTSIDE the transaction so they are only dispatched
+        # after a successful commit and don't hold the DB lock during SMTP I/O.
+        try:
+            send_event_cancellation_confirmation(request.user, event, request)
+        except Exception as e:
+            logger.error(f"Failed to send event cancellation email: {e}")
+
+        if promoted:
+            try:
+                send_event_registration_confirmation(promoted, request)
+            except Exception as e:
+                logger.error(f"Failed to send waitlist promotion email: {e}")
 
         return redirect("crush_lu:dashboard")
 
