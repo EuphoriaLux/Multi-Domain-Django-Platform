@@ -242,6 +242,9 @@ def coach_quiz_question_edit(request, event_id, question_id):
     quiz = get_object_or_404(QuizEvent, event=event)
     question = get_object_or_404(QuizQuestion, id=question_id, round__quiz=quiz)
 
+    if request.method == "POST":
+        return _save_question(request, event, question.round, question=question)
+
     # Build per-language choices JSON for the Alpine component
     choices_by_lang = {}
     for lang in LANGUAGES:
