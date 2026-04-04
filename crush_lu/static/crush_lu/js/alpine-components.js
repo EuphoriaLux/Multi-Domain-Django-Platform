@@ -11369,6 +11369,8 @@ document.addEventListener("alpine:init", function () {
                         ? correct.text.toLowerCase()
                         : "true";
                 }
+
+                this._renderAllChoices();
             },
 
             // Current language's choices (getter)
@@ -11446,12 +11448,14 @@ document.addEventListener("alpine:init", function () {
                         }
                     }
                 }
+                this._renderAllChoices();
             },
 
             addChoice: function () {
                 this.choicesEn.push({ text: "", isCorrect: false });
                 this.choicesDe.push({ text: "", isCorrect: false });
                 this.choicesFr.push({ text: "", isCorrect: false });
+                this._renderAllChoices();
             },
 
             removeChoice: function () {
@@ -11486,6 +11490,7 @@ document.addEventListener("alpine:init", function () {
                         { text: "False", isCorrect: false },
                     ];
                 }
+                this._renderAllChoices();
             },
 
             setTrueFalseFalse: function () {
@@ -11497,6 +11502,7 @@ document.addEventListener("alpine:init", function () {
                         { text: "False", isCorrect: true },
                     ];
                 }
+                this._renderAllChoices();
             },
 
             updateChoiceText: function () {
@@ -11505,6 +11511,101 @@ document.addEventListener("alpine:init", function () {
                 var choices = this.currentChoices;
                 if (isNaN(idx) || !choices[idx]) return;
                 choices[idx].text = input.value;
+            },
+
+            // --- CSP-safe imperative DOM rendering for choices ---
+            _placeholders: { en: "Choice text...", de: "Antworttext...", fr: "Texte du choix..." },
+
+            _renderAllChoices: function () {
+                this._renderChoices("en");
+                this._renderChoices("de");
+                this._renderChoices("fr");
+            },
+
+            _renderChoices: function (lang) {
+                var container = this.$el.querySelector('[data-choices-container="' + lang + '"]');
+                if (!container) return;
+
+                var self = this;
+                var propName = "choices" + lang.charAt(0).toUpperCase() + lang.slice(1);
+                var choices = this[propName];
+                var placeholder = this._placeholders[lang] || "Choice text...";
+                container.innerHTML = "";
+
+                for (var i = 0; i < choices.length; i++) {
+                    (function (index) {
+                        var choice = choices[index];
+                        var row = document.createElement("div");
+                        row.className = "flex items-center gap-2 mb-2";
+
+                        // Correct-answer button
+                        var btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className = "shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
+                            + (choice.isCorrect
+                                ? " border-green-500 bg-green-500"
+                                : " border-gray-300 dark:border-gray-600 hover:border-green-400");
+                        if (choice.isCorrect) {
+                            btn.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                                + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+                        }
+                        btn.addEventListener("click", function () {
+                            self._setCorrectByIndex(index);
+                        });
+                        row.appendChild(btn);
+
+                        // Text input
+                        var input = document.createElement("input");
+                        input.type = "text";
+                        input.value = choice.text;
+                        input.placeholder = placeholder;
+                        input.className = "flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent";
+                        input.addEventListener("input", function () {
+                            self._updateChoiceTextByIndex(lang, index, input.value);
+                        });
+                        row.appendChild(input);
+
+                        // Remove button
+                        var removeBtn = document.createElement("button");
+                        removeBtn.type = "button";
+                        removeBtn.className = "shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors";
+                        removeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+                        removeBtn.addEventListener("click", function () {
+                            self._removeChoiceByIndex(index);
+                        });
+                        row.appendChild(removeBtn);
+
+                        container.appendChild(row);
+                    })(i);
+                }
+            },
+
+            _setCorrectByIndex: function (idx) {
+                var props = ["choicesEn", "choicesDe", "choicesFr"];
+                for (var p = 0; p < props.length; p++) {
+                    var arr = this[props[p]];
+                    for (var i = 0; i < arr.length; i++) {
+                        arr[i].isCorrect = (i === idx);
+                    }
+                }
+                this._renderAllChoices();
+            },
+
+            _updateChoiceTextByIndex: function (lang, idx, value) {
+                var propName = "choices" + lang.charAt(0).toUpperCase() + lang.slice(1);
+                var choices = this[propName];
+                if (choices[idx]) {
+                    choices[idx].text = value;
+                }
+                // No re-render: only the data model changes, input keeps focus
+            },
+
+            _removeChoiceByIndex: function (idx) {
+                this.choicesEn.splice(idx, 1);
+                this.choicesDe.splice(idx, 1);
+                this.choicesFr.splice(idx, 1);
+                this._renderAllChoices();
             },
 
             get choicesJsonEn() {
