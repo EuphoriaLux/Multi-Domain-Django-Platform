@@ -530,3 +530,256 @@ class EventCancellationTests(TestCase):
 
         self.event.refresh_from_db()
         self.assertTrue(self.event.is_cancelled)
+
+
+class WaitlistPromotionTests(TestCase):
+    """Test gender-aware waitlist promotion logic."""
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
+
+        self.event = MeetupEvent.objects.create(
+            title='Waitlist Promotion Test',
+            description='Testing waitlist promotion',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=4,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+    def _create_user_with_profile(self, username, gender):
+        from crush_lu.models import CrushProfile
+
+        user = User.objects.create_user(
+            username=username,
+            email=username,
+            password='testpass123',
+            first_name=username.split('@')[0],
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1995, 1, 1),
+            gender=gender,
+            location='Luxembourg',
+        )
+        return user
+
+    def _create_user_without_profile(self, username):
+        return User.objects.create_user(
+            username=username,
+            email=username,
+            password='testpass123',
+        )
+
+    def _register(self, user, status):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event, user=user, status=status,
+        )
+
+    def test_fifo_promotion_on_cancel(self):
+        """When no gender limits, first waitlisted user is promoted (FIFO)."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u1 = self._create_user_with_profile('u1@test.com', 'M')
+        u2 = self._create_user_with_profile('u2@test.com', 'F')
+        u3 = self._create_user_with_profile('u3@test.com', 'M')
+
+        self.event.max_participants = 1
+        self.event.save()
+
+        reg1 = self._register(u1, 'confirmed')
+        reg2 = self._register(u2, 'waitlist')
+        reg3 = self._register(u3, 'waitlist')
+
+        # Cancel the confirmed user
+        reg1.status = 'cancelled'
+        reg1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, u1)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.user, u2)  # First in line (FIFO)
+        reg2.refresh_from_db()
+        self.assertEqual(reg2.status, 'confirmed')
+
+    def test_gender_aware_same_pool_promotion(self):
+        """When gender limits active, same-pool candidate is promoted first."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
+        u_m2 = self._create_user_with_profile('m2@test.com', 'M')
+        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
+        u_f2 = self._create_user_with_profile('f2@test.com', 'F')
+
+        self.event.max_participants = 4
+        self.event.max_participants_m = 2
+        self.event.max_participants_f = 2
+        self.event.max_participants_nb = 0
+        self.event.save()
+
+        reg_m1 = self._register(u_m1, 'confirmed')
+        reg_m2 = self._register(u_m2, 'confirmed')
+        reg_f1 = self._register(u_f1, 'confirmed')
+        # Female on waitlist, registered BEFORE male waitlist candidate
+        reg_f2 = self._register(u_f2, 'waitlist')
+
+        # Cancel a male → should promote from male pool, but no males on waitlist
+        # So it should try any pool — f2's pool is full (2/2), so no promotion
+        reg_m1.status = 'cancelled'
+        reg_m1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, u_m1)
+
+        # Female pool is full (2/2), male pool has room but no males on waitlist
+        # f2 can't be promoted because her pool is full
+        self.assertIsNone(promoted)
+
+    def test_gender_same_pool_candidate_promoted(self):
+        """Same-gender-pool candidate promoted when their pool has room."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
+        u_f2 = self._create_user_with_profile('f2@test.com', 'F')
+        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
+
+        self.event.max_participants = 4
+        self.event.max_participants_m = 2
+        self.event.max_participants_f = 2
+        self.event.max_participants_nb = 0
+        self.event.save()
+
+        reg_f1 = self._register(u_f1, 'confirmed')
+        reg_m1 = self._register(u_m1, 'confirmed')
+        # f2 on waitlist (registered after, but female pool has room: 1/2)
+        reg_f2 = self._register(u_f2, 'waitlist')
+
+        # Cancel f1 → should promote f2 (same pool, has room)
+        reg_f1.status = 'cancelled'
+        reg_f1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, u_f1)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.user, u_f2)
+
+    def test_gender_fallback_to_other_pool(self):
+        """Falls back to other pool when no same-pool candidate exists."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
+        u_m2 = self._create_user_with_profile('m2@test.com', 'M')
+        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
+
+        self.event.max_participants = 4
+        self.event.max_participants_m = 2
+        self.event.max_participants_f = 2
+        self.event.max_participants_nb = 0
+        self.event.save()
+
+        reg_m1 = self._register(u_m1, 'confirmed')
+        reg_m2 = self._register(u_m2, 'confirmed')
+        # f1 on waitlist — total was full when she registered
+        reg_f1 = self._register(u_f1, 'waitlist')
+
+        # Cancel m1 → no males on waitlist, fallback to f1 whose pool has room (0/2)
+        reg_m1.status = 'cancelled'
+        reg_m1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, u_m1)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.user, u_f1)
+
+    def test_no_promotion_when_event_full(self):
+        """No promotion when total capacity still full."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        users = [self._create_user_with_profile(f'u{i}@test.com', 'M') for i in range(5)]
+
+        self.event.max_participants = 4
+        self.event.save()
+
+        # 4 confirmed, 1 waitlisted
+        for u in users[:4]:
+            self._register(u, 'confirmed')
+        reg_wl = self._register(users[4], 'waitlist')
+
+        # Don't cancel anyone — event is full
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNone(promoted)
+
+    def test_waitlist_user_cancel_no_spurious_promotion(self):
+        """Cancelling a waitlisted user doesn't promote anyone when event is full."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        users = [self._create_user_with_profile(f'u{i}@test.com', 'M') for i in range(6)]
+
+        self.event.max_participants = 4
+        self.event.save()
+
+        for u in users[:4]:
+            self._register(u, 'confirmed')
+        reg_wl1 = self._register(users[4], 'waitlist')
+        reg_wl2 = self._register(users[5], 'waitlist')
+
+        # Waitlisted user cancels — doesn't free a confirmed spot
+        reg_wl1.status = 'cancelled'
+        reg_wl1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, users[4])
+
+        # Event is still full (4/4), no one should be promoted
+        self.assertIsNone(promoted)
+
+    def test_genderless_user_skipped_when_gender_limits_active(self):
+        """User without gender profile is not promoted when gender limits active."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
+        u_no_gender = self._create_user_without_profile('nogender@test.com')
+
+        self.event.max_participants = 4
+        self.event.max_participants_m = 2
+        self.event.max_participants_f = 2
+        self.event.max_participants_nb = 0
+        self.event.save()
+
+        reg_m1 = self._register(u_m1, 'confirmed')
+        reg_ng = self._register(u_no_gender, 'waitlist')
+
+        # Cancel m1 → genderless user should be skipped
+        reg_m1.status = 'cancelled'
+        reg_m1.save()
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked, u_m1)
+
+        self.assertIsNone(promoted)
+        reg_ng.refresh_from_db()
+        self.assertEqual(reg_ng.status, 'waitlist')  # Still waitlisted
