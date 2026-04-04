@@ -610,15 +610,15 @@ class WaitlistPromotionTests(TestCase):
         reg2.refresh_from_db()
         self.assertEqual(reg2.status, 'confirmed')
 
-    def test_gender_aware_same_pool_promotion(self):
-        """When gender limits active, same-pool candidate is promoted first."""
+    def test_gender_aware_no_promotion_when_pool_full(self):
+        """No promotion when only waitlisted candidate's gender pool is full."""
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
         u_m1 = self._create_user_with_profile('m1@test.com', 'M')
-        u_m2 = self._create_user_with_profile('m2@test.com', 'M')
         u_f1 = self._create_user_with_profile('f1@test.com', 'F')
         u_f2 = self._create_user_with_profile('f2@test.com', 'F')
+        u_f3 = self._create_user_with_profile('f3@test.com', 'F')
 
         self.event.max_participants = 4
         self.event.max_participants_m = 2
@@ -627,13 +627,13 @@ class WaitlistPromotionTests(TestCase):
         self.event.save()
 
         reg_m1 = self._register(u_m1, 'confirmed')
-        reg_m2 = self._register(u_m2, 'confirmed')
         reg_f1 = self._register(u_f1, 'confirmed')
-        # Female on waitlist, registered BEFORE male waitlist candidate
-        reg_f2 = self._register(u_f2, 'waitlist')
+        reg_f2 = self._register(u_f2, 'confirmed')
+        # f3 on waitlist — female pool full (2/2), total not full (3/4)
+        reg_f3 = self._register(u_f3, 'waitlist')
 
-        # Cancel a male → should promote from male pool, but no males on waitlist
-        # So it should try any pool — f2's pool is full (2/2), so no promotion
+        # Cancel the male → male pool now 0/2, total 2/4
+        # But only waitlisted candidate is f3 whose pool is full (2/2)
         reg_m1.status = 'cancelled'
         reg_m1.save()
 
@@ -641,8 +641,7 @@ class WaitlistPromotionTests(TestCase):
             locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
             promoted = _promote_from_waitlist(locked, u_m1)
 
-        # Female pool is full (2/2), male pool has room but no males on waitlist
-        # f2 can't be promoted because her pool is full
+        # f3 can't be promoted because her pool is still full (2/2)
         self.assertIsNone(promoted)
 
     def test_gender_same_pool_candidate_promoted(self):
