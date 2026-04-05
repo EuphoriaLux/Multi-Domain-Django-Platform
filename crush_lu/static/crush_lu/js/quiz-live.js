@@ -1283,61 +1283,76 @@ document.addEventListener("alpine:init", function () {
                 this._scoreTable(tid, false);
             },
 
-            scoreAllCorrect: function () {
-                var root = this._root;
-                var tableEls = root.querySelectorAll(".quiz-table-btn[data-table-id]");
-                for (var i = 0; i < tableEls.length; i++) {
-                    var tid = parseInt(tableEls[i].getAttribute("data-table-id"), 10);
-                    if (this.scoredTables[tid] === undefined) {
-                        this._scoreTable(tid, true);
-                    }
-                }
-            },
-
             // clearScoring removed — scoring is locked after reveal
 
             _updateTableButtons: function () {
                 var root = this._root;
-                var buttons = root.querySelectorAll(".quiz-table-btn[data-table-id]");
-                for (var i = 0; i < buttons.length; i++) {
-                    var tid = parseInt(buttons[i].getAttribute("data-table-id"), 10);
-                    buttons[i].className = buttons[i].className
+                var cards = root.querySelectorAll(".quiz-table-card[data-table-id]");
+                for (var i = 0; i < cards.length; i++) {
+                    var tid = parseInt(cards[i].getAttribute("data-table-id"), 10);
+                    var state = this.scoredTables[tid];
+                    var correctBtn = cards[i].querySelector(".quiz-table-correct");
+                    var wrongBtn = cards[i].querySelector(".quiz-table-wrong");
+                    if (!correctBtn || !wrongBtn) continue;
+
+                    // Reset card background
+                    cards[i].className = cards[i].className
                         .replace(/bg-\S+/g, "")
                         .replace(/ring-\S+/g, "")
-                        .replace(/text-\S+/g, "")
-                        .replace(/hover:\S+/g, "")
-                        .replace(/opacity-\S+/g, "")
-                        .replace(/cursor-\S+/g, "")
                         .replace(/\s+/g, " ")
                         .trim();
-                    var state = this.scoredTables[tid];
-                    var cls;
+
+                    // Reset both buttons
+                    var btns = [correctBtn, wrongBtn];
+                    for (var b = 0; b < btns.length; b++) {
+                        btns[b].className = btns[b].className
+                            .replace(/bg-\S+/g, "")
+                            .replace(/ring-\S+/g, "")
+                            .replace(/text-\S+/g, "")
+                            .replace(/hover:\S+/g, "")
+                            .replace(/opacity-\S+/g, "")
+                            .replace(/cursor-\S+/g, "")
+                            .replace(/scale-\S+/g, "")
+                            .replace(/\s+/g, " ")
+                            .trim();
+                    }
+
                     if (state === true) {
-                        cls = "bg-green-700 ring-2 ring-green-400 text-white opacity-60 cursor-not-allowed";
+                        // Confirmed correct — card gets green glow, correct btn highlighted
+                        cards[i].classList.add("bg-green-900/40", "ring-2", "ring-green-500/50");
+                        this._addClasses(correctBtn, "bg-green-600 ring-2 ring-green-400 text-white scale-105 cursor-not-allowed");
+                        this._addClasses(wrongBtn, "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed");
+                        correctBtn.disabled = true;
+                        wrongBtn.disabled = true;
                     } else if (state === false) {
-                        cls = "bg-red-700 ring-2 ring-red-400 text-white opacity-60 cursor-not-allowed";
+                        // Confirmed wrong — card gets red glow, wrong btn highlighted
+                        cards[i].classList.add("bg-red-900/40", "ring-2", "ring-red-500/50");
+                        this._addClasses(correctBtn, "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed");
+                        this._addClasses(wrongBtn, "bg-red-600 ring-2 ring-red-400 text-white scale-105 cursor-not-allowed");
+                        correctBtn.disabled = true;
+                        wrongBtn.disabled = true;
                     } else if (state === "pending" || state === "scored") {
-                        cls = "bg-amber-700 ring-2 ring-amber-400 text-white opacity-60 cursor-not-allowed";
+                        // Pending confirmation
+                        cards[i].classList.add("bg-amber-900/30", "ring-2", "ring-amber-500/50");
+                        this._addClasses(correctBtn, "bg-amber-700 text-white opacity-60 cursor-not-allowed");
+                        this._addClasses(wrongBtn, "bg-amber-700 text-white opacity-60 cursor-not-allowed");
+                        correctBtn.disabled = true;
+                        wrongBtn.disabled = true;
                     } else {
-                        cls = "bg-slate-700 text-gray-300 hover:bg-slate-600";
+                        // Unscored — default idle state
+                        cards[i].classList.add("bg-slate-700/50");
+                        this._addClasses(correctBtn, "bg-slate-600 text-gray-300 hover:bg-green-600 hover:text-white");
+                        this._addClasses(wrongBtn, "bg-slate-600 text-gray-300 hover:bg-red-600 hover:text-white");
+                        correctBtn.disabled = false;
+                        wrongBtn.disabled = false;
                     }
-                    var parts = cls.split(" ");
-                    for (var j = 0; j < parts.length; j++) {
-                        buttons[i].classList.add(parts[j]);
-                    }
-                    // Disable buttons for already-scored tables
-                    buttons[i].disabled = state !== undefined;
                 }
-                // Also disable the wrong (✗) buttons for scored tables
-                var wrongBtns = root.querySelectorAll("button[x-on\\:click='scoreTableWrongFromEl'][data-table-id]");
-                for (var k = 0; k < wrongBtns.length; k++) {
-                    var wtid = parseInt(wrongBtns[k].getAttribute("data-table-id"), 10);
-                    wrongBtns[k].disabled = this.scoredTables[wtid] !== undefined;
-                    if (wrongBtns[k].disabled) {
-                        wrongBtns[k].classList.add("opacity-30", "cursor-not-allowed");
-                    } else {
-                        wrongBtns[k].classList.remove("opacity-30", "cursor-not-allowed");
-                    }
+            },
+
+            _addClasses: function (el, classStr) {
+                var parts = classStr.split(" ");
+                for (var i = 0; i < parts.length; i++) {
+                    el.classList.add(parts[i]);
                 }
             },
 
