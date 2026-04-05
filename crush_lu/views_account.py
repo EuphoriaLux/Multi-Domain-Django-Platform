@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.conf import settings
 import logging
 import uuid
@@ -949,6 +949,7 @@ def referral_redirect(request, code):
     return redirect(signup_url)
 
 
+@ensure_csrf_cookie
 @ratelimit(key="ip", rate="5/h", method="POST")
 def signup(request):
     """

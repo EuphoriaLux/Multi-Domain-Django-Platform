@@ -922,5 +922,23 @@ def get_csrf_token(request):
 
     No login required — anonymous users need fresh tokens on login/signup pages.
     get_token() is safe for anonymous users (same as {% csrf_token %} in templates).
+
+    The cookie is set explicitly on the response (belt-and-suspenders) because
+    Safari/WebKit may not process Set-Cookie headers from responses that pass
+    through a Service Worker via event.respondWith(fetch()).
     """
-    return JsonResponse({"csrfToken": get_token(request)})
+    from django.conf import settings
+
+    token = get_token(request)
+    response = JsonResponse({"csrfToken": token})
+    response.set_cookie(
+        settings.CSRF_COOKIE_NAME,
+        request.META["CSRF_COOKIE"],
+        max_age=settings.CSRF_COOKIE_AGE,
+        domain=settings.CSRF_COOKIE_DOMAIN,
+        path=settings.CSRF_COOKIE_PATH,
+        secure=settings.CSRF_COOKIE_SECURE,
+        httponly=settings.CSRF_COOKIE_HTTPONLY,
+        samesite=settings.CSRF_COOKIE_SAMESITE,
+    )
+    return response

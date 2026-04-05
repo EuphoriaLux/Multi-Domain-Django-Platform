@@ -38,8 +38,7 @@ self.addEventListener("fetch", (event) => {
     }
 
     // TRUE HARD BYPASS: OAuth and auth-related URLs
-    // Using event.respondWith(fetch()) ensures NO other handler can intercept
-    if (
+    const isAuthUrl = (
         url.pathname.startsWith("/accounts/") || // All OAuth/auth routes
         url.pathname.startsWith("/oauth/") || // OAuth landing and callbacks
         url.pathname.includes("/login/callback") || // Explicit callback match
@@ -49,8 +48,17 @@ self.addEventListener("fetch", (event) => {
         url.pathname.includes("/logout") || // Logout page (incl. language prefixes)
         url.pathname.includes("/signup") || // Signup page (incl. language prefixes)
         url.pathname.includes("/api/csrf-token") // CSRF token refresh endpoint
-    ) {
-        // Direct network fetch - prevents any Workbox handler from intercepting
+    );
+    if (isAuthUrl) {
+        // Navigation requests (page loads): let the browser handle them completely.
+        // Safari/WebKit may not process Set-Cookie headers (including CSRF cookies)
+        // from responses that pass through event.respondWith(fetch()), so we must
+        // NOT intercept navigation requests to auth pages.
+        if (event.request.mode === "navigate") {
+            return; // Full browser bypass - cookies will be processed correctly
+        }
+        // Non-navigation requests (fetch/XHR): claim the request to prevent
+        // Workbox from caching it, but forward directly to the network.
         event.respondWith(fetch(event.request));
         return;
     }
