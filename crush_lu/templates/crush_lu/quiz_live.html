@@ -104,14 +104,19 @@
                 <button x-show="hasSelected"
                         x-bind:disabled="hasAnswered"
                         x-on:click="submitAnswer"
-                        class="w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-3 text-center font-semibold text-white shadow-lg transition-all hover:opacity-90 disabled:opacity-50">
-                    {% trans "Submit Answer" %}
+                        class="w-full rounded-2xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 text-center text-lg font-bold text-white shadow-lg shadow-crush-purple/25 transition-all hover:opacity-90 hover:shadow-crush-purple/40 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {% trans "Submit Answer" %}
+                    </span>
                 </button>
 
-                {# Answer feedback (legacy) #}
-                <div x-show="hasAnswered" class="mt-3 rounded-xl p-4 text-center" x-bind:class="feedbackClass">
-                    <p class="font-semibold" x-text="feedbackText"></p>
-                    <p class="text-sm" x-text="pointsFeedback"></p>
+                {# Answer feedback #}
+                <div x-show="hasAnswered" class="mt-3 rounded-2xl p-5 text-center shadow-lg" x-bind:class="feedbackClass">
+                    <p class="text-lg font-bold" x-text="feedbackText"></p>
+                    <p class="mt-1 text-sm opacity-80" x-text="pointsFeedback"></p>
                 </div>
             </div>
         </div>
