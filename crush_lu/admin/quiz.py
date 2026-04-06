@@ -187,6 +187,34 @@ generate_quiz_night_tables.short_description = _(
 )
 
 
+def populate_crush_quiz_questions(modeladmin, request, queryset):
+    """Admin action: populate selected QuizEvents with Crush quiz rounds & questions."""
+    from crush_lu.management.commands.generate_crush_quiz import populate_quiz
+
+    for quiz in queryset:
+        existing = quiz.rounds.count()
+        if existing:
+            messages.warning(
+                request,
+                f"'{quiz.event}': Already has {existing} rounds. "
+                f"Skipped. Delete existing rounds first or use "
+                f"the management command with --clear.",
+            )
+            continue
+
+        rounds_created, questions_created = populate_quiz(quiz)
+        messages.success(
+            request,
+            f"'{quiz.event}': Created {rounds_created} rounds and "
+            f"{questions_created} questions.",
+        )
+
+
+populate_crush_quiz_questions.short_description = _(
+    "Populate Crush Quiz questions (6 rounds, 36 questions)"
+)
+
+
 class QuizEventAdmin(admin.ModelAdmin):
     list_display = (
         "event",
@@ -201,7 +229,7 @@ class QuizEventAdmin(admin.ModelAdmin):
     inlines = [QuizRoundInline, QuizRotationScheduleInline]
     raw_id_fields = ("event", "created_by", "current_round")
     readonly_fields = ("created_at", "updated_at", "tables_generated_at")
-    actions = [generate_quiz_night_tables]
+    actions = [generate_quiz_night_tables, populate_crush_quiz_questions]
 
 
 class QuizRoundAdmin(TranslationAdmin):

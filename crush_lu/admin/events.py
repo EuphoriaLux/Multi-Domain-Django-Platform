@@ -428,8 +428,8 @@ class MeetupEventAdmin(TranslationAdmin):
             if event.is_cancelled:
                 continue
 
-            if event.event_date:
-                days_until = (event.event_date - timezone.now().date()).days
+            if event.date_time:
+                days_until = (event.date_time.date() - timezone.now().date()).days
             else:
                 days_until = 1
 

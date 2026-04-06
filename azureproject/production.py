@@ -80,6 +80,8 @@ CUSTOM_DOMAINS = [
 ALLOWED_HOSTS = []
 if "WEBSITE_HOSTNAME" in os.environ:
     ALLOWED_HOSTS.append(os.environ["WEBSITE_HOSTNAME"])
+# Allow all *.azurewebsites.net hostnames (covers staging slots, swaps, etc.)
+ALLOWED_HOSTS.append(".azurewebsites.net")
 # Add custom domains (crush.lu, entreprinder.lu, vinsdelux.com, etc.)
 ALLOWED_HOSTS += CUSTOM_DOMAINS
 # Add any additional hosts from environment
@@ -105,6 +107,8 @@ if "WEBSITE_HOSTNAME" in os.environ:
 CSRF_TRUSTED_ORIGINS += [
     f"https://{domain.strip()}" for domain in CUSTOM_DOMAINS if domain.strip()
 ]
+# Trust all *.azurewebsites.net origins (staging slots, swaps, etc.)
+CSRF_TRUSTED_ORIGINS.append("https://*.azurewebsites.net")
 
 # Trust X-Forwarded-Host header for correct host detection behind proxy
 USE_X_FORWARDED_HOST = True
@@ -484,6 +488,11 @@ LOGGING = {
         "azure.core.pipeline.policies.http_logging_policy": {
             "handlers": [],
             "level": "ERROR",
+            "propagate": False,
+        },
+        "azure.monitor.opentelemetry.exporter._quickpulse": {
+            "handlers": [],
+            "level": "CRITICAL",
             "propagate": False,
         },
         "Microsoft": {

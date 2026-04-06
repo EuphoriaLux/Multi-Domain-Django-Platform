@@ -59,8 +59,8 @@ class Command(BaseCommand):
 
         # Build query for upcoming events
         events_query = MeetupEvent.objects.filter(
-            event_date__gte=target_start.date(),
-            event_date__lt=target_end.date(),
+            date_time__date__gte=target_start.date(),
+            date_time__date__lt=target_end.date(),
             status='published',
         )
 
