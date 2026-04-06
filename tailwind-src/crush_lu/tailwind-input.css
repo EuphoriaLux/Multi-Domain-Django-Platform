@@ -6688,39 +6688,28 @@ html.dark .home-page .feature-card:hover {
 }
 
 .home-page .feature-icon {
-    font-size: 3.5rem;
+    width: 4.5rem;
+    height: 4.5rem;
     margin-bottom: 1.25rem;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
     filter: drop-shadow(0 4px 8px rgba(155, 89, 182, 0.2));
     transition: transform 0.3s ease;
+}
+
+.home-page .feature-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .home-page .feature-card:hover .feature-icon {
     transform: scale(1.1);
 }
 
-.home-page .feature-card:nth-child(1) .feature-icon {
-    animation: homeFloat 3s ease-in-out infinite;
-    animation-delay: 0s;
-}
-.home-page .feature-card:nth-child(2) .feature-icon {
-    animation: homeFloat 3s ease-in-out infinite;
-    animation-delay: 0.3s;
-}
-.home-page .feature-card:nth-child(3) .feature-icon {
-    animation: homeFloat 3s ease-in-out infinite;
-    animation-delay: 0.6s;
-}
-
-@keyframes homeFloat {
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-6px);
-    }
-}
+/* Ghost SVGs have built-in animations (bounce, sway) — no extra homeFloat needed */
 
 .home-page .feature-title {
     font-size: clamp(1.2rem, 2.5vw, 1.4rem);
@@ -10915,4 +10904,1764 @@ html.dark .crush-connect-cta {
 }
 .crush-connect-cta-button[disabled]:hover {
     transform: none;
+}
+
+/* =============================================
+   ABOUT PAGE - Mobile-First Styles
+   Base = mobile, scale up with min-width
+   ============================================= */
+
+/* Override <main> top padding so hero sits flush against navbar */
+.page-about #main-content {
+    padding-top: 0 !important;
+}
+
+/* Hero Section */
+.about-hero {
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+html.dark .about-hero {
+    background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+}
+
+.about-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.5;
+}
+
+.about-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.about-hero p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    opacity: 0.95;
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* Section Headings */
+.about-section-title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Mission Section */
+.about-mission-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+    border-left: 4px solid;
+    border-image: linear-gradient(135deg, #9B59B6, #FF6B9D) 1;
+}
+
+html.dark .about-mission-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.about-mission-card p {
+    color: #374151;
+    line-height: 1.8;
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+}
+
+html.dark .about-mission-card p {
+    color: #d1d5db;
+}
+
+.about-blockquote {
+    margin: 1.5rem 0 0;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(255, 107, 157, 0.08));
+    border-radius: 12px;
+    border-left: 3px solid #9B59B6;
+    font-style: italic;
+    color: #4B5563;
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.7;
+}
+
+html.dark .about-blockquote {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.2), rgba(159, 18, 57, 0.2));
+    border-left-color: #8B5CF6;
+    color: #d1d5db;
+}
+
+.about-blockquote cite {
+    display: block;
+    margin-top: 0.75rem;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #9B59B6;
+}
+
+html.dark .about-blockquote cite {
+    color: #A78BFA;
+}
+
+/* Founder Cards */
+.founder-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    text-align: center;
+    height: 100%;
+}
+
+html.dark .founder-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.founder-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.25rem;
+    margin: 0 auto 1rem;
+    box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+}
+
+.founder-card h3 {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    font-weight: 600;
+    color: #2C3E50;
+    margin-bottom: 0.25rem;
+}
+
+html.dark .founder-card h3 {
+    color: #f1f5f9;
+}
+
+.founder-role {
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+}
+
+.founder-card p {
+    color: #4B5563;
+    line-height: 1.7;
+    font-size: clamp(0.9rem, 2vw, 0.95rem);
+}
+
+html.dark .founder-card p {
+    color: #d1d5db;
+}
+
+.founder-quote {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(155, 89, 182, 0.15);
+    font-style: italic;
+    color: #6B7280;
+    font-size: clamp(0.85rem, 1.8vw, 0.9rem);
+}
+
+html.dark .founder-quote {
+    border-top-color: rgba(139, 92, 246, 0.2);
+    color: #9CA3AF;
+}
+
+/* Press Section */
+.about-press-section {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    border-radius: 20px;
+    padding: 2rem 1rem;
+    margin: 2rem 0;
+    border: 2px solid rgba(155, 89, 182, 0.1);
+}
+
+html.dark .about-press-section {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.press-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+html.dark .press-card {
+    background: #1e293b;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.press-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+}
+
+.press-publication {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9B59B6;
+    margin-bottom: 0.25rem;
+}
+
+html.dark .press-publication {
+    color: #A78BFA;
+}
+
+.press-date {
+    font-size: 0.8rem;
+    color: #9CA3AF;
+    margin-bottom: 0.75rem;
+}
+
+html.dark .press-date {
+    color: #6B7280;
+}
+
+.press-card h3 {
+    font-size: clamp(1rem, 2.5vw, 1.15rem);
+    font-weight: 600;
+    color: #2C3E50;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+}
+
+html.dark .press-card h3 {
+    color: #f1f5f9;
+}
+
+.press-quote {
+    color: #6B7280;
+    font-style: italic;
+    font-size: clamp(0.85rem, 1.8vw, 0.9rem);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    flex-grow: 1;
+}
+
+html.dark .press-quote {
+    color: #9CA3AF;
+}
+
+.press-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #9B59B6;
+    text-decoration: none;
+}
+
+html.dark .press-link {
+    color: #A78BFA;
+}
+
+.press-link svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Stats Section */
+.about-stats-section {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 0 0 2rem;
+}
+
+.about-stat-card {
+    text-align: center;
+    padding: 1.25rem 0.5rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .about-stat-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.about-stat-number {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.25rem;
+}
+
+.about-stat-label {
+    color: #6c757d;
+    font-size: clamp(0.75rem, 1.8vw, 0.95rem);
+}
+
+html.dark .about-stat-label {
+    color: #94a3b8;
+}
+
+/* Coach Difference Section */
+.about-coach-section {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    border-radius: 20px;
+    padding: 2rem 1rem;
+    margin: 2rem 0;
+    border: 2px solid rgba(155, 89, 182, 0.1);
+}
+
+html.dark .about-coach-section {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.about-feature-column {
+    margin-bottom: 1.5rem;
+}
+
+.about-feature-column h5 {
+    font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+    margin-bottom: 1rem;
+    color: #2C3E50;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+html.dark .about-feature-column h5 {
+    color: #f1f5f9;
+}
+
+.about-feature-icon {
+    font-size: 1.5rem;
+}
+
+.about-feature-list {
+    list-style: none;
+    padding: 0;
+}
+
+.about-feature-list li {
+    padding: 0.75rem 0;
+    padding-left: 2rem;
+    position: relative;
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.6;
+    color: #374151;
+}
+
+html.dark .about-feature-list li {
+    color: #d1d5db;
+}
+
+.about-feature-list li::before {
+    content: '\2713';
+    position: absolute;
+    left: 0;
+    top: 0.75rem;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+/* Why Luxembourg Section */
+.about-why-card {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    height: 100%;
+}
+
+html.dark .about-why-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.about-why-card .about-why-emoji {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.about-why-card h5 {
+    font-size: clamp(1rem, 2.5vw, 1.15rem);
+    font-weight: 600;
+    color: #2C3E50;
+    margin-bottom: 0.5rem;
+}
+
+html.dark .about-why-card h5 {
+    color: #f1f5f9;
+}
+
+.about-why-card p {
+    color: #6B7280;
+    font-size: clamp(0.85rem, 1.8vw, 0.95rem);
+    line-height: 1.6;
+}
+
+html.dark .about-why-card p {
+    color: #9CA3AF;
+}
+
+/* CTA Section */
+.about-cta-section {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-top: 2rem;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+html.dark .about-cta-section {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
+}
+
+.about-cta-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 1rem;
+    color: #2C3E50;
+}
+
+html.dark .about-cta-section h2 {
+    color: #f1f5f9;
+}
+
+.about-cta-section p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+html.dark .about-cta-section p {
+    color: #94a3b8;
+}
+
+/* =============================================
+   ABOUT PAGE - Responsive Scale-Up Breakpoints
+   ============================================= */
+
+/* sm: 640px */
+@media (min-width: 640px) {
+    .about-mission-card {
+        padding: 2.5rem 2rem;
+    }
+
+    .about-press-section {
+        padding: 2.5rem 1.5rem;
+    }
+
+    .about-coach-section {
+        padding: 2.5rem 1.5rem;
+    }
+
+    .about-stats-section {
+        gap: 1.5rem;
+    }
+
+    .about-stat-card {
+        padding: 1.5rem 0.75rem;
+    }
+
+    .about-feature-list li {
+        padding-left: 2.25rem;
+    }
+
+    .about-feature-list li::before {
+        width: 26px;
+        height: 26px;
+        font-size: 0.85rem;
+    }
+
+    .about-why-card .about-why-emoji {
+        font-size: 3rem;
+    }
+}
+
+/* md: 768px */
+@media (min-width: 768px) {
+    .about-hero {
+        padding: 4rem 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .about-mission-card {
+        padding: 3rem 2.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .about-stats-section {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2rem;
+        margin: 0 0 3rem;
+    }
+
+    .about-stat-card {
+        padding: 2rem 1rem;
+    }
+
+    .founder-avatar {
+        width: 100px;
+        height: 100px;
+        font-size: 2.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .about-press-section {
+        padding: 3rem 2rem;
+        margin: 3rem 0;
+    }
+
+    .about-coach-section {
+        padding: 3rem 2rem;
+        margin: 3rem 0;
+    }
+
+    .about-coach-section h2 {
+        margin-bottom: 2.5rem;
+    }
+
+    .about-feature-column {
+        margin-bottom: 2rem;
+    }
+
+    .about-feature-column h5 {
+        margin-bottom: 1.5rem;
+    }
+
+    .about-feature-list li {
+        padding-left: 2.5rem;
+    }
+
+    .about-feature-list li::before {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    .about-cta-section {
+        padding: 4rem 1.5rem;
+        margin-top: 3rem;
+    }
+
+    .about-cta-section h2 {
+        margin-bottom: 1.5rem;
+    }
+
+    .about-cta-section p {
+        margin-bottom: 2rem;
+    }
+}
+
+/* lg: 1024px */
+@media (min-width: 1024px) {
+    .about-hero {
+        padding: 5rem 1rem;
+    }
+
+    .about-cta-section {
+        padding: 5rem 1.5rem;
+    }
+}
+
+/* =============================================
+   ABOUT PAGE - Hover & Animation
+   ============================================= */
+@media (hover: hover) and (min-width: 768px) {
+    .founder-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .founder-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+    }
+
+    html.dark .founder-card:hover {
+        box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
+    }
+
+    .press-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .press-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(155, 89, 182, 0.12);
+    }
+
+    html.dark .press-card:hover {
+        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.25);
+    }
+
+    .press-link:hover {
+        text-decoration: underline;
+    }
+
+    .about-stat-card {
+        transition: transform 0.3s ease;
+    }
+
+    .about-stat-card:hover {
+        transform: scale(1.05);
+    }
+
+    .about-why-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .about-why-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 10px 20px rgba(155, 89, 182, 0.12);
+    }
+
+    html.dark .about-why-card:hover {
+        box-shadow: 0 10px 20px rgba(139, 92, 246, 0.25);
+    }
+}
+
+/* =============================================
+   HOW IT WORKS PAGE - Mobile-First Styles
+   Base = mobile, scale up with min-width
+   ============================================= */
+
+/* Override <main> top padding so hero sits flush against navbar */
+.page-how-it-works #main-content {
+    padding-top: 0 !important;
+}
+
+/* Hero Section */
+.how-it-works-hero {
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+html.dark .how-it-works-hero {
+    background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+}
+
+.how-it-works-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.5;
+}
+
+.how-it-works-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.how-it-works-hero p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    opacity: 0.95;
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* Stats Section - Always 3 columns */
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 0 0 2rem;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 1.25rem 0.5rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .stat-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.stat-number {
+    font-size: clamp(1.5rem, 4vw, 3rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: clamp(0.75rem, 1.8vw, 1rem);
+}
+
+html.dark .stat-label {
+    color: #94a3b8;
+}
+
+/* Step Cards */
+.step-card {
+    border: none;
+    border-radius: 20px;
+    overflow: hidden;
+    height: 100%;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    position: relative;
+}
+
+html.dark .step-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.step-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: bold;
+    margin: 0 auto 1rem;
+    box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.step-card h3 {
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    margin-bottom: 0.75rem;
+    color: #2C3E50;
+    font-weight: 600;
+}
+
+html.dark .step-card h3 {
+    color: #f1f5f9;
+}
+
+.step-card p {
+    color: #374151;
+    line-height: 1.7;
+    font-size: clamp(0.95rem, 2vw, 1rem);
+}
+
+html.dark .step-card p {
+    color: #d1d5db;
+}
+
+/* Privacy Section */
+.privacy-section {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    border-radius: 20px;
+    padding: 2rem 1rem;
+    margin: 2rem 0;
+    border: 2px solid rgba(155, 89, 182, 0.1);
+}
+
+.privacy-section h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+}
+
+.feature-list li {
+    padding: 0.75rem 0;
+    padding-left: 2rem;
+    position: relative;
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.6;
+}
+
+.feature-list li::before {
+    content: '\2713';
+    position: absolute;
+    left: 0;
+    top: 0.75rem;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.feature-column {
+    margin-bottom: 1.5rem;
+}
+
+.feature-column h5 {
+    font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+    margin-bottom: 1rem;
+    color: #2C3E50;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+html.dark .feature-column h5 {
+    color: #f1f5f9;
+}
+
+.feature-icon {
+    font-size: 1.5rem;
+}
+
+/* CTA Section */
+.hiw-cta-section {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(255, 107, 157, 0.15));
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-top: 2rem;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+html.dark .hiw-cta-section {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.3), rgba(159, 18, 57, 0.3));
+}
+
+.hiw-cta-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 1rem;
+    color: #2C3E50;
+}
+
+html.dark .hiw-cta-section h2 {
+    color: #f1f5f9;
+}
+
+.hiw-cta-section p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+html.dark .hiw-cta-section p {
+    color: #94a3b8;
+}
+
+/* Timeline connector for desktop */
+@media (min-width: 768px) {
+    .step-timeline {
+        position: relative;
+    }
+
+    .step-timeline::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, #9B59B6, #FF6B9D);
+        transform: translateY(-50%);
+        z-index: -1;
+        opacity: 0.2;
+    }
+}
+
+/* =============================================
+   HOW IT WORKS - Responsive Scale-Up Breakpoints
+   ============================================= */
+
+/* sm: 640px */
+@media (min-width: 640px) {
+    .stats-section {
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        padding: 1.5rem 0.75rem;
+    }
+
+    .privacy-section {
+        padding: 2.5rem 1.5rem;
+        border-radius: 25px;
+    }
+
+    .feature-list li {
+        padding-left: 2.25rem;
+    }
+
+    .feature-list li::before {
+        width: 26px;
+        height: 26px;
+        font-size: 0.85rem;
+    }
+}
+
+/* md: 768px */
+@media (min-width: 768px) {
+    .how-it-works-hero {
+        padding: 4rem 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .stats-section {
+        gap: 2rem;
+        margin: 0 0 3rem;
+    }
+
+    .stat-card {
+        padding: 2rem 1rem;
+    }
+
+    .step-icon {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .step-card h3 {
+        margin-bottom: 1rem;
+    }
+
+    .privacy-section {
+        padding: 3rem 2rem;
+        margin: 3rem 0;
+    }
+
+    .privacy-section h2 {
+        margin-bottom: 2.5rem;
+    }
+
+    .feature-list li {
+        padding-left: 2.5rem;
+    }
+
+    .feature-list li::before {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    .feature-column {
+        margin-bottom: 2rem;
+    }
+
+    .feature-column h5 {
+        margin-bottom: 1.5rem;
+    }
+
+    .hiw-cta-section {
+        padding: 4rem 1.5rem;
+        margin-top: 3rem;
+    }
+
+    .hiw-cta-section h2 {
+        margin-bottom: 1.5rem;
+    }
+
+    .hiw-cta-section p {
+        margin-bottom: 2rem;
+    }
+}
+
+/* lg: 1024px */
+@media (min-width: 1024px) {
+    .how-it-works-hero {
+        padding: 5rem 1rem;
+    }
+
+    .hiw-cta-section {
+        padding: 5rem 1.5rem;
+    }
+}
+
+/* =============================================
+   HOW IT WORKS - Hover & Animation
+   ============================================= */
+@media (hover: hover) and (min-width: 768px) {
+    .step-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .step-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+    }
+
+    html.dark .step-card:hover {
+        box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
+    }
+
+    .stat-card {
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: scale(1.05);
+    }
+
+    .step-icon {
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .step-card:nth-child(1) .step-icon { animation-delay: 0s; }
+    .step-card:nth-child(2) .step-icon { animation-delay: 0.2s; }
+    .step-card:nth-child(3) .step-icon { animation-delay: 0.4s; }
+    .step-card:nth-child(4) .step-icon { animation-delay: 0.6s; }
+}
+
+/* =============================================
+   HOW IT WORKS - Scroll Animations
+   ============================================= */
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fade-in {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* =============================================
+   CRUSH COACH PAGE - Mobile-First Styles
+   Base = mobile, scale up with min-width
+   ============================================= */
+
+/* Override <main> top padding so hero sits flush against navbar */
+.page-crush-coach #main-content {
+    padding-top: 0 !important;
+}
+
+/* Crush Coach — Hero Section */
+.crush-coach-hero {
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+html.dark .crush-coach-hero {
+    background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+}
+
+.crush-coach-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.5;
+}
+
+.crush-coach-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.crush-coach-hero p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    opacity: 0.95;
+    max-width: 600px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.crush-coach-hero .hero-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.hero-btn-primary {
+    background: white;
+    color: #9B59B6;
+}
+
+.hero-btn-primary:hover {
+    background: #f3e8ff;
+    transform: translateY(-2px);
+}
+
+.hero-btn-secondary {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.hero-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+/* Crush Coach — Stats Section */
+.coach-stats-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 0 0 2rem;
+}
+
+.coach-stat-card {
+    text-align: center;
+    padding: 1.25rem 0.5rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .coach-stat-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.coach-stat-icon {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    margin-bottom: 0.25rem;
+}
+
+.coach-stat-value {
+    font-size: clamp(0.85rem, 2vw, 1.1rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.125rem;
+}
+
+.coach-stat-label {
+    color: #6c757d;
+    font-size: clamp(0.7rem, 1.6vw, 0.9rem);
+}
+
+html.dark .coach-stat-label {
+    color: #94a3b8;
+}
+
+/* Crush Coach — Section Headers (scoped to avoid conflict with admin .section-header) */
+.page-crush-coach .section-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: inherit;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.page-crush-coach .section-header h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+.page-crush-coach .section-header p {
+    color: #6c757d;
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+html.dark .page-crush-coach .section-header {
+    color: inherit;
+    border-bottom-color: transparent;
+}
+
+html.dark .page-crush-coach .section-header p {
+    color: #94a3b8;
+}
+
+/* Crush Coach — Why Cards */
+.why-card {
+    border: none;
+    border-radius: 20px;
+    overflow: hidden;
+    height: 100%;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    padding: 1.5rem;
+    text-align: center;
+}
+
+html.dark .why-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.why-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin: 0 auto 1rem;
+    box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+}
+
+.why-card h3 {
+    font-size: clamp(1.15rem, 2.5vw, 1.35rem);
+    margin-bottom: 0.5rem;
+    color: #2C3E50;
+    font-weight: 600;
+}
+
+html.dark .why-card h3 {
+    color: #f1f5f9;
+}
+
+.why-card p {
+    color: #374151;
+    line-height: 1.7;
+    font-size: clamp(0.9rem, 1.8vw, 1rem);
+}
+
+html.dark .why-card p {
+    color: #d1d5db;
+}
+
+/* Crush Coach — Responsibility Cards */
+.responsibility-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    height: 100%;
+}
+
+html.dark .responsibility-card {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.responsibility-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(255, 107, 157, 0.1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+html.dark .responsibility-icon {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2));
+}
+
+.responsibility-card h4 {
+    font-size: clamp(1rem, 2vw, 1.1rem);
+    font-weight: 600;
+    color: #2C3E50;
+    margin-bottom: 0.25rem;
+}
+
+html.dark .responsibility-card h4 {
+    color: #f1f5f9;
+}
+
+.responsibility-card p {
+    color: #6c757d;
+    font-size: clamp(0.85rem, 1.6vw, 0.95rem);
+    line-height: 1.6;
+}
+
+html.dark .responsibility-card p {
+    color: #94a3b8;
+}
+
+/* Crush Coach — Who Section */
+.who-section {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(255, 107, 157, 0.05));
+    border-radius: 20px;
+    padding: 2rem 1rem;
+    margin: 2rem 0;
+    border: 2px solid rgba(155, 89, 182, 0.1);
+}
+
+html.dark .who-section {
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.15), rgba(159, 18, 57, 0.15));
+    border-color: rgba(139, 92, 246, 0.15);
+}
+
+.checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.checklist li {
+    padding: 0.6rem 0;
+    padding-left: 2rem;
+    position: relative;
+    font-size: clamp(0.95rem, 2vw, 1.05rem);
+    line-height: 1.6;
+    color: #374151;
+}
+
+html.dark .checklist li {
+    color: #d1d5db;
+}
+
+.checklist li::before {
+    content: '\2713';
+    position: absolute;
+    left: 0;
+    top: 0.6rem;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.reassurance-block {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .reassurance-block {
+    background: #1e293b;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.reassurance-quote {
+    font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+    font-weight: 600;
+    color: #9B59B6;
+    font-style: italic;
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    border-left: 3px solid #9B59B6;
+}
+
+html.dark .reassurance-quote {
+    color: #a78bfa;
+    border-left-color: #a78bfa;
+}
+
+.commitment-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.commitment-list li {
+    padding: 0.4rem 0;
+    font-size: clamp(0.9rem, 1.8vw, 1rem);
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+html.dark .commitment-list li {
+    color: #94a3b8;
+}
+
+.commitment-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Crush Coach — CTA Section */
+.coach-cta-section {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: linear-gradient(135deg, #9B59B6 0%, #FF6B9D 100%);
+    color: white;
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    margin-top: 2rem;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+html.dark .coach-cta-section {
+    background: linear-gradient(135deg, #581C87 0%, #9F1239 100%);
+}
+
+.coach-cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    opacity: 0.5;
+}
+
+.coach-cta-section h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.coach-cta-section p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    opacity: 0.95;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+    z-index: 1;
+}
+
+.cta-tagline {
+    font-size: clamp(1.15rem, 3vw, 1.5rem);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.cta-divider {
+    width: 60px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.5);
+    border: none;
+    border-radius: 2px;
+    margin: 0 auto 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.cta-detail {
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+    opacity: 0.9;
+    max-width: 520px;
+    margin: 0 auto 1.75rem;
+    line-height: 1.7;
+    position: relative;
+    z-index: 1;
+}
+
+.cta-apply-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 2.5rem;
+    background: white;
+    color: #9B59B6;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 1;
+}
+
+.cta-apply-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.cta-response {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    opacity: 0.85;
+    position: relative;
+    z-index: 1;
+}
+
+/* Crush Coach — Responsive Scale-Up Breakpoints */
+
+/* sm: 640px */
+@media (min-width: 640px) {
+    .coach-stats-section {
+        gap: 1.5rem;
+    }
+
+    .coach-stat-card {
+        padding: 1.5rem 0.75rem;
+    }
+
+    .why-card {
+        padding: 2rem;
+    }
+
+    .who-section {
+        padding: 2.5rem 1.5rem;
+        border-radius: 25px;
+    }
+}
+
+/* md: 768px */
+@media (min-width: 768px) {
+    .crush-coach-hero {
+        padding: 4rem 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .coach-stats-section {
+        gap: 2rem;
+        margin: 0 0 3rem;
+    }
+
+    .coach-stat-card {
+        padding: 2rem 1rem;
+    }
+
+    .page-crush-coach .section-header {
+        margin-bottom: 2rem;
+    }
+
+    .why-card-icon {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .responsibility-card {
+        padding: 1.5rem;
+    }
+
+    .who-section {
+        padding: 3rem 2rem;
+        margin: 3rem 0;
+    }
+
+    .coach-cta-section {
+        padding: 4rem 1.5rem;
+        margin-top: 3rem;
+    }
+}
+
+/* lg: 1024px */
+@media (min-width: 1024px) {
+    .crush-coach-hero {
+        padding: 5rem 1rem;
+    }
+
+    .coach-cta-section {
+        padding: 5rem 1.5rem;
+    }
+}
+
+/* Crush Coach — Hover & Animation (capable devices only) */
+@media (hover: hover) and (min-width: 768px) {
+    .why-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .why-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(155, 89, 182, 0.15);
+    }
+
+    html.dark .why-card:hover {
+        box-shadow: 0 12px 24px rgba(139, 92, 246, 0.3);
+    }
+
+    .responsibility-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .responsibility-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(155, 89, 182, 0.1);
+    }
+
+    html.dark .responsibility-card:hover {
+        box-shadow: 0 8px 16px rgba(139, 92, 246, 0.2);
+    }
+
+    .coach-stat-card {
+        transition: transform 0.3s ease;
+    }
+
+    .coach-stat-card:hover {
+        transform: scale(1.05);
+    }
+
+    .why-card-icon {
+        animation: coach-float 3s ease-in-out infinite;
+    }
+
+    .why-card:nth-child(1) .why-card-icon { animation-delay: 0s; }
+    .why-card:nth-child(2) .why-card-icon { animation-delay: 0.2s; }
+    .why-card:nth-child(3) .why-card-icon { animation-delay: 0.4s; }
+}
+
+@keyframes coach-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
