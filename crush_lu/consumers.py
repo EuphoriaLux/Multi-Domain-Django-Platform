@@ -127,6 +127,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         await self.accept()
 
+        # Cache total tables count (doesn't change during a quiz)
+        try:
+            self._total_tables = await self._get_total_tables()
+        except Exception:
+            logger.exception(
+                "Failed to get total tables for quiz %s", self.quiz_id
+            )
+            self._total_tables = 0
+
         # Send current quiz state on connect
         try:
             state = await self.get_quiz_state()
@@ -212,6 +221,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if result is None:
             await self.send_error("No rounds available to start.")
             return
+        # Enrich with table count for scoring grid initialization
+        result["round_info"]["total_tables"] = self._total_tables
+        if result["question_data"]:
+            result["question_data"]["total_tables"] = self._total_tables
+            result["question_data"]["scored_count"] = 0
+            result["question_data"]["scored_tables"] = {}
         # Broadcast round info, then the first question
         await self.channel_layer.group_send(
             self.quiz_group,
@@ -232,6 +247,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         question_data = await self.advance_question()
         if question_data:
+            # Enrich with table count for scoring grid reset
+            question_data["total_tables"] = self._total_tables
+            question_data["scored_count"] = 0
+            question_data["scored_tables"] = {}
             await self.channel_layer.group_send(
                 self.quiz_group,
                 {"type": "quiz.question", "data": question_data},
@@ -376,7 +395,31 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.question", "data": event["data"]})
 
     async def quiz_rotate(self, event):
-        await self.send_json({"type": "quiz.rotate", "data": event["data"]})
+        data = event["data"]
+        # Update table group membership based on rotation assignments
+        user = self.scope.get("user")
+        if user and user.is_authenticated and data.get("assignments"):
+            user_key = str(user.id)
+            assignment = data["assignments"].get(user_key)
+            if assignment and assignment.get("table_id"):
+                new_table_id = assignment["table_id"]
+                new_group = f"quiz_{self.quiz_id}_table_{new_table_id}"
+                if new_group != self.table_group:
+                    if self.table_group:
+                        await self.channel_layer.group_discard(
+                            self.table_group, self.channel_name
+                        )
+                    self.table_group = new_group
+                    await self.channel_layer.group_add(
+                        self.table_group, self.channel_name
+                    )
+            elif assignment:
+                logger.warning(
+                    "Rotation assignment for user %s missing table_id in quiz %s",
+                    user.id,
+                    self.quiz_id,
+                )
+        await self.send_json({"type": "quiz.rotate", "data": data})
 
     async def quiz_leaderboard(self, event):
         await self.send_json({"type": "quiz.leaderboard", "data": event["data"]})
@@ -400,6 +443,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.error", "data": event["data"]})
 
     # --- Database helpers ---
+
+    @database_sync_to_async
+    def _get_total_tables(self):
+        """Get number of tables for this quiz (cached on consumer instance)."""
+        from crush_lu.models.quiz import QuizTable
+
+        return QuizTable.objects.filter(quiz_id=self.quiz_id).count()
 
     @database_sync_to_async
     def get_user_table_id(self, user_id):
@@ -892,6 +942,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 # Use string keys — msgpack (channel layer) forbids integer map keys
                 assignments[str(r.user_id)] = {
                     "table_number": r.table.table_number,
+                    "table_id": r.table_id,
                     "role": r.role,
                     "display_name": (profile.display_name if profile else "Anonymous"),
                 }
