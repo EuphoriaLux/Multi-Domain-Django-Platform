@@ -148,13 +148,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             logger.exception("Failed to get quiz state for quiz %s", self.quiz_id)
             state = None
         if state:
-            # Include leaderboard for finished quizzes so attendees see final results
-            if state.get("status") == "finished":
+            # Include leaderboard so attendees/coaches always see current standings
+            if state.get("status") in ("active", "paused", "finished"):
                 try:
                     state["leaderboard"] = await self.get_leaderboard()
                 except Exception:
                     logger.exception(
-                        "Failed to get leaderboard for finished quiz %s",
+                        "Failed to get leaderboard for quiz %s",
                         self.quiz_id,
                     )
             # CLIENT-02: Strip answer data from quiz state for non-host users
@@ -370,6 +370,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 },
             )
 
+            # Auto-broadcast updated leaderboard
+            leaderboard = await self.get_leaderboard()
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.leaderboard", "data": leaderboard},
+            )
+
     async def handle_rotate(self):
         rotation_data = await self.advance_round_and_rotate()
         if rotation_data.get("finished"):
@@ -388,6 +395,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_leaderboard(self):
         leaderboard = await self.get_leaderboard()
+        leaderboard["spotlight"] = True
         await self.channel_layer.group_send(
             self.quiz_group,
             {"type": "quiz.leaderboard", "data": leaderboard},

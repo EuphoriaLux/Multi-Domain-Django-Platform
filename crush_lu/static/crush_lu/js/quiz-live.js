@@ -261,6 +261,9 @@ document.addEventListener("alpine:init", function () {
             get hasIndividualScores() {
                 return this.individuals.length > 0;
             },
+            get hasLeaderboardData() {
+                return this.tables.length > 0;
+            },
 
             // --- Init ---
 
@@ -382,20 +385,29 @@ document.addEventListener("alpine:init", function () {
                 if (type === "quiz.state") {
                     if (data.event_type)
                         this.isQuizNight = data.event_type === "quiz_night";
+                    // Process leaderboard data for any state (persistent panel)
+                    if (data.leaderboard) {
+                        this.tables = data.leaderboard.tables || [];
+                        this.individuals = data.leaderboard.individuals || [];
+                    }
                     if (data.status === "finished") {
                         // Quiz already finished — show finished screen with leaderboard
-                        if (data.leaderboard) {
-                            this.tables = data.leaderboard.tables || [];
-                            this.individuals = data.leaderboard.individuals || [];
-                        }
                         this.screen = "finished";
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "active" && data.question) {
                         this.showQuestion(data);
-                    } else if (data.current_round) {
-                        this.roundName = _localized(data.current_round, "title");
-                        this.isBonusRound = data.current_round.is_bonus || false;
+                        // Render persistent leaderboard after question setup
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
+                    } else {
+                        if (data.current_round) {
+                            this.roundName = _localized(data.current_round, "title");
+                            this.isBonusRound = data.current_round.is_bonus || false;
+                        }
+                        // Render persistent leaderboard
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
                     }
                 } else if (type === "quiz.question") {
                     this.showQuestion(data);
@@ -404,9 +416,13 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.leaderboard") {
                     this.tables = data.tables || [];
                     this.individuals = data.individuals || [];
-                    this.screen = "leaderboard";
                     this._renderTableLeaderboard();
                     this._renderIndividualLeaderboard();
+                    // Spotlight: scroll persistent panel into view when host triggers it
+                    if (data.spotlight) {
+                        var panel = this.$refs.tableboard_persistent;
+                        if (panel) panel.scrollIntoView({ behavior: "smooth" });
+                    }
                 } else if (type === "quiz.rotate") {
                     // Defensive: finished state may arrive via quiz.rotate
                     if (data.finished || data.status === "finished") {
@@ -676,9 +692,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             _renderTableLeaderboard: function () {
-                // Render into both live leaderboard and finished screen containers
-                this._renderTableLeaderboardInto(this.$refs.tableboard_live);
+                // Render into finished screen and persistent panel containers
                 this._renderTableLeaderboardInto(this.$refs.tableboard);
+                this._renderTableLeaderboardInto(this.$refs.tableboard_persistent);
             },
 
             _renderTableLeaderboardInto: function (container) {
@@ -715,9 +731,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             _renderIndividualLeaderboard: function () {
-                // Render into both live leaderboard and finished screen containers
-                this._renderIndividualLeaderboardInto(this.$refs.playerboard_live);
+                // Render into finished screen and persistent panel containers
                 this._renderIndividualLeaderboardInto(this.$refs.playerboard);
+                this._renderIndividualLeaderboardInto(this.$refs.playerboard_persistent);
             },
 
             _renderIndividualLeaderboardInto: function (container) {
@@ -1103,6 +1119,12 @@ document.addEventListener("alpine:init", function () {
                     }
                     // STATE-03: Preserve -1 sentinel (|| would coerce it to 0)
                     this.questionIdx = data.question_index !== undefined ? data.question_index : 0;
+                    // Process leaderboard data (always-visible standings)
+                    if (data.leaderboard) {
+                        this.tables = data.leaderboard.tables || [];
+                        this._renderTableLeaderboard();
+                        this._updateTableScores();
+                    }
                 } else if (type === "quiz.question") {
                     this.currentQuestion = data;
                     this.questionIdx = data.index || 0;
