@@ -306,24 +306,33 @@ DATABASES = {
 # ============================================================================
 # CACHE CONFIGURATION
 # ============================================================================
-# Using database-backed cache for rate limiting consistency across instances.
-# Azure App Service can run multiple instances behind load balancer - LocMemCache
-# would fail to enforce rate limits across instances. Database cache is slower
-# but works correctly and doesn't require Redis (which adds Azure cost).
+# Using Redis cache backend (django-redis) for sub-millisecond cache operations.
+# Azure App Service runs multiple instances behind a load balancer — Redis is
+# shared across all instances, ensuring rate limiting, site detection, and
+# session reads are consistent and fast.
 #
-# OPTIMIZATION: Increased timeout from 300s to 600s (10 minutes) and MAX_ENTRIES
-# from 1000 to 5000 for better cache hit rates and fewer database queries.
+# AZURE_REDIS_CONNECTIONSTRING is already configured in Azure App Service for
+# both production (DB 0) and staging (DB 1) slots. KEY_PREFIX provides namespace
+# isolation from Django Channels keys on the same Redis DB.
 #
-# IMPORTANT: Run `python manage.py createcachetable` in deployment to create
-# the cache table. This is handled in the Azure startup script.
+# IGNORE_EXCEPTIONS=True ensures graceful degradation: if Redis is unreachable,
+# cache operations return None/fail silently instead of raising 500 errors.
+# Rate limiting and site detection already handle cache misses gracefully.
+#
+# NOTE: The legacy django_cache DB table is no longer used and can be dropped
+# in a future migration. `python manage.py createcachetable` is no longer needed.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "django_cache",  # Table name for cache entries
-        "TIMEOUT": 600,  # Increased from 300 to 600 seconds (10 minutes)
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get(
+            "AZURE_REDIS_CONNECTIONSTRING", "redis://localhost:6379/0"
+        ),
+        "TIMEOUT": 600,  # 10 minutes
+        "KEY_PREFIX": "cache",
         "OPTIONS": {
-            "MAX_ENTRIES": 5000,  # Increased from 1000 for better cache retention
-            "CULL_FREQUENCY": 4,  # More aggressive culling (remove 25% when max reached)
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 50},
+            "IGNORE_EXCEPTIONS": True,
         },
     }
 }
@@ -342,7 +351,9 @@ CHANNEL_LAYERS = {
     },
 }
 
-SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Changed from signed_cookies to db for PWA persistence
+# cached_db: reads from Redis (fast), writes to both Redis + DB (durable).
+# If Redis is down, falls back to DB reads automatically.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
 # Override session settings from base settings.py for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
