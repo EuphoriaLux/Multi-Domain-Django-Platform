@@ -224,11 +224,14 @@
             </div>
         </div>
 
-        {# --- Live leaderboard preview --- #}
-        <div x-show="hasLeaderboard" class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+        {# --- Live leaderboard preview (always visible) --- #}
+        <div class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
             {# Rendered via JS for CSP compliance #}
             <div x-ref="tableboard" class="space-y-2"></div>
+            <p x-show="!hasLeaderboard" class="text-center text-sm text-gray-500 py-4">
+                {% trans "Standings will appear after the first question is scored." %}
+            </p>
         </div>
     </div>
 </div>
