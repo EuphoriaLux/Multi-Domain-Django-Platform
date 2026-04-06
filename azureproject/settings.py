@@ -236,6 +236,21 @@ else:
         },
     }
 
+# Cache - Redis if REDIS_URL is set, otherwise default LocMemCache
+if os.environ.get("REDIS_URL"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.environ["REDIS_URL"],
+            "TIMEOUT": 600,
+            "KEY_PREFIX": "cache",
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,
+            },
+        }
+    }
+
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
