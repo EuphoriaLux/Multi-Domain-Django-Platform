@@ -1,0 +1,385 @@
+{% load static i18n %}
+
+{% block mobile_page_title %}{% trans "About You" %}{% endblock %}
+
+{% if has_errors %}
+<div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+    <div class="flex items-center gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% trans "Please correct the errors below." %}
+    </div>
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
+        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+    </button>
+</div>
+{% endif %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          enctype="multipart/form-data"
+          id="editAboutForm"
+          hx-post="{% url 'crush_lu:edit_profile' %}?section=about"
+          hx-target="#section-content"
+          hx-swap="innerHTML"
+          hx-indicator="#submit-indicator-about">
+        {% csrf_token %}
+
+        <!-- About You Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/pencil-square.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "About You" %}
+            </h5>
+
+            <div class="mb-3" x-data="fieldValidator"
+                 data-max-length="500"
+                 data-error-max-length="Bio must be under 500 characters">
+                <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {% trans "Bio" %}
+                    <small class="text-gray-500 dark:text-gray-400">({% trans "Tell us about yourself" %})</small>
+                </label>
+                <div @input="handleInput" @focusout="handleBlur">
+                    {{ form.bio }}
+                </div>
+                <div class="char-counter" id="bio-counter-container" data-max="500">
+                    <div class="char-counter-bar">
+                        <div class="char-counter-bar-fill" id="bio-bar"></div>
+                    </div>
+                    <span><span class="char-counter-count" id="bioCounter">{{ profile.bio|length|default:"0" }}</span>/500</span>
+                </div>
+                <p x-show="hasError" x-text="errorMessage" class="text-red-600 text-sm mt-1" x-cloak></p>
+                {% if form.bio.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.bio.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3" x-data="fieldValidator"
+                 data-max-length="300"
+                 data-error-max-length="Interests must be under 300 characters">
+                <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    {% trans "Interests" %}
+                    <small class="text-gray-500 dark:text-gray-400">({% trans "What do you enjoy?" %})</small>
+                </label>
+                <div @input="handleInput" @focusout="handleBlur">
+                    {{ form.interests }}
+                </div>
+                <div class="char-counter" id="interests-counter-container" data-max="300">
+                    <div class="char-counter-bar">
+                        <div class="char-counter-bar-fill" id="interests-bar"></div>
+                    </div>
+                    <span><span class="char-counter-count" id="interestsCounter">{{ profile.interests|length|default:"0" }}</span>/300</span>
+                </div>
+                <p x-show="hasError" x-text="errorMessage" class="text-red-600 text-sm mt-1" x-cloak></p>
+                {% if form.interests.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.interests.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Personality Traits Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your Personality" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Select up to 5 traits in each category to improve your compatibility matches." %}</p>
+
+            <!-- My Qualities -->
+            <div class="mb-6"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="purple"
+                 data-initial="{{ selected_qualities_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Qualities" %}
+                    </label>
+                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What best describes you?" %}</p>
+                {% for cat in qualities_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="qualities_ids" x-bind:value="hiddenValue">
+                {% if form.qualities_ids.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.qualities_ids.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- My Defects -->
+            <div class="mb-2"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="pink"
+                 data-initial="{{ selected_defects_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Defects" %}
+                    </label>
+                    <span class="text-sm font-semibold text-pink-600 dark:text-pink-400" x-text="counterText"></span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What do you own up to?" %}</p>
+                {% for cat in defects_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="defects_ids" x-bind:value="hiddenValue">
+                {% if form.defects_ids.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.defects_ids.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Contact & Location Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/map-pin.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Contact & Location" %}
+            </h5>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-3">
+                    <label for="{{ form.phone_number.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        {% trans "Phone Number" %} *
+                        {% if profile.phone_verified %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 ml-2">{% include "shared/icons/check-circle.html" with class="w-4 h-4" %} {% trans "Verified" %}</span>
+                        {% endif %}
+                    </label>
+                    {% if profile.phone_verified %}
+                        <div class="relative">
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400" value="{{ profile.phone_number }}" readonly disabled>
+                            <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2">
+                                {% include "shared/icons/lock-closed.html" with class="w-5 h-5 text-green-500" %}
+                            </span>
+                        </div>
+                        <small class="text-gray-500 dark:text-gray-400 text-sm">
+                            {% include "shared/icons/information-circle.html" with class="w-4 h-4 inline" %} {% trans "Verified phone numbers cannot be changed." %}
+                            {% trans "Contact support if you need to update it." %}
+                        </small>
+                    {% else %}
+                        <div class="phone-input-wrapper">
+                            {{ form.phone_number }}
+                        </div>
+                        <small class="text-yellow-600 dark:text-yellow-400 text-sm">
+                            {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
+                            <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
+                        </small>
+                    {% endif %}
+                    {% if form.phone_number.errors %}
+                        <div class="text-red-600 text-sm mt-1">{{ form.phone_number.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        {% trans "Your Region" %} *
+                    </label>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Click the map or use the dropdown to select your location" %}</p>
+
+                    <div x-data="cantonMap"
+                         data-initial-value="{{ profile.location|default:'' }}"
+                         data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
+                         data-placeholder="Click the map to select your region"
+                         class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
+                        <div class="canton-map-selection-display"
+                             x-bind:class="selectedClass">
+                            <span class="canton-map-selection-label" x-text="selectionLabel"></span>
+                            <span class="canton-map-hover-label" x-show="isHovering" x-text="hoverLabel"></span>
+                        </div>
+                        <div class="canton-map-wrapper">
+                            {% include "crush_lu/partials/canton_map_svg.html" %}
+                        </div>
+                        {{ form.location }}
+                        <div class="canton-map-fallback">
+                            <button type="button"
+                                    @click="toggleFallbackDropdown"
+                                    class="canton-map-fallback-toggle">
+                                {% include "shared/icons/list-bullet.html" with class="w-4 h-4" %}
+                                {% trans "Can't use the map? Select from list" %}
+                            </button>
+                            <div x-show="fallbackDropdownVisible" x-transition class="canton-map-fallback-dropdown">
+                                <select @change="handleFallbackSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                    <option value="">{% trans "Select your region..." %}</option>
+                                    <optgroup label="{% trans "Luxembourg Cantons" %}">
+                                        <option value="canton-capellen">Capellen</option>
+                                        <option value="canton-clervaux">Clervaux</option>
+                                        <option value="canton-diekirch">Diekirch</option>
+                                        <option value="canton-echternach">Echternach</option>
+                                        <option value="canton-esch">Esch-sur-Alzette</option>
+                                        <option value="canton-grevenmacher">Grevenmacher</option>
+                                        <option value="canton-luxembourg">Luxembourg</option>
+                                        <option value="canton-mersch">Mersch</option>
+                                        <option value="canton-redange">Redange</option>
+                                        <option value="canton-remich">Remich</option>
+                                        <option value="canton-vianden">Vianden</option>
+                                        <option value="canton-wiltz">Wiltz</option>
+                                    </optgroup>
+                                    <optgroup label="{% trans "Border Regions" %}">
+                                        <option value="border-belgium">{% trans "Belgium (Arlon/Virton area)" %}</option>
+                                        <option value="border-germany">{% trans "Germany (Trier/Saarland area)" %}</option>
+                                        <option value="border-france">{% trans "France (Thionville/Metz area)" %}</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    {% if form.location.errors %}
+                        <div class="canton-map-error">
+                            {% include "shared/icons/exclamation-circle.html" with class="w-4 h-4" %}
+                            {{ form.location.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Your Details Section (locked fields) -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/identification.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your Details" %}
+            </h5>
+            {% if profile.is_approved %}
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "These fields are locked after approval. Contact support to request changes." %}</p>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="mb-3">
+                    <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        {% trans "Date of Birth" %} *
+                    </label>
+                    {% if profile.is_approved %}
+                        <div class="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300">
+                            {% include "shared/icons/lock-closed.html" with class="w-4 h-4 flex-shrink-0" %}
+                            <span>{{ profile.date_of_birth|date:"Y-m-d" }}</span>
+                        </div>
+                    {% else %}
+                        {{ form.date_of_birth }}
+                        {% if form.date_of_birth.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.date_of_birth.errors.0 }}</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                        {% trans "Gender" %} *
+                    </label>
+                    {% if profile.is_approved %}
+                        <div class="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300">
+                            {% include "shared/icons/lock-closed.html" with class="w-4 h-4 flex-shrink-0" %}
+                            <span>{% if profile.gender == 'M' %}👨{% elif profile.gender == 'F' %}👩{% elif profile.gender == 'NB' %}🧑{% elif profile.gender == 'O' %}✨{% elif profile.gender == 'P' %}🤫{% endif %} {{ profile.get_gender_display }}</span>
+                        </div>
+                    {% else %}
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2" role="radiogroup" aria-label="Select your gender">
+                            {% for value, label in form.gender.field.choices %}
+                            {% if value %}
+                            <label class="cursor-pointer block">
+                                <input type="radio" name="{{ form.gender.html_name }}" value="{{ value }}" class="peer hidden"
+                                       {% if form.gender.value == value or profile.gender == value %}checked{% endif %}>
+                                <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
+                                    <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% elif value == 'P' %}🤫{% endif %}</span>
+                                    <span class="whitespace-nowrap">{{ label }}</span>
+                                </div>
+                            </label>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% if form.gender.errors %}
+                            <div class="text-red-600 text-sm mt-1">{{ form.gender.errors.0 }}</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Event & Matching Preferences Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Event & Matching Preferences" %}
+            </h5>
+
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
+                <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                    </svg>
+                    {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                {% for value, label in form.event_languages.field.choices %}
+                <label class="event-language-pill cursor-pointer">
+                    <input type="checkbox"
+                           name="{{ form.event_languages.html_name }}"
+                           value="{{ value }}"
+                           class="peer hidden"
+                           {% if value in profile.event_languages %}checked{% endif %}>
+                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
+                        {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            {% if form.event_languages.errors %}
+                <div class="text-red-600 text-sm mt-2">{{ form.event_languages.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+            <button type="submit" class="btn-crush-primary relative gap-2">
+                <span id="submit-indicator-about" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
+                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
+                    <span>{% trans "Saving..." %}</span>
+                </span>
+                <span class="button-text inline-flex items-center gap-2">
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    <span>{% trans "Save Changes" %}</span>
+                </span>
+            </button>
+        </div>
+    </form>
+</div>

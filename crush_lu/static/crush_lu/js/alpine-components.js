@@ -65,6 +65,443 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // =========================================================================
+    // MOBILE NATIVE APP NAVIGATION COMPONENTS
+    // =========================================================================
+
+    // Bottom navigation bar - 4 tabs fixed at bottom on mobile
+    Alpine.data("bottomNav", function () {
+        return {
+            currentPath: "",
+            eventsCount: 0,
+            requestsCount: 0,
+
+            init: function () {
+                this.currentPath = window.location.pathname;
+                this.eventsCount = parseInt(this.$el.dataset.eventsCount || "0", 10);
+                this.requestsCount = parseInt(
+                    this.$el.dataset.requestsCount || "0",
+                    10,
+                );
+            },
+
+            get isHomeActive() {
+                return (
+                    this.currentPath === "/dashboard/" ||
+                    this.currentPath.indexOf("/dashboard/") === 0
+                );
+            },
+            get isEventsActive() {
+                return (
+                    this.currentPath === "/events/" ||
+                    this.currentPath.indexOf("/events/") === 0
+                );
+            },
+            get isConnectionsActive() {
+                return (
+                    this.currentPath === "/connections/" ||
+                    this.currentPath.indexOf("/connections/") === 0
+                );
+            },
+            get isProfileActive() {
+                return this.currentPath.indexOf("/profile/") === 0;
+            },
+
+            get homeActiveClass() {
+                return this.isHomeActive ? "bottom-nav-item-active" : "";
+            },
+            get eventsActiveClass() {
+                return this.isEventsActive ? "bottom-nav-item-active" : "";
+            },
+            get connectionsActiveClass() {
+                return this.isConnectionsActive ? "bottom-nav-item-active" : "";
+            },
+            get profileActiveClass() {
+                return this.isProfileActive ? "bottom-nav-item-active" : "";
+            },
+
+            get hasEventsBadge() {
+                return this.eventsCount > 0;
+            },
+            get hasRequestsBadge() {
+                return this.requestsCount > 0;
+            },
+
+            handleTap: function () {
+                // Haptic feedback (silent no-op where unsupported)
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+            },
+
+            scrollToTop: function () {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            },
+        };
+    });
+
+    // Slim mobile top bar - logo or back arrow + title
+    Alpine.data("topBarMobile", function () {
+        return {
+            pageTitle: "",
+            notificationCount: 0,
+
+            init: function () {
+                // Read page title from meta tag set by {% block mobile_page_title %}
+                var meta = document.querySelector('meta[name="mobile-page-title"]');
+                this.pageTitle = meta ? meta.getAttribute("content") : "";
+                this.notificationCount = parseInt(
+                    this.$el.dataset.notificationCount || "0",
+                    10,
+                );
+            },
+
+            get showBackButton() {
+                return this.pageTitle !== "";
+            },
+            get showLogo() {
+                return this.pageTitle === "";
+            },
+            get hasNotifications() {
+                return this.notificationCount > 0;
+            },
+
+            goBack: function () {
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+                window.history.back();
+            },
+        };
+    });
+
+    // Page transition controller - manages slide direction for View Transitions API
+    // Works with HTMX globalViewTransitions: true (set in base.html meta config)
+    // Sets data-transition attribute on <html> to control CSS animations
+    Alpine.data("pageTransition", function () {
+        return {
+            historyStack: [],
+
+            init: function () {
+                var self = this;
+                // Record initial page in history stack
+                this.historyStack.push(window.location.pathname);
+
+                // Listen for HTMX before-swap to set transition direction
+                document.addEventListener("htmx:beforeSwap", function (evt) {
+                    var trigger = evt.detail.requestConfig
+                        ? evt.detail.requestConfig.triggeringElement
+                        : null;
+                    if (!trigger) return;
+
+                    // Check data-transition on the triggering element
+                    var transitionType = trigger.dataset.transition;
+
+                    if (transitionType === "none") {
+                        // Tab switch: no animation
+                        document.documentElement.setAttribute(
+                            "data-transition",
+                            "none",
+                        );
+                    } else if (transitionType === "slide-back") {
+                        // Explicit back navigation
+                        document.documentElement.setAttribute(
+                            "data-transition",
+                            "slide-back",
+                        );
+                        self.historyStack.pop();
+                    } else {
+                        // Default: forward slide for drill-down links
+                        document.documentElement.setAttribute(
+                            "data-transition",
+                            "slide-forward",
+                        );
+                        var href = trigger.getAttribute("href");
+                        if (href) {
+                            self.historyStack.push(href);
+                        }
+                    }
+                });
+
+                // Listen for browser back/forward button (popstate)
+                window.addEventListener("popstate", function () {
+                    document.documentElement.setAttribute(
+                        "data-transition",
+                        "slide-back",
+                    );
+                });
+
+                // Clean up transition attribute after transition completes
+                document.addEventListener("htmx:afterSettle", function () {
+                    // Small delay to let the view transition finish
+                    setTimeout(function () {
+                        document.documentElement.removeAttribute("data-transition");
+                    }, 300);
+                });
+            },
+        };
+    });
+
+    // =========================================================================
+    // DASHBOARD COMPONENTS (Phase 3)
+    // =========================================================================
+
+    // Pull-to-refresh — touch-based pull down on dashboard
+    Alpine.data("pullToRefresh", function () {
+        return {
+            pulling: false,
+            refreshing: false,
+            pullDistance: 0,
+            startY: 0,
+            threshold: 60,
+
+            get isPulling() {
+                return this.pulling;
+            },
+            get isRefreshing() {
+                return this.refreshing;
+            },
+            get showSpinner() {
+                return this.pulling || this.refreshing;
+            },
+            get spinnerTransform() {
+                var dist = Math.min(this.pullDistance, this.threshold);
+                return "transform: translateY(" + dist + "px)";
+            },
+
+            handleTouchStart: function (event) {
+                if (window.scrollY === 0) {
+                    this.startY = event.touches[0].clientY;
+                }
+            },
+            handleTouchMove: function (event) {
+                if (this.startY === 0 || this.refreshing) return;
+                var currentY = event.touches[0].clientY;
+                var diff = currentY - this.startY;
+                if (diff > 0 && window.scrollY === 0) {
+                    this.pulling = true;
+                    this.pullDistance = diff * 0.5;
+                }
+            },
+            handleTouchEnd: function () {
+                if (!this.pulling) {
+                    this.startY = 0;
+                    return;
+                }
+                if (this.pullDistance >= this.threshold) {
+                    this.refreshing = true;
+                    this.pulling = false;
+                    this.pullDistance = 0;
+                    if (navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                    window.location.reload();
+                } else {
+                    this.pulling = false;
+                    this.pullDistance = 0;
+                }
+                this.startY = 0;
+            },
+        };
+    });
+
+    // Skeleton loader — show/hide placeholders during HTMX loads
+    Alpine.data("skeletonLoader", function () {
+        return {
+            loading: false,
+
+            get isLoading() {
+                return this.loading;
+            },
+
+            init: function () {
+                var self = this;
+                document.addEventListener("htmx:beforeRequest", function (evt) {
+                    if (evt.detail.target && evt.detail.target.id === "main-content") {
+                        self.loading = true;
+                    }
+                });
+                document.addEventListener("htmx:afterSettle", function () {
+                    self.loading = false;
+                });
+            },
+        };
+    });
+
+    // =========================================================================
+    // SHARED FORM COMPONENTS (Phase 4)
+    // =========================================================================
+
+    // Toggle switch — iOS-style toggle with auto-save
+    Alpine.data("toggleSwitch", function () {
+        return {
+            value: false,
+
+            init: function () {
+                this.value = this.$el.dataset.initial === "true";
+            },
+
+            get isOn() {
+                return this.value;
+            },
+            get isOff() {
+                return !this.value;
+            },
+            get thumbClass() {
+                return this.value ? "translate-x-5" : "translate-x-0";
+            },
+            get trackClass() {
+                return this.value ? "toggle-switch-on" : "toggle-switch-off";
+            },
+
+            toggle: function () {
+                this.value = !this.value;
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
+            },
+        };
+    });
+
+    // Tag picker — searchable, tappable tag selection
+    Alpine.data("tagPicker", function () {
+        return {
+            selectedTags: [],
+            allTags: [],
+            searchQuery: "",
+            maxTags: 10,
+
+            init: function () {
+                try {
+                    this.allTags = JSON.parse(this.$el.dataset.tags || "[]");
+                    this.selectedTags = JSON.parse(this.$el.dataset.selected || "[]");
+                } catch (e) {
+                    this.allTags = [];
+                    this.selectedTags = [];
+                }
+                this.maxTags = parseInt(this.$el.dataset.max || "10", 10);
+            },
+
+            get filteredTags() {
+                var query = this.searchQuery.toLowerCase();
+                if (!query) return this.allTags;
+                return this.allTags.filter(function (tag) {
+                    return tag.label.toLowerCase().indexOf(query) !== -1;
+                });
+            },
+            get selectedCount() {
+                return this.selectedTags.length;
+            },
+            get isAtMax() {
+                return this.selectedTags.length >= this.maxTags;
+            },
+            get hasSearch() {
+                return this.searchQuery.length > 0;
+            },
+
+            isSelected: function (tagId) {
+                return this.selectedTags.indexOf(tagId) !== -1;
+            },
+            toggleTag: function (tagId) {
+                if (this.isSelected(tagId)) {
+                    this.selectedTags = this.selectedTags.filter(function (id) {
+                        return id !== tagId;
+                    });
+                } else {
+                    if (this.isAtMax) return;
+                    this.selectedTags.push(tagId);
+                }
+                if (navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
+            },
+            clearSearch: function () {
+                this.searchQuery = "";
+            },
+        };
+    });
+
+    // Bottom sheet — slide-up panel for custom selects on mobile
+    Alpine.data("bottomSheet", function () {
+        return {
+            isOpen: false,
+            startY: 0,
+            currentY: 0,
+
+            init: function () {
+                var self = this;
+                this.$el.addEventListener("open-sheet", function () {
+                    self.open();
+                });
+            },
+
+            get sheetOpen() {
+                return this.isOpen;
+            },
+            get sheetClosed() {
+                return !this.isOpen;
+            },
+
+            open: function () {
+                this.isOpen = true;
+                document.body.style.overflow = "hidden";
+            },
+            close: function () {
+                this.isOpen = false;
+                document.body.style.overflow = "";
+            },
+            handleOverlayClick: function () {
+                this.close();
+            },
+            handleSheetTouchStart: function (event) {
+                this.startY = event.touches[0].clientY;
+            },
+            handleSheetTouchMove: function (event) {
+                this.currentY = event.touches[0].clientY;
+            },
+            handleSheetTouchEnd: function () {
+                var diff = this.currentY - this.startY;
+                if (diff > 80) {
+                    this.close();
+                }
+                this.startY = 0;
+                this.currentY = 0;
+            },
+        };
+    });
+
+    // Range slider — custom styled range input
+    Alpine.data("rangeSlider", function () {
+        return {
+            value: 50,
+            minVal: 0,
+            maxVal: 100,
+
+            init: function () {
+                this.value = parseInt(this.$el.dataset.value || "50", 10);
+                this.minVal = parseInt(this.$el.dataset.min || "0", 10);
+                this.maxVal = parseInt(this.$el.dataset.max || "100", 10);
+            },
+
+            get currentValue() {
+                return this.value;
+            },
+            get fillPercentage() {
+                return ((this.value - this.minVal) / (this.maxVal - this.minVal)) * 100;
+            },
+            get fillStyle() {
+                return "width: " + this.fillPercentage + "%";
+            },
+
+            updateValue: function (event) {
+                this.value = parseInt(event.target.value, 10);
+                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
+            },
+        };
+    });
+
     // Coach check-in scanner component
     Alpine.data("coachCheckin", function () {
         return {
@@ -11514,7 +11951,11 @@ document.addEventListener("alpine:init", function () {
             },
 
             // --- CSP-safe imperative DOM rendering for choices ---
-            _placeholders: { en: "Choice text...", de: "Antworttext...", fr: "Texte du choix..." },
+            _placeholders: {
+                en: "Choice text...",
+                de: "Antworttext...",
+                fr: "Texte du choix...",
+            },
 
             _renderAllChoices: function () {
                 this._renderChoices("en");
@@ -11523,7 +11964,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             _renderChoices: function (lang) {
-                var container = this.$el.querySelector('[data-choices-container="' + lang + '"]');
+                var container = this.$el.querySelector(
+                    '[data-choices-container="' + lang + '"]',
+                );
                 if (!container) return;
 
                 var self = this;
@@ -11541,13 +11984,15 @@ document.addEventListener("alpine:init", function () {
                         // Correct-answer button
                         var btn = document.createElement("button");
                         btn.type = "button";
-                        btn.className = "shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors"
-                            + (choice.isCorrect
+                        btn.className =
+                            "shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors" +
+                            (choice.isCorrect
                                 ? " border-green-500 bg-green-500"
                                 : " border-gray-300 dark:border-gray-600 hover:border-green-400");
                         if (choice.isCorrect) {
-                            btn.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-                                + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+                            btn.innerHTML =
+                                '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
                         }
                         btn.addEventListener("click", function () {
                             self._setCorrectByIndex(index);
@@ -11559,7 +12004,8 @@ document.addEventListener("alpine:init", function () {
                         input.type = "text";
                         input.value = choice.text;
                         input.placeholder = placeholder;
-                        input.className = "flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent";
+                        input.className =
+                            "flex-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent";
                         input.addEventListener("input", function () {
                             self._updateChoiceTextByIndex(lang, index, input.value);
                         });
@@ -11568,9 +12014,11 @@ document.addEventListener("alpine:init", function () {
                         // Remove button
                         var removeBtn = document.createElement("button");
                         removeBtn.type = "button";
-                        removeBtn.className = "shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors";
-                        removeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-                            + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+                        removeBtn.className =
+                            "shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors";
+                        removeBtn.innerHTML =
+                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
                         removeBtn.addEventListener("click", function () {
                             self._removeChoiceByIndex(index);
                         });
@@ -11586,7 +12034,7 @@ document.addEventListener("alpine:init", function () {
                 for (var p = 0; p < props.length; p++) {
                     var arr = this[props[p]];
                     for (var i = 0; i < arr.length; i++) {
-                        arr[i].isCorrect = (i === idx);
+                        arr[i].isCorrect = i === idx;
                     }
                 }
                 this._renderAllChoices();
@@ -11642,8 +12090,7 @@ document.addEventListener("alpine:init", function () {
                         var allFilled = true;
                         for (var i = 0; i < arr.length; i++) {
                             if (arr[i].isCorrect) hasCorrect = true;
-                            if (!arr[i].text || !arr[i].text.trim())
-                                allFilled = false;
+                            if (!arr[i].text || !arr[i].text.trim()) allFilled = false;
                         }
                         if (hasCorrect && allFilled) return true;
                     }

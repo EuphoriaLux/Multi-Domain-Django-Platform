@@ -1,0 +1,45 @@
+{% load i18n %}
+{% load static %}
+{# Slim mobile top bar - hidden on desktop (lg:+) #}
+{# Shows logo on tab roots, back arrow + title on drill-down pages #}
+{# Page title is read from <meta name="mobile-page-title"> set in base.html block #}
+<header class="top-bar-mobile lg:hidden" x-data="topBarMobile"
+        data-notification-count="{{ pending_requests_count|default:0 }}">
+
+    {# Left: Logo (tab roots) or Back button (drill-down pages) #}
+    <div x-show="showLogo">
+        {% if user.is_authenticated %}
+        <a href="{% url 'crush_lu:dashboard' %}" class="top-bar-mobile-logo">
+            {% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}
+            <span>Crush.lu</span>
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:home' %}" class="top-bar-mobile-logo">
+            {% include "crush_lu/includes/ghost-logo.html" with class="w-7 h-7" %}
+            <span>Crush.lu</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <a x-show="showBackButton" x-cloak @click="goBack" class="top-bar-mobile-back" data-transition="slide-back">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+        <span>{% trans "Back" %}</span>
+    </a>
+
+    {# Center: Page title (drill-down pages only) #}
+    <span class="top-bar-mobile-title" x-show="showBackButton" x-text="pageTitle" x-cloak></span>
+
+    {# Right: Notification bell #}
+    <div class="top-bar-mobile-actions">
+        {% if user.is_authenticated %}
+        <a href="{% url 'crush_lu:my_connections' %}" class="top-bar-mobile-bell">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            <span class="top-bar-mobile-bell-badge" x-show="hasNotifications" x-text="notificationCount" x-cloak></span>
+        </a>
+        {% endif %}
+    </div>
+</header>

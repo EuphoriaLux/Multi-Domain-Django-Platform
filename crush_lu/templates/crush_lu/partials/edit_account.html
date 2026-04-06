@@ -1,0 +1,100 @@
+{% load i18n %}
+
+{% block mobile_page_title %}{% trans "Account" %}{% endblock %}
+
+<div class="max-w-3xl mx-auto">
+    <div class="section-card mb-4">
+        <h5 class="section-title">
+            {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+            {% trans "Account" %}
+        </h5>
+        <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Manage your account, linked services, and preferences." %}</p>
+
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            <!-- Account Settings -->
+            <a href="{% url 'crush_lu:account_settings' %}"
+               class="section-edit-card">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                        {% include "shared/icons/user-circle.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Account Settings" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Email, linked accounts, password" %}</div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            <!-- Notification Preferences -->
+            <a href="{% url 'crush_lu:update_email_preferences' %}"
+               class="section-edit-card">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        {% include "shared/icons/bell.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Notifications" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Email and push notification preferences" %}</div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            <!-- Language -->
+            <div class="section-edit-card">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                        {% include "shared/icons/language.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Language" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% get_current_language as LANGUAGE_CODE %}
+                            {% if LANGUAGE_CODE == 'de' %}Deutsch{% elif LANGUAGE_CODE == 'fr' %}Fran&ccedil;ais{% else %}English{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% include "crush_lu/partials/language_switcher.html" %}
+            </div>
+
+            <!-- Theme -->
+            <div class="section-edit-card" x-data="themeToggle">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Theme" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400" x-text="themeLabel"></div>
+                    </div>
+                </div>
+                <button type="button" @click="cycleTheme"
+                        class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <span x-text="themeButtonLabel"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="section-card mb-4 border-red-200 dark:border-red-800">
+        <h5 class="section-title text-red-600 dark:text-red-400">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+            {% trans "Danger Zone" %}
+        </h5>
+        <a href="{% url 'account_logout' %}"
+           class="flex items-center gap-3 py-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
+            {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
+            <span class="font-medium">{% trans "Log Out" %}</span>
+        </a>
+    </div>
+
+    <!-- Back button -->
+    <div class="mt-4">
+        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel inline-flex items-center gap-2">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back to Profile" %}
+        </a>
+    </div>
+</div>

@@ -3,6 +3,7 @@
 {% load i18n %}
 
 {% block title %}{{ event.title }} - Crush.lu{% endblock %}
+{% block mobile_page_title %}{{ event.title }}{% endblock %}
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}

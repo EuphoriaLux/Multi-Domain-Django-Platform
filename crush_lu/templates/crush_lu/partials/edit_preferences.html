@@ -1,0 +1,244 @@
+{% load i18n %}
+
+{% block mobile_page_title %}{% trans "Your Ideal Crush" %}{% endblock %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          id="editPreferencesForm"
+          hx-post="{% url 'crush_lu:edit_profile' %}?section=preferences"
+          hx-target="#section-content"
+          hx-swap="innerHTML"
+          hx-indicator="#submit-indicator-prefs">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4 mb-4">
+            {% for error in form.non_field_errors %}
+                <p class="text-red-600 dark:text-red-400 text-sm">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                <span class="text-xl">💕</span>
+                {% trans "Your Ideal Crush" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">{% trans "These are soft preferences to help us personalise your experience — not hard filters." %}</p>
+
+            <!-- Age Range Slider -->
+            <div class="mb-6"
+                 x-data="ageRangeSlider"
+                 data-label-any-age="{% trans 'Any age' %}"
+                 data-initial-min="{{ profile.preferred_age_min|default:'18' }}"
+                 data-initial-max="{{ profile.preferred_age_max|default:'99' }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "Preferred Age Range" %}
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="rangeLabel"></span>
+                        <button type="button"
+                                x-show="notDefaultRange"
+                                @click="resetRange"
+                                class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline"
+                                x-cloak>
+                            {% trans "Reset" %}
+                        </button>
+                    </div>
+                </div>
+                <div class="age-range-slider-track" x-bind:style="trackStyle">
+                    <div class="age-range-bubble" x-bind:style="minBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak>
+                        <span x-text="minAge"></span>
+                    </div>
+                    <div class="age-range-bubble" x-bind:style="maxBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak>
+                        <span x-text="maxAge"></span>
+                    </div>
+                    <input type="range"
+                           class="age-range-input age-range-input-min"
+                           min="18" max="99" x-bind:value="minAge"
+                           @input="updateMin">
+                    <input type="range"
+                           class="age-range-input age-range-input-max"
+                           min="18" max="99" x-bind:value="maxAge"
+                           @input="updateMax">
+                </div>
+                <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <span>18</span>
+                    <span>99</span>
+                </div>
+                <input type="hidden" name="preferred_age_min" x-bind:value="minAge">
+                <input type="hidden" name="preferred_age_max" x-bind:value="maxAge">
+            </div>
+
+            <!-- Gender Preference Tiles -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                    {% trans "Interested In" %}
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {% for value, label in form.preferred_genders.field.choices %}
+                    <label class="cursor-pointer block">
+                        <input type="checkbox"
+                               name="{{ form.preferred_genders.html_name }}"
+                               value="{{ value }}"
+                               class="peer hidden"
+                               {% if value in profile.preferred_genders %}checked{% endif %}>
+                        <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                    border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                                    peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
+                            <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% elif value == 'O' %}✨{% endif %}</span>
+                            <span class="whitespace-nowrap">{{ label }}</span>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Select all that apply. Leave empty if you're open to everyone." %}</p>
+                {% if form.preferred_genders.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.preferred_genders.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- First Step Preference -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                    {% trans "Who makes the first step?" %}
+                </label>
+                <div class="flex flex-col gap-2">
+                    {% for value, label in form.first_step_preference.field.choices %}
+                    {% if value %}
+                    <label class="cursor-pointer block">
+                        <input type="radio"
+                               name="{{ form.first_step_preference.html_name }}"
+                               value="{{ value }}"
+                               class="peer hidden"
+                               {% if value == profile.first_step_preference %}checked{% endif %}>
+                        <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                                    border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                                    peer-checked:border-purple-500 peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300">
+                            <span class="text-lg flex-shrink-0">{% if value == 'i_initiate' %}🙋{% elif value == 'they_initiate' %}💌{% elif value == 'no_preference' %}🤷{% endif %}</span>
+                            <span>{{ label }}</span>
+                        </div>
+                    </label>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "This is a soft preference, not a hard filter." %}</p>
+                {% if form.first_step_preference.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.first_step_preference.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Personality Matching -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Personality Matching" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Select 5 qualities you look for in someone to improve your compatibility matches." %}</p>
+
+            <div class="mb-6"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="green"
+                 data-initial="{{ selected_sought_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "Qualities I Seek" %}
+                    </label>
+                    <span class="text-sm font-semibold text-green-600 dark:text-green-400" x-text="counterText"></span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What do you look for in someone?" %}</p>
+                {% for cat in qualities_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="sought_qualities_ids" x-bind:value="hiddenValue">
+                {% if form.sought_qualities_ids.errors %}
+                    <div class="text-red-600 text-sm mt-1">{{ form.sought_qualities_ids.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Astrology Section -->
+        <div class="section-card mb-4">
+            <div class="mb-6"
+                 x-data="astroToggle"
+                 data-initial="{{ profile.astro_enabled|yesno:'true,false' }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "Zodiac Compatibility" %}
+                    </label>
+                    <button type="button"
+                            data-toggle-btn
+                            @click="toggle"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-300 dark:bg-gray-600">
+                        <span data-toggle-knob
+                              class="inline-block h-4 w-4 rounded-full bg-white transition-transform translate-x-1"></span>
+                    </button>
+                </div>
+                <input type="hidden" name="astro_enabled" x-bind:value="isEnabled">
+
+                {% if zodiac_sign %}
+                <div x-show="isEnabled" x-transition class="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                    <div class="flex items-center gap-4 text-sm">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-lg">{{ zodiac_emoji }}</span>
+                            <span class="text-gray-700 dark:text-gray-200 font-medium capitalize">{{ zodiac_sign }}</span>
+                        </div>
+                        {% if chinese_animal %}
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-lg">{{ chinese_emoji }}</span>
+                            <span class="text-gray-700 dark:text-gray-200 font-medium capitalize">{{ chinese_animal }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-500 dark:text-gray-400 text-xs mt-2">{% trans "Zodiac signs are computed from your date of birth and contribute to your match score." %}</p>
+                </div>
+                {% endif %}
+
+                <p x-show="isDisabled" x-transition class="text-gray-400 dark:text-gray-500 text-xs mt-2">
+                    {% trans "Zodiac compatibility disabled. Your match score will be based only on personality traits." %}
+                </p>
+            </div>
+
+            {% if form.preferred_age_min.errors %}
+                <div class="text-red-600 text-sm mb-4">{{ form.preferred_age_min.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+            <button type="submit" class="btn-crush-primary relative gap-2">
+                <span id="submit-indicator-prefs" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
+                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
+                    <span>{% trans "Saving..." %}</span>
+                </span>
+                <span class="button-text inline-flex items-center gap-2">
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    <span>{% trans "Save Preferences" %}</span>
+                </span>
+            </button>
+        </div>
+    </form>
+</div>

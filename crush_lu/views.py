@@ -21,7 +21,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.db.models import Q, Count
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from datetime import timedelta
@@ -279,6 +279,16 @@ def dashboard(request):
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
+        # Time-based greeting
+        hour = timezone.now().hour
+        name = profile.display_name
+        if 5 <= hour < 12:
+            greeting = _("Good morning, %(name)s") % {"name": name}
+        elif 18 <= hour < 24:
+            greeting = _("Good evening, %(name)s") % {"name": name}
+        else:
+            greeting = _("Hey, %(name)s") % {"name": name}
+
         context = {
             "profile": profile,
             "submission": latest_submission,
@@ -290,6 +300,7 @@ def dashboard(request):
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
+            "greeting": greeting,
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("Please complete your profile first."))
@@ -664,7 +675,14 @@ def create_profile(request):
 
 
 def _render_edit_profile_form(request):
-    """Internal: Render single-page edit form for approved profiles."""
+    """Internal: Render card-based profile editing for approved profiles.
+
+    Supports section-based navigation:
+    - No section param → card list (section overview)
+    - ?section=photos|about|preferences|privacy|account → section detail
+    - HTMX request + section → return section partial only
+    - Non-HTMX + section → full page with section pre-expanded
+    """
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
@@ -675,10 +693,78 @@ def _render_edit_profile_form(request):
         messages.warning(request, _("Your profile must be approved before editing."))
         return redirect("crush_lu:create_profile")
 
+    section = request.GET.get("section", "")
+    valid_sections = ("photos", "about", "preferences", "privacy", "account")
+
+    # --- Section: Photos ---
+    if section == "photos":
+        return _edit_section_photos(request, profile)
+
+    # --- Section: About (bio, interests, traits, contact, details, event prefs) ---
+    if section == "about":
+        return _edit_section_about(request, profile)
+
+    # --- Section: Preferences (ideal crush) ---
+    if section == "preferences":
+        return _edit_section_preferences(request, profile)
+
+    # --- Section: Privacy ---
+    if section == "privacy":
+        return _edit_section_privacy(request, profile)
+
+    # --- Section: Account (language, theme, notifications, logout) ---
+    if section == "account":
+        return _edit_section_account(request, profile)
+
+    # --- Default: Card-based section list ---
+    has_crush_preferences = bool(profile.preferred_genders) or (
+        profile.preferred_age_min and profile.preferred_age_min != 18
+    ) or (
+        profile.preferred_age_max and profile.preferred_age_max != 99
+    )
+
+    context = {
+        "profile": profile,
+        "section": section,
+        "has_crush_preferences": has_crush_preferences,
+    }
+    return render(request, "crush_lu/edit_profile.html", context)
+
+
+def _edit_section_photos(request, profile):
+    """Handle photos section editing."""
     from .social_photos import get_all_social_photos
+
+    if request.method == "POST":
+        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return render(
+                    request,
+                    "crush_lu/edit_profile.html#edit_success",
+                    {"profile": profile},
+                )
+            messages.success(request, _("Photos updated!"))
+            return redirect("crush_lu:edit_profile")
+
+    form = CrushProfileForm(instance=profile)
+    context = {
+        "form": form,
+        "profile": profile,
+        "social_photos": get_all_social_photos(request.user),
+        "section": "photos",
+    }
+    template = "crush_lu/partials/edit_photos.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_section_about(request, profile):
+    """Handle about section editing (bio, interests, traits, contact, details, event prefs)."""
     from .models import Trait
 
-    # Trait data for personality section (grouped by category)
     qualities_list = list(Trait.objects.filter(trait_type="quality"))
     defects_list = list(Trait.objects.filter(trait_type="defect"))
     qualities_grouped = _group_traits_by_category(qualities_list)
@@ -697,54 +783,136 @@ def _render_edit_profile_form(request):
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             updated_profile = form.save()
-
-            # Recalculate match scores when qualities/defects change
             from .matching import update_match_scores_for_user
 
             transaction.on_commit(
                 lambda: update_match_scores_for_user(request.user)
             )
-
             if request.htmx:
                 return render(
                     request,
                     "crush_lu/edit_profile.html#edit_success",
-                    {
-                        "profile": updated_profile,
-                    },
+                    {"profile": updated_profile},
                 )
-
             messages.success(request, _("Profile updated successfully!"))
-            return redirect("crush_lu:dashboard")
+            return redirect("crush_lu:edit_profile")
         else:
             if request.htmx:
                 return render(
                     request,
-                    "crush_lu/partials/edit_profile_form.html",
+                    "crush_lu/partials/edit_about.html",
                     {
                         "form": form,
                         "profile": profile,
-                        "social_photos": get_all_social_photos(request.user),
                         "has_errors": True,
                         **trait_context,
                     },
                 )
-
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(
-                        request, f"{field.replace('_', ' ').title()}: {error}"
-                    )
     else:
         form = CrushProfileForm(instance=profile)
 
     context = {
         "form": form,
         "profile": profile,
-        "social_photos": get_all_social_photos(request.user),
+        "section": "about",
         **trait_context,
     }
-    return render(request, "crush_lu/edit_profile.html", context)
+    template = "crush_lu/partials/edit_about.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_section_preferences(request, profile):
+    """Handle ideal crush preferences section."""
+    from .models import Trait
+    from .matching import (
+        get_western_zodiac, get_chinese_zodiac,
+        update_match_scores_for_user,
+        ZODIAC_SIGN_EMOJIS, CHINESE_ANIMAL_EMOJIS,
+        ZODIAC_SIGN_LABELS, CHINESE_ANIMAL_LABELS,
+    )
+
+    if request.method == "POST":
+        form = IdealCrushPreferencesForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            transaction.on_commit(
+                lambda: update_match_scores_for_user(request.user)
+            )
+            if request.htmx:
+                return render(
+                    request,
+                    "crush_lu/edit_profile.html#edit_success",
+                    {"profile": profile},
+                )
+            messages.success(request, _("Preferences saved!"))
+            return redirect("crush_lu:edit_profile")
+    else:
+        form = IdealCrushPreferencesForm(instance=profile)
+
+    qualities_list = list(Trait.objects.filter(trait_type="quality"))
+    qualities_grouped = _group_traits_by_category(qualities_list)
+    selected_sought = list(profile.sought_qualities.values_list("pk", flat=True))
+
+    zodiac_sign = get_western_zodiac(profile.date_of_birth)
+    chinese_animal = get_chinese_zodiac(profile.date_of_birth)
+
+    context = {
+        "form": form,
+        "profile": profile,
+        "section": "preferences",
+        "qualities_grouped": qualities_grouped,
+        "selected_sought_json": json.dumps(selected_sought),
+        "zodiac_sign": ZODIAC_SIGN_LABELS.get(zodiac_sign, zodiac_sign),
+        "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
+        "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
+        "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
+    }
+    template = "crush_lu/partials/edit_preferences.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_section_privacy(request, profile):
+    """Handle privacy settings section."""
+    if request.method == "POST":
+        form = CrushProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            if request.htmx:
+                return render(
+                    request,
+                    "crush_lu/edit_profile.html#edit_success",
+                    {"profile": profile},
+                )
+            messages.success(request, _("Privacy settings updated!"))
+            return redirect("crush_lu:edit_profile")
+    else:
+        form = CrushProfileForm(instance=profile)
+
+    context = {
+        "form": form,
+        "profile": profile,
+        "section": "privacy",
+    }
+    template = "crush_lu/partials/edit_privacy.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_section_account(request, profile):
+    """Handle account settings section (language, theme, notifications)."""
+    context = {
+        "profile": profile,
+        "section": "account",
+    }
+    template = "crush_lu/partials/edit_account.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
 
 
 @crush_login_required
@@ -900,67 +1068,13 @@ def _group_traits_by_category(qs):
 
 @crush_login_required
 def crush_preferences(request):
-    """Standalone page for ideal crush preferences (age, gender, traits, astrology)"""
-    from .models import Trait
-    from .matching import (
-        get_western_zodiac, get_chinese_zodiac,
-        update_match_scores_for_user,
-        ZODIAC_SIGN_EMOJIS, CHINESE_ANIMAL_EMOJIS,
-        ZODIAC_SIGN_LABELS, CHINESE_ANIMAL_LABELS,
+    """Redirect to new section-based preferences page.
+    Kept for backwards compatibility with existing URL."""
+    from django.urls import reverse
+
+    return HttpResponseRedirect(
+        reverse("crush_lu:edit_profile") + "?section=preferences"
     )
-
-    try:
-        profile = CrushProfile.objects.get(user=request.user)
-    except CrushProfile.DoesNotExist:
-        messages.info(request, _("You need to create a profile first."))
-        return redirect("crush_lu:create_profile")
-
-    if not profile.is_approved:
-        messages.warning(request, _("Your profile must be approved before setting preferences."))
-        return redirect("crush_lu:dashboard")
-
-    if request.method == "POST":
-        form = IdealCrushPreferencesForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
-            # Recalculate match scores after traits change
-            transaction.on_commit(
-                lambda: update_match_scores_for_user(request.user)
-            )
-            logger.info("Crush preferences saved for user %s", request.user.pk)
-            messages.success(request, _("Your preferences have been saved."))
-            return redirect("crush_lu:dashboard")
-        else:
-            logger.warning(
-                "Crush preferences form errors for user %s: %s",
-                request.user.pk,
-                form.errors,
-            )
-    else:
-        form = IdealCrushPreferencesForm(instance=profile)
-        logger.info("Loading crush preferences for user %s", request.user.pk)
-
-    # Qualities grouped by category for "Qualities I Seek" section
-    qualities_list = list(Trait.objects.filter(trait_type="quality"))
-    qualities_grouped = _group_traits_by_category(qualities_list)
-
-    # Current user selection for sought qualities
-    selected_sought = list(profile.sought_qualities.values_list("pk", flat=True))
-
-    # Zodiac info for display
-    zodiac_sign = get_western_zodiac(profile.date_of_birth)
-    chinese_animal = get_chinese_zodiac(profile.date_of_birth)
-
-    return render(request, "crush_lu/crush_preferences.html", {
-        "form": form,
-        "profile": profile,
-        "qualities_grouped": qualities_grouped,
-        "selected_sought_json": json.dumps(selected_sought),
-        "zodiac_sign": ZODIAC_SIGN_LABELS.get(zodiac_sign, zodiac_sign),
-        "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
-        "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
-        "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
-    })
 
 
 @crush_login_required

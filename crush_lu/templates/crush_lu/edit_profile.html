@@ -15,118 +15,199 @@
         {% trans "Your changes have been saved." %}
     </p>
     <div class="tw-flex tw-flex-col sm:tw-flex-row tw-gap-3 tw-justify-center">
-        <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2">
-            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Dashboard" %}
+        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %} {% trans "Back to Profile" %}
         </a>
-        <button type="button"
-                class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors"
-                onclick="window.location.reload()">
-            {% include "shared/icons/pencil.html" with class="w-4 h-4" %} {% trans "Continue Editing" %}
-        </button>
+        <a href="{% url 'crush_lu:dashboard' %}"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+            {% include "shared/icons/home.html" with class="w-4 h-4" %} {% trans "Dashboard" %}
+        </a>
     </div>
 </div>
 {% endpartialdef %}
 
 {% block title %}{% trans "Edit Your Profile - Crush.lu" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Edit Profile" %}{% endblock %}
 
 {% block extra_css %}
-<!-- Profile creation/editing styles (action buttons, photo cards, etc.) -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/profile-creation.css' %}">
-<!-- intl-tel-input CSS -->
+{% if section_template %}
+<!-- intl-tel-input CSS (needed for about section) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/css/intlTelInput.css">
-<!-- Custom intl-tel-input styling for Crush.lu -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
-<!-- Canton Map CSS -->
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/canton-map.css' %}">
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    {% with missing_fields=profile.get_missing_fields %}
-    {% if missing_fields %}
-    <!-- Missing Fields Alert (suppress photo requirement for approved profiles) -->
-    {% spaceless %}{% for field in missing_fields %}{% if not profile.is_approved or field.field != 'photo_1' %}{% with has_displayable_fields=True %}{% endwith %}{% endif %}{% endfor %}{% endspaceless %}
-    {% if not profile.is_approved or missing_fields|length > 1 or missing_fields.0.field != 'photo_1' %}
-    <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 dark:border-amber-400 p-4 mb-6 rounded-r-lg">
-        <div class="flex items-start gap-3">
-            <div class="flex-shrink-0 text-amber-500 dark:text-amber-400">
-                {% include "shared/icons/exclamation-triangle.html" with class="w-6 h-6" %}
-            </div>
-            <div class="flex-1">
-                <h3 class="text-amber-800 dark:text-amber-200 font-semibold">{% trans "Your profile is incomplete" %}</h3>
-                <p class="text-amber-700 dark:text-amber-300 text-sm mt-1">{% trans "Please fill in the following required fields:" %}</p>
-                <ul class="mt-2 space-y-1">
-                    {% for field in missing_fields %}
-                    {% if not profile.is_approved or field.field != 'photo_1' %}
-                    <li class="text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
-                        <span class="w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full"></span>
-                        {{ field.label }}
-                        <span class="text-amber-500 dark:text-amber-400 text-xs">({% trans "Step" %} {{ field.step }})</span>
-                    </li>
-                    {% endif %}
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    {% endif %}
-    {% endwith %}
-
-    <div class="card shadow-sm dark:shadow-gray-900/20">
-        <div class="card-body p-6 lg:p-8">
-            <div class="text-center mb-6">
-                <h1 class="text-2xl font-bold mb-2 dark:text-white">{% trans "Edit Your Profile" %}</h1>
-                <p class="text-gray-500 dark:text-gray-400">{% trans "Update your information below" %}</p>
-                {% if profile.is_approved %}
-                    <span class="badge badge-success mt-2">{% trans "Profile Approved" %}</span>
-                {% endif %}
-            </div>
-
-            <form method="post"
-                  enctype="multipart/form-data"
-                  id="editProfileForm"
-                  hx-post="{% url 'crush_lu:edit_profile' %}"
-                  hx-target="#form-container"
-                  hx-swap="innerHTML"
-                  hx-indicator="#submit-indicator">
-                {% csrf_token %}
-
-                <div id="form-container">
-                    {% include 'crush_lu/partials/edit_profile_form.html' %}
+<div id="section-content">
+{% if section_template %}
+    {# Section detail view — include the section partial #}
+    {% include section_template %}
+{% else %}
+    {# Card-based section list (default view) #}
+    <div class="max-w-3xl mx-auto">
+        {% with missing_fields=profile.get_missing_fields %}
+        {% if missing_fields %}
+        {% if not profile.is_approved or missing_fields|length > 1 or missing_fields.0.field != 'photo_1' %}
+        <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 dark:border-amber-400 p-4 mb-6 rounded-r-lg">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 text-amber-500 dark:text-amber-400">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-6 h-6" %}
                 </div>
-            </form>
+                <div class="flex-1">
+                    <h3 class="text-amber-800 dark:text-amber-200 font-semibold">{% trans "Your profile is incomplete" %}</h3>
+                    <p class="text-amber-700 dark:text-amber-300 text-sm mt-1">{% trans "Please fill in the following required fields:" %}</p>
+                    <ul class="mt-2 space-y-1">
+                        {% for field in missing_fields %}
+                        {% if not profile.is_approved or field.field != 'photo_1' %}
+                        <li class="text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
+                            <span class="w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full"></span>
+                            {{ field.label }}
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold mb-2 dark:text-white">{% trans "Edit Your Profile" %}</h1>
+            <p class="text-gray-500 dark:text-gray-400">{% trans "Tap a section to edit" %}</p>
+            {% if profile.is_approved %}
+                <span class="badge badge-success mt-2">{% trans "Profile Approved" %}</span>
+            {% endif %}
+        </div>
+
+        {# Section cards — iOS Settings style #}
+        <div class="space-y-3">
+            {# Photos #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=photos"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">
+                        {% include "shared/icons/photo.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Photos" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% if profile.photo_1 %}
+                                {% trans "Photos added" %}
+                            {% else %}
+                                {% trans "No photos yet" %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            {# About You #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=about"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                        {% include "shared/icons/pencil-square.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "About You" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Bio, interests, personality, contact" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            {# Ideal Crush Preferences #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=preferences"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400">
+                        <span class="text-xl">💕</span>
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Your Ideal Crush" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% if has_crush_preferences %}
+                                {% trans "Preferences configured" %}
+                            {% else %}
+                                {% trans "Age, gender, traits, zodiac" %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            {# Privacy #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=privacy"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Privacy" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Name visibility, age, photo blur" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            {# Account #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=account"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                        {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Account" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Settings, notifications, language, theme" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
         </div>
     </div>
+{% endif %}
 </div>
-
-<!-- Styles are in static/crush_lu/css/components/social-photos.css and profile-creation.css -->
 
 {% endblock %}
 
 {% block extra_js %}
-<!-- intl-tel-input JS -->
+{% if section_template %}
+<!-- intl-tel-input JS (needed for about section phone field) -->
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
-// Character counters with visual feedback - reinitialize after HTMX swaps
+// Character counters with visual feedback
 function initCharacterCounters() {
     initCounter('id_bio', 'bioCounter', 'bio-bar', 'bio-counter-container', 500);
     initCounter('id_interests', 'interestsCounter', 'interests-bar', 'interests-counter-container', 300);
 }
 
 function initCounter(inputId, counterId, barId, containerId, maxLength) {
-    const field = document.getElementById(inputId);
-    const counter = document.getElementById(counterId);
-    const bar = document.getElementById(barId);
-    const container = document.getElementById(containerId);
+    var field = document.getElementById(inputId);
+    var counter = document.getElementById(counterId);
+    var bar = document.getElementById(barId);
+    var container = document.getElementById(containerId);
 
     if (!field || !counter) return;
 
     function updateCounter() {
-        const length = field.value.length;
-        const percentage = (length / maxLength) * 100;
+        var length = field.value.length;
+        var percentage = (length / maxLength) * 100;
 
         counter.textContent = length;
 
@@ -134,11 +215,8 @@ function initCounter(inputId, counterId, barId, containerId, maxLength) {
             bar.style.width = Math.min(percentage, 100) + '%';
         }
 
-        // Remove existing state classes
         if (container) {
             container.classList.remove('char-counter--warning', 'char-counter--danger');
-
-            // Add appropriate state class
             if (percentage >= 95) {
                 container.classList.add('char-counter--danger');
             } else if (percentage >= 80) {
@@ -148,52 +226,46 @@ function initCounter(inputId, counterId, barId, containerId, maxLength) {
     }
 
     field.addEventListener('input', updateCounter);
-    updateCounter(); // Initial state
+    updateCounter();
 }
 
-// Initialize on page load
 initCharacterCounters();
 
-// Reinitialize after HTMX swaps
 document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'form-container') {
+    if (event.detail.target.id === 'section-content') {
         initCharacterCounters();
 
-        // Scroll to first error if present (Tailwind uses text-red-600 for errors)
-        const firstError = event.detail.target.querySelector('.text-red-600');
+        var firstError = event.detail.target.querySelector('.text-red-600');
         if (firstError) {
             firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
 
-    // Animate photo card after upload
     if (event.detail.target.id && event.detail.target.id.startsWith('photo-card-')) {
-        const card = event.detail.target.querySelector('.photo-upload-card');
+        var card = event.detail.target.querySelector('.photo-upload-card');
         if (card) {
             card.classList.add('animate-pulse');
-            setTimeout(() => card.classList.remove('animate-pulse'), 1000);
+            setTimeout(function() { card.classList.remove('animate-pulse'); }, 1000);
         }
     }
 });
 
-// Social photo import functionality
+// Social photo import
 document.addEventListener('click', function(e) {
-    const btn = e.target.closest('.import-social-photo-btn');
+    var btn = e.target.closest('.import-social-photo-btn');
     if (!btn) return;
 
     e.preventDefault();
 
-    const accountId = btn.dataset.accountId;
-    const slot = parseInt(btn.dataset.slot);
-    const originalContent = btn.innerHTML;
-    const notification = document.getElementById('social-photo-notification');
+    var accountId = btn.dataset.accountId;
+    var slot = parseInt(btn.dataset.slot);
+    var originalContent = btn.innerHTML;
+    var notification = document.getElementById('social-photo-notification');
 
-    // Disable button and show loading
     btn.disabled = true;
     btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>';
 
-    // Get CSRF token
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
     fetch('{% url "api_import_social_photo" %}', {
         method: 'POST',
@@ -206,21 +278,17 @@ document.addEventListener('click', function(e) {
             photo_slot: slot
         })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
         if (data.success) {
-            // Replace entire photo card with server-rendered partial
             var photoCardSlot = data.photo_slot || slot;
             var photoCard = document.getElementById('photo-card-' + photoCardSlot);
             if (photoCard && data.html) {
                 photoCard.innerHTML = data.html;
-                // Trigger HTMX to process new content (hx-delete buttons etc.)
                 if (window.htmx) {
                     htmx.process(photoCard);
                 }
             }
-
-            // Show success notification
             if (notification) {
                 notification.className = 'mt-2 alert alert-success';
                 notification.textContent = 'Photo imported successfully!';
@@ -235,7 +303,7 @@ document.addEventListener('click', function(e) {
             }
         }
     })
-    .catch(error => {
+    .catch(function(error) {
         console.error('Error importing photo:', error);
         if (notification) {
             notification.className = 'mt-2 alert alert-danger';
@@ -243,13 +311,13 @@ document.addEventListener('click', function(e) {
             notification.style.display = 'block';
         }
     })
-    .finally(() => {
+    .finally(function() {
         btn.disabled = false;
         btn.innerHTML = originalContent;
     });
 });
 
-// Handle broken social photo thumbnails gracefully (CSP-safe, no inline onerror)
+// Broken social photo fallbacks
 function initSocialPhotoFallbacks() {
     document.querySelectorAll('.social-mini-img').forEach(function(img) {
         img.addEventListener('error', function() {
@@ -263,19 +331,17 @@ function initSocialPhotoFallbacks() {
 }
 initSocialPhotoFallbacks();
 
-// Reinitialize after HTMX swaps that might reload the form
 document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'form-container') {
+    if (event.detail.target.id === 'section-content') {
         initSocialPhotoFallbacks();
     }
 });
 
-// Destroy existing intl-tel-input instance to prevent memory leaks
+// intl-tel-input for phone field
 function destroyIntlTelInput() {
     if (window.itiInstance) {
         try {
             window.itiInstance.destroy();
-            console.log('intl-tel-input: Previous instance destroyed');
         } catch (e) {
             console.warn('intl-tel-input: Could not destroy previous instance', e);
         }
@@ -283,53 +349,23 @@ function destroyIntlTelInput() {
     }
 }
 
-// Initialize intl-tel-input for phone number field
 function initIntlTelInput() {
-    // Check if library is loaded first
-    if (typeof window.intlTelInput !== 'function') {
-        console.log('intl-tel-input: Library not loaded yet');
-        return;
-    }
+    if (typeof window.intlTelInput !== 'function') return;
 
-    // Find the phone input - must be the actual form field with proper ID
-    const phoneInput = document.getElementById('id_phone_number');
+    var phoneInput = document.getElementById('id_phone_number');
+    if (!phoneInput) return;
+    if (phoneInput.readOnly || phoneInput.disabled || phoneInput.type === 'hidden') return;
+    if (phoneInput.dataset.itiInitialized === 'true' && window.itiInstance) return;
 
-    // Exit early if no editable phone input exists (e.g., phone is verified and locked)
-    if (!phoneInput) {
-        console.log('intl-tel-input: No editable phone input found (phone may be verified)');
-        return;
-    }
-
-    // Double-check it's not readonly/disabled
-    if (phoneInput.readOnly || phoneInput.disabled || phoneInput.type === 'hidden') {
-        console.log('intl-tel-input: Phone input is readonly/disabled/hidden');
-        return;
-    }
-
-    // Skip if already initialized on this exact element
-    if (phoneInput.dataset.itiInitialized === 'true' && window.itiInstance) {
-        console.log('intl-tel-input: Already initialized on this element');
-        return;
-    }
-
-    // Destroy any existing instance before creating a new one (prevents memory leak)
     destroyIntlTelInput();
-
-    // Reset initialization flag (in case DOM was replaced by HTMX)
     delete phoneInput.dataset.itiInitialized;
 
-    console.log('intl-tel-input: Initializing for phone input:', phoneInput.id);
-
-    // Store pre-filled value
-    const prefilledValue = phoneInput.value || '';
+    var prefilledValue = phoneInput.value || '';
     phoneInput.value = '';
 
-    // Track initialization state to prevent race conditions
-    let isDestroyed = false;
-
     try {
-        const iti = window.intlTelInput(phoneInput, {
-            initialCountry: "lu",  // Use static default to avoid geoIpLookup race conditions
+        var iti = window.intlTelInput(phoneInput, {
+            initialCountry: "lu",
             preferredCountries: ["lu", "de", "fr", "be"],
             onlyCountries: ["lu", "de", "fr", "be", "nl", "ch", "at", "it", "es", "pt", "gb", "ie", "us", "ca", "se", "dz"],
             separateDialCode: true,
@@ -339,23 +375,14 @@ function initIntlTelInput() {
             utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/utils.js"
         });
 
-        // Mark as initialized
         phoneInput.dataset.itiInitialized = 'true';
         window.itiInstance = iti;
 
-        // Set pre-filled value after utils load
         iti.promise.then(function() {
-            // Check if instance was destroyed during async load
-            if (isDestroyed || !window.itiInstance) {
-                console.log('intl-tel-input: Instance was destroyed during init');
-                return;
-            }
-
-            // Matches --intl-tel-input-padding CSS variable in intl-tel-input.css
+            if (!window.itiInstance) return;
             phoneInput.style.setProperty('padding-left', '110px', 'important');
-
             if (prefilledValue) {
-                let numberToSet = prefilledValue.trim().replace(/\s/g, '');
+                var numberToSet = prefilledValue.trim().replace(/\s/g, '');
                 if (!numberToSet.startsWith('+')) {
                     if (numberToSet.startsWith('00')) {
                         numberToSet = '+' + numberToSet.slice(2);
@@ -369,8 +396,7 @@ function initIntlTelInput() {
             console.warn('intl-tel-input: Utils loading error', err);
         });
 
-        // Update hidden field with full international number on form submit
-        const form = phoneInput.closest('form');
+        var form = phoneInput.closest('form');
         if (form && !form.dataset.itiSubmitHandler) {
             form.dataset.itiSubmitHandler = 'true';
             form.addEventListener('submit', function() {
@@ -384,20 +410,17 @@ function initIntlTelInput() {
     }
 }
 
-// Initialize on page load - wait for DOM and library to be ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initIntlTelInput);
 } else {
-    // DOM already loaded, init immediately
     initIntlTelInput();
 }
 
-// Reinitialize after HTMX swaps (in case the form is replaced)
 document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'form-container') {
-        // Small delay to ensure DOM is updated
+    if (event.detail.target.id === 'section-content') {
         setTimeout(initIntlTelInput, 100);
     }
 });
 </script>
+{% endif %}
 {% endblock %}

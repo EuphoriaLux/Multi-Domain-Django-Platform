@@ -8,7 +8,7 @@
     {% analytics_head %}
     {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
 
     <!-- Favicon -->
@@ -173,7 +173,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" x-data="pageTransition">
     {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
@@ -196,8 +196,17 @@
         </div>
     </div>
 
-    <!-- Navigation (Alpine.js powered) -->
-    <nav class="crush-navbar" x-data="navbar">
+    {# Mobile page title - override in child templates for drill-down pages #}
+    {# Leave empty for tab root pages (Dashboard, Events, Connections, Profile) #}
+    <meta name="mobile-page-title" content="{% block mobile_page_title %}{% endblock %}">
+
+    <!-- Mobile Top Bar (hidden on desktop) -->
+    {% if user.is_authenticated %}
+        {% include "crush_lu/partials/top_bar_mobile.html" %}
+    {% endif %}
+
+    <!-- Desktop Navigation (hidden on mobile for authenticated users) -->
+    <nav class="crush-navbar {% if user.is_authenticated %}hidden lg:block{% endif %}" x-data="navbar">
         <div class="container">
             <div class="flex justify-between items-center py-3">
                 <!-- Brand -->
@@ -1046,6 +1055,11 @@
         </div>
     </nav>
 
+    <!-- Mobile Bottom Navigation (hidden on desktop) -->
+    {% if user.is_authenticated %}
+        {% include "crush_lu/partials/bottom_nav.html" %}
+    {% endif %}
+
     <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
     {% include "crush_lu/partials/pwa_install_banner.html" %}
 
@@ -1148,7 +1162,7 @@
     {% endif %}
 
     <!-- Main Content -->
-    <main id="main-content" class="container pt-8" role="main">
+    <main id="main-content" class="container pt-8 mobile-main {% if user.is_authenticated %}pb-20 lg:pb-0{% endif %}" role="main">
         {% block content %}{% endblock %}
     </main>
 

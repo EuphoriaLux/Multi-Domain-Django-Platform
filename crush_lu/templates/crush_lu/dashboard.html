@@ -10,10 +10,38 @@
 {# Track dashboard view with profile status in Application Insights #}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
 {% ga4_event "login" %}
-<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-    <h2 class="text-2xl font-bold">{% blocktrans with name=user.first_name %}Welcome back, {{ name }}! 👋{% endblocktrans %}</h2>
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+    <div>
+        <h2 class="text-2xl font-bold">{{ greeting }} 👋</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {% blocktrans count events=upcoming_events_count %}{{ events }} upcoming event{% plural %}{{ events }} upcoming events{% endblocktrans %},
+            {% blocktrans count requests=pending_requests_count %}{{ requests }} new request{% plural %}{{ requests }} new requests{% endblocktrans %}
+        </p>
+    </div>
     <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors w-full sm:w-auto">
         {% include "shared/icons/cog.html" with class="w-5 h-5" %} {% trans "Settings" %}
+    </a>
+</div>
+
+{# Quick Actions Row - horizontal scrollable pills #}
+<div class="quick-actions-row mb-6">
+    <a href="{% url 'crush_lu:event_list' %}" class="quick-action-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+        </svg>
+        {% trans "Browse Events" %}
+    </a>
+    <a href="{% url 'crush_lu:edit_profile' %}" class="quick-action-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+        </svg>
+        {% trans "Edit Profile" %}
+    </a>
+    <a href="{% url 'crush_lu:my_connections' %}" class="quick-action-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+        </svg>
+        {% trans "My Connections" %}
     </a>
 </div>
 
@@ -35,7 +63,7 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
     <!-- Profile Status Card -->
-    <div class="status-card">
+    <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-4">{% trans "Profile Status" %}</h5>
             {% if profile.is_approved %}
@@ -203,7 +231,7 @@
     </div>
 
     <!-- PWA Install Card (client-side detection per device, not server-side per user) -->
-    <div class="status-card">
+    <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <div x-data="pwaInstallButton">
                 <!-- Running as installed PWA on THIS device -->
@@ -253,7 +281,7 @@
     </div>
 
     <!-- Membership Card -->
-    <div class="status-card">
+    <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
 
@@ -295,7 +323,7 @@
 {% if coach %}
 <div class="grid grid-cols-1 gap-6 mb-6">
     <!-- Your Crush Coach Card -->
-    <div class="status-card">
+    <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-4 flex items-center gap-2">
                 {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
@@ -349,7 +377,7 @@
 
 <div class="grid grid-cols-1 gap-6 mb-6">
     <!-- Quick Stats Card -->
-    <div class="status-card">
+    <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-4">{% trans "Your Activity" %}</h5>
             <div class="grid grid-cols-3 text-center mt-4">

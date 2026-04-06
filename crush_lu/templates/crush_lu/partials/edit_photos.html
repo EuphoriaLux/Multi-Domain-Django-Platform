@@ -1,0 +1,121 @@
+{% load static i18n socialaccount %}
+
+{% block mobile_page_title %}{% trans "Photos" %}{% endblock %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          enctype="multipart/form-data"
+          id="editPhotosForm"
+          hx-post="{% url 'crush_lu:edit_profile' %}?section=photos"
+          hx-target="#section-content"
+          hx-swap="innerHTML"
+          hx-indicator="#submit-indicator-photos">
+        {% csrf_token %}
+
+        <div class="section-card mb-4">
+            <div class="photo-section-header">
+                <h5 class="section-title mb-0" style="border-bottom: none; padding-bottom: 0;">{% include "shared/icons/photo.html" with class="w-5 h-5" %} {% trans "Photos" %}</h5>
+                <span class="photo-count">{% trans "Up to 3" %}</span>
+            </div>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "Your main photo will be displayed first to other users." %}</p>
+
+            <!-- Social Photo Import -->
+            {% if social_photos %}
+            <div class="social-import-section mb-4">
+                <div class="flex items-center gap-2 mb-2">
+                    {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5 text-purple-600" %}
+                    <span class="font-semibold">{% trans "Import from Social Accounts" %}</span>
+                </div>
+                <div class="social-photos-row">
+                    {% for photo in social_photos %}
+                    <div class="social-photo-mini-card">
+                        <div class="provider-icon">
+                            {% if photo.provider == 'facebook' %}
+                            <i class="fab fa-facebook text-blue-600 dark:text-blue-400"></i>
+                            {% elif photo.provider == 'google' %}
+                            <i class="fab fa-google text-red-500 dark:text-red-400"></i>
+                            {% elif photo.provider == 'microsoft' %}
+                            <i class="fab fa-microsoft text-cyan-500 dark:text-cyan-400"></i>
+                            {% endif %}
+                        </div>
+                        {% if photo.token_expired %}
+                        <div class="no-photo-mini flex flex-col items-center gap-1">
+                            <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                            <a href="{% provider_login_url photo.provider process='connect' %}"
+                               class="text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium">
+                                {% trans "Reconnect" %}
+                            </a>
+                        </div>
+                        {% elif photo.available %}
+                        <img src="{{ photo.photo_url }}" alt="{{ photo.provider_display }}" class="social-mini-img" loading="lazy">
+                        <div class="no-photo-fallback hidden flex-col items-center gap-1">
+                            <i class="fab fa-{{ photo.provider }} text-gray-400 text-xl"></i>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Unavailable" %}</span>
+                        </div>
+                        <div class="import-btns">
+                            <button type="button"
+                                    class="import-slot-btn import-slot-btn--main import-social-photo-btn"
+                                    data-account-id="{{ photo.account_id }}"
+                                    data-slot="1"
+                                    title="{% trans "Set as your main profile photo" %}">
+                                {% trans "Main" %}
+                            </button>
+                            <button type="button"
+                                    class="import-slot-btn import-social-photo-btn"
+                                    data-account-id="{{ photo.account_id }}"
+                                    data-slot="2"
+                                    title="{% trans "Import as your second photo" %}">
+                                {% trans "2nd" %}
+                            </button>
+                            <button type="button"
+                                    class="import-slot-btn import-social-photo-btn"
+                                    data-account-id="{{ photo.account_id }}"
+                                    data-slot="3"
+                                    title="{% trans "Import as your third photo" %}">
+                                {% trans "3rd" %}
+                            </button>
+                        </div>
+                        {% else %}
+                        <div class="no-photo-mini">
+                            {% include "shared/icons/photo.html" with class="w-5 h-5" %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div id="social-photo-notification" class="hidden mt-2"></div>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div id="photo-card-1">
+                    {% include 'crush_lu/partials/photo_card.html' with slot=1 photo=profile.photo_1 is_main=True %}
+                </div>
+                <div id="photo-card-2">
+                    {% include 'crush_lu/partials/photo_card.html' with slot=2 photo=profile.photo_2 is_main=False %}
+                </div>
+                <div id="photo-card-3">
+                    {% include 'crush_lu/partials/photo_card.html' with slot=3 photo=profile.photo_3 is_main=False %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+            <button type="submit" class="btn-crush-primary relative gap-2">
+                <span id="submit-indicator-photos" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
+                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
+                    <span>{% trans "Saving..." %}</span>
+                </span>
+                <span class="button-text inline-flex items-center gap-2">
+                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+                    <span>{% trans "Save Photos" %}</span>
+                </span>
+            </button>
+        </div>
+    </form>
+</div>
