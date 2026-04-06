@@ -294,7 +294,8 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
-            fetchAssignment: function () {
+            fetchAssignment: function (retries) {
+                if (retries === undefined) retries = 2;
                 var self = this;
                 fetch("/api/quiz/" + this.quizId + "/my-assignment/", {
                     credentials: "same-origin",
@@ -317,7 +318,15 @@ document.addEventListener("alpine:init", function () {
                             self.personalScore = data.personal_score;
                         if (data.next_table) self.nextTable = data.next_table;
                     })
-                    .catch(function () {});
+                    .catch(function () {
+                        if (retries > 0) {
+                            setTimeout(function () {
+                                self.fetchAssignment(retries - 1);
+                            }, 2000);
+                        } else {
+                            self.showError("Could not load table assignment. Please reload.");
+                        }
+                    });
             },
 
             // --- WebSocket ---
@@ -336,7 +345,11 @@ document.addEventListener("alpine:init", function () {
 
                 this.ws.onopen = function () {
                     self.connected = true;
-                    self.reconnectAttempts = 0;
+                    // Re-fetch table assignment on reconnect (not first connect)
+                    if (self.reconnectAttempts > 0 && self.isQuizNight) {
+                        self.fetchAssignment();
+                    }
+                    self.reconnectAttempts = 0; // Reset AFTER the check
                 };
 
                 this.ws.onclose = function () {
@@ -993,7 +1006,10 @@ document.addEventListener("alpine:init", function () {
                 this.quizId = this.$el.getAttribute("data-quiz-id");
                 this.isQuizNight = this.$el.getAttribute("data-quiz-night") === "true";
                 var tc = this.$el.getAttribute("data-table-count");
-                if (tc) this.tableCount = parseInt(tc, 10);
+                if (tc) {
+                    this.tableCount = parseInt(tc, 10);
+                    this.totalTables = this.tableCount;
+                }
                 // Parse initial table members from server
                 var tmAttr = this.$el.getAttribute("data-table-members");
                 if (tmAttr) {
@@ -1098,6 +1114,8 @@ document.addEventListener("alpine:init", function () {
                     this.scoredTables = {};
                     this.scoredCount = 0;
                     this.scoringQuestionId = data.id;
+                    // Initialize totalTables from question broadcast
+                    if (data.total_tables !== undefined) this.totalTables = data.total_tables;
                     // Re-enable table buttons for the new question
                     this._updateTableButtons();
                 } else if (type === "quiz.leaderboard") {
@@ -1114,6 +1132,7 @@ document.addEventListener("alpine:init", function () {
                     } else if (data.status) {
                         this.status = data.status;
                     }
+                    if (data.total_tables !== undefined) this.totalTables = data.total_tables;
                     if (data.current_round) {
                         this.currentRound = data.current_round;
                         this.selectedRoundId = data.current_round.id;
@@ -1143,7 +1162,7 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.table_scored") {
                     // Track which tables have been scored (no correctness info yet)
                     if (data.table_id) {
-                        this.scoredTables[data.table_id] = "scored";
+                        this.scoredTables[String(data.table_id)] = "scored";
                         if (data.scored_count !== undefined) this.scoredCount = data.scored_count;
                         if (data.total_tables !== undefined) this.totalTables = data.total_tables;
                         this._updateTableButtons();
@@ -1152,7 +1171,7 @@ document.addEventListener("alpine:init", function () {
                     // All tables scored — reveal correct/incorrect
                     var results = data.results || [];
                     for (var i = 0; i < results.length; i++) {
-                        this.scoredTables[results[i].table_id] = results[i].is_correct;
+                        this.scoredTables[String(results[i].table_id)] = results[i].is_correct;
                     }
                     this._updateTableButtons();
                 } else if (type === "quiz.error") {
@@ -1281,7 +1300,7 @@ document.addEventListener("alpine:init", function () {
             _scoreTable: function (tableId, isCorrect) {
                 if (!this.ws || !this.connected || !this.currentQuestion) return;
                 // Prevent re-scoring a table that has already been scored
-                if (this.scoredTables[tableId] !== undefined) return;
+                if (this.scoredTables[String(tableId)] !== undefined) return;
                 this.ws.send(
                     JSON.stringify({
                         action: "score_table",
@@ -1290,7 +1309,7 @@ document.addEventListener("alpine:init", function () {
                         is_correct: isCorrect,
                     }),
                 );
-                this.scoredTables[tableId] = "pending";
+                this.scoredTables[String(tableId)] = "pending";
                 this._updateTableButtons();
             },
 
@@ -1310,8 +1329,8 @@ document.addEventListener("alpine:init", function () {
                 var root = this._root;
                 var cards = root.querySelectorAll(".quiz-table-card[data-table-id]");
                 for (var i = 0; i < cards.length; i++) {
-                    var tid = parseInt(cards[i].getAttribute("data-table-id"), 10);
-                    var state = this.scoredTables[tid];
+                    var tid = cards[i].getAttribute("data-table-id");
+                    var state = this.scoredTables[String(tid)];
                     var correctBtn = cards[i].querySelector(".quiz-table-correct");
                     var wrongBtn = cards[i].querySelector(".quiz-table-wrong");
                     if (!correctBtn || !wrongBtn) continue;
