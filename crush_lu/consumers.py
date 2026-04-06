@@ -102,6 +102,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for live quiz during Crush.lu events."""
 
     async def connect(self):
+        # AUTH-01: Reject unauthenticated connections before accepting
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+
         self.quiz_id = self.scope["url_route"]["kwargs"]["quiz_id"]
         self.quiz_group = f"quiz_{self.quiz_id}"
         self.table_group = None
@@ -110,8 +116,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.quiz_group, self.channel_name)
 
         # Try to join table-specific group
-        user = self.scope.get("user")
-        if user and user.is_authenticated:
+        if user.is_authenticated:
             try:
                 table_id = await self.get_user_table_id(user.id)
             except Exception:
@@ -152,6 +157,16 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                         "Failed to get leaderboard for finished quiz %s",
                         self.quiz_id,
                     )
+            # CLIENT-02: Strip answer data from quiz state for non-host users
+            if not await self.is_host(user):
+                q = state.get("question")
+                if q and isinstance(q, dict):
+                    state["question"] = {
+                        k: v
+                        for k, v in q.items()
+                        if not k.startswith("choices_with_answers")
+                        and not k.startswith("correct_answer")
+                    }
             await self.send_json({"type": "quiz.state", "data": state})
 
     async def disconnect(self, close_code):
@@ -221,6 +236,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if result is None:
             await self.send_error("No rounds available to start.")
             return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
         # Enrich with table count for scoring grid initialization
         result["round_info"]["total_tables"] = self._total_tables
         if result["question_data"]:
@@ -264,7 +282,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def handle_set_round(self, content):
         """Host selects a round to play — sets current_round and resets question index."""
         round_id = content.get("round_id")
-        if round_id is None:
+        if round_id is None or not isinstance(round_id, int):
             return
 
         result = await self.set_current_round(round_id)
@@ -279,30 +297,41 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_pause_quiz(self):
         result = await self.set_quiz_status("paused")
-        if result:
-            await self.channel_layer.group_send(
-                self.quiz_group,
-                {"type": "quiz.status", "data": result},
-            )
+        if not result:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+        await self.channel_layer.group_send(
+            self.quiz_group,
+            {"type": "quiz.status", "data": result},
+        )
 
     async def handle_end_quiz(self):
         result = await self.set_quiz_status("finished")
-        if result:
-            # Include final leaderboard so attendees see results on the finished screen
-            leaderboard = await self.get_leaderboard()
-            result["leaderboard"] = leaderboard
-            await self.channel_layer.group_send(
-                self.quiz_group,
-                {"type": "quiz.status", "data": result},
-            )
+        if not result:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+        # Include final leaderboard so attendees see results on the finished screen
+        leaderboard = await self.get_leaderboard()
+        result["leaderboard"] = leaderboard
+        await self.channel_layer.group_send(
+            self.quiz_group,
+            {"type": "quiz.status", "data": result},
+        )
 
     async def handle_score_table(self, content):
         """Host marks a table correct/incorrect for a question."""
         table_id = content.get("table_id")
         question_id = content.get("question_id")
-        is_correct = content.get("is_correct", False)
+        is_correct = bool(content.get("is_correct", False))
 
         if table_id is None or question_id is None:
+            return
+        # INPUT-03: Validate ID types
+        if not isinstance(table_id, int) or not isinstance(question_id, int):
             return
 
         result = await self.score_table_for_question(table_id, question_id, is_correct)
@@ -371,6 +400,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         answer = content.get("answer")
         if question_id is None or answer is None:
             return
+        # INPUT-02: Validate answer type and length
+        if not isinstance(answer, str) or len(answer) > 1000:
+            await self.send_error("Invalid answer format.")
+            return
+        # INPUT-03: Validate question_id type
+        if not isinstance(question_id, int):
+            return
 
         result = await self.score_answer(user.id, question_id, answer)
         if result is None:
@@ -392,7 +428,23 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     # --- Group message handlers ---
 
     async def quiz_question(self, event):
-        await self.send_json({"type": "quiz.question", "data": event["data"]})
+        """Send question to client — strip correct answers for non-host users.
+
+        CLIENT-02: The broadcast includes ``choices_with_answers`` and
+        ``correct_answer_*`` so the host can display the reference answer.
+        Attendees must NOT see this data (trivially visible in DevTools).
+        """
+        data = event["data"]
+        user = self.scope.get("user")
+        if not await self.is_host(user):
+            # Build a sanitized copy without answer keys
+            data = {
+                k: v
+                for k, v in data.items()
+                if not k.startswith("choices_with_answers")
+                and not k.startswith("correct_answer")
+            }
+        await self.send_json({"type": "quiz.question", "data": data})
 
     async def quiz_rotate(self, event):
         data = event["data"]
@@ -493,19 +545,27 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def is_host(self, user):
+        # AUTHZ-03: Cache host check per connection to avoid repeated DB queries
+        if hasattr(self, "_is_host_cache"):
+            return self._is_host_cache
         if not user or not user.is_authenticated:
+            self._is_host_cache = False
             return False
         from crush_lu.models.quiz import QuizEvent
 
         try:
             quiz = QuizEvent.objects.select_related("event").get(id=self.quiz_id)
             if quiz.created_by_id == user.id or user.is_staff:
+                self._is_host_cache = True
                 return True
             # Active coaches can also host
             from crush_lu.models import CrushCoach
 
-            return CrushCoach.objects.filter(user=user, is_active=True).exists()
+            result = CrushCoach.objects.filter(user=user, is_active=True).exists()
+            self._is_host_cache = result
+            return result
         except QuizEvent.DoesNotExist:
+            self._is_host_cache = False
             return False
 
     # Backward compat alias
@@ -623,6 +683,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         except QuizEvent.DoesNotExist:
             return None
 
+        # CONC-02: Prevent double-start resetting an active or finished quiz
+        if quiz.status not in ("draft", "paused"):
+            return {"error": f"Cannot start quiz in '{quiz.status}' state."}
+
         first_round = quiz.rounds.order_by("sort_order").first()
         if not first_round:
             return None
@@ -683,15 +747,29 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "message": f"Round set: {round_obj.title}",
         }
 
+    # STATE-01: Valid state transitions for quiz lifecycle
+    VALID_STATUS_TRANSITIONS = {
+        "draft": {"active"},
+        "active": {"paused", "finished"},
+        "paused": {"active", "finished"},
+        "finished": set(),  # Terminal state — no transitions allowed
+    }
+
     @database_sync_to_async
     def set_quiz_status(self, status):
-        """Set quiz status to paused or finished."""
+        """Set quiz status with state transition validation (STATE-01)."""
         from crush_lu.models.quiz import QuizEvent
 
         try:
             quiz = QuizEvent.objects.get(id=self.quiz_id)
         except QuizEvent.DoesNotExist:
             return None
+
+        allowed = self.VALID_STATUS_TRANSITIONS.get(quiz.status, set())
+        if status not in allowed:
+            return {
+                "error": f"Cannot transition from '{quiz.status}' to '{status}'."
+            }
 
         quiz.status = status
         quiz.question_started_at = None
@@ -735,30 +813,40 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         Uses current_question_index as the last-shown index.
         Index starts at -1 (no question shown yet), so first +1 lands on 0.
+
+        CONC-01: Uses select_for_update to prevent race conditions when
+        multiple host tabs send next_question simultaneously.
+        STATE-02: Only advances if quiz is in active state.
         """
+        from django.db import transaction
+
         from crush_lu.models.quiz import QuizEvent
 
-        try:
-            quiz = QuizEvent.objects.select_related("current_round").get(
-                id=self.quiz_id
-            )
-        except QuizEvent.DoesNotExist:
-            return None
+        with transaction.atomic():
+            try:
+                quiz = QuizEvent.objects.select_for_update().select_related(
+                    "current_round"
+                ).get(id=self.quiz_id)
+            except QuizEvent.DoesNotExist:
+                return None
 
-        if not quiz.current_round:
-            return None
+            # STATE-02: Only advance questions on an active quiz
+            if quiz.status != "active":
+                return None
 
-        questions = quiz.current_round.questions.order_by("sort_order")
-        total = questions.count()
-        next_index = quiz.current_question_index + 1
+            if not quiz.current_round:
+                return None
 
-        if next_index >= total:
-            return None  # Round complete
+            questions = quiz.current_round.questions.order_by("sort_order")
+            total = questions.count()
+            next_index = quiz.current_question_index + 1
 
-        quiz.current_question_index = next_index
-        quiz.status = "active"
-        quiz.question_started_at = timezone.now()
-        quiz.save(update_fields=["current_question_index", "status", "question_started_at"])
+            if next_index >= total:
+                return None  # Round complete
+
+            quiz.current_question_index = next_index
+            quiz.question_started_at = timezone.now()
+            quiz.save(update_fields=["current_question_index", "question_started_at"])
 
         question = questions[next_index]
         q_data = _build_question_data(question, include_answers=True)
@@ -838,9 +926,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 )
             )
 
-        # Create IndividualScore for each table member
+        # CONC-03/DATA-01: Use get_or_create (write-once) to match REST endpoint
+        # and prevent overwriting earlier scores from race conditions
         for user_id in rotation_users:
-            IndividualScore.objects.update_or_create(
+            IndividualScore.objects.get_or_create(
                 quiz=quiz,
                 user_id=user_id,
                 question=question,
