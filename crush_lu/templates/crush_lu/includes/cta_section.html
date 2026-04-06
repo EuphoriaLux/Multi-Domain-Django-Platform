@@ -1,0 +1,67 @@
+{% load i18n %}
+{# Reusable CTA Section with variants #}
+{# Usage: {% include "crush_lu/includes/cta_section.html" %} #}
+{# Variants: {% include "crush_lu/includes/cta_section.html" with variant="ghost" %} #}
+{#           {% include "crush_lu/includes/cta_section.html" with variant="stats" member_count=100 event_count=12 %} #}
+{#           {% include "crush_lu/includes/cta_section.html" with heading="Custom Heading" text="Custom text" %} #}
+
+<section class="cta-section{% if animate %} animate-on-scroll{% endif %}" aria-labelledby="cta-heading-{{ variant|default:'default' }}">
+    <div class="cta-content">
+        {% if variant == "ghost" %}
+        <div class="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
+            <div class="w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
+                {% include "crush_lu/includes/ghost-story-cuddling.html" with class="w-full h-full" %}
+            </div>
+            <div class="text-center md:text-left">
+                <h2 id="cta-heading-ghost" class="cta-title">{{ heading|default:_("Ready to Meet Your Crush?") }}</h2>
+                <p class="cta-text">
+                    {{ text|default:_("Join Luxembourg's most authentic way to meet new people and build real relationships.") }}
+                </p>
+                <a href="{% url 'crush_lu:signup' %}" class="btn-cta">
+                    <span>{{ button_text|default:_("Create Your Profile Now") }}</span>
+                </a>
+            </div>
+        </div>
+
+        {% elif variant == "stats" %}
+        <h2 id="cta-heading-stats" class="cta-title">{{ heading|default:_("Ready to Meet Your Crush?") }}</h2>
+        {% if member_count or event_count %}
+        <div class="flex items-center justify-center gap-8 mb-6">
+            {% if member_count %}
+            <div class="text-center">
+                <div class="text-3xl font-bold text-white">{{ member_count }}+</div>
+                <div class="text-white/80 text-sm">{% trans "Members" %}</div>
+            </div>
+            {% endif %}
+            {% if event_count %}
+            <div class="text-center">
+                <div class="text-3xl font-bold text-white">{{ event_count }}</div>
+                <div class="text-white/80 text-sm">{% trans "Events" %}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <p class="cta-text">
+            {{ text|default:_("Join Luxembourg's most authentic way to meet new people and build real relationships.") }}
+        </p>
+        <a href="{% url 'crush_lu:signup' %}" class="btn-cta">
+            <span>{{ button_text|default:_("Create Your Profile Now") }}</span>
+        </a>
+
+        {% else %}
+        {# Default variant #}
+        <h2 id="cta-heading-default" class="cta-title">{{ heading|default:_("Ready to Meet Your Crush?") }}</h2>
+        <p class="cta-text">
+            {{ text|default:_("Join Luxembourg's most authentic way to meet new people and build real relationships.") }}
+        </p>
+        <a href="{% url 'crush_lu:signup' %}" class="btn-cta">
+            <span>{{ button_text|default:_("Create Your Profile Now") }}</span>
+        </a>
+        <p class="cta-subtext">
+            <span>{% trans "No credit card required" %}</span>
+            <span>{% trans "Free to join" %}</span>
+            <span>{% trans "Cancel anytime" %}</span>
+        </p>
+        {% endif %}
+    </div>
+</section>
