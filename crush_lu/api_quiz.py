@@ -109,16 +109,23 @@ def quiz_tables(request, quiz_id):
         members = []
 
         if round_num is not None:
+            # INPUT-01: Validate round_num is a valid integer
+            try:
+                round_num_int = int(round_num)
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "Invalid round number"}, status=400
+                )
             rotations = QuizRotationSchedule.objects.filter(
                 quiz_id=quiz_id,
-                round_number=int(round_num),
+                round_number=round_num_int,
                 table=table,
             ).select_related("user__crushprofile")
             for rotation in rotations:
                 profile = getattr(rotation.user, "crushprofile", None)
+                # AUTHZ-02: Removed user_id to avoid exposing internal IDs
                 members.append(
                     {
-                        "user_id": rotation.user_id,
                         "display_name": (
                             profile.display_name if profile else "Anonymous"
                         ),
@@ -131,9 +138,9 @@ def quiz_tables(request, quiz_id):
                 "user__crushprofile"
             ):
                 profile = getattr(membership.user, "crushprofile", None)
+                # AUTHZ-02: Removed user_id to avoid exposing internal IDs
                 members.append(
                     {
-                        "user_id": membership.user_id,
                         "display_name": (
                             profile.display_name if profile else "Anonymous"
                         ),
@@ -299,57 +306,61 @@ def score_table(request, quiz_id):
             {"error": "Table or question not found"}, status=404
         )
 
-    # Only allow scoring once per table per question (consistent with WebSocket path)
-    _obj, created = TableRoundScore.objects.get_or_create(
-        quiz=quiz,
-        table=table,
-        question=question,
-        defaults={"is_correct": is_correct},
-    )
-    if not created:
-        return JsonResponse(
-            {
-                "table_number": table.table_number,
-                "already_scored": True,
-            },
-            status=409,
-        )
+    # CONC-04: Wrap scoring in atomic transaction to ensure all-or-nothing
+    from django.db import transaction
 
-    # Issue #4: Read bonus from question's own round, not quiz.current_round
-    points = question.points if is_correct else 0
-    if is_correct and question.round.is_bonus:
-        points *= 2
-
-    # Issue #3: Use round index, not sort_order
-    round_number = quiz.get_round_number()
-
-    rotation_users = list(
-        QuizRotationSchedule.objects.filter(
+    with transaction.atomic():
+        # Only allow scoring once per table per question (consistent with WebSocket path)
+        _obj, created = TableRoundScore.objects.get_or_create(
             quiz=quiz,
-            round_number=round_number,
             table=table,
-        ).values_list("user_id", flat=True)
-    )
-
-    if not rotation_users:
-        rotation_users = list(
-            QuizTableMembership.objects.filter(table=table).values_list(
-                "user_id", flat=True
-            )
-        )
-
-    # Create IndividualScore for each table member
-    for user_id in rotation_users:
-        IndividualScore.objects.get_or_create(
-            quiz=quiz,
-            user_id=user_id,
             question=question,
-            defaults={
-                "is_correct": is_correct,
-                "points_earned": points,
-                "answer": f"table_scored:{table.table_number}",
-            },
+            defaults={"is_correct": is_correct},
         )
+        if not created:
+            return JsonResponse(
+                {
+                    "table_number": table.table_number,
+                    "already_scored": True,
+                },
+                status=409,
+            )
+
+        # Issue #4: Read bonus from question's own round, not quiz.current_round
+        points = question.points if is_correct else 0
+        if is_correct and question.round.is_bonus:
+            points *= 2
+
+        # Issue #3: Use round index, not sort_order
+        round_number = quiz.get_round_number()
+
+        rotation_users = list(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz,
+                round_number=round_number,
+                table=table,
+            ).values_list("user_id", flat=True)
+        )
+
+        if not rotation_users:
+            rotation_users = list(
+                QuizTableMembership.objects.filter(table=table).values_list(
+                    "user_id", flat=True
+                )
+            )
+
+        # Create IndividualScore for each table member
+        for user_id in rotation_users:
+            IndividualScore.objects.get_or_create(
+                quiz=quiz,
+                user_id=user_id,
+                question=question,
+                defaults={
+                    "is_correct": is_correct,
+                    "points_earned": points,
+                    "answer": f"table_scored:{table.table_number}",
+                },
+            )
 
     return JsonResponse(
         {

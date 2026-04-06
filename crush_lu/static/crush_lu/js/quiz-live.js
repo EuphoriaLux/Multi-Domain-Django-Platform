@@ -124,6 +124,9 @@ document.addEventListener("alpine:init", function () {
             roundName: "",
             isBonusRound: false,
 
+            // DATA-02: Track which questions have already contributed to personalScore
+            _scoredQuestionIds: {},
+
             // Error display
             errorMessage: "",
             errorTimer: null,
@@ -338,6 +341,11 @@ document.addEventListener("alpine:init", function () {
 
                 this.ws.onclose = function () {
                     self.connected = false;
+                    // RESIL-01: Cap reconnect attempts to avoid infinite polling
+                    if (self.reconnectAttempts >= 20) {
+                        self.showError("Connection lost. Please refresh the page.");
+                        return;
+                    }
                     var delay = Math.min(
                         1000 * Math.pow(2, self.reconnectAttempts),
                         30000,
@@ -427,19 +435,26 @@ document.addEventListener("alpine:init", function () {
                         clearInterval(this.countdownTimer);
                         this.countdownTimer = null;
                     }
-                    var results = data.results || [];
-                    for (var ri = 0; ri < results.length; ri++) {
-                        if (results[ri].table_number === this.tableNumber) {
-                            var r = results[ri];
-                            this._tableScoredCorrect = r.is_correct;
-                            if (r.is_correct) {
-                                var pts = r.points_awarded || 0;
-                                this.tableScoredFeedback = "+" + pts + " " + this._i18n.pts + "!";
-                                this.personalScore += pts;
-                            } else {
-                                this.tableScoredFeedback = "Incorrect";
+                    // DATA-02: Skip if we already counted this question's score
+                    var revealQId = data.question_id;
+                    if (revealQId && this._scoredQuestionIds[revealQId]) {
+                        // Already processed — skip to avoid double-counting
+                    } else {
+                        if (revealQId) this._scoredQuestionIds[revealQId] = true;
+                        var results = data.results || [];
+                        for (var ri = 0; ri < results.length; ri++) {
+                            if (results[ri].table_number === this.tableNumber) {
+                                var r = results[ri];
+                                this._tableScoredCorrect = r.is_correct;
+                                if (r.is_correct) {
+                                    var pts = r.points_awarded || 0;
+                                    this.tableScoredFeedback = "+" + pts + " " + this._i18n.pts + "!";
+                                    this.personalScore += pts;
+                                } else {
+                                    this.tableScoredFeedback = "Incorrect";
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                     // Transition to review screen — persistent until next question
@@ -1009,6 +1024,11 @@ document.addEventListener("alpine:init", function () {
 
                 this.ws.onclose = function () {
                     self.connected = false;
+                    // RESIL-01: Cap reconnect attempts to avoid infinite polling
+                    if (self.reconnectAttempts >= 20) {
+                        self.showError("Connection lost. Please refresh the page.");
+                        return;
+                    }
                     var delay = Math.min(
                         1000 * Math.pow(2, self.reconnectAttempts),
                         30000,
@@ -1065,7 +1085,8 @@ document.addEventListener("alpine:init", function () {
                         this.roundComplete =
                             data.status === "active" && data.question_index > 0;
                     }
-                    this.questionIdx = data.question_index || 0;
+                    // STATE-03: Preserve -1 sentinel (|| would coerce it to 0)
+                    this.questionIdx = data.question_index !== undefined ? data.question_index : 0;
                 } else if (type === "quiz.question") {
                     this.currentQuestion = data;
                     this.questionIdx = data.index || 0;
