@@ -148,6 +148,16 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                         "Failed to get leaderboard for finished quiz %s",
                         self.quiz_id,
                     )
+            # CLIENT-02: Strip answer data from quiz state for non-host users
+            if not await self.is_host(user):
+                q = state.get("question")
+                if q and isinstance(q, dict):
+                    state["question"] = {
+                        k: v
+                        for k, v in q.items()
+                        if not k.startswith("choices_with_answers")
+                        and not k.startswith("correct_answer")
+                    }
             await self.send_json({"type": "quiz.state", "data": state})
 
     async def disconnect(self, close_code):
@@ -399,7 +409,23 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     # --- Group message handlers ---
 
     async def quiz_question(self, event):
-        await self.send_json({"type": "quiz.question", "data": event["data"]})
+        """Send question to client — strip correct answers for non-host users.
+
+        CLIENT-02: The broadcast includes ``choices_with_answers`` and
+        ``correct_answer_*`` so the host can display the reference answer.
+        Attendees must NOT see this data (trivially visible in DevTools).
+        """
+        data = event["data"]
+        user = self.scope.get("user")
+        if not await self.is_host(user):
+            # Build a sanitized copy without answer keys
+            data = {
+                k: v
+                for k, v in data.items()
+                if not k.startswith("choices_with_answers")
+                and not k.startswith("correct_answer")
+            }
+        await self.send_json({"type": "quiz.question", "data": data})
 
     async def quiz_rotate(self, event):
         await self.send_json({"type": "quiz.rotate", "data": event["data"]})
