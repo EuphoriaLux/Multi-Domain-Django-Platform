@@ -3,7 +3,7 @@
 {# Slim mobile top bar - hidden on desktop (lg:+) #}
 {# Shows logo on tab roots, back arrow + title on drill-down pages #}
 {# Page title is read from <meta name="mobile-page-title"> set in base.html block #}
-<header class="top-bar-mobile lg:hidden" x-data="topBarMobile"
+<header class="top-bar-mobile" x-data="topBarMobile"
         data-notification-count="{{ pending_requests_count|default:0 }}">
 
     {# Left: Logo (tab roots) or Back button (drill-down pages) #}

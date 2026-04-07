@@ -33,7 +33,7 @@
 
             <div class="mb-3" x-data="fieldValidator"
                  data-max-length="500"
-                 data-error-max-length="Bio must be under 500 characters">
+                 data-error-max-length="{% trans 'Bio must be under 500 characters' %}">
                 <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     {% trans "Bio" %}
                     <small class="text-gray-500 dark:text-gray-400">({% trans "Tell us about yourself" %})</small>
@@ -55,7 +55,7 @@
 
             <div class="mb-3" x-data="fieldValidator"
                  data-max-length="300"
-                 data-error-max-length="Interests must be under 300 characters">
+                 data-error-max-length="{% trans 'Interests must be under 300 characters' %}">
                 <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     {% trans "Interests" %}
                     <small class="text-gray-500 dark:text-gray-400">({% trans "What do you enjoy?" %})</small>
@@ -211,7 +211,7 @@
                     <div x-data="cantonMap"
                          data-initial-value="{{ profile.location|default:'' }}"
                          data-initial-name="{% if profile.location %}{{ profile.get_location_display }}{% endif %}"
-                         data-placeholder="Click the map to select your region"
+                         data-placeholder="{% trans 'Click the map to select your region' %}"
                          class="canton-map-container {% if form.location.errors %}has-error{% endif %}">
                         <div class="canton-map-selection-display"
                              x-bind:class="selectedClass">

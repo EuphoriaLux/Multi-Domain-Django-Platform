@@ -29,6 +29,12 @@
         z-index: 40;
         text-decoration: none;
     }
+    /* On mobile, raise above the bottom nav bar (56px + spacing) */
+    @media (max-width: 1023px) {
+        .crush-whatsapp-btn {
+            bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+        }
+    }
     .crush-whatsapp-btn:hover {
         transform: scale(1.1);
         box-shadow: 0 6px 16px rgba(37, 211, 102, 0.5);
@@ -40,7 +46,6 @@
         .crush-whatsapp-btn {
             width: 48px;
             height: 48px;
-            bottom: 1rem;
             right: 1rem;
         }
     }

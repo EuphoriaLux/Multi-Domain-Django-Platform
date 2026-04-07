@@ -38,7 +38,7 @@ self.addEventListener("fetch", (event) => {
     }
 
     // TRUE HARD BYPASS: OAuth and auth-related URLs
-    const isAuthUrl = (
+    const isAuthUrl =
         url.pathname.startsWith("/accounts/") || // All OAuth/auth routes
         url.pathname.startsWith("/oauth/") || // OAuth landing and callbacks
         url.pathname.includes("/login/callback") || // Explicit callback match
@@ -47,8 +47,7 @@ self.addEventListener("fetch", (event) => {
         url.pathname.includes("/login") || // Login page (incl. /fr/login/, /de/login/)
         url.pathname.includes("/logout") || // Logout page (incl. language prefixes)
         url.pathname.includes("/signup") || // Signup page (incl. language prefixes)
-        url.pathname.includes("/api/csrf-token") // CSRF token refresh endpoint
-    );
+        url.pathname.includes("/api/csrf-token"); // CSRF token refresh endpoint
     if (isAuthUrl) {
         // Navigation requests (page loads): let the browser handle them completely.
         // Safari/WebKit may not process Set-Cookie headers (including CSRF cookies)

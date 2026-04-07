@@ -155,13 +155,8 @@ class CrushPreferencesTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
 
-    def _grant_consent(self):
-        consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
-        consent.crushlu_consent_given = True
-        consent.save()
-
-    def test_approved_user_can_view(self):
-        """Approved users can access the preferences page."""
+    def test_old_url_redirects_to_section(self):
+        """Old crush_preferences URL redirects to new section-based URL."""
         CrushProfile.objects.create(
             user=self.user,
             location="canton-luxembourg",
@@ -172,10 +167,29 @@ class CrushPreferencesTests(TestCase):
         response = self.client.get(
             reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu",
         )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("section=preferences", response.url)
+
+    def _grant_consent(self):
+        consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
+        consent.crushlu_consent_given = True
+        consent.save()
+
+    def test_approved_user_can_view(self):
+        """Approved users can access the preferences section."""
+        CrushProfile.objects.create(
+            user=self.user,
+            location="canton-luxembourg",
+            is_approved=True,
+        )
+        self._grant_consent()
+        self.client.login(username="pref@example.com", password="testpass123")
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
+        response = self.client.get(url, HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
 
     def test_save_preferences(self):
-        """Approved users can save preferences."""
+        """Approved users can save preferences via section URL."""
         profile = CrushProfile.objects.create(
             user=self.user,
             location="canton-luxembourg",
@@ -183,8 +197,9 @@ class CrushPreferencesTests(TestCase):
         )
         self._grant_consent()
         self.client.login(username="pref@example.com", password="testpass123")
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
         response = self.client.post(
-            reverse("crush_lu:crush_preferences"),
+            url,
             {
                 "preferred_age_min": 25,
                 "preferred_age_max": 35,
@@ -209,8 +224,9 @@ class CrushPreferencesTests(TestCase):
         )
         self._grant_consent()
         self.client.login(username="pref@example.com", password="testpass123")
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
         response = self.client.post(
-            reverse("crush_lu:crush_preferences"),
+            url,
             {
                 "preferred_age_min": 18,
                 "preferred_age_max": 99,

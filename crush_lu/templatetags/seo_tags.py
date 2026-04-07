@@ -141,6 +141,10 @@ def localized_url(context, lang_code):
     # Get path without current language prefix
     base_path = get_path_without_language(request)
 
+    # Preserve query string (e.g., ?section=account&sub=notifications)
+    query_string = request.META.get('QUERY_STRING', '')
+    if query_string:
+        return f"/{lang_code}{base_path}?{query_string}"
     return f"/{lang_code}{base_path}"
 
 

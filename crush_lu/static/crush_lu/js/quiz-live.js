@@ -327,7 +327,9 @@ document.addEventListener("alpine:init", function () {
                                 self.fetchAssignment(retries - 1);
                             }, 2000);
                         } else {
-                            self.showError("Could not load table assignment. Please reload.");
+                            self.showError(
+                                "Could not load table assignment. Please reload.",
+                            );
                         }
                     });
             },
@@ -439,7 +441,8 @@ document.addEventListener("alpine:init", function () {
                     if (this.isQuizNight) {
                         this.fetchAssignment();
                     }
-                    if (data.round_title) this.roundName = _localized(data, "round_title");
+                    if (data.round_title)
+                        this.roundName = _localized(data, "round_title");
                     if (data.is_bonus !== undefined) this.isBonusRound = data.is_bonus;
                     this.screen = "rotate";
                 } else if (type === "quiz.status") {
@@ -477,7 +480,8 @@ document.addEventListener("alpine:init", function () {
                                 this._tableScoredCorrect = r.is_correct;
                                 if (r.is_correct) {
                                     var pts = r.points_awarded || 0;
-                                    this.tableScoredFeedback = "+" + pts + " " + this._i18n.pts + "!";
+                                    this.tableScoredFeedback =
+                                        "+" + pts + " " + this._i18n.pts + "!";
                                     this.personalScore += pts;
                                 } else {
                                     this.tableScoredFeedback = "Incorrect";
@@ -715,14 +719,16 @@ document.addEventListener("alpine:init", function () {
 
                     var label = document.createElement("span");
                     label.className = "font-medium text-white";
-                    label.textContent = this._i18n.table + " " + this.tables[i].table_number;
+                    label.textContent =
+                        this._i18n.table + " " + this.tables[i].table_number;
 
                     left.appendChild(rank);
                     left.appendChild(label);
 
                     var score = document.createElement("span");
                     score.className = "font-bold text-crush-pink";
-                    score.textContent = this.tables[i].total_score + " " + this._i18n.pts;
+                    score.textContent =
+                        this.tables[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(left);
                     row.appendChild(score);
@@ -733,7 +739,9 @@ document.addEventListener("alpine:init", function () {
             _renderIndividualLeaderboard: function () {
                 // Render into finished screen and persistent panel containers
                 this._renderIndividualLeaderboardInto(this.$refs.playerboard);
-                this._renderIndividualLeaderboardInto(this.$refs.playerboard_persistent);
+                this._renderIndividualLeaderboardInto(
+                    this.$refs.playerboard_persistent,
+                );
             },
 
             _renderIndividualLeaderboardInto: function (container) {
@@ -750,7 +758,8 @@ document.addEventListener("alpine:init", function () {
 
                     var score = document.createElement("span");
                     score.className = "text-sm font-medium text-crush-pink";
-                    score.textContent = this.individuals[i].total_score + " " + this._i18n.pts;
+                    score.textContent =
+                        this.individuals[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(name);
                     row.appendChild(score);
@@ -822,11 +831,13 @@ document.addEventListener("alpine:init", function () {
                             if (m.role === "anchor") {
                                 roleBadge.className =
                                     "rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300";
-                                roleBadge.textContent = "\u{1F4CC} " + this._i18n.anchor;
+                                roleBadge.textContent =
+                                    "\u{1F4CC} " + this._i18n.anchor;
                             } else {
                                 roleBadge.className =
                                     "rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300";
-                                roleBadge.textContent = "\u{1F504} " + this._i18n.rotator;
+                                roleBadge.textContent =
+                                    "\u{1F504} " + this._i18n.rotator;
                             }
                             memberRow.appendChild(roleBadge);
                         }
@@ -935,7 +946,12 @@ document.addEventListener("alpine:init", function () {
             get showNextQuestion() {
                 if (this.roundComplete || this.isFinished) return false;
                 // In quiz night mode, block advancing until all tables are scored
-                if (this.isQuizNight && this.hasCurrentQuestion && !this.allTablesScored) return false;
+                if (
+                    this.isQuizNight &&
+                    this.hasCurrentQuestion &&
+                    !this.allTablesScored
+                )
+                    return false;
                 return true;
             },
             get hasCurrentQuestion() {
@@ -981,7 +997,9 @@ document.addEventListener("alpine:init", function () {
                 return "bg-gray-400";
             },
             get currentQuestionText() {
-                return this.currentQuestion ? _localized(this.currentQuestion, "text") : "";
+                return this.currentQuestion
+                    ? _localized(this.currentQuestion, "text")
+                    : "";
             },
             get currentQuestionType() {
                 return this.currentQuestion ? this.currentQuestion.question_type : "";
@@ -997,7 +1015,9 @@ document.addEventListener("alpine:init", function () {
                 if (!this.currentQuestion) return "";
                 // For multiple choice / true false - try localized choices first
                 var answersKey = "choices_with_answers_" + _quizLang;
-                var answers = this.currentQuestion[answersKey] || this.currentQuestion.choices_with_answers;
+                var answers =
+                    this.currentQuestion[answersKey] ||
+                    this.currentQuestion.choices_with_answers;
                 if (answers) {
                     var correct = [];
                     for (var i = 0; i < answers.length; i++) {
@@ -1118,7 +1138,8 @@ document.addEventListener("alpine:init", function () {
                             data.status === "active" && data.question_index > 0;
                     }
                     // STATE-03: Preserve -1 sentinel (|| would coerce it to 0)
-                    this.questionIdx = data.question_index !== undefined ? data.question_index : 0;
+                    this.questionIdx =
+                        data.question_index !== undefined ? data.question_index : 0;
                     // Process leaderboard data (always-visible standings)
                     if (data.leaderboard) {
                         this.tables = data.leaderboard.tables || [];
@@ -1137,7 +1158,8 @@ document.addEventListener("alpine:init", function () {
                     this.scoredCount = 0;
                     this.scoringQuestionId = data.id;
                     // Initialize totalTables from question broadcast
-                    if (data.total_tables !== undefined) this.totalTables = data.total_tables;
+                    if (data.total_tables !== undefined)
+                        this.totalTables = data.total_tables;
                     // Re-enable table buttons for the new question
                     this._updateTableButtons();
                 } else if (type === "quiz.leaderboard") {
@@ -1154,7 +1176,8 @@ document.addEventListener("alpine:init", function () {
                     } else if (data.status) {
                         this.status = data.status;
                     }
-                    if (data.total_tables !== undefined) this.totalTables = data.total_tables;
+                    if (data.total_tables !== undefined)
+                        this.totalTables = data.total_tables;
                     if (data.current_round) {
                         this.currentRound = data.current_round;
                         this.selectedRoundId = data.current_round.id;
@@ -1185,15 +1208,18 @@ document.addEventListener("alpine:init", function () {
                     // Track which tables have been scored (no correctness info yet)
                     if (data.table_id) {
                         this.scoredTables[String(data.table_id)] = "scored";
-                        if (data.scored_count !== undefined) this.scoredCount = data.scored_count;
-                        if (data.total_tables !== undefined) this.totalTables = data.total_tables;
+                        if (data.scored_count !== undefined)
+                            this.scoredCount = data.scored_count;
+                        if (data.total_tables !== undefined)
+                            this.totalTables = data.total_tables;
                         this._updateTableButtons();
                     }
                 } else if (type === "quiz.reveal_scores") {
                     // All tables scored — reveal correct/incorrect
                     var results = data.results || [];
                     for (var i = 0; i < results.length; i++) {
-                        this.scoredTables[String(results[i].table_id)] = results[i].is_correct;
+                        this.scoredTables[String(results[i].table_id)] =
+                            results[i].is_correct;
                     }
                     this._updateTableButtons();
                 } else if (type === "quiz.error") {
@@ -1381,30 +1407,66 @@ document.addEventListener("alpine:init", function () {
 
                     if (state === true) {
                         // Confirmed correct — card gets green glow, correct btn highlighted
-                        cards[i].classList.add("bg-green-900/40", "ring-2", "ring-green-500/50");
-                        this._addClasses(correctBtn, "bg-green-600 ring-2 ring-green-400 text-white scale-105 cursor-not-allowed");
-                        this._addClasses(wrongBtn, "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed");
+                        cards[i].classList.add(
+                            "bg-green-900/40",
+                            "ring-2",
+                            "ring-green-500/50",
+                        );
+                        this._addClasses(
+                            correctBtn,
+                            "bg-green-600 ring-2 ring-green-400 text-white scale-105 cursor-not-allowed",
+                        );
+                        this._addClasses(
+                            wrongBtn,
+                            "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed",
+                        );
                         correctBtn.disabled = true;
                         wrongBtn.disabled = true;
                     } else if (state === false) {
                         // Confirmed wrong — card gets red glow, wrong btn highlighted
-                        cards[i].classList.add("bg-red-900/40", "ring-2", "ring-red-500/50");
-                        this._addClasses(correctBtn, "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed");
-                        this._addClasses(wrongBtn, "bg-red-600 ring-2 ring-red-400 text-white scale-105 cursor-not-allowed");
+                        cards[i].classList.add(
+                            "bg-red-900/40",
+                            "ring-2",
+                            "ring-red-500/50",
+                        );
+                        this._addClasses(
+                            correctBtn,
+                            "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed",
+                        );
+                        this._addClasses(
+                            wrongBtn,
+                            "bg-red-600 ring-2 ring-red-400 text-white scale-105 cursor-not-allowed",
+                        );
                         correctBtn.disabled = true;
                         wrongBtn.disabled = true;
                     } else if (state === "pending" || state === "scored") {
                         // Pending confirmation
-                        cards[i].classList.add("bg-amber-900/30", "ring-2", "ring-amber-500/50");
-                        this._addClasses(correctBtn, "bg-amber-700 text-white opacity-60 cursor-not-allowed");
-                        this._addClasses(wrongBtn, "bg-amber-700 text-white opacity-60 cursor-not-allowed");
+                        cards[i].classList.add(
+                            "bg-amber-900/30",
+                            "ring-2",
+                            "ring-amber-500/50",
+                        );
+                        this._addClasses(
+                            correctBtn,
+                            "bg-amber-700 text-white opacity-60 cursor-not-allowed",
+                        );
+                        this._addClasses(
+                            wrongBtn,
+                            "bg-amber-700 text-white opacity-60 cursor-not-allowed",
+                        );
                         correctBtn.disabled = true;
                         wrongBtn.disabled = true;
                     } else {
                         // Unscored — default idle state
                         cards[i].classList.add("bg-slate-700/50");
-                        this._addClasses(correctBtn, "bg-slate-600 text-gray-300 hover:bg-green-600 hover:text-white");
-                        this._addClasses(wrongBtn, "bg-slate-600 text-gray-300 hover:bg-red-600 hover:text-white");
+                        this._addClasses(
+                            correctBtn,
+                            "bg-slate-600 text-gray-300 hover:bg-green-600 hover:text-white",
+                        );
+                        this._addClasses(
+                            wrongBtn,
+                            "bg-slate-600 text-gray-300 hover:bg-red-600 hover:text-white",
+                        );
                         correctBtn.disabled = false;
                         wrongBtn.disabled = false;
                     }
@@ -1422,12 +1484,19 @@ document.addEventListener("alpine:init", function () {
                 var roundId = parseInt(this.$el.getAttribute("data-round-id"), 10);
                 // Prevent re-selecting completed rounds
                 for (var i = 0; i < this.rounds.length; i++) {
-                    if (this.rounds[i].id === roundId && this.rounds[i].status === "done") {
+                    if (
+                        this.rounds[i].id === roundId &&
+                        this.rounds[i].status === "done"
+                    ) {
                         return;
                     }
                 }
                 // Prevent skipping to other rounds during active play
-                if (this.status === "active" && this.currentQuestion !== null && roundId !== this.selectedRoundId) {
+                if (
+                    this.status === "active" &&
+                    this.currentQuestion !== null &&
+                    roundId !== this.selectedRoundId
+                ) {
                     return;
                 }
                 this.selectedRoundId = roundId;
@@ -1513,7 +1582,8 @@ document.addEventListener("alpine:init", function () {
                     if (status === "current") {
                         cls = "bg-crush-purple/30 text-white ring-2 ring-crush-purple";
                     } else if (status === "done") {
-                        cls = "bg-green-900/30 text-green-300 ring-1 ring-green-700 cursor-not-allowed opacity-50";
+                        cls =
+                            "bg-green-900/30 text-green-300 ring-1 ring-green-700 cursor-not-allowed opacity-50";
                     } else {
                         cls = "bg-slate-700 text-gray-300 hover:bg-slate-600";
                     }
@@ -1550,7 +1620,9 @@ document.addEventListener("alpine:init", function () {
                         badge = document.createElement("span");
                         badge.className =
                             "round-status-badge text-xs font-semibold px-2 py-0.5 rounded-full";
-                        var flexRow = buttons[i].querySelector(".flex.items-center.justify-between");
+                        var flexRow = buttons[i].querySelector(
+                            ".flex.items-center.justify-between",
+                        );
                         if (flexRow) {
                             flexRow.appendChild(badge);
                         }
@@ -1587,7 +1659,8 @@ document.addEventListener("alpine:init", function () {
                 // Update progress text
                 var progressText = root.querySelector(".quiz-round-progress-text");
                 if (progressText) {
-                    progressText.textContent = done + " / " + total + " " + this._i18n.complete;
+                    progressText.textContent =
+                        done + " / " + total + " " + this._i18n.complete;
                 }
                 // Update progress bar width
                 var progressBar = root.querySelector(".quiz-round-progress-bar");
@@ -1617,14 +1690,16 @@ document.addEventListener("alpine:init", function () {
 
                     var label = document.createElement("span");
                     label.className = "text-sm text-white";
-                    label.textContent = this._i18n.table + " " + this.tables[i].table_number;
+                    label.textContent =
+                        this._i18n.table + " " + this.tables[i].table_number;
 
                     left.appendChild(rank);
                     left.appendChild(label);
 
                     var score = document.createElement("span");
                     score.className = "text-sm font-medium text-crush-pink";
-                    score.textContent = this.tables[i].total_score + " " + this._i18n.pts;
+                    score.textContent =
+                        this.tables[i].total_score + " " + this._i18n.pts;
 
                     row.appendChild(left);
                     row.appendChild(score);
@@ -1737,11 +1812,13 @@ document.addEventListener("alpine:init", function () {
                             if (m.role === "anchor") {
                                 roleBadge.className =
                                     "rounded-full bg-blue-900/40 px-2 py-0.5 text-xs text-blue-300";
-                                roleBadge.textContent = "\u{1F4CC} " + this._i18n.anchor;
+                                roleBadge.textContent =
+                                    "\u{1F4CC} " + this._i18n.anchor;
                             } else {
                                 roleBadge.className =
                                     "rounded-full bg-amber-900/40 px-2 py-0.5 text-xs text-amber-300";
-                                roleBadge.textContent = "\u{1F504} " + this._i18n.rotator;
+                                roleBadge.textContent =
+                                    "\u{1F504} " + this._i18n.rotator;
                             }
                             memberRow.appendChild(roleBadge);
                         }

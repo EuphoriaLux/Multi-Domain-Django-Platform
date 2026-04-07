@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+certs/
+crush-pass-key.pem
+crush-pass.csr
+
 # C extensions
 *.so
 

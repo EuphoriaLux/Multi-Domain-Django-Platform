@@ -763,20 +763,20 @@ class CrushPreferencesWithTraitsTests(TestCase):
         self.client.login(username="traits@example.com", password="testpass123")
 
     def test_preferences_page_includes_traits(self):
-        """Preferences page should include sought qualities and zodiac in context."""
-        response = self.client.get(
-            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu"
-        )
+        """Preferences section should include sought qualities and zodiac in context."""
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
+        response = self.client.get(url, HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
         self.assertIn("qualities_grouped", response.context)
         self.assertIn("zodiac_sign", response.context)
 
     def test_save_sought_qualities(self):
-        """Saving sought qualities through the preferences form should work."""
+        """Saving sought qualities through the preferences section should work."""
         sought = list(Trait.objects.filter(trait_type="quality")[5:10].values_list("pk", flat=True))
 
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
         response = self.client.post(
-            reverse("crush_lu:crush_preferences"),
+            url,
             {
                 "preferred_age_min": 25,
                 "preferred_age_max": 35,
@@ -796,8 +796,9 @@ class CrushPreferencesWithTraitsTests(TestCase):
         """Selecting more than 5 sought qualities should fail."""
         sought = list(Trait.objects.filter(trait_type="quality")[:7].values_list("pk", flat=True))
 
+        url = reverse("crush_lu:edit_profile") + "?section=preferences"
         response = self.client.post(
-            reverse("crush_lu:crush_preferences"),
+            url,
             {
                 "preferred_age_min": 25,
                 "preferred_age_max": 35,

@@ -48,8 +48,18 @@
                 </div>
             </template>
 
-            <!-- Progress Tracker -->
-            <div class="flex items-start justify-center mt-6 gap-1 sm:gap-2">
+            <!-- Progress Bar (mobile: slim gradient bar, desktop: keeps circles) -->
+            <div class="progress-bar-wizard mt-6" role="progressbar" x-bind:aria-valuenow="currentStep" aria-valuemin="1" aria-valuemax="5">
+                <div class="progress-bar-wizard-track">
+                    <div class="progress-bar-wizard-fill" x-bind:style="progressBarStyle"></div>
+                </div>
+                <div class="progress-bar-wizard-label">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200" x-text="stepLabel"></span>
+                </div>
+            </div>
+
+            <!-- Desktop: keep numbered circles (hidden on mobile) -->
+            <div class="hidden lg:flex items-start justify-center mt-4 gap-1 sm:gap-2">
                 <!-- Step 1 -->
                 <div class="flex flex-col items-center w-16 sm:w-20">
                     <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold transition-all duration-300"
@@ -528,6 +538,7 @@
                 </div>
 
                 <!-- Continue Button -->
+                <div class="wizard-sticky-btn">
                 <button type="button"
                         @click="saveAndNextStep1"
                         x-bind:disabled="cannotContinueStep1"
@@ -553,6 +564,7 @@
                         </span>
                     </template>
                 </button>
+                </div>
 
                 <!-- Save Error Display -->
                 <div x-show="hasSaveError" x-cloak
@@ -687,7 +699,8 @@
                 </div>
 
                 <!-- Navigation Buttons -->
-                <div class="flex gap-4 mt-6">
+                <div class="wizard-sticky-btn">
+                <div class="flex gap-4">
                     <button type="button" @click="prevStep"
                             x-bind:disabled="isSavingStep"
                             class="flex-1 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold
@@ -719,6 +732,7 @@
                             </span>
                         </template>
                     </button>
+                </div>
                 </div>
 
                 <!-- Save Error Display -->
@@ -951,7 +965,8 @@
                 </div>
 
                 <!-- Navigation Buttons -->
-                <div class="flex gap-4 mt-6">
+                <div class="wizard-sticky-btn">
+                <div class="flex gap-4">
                     <button type="button" @click="prevStep"
                             x-bind:disabled="isSavingStep"
                             class="flex-1 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold
@@ -984,8 +999,9 @@
                         </template>
                     </button>
                 </div>
+                </div>
 
-                <!-- Save Error Display -->
+                <!-- Save Error Display (Step 3) -->
                 <div x-show="hasSaveError" x-cloak
                      class="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
                     <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -1103,7 +1119,8 @@
                 {% endif %}
 
                 <!-- Navigation Buttons -->
-                <div class="flex gap-4 mt-6">
+                <div class="wizard-sticky-btn">
+                <div class="flex gap-4">
                     <button type="button" @click="prevStep"
                             class="flex-1 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold
                                    hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 flex items-center justify-center gap-2">
@@ -1121,6 +1138,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
+                </div>
                 </div>
             </div>
 
@@ -1237,6 +1255,7 @@
                 </div>
 
                 <!-- Navigation Buttons -->
+                <div class="wizard-sticky-btn">
                 <div class="flex gap-4">
                     <button type="button" @click="prevStep"
                             class="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold
@@ -1269,6 +1288,7 @@
                             </span>
                         </template>
                     </button>
+                </div>
                 </div>
             </div>
         </form>

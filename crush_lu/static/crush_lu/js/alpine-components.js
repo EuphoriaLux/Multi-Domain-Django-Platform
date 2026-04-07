@@ -5374,6 +5374,10 @@ document.addEventListener("alpine:init", function () {
                         ) {
                             newPath = "/" + selectedLang + currentPath;
                         }
+                        // Preserve query string (e.g., ?section=account)
+                        if (window.location.search) {
+                            newPath = newPath + window.location.search;
+                        }
                         nextInput.value = newPath;
                     }
                     form.submit();

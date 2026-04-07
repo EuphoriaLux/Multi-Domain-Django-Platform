@@ -206,7 +206,7 @@
     {% endif %}
 
     <!-- Desktop Navigation (hidden on mobile for authenticated users) -->
-    <nav class="crush-navbar {% if user.is_authenticated %}hidden lg:block{% endif %}" x-data="navbar">
+    <nav class="crush-navbar {% if user.is_authenticated %}nav-authenticated{% endif %}" x-data="navbar">
         <div class="container">
             <div class="flex justify-between items-center py-3">
                 <!-- Brand -->
@@ -1162,7 +1162,7 @@
     {% endif %}
 
     <!-- Main Content -->
-    <main id="main-content" class="container pt-8 mobile-main {% if user.is_authenticated %}pb-20 lg:pb-0{% endif %}" role="main">
+    <main id="main-content" class="container pt-8 mobile-main {% if user.is_authenticated %}has-bottom-nav{% endif %}" role="main">
         {% block content %}{% endblock %}
     </main>
 
