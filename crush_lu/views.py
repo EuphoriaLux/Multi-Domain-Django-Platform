@@ -290,6 +290,8 @@ def dashboard(request):
         else:
             greeting = _("Hey, %(name)s") % {"name": name}
 
+        from .views_wallet import _is_apple_wallet_configured
+
         context = {
             "profile": profile,
             "submission": latest_submission,
@@ -302,6 +304,7 @@ def dashboard(request):
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
             "greeting": greeting,
+            "apple_wallet_enabled": _is_apple_wallet_configured(),
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("Please complete your profile first."))
