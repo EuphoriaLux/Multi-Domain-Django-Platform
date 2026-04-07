@@ -196,7 +196,7 @@ class AutoTranslateMixin:
         actions = super().get_actions(request)
         if is_configured():
             actions["auto_translate_empty_fields"] = (
-                self.auto_translate_empty_fields,
+                AutoTranslateMixin.auto_translate_empty_fields,
                 "auto_translate_empty_fields",
                 self.auto_translate_empty_fields.short_description,
             )
