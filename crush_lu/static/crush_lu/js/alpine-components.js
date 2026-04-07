@@ -3369,7 +3369,6 @@ document.addEventListener("alpine:init", function () {
             collectStep3Data: function () {
                 var showFullName = document.querySelector('[name="show_full_name"]');
                 var showExactAge = document.querySelector('[name="show_exact_age"]');
-                var blurPhotos = document.querySelector('[name="blur_photos"]');
 
                 // Collect checked event language checkboxes
                 var langCheckboxes = document.querySelectorAll(
@@ -3383,7 +3382,6 @@ document.addEventListener("alpine:init", function () {
                 return {
                     show_full_name: showFullName ? showFullName.checked : false,
                     show_exact_age: showExactAge ? showExactAge.checked : true,
-                    blur_photos: blurPhotos ? blurPhotos.checked : false,
                     event_languages: eventLanguages,
                 };
             },
@@ -3504,7 +3502,6 @@ document.addEventListener("alpine:init", function () {
                 var formData = new FormData();
                 if (data.show_full_name) formData.append("show_full_name", "on");
                 if (data.show_exact_age) formData.append("show_exact_age", "on");
-                if (data.blur_photos) formData.append("blur_photos", "on");
 
                 // Append each selected event language
                 for (var i = 0; i < data.event_languages.length; i++) {
@@ -8495,15 +8492,66 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("pwaInstallBanner", function () {
         return {
             show: false,
+            platform: "other",
+            showGuide: false,
+            guideStep: 1,
+
+            get isIos() {
+                return this.platform === "ios";
+            },
+
+            get isStepOne() {
+                return this.guideStep === 1;
+            },
+
+            get isStepTwo() {
+                return this.guideStep === 2;
+            },
+
+            get isStepThree() {
+                return this.guideStep === 3;
+            },
+
+            get isFirstStep() {
+                return this.guideStep === 1;
+            },
+
+            get isLastStep() {
+                return this.guideStep === 3;
+            },
+
+            get hasPrevStep() {
+                return this.guideStep > 1;
+            },
+
+            get hasNextStep() {
+                return this.guideStep < 3;
+            },
+
+            get stepTwoIndicatorClass() {
+                return this.guideStep >= 2 ? "bg-purple-500 w-8" : "bg-gray-200 dark:bg-slate-600 w-4";
+            },
+
+            get stepThreeIndicatorClass() {
+                return this.guideStep >= 3 ? "bg-purple-500 w-8" : "bg-gray-200 dark:bg-slate-600 w-4";
+            },
 
             init: function () {
                 var self = this;
                 // Listen for show/hide events from pwa-install.js
-                window.addEventListener("pwa-show-install", function () {
+                window.addEventListener("pwa-show-install", function (e) {
                     self.show = true;
+                    if (e.detail && e.detail.platform) {
+                        self.platform = e.detail.platform;
+                    }
                 });
                 window.addEventListener("pwa-hide-install", function () {
                     self.show = false;
+                });
+                // iOS guide modal
+                window.addEventListener("pwa-show-ios-guide", function () {
+                    self.showGuide = true;
+                    self.guideStep = 1;
                 });
             },
 
@@ -8511,6 +8559,28 @@ document.addEventListener("alpine:init", function () {
                 this.show = false;
                 // Trigger the dismiss handler in pwa-install.js
                 window.dispatchEvent(new CustomEvent("pwa-dismiss-install"));
+            },
+
+            openGuide: function () {
+                this.showGuide = true;
+                this.guideStep = 1;
+            },
+
+            closeGuide: function () {
+                this.showGuide = false;
+                this.guideStep = 1;
+            },
+
+            nextStep: function () {
+                if (this.guideStep < 3) {
+                    this.guideStep++;
+                }
+            },
+
+            prevStep: function () {
+                if (this.guideStep > 1) {
+                    this.guideStep--;
+                }
             },
         };
     });

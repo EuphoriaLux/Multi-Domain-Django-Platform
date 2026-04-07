@@ -117,7 +117,6 @@ class RegistrationFlowTests(TestCase):
             "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
             "gender": "F",
             "location": "canton-luxembourg",  # Canton-based location (from interactive map)
-            "looking_for": "dating",
             "bio": "Testing bio",
             "interests": "Reading, Hiking",
             "event_languages": ["en", "fr"],

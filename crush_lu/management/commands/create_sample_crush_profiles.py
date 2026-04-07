@@ -45,7 +45,7 @@ LUXEMBOURG_LOCATIONS = [
 # Realistic bio templates
 BIO_TEMPLATES = [
     "Love exploring Luxembourg's hidden gems. Weekend hiker, coffee enthusiast, and "
-    "{interest} fan. Looking to meet genuine people for {looking_for}.",
+    "{interest} fan. Looking to meet genuine people.",
 
     "Originally from {origin}, now calling Luxembourg home. Passionate about {interest} "
     "and always up for trying new restaurants. {emoji}",
@@ -105,12 +105,11 @@ def get_weighted_location():
     return random.choices(locations, weights=weights, k=1)[0]
 
 
-def generate_bio(gender, looking_for):
+def generate_bio(gender):
     """Generate a realistic bio from templates."""
     template = random.choice(BIO_TEMPLATES)
     return template.format(
         interest=random.choice(INTERESTS_POOL),
-        looking_for='friendship and maybe more' if looking_for == 'both' else looking_for,
         origin=random.choice(ORIGINS),
         job_field=random.choice(JOB_FIELDS),
         activity=random.choice(ACTIVITIES),
@@ -240,7 +239,6 @@ class Command(BaseCommand):
 
             # Create CrushProfile
             gender_code = 'M' if gender == 'male' else 'F'
-            looking_for = random.choice(['friends', 'dating', 'both', 'networking'])
 
             profile = CrushProfile.objects.create(
                 user=user,
@@ -250,12 +248,10 @@ class Command(BaseCommand):
                 phone_verified=True,  # Mark as verified for testing
                 phone_verified_at=timezone.now(),
                 location=get_weighted_location(),
-                bio=generate_bio(gender_code, looking_for),
+                bio=generate_bio(gender_code),
                 interests=generate_interests(),
-                looking_for=looking_for,
                 show_full_name=random.choice([True, False]),
                 show_exact_age=random.choice([True, True, False]),  # 66% show exact age
-                blur_photos=random.choice([False, False, False, True]),  # 25% blur
                 preferred_language=random.choice(['en', 'en', 'de', 'fr']),  # More English
                 is_approved=True,  # Pre-approve for testing
                 is_active=True,

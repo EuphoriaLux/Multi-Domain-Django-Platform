@@ -1015,6 +1015,9 @@ def check_special_user_experience(sender, request, user, **kwargs):
                         logger.info(
                             f"Auto-approved profile for special user: {user.email}"
                         )
+                        # Award referral bonus points to referrer (if referred)
+                        from .referrals import check_and_apply_profile_approved_reward
+                        check_and_apply_profile_approved_reward(profile)
                 except CrushProfile.DoesNotExist:
                     pass
 

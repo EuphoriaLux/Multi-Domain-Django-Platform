@@ -1094,7 +1094,6 @@ def export_user_data(request):
             "canton": profile.canton,
             "bio": profile.bio,
             "interests": profile.interests,
-            "looking_for": profile.looking_for,
             "status": profile.status,
             "created_at": profile.created_at.isoformat() if hasattr(profile, "created_at") and profile.created_at else None,
         }

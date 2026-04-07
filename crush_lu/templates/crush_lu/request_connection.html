@@ -18,7 +18,7 @@
                 {% if recipient.crushprofile|has_photo:'photo_1' %}
                     <img src="{% profile_photo_url recipient.crushprofile 'photo_1' %}"
                          alt="{{ recipient.crushprofile.display_name }}"
-                         class="w-28 h-28 rounded-full object-cover mx-auto mb-4 {% if recipient.crushprofile.blur_photos %}blur-lg{% endif %}"
+                         class="w-28 h-28 rounded-full object-cover mx-auto mb-4"
                          loading="lazy">
                 {% else %}
                     <div class="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 inline-flex items-center justify-center mx-auto mb-4">

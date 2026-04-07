@@ -96,7 +96,7 @@
                             {% if registration.user.crushprofile %}
                                 {% with profile=registration.user.crushprofile %}
                                 <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                                    {% if profile.photo_1 and not profile.blur_photos %}
+                                    {% if profile.photo_1 %}
                                         <img src="{% profile_photo_url profile 'photo_1' %}"
                                              alt="" class="w-full h-full object-cover">
                                     {% else %}

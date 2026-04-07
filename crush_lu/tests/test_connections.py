@@ -308,7 +308,6 @@ class ConnectionPrivacyTests(TestCase):
             is_approved=True,
             show_full_name=False,  # Privacy enabled
             show_exact_age=False,
-            blur_photos=True
         )
 
         # Public user without privacy restrictions
@@ -320,7 +319,6 @@ class ConnectionPrivacyTests(TestCase):
             is_approved=True,
             show_full_name=True,
             show_exact_age=True,
-            blur_photos=False
         )
 
         self.event = MeetupEvent.objects.create(
@@ -355,11 +353,6 @@ class ConnectionPrivacyTests(TestCase):
         """Test private user shows age range."""
         # Age range instead of exact age
         self.assertIn('-', self.profile_private.age_range)
-
-    def test_blur_photos_setting(self):
-        """Test blur_photos setting is respected."""
-        self.assertTrue(self.profile_private.blur_photos)
-        self.assertFalse(self.profile_public.blur_photos)
 
 
 class AttendeeListTests(TestCase):

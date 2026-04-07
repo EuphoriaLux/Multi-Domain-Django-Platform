@@ -58,7 +58,9 @@
                                 {% if pair.profile_a.age %}<span>{{ pair.profile_a.age }}</span>{% endif %}
                             </div>
                             {% if pair.coach_a %}
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{{ pair.coach_a }}</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                <span class="text-purple-400 dark:text-purple-500">&#9830;</span> {{ pair.coach_a.user.first_name }}
+                            </p>
                             {% endif %}
                         </div>
                     </div>
@@ -100,7 +102,9 @@
                                 {% if pair.profile_b.age %}<span>{{ pair.profile_b.age }}</span>{% endif %}
                             </div>
                             {% if pair.coach_b %}
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{{ pair.coach_b }}</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                <span class="text-purple-400 dark:text-purple-500">&#9830;</span> {{ pair.coach_b.user.first_name }}
+                            </p>
                             {% endif %}
                         </div>
                     </div>

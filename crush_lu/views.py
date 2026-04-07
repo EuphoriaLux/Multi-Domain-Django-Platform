@@ -224,18 +224,9 @@ from .views_pwa import (  # noqa: F401
 
 @crush_login_required
 def dashboard(request):
-    """User dashboard - redirects ACTIVE coaches to their dashboard unless ?user_view=1"""
-    # Check if user is an ACTIVE coach
-    # Allow coaches to view their user dashboard via ?user_view=1 parameter
-    user_view = request.GET.get("user_view") == "1"
-    try:
-        coach = CrushCoach.objects.get(user=request.user, is_active=True)
-        if not user_view:
-            return redirect("crush_lu:coach_dashboard")
-    except CrushCoach.DoesNotExist:
-        # Either no coach record, or coach is inactive - show dating dashboard
-        pass
-
+    """User dashboard - always shows the dating profile dashboard.
+    Coaches access their coach dashboard via the dedicated Coach tab.
+    """
     # Regular user dashboard
     try:
         profile = CrushProfile.objects.get(user=request.user)

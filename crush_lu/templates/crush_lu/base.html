@@ -333,7 +333,7 @@
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
                                      class="dropdown-menu">
-                                    <a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                                    <a class="dropdown-item" href="{% url 'crush_lu:dashboard' %}">
                                         {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "My Dashboard" %}
                                     </a>
@@ -779,7 +779,7 @@
                             {# My Crush Section #}
                             <div class="border-t border-white/20 my-2"></div>
                             <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "My Profile" %}</span>
-                            <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}?user_view=1">
+                            <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Dashboard" %}
                             </a>

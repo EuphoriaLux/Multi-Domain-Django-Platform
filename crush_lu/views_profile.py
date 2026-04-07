@@ -350,7 +350,6 @@ def save_profile_step3(request):
         # Privacy settings
         profile.show_full_name = request.POST.get('show_full_name') == 'on'
         profile.show_exact_age = request.POST.get('show_exact_age') == 'on'
-        profile.blur_photos = request.POST.get('blur_photos') == 'on'
 
         # Event languages (multiple checkboxes stored as JSON array) - REQUIRED
         event_languages = request.POST.getlist('event_languages')

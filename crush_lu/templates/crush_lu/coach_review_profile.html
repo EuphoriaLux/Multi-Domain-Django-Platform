@@ -164,12 +164,6 @@
                 <div class="space-y-2">
                     <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "Preferences" %}</p>
 
-                    {% if profile.looking_for %}
-                        <p class="text-gray-700 dark:text-gray-200">
-                            <span class="font-medium">{% trans "Looking for:" %}</span> 💕 {{ profile.get_looking_for_display }}
-                        </p>
-                    {% endif %}
-
                     <p class="text-gray-700 dark:text-gray-200">
                         <span class="font-medium">{% trans "Age range:" %}</span> {{ profile.preferred_age_min }} - {{ profile.preferred_age_max }}
                     </p>
@@ -244,9 +238,6 @@
                     </p>
                     <p class="text-gray-700 dark:text-gray-200 text-xs">
                         {% if profile.show_exact_age %}✅{% else %}❌{% endif %} {% trans "Exact age visible" %}
-                    </p>
-                    <p class="text-gray-700 dark:text-gray-200 text-xs">
-                        {% if profile.blur_photos %}🔒 {% trans "Photos blurred" %}{% else %}👁️ {% trans "Photos visible" %}{% endif %}
                     </p>
                 </div>
             </div>

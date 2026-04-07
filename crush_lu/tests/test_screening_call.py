@@ -52,7 +52,6 @@ class TestScreeningCallView(TestCase):
             date_of_birth=date(1990, 5, 15),
             gender='F',
             location='Luxembourg City',
-            looking_for='dating',
             bio='Test bio for screening call test',
             phone_number='+352123456789',
             event_languages=['en', 'de'],

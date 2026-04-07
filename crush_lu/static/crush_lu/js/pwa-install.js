@@ -8,14 +8,29 @@ class PWAInstaller {
         this.deferredPrompt = null;
         this.installButton = null;
         this.handleDismissEvent = this.dismissBanner.bind(this);
+        this.platform = this.detectPlatform();
         this.init();
+    }
+
+    detectPlatform() {
+        var ua = navigator.userAgent || "";
+        if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+            return "ios";
+        }
+        return "other";
     }
 
     init() {
         // Listen once for dismiss event emitted by Alpine component
         window.addEventListener("pwa-dismiss-install", this.handleDismissEvent);
 
-        // Listen for the beforeinstallprompt event
+        // Check if already installed (standalone mode)
+        if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+            this.hideInstallButton();
+            return;
+        }
+
+        // Listen for the beforeinstallprompt event (Android/Chrome)
         window.addEventListener("beforeinstallprompt", (e) => {
             // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
@@ -32,9 +47,9 @@ class PWAInstaller {
             this.showInstallSuccess();
         });
 
-        // Check if already installed
-        if (window.matchMedia("(display-mode: standalone)").matches) {
-            this.hideInstallButton();
+        // On iOS, beforeinstallprompt never fires — show banner with guide
+        if (this.platform === "ios") {
+            this.showInstallButton();
         }
     }
 
@@ -51,10 +66,12 @@ class PWAInstaller {
             localStorage.removeItem("crush-pwa-install-dismissed");
         }
 
-        // Dispatch event to show banner (Alpine.js handles visibility)
-        window.dispatchEvent(new CustomEvent("pwa-show-install"));
+        // Dispatch event to show banner with platform info (Alpine.js handles visibility)
+        window.dispatchEvent(new CustomEvent("pwa-show-install", {
+            detail: { platform: this.platform }
+        }));
 
-        // Set up install button listener
+        // Set up install button listener (Android uses native prompt, iOS opens guide)
         this.installButton = document.getElementById("pwa-install-button");
         if (this.installButton && !this.installButton.__pwaInstallBound) {
             this.installButton.addEventListener("click", () => this.handleInstall());
@@ -63,6 +80,12 @@ class PWAInstaller {
     }
 
     async handleInstall() {
+        // On iOS, open the instruction guide instead
+        if (this.platform === "ios") {
+            window.dispatchEvent(new CustomEvent("pwa-show-ios-guide"));
+            return;
+        }
+
         if (!this.deferredPrompt) {
             return;
         }

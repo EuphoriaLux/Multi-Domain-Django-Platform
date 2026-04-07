@@ -340,13 +340,6 @@ class CrushProfile(models.Model):
         ('P', _('Prefer not to say')),
     ]
 
-    LOOKING_FOR_CHOICES = [
-        ('friends', _('New Friends')),
-        ('dating', _('Dating')),
-        ('both', _('Both')),
-        ('networking', _('Social Networking')),
-    ]
-
     COMPLETION_STATUS_CHOICES = [
         ('not_started', _('Not Started')),
         ('step1', _('Step 1: Basic Info Saved')),
@@ -413,13 +406,6 @@ class CrushProfile(models.Model):
         blank=True,
         help_text=_("Your hobbies and interests (comma-separated)")
     )
-    looking_for = models.CharField(
-        max_length=20,
-        choices=LOOKING_FOR_CHOICES,
-        default='friends',
-        blank=True
-    )
-
     # Ideal Crush Preferences (optional)
     preferred_age_min = models.PositiveSmallIntegerField(
         default=18,
@@ -507,11 +493,6 @@ class CrushProfile(models.Model):
         default=True,
         help_text=_("Show exact age (if false, show age range)")
     )
-    blur_photos = models.BooleanField(
-        default=False,
-        help_text=_("Blur photos until mutual interest")
-    )
-
     # Language Preference
     preferred_language = models.CharField(
         max_length=5,

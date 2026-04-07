@@ -897,15 +897,6 @@
                             </div>
                         </label>
 
-                        <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" name="blur_photos"
-                                   {% if form.blur_photos.value or profile and profile.blur_photos %}checked{% endif %}
-                                   class="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
-                            <div>
-                                <span class="font-medium dark:text-white">{% trans "Blur my photos until mutual interest" %}</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Photos will only be visible after you both connect" %}</p>
-                            </div>
-                        </label>
                     </div>
                 </div>
 

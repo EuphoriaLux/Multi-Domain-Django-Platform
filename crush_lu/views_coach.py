@@ -57,6 +57,7 @@ from .notification_service import (
     notify_profile_revision,
     notify_profile_rejected,
 )
+from .referrals import check_and_apply_profile_approved_reward
 from .coach_notifications import (
     notify_coach_new_submission,
     notify_coach_user_revision,
@@ -801,6 +802,9 @@ def coach_review_profile(request, submission_id):
                 submission.profile.approved_at = timezone.now()
                 submission.profile.save()
                 messages.success(request, _("Profile approved!"))
+
+                # Award referral bonus points to the referrer (if this user was referred)
+                check_and_apply_profile_approved_reward(submission.profile)
 
                 # Send approval notification to user (push first, email fallback)
                 try:
