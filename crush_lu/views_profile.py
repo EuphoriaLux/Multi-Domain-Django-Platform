@@ -933,7 +933,7 @@ def get_csrf_token(request):
     response = JsonResponse({"csrfToken": token})
     response.set_cookie(
         settings.CSRF_COOKIE_NAME,
-        request.META["CSRF_COOKIE"],
+        token,
         max_age=settings.CSRF_COOKIE_AGE,
         domain=settings.CSRF_COOKIE_DOMAIN,
         path=settings.CSRF_COOKIE_PATH,

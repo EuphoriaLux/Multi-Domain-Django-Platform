@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
@@ -8,6 +9,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_choices(choices):
@@ -425,8 +428,9 @@ def regenerate_tables(request, quiz_id):
         result = generate_rotation_schedule(
             men, women, num_rounds, num_tables=quiz.num_tables
         )
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    except Exception:
+        logger.exception("Failed to generate rotation schedule for quiz %s", quiz.pk)
+        return JsonResponse({"error": "Failed to generate rotation schedule."}, status=400)
 
     schedule = result["schedule"]
     actual_num_tables = result["num_tables"]
