@@ -115,6 +115,7 @@ from .views_account import (  # noqa: F401
     data_deletion_status,
     account_settings,
     update_email_preferences,
+    api_update_email_preference,
     email_unsubscribe,
     set_password,
     disconnect_social_account,
@@ -279,8 +280,8 @@ def dashboard(request):
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
-        # Time-based greeting
-        hour = timezone.now().hour
+        # Time-based greeting (use localtime for correct Luxembourg timezone)
+        hour = timezone.localtime().hour
         name = profile.display_name
         if 5 <= hour < 12:
             greeting = _("Good morning, %(name)s") % {"name": name}
@@ -904,7 +905,17 @@ def _edit_section_privacy(request, profile):
 
 
 def _edit_section_account(request, profile):
-    """Handle account settings section (language, theme, notifications)."""
+    """Handle account settings section with sub-sections."""
+    sub = request.GET.get("sub", "")
+
+    if sub == "settings":
+        return _edit_sub_account_settings(request, profile)
+    if sub == "notifications":
+        return _edit_sub_account_notifications(request, profile)
+    if sub == "danger":
+        return _edit_sub_account_danger(request, profile)
+
+    # Default: show card list
     context = {
         "profile": profile,
         "section": "account",
@@ -913,6 +924,180 @@ def _edit_section_account(request, profile):
     if request.htmx:
         return render(request, template, context)
     return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_sub_account_settings(request, profile):
+    """Handle account settings sub-section (account info, linked accounts, password)."""
+    import json
+    from allauth.socialaccount.models import SocialApp
+    from django.contrib.sites.models import Site
+    from .social_photos import get_all_social_photos
+
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+
+    connected_providers = set(
+        request.user.socialaccount_set.values_list("provider", flat=True)
+    )
+    crush_social_accounts = request.user.socialaccount_set.filter(
+        provider__in=CRUSH_SOCIAL_PROVIDERS
+    )
+
+    # Annotate display email for each social account
+    for account in crush_social_accounts:
+        if account.provider == "microsoft":
+            account.display_email = (
+                account.extra_data.get("mail")
+                or account.extra_data.get("userPrincipalName")
+                or account.extra_data.get("email")
+                or ""
+            )
+        else:
+            account.display_email = account.extra_data.get("email", "")
+
+    social_photos = get_all_social_photos(request.user)
+
+    try:
+        current_site = Site.objects.get_current(request)
+        available_providers = set(
+            SocialApp.objects.filter(sites=current_site).values_list(
+                "provider", flat=True
+            )
+        )
+    except Exception:
+        available_providers = set()
+
+    context = {
+        "profile": profile,
+        "section": "account",
+        "google_connected": "google" in connected_providers,
+        "facebook_connected": "facebook" in connected_providers,
+        "microsoft_connected": "microsoft" in connected_providers,
+        "apple_connected": "apple" in connected_providers,
+        "google_available": "google" in available_providers,
+        "facebook_available": "facebook" in available_providers,
+        "microsoft_available": "microsoft" in available_providers,
+        "apple_available": "apple" in available_providers,
+        "crush_social_accounts": crush_social_accounts,
+        "social_photos": social_photos,
+        "is_apple_relay_user": bool(
+            request.user.email
+            and request.user.email.endswith("@privaterelay.appleid.com")
+        ),
+        "show_apple_link_banner": request.GET.get("apple_link") == "1",
+    }
+    template = "crush_lu/partials/edit_account_settings.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
+
+
+def _edit_sub_account_notifications(request, profile):
+    """Handle notifications sub-section (email prefs, push, coach push).
+    Email preferences are saved via the JSON API endpoint (api_update_email_preference).
+    """
+    import json
+    from .models import EmailPreference, PushSubscription, CoachPushSubscription
+
+    def get_device_type(device_name):
+        mobile_devices = ["Android Chrome", "iPhone Safari"]
+        return "mobile" if device_name in mobile_devices else "desktop"
+
+    email_prefs = EmailPreference.get_or_create_for_user(request.user)
+
+    push_subscriptions = []
+    push_subscriptions_json = "[]"
+    try:
+        subs = PushSubscription.objects.filter(user=request.user, enabled=True)
+        for sub in subs:
+            push_subscriptions.append(
+                {
+                    "id": sub.id,
+                    "endpoint": sub.endpoint,
+                    "device_fingerprint": sub.device_fingerprint or "",
+                    "device_name": sub.device_name or "Unknown Device",
+                    "device_type": get_device_type(sub.device_name or ""),
+                    "last_used_at": sub.last_used_at,
+                    "notify_new_messages": sub.notify_new_messages,
+                    "notify_event_reminders": sub.notify_event_reminders,
+                    "notify_new_connections": sub.notify_new_connections,
+                    "notify_profile_updates": sub.notify_profile_updates,
+                }
+            )
+        push_subscriptions_json = json.dumps(push_subscriptions, default=str)
+    except Exception:
+        logger.warning(
+            "Failed to fetch push subscriptions for user %s",
+            request.user.id,
+            exc_info=True,
+        )
+
+    is_coach = False
+    coach_push_subscriptions = []
+    coach_push_subscriptions_json = "[]"
+    try:
+        if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
+            is_coach = True
+            coach = request.user.crushcoach
+            coach_subs = CoachPushSubscription.objects.filter(
+                coach=coach, enabled=True
+            )
+            for sub in coach_subs:
+                coach_push_subscriptions.append(
+                    {
+                        "id": sub.id,
+                        "endpoint": sub.endpoint,
+                        "device_fingerprint": sub.device_fingerprint or "",
+                        "device_name": sub.device_name or "Unknown Device",
+                        "device_type": get_device_type(sub.device_name or ""),
+                        "last_used_at": sub.last_used_at,
+                        "notify_new_submissions": sub.notify_new_submissions,
+                        "notify_screening_reminders": sub.notify_screening_reminders,
+                        "notify_user_responses": sub.notify_user_responses,
+                        "notify_system_alerts": sub.notify_system_alerts,
+                    }
+                )
+        coach_push_subscriptions_json = json.dumps(
+            coach_push_subscriptions, default=str
+        )
+    except Exception:
+        logger.warning(
+            "Failed to fetch coach push subscriptions for user %s",
+            request.user.id,
+            exc_info=True,
+        )
+
+    context = {
+        "profile": profile,
+        "section": "account",
+        "email_prefs": email_prefs,
+        "push_subscriptions": push_subscriptions,
+        "push_subscriptions_json": push_subscriptions_json,
+        "is_coach": is_coach,
+        "coach_push_subscriptions": coach_push_subscriptions,
+        "coach_push_subscriptions_json": coach_push_subscriptions_json,
+    }
+    template = "crush_lu/partials/edit_account_notifications.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
+
+
+def _edit_sub_account_danger(request, profile):
+    """Handle danger zone sub-section (privacy, delete, logout)."""
+    context = {
+        "profile": profile,
+        "section": "account",
+    }
+    template = "crush_lu/partials/edit_account_danger.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 @crush_login_required

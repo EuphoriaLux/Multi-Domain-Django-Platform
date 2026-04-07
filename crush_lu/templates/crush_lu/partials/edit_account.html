@@ -12,8 +12,8 @@
 
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
             <!-- Account Settings -->
-            <a href="{% url 'crush_lu:account_settings' %}"
-               class="section-edit-card">
+            <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=settings"
+               class="section-edit-card card-tappable">
                 <div class="flex items-center gap-3">
                     <div class="section-edit-card-icon bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
                         {% include "shared/icons/user-circle.html" with class="w-5 h-5" %}
@@ -27,8 +27,8 @@
             </a>
 
             <!-- Notification Preferences -->
-            <a href="{% url 'crush_lu:update_email_preferences' %}"
-               class="section-edit-card">
+            <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=notifications"
+               class="section-edit-card card-tappable">
                 <div class="flex items-center gap-3">
                     <div class="section-edit-card-icon bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                         {% include "shared/icons/bell.html" with class="w-5 h-5" %}
@@ -74,27 +74,29 @@
                     <span x-text="themeButtonLabel"></span>
                 </button>
             </div>
+
+            <!-- Danger Zone -->
+            <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=danger"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-red-600 dark:text-red-400">{% trans "Danger Zone" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Delete profile, data management, log out" %}</div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
         </div>
     </div>
 
-    <!-- Danger Zone -->
-    <div class="section-card mb-4 border-red-200 dark:border-red-800">
-        <h5 class="section-title text-red-600 dark:text-red-400">
-            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
-            {% trans "Danger Zone" %}
-        </h5>
-        <a href="{% url 'account_logout' %}"
-           class="flex items-center gap-3 py-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
-            {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
-            <span class="font-medium">{% trans "Log Out" %}</span>
-        </a>
-    </div>
-
     <!-- Back button -->
-    <div class="mt-4">
-        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel inline-flex items-center gap-2">
+    <div class="action-buttons-container action-buttons-sticky">
+        <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
-            {% trans "Back to Profile" %}
+            {% trans "Back" %}
         </a>
     </div>
 </div>

@@ -98,6 +98,9 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
     path('api/push/health-check/', api_push.run_subscription_health_check, name='api_push_health_check'),
 
+    # Email Preferences API (called from alpine-components.js emailPreferences component)
+    path('api/email/preferences/', views.api_update_email_preference, name='api_update_email_preference'),
+
     # PWA Device Registration API (called from pwa-detector.js)
     path('api/pwa/register-installation/', api_pwa.register_pwa_installation, name='api_pwa_register_installation'),
 
@@ -195,6 +198,7 @@ urlpatterns = base_patterns + api_patterns + [
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),
     path('wallet/google/event-ticket/<int:registration_id>/jwt/', views_wallet.google_event_ticket_jwt, name='event_ticket_jwt'),
+    path('wallet/apple/event-ticket/<int:registration_id>/pass/', views_wallet.apple_event_ticket_pass, name='apple_event_ticket_pass'),
 
     # Google Wallet callback (called by Google when users save/delete passes)
     path('wallet/google/callback/', google_callback.google_wallet_callback, name='wallet_google_callback'),

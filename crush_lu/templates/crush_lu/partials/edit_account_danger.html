@@ -1,0 +1,72 @@
+{% load i18n %}
+
+<div class="max-w-3xl mx-auto">
+    <!-- Privacy Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-purple-600" %}{% trans "Privacy & Data" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <div class="flex flex-col gap-3">
+                <a href="{% url 'crush_lu:privacy_policy' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                    {% include "shared/icons/document-text.html" with class="w-5 h-5" %}{% trans "Privacy Policy" %}
+                </a>
+                <a href="{% url 'crush_lu:data_deletion' %}" class="text-purple-600 hover:text-purple-800 flex items-center">
+                    {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}{% trans "Data Deletion Information" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger Zone Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden border-2 border-red-500">
+        <div class="bg-red-500 text-white px-6 py-4">
+            <h5 class="text-lg font-semibold flex items-center">
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}{% trans "Danger Zone" %}
+            </h5>
+        </div>
+        <div class="p-6 space-y-6">
+            <!-- Delete Crush.lu profile -->
+            <div>
+                <h6 class="font-semibold text-red-600 mb-2">{% trans "Delete Crush.lu Profile" %}</h6>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    {% trans "Permanently delete your dating profile and photos. Your PowerUp account will remain active." %}
+                    <strong class="text-red-600 dark:text-red-400">{% trans "Warning: This cannot be undone and you cannot rejoin Crush.lu with this account." %}</strong>
+                </p>
+                <a href="{% url 'crush_lu:delete_crushlu_profile' %}" class="border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "shared/icons/trash.html" with class="w-5 h-5" %}{% trans "Delete Crush.lu Profile" %}
+                </a>
+            </div>
+
+            <!-- GDPR dashboard -->
+            <div>
+                <h6 class="font-semibold mb-2">{% trans "Privacy & Data Management" %}</h6>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    {% trans "View your consent status, download your data, or delete your entire PowerUp account (all platforms)." %}
+                </p>
+                <a href="{% url 'crush_lu:gdpr_data_management' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}{% trans "GDPR Data Management" %}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Out -->
+    <div class="section-card mb-4 border-red-200 dark:border-red-800">
+        <a href="{% url 'account_logout' %}"
+           class="flex items-center gap-3 py-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
+            {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
+            <span class="font-medium">{% trans "Log Out" %}</span>
+        </a>
+    </div>
+
+    <!-- Back Button -->
+    <div class="action-buttons-container action-buttons-sticky">
+        <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="btn-cancel">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back" %}
+        </a>
+    </div>
+</div>

@@ -247,3 +247,108 @@ class TestBuildAppleEventTicket:
 
         assert registration.apple_wallet_ticket_serial != ""
         assert registration.apple_wallet_ticket_serial.startswith("evt-")
+
+
+def _grant_consent(user):
+    """Grant Crush.lu consent for a user so views aren't blocked by middleware."""
+    from crush_lu.models.profiles import UserDataConsent
+
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+
+
+class TestAppleWalletPassView:
+    """Test the member pass download view."""
+
+    def test_returns_pkpass_for_authenticated_user(self, test_user_with_profile):
+        from django.test import Client
+
+        user, profile = test_user_with_profile
+        _grant_consent(user)
+        client = Client()
+        client.force_login(user)
+
+        response = client.get("/wallet/apple/pass/")
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/vnd.apple.pkpass"
+        assert "crushlu.pkpass" in response["Content-Disposition"]
+
+    def test_requires_authentication(self):
+        from django.test import Client
+
+        client = Client()
+        response = client.get("/wallet/apple/pass/")
+
+        assert response.status_code == 302  # Redirect to login
+
+    def test_returns_503_when_not_configured(self, test_user_with_profile, settings):
+        from django.test import Client
+
+        user, profile = test_user_with_profile
+        _grant_consent(user)
+        client = Client()
+        client.force_login(user)
+
+        settings.WALLET_APPLE_PASS_TYPE_IDENTIFIER = ""
+        response = client.get("/wallet/apple/pass/")
+
+        assert response.status_code == 503
+
+
+class TestAppleEventTicketView:
+    """Test the event ticket .pkpass download view."""
+
+    def test_returns_pkpass_for_confirmed_registration(self, event_with_registrations):
+        from django.test import Client
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        _grant_consent(registration.user)
+        client = Client()
+        client.force_login(registration.user)
+
+        response = client.get(
+            f"/wallet/apple/event-ticket/{registration.id}/pass/"
+        )
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/vnd.apple.pkpass"
+
+    def test_rejects_other_users_registration(self, event_with_registrations, db):
+        from django.contrib.auth.models import User
+        from django.test import Client
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        other_user = User.objects.create_user(
+            username="other@example.com", password="pass123"
+        )
+        _grant_consent(other_user)
+        client = Client()
+        client.force_login(other_user)
+
+        response = client.get(
+            f"/wallet/apple/event-ticket/{registration.id}/pass/"
+        )
+
+        assert response.status_code == 404
+
+    def test_rejects_cancelled_registration(self, event_with_registrations):
+        from django.test import Client
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save()
+
+        _grant_consent(registration.user)
+        client = Client()
+        client.force_login(registration.user)
+
+        response = client.get(
+            f"/wallet/apple/event-ticket/{registration.id}/pass/"
+        )
+
+        assert response.status_code == 400

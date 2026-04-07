@@ -514,16 +514,18 @@ def account_settings(request):
 
 
 @crush_login_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def update_email_preferences(request):
     """
-    Handle email preference form submission.
+    Handle email preference form submission (POST) or redirect to settings (GET).
+    Kept for backward compatibility — the standalone account_settings page still uses this.
     """
+    if request.method == "GET":
+        return redirect("crush_lu:account_settings")
     from .models import EmailPreference
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
 
-    # Update preferences from form data
     # Checkboxes: if checked, the name is in POST data; if unchecked, it's absent
     email_prefs.unsubscribed_all = "unsubscribed_all" in request.POST
     email_prefs.email_profile_updates = "email_profile_updates" in request.POST
@@ -536,6 +538,42 @@ def update_email_preferences(request):
 
     messages.success(request, _("Email preferences updated successfully!"))
     return redirect("crush_lu:account_settings")
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def api_update_email_preference(request):
+    """
+    JSON API endpoint for updating a single email preference toggle.
+    Called from Alpine.js emailPreferences component via fetch().
+    """
+    from .models import EmailPreference
+
+    VALID_KEYS = {
+        "unsubscribed_all",
+        "email_profile_updates",
+        "email_event_reminders",
+        "email_new_connections",
+        "email_new_messages",
+        "email_marketing",
+    }
+
+    try:
+        data = json.loads(request.body)
+        key = data.get("key", "")
+        value = bool(data.get("value", False))
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    if key not in VALID_KEYS:
+        return JsonResponse({"success": False, "error": "Invalid preference key"}, status=400)
+
+    email_prefs = EmailPreference.get_or_create_for_user(request.user)
+    setattr(email_prefs, key, value)
+    email_prefs.save(update_fields=[key])
+
+    return JsonResponse({"success": True})
 
 
 def email_unsubscribe(request, token):

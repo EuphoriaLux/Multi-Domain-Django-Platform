@@ -69,18 +69,28 @@ document.addEventListener("alpine:init", function () {
     // MOBILE NATIVE APP NAVIGATION COMPONENTS
     // =========================================================================
 
-    // Bottom navigation bar - 4 tabs fixed at bottom on mobile
+    // Bottom navigation bar - 4 tabs (5 for coaches) fixed at bottom on mobile
     Alpine.data("bottomNav", function () {
         return {
             currentPath: "",
             eventsCount: 0,
             requestsCount: 0,
+            screeningCount: 0,
 
             init: function () {
-                this.currentPath = window.location.pathname;
+                // Strip i18n language prefix (e.g. /en/, /de/, /fr/) for route matching
+                var path = window.location.pathname;
+                var langPrefix = path.match(/^\/[a-z]{2}(?:-[a-z]{2})?\//);
+                this.currentPath = langPrefix
+                    ? path.substring(langPrefix[0].length - 1)
+                    : path;
                 this.eventsCount = parseInt(this.$el.dataset.eventsCount || "0", 10);
                 this.requestsCount = parseInt(
                     this.$el.dataset.requestsCount || "0",
+                    10,
+                );
+                this.screeningCount = parseInt(
+                    this.$el.dataset.screeningCount || "0",
                     10,
                 );
             },
@@ -106,6 +116,9 @@ document.addEventListener("alpine:init", function () {
             get isProfileActive() {
                 return this.currentPath.indexOf("/profile/") === 0;
             },
+            get isCoachActive() {
+                return this.currentPath.indexOf("/coach/") === 0;
+            },
 
             get homeActiveClass() {
                 return this.isHomeActive ? "bottom-nav-item-active" : "";
@@ -119,12 +132,18 @@ document.addEventListener("alpine:init", function () {
             get profileActiveClass() {
                 return this.isProfileActive ? "bottom-nav-item-active" : "";
             },
+            get coachActiveClass() {
+                return this.isCoachActive ? "bottom-nav-item-active" : "";
+            },
 
             get hasEventsBadge() {
                 return this.eventsCount > 0;
             },
             get hasRequestsBadge() {
                 return this.requestsCount > 0;
+            },
+            get hasScreeningBadge() {
+                return this.screeningCount > 0;
             },
 
             handleTap: function () {
@@ -933,18 +952,101 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("emailPreferences", function () {
         return {
             unsubscribeAll: false,
+            saving: false,
+            saveSuccess: false,
+            saveError: false,
 
-            // Computed getter for CSP compatibility (replaces inline object expression)
             get unsubscribeAllClass() {
                 return this.unsubscribeAll ? "opacity-50 pointer-events-none" : "";
             },
 
+            get showSaving() {
+                return this.saving;
+            },
+
+            get showSuccess() {
+                return this.saveSuccess;
+            },
+
+            get showError() {
+                return this.saveError;
+            },
+
+            get showIdleMessage() {
+                return !this.saving && !this.saveSuccess && !this.saveError;
+            },
+
             init: function () {
+                var self = this;
                 var unsubscribed = this.$el.getAttribute("data-unsubscribed");
                 this.unsubscribeAll = unsubscribed === "true";
+
+                // Event delegation for all email preference toggles
+                this.$el.addEventListener("change", function (event) {
+                    if (event.target.classList.contains("email-pref-toggle")) {
+                        var prefKey = event.target.dataset.prefKey;
+                        self.updatePreference(prefKey, event.target.checked, event.target);
+                    }
+                });
             },
             toggleUnsubscribe: function () {
                 this.unsubscribeAll = !this.unsubscribeAll;
+                this.updatePreference("unsubscribed_all", this.unsubscribeAll, null);
+            },
+            getCsrfToken: function () {
+                var cookie = document.cookie
+                    .split("; ")
+                    .find(function (row) {
+                        return row.startsWith("csrftoken=");
+                    });
+                return cookie ? cookie.split("=")[1] : "";
+            },
+            updatePreference: function (key, value, checkbox) {
+                var self = this;
+                self.saving = true;
+                self.saveSuccess = false;
+                self.saveError = false;
+
+                fetch("/api/email/preferences/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": self.getCsrfToken(),
+                    },
+                    body: JSON.stringify({ key: key, value: value }),
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        self.saving = false;
+                        if (data.success) {
+                            self.saveSuccess = true;
+                            setTimeout(function () {
+                                self.saveSuccess = false;
+                            }, 2000);
+                        } else {
+                            self.saveError = true;
+                            // Revert on error
+                            if (checkbox) {
+                                checkbox.checked = !value;
+                            }
+                            setTimeout(function () {
+                                self.saveError = false;
+                            }, 3000);
+                        }
+                    })
+                    .catch(function () {
+                        self.saving = false;
+                        self.saveError = true;
+                        // Revert on network error
+                        if (checkbox) {
+                            checkbox.checked = !value;
+                        }
+                        setTimeout(function () {
+                            self.saveError = false;
+                        }, 3000);
+                    });
             },
         };
     });
@@ -2659,6 +2761,25 @@ document.addEventListener("alpine:init", function () {
             get step5Completed() {
                 return this.currentStep > 5;
             },
+            // Progress bar for mobile wizard
+            get progressBarStyle() {
+                var pct = (this.currentStep / this.totalSteps) * 100;
+                return "width:" + pct + "%";
+            },
+            get stepLabel() {
+                var names = [
+                    "Basic Info",
+                    "About You",
+                    "Photos",
+                    "Your Coach",
+                    "Review",
+                ];
+                var name = names[this.currentStep - 1] || "";
+                return (
+                    "Step " + this.currentStep + " of " + this.totalSteps + " — " + name
+                );
+            },
+
             get isStep1() {
                 return this.currentStep === 1;
             },
@@ -10264,7 +10385,23 @@ document.addEventListener("alpine:init", function () {
                 return this.isDark ? "Switch to light mode" : "Switch to dark mode";
             },
 
+            get themeLabel() {
+                var saved = localStorage.getItem("theme");
+                if (!saved) {
+                    return this.isSystemDark ? "System (Dark)" : "System (Light)";
+                }
+                return this.isDark ? "Dark" : "Light";
+            },
+
+            get themeButtonLabel() {
+                return this.isDark ? "Switch to Light" : "Switch to Dark";
+            },
+
             // Methods
+            cycleTheme: function () {
+                this.toggleTheme();
+            },
+
             toggleTheme: function () {
                 if (window.themeManager) {
                     window.themeManager.toggleTheme();

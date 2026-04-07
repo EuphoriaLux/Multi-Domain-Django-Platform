@@ -1,0 +1,531 @@
+{% load i18n %}
+
+<div class="max-w-3xl mx-auto">
+    <!-- Email Notifications Card -->
+    <div id="email-notifications" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600" %}{% trans "Email Notifications" %}
+            </h5>
+        </div>
+        <div class="p-6"
+             x-data="emailPreferences"
+             data-unsubscribed="{{ email_prefs.unsubscribed_all|yesno:'true,false' }}">
+
+            <!-- Auto-save status indicator -->
+            <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+                <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                    <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                    <span>{% trans "Saving..." %}</span>
+                </div>
+                <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                    <span>✓</span>
+                    <span>{% trans "Saved" %}</span>
+                </div>
+                <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                    <span>✗</span>
+                    <span>{% trans "Error saving. Please try again." %}</span>
+                </div>
+                <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+            </div>
+
+            {% if email_prefs.unsubscribed_all %}
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4">
+                {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+                {% trans "You have unsubscribed from all emails. Toggle the switch below to re-enable notifications." %}
+            </div>
+            {% endif %}
+
+            <div class="mb-6">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer"
+                           :checked="unsubscribeAll"
+                           @change="toggleUnsubscribe"
+                           {% if email_prefs.unsubscribed_all %}checked{% endif %}>
+                    <div class="peer-toggle peer-toggle-red"></div>
+                    <span class="ml-3 text-sm font-bold text-red-600">{% trans "Unsubscribe from ALL emails" %}</span>
+                </label>
+            </div>
+
+            <hr class="my-6 border-gray-200 dark:border-gray-700">
+
+            <div x-bind:class="unsubscribeAllClass">
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
+
+                <div class="space-y-4">
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer email-pref-toggle"
+                                   data-pref-key="email_profile_updates"
+                                   {% if email_prefs.email_profile_updates %}checked{% endif %}>
+                            <div class="peer-toggle peer-toggle-purple"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Emails about profile approval, revision requests" %}</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer email-pref-toggle"
+                                   data-pref-key="email_event_reminders"
+                                   {% if email_prefs.email_event_reminders %}checked{% endif %}>
+                            <div class="peer-toggle peer-toggle-purple"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Reminders about upcoming events you're registered for" %}</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer email-pref-toggle"
+                                   data-pref-key="email_new_connections"
+                                   {% if email_prefs.email_new_connections %}checked{% endif %}>
+                            <div class="peer-toggle peer-toggle-purple"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Notifications about new connection requests" %}</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer email-pref-toggle"
+                                   data-pref-key="email_new_messages"
+                                   {% if email_prefs.email_new_messages %}checked{% endif %}>
+                            <div class="peer-toggle peer-toggle-purple"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Notifications about new messages from connections" %}</p>
+                        </div>
+                    </label>
+
+                    <hr class="my-4 border-gray-200 dark:border-gray-700">
+
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer email-pref-toggle"
+                                   data-pref-key="email_marketing"
+                                   {% if email_prefs.email_marketing %}checked{% endif %}>
+                            <div class="peer-toggle peer-toggle-purple"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "Marketing & Promotions" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Newsletters, special offers, and promotions" %}</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Push Notifications Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
+         x-data="pushPreferences"
+         data-subscriptions='{{ push_subscriptions_json }}'
+         data-i18n-never-used="{% trans "Never used" %}"
+         data-i18n-just-now="{% trans "Just now" %}"
+         data-i18n-last-active="{% trans "Last active:" %}"
+         data-i18n-minutes-ago="{% trans "m ago" %}"
+         data-i18n-hours-ago="{% trans "h ago" %}"
+         data-i18n-days-ago="{% trans "d ago" %}"
+         data-i18n-months-ago="{% trans "mo ago" %}"
+         data-i18n-checking="{% trans "Checking..." %}"
+         data-i18n-check-subscription-health="{% trans "Check Subscription Health" %}">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
+                {% trans "Push Notifications" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <!-- State: Loading -->
+            <template x-if="showLoading">
+                <div class="flex items-center justify-center py-4">
+                    <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
+                    <span class="text-gray-500 dark:text-gray-400">{% trans "Checking notification support..." %}</span>
+                </div>
+            </template>
+
+            <!-- State: Push not supported -->
+            <template x-if="showNotSupported">
+                <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-start">
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        <div>
+                            <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {% trans "Your browser doesn't support push notifications. Try opening Crush.lu in Chrome, Firefox, Edge, or Safari on iOS 16.4+." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- State: Permission denied -->
+            <template x-if="showPermissionDenied">
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        <div>
+                            <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
+                            <p class="text-sm text-amber-700 mt-1">
+                                {% trans "You've blocked notifications for this site. To enable them, click the lock icon in your browser's address bar and allow notifications." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- State: Not subscribed -->
+            <template x-if="showEnableButton">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Get instant notifications about new messages, event reminders, and connections on this device." %}
+                    </p>
+
+                    <button type="button"
+                            class="enable-push-btn btn-crush-primary inline-flex items-center gap-2 px-4 py-2"
+                            x-bind:disabled="isEnabling">
+                        <span x-show="showEnablingIcon" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                        <span x-show="showNotEnablingIcon">{% include "shared/icons/bell.html" with class="w-4 h-4" %}</span>
+                        <span x-text="enableButtonText"></span>
+                    </button>
+
+                    <template x-if="errorMessage">
+                        <p class="mt-3 text-sm text-red-600" x-text="errorMessage"></p>
+                    </template>
+                </div>
+            </template>
+
+            <!-- State: Subscribed - show preferences -->
+            <template x-if="showPreferences">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Configure which notifications you receive on your devices. Changes are saved automatically." %}
+                    </p>
+
+                    <!-- Health Check Button -->
+                    <button type="button"
+                            @click="checkAllSubscriptionsHealth"
+                            x-bind:disabled="checkingHealth"
+                            class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm mb-4 inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="notCheckingHealth">🔍</span>
+                        <span x-show="checkingHealth" class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                        <span x-text="checkHealthButtonText"></span>
+                    </button>
+
+                    {% for subscription in push_subscriptions %}
+                    <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200 dark:border-gray-700{% endif %}"
+                         x-data="subscriptionHealthStatus({{ subscription.id }})"
+                         data-subscription-id="{{ subscription.id }}"
+                         data-endpoint="{{ subscription.endpoint }}"
+                         data-fingerprint="{{ subscription.device_fingerprint }}">
+                        <!-- Device Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center flex-wrap gap-2">
+                                {% if subscription.device_type == 'mobile' %}
+                                <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                </svg>
+                                {% else %}
+                                <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                                </svg>
+                                {% endif %}
+                                <span class="font-medium text-gray-900 dark:text-white">{{ subscription.device_name }}</span>
+                                <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    {% trans "This device" %}
+                                </span>
+                            </div>
+                            <button type="button"
+                                    class="disable-push-btn text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 transition-colors"
+                                    x-bind:disabled="isDisabling">
+                                <span x-text="disableButtonText"></span>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+
+                        <!-- Health Status Indicators -->
+                        <div x-show="hasStatus" class="mb-4 pl-7">
+                            <div x-show="healthyStatus" class="text-green-600 flex items-center gap-1 text-sm">
+                                <span>✓</span>
+                                <span>{% trans "Healthy" %}</span>
+                            </div>
+                            <div x-show="oldStatus" class="text-yellow-600 flex items-center gap-2 text-sm">
+                                <span>⚠</span>
+                                <span x-text="ageText"></span>
+                                <button @click="refreshSubscriptionById" class="text-purple-600 hover:underline text-xs font-medium">
+                                    {% trans "Refresh" %}
+                                </button>
+                            </div>
+                            <div x-show="failureStatus" class="text-red-600 flex items-center gap-2 text-sm">
+                                <span>✗</span>
+                                <span>{% trans "May be expired (send failures detected)" %}</span>
+                                <button @click="refreshSubscriptionById" class="text-purple-600 hover:underline text-xs font-medium">
+                                    {% trans "Fix Now" %}
+                                </button>
+                            </div>
+                            <div x-show="notFoundStatus" class="text-red-600 flex items-center gap-2 text-sm">
+                                <span>✗</span>
+                                <span>{% trans "Subscription not active" %}</span>
+                                <button @click="deleteSubscriptionById" class="text-purple-600 hover:underline text-xs font-medium">
+                                    {% trans "Remove" %}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 pl-7">
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="newMessages"
+                                           {% if subscription.notify_new_messages %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Get notified when you receive a new message" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="eventReminders"
+                                           {% if subscription.notify_event_reminders %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Reminders about upcoming events" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="newConnections"
+                                           {% if subscription.notify_new_connections %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Get notified when someone connects with you" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="profileUpdates"
+                                           {% if subscription.notify_profile_updates %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Notifications about your profile status" %}</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <p class="text-gray-500 dark:text-gray-400">{% trans "No devices registered for push notifications." %}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Coach Push Notifications Card -->
+    {% if is_coach %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
+         x-data="coachPushPreferences"
+         data-subscriptions='{{ coach_push_subscriptions_json }}'
+         data-i18n-never-used="{% trans "Never used" %}"
+         data-i18n-just-now="{% trans "Just now" %}"
+         data-i18n-last-active="{% trans "Last active:" %}"
+         data-i18n-minutes-ago="{% trans "m ago" %}"
+         data-i18n-hours-ago="{% trans "h ago" %}"
+         data-i18n-days-ago="{% trans "d ago" %}"
+         data-i18n-months-ago="{% trans "mo ago" %}">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/bell.html" with class="w-5 h-5 text-purple-600 mr-2" %}
+                {% trans "Coach Notifications" %}
+                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    {% trans "Coach" %}
+                </span>
+            </h5>
+        </div>
+        <div class="p-6">
+            <template x-if="showLoading">
+                <div class="flex items-center justify-center py-4">
+                    <span class="animate-spin inline-block w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full mr-2"></span>
+                    <span class="text-gray-500 dark:text-gray-400">{% trans "Checking notification support..." %}</span>
+                </div>
+            </template>
+
+            <template x-if="showNotSupported">
+                <div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-start">
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        <div>
+                            <p class="font-medium text-gray-700 dark:text-gray-200">{% trans "Push notifications not available" %}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                {% trans "Your browser doesn't support push notifications." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="showPermissionDenied">
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        <div>
+                            <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
+                            <p class="text-sm text-amber-700 mt-1">
+                                {% trans "Allow notifications in your browser settings to receive coach alerts." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="showEnableButton">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Get instant notifications about new profile submissions, screening reminders, and user responses." %}
+                    </p>
+
+                    <button type="button"
+                            class="enable-coach-push-btn btn-crush-primary inline-flex items-center gap-2 px-4 py-2"
+                            x-bind:disabled="isEnabling">
+                        <span x-show="showEnablingSpinner" class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                        <span x-show="showNotEnablingIcon">{% include "shared/icons/bell.html" with class="w-4 h-4" %}</span>
+                        <span x-text="enableButtonText"></span>
+                    </button>
+
+                    <template x-if="errorMessage">
+                        <p class="mt-3 text-sm text-red-600" x-text="errorMessage"></p>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="showPreferences">
+                <div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                        {% trans "Configure which coach notifications you receive on your devices. Changes are saved automatically." %}
+                    </p>
+
+                    {% for subscription in coach_push_subscriptions %}
+                    <div class="{% if not forloop.first %}mt-6 pt-6 border-t border-gray-200 dark:border-gray-700{% endif %}"
+                         data-subscription-id="{{ subscription.id }}"
+                         data-endpoint="{{ subscription.endpoint }}"
+                         data-fingerprint="{{ subscription.device_fingerprint }}">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center flex-wrap gap-2">
+                                {% if subscription.device_type == 'mobile' %}
+                                <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                </svg>
+                                {% else %}
+                                <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                                </svg>
+                                {% endif %}
+                                <span class="font-medium text-gray-900 dark:text-white">{{ subscription.device_name }}</span>
+                                <span class="this-device-badge hidden inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    {% trans "This device" %}
+                                </span>
+                            </div>
+                            <button type="button"
+                                    class="disable-coach-push-btn text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 transition-colors"
+                                    x-bind:disabled="isDisabling">
+                                <span x-text="disableButtonText"></span>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4 pl-7">{% trans "Last active:" %} {{ subscription.last_used_at|timesince }}</p>
+
+                        <div class="space-y-4 pl-7">
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer coach-push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="newSubmissions"
+                                           {% if subscription.notify_new_submissions %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "New Profile Submissions" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Get notified when new profiles need review" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer coach-push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="screeningReminders"
+                                           {% if subscription.notify_screening_reminders %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "Screening Reminders" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Reminders about pending screening calls" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer coach-push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="userResponses"
+                                           {% if subscription.notify_user_responses %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "User Revisions" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Get notified when users submit profile revisions" %}</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start cursor-pointer">
+                                <div class="relative mt-0.5">
+                                    <input type="checkbox" class="sr-only peer coach-push-pref-toggle"
+                                           data-subscription-id="{{ subscription.id }}" data-pref-key="systemAlerts"
+                                           {% if subscription.notify_system_alerts %}checked{% endif %}>
+                                    <div class="peer-toggle peer-toggle-purple"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <strong class="text-gray-900 dark:text-white">{% trans "System Alerts" %}</strong>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Important system notifications and alerts" %}</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <p class="text-gray-500 dark:text-gray-400">{% trans "No devices registered for coach notifications." %}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </template>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Back Button -->
+    <div class="action-buttons-container action-buttons-sticky">
+        <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="btn-cancel">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back" %}
+        </a>
+    </div>
+</div>

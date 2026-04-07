@@ -1,0 +1,323 @@
+{% load socialaccount i18n %}
+
+<div class="max-w-3xl mx-auto">
+    <!-- Account Info Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-600" %}{% trans "Account Information" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="text-gray-500 dark:text-gray-400">{% trans "Email" %}</div>
+                <div class="sm:col-span-2 text-gray-900 dark:text-white flex items-center gap-2">
+                    {{ user.email }}
+                    <a href="{% url 'account_email' %}" class="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium">{% trans "Manage" %}</a>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="text-gray-500 dark:text-gray-400">{% trans "Name" %}</div>
+                <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ profile.display_name }}</div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="text-gray-500 dark:text-gray-400">{% trans "Member since" %}</div>
+                <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.date_joined|date:"F j, Y" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Linked Accounts Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/link.html" with class="w-5 h-5 text-purple-600" %}{% trans "Linked Accounts" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            {% if show_apple_link_banner %}
+            <div class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg">
+                <p class="text-purple-800 dark:text-purple-200 text-sm font-medium">
+                    {% trans "Connect your Apple account below to use Apple Sign In next time." %}
+                </p>
+            </div>
+            {% endif %}
+            {% if is_apple_relay_user %}
+            <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <p class="text-amber-800 dark:text-amber-200 text-sm">
+                    {% trans "Your account uses Apple's private email relay. We recommend connecting another login method as backup." %}
+                </p>
+            </div>
+            {% endif %}
+            <p class="text-gray-500 dark:text-gray-400 mb-6">
+                {% trans "Connect additional social accounts for easier login. You can use any connected account to log in." %}
+            </p>
+
+            {% get_providers as socialaccount_providers %}
+
+            <!-- Currently Connected Accounts -->
+            {% if crush_social_accounts %}
+            <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connected" %}</h6>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700 mb-6">
+                {% for social in crush_social_accounts %}
+                <div class="py-4 flex justify-between items-center">
+                    <div class="flex items-center">
+                        {% if social.provider == 'facebook' %}
+                        <svg class="w-6 h-6 mr-3 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047v-2.66c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.956.93-1.956 1.886v2.264h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" fill="#1877F2"/></svg>
+                        <span class="font-semibold">Facebook</span>
+                        {% elif social.provider == 'google' %}
+                        <svg class="w-6 h-6 mr-3 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.4l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                        <span class="font-semibold">Google</span>
+                        {% elif social.provider == 'microsoft' %}
+                        <svg class="w-6 h-6 mr-3 shrink-0" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                        <span class="font-semibold">Microsoft</span>
+                        {% elif social.provider == 'apple' %}
+                        <svg class="w-6 h-6 mr-3 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                        <span class="font-semibold">Apple</span>
+                        {% else %}
+                        {% include "shared/icons/link.html" with class="w-7 h-7" %}
+                        <span class="font-semibold">{{ social.provider|title }}</span>
+                        {% endif %}
+                        {% if social.display_email %}
+                        <small class="text-gray-500 dark:text-gray-400 ml-2">{{ social.display_email }}</small>
+                        {% endif %}
+                    </div>
+                    {% if crush_social_accounts.count > 1 or user.has_usable_password %}
+                    <form method="post" action="{% url 'crush_lu:disconnect_social_account' social.id %}"
+                          onsubmit="return confirm('{% blocktrans with provider=social.provider|title %}Are you sure you want to disconnect this {{ provider }} account?{% endblocktrans %}');">
+                        {% csrf_token %}
+                        <button type="submit" class="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-1">
+                            {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}{% trans "Disconnect" %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600" title="{% trans "You need at least one login method" %}">
+                        {% include "shared/icons/lock-closed.html" with class="w-5 h-5" %}{% trans "Required" %}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Available Providers to Connect -->
+            {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected or apple_available and not apple_connected %}
+            <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connect More Accounts" %}</h6>
+            <div class="flex flex-wrap gap-2">
+                {% if google_available and not google_connected %}
+                <a href="{% provider_login_url 'google' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.4l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    Google
+                </a>
+                {% endif %}
+                {% if facebook_available and not facebook_connected %}
+                <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047v-2.66c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.956.93-1.956 1.886v2.264h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" fill="#1877F2"/></svg>
+                    Facebook
+                </a>
+                {% endif %}
+                {% if microsoft_available and not microsoft_connected %}
+                <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                    Microsoft
+                </a>
+                {% endif %}
+                {% if apple_available and not apple_connected %}
+                <a href="{% provider_login_url 'apple' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                    Apple
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if not crush_social_accounts %}
+            <p class="text-gray-500 dark:text-gray-400 mb-4">
+                {% trans "You don't have any social accounts connected yet." %}
+            </p>
+            {% if google_available or facebook_available or microsoft_available or apple_available %}
+            <div class="flex flex-wrap gap-2">
+                {% if google_available %}
+                <a href="{% provider_login_url 'google' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.4l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    Google
+                </a>
+                {% endif %}
+                {% if facebook_available %}
+                <a href="{% provider_login_url 'facebook' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047v-2.66c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.956.93-1.956 1.886v2.264h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" fill="#1877F2"/></svg>
+                    Facebook
+                </a>
+                {% endif %}
+                {% if microsoft_available %}
+                <a href="{% provider_login_url 'microsoft' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                    Microsoft
+                </a>
+                {% endif %}
+                {% if apple_available %}
+                <a href="{% provider_login_url 'apple' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                    Apple
+                </a>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Social login providers are not configured for this site." %}</p>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Social Account Photos Card -->
+    {% if social_photos %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/camera.html" with class="w-5 h-5 text-purple-600" %}{% trans "Social Account Photos" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-500 dark:text-gray-400 mb-4">
+                {% trans "Photos from your connected social accounts. To use these photos on your dating profile," %}
+                {% if user.crushprofile and user.crushprofile.is_approved %}
+                <a href="{% url 'crush_lu:edit_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "go to Edit Profile" %}</a>.
+                {% else %}
+                <a href="{% url 'crush_lu:create_profile' %}" class="text-purple-600 hover:text-purple-800">{% trans "complete your profile setup" %}</a>.
+                {% endif %}
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for photo in social_photos %}
+                <div class="social-photo-card">
+                    <div class="provider-badge">
+                        {% if photo.provider == 'facebook' %}
+                        <svg class="w-4 h-4 inline-block" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047v-2.66c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.956.93-1.956 1.886v2.264h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" fill="#1877F2"/></svg>
+                        {% elif photo.provider == 'google' %}
+                        <svg class="w-4 h-4 inline-block" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.4l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                        {% elif photo.provider == 'microsoft' %}
+                        <svg class="w-4 h-4 inline-block" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                        {% endif %}
+                        {{ photo.provider_display }}
+                    </div>
+
+                    {% if photo.available %}
+                    <div class="social-photo-preview">
+                        <img src="{{ photo.photo_url }}" alt="{% blocktrans with provider=photo.provider_display %}{{ provider }} photo{% endblocktrans %}" loading="lazy">
+                    </div>
+                    {% if photo.is_cached %}
+                    <small class="text-amber-600 mt-2 block">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Saved copy" %} &mdash; {% trans "log in again to refresh" %}
+                    </small>
+                    {% else %}
+                    <small class="text-green-600 mt-2 block">
+                        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %} {% trans "Available" %}
+                    </small>
+                    {% endif %}
+                    {% else %}
+                    <div class="no-photo-placeholder">
+                        {% include "shared/icons/photo.html" with class="w-5 h-5" %}
+                        <span>{{ photo.reason }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if user.crushprofile and user.crushprofile.is_approved %}
+            <div class="text-center mt-6">
+                <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "shared/icons/cloud-arrow-down.html" with class="w-5 h-5" %}{% trans "Import Photos to Profile" %}
+                </a>
+            </div>
+            {% elif user.crushprofile %}
+            <div class="text-center mt-6">
+                <a href="{% url 'crush_lu:create_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                    {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile to Import" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Password Management Card -->
+    {% if crush_social_accounts and not user.has_usable_password %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password Login" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-500 dark:text-gray-400 mb-4">
+                {% blocktrans with email=user.email %}You can set a password to enable login with your email ({{ email }}) in addition to your social accounts.{% endblocktrans %}
+            </p>
+            <a href="{% url 'crush_lu:set_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                {% include "shared/icons/key.html" with class="w-5 h-5" %}{% trans "Set Password" %}
+            </a>
+        </div>
+    </div>
+    {% elif user.has_usable_password %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/key.html" with class="w-5 h-5 text-purple-600" %}{% trans "Password" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-500 dark:text-gray-400 mb-4">
+                {% trans "You have a password set for email login." %}
+                {% if crush_social_accounts %}
+                {% trans "You can also login with your connected social accounts." %}
+                {% endif %}
+            </p>
+            <a href="{% url 'account_change_password' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Change Password" %}
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Profile Link Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-600" %}{% trans "Dating Profile" %}
+            </h5>
+        </div>
+        <div class="p-6">
+            {% if user.crushprofile %}
+            <p class="mb-4">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800{% endif %}">
+                    {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
+                </span>
+            </p>
+            {% if user.crushprofile.is_approved %}
+            <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
+                {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
+            </a>
+            {% elif user.crushprofile.completion_status == 'submitted' %}
+            <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
+            {% else %}
+            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                {% include "shared/icons/arrow-right.html" with class="w-5 h-5" %}{% trans "Complete Profile" %}
+            </a>
+            {% endif %}
+            {% else %}
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't created a dating profile yet." %}</p>
+            <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                {% include "shared/icons/plus-circle.html" with class="w-5 h-5" %}{% trans "Create Profile" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="action-buttons-container action-buttons-sticky">
+        <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="btn-cancel">
+            {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+            {% trans "Back" %}
+        </a>
+    </div>
+</div>
