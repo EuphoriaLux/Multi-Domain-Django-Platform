@@ -539,6 +539,14 @@ class EventRegistration(models.Model):
         help_text=_("Google Wallet EventTicketObject ID"),
     )
 
+    # Apple Wallet Event Ticket
+    apple_wallet_ticket_serial = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_("Apple Wallet event ticket serial number"),
+    )
+
     # Timestamps
     registered_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
