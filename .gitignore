@@ -158,6 +158,10 @@ yarn-error.log*
 .azure
 .aider*
 .claude/
+.codex/
+
+# Apple Wallet test passes (generated locally)
+*.pkpass
 msexports/
 
 # Backup folders (not needed for deployment)
