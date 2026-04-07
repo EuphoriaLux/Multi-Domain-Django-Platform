@@ -601,6 +601,11 @@ MODELTRANSLATION_FALLBACK_LANGUAGES = (
     "en",
 )  # Fallback to English if translation missing
 
+# Azure AI Translator (auto-translate admin content across EN/DE/FR)
+# Free tier: 2M characters/month. Create resource in Azure Portal.
+AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY", "")
+AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION", "westeurope")
+
 USE_TZ = True
 
 STATIC_URL = "/static/"

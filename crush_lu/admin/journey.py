@@ -21,6 +21,8 @@ from django.contrib import messages as django_messages
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin, TranslationTabularInline, TranslationStackedInline
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
     JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress,
@@ -69,7 +71,7 @@ class ChallengeAttemptInline(admin.TabularInline):
     ordering = ['-attempted_at']
 
 
-class JourneyConfigurationAdmin(TranslationAdmin):
+class JourneyConfigurationAdmin(AutoTranslateMixin, TranslationAdmin):
     """
     🗺️ JOURNEY CONFIGURATION - Create the Journey Structure
 
@@ -143,7 +145,7 @@ class JourneyConfigurationAdmin(TranslationAdmin):
         )
 
 
-class JourneyChapterAdmin(TranslationAdmin):
+class JourneyChapterAdmin(AutoTranslateMixin, TranslationAdmin):
     """
     📖 JOURNEY CHAPTERS - Structure the Journey
 
@@ -195,7 +197,7 @@ class JourneyChapterAdmin(TranslationAdmin):
     get_reward_count.short_description = _('🎁 Rewards')
 
 
-class JourneyChallengeAdmin(TranslationAdmin):
+class JourneyChallengeAdmin(AutoTranslateMixin, TranslationAdmin):
     """
     🎯 JOURNEY CHALLENGES - Add Interactive Activities
 
@@ -250,7 +252,7 @@ class JourneyChallengeAdmin(TranslationAdmin):
     has_hints.short_description = _('Has Hints?')
 
 
-class JourneyRewardAdmin(TranslationAdmin):
+class JourneyRewardAdmin(AutoTranslateMixin, TranslationAdmin):
     """
     🎁 JOURNEY REWARDS - Special Surprises & Media
 

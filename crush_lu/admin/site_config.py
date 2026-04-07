@@ -3,6 +3,8 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models.profiles import ProfileSubmission
 
 
@@ -20,7 +22,7 @@ class CrushSiteConfigForm(forms.ModelForm):
     )
 
 
-class CrushSiteConfigAdmin(TranslationAdmin):
+class CrushSiteConfigAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for singleton site configuration. No add/delete - always edit pk=1."""
 
     form = CrushSiteConfigForm

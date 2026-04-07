@@ -16,6 +16,8 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models import (
     MeetupEvent,
     EventRegistration,
@@ -109,7 +111,7 @@ class SpeedDatingPairInline(admin.TabularInline):
     show_change_link = True
 
 
-class MeetupEventAdmin(TranslationAdmin):
+class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = (
         "title",
         "event_type",

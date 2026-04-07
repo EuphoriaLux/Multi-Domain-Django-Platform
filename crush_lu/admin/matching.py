@@ -3,8 +3,10 @@
 from django.contrib import admin
 from modeltranslation.admin import TranslationAdmin
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
 
-class TraitAdmin(TranslationAdmin):
+
+class TraitAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for managing personality traits (qualities and defects)."""
 
     list_display = ("slug", "label", "trait_type", "category", "opposite", "sort_order")

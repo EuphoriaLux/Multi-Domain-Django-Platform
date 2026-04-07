@@ -20,6 +20,8 @@ from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
 from modeltranslation.admin import TranslationAdmin
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models import (
     CrushCoach, CrushProfile, ProfileSubmission, CoachSession,
     EventRegistration, EventConnection,
@@ -42,7 +44,7 @@ from .filters import (
 )
 
 
-class CrushCoachAdmin(TranslationAdmin):
+class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ('get_user_link', 'get_email', 'get_photo_preview', 'specializations', 'get_spoken_languages', 'is_active', 'max_active_reviews', 'created_at', 'has_dating_profile')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
