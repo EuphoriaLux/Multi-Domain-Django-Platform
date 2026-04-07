@@ -1633,28 +1633,3 @@ def membership(request):
     }
 
     return render(request, "crush_lu/membership.html", context)
-
-
-# Wallet
-@crush_login_required
-def wallet_apple_pass(request):
-    """Redirect to the Apple Wallet pass URL if configured."""
-    pass_url = getattr(settings, "APPLE_WALLET_PASS_URL", None)
-    if pass_url:
-        return redirect(pass_url)
-    messages.error(
-        request, _("Membership card is not available yet. Please try again later.")
-    )
-    return redirect("crush_lu:dashboard")
-
-
-@crush_login_required
-def wallet_google_save(request):
-    """Redirect to the Google Wallet Save URL (JWT) if configured."""
-    save_url = getattr(settings, "GOOGLE_WALLET_SAVE_URL", None)
-    if save_url:
-        return redirect(save_url)
-    messages.error(
-        request, _("Membership card is not available yet. Please try again later.")
-    )
-    return redirect("crush_lu:dashboard")

@@ -290,7 +290,7 @@
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
                 {# Apple Wallet #}
                 {% if apple_wallet_enabled %}
-                <a href="{% url 'crush_lu:wallet_apple_pass' %}" class="inline-block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                <a href="{% url 'wallet_apple_pass' %}" class="inline-block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                     <img src="{% static 'crush_lu/img/wallet/apple_wallet_badge.svg' %}" alt="{% trans 'Add to Apple Wallet' %}" class="h-12 w-auto">
                 </a>
                 {% else %}
