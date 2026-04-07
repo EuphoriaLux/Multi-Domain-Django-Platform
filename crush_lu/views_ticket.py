@@ -78,6 +78,16 @@ def event_ticket(request, event_id):
     # Check if Google Wallet event tickets are enabled
     wallet_enabled = getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True)
 
+    # Check if Apple Wallet is configured
+    from .views_wallet import _is_apple_wallet_configured
+
+    apple_wallet_enabled = _is_apple_wallet_configured()
+    apple_wallet_url = (
+        f"/wallet/apple/event-ticket/{registration.id}/pass/"
+        if apple_wallet_enabled
+        else ""
+    )
+
     context = {
         "event": event,
         "registration": registration,
@@ -85,6 +95,8 @@ def event_ticket(request, event_id):
         "display_name": display_name,
         "already_checked_in": already_checked_in,
         "wallet_enabled": wallet_enabled,
+        "apple_wallet_enabled": apple_wallet_enabled,
+        "apple_wallet_url": apple_wallet_url,
     }
 
     return render(request, "crush_lu/event_ticket.html", context)
