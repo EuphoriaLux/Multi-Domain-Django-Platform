@@ -3,17 +3,19 @@ import hashlib
 import json
 import os
 import secrets
-import subprocess
-import tempfile
 from datetime import datetime, timezone
+from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.serialization import pkcs7
+from cryptography.x509 import load_pem_x509_certificate
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from ..wallet_pass import build_wallet_pass_data
 
-# Placeholder 1x1 transparent PNG for icon (required)
+# Placeholder 1x1 transparent PNG for icon (required by Apple)
 ICON_PNG_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwAB"
     "BAEAu1fE3wAAAABJRU5ErkJggg=="
@@ -27,12 +29,65 @@ def _require_setting(name):
     return value
 
 
-def _get_pass_paths():
+def _load_cert_bytes():
+    """
+    Load certificate, key, and WWDR cert as bytes.
+
+    Checks _BASE64 env vars first (for Azure production),
+    falls back to _PATH file reads (for local development).
+
+    Returns:
+        tuple: (cert_pem_bytes, key_pem_bytes, wwdr_pem_bytes)
+    """
+    cert_b64 = getattr(settings, "WALLET_APPLE_CERT_BASE64", "")
+    key_b64 = getattr(settings, "WALLET_APPLE_KEY_BASE64", "")
+    wwdr_b64 = getattr(settings, "WALLET_APPLE_WWDR_CERT_BASE64", "")
+
+    if cert_b64 and key_b64 and wwdr_b64:
+        return (
+            base64.b64decode(cert_b64),
+            base64.b64decode(key_b64),
+            base64.b64decode(wwdr_b64),
+        )
+
     cert_path = _require_setting("WALLET_APPLE_CERT_PATH")
     key_path = _require_setting("WALLET_APPLE_KEY_PATH")
     wwdr_path = _require_setting("WALLET_APPLE_WWDR_CERT_PATH")
-    key_password = getattr(settings, "WALLET_APPLE_KEY_PASSWORD", "")
-    return cert_path, key_path, wwdr_path, key_password
+
+    with open(cert_path, "rb") as f:
+        cert_bytes = f.read()
+    with open(key_path, "rb") as f:
+        key_bytes = f.read()
+    with open(wwdr_path, "rb") as f:
+        wwdr_bytes = f.read()
+
+    return cert_bytes, key_bytes, wwdr_bytes
+
+
+def _sign_manifest(manifest_bytes):
+    """
+    Sign manifest.json bytes using PKCS#7 detached signature.
+
+    Uses the cryptography library instead of subprocess OpenSSL.
+    Returns DER-encoded PKCS#7 signature bytes.
+    """
+    cert_pem, key_pem, wwdr_pem = _load_cert_bytes()
+
+    key_password = getattr(settings, "WALLET_APPLE_KEY_PASSWORD", "") or None
+    if key_password:
+        key_password = key_password.encode("utf-8")
+
+    cert = load_pem_x509_certificate(cert_pem)
+    private_key = serialization.load_pem_private_key(key_pem, password=key_password)
+    wwdr_cert = load_pem_x509_certificate(wwdr_pem)
+
+    return (
+        pkcs7.PKCS7SignatureBuilder()
+        .set_data(manifest_bytes)
+        .add_signer(cert, private_key, hashes.SHA256())
+        .add_certificate(wwdr_cert)
+        .sign(serialization.Encoding.DER, [pkcs7.PKCS7Options.DetachedSignature])
+    )
 
 
 def _ensure_pass_identifiers(profile):
@@ -63,10 +118,8 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
     web_service_url = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
 
-    # Get dynamic pass data
     pass_data = build_wallet_pass_data(profile, request=request)
 
-    # Build primary fields (always shown)
     primary_fields = [
         {
             "key": "member",
@@ -75,7 +128,6 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
         }
     ]
 
-    # Build header fields (top right)
     header_fields = [
         {
             "key": "tier",
@@ -84,32 +136,37 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
         }
     ]
 
-    # Build secondary fields (below primary)
     secondary_fields = []
     if pass_data["next_event"]:
-        secondary_fields.append({
-            "key": "next_event",
-            "label": "Next Event",
-            "value": pass_data["next_event"]["title"],
-        })
-        secondary_fields.append({
-            "key": "event_date",
-            "label": "Date",
-            "value": pass_data["next_event"]["date"],
-        })
+        secondary_fields.append(
+            {
+                "key": "next_event",
+                "label": "Next Event",
+                "value": pass_data["next_event"]["title"],
+            }
+        )
+        secondary_fields.append(
+            {
+                "key": "event_date",
+                "label": "Date",
+                "value": pass_data["next_event"]["date"],
+            }
+        )
     else:
-        secondary_fields.append({
-            "key": "next_event",
-            "label": "Next Event",
-            "value": "No upcoming events",
-        })
+        secondary_fields.append(
+            {
+                "key": "next_event",
+                "label": "Next Event",
+                "value": "No upcoming events",
+            }
+        )
 
-    # Build auxiliary fields (bottom row)
     auxiliary_fields = [
         {
             "key": "member_since",
             "label": "Member since",
-            "value": pass_data["member_since"] or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "value": pass_data["member_since"]
+            or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         },
         {
             "key": "points",
@@ -118,7 +175,6 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
         },
     ]
 
-    # Build back fields (shown when pass is flipped)
     back_fields = [
         {
             "key": "referral_info",
@@ -133,11 +189,13 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     ]
 
     if pass_data["next_event"] and pass_data["next_event"].get("location"):
-        back_fields.append({
-            "key": "event_location",
-            "label": "Event Location",
-            "value": pass_data["next_event"]["location"],
-        })
+        back_fields.append(
+            {
+                "key": "event_location",
+                "label": "Event Location",
+                "value": pass_data["next_event"]["location"],
+            }
+        )
 
     payload = {
         "formatVersion": 1,
@@ -155,18 +213,15 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
             "auxiliaryFields": auxiliary_fields,
             "backFields": back_fields,
         },
-        # Crush.lu brand colors (purple/pink gradient approximation)
-        "backgroundColor": "rgb(155, 89, 182)",  # crush-purple
+        "backgroundColor": "rgb(155, 89, 182)",
         "foregroundColor": "rgb(255, 255, 255)",
-        "labelColor": "rgb(255, 220, 230)",  # Light pink
-        # QR code with referral URL
+        "labelColor": "rgb(255, 220, 230)",
         "barcode": {
             "format": "PKBarcodeFormatQR",
             "message": pass_data["referral_url"],
             "messageEncoding": "iso-8859-1",
             "altText": "Scan to join Crush.lu",
         },
-        # Fallback barcodes for older devices
         "barcodes": [
             {
                 "format": "PKBarcodeFormatQR",
@@ -183,37 +238,56 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     return payload
 
 
-def _sign_manifest(manifest_path, signature_path):
-    cert_path, key_path, wwdr_path, key_password = _get_pass_paths()
+def _build_pkpass(pass_payload, files=None):
+    """
+    Build a .pkpass ZIP file from a pass payload and optional extra files.
 
-    command = [
-        "openssl",
-        "smime",
-        "-binary",
-        "-sign",
-        "-certfile",
-        wwdr_path,
-        "-signer",
-        cert_path,
-        "-inkey",
-        key_path,
-        "-outform",
-        "DER",
-        "-in",
-        manifest_path,
-        "-out",
-        signature_path,
-    ]
+    Args:
+        pass_payload: dict -- the pass.json content
+        files: dict of {filename: bytes} -- extra files to include (icon.png, etc.)
 
-    if key_password:
-        command.extend(["-passin", f"pass:{key_password}"])
+    Returns:
+        bytes: The .pkpass file contents
+    """
+    if files is None:
+        files = {}
 
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if result.returncode != 0:
-        raise RuntimeError(
-            "Failed to sign Apple Wallet pass manifest: "
-            f"{result.stderr.strip() or result.stdout.strip()}"
-        )
+    # Add default icon if not provided
+    if "icon.png" not in files:
+        files["icon.png"] = base64.b64decode(ICON_PNG_BASE64)
+
+    # Serialize pass.json
+    pass_json_bytes = json.dumps(
+        pass_payload, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+
+    # Build manifest (SHA1 hashes of all files)
+    manifest = {}
+    manifest["pass.json"] = hashlib.sha1(
+        pass_json_bytes, usedforsecurity=False
+    ).hexdigest()
+    for filename, content in files.items():
+        manifest[filename] = hashlib.sha1(
+            content, usedforsecurity=False
+        ).hexdigest()
+
+    manifest_bytes = json.dumps(
+        manifest, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+
+    # Sign manifest
+    signature_bytes = _sign_manifest(manifest_bytes)
+
+    # Build ZIP
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", ZIP_DEFLATED) as zf:
+        zf.writestr("pass.json", pass_json_bytes)
+        zf.writestr("manifest.json", manifest_bytes)
+        zf.writestr("signature", signature_bytes)
+        for filename, content in files.items():
+            zf.writestr(filename, content)
+
+    return buffer.getvalue()
 
 
 def build_apple_pass(profile, request=None):
@@ -228,41 +302,27 @@ def build_apple_pass(profile, request=None):
         bytes: The .pkpass file contents
     """
     serial_number, auth_token = _ensure_pass_identifiers(profile)
-    pass_payload = _build_pass_payload(profile, serial_number, auth_token, request=request)
+    pass_payload = _build_pass_payload(
+        profile, serial_number, auth_token, request=request
+    )
+    return _build_pkpass(pass_payload)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        pass_json_path = os.path.join(temp_dir, "pass.json")
-        manifest_path = os.path.join(temp_dir, "manifest.json")
-        signature_path = os.path.join(temp_dir, "signature")
-        icon_path = os.path.join(temp_dir, "icon.png")
 
-        with open(pass_json_path, "w", encoding="utf-8") as handle:
-            json.dump(pass_payload, handle, ensure_ascii=False, separators=(",", ":"))
+def provide_pass_for_serial(
+    pass_type_identifier,
+    serial_number,
+    web_service_url=None,
+    authentication_token=None,
+):
+    """
+    PassKit web service provider -- rebuilds a member pass for a given serial.
 
-        with open(icon_path, "wb") as handle:
-            handle.write(base64.b64decode(ICON_PNG_BASE64))
+    Called by passkit_service.get_latest_pass() when Apple Wallet requests
+    an updated pass after an APNS push notification.
+    """
+    from ..models import CrushProfile
 
-        manifest = {}
-        for filename in ("pass.json", "icon.png"):
-            file_path = os.path.join(temp_dir, filename)
-            with open(file_path, "rb") as handle:
-                # SHA1 is required by Apple Wallet specification for manifest.json
-                manifest[filename] = hashlib.sha1(handle.read(), usedforsecurity=False).hexdigest()
-
-        with open(manifest_path, "w", encoding="utf-8") as handle:
-            json.dump(manifest, handle, ensure_ascii=False, separators=(",", ":"))
-
-        _sign_manifest(manifest_path, signature_path)
-
-        pass_buffer = tempfile.NamedTemporaryFile(suffix=".pkpass", delete=False)
-        try:
-            with ZipFile(pass_buffer.name, "w", ZIP_DEFLATED) as pass_zip:
-                pass_zip.write(pass_json_path, "pass.json")
-                pass_zip.write(manifest_path, "manifest.json")
-                pass_zip.write(signature_path, "signature")
-                pass_zip.write(icon_path, "icon.png")
-            with open(pass_buffer.name, "rb") as handle:
-                return handle.read()
-        finally:
-            pass_buffer.close()
-            os.unlink(pass_buffer.name)
+    profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
+    if not profile:
+        return None
+    return build_apple_pass(profile)
