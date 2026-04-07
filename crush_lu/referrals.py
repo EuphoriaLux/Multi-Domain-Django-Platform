@@ -134,7 +134,12 @@ def update_membership_tier(profile):
             new_tier = tier
             break
 
-    if profile.membership_tier != new_tier:
+    # Only upgrade tiers, never downgrade (protect against point redemption)
+    tier_rank = {"basic": 0, "bronze": 1, "silver": 2, "gold": 3}
+    current_rank = tier_rank.get(profile.membership_tier, 0)
+    new_rank = tier_rank.get(new_tier, 0)
+
+    if new_rank > current_rank:
         old_tier = profile.membership_tier
         profile.membership_tier = new_tier
         profile.save(update_fields=["membership_tier"])

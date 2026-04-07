@@ -27,9 +27,10 @@
     <div class="grid gap-4">
         {% for profile in members %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
-            <div class="flex items-center gap-4">
+            <!-- Top row: Photo + Name/Age -->
+            <div class="flex items-center gap-3">
                 <!-- Photo (coaches see unblurred) -->
-                <div class="flex-shrink-0 w-14 h-14 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                <div class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
                     {% if profile|has_photo:'photo_1' %}
                         <img src="{% profile_photo_url profile 'photo_1' %}"
                              alt="" class="w-full h-full object-cover" loading="lazy">
@@ -52,7 +53,7 @@
                             <span class="text-purple-500">&#9898;</span>
                         {% endif %}
                     </div>
-                    <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                         {% if profile.age %}
                             <span>{{ profile.age }} {% trans "years" %}</span>
                         {% endif %}
@@ -70,19 +71,19 @@
                         {% endif %}
                     </div>
                 </div>
+            </div>
 
-                <!-- Actions -->
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <a href="{% url 'crush_lu:coach_member_matches' profile.user.id %}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-crush-purple border border-crush-purple/30 rounded-lg hover:bg-crush-purple/10 dark:text-purple-400 dark:border-purple-400/30 dark:hover:bg-purple-400/10 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                        {% trans "Matches" %}
-                    </a>
-                    <a href="{% url 'crush_lu:coach_member_overview' profile.user.id %}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        {% trans "Profile" %}
-                    </a>
-                </div>
+            <!-- Actions: full-width on mobile, inline on desktop -->
+            <div class="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto sm:shrink-0">
+                <a href="{% url 'crush_lu:coach_member_matches' profile.user.id %}"
+                   class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-crush-purple border border-crush-purple/30 rounded-lg hover:bg-crush-purple/10 dark:text-purple-400 dark:border-purple-400/30 dark:hover:bg-purple-400/10 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    {% trans "Matches" %}
+                </a>
+                <a href="{% url 'crush_lu:coach_member_overview' profile.user.id %}"
+                   class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {% trans "Profile" %}
+                </a>
             </div>
         </div>
         {% endfor %}
