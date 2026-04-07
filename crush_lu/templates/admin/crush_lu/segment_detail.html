@@ -296,7 +296,6 @@
                     <th class="th-center">Age</th>
                     <th>Location</th>
                     <th class="th-center">Phone</th>
-                    <th>Looking For</th>
                     <th class="th-center">Lang</th>
                     <th class="th-center">Events</th>
                     <th class="th-center">Connections</th>
@@ -328,7 +327,6 @@
                     <td class="td-center">
                         {% if item.phone_verified %}<span class="icon-yes" title="Verified">✓</span>{% else %}<span class="icon-no" title="Not verified">✗</span>{% endif %}
                     </td>
-                    <td class="compact-col">{{ item.get_looking_for_display|default:"-" }}</td>
                     <td class="td-center compact-col">
                         {% if item.preferred_language == 'en' %}🇬🇧{% elif item.preferred_language == 'de' %}🇩🇪{% elif item.preferred_language == 'fr' %}🇫🇷{% else %}{{ item.preferred_language|default:"-" }}{% endif %}
                     </td>

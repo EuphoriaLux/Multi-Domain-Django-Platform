@@ -200,7 +200,6 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'completion_status',
         CoachAssignmentFilter,
         'preferred_language',
-        'looking_for',
         'created_at'
     )
     search_fields = ('user__username', 'user__email', 'location', 'bio', 'phone_number')
@@ -240,7 +239,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'description': _('Phone verification via Firebase/Google Identity Platform SMS OTP'),
         }),
         ('Profile Content', {
-            'fields': ('bio', 'interests', 'looking_for'),
+            'fields': ('bio', 'interests'),
         }),
         ('Ideal Crush Preferences', {
             'fields': ('preferred_age_min', 'preferred_age_max', 'preferred_genders'),
@@ -250,7 +249,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'fields': ('photo_1', 'photo_2', 'photo_3'),
         }),
         ('Privacy Settings', {
-            'fields': ('show_full_name', 'show_exact_age', 'blur_photos'),
+            'fields': ('show_full_name', 'show_exact_age'),
         }),
         ('Coach Assignment', {
             'fields': ('get_assigned_coach',),
@@ -335,7 +334,6 @@ class CrushProfileAdmin(admin.ModelAdmin):
         high_privacy = CrushProfile.objects.filter(
             show_full_name=False,
             show_exact_age=False,
-            blur_photos=True
         ).count()
 
         name_privacy = CrushProfile.objects.filter(
@@ -1300,9 +1298,6 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
 
         if profile.interests:
             html += f'<p style="margin: 10px 0 5px 0;"><strong>Interests:</strong> {profile.interests}</p>'
-
-        if profile.looking_for:
-            html += f'<p style="margin: 5px 0;"><strong>Looking for:</strong> {profile.looking_for}</p>'
 
         html += '</div>'
 

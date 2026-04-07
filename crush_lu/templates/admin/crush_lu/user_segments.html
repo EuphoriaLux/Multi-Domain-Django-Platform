@@ -591,18 +591,6 @@
                 {% endfor %}
             </div>
             <div class="distribution-column">
-                <h3>{% trans "Looking For" %}</h3>
-                {% for lf in demographics.looking_for %}
-                <div class="dist-bar-row">
-                    <span class="dist-bar-label">{{ lf.label }}</span>
-                    <div class="dist-bar-track">
-                        <div class="dist-bar-fill {% if lf.looking_for == 'friends' %}bar-green{% elif lf.looking_for == 'dating' %}bar-red{% elif lf.looking_for == 'both' %}bar-purple{% else %}bar-blue{% endif %}" style="width: {{ lf.pct|unlocalize }}%"></div>
-                    </div>
-                    <span class="dist-bar-value">{{ lf.pct }}% ({{ lf.count }})</span>
-                </div>
-                {% endfor %}
-            </div>
-            <div class="distribution-column">
                 <h3>{% trans "Language Preference" %}</h3>
                 {% for l in demographics.languages %}
                 <div class="dist-bar-row">

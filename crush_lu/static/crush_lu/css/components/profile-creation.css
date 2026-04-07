@@ -214,52 +214,6 @@
 }
 
 /* ===================
-   Looking For Cards
-   =================== */
-.looking-for-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: var(--space-4);
-}
-
-.looking-card {
-    border: 2px solid #e9ecef;
-    border-radius: var(--radius-md);
-    padding: var(--space-6) var(--space-4);
-    text-align: center;
-    cursor: pointer;
-    transition: var(--transition-base);
-    background: white;
-}
-
-.looking-card:hover {
-    border-color: var(--crush-pink);
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(255, 107, 157, 0.2);
-}
-
-.looking-radio:checked + .looking-card {
-    border-color: var(--crush-pink);
-    background: linear-gradient(
-        135deg,
-        rgba(255, 107, 157, 0.1),
-        rgba(155, 89, 182, 0.1)
-    );
-    box-shadow: var(--shadow-pink);
-}
-
-.looking-icon {
-    font-size: 2.5rem;
-    margin-bottom: var(--space-2);
-}
-
-.looking-label {
-    font-weight: var(--font-semibold);
-    color: var(--crush-dark);
-    font-size: var(--text-sm);
-}
-
-/* ===================
    Interest Category Cards
    =================== */
 .interest-categories {

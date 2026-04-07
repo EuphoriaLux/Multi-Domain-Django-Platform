@@ -145,7 +145,7 @@ def get_draft(request):
             logger.debug(f"[DRAFT GET] Profile event_languages: {profile.event_languages}")
             logger.debug(f"[DRAFT GET] Profile show_full_name: {profile.show_full_name}")
             logger.debug(f"[DRAFT GET] Profile show_exact_age: {profile.show_exact_age}")
-            logger.debug(f"[DRAFT GET] Profile blur_photos: {profile.blur_photos}")
+
         except CrushProfile.DoesNotExist:
             # No profile yet - return empty data
             logger.warning(f"[DRAFT GET] No profile found for user {request.user.id}")
@@ -164,7 +164,7 @@ def get_draft(request):
         profile_fields = [
             'phone_number', 'date_of_birth', 'gender', 'location',
             'bio', 'interests', 'event_languages',
-            'show_full_name', 'show_exact_age', 'blur_photos'
+            'show_full_name', 'show_exact_age'
         ]
 
         logger.debug(f"[DRAFT GET] Building merged data from profile fields...")

@@ -196,13 +196,6 @@ class CrushProfileForm(forms.ModelForm):
         help_text=_('Your region in or near Luxembourg')
     )
 
-    # looking_for is optional (no longer collected during profile creation)
-    looking_for = forms.ChoiceField(
-        required=False,
-        choices=CrushProfile.LOOKING_FOR_CHOICES,
-        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
-    )
-
     # Trait selection fields (submitted as comma-separated IDs from Alpine.js)
     qualities_ids = forms.CharField(
         required=False,
@@ -234,13 +227,11 @@ class CrushProfileForm(forms.ModelForm):
             'location',
             'bio',
             'interests',
-            'looking_for',
             'photo_1',
             'photo_2',
             'photo_3',
             'show_full_name',
             'show_exact_age',
-            'blur_photos',
             'event_languages',
         ]
         # Widgets are defined in field overrides above

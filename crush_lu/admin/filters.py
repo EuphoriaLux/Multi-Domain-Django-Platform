@@ -545,7 +545,6 @@ class PrivacySettingsFilter(admin.SimpleListFilter):
             ('high_privacy', '🔒 High Privacy (all flags)'),
             ('name_hidden', '👤 Name Hidden'),
             ('age_hidden', '🎂 Age Hidden'),
-            ('photos_blurred', '📸 Photos Blurred'),
             ('default', '🌐 Default (all public)'),
         )
 
@@ -555,20 +554,16 @@ class PrivacySettingsFilter(admin.SimpleListFilter):
             return queryset.filter(
                 show_full_name=False,
                 show_exact_age=False,
-                blur_photos=True
             )
         elif self.value() == 'name_hidden':
             return queryset.filter(show_full_name=False)
         elif self.value() == 'age_hidden':
             return queryset.filter(show_exact_age=False)
-        elif self.value() == 'photos_blurred':
-            return queryset.filter(blur_photos=True)
         elif self.value() == 'default':
             # All public (no privacy flags)
             return queryset.filter(
                 show_full_name=True,
                 show_exact_age=True,
-                blur_photos=False
             )
         return queryset
 

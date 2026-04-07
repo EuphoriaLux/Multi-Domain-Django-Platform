@@ -515,18 +515,6 @@
         </label>
     </div>
 
-    <div class="privacy-toggle-wrapper">
-        <input type="checkbox"
-               name="{{ form.blur_photos.html_name }}"
-               id="{{ form.blur_photos.id_for_label }}"
-               class="privacy-checkbox-hidden"
-               {% if form.blur_photos.value %}checked{% endif %}>
-        <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-track" aria-hidden="true"></label>
-        <label for="{{ form.blur_photos.id_for_label }}" class="privacy-toggle-label">
-            <span class="privacy-toggle-label-text">{% trans "Blur my photos until mutual interest" %}</span>
-            <span class="privacy-toggle-label-hint">{% trans "Photos will be revealed once you both connect" %}</span>
-        </label>
-    </div>
 </div>
 
 <!-- Action Buttons -->

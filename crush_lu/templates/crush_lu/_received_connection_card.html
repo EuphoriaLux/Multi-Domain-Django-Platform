@@ -6,7 +6,7 @@
             {% if connection.requester.crushprofile|has_photo:'photo_1' %}
                 <img src="{% profile_photo_url connection.requester.crushprofile 'photo_1' %}"
                      alt="{{ connection.requester.crushprofile.display_name }}"
-                     class="w-14 h-14 rounded-full object-cover {% if connection.requester.crushprofile.blur_photos %}blur-lg{% endif %}"
+                     class="w-14 h-14 rounded-full object-cover"
                      loading="lazy">
             {% else %}
                 <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">

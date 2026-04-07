@@ -109,20 +109,6 @@ def get_demographic_stats():
             else 0
         )
 
-    # Looking-for distribution
-    looking_for_labels = dict(CrushProfile.LOOKING_FOR_CHOICES)
-    looking_for_dist = list(
-        active_profiles.exclude(looking_for="")
-        .values("looking_for")
-        .annotate(count=Count("id"))
-        .order_by("-count")
-    )
-    lf_total = sum(lf["count"] for lf in looking_for_dist)
-
-    for lf in looking_for_dist:
-        lf["label"] = str(looking_for_labels.get(lf["looking_for"], lf["looking_for"]))
-        lf["pct"] = round(lf["count"] / lf_total * 100, 1) if lf_total else 0
-
     # Age range distribution (using helper)
     age_ranges = [
         ("18-24", 18, 24),
@@ -209,7 +195,6 @@ def get_demographic_stats():
         "total_approved": total_approved,
         "gender_all": gender_all,
         "gender_approved": gender_approved,
-        "looking_for": looking_for_dist,
         "age_ranges": age_dist,
         "gender_age_matrix": gender_age_matrix,
         "matrix_age_labels": [label for label, _, _ in matrix_age_ranges],
@@ -322,12 +307,6 @@ def get_segment_definitions():
     lang_en = active.filter(preferred_language="en")
     lang_de = active.filter(preferred_language="de")
     lang_fr = active.filter(preferred_language="fr")
-
-    # Looking-for segments
-    lf_friends = active.filter(looking_for="friends")
-    lf_dating = active.filter(looking_for="dating")
-    lf_both = active.filter(looking_for="both")
-    lf_networking = active.filter(looking_for="networking")
 
     # Event engagement segments
     attended_filter = Q(user__eventregistration__status="attended")
@@ -761,45 +740,6 @@ def get_segment_definitions():
                     "queryset": gender_nb_all,
                     "count": gender_nb_all.count(),
                     "color": "purple",
-                },
-            ],
-        },
-        "demographics_looking_for": {
-            "title": "Demographics: Looking For",
-            "icon": "💫",
-            "group": "demographic",
-            "segments": [
-                {
-                    "name": "New Friends",
-                    "key": "lf_friends",
-                    "description": "Active profiles looking for new friends",
-                    "queryset": lf_friends,
-                    "count": lf_friends.count(),
-                    "color": "green",
-                },
-                {
-                    "name": "Dating",
-                    "key": "lf_dating",
-                    "description": "Active profiles looking for dating",
-                    "queryset": lf_dating,
-                    "count": lf_dating.count(),
-                    "color": "red",
-                },
-                {
-                    "name": "Both (Friends & Dating)",
-                    "key": "lf_both",
-                    "description": "Active profiles open to both friends and dating",
-                    "queryset": lf_both,
-                    "count": lf_both.count(),
-                    "color": "purple",
-                },
-                {
-                    "name": "Social Networking",
-                    "key": "lf_networking",
-                    "description": "Active profiles interested in social networking",
-                    "queryset": lf_networking,
-                    "count": lf_networking.count(),
-                    "color": "blue",
                 },
             ],
         },
@@ -1318,7 +1258,6 @@ def export_segment_csv(queryset, segment_key, segment_name):
                 "Age",
                 "Location",
                 "Phone Verified",
-                "Looking For",
                 "Language",
                 "Is Approved",
                 "Event Count",
@@ -1328,7 +1267,6 @@ def export_segment_csv(queryset, segment_key, segment_name):
             ]
         )
         gender_labels = dict(CrushProfile.GENDER_CHOICES)
-        lf_labels = dict(CrushProfile.LOOKING_FOR_CHOICES)
         profiles = queryset.select_related("user").annotate(
             event_count=Count("user__eventregistration", distinct=True),
             sent_connections=Count("user__connection_requests_sent", distinct=True),
@@ -1350,7 +1288,6 @@ def export_segment_csv(queryset, segment_key, segment_name):
                     age if age else "",
                     profile.location,
                     "Yes" if profile.phone_verified else "No",
-                    str(lf_labels.get(profile.looking_for, profile.looking_for)),
                     profile.preferred_language,
                     "Yes" if profile.is_approved else "No",
                     profile.event_count,

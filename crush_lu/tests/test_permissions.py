@@ -334,7 +334,6 @@ class PrivacySettingsTests(SiteTestMixin, TestCase):
             is_active=True,
             show_full_name=False,
             show_exact_age=False,
-            blur_photos=True
         )
 
     def test_display_name_respects_privacy(self):
@@ -347,7 +346,3 @@ class PrivacySettingsTests(SiteTestMixin, TestCase):
         # With show_exact_age=False, should show range
         self.assertIsNotNone(self.profile.age_range)
         self.assertIn('-', self.profile.age_range)
-
-    def test_blur_photos_setting(self):
-        """Blur photos setting should be respected."""
-        self.assertTrue(self.profile.blur_photos)
