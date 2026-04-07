@@ -249,8 +249,8 @@ def coach_user(db):
 
     coach = CrushCoach.objects.create(
         user=user,
-        display_name='Coach Marie',
-        specialization='General coaching',
+        bio='Experienced dating coach',
+        specializations='General coaching',
         is_active=True,
         max_active_reviews=10
     )

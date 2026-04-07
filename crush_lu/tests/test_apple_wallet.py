@@ -175,3 +175,75 @@ class TestProvidePassForSerial:
 
         result = provide_pass_for_serial("pass.lu.crush", "nonexistent")
         assert result is None
+
+
+class TestBuildAppleEventTicket:
+    """Test Apple Wallet EventTicket .pkpass generation."""
+
+    def test_returns_valid_zip(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        pkpass_bytes = build_apple_event_ticket(registration)
+
+        assert isinstance(pkpass_bytes, bytes)
+        zf = zipfile.ZipFile(BytesIO(pkpass_bytes))
+        names = zf.namelist()
+        assert "pass.json" in names
+        assert "manifest.json" in names
+        assert "signature" in names
+
+    def test_pass_uses_event_ticket_style(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        pkpass_bytes = build_apple_event_ticket(registration)
+
+        zf = zipfile.ZipFile(BytesIO(pkpass_bytes))
+        pass_json = json.loads(zf.read("pass.json"))
+
+        assert "eventTicket" in pass_json
+        assert "generic" not in pass_json
+        assert pass_json["passTypeIdentifier"] == "pass.lu.crush"
+
+    def test_pass_contains_event_details(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        pkpass_bytes = build_apple_event_ticket(registration)
+
+        zf = zipfile.ZipFile(BytesIO(pkpass_bytes))
+        pass_json = json.loads(zf.read("pass.json"))
+
+        event_ticket = pass_json["eventTicket"]
+        primary_keys = [f["key"] for f in event_ticket["primaryFields"]]
+        assert "event_name" in primary_keys
+
+    def test_pass_has_checkin_qr_code(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        pkpass_bytes = build_apple_event_ticket(registration)
+
+        zf = zipfile.ZipFile(BytesIO(pkpass_bytes))
+        pass_json = json.loads(zf.read("pass.json"))
+
+        assert pass_json["barcode"]["format"] == "PKBarcodeFormatQR"
+        assert "/api/events/checkin/" in pass_json["barcode"]["message"]
+
+    def test_assigns_serial_number(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        assert registration.apple_wallet_ticket_serial == ""
+
+        build_apple_event_ticket(registration)
+        registration.refresh_from_db()
+
+        assert registration.apple_wallet_ticket_serial != ""
+        assert registration.apple_wallet_ticket_serial.startswith("evt-")
