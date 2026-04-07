@@ -15,11 +15,35 @@ from django.core.exceptions import ImproperlyConfigured
 
 from ..wallet_pass import build_wallet_pass_data
 
-# Placeholder 1x1 transparent PNG for icon (required by Apple)
+# Placeholder 1x1 transparent PNG for icon (fallback if static assets missing)
 ICON_PNG_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwAB"
     "BAEAu1fE3wAAAABJRU5ErkJggg=="
 )
+
+# Icon and logo file mappings: {pkpass_filename: static_file_path}
+_BRAND_ASSETS = {
+    "icon.png": "crush_lu/static/crush_lu/icons/ios/29.png",
+    "icon@2x.png": "crush_lu/static/crush_lu/icons/ios/58.png",
+    "icon@3x.png": "crush_lu/static/crush_lu/icons/ios/87.png",
+    "logo.png": "crush_lu/static/crush_lu/icons/ios/50.png",
+    "logo@2x.png": "crush_lu/static/crush_lu/icons/ios/100.png",
+    "logo@3x.png": "crush_lu/static/crush_lu/icons/ios/152.png",
+}
+
+
+def _load_brand_assets():
+    """Load Crush.lu icon and logo PNGs for wallet passes."""
+    files = {}
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    for pkpass_name, static_path in _BRAND_ASSETS.items():
+        full_path = os.path.join(base_dir, static_path)
+        try:
+            with open(full_path, "rb") as f:
+                files[pkpass_name] = f.read()
+        except FileNotFoundError:
+            continue
+    return files
 
 
 def _require_setting(name):
@@ -214,6 +238,8 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
             "auxiliaryFields": auxiliary_fields,
             "backFields": back_fields,
         },
+        "groupingIdentifier": pass_type_identifier,
+        "sharingProhibited": True,
         "backgroundColor": "rgb(155, 89, 182)",
         "foregroundColor": "rgb(255, 255, 255)",
         "labelColor": "rgb(255, 220, 230)",
@@ -236,6 +262,19 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     if web_service_url:
         payload["webServiceURL"] = web_service_url
 
+    # Add next event location and date for lock-screen surfacing
+    if pass_data["next_event"]:
+        next_evt = pass_data["next_event"]
+        payload["relevantDate"] = next_evt["date_time_iso"]
+        if next_evt.get("latitude") and next_evt.get("longitude"):
+            payload["locations"] = [
+                {
+                    "latitude": next_evt["latitude"],
+                    "longitude": next_evt["longitude"],
+                    "relevantText": f"Your next event: {next_evt['title']}",
+                }
+            ]
+
     return payload
 
 
@@ -253,7 +292,12 @@ def _build_pkpass(pass_payload, files=None):
     if files is None:
         files = {}
 
-    # Add default icon if not provided
+    # Load branded icons and logos, then layer caller-provided files on top
+    brand_assets = _load_brand_assets()
+    brand_assets.update(files)
+    files = brand_assets
+
+    # Add fallback 1x1 icon if no branded assets found
     if "icon.png" not in files:
         files["icon.png"] = base64.b64decode(ICON_PNG_BASE64)
 
@@ -312,11 +356,25 @@ def provide_pass_for_serial(
     authentication_token=None,
 ):
     """
-    PassKit web service provider -- rebuilds a member pass for a given serial.
+    PassKit web service provider -- rebuilds a pass for a given serial.
 
     Called by passkit_service.get_latest_pass() when Apple Wallet requests
     an updated pass after an APNS push notification.
+
+    Handles both member passes and event tickets (evt-* serial prefix).
     """
+    # Event ticket serials start with "evt-"
+    if serial_number.startswith("evt-"):
+        from ..models import EventRegistration
+        from .apple_event_ticket import build_apple_event_ticket
+
+        registration = EventRegistration.objects.filter(
+            apple_wallet_ticket_serial=serial_number
+        ).select_related("event", "user").first()
+        if not registration:
+            return None
+        return build_apple_event_ticket(registration)
+
     from ..models import CrushProfile
 
     profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()

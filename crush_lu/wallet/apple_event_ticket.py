@@ -9,6 +9,7 @@ Reuses signing infrastructure from apple_pass.py.
 """
 
 import secrets
+from datetime import timedelta
 
 from django.conf import settings
 
@@ -141,6 +142,12 @@ def build_apple_event_ticket(registration, request=None):
                 },
             ],
         },
+        "groupingIdentifier": pass_type_identifier,
+        "sharingProhibited": True,
+        "relevantDate": event.date_time.isoformat(),
+        "expirationDate": (
+            event.date_time + timedelta(minutes=event.duration_minutes)
+        ).isoformat(),
         "backgroundColor": "rgb(155, 89, 182)",
         "foregroundColor": "rgb(255, 255, 255)",
         "labelColor": "rgb(255, 220, 230)",
@@ -162,5 +169,15 @@ def build_apple_event_ticket(registration, request=None):
 
     if web_service_url:
         payload["webServiceURL"] = web_service_url
+
+    # Add venue location for lock-screen surfacing
+    if event.latitude and event.longitude:
+        payload["locations"] = [
+            {
+                "latitude": float(event.latitude),
+                "longitude": float(event.longitude),
+                "relevantText": f"Check in for {event.title}",
+            }
+        ]
 
     return _build_pkpass(payload)

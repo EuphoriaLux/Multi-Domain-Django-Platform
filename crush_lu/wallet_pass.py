@@ -45,13 +45,18 @@ def get_next_event_for_pass(profile):
         return None
 
     event = registration.event
-    return {
+    result = {
         "title": event.title,
         "date": event.date_time.strftime("%b %d, %Y"),
         "time": event.date_time.strftime("%I:%M %p"),
         "location": event.location or "",
         "status": registration.status,
+        "date_time_iso": event.date_time.isoformat(),
     }
+    if event.latitude and event.longitude:
+        result["latitude"] = float(event.latitude)
+        result["longitude"] = float(event.longitude)
+    return result
 
 
 def get_membership_tier_display(profile):

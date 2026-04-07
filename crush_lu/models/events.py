@@ -78,6 +78,20 @@ class MeetupEvent(models.Model):
     # Event Details
     location = models.CharField(max_length=200)
     address = models.TextField()
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        blank=True,
+        null=True,
+        help_text=_("Venue latitude for Apple Wallet location notifications"),
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        blank=True,
+        null=True,
+        help_text=_("Venue longitude for Apple Wallet location notifications"),
+    )
     canton = models.CharField(
         max_length=200,
         blank=True,

@@ -190,6 +190,7 @@ class MeetupEventAdmin(TranslationAdmin):
                     "canton",
                     "location",
                     "address",
+                    ("latitude", "longitude"),
                     "date_time",
                     "duration_minutes",
                 )

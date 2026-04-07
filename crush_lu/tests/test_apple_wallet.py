@@ -147,9 +147,7 @@ class TestBuildApplePass:
         manifest = json.loads(zf.read("manifest.json"))
 
         for filename, expected_hash in manifest.items():
-            actual_hash = hashlib.sha1(
-                zf.read(filename), usedforsecurity=False
-            ).hexdigest()
+            actual_hash = hashlib.sha256(zf.read(filename)).hexdigest()
             assert actual_hash == expected_hash, f"Hash mismatch for {filename}"
 
 
