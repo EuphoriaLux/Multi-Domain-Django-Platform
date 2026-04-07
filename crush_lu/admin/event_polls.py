@@ -6,6 +6,8 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models.event_polls import EventPoll, EventPollOption, EventPollVote
 
 
@@ -15,7 +17,7 @@ class EventPollOptionInline(TranslationTabularInline):
     fields = ('name', 'description', 'static_image', 'image', 'icon', 'sort_order')
 
 
-class EventPollAdmin(TranslationAdmin):
+class EventPollAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ('title', 'start_date', 'end_date', 'is_published', 'vote_count')
     list_filter = ('is_published', 'start_date')
     search_fields = ('title',)

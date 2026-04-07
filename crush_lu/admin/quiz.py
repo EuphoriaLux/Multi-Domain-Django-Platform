@@ -2,6 +2,8 @@ from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
+
 from crush_lu.models.quiz import (
     IndividualScore,
     QuizEvent,
@@ -232,13 +234,13 @@ class QuizEventAdmin(admin.ModelAdmin):
     actions = [generate_quiz_night_tables, populate_crush_quiz_questions]
 
 
-class QuizRoundAdmin(TranslationAdmin):
+class QuizRoundAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ("title", "quiz", "sort_order", "time_per_question", "is_bonus")
     list_filter = ("quiz__event", "is_bonus")
     inlines = [QuizQuestionInline]
 
 
-class QuizQuestionAdmin(TranslationAdmin):
+class QuizQuestionAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ("text", "round", "question_type", "points", "sort_order")
     list_filter = ("question_type", "round__quiz__event")
 
