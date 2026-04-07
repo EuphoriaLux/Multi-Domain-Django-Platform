@@ -44,10 +44,11 @@ def _load_cert_bytes():
     wwdr_b64 = getattr(settings, "WALLET_APPLE_WWDR_CERT_BASE64", "")
 
     if cert_b64 and key_b64 and wwdr_b64:
+        # Normalize \r\n → \n (PEM files may have been base64-encoded on Windows)
         return (
-            base64.b64decode(cert_b64),
-            base64.b64decode(key_b64),
-            base64.b64decode(wwdr_b64),
+            base64.b64decode(cert_b64).replace(b"\r\n", b"\n"),
+            base64.b64decode(key_b64).replace(b"\r\n", b"\n"),
+            base64.b64decode(wwdr_b64).replace(b"\r\n", b"\n"),
         )
 
     cert_path = _require_setting("WALLET_APPLE_CERT_PATH")
@@ -261,15 +262,11 @@ def _build_pkpass(pass_payload, files=None):
         pass_payload, ensure_ascii=False, separators=(",", ":")
     ).encode("utf-8")
 
-    # Build manifest (SHA1 hashes of all files)
+    # Build manifest (SHA-256 hashes of all files, supported since iOS 13+)
     manifest = {}
-    manifest["pass.json"] = hashlib.sha1(
-        pass_json_bytes, usedforsecurity=False
-    ).hexdigest()
+    manifest["pass.json"] = hashlib.sha256(pass_json_bytes).hexdigest()
     for filename, content in files.items():
-        manifest[filename] = hashlib.sha1(
-            content, usedforsecurity=False
-        ).hexdigest()
+        manifest[filename] = hashlib.sha256(content).hexdigest()
 
     manifest_bytes = json.dumps(
         manifest, ensure_ascii=False, separators=(",", ":")
