@@ -103,7 +103,11 @@ def coach_quiz_config(request, event_id):
 def coach_quiz_create(request, event_id):
     event = get_object_or_404(MeetupEvent, id=event_id)
     num_tables = request.POST.get("num_tables", "").strip()
-    if not num_tables or int(num_tables) < 2:
+    try:
+        num_tables_int = int(num_tables) if num_tables else 0
+    except (ValueError, TypeError):
+        num_tables_int = 0
+    if num_tables_int < 2:
         messages.error(request, _("Number of tables is required (minimum 2)."))
         return redirect("crush_lu:coach_quiz_config", event_id=event.id)
     quiz, created = QuizEvent.objects.get_or_create(
@@ -111,11 +115,11 @@ def coach_quiz_create(request, event_id):
         defaults={
             "created_by": request.user,
             "status": "draft",
-            "num_tables": int(num_tables),
+            "num_tables": num_tables_int,
         },
     )
     if not created and not quiz.num_tables:
-        quiz.num_tables = int(num_tables)
+        quiz.num_tables = num_tables_int
         quiz.save(update_fields=["num_tables"])
     quiz.ensure_tables()
     messages.success(request, _("Quiz created for this event."))
@@ -130,11 +134,15 @@ def coach_quiz_update_tables(request, event_id):
     quiz = get_object_or_404(QuizEvent, event=event)
 
     num_tables = request.POST.get("num_tables", "").strip()
-    if not num_tables or int(num_tables) < 2:
+    try:
+        num_tables_int = int(num_tables) if num_tables else 0
+    except (ValueError, TypeError):
+        num_tables_int = 0
+    if num_tables_int < 2:
         messages.error(request, _("Number of tables is required (minimum 2)."))
         return redirect("crush_lu:coach_quiz_config", event_id=event.id)
 
-    quiz.num_tables = int(num_tables)
+    quiz.num_tables = num_tables_int
     quiz.save(update_fields=["num_tables"])
     quiz.ensure_tables()
     messages.success(request, _("Table count updated to %d.") % quiz.num_tables)

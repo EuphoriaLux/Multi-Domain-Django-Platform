@@ -9,6 +9,7 @@ verifies the token and marks the registration as attended.
 import logging
 
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
 from django.http import JsonResponse
@@ -202,7 +203,7 @@ def _get_display_name(registration):
     try:
         return registration.user.crushprofile.display_name
     except Exception:
-        return registration.user.first_name or registration.user.username
+        return _("Attendee")
 
 
 def _get_existing_table_assignment(registration):

@@ -9,6 +9,7 @@ works independently of Google Wallet.
 import logging
 
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from django.core.signing import Signer
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -73,7 +74,7 @@ def event_ticket(request, event_id):
         profile = request.user.crushprofile
         display_name = profile.display_name
     except Exception:
-        display_name = request.user.first_name or request.user.username
+        display_name = _("Attendee")
 
     # Check if Google Wallet event tickets are enabled
     wallet_enabled = getattr(settings, "WALLET_GOOGLE_EVENT_TICKET_ENABLED", True)
