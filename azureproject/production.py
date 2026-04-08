@@ -211,7 +211,12 @@ STORAGES = {
 # Each platform uses its own container (crush-lu-media, vinsdelux-media, etc.)
 # Legacy AZURE_CONTAINER_NAME removed - use storage backend's .url() method instead
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
-MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"  # Fallback only
+# MEDIA_URL uses CDN if configured, falls back to direct storage
+_CDN_MEDIA = os.getenv("AZURE_CDN_DOMAIN")
+if _CDN_MEDIA:
+    MEDIA_URL = f"https://{_CDN_MEDIA}/shared-media/"
+else:
+    MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"
 
 # ============================================================================
 # CONTENT IMAGE URLS (Azure Blob Storage - Platform-Specific Containers)
@@ -225,8 +230,17 @@ MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/" 
 # - vinsdelux-media/journey/step_01.png
 # - powerup-media/defaults/profile.png
 
+# CDN support: if AZURE_CDN_DOMAIN is set, serve public media through CDN
+# Private containers (crush-lu-private, vinsdelux-private) are NOT served via CDN
+# because SAS token signatures are tied to the storage account hostname.
+_CDN_DOMAIN = os.getenv("AZURE_CDN_DOMAIN")  # e.g., "cdn.crush.lu"
+if _CDN_DOMAIN:
+    _MEDIA_ORIGIN = f"https://{_CDN_DOMAIN}"
+else:
+    _MEDIA_ORIGIN = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net"
+
 # Crush.lu images (in crush-lu-media container)
-CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+CRUSH_MEDIA_BASE_URL = f"{_MEDIA_ORIGIN}/crush-lu-media"
 SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
     "SOCIAL_PREVIEW_IMAGE_URL",
     f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
@@ -237,7 +251,7 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
 )
 
 # VinsDelux images (in vinsdelux-media container)
-VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
+VINSDELUX_MEDIA_BASE_URL = f"{_MEDIA_ORIGIN}/vinsdelux-media"
 VINSDELUX_JOURNEY_BASE_URL = os.getenv(
     "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
 )
@@ -247,7 +261,7 @@ VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
 )
 
 # PowerUP/Entreprinder images (in powerup-media container)
-POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+POWERUP_MEDIA_BASE_URL = f"{_MEDIA_ORIGIN}/powerup-media"
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
     "POWERUP_DEFAULT_PROFILE_URL",
     f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png",

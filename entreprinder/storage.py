@@ -71,6 +71,12 @@ class EntreprinderMediaStorage(AzureStorage):
 
         super().__init__(*args, **kwargs)
         self.overwrite_files = False
+        self.cache_control = "public, max-age=2592000"  # 30 days
+
+        # CDN support: use custom domain for public media URLs
+        cdn_domain = os.getenv('AZURE_CDN_DOMAIN')
+        if cdn_domain and not self._is_azurite:
+            self.custom_domain = cdn_domain
 
 
 # =============================================================================

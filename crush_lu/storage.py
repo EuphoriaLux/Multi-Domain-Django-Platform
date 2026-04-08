@@ -93,6 +93,7 @@ class PrivateAzureStorage(AzureStorage):
         super().__init__(*args, **kwargs)
         # Set container to private (no public access)
         self.overwrite_files = False
+        self.cache_control = "private, max-age=3600"  # 1 hour, matches SAS expiry
 
     def url(self, name, expire=None):
         """
@@ -170,6 +171,12 @@ class CrushMediaStorage(AzureStorage):
 
         super().__init__(*args, **kwargs)
         self.overwrite_files = False
+        self.cache_control = "public, max-age=2592000"  # 30 days
+
+        # CDN support: use custom domain for public media URLs
+        cdn_domain = os.getenv('AZURE_CDN_DOMAIN')
+        if cdn_domain and not self._is_azurite:
+            self.custom_domain = cdn_domain
 
 
 class CrushProfilePhotoStorage(PrivateAzureStorage):
@@ -182,6 +189,10 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
     """
     # Inherits container name from PrivateAzureStorage (configurable via env var)
     expiration_secs = 1800  # 30 minutes for profile photos
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cache_control = "private, max-age=1800"  # 30 min, matches SAS expiry
 
     def get_available_name(self, name, max_length=None):
         """

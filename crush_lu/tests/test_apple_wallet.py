@@ -151,6 +151,7 @@ class TestBuildApplePass:
             assert actual_hash == expected_hash, f"Hash mismatch for {filename}"
 
 
+@pytest.mark.django_db
 class TestProvidePassForSerial:
     """Test PassKit web service provider callback."""
 
