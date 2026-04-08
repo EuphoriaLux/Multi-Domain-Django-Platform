@@ -14,7 +14,10 @@ class PWAInstaller {
 
     detectPlatform() {
         var ua = navigator.userAgent || "";
-        if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+        if (
+            /iPad|iPhone|iPod/.test(ua) ||
+            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+        ) {
             return "ios";
         }
         return "other";
@@ -25,7 +28,10 @@ class PWAInstaller {
         window.addEventListener("pwa-dismiss-install", this.handleDismissEvent);
 
         // Check if already installed (standalone mode)
-        if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+        if (
+            window.matchMedia("(display-mode: standalone)").matches ||
+            window.navigator.standalone === true
+        ) {
             this.hideInstallButton();
             return;
         }
@@ -67,9 +73,11 @@ class PWAInstaller {
         }
 
         // Dispatch event to show banner with platform info (Alpine.js handles visibility)
-        window.dispatchEvent(new CustomEvent("pwa-show-install", {
-            detail: { platform: this.platform }
-        }));
+        window.dispatchEvent(
+            new CustomEvent("pwa-show-install", {
+                detail: { platform: this.platform },
+            }),
+        );
 
         // Set up install button listener (Android uses native prompt, iOS opens guide)
         this.installButton = document.getElementById("pwa-install-button");

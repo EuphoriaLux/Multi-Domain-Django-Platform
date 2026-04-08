@@ -1,10 +1,13 @@
 from datetime import timedelta
+from unittest.mock import patch
+import json
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from crush_lu.models import Trait
 from crush_lu.models.journey import JourneyConfiguration
 from crush_lu.models.profiles import CrushProfile, ProfileSubmission, SpecialUserExperience, UserDataConsent
 
@@ -235,3 +238,140 @@ class CrushPreferencesTests(TestCase):
         self.assertEqual(response.status_code, 302)
         profile.refresh_from_db()
         self.assertEqual(profile.first_step_preference, "")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ProfileSettingsAutosaveTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="autosave@example.com",
+            email="autosave@example.com",
+            password="testpass123",
+            first_name="Auto",
+            last_name="Save",
+        )
+        consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
+        consent.crushlu_consent_given = True
+        consent.save()
+
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=timezone.now().date() - timedelta(days=30 * 365),
+            gender="F",
+            location="canton-luxembourg",
+            bio="Original bio",
+            interests="Original interests",
+            phone_number="+35212345678",
+            phone_verified=True,
+            phone_verified_at=timezone.now(),
+            is_approved=True,
+            event_languages=["en"],
+            preferred_age_min=18,
+            preferred_age_max=99,
+            preferred_genders=[],
+            first_step_preference="",
+            astro_enabled=True,
+            show_full_name=False,
+            show_exact_age=True,
+        )
+
+        self.quality, _ = Trait.objects.get_or_create(
+            slug="kind",
+            defaults={"trait_type": "quality", "label": "Kind", "category": "personality"},
+        )
+        self.defect, _ = Trait.objects.get_or_create(
+            slug="stubborn",
+            defaults={"trait_type": "defect", "label": "Stubborn", "category": "personality"},
+        )
+        self.sought, _ = Trait.objects.get_or_create(
+            slug="curious",
+            defaults={"trait_type": "quality", "label": "Curious", "category": "personality"},
+        )
+
+        self.client.login(username="autosave@example.com", password="testpass123")
+        self.url = reverse("api_profile_settings_autosave")
+
+    def test_about_autosave_updates_profile_fields(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({
+                "section": "about",
+                "bio": "Updated bio",
+                "interests": "Music, Travel",
+                "location": "border-france",
+                "event_languages": ["fr", "en"],
+                "qualities_ids": str(self.quality.pk),
+                "defects_ids": str(self.defect.pk),
+            }),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.bio, "Updated bio")
+        self.assertEqual(self.profile.interests, "Music, Travel")
+        self.assertEqual(self.profile.location, "border-france")
+        self.assertEqual(self.profile.event_languages, ["fr", "en"])
+        self.assertEqual(list(self.profile.qualities.values_list("pk", flat=True)), [self.quality.pk])
+        self.assertEqual(list(self.profile.defects.values_list("pk", flat=True)), [self.defect.pk])
+
+    def test_about_autosave_rejects_invalid_location_without_overwrite(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({
+                "section": "about",
+                "location": "invalid-location",
+            }),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.location, "canton-luxembourg")
+
+    @patch("crush_lu.matching.update_match_scores_for_user")
+    def test_preferences_autosave_updates_profile_and_triggers_match_recalc(self, mock_update):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.url,
+                data=json.dumps({
+                    "section": "preferences",
+                    "preferred_age_min": 25,
+                    "preferred_age_max": 35,
+                    "preferred_genders": ["F", "NB"],
+                    "first_step_preference": "i_initiate",
+                    "astro_enabled": False,
+                    "sought_qualities_ids": str(self.sought.pk),
+                }),
+                content_type="application/json",
+                HTTP_HOST="crush.lu",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_age_min, 25)
+        self.assertEqual(self.profile.preferred_age_max, 35)
+        self.assertEqual(self.profile.preferred_genders, ["F", "NB"])
+        self.assertEqual(self.profile.first_step_preference, "i_initiate")
+        self.assertFalse(self.profile.astro_enabled)
+        self.assertEqual(list(self.profile.sought_qualities.values_list("pk", flat=True)), [self.sought.pk])
+        mock_update.assert_called_once_with(self.user)
+
+    def test_privacy_autosave_updates_booleans(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({
+                "section": "privacy",
+                "show_full_name": True,
+                "show_exact_age": False,
+            }),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.show_full_name)
+        self.assertFalse(self.profile.show_exact_age)

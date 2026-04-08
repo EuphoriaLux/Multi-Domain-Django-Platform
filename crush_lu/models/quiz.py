@@ -1,6 +1,26 @@
+import json
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+
+def parse_choices(choices):
+    """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
+    if isinstance(choices, str):
+        try:
+            choices = json.loads(choices)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(choices, list):
+        return []
+    result = []
+    for c in choices:
+        if isinstance(c, dict):
+            result.append(c)
+        elif isinstance(c, str):
+            result.append({"text": c, "is_correct": False})
+    return result
 
 
 class QuizEvent(models.Model):
@@ -18,9 +38,7 @@ class QuizEvent(models.Model):
         on_delete=models.CASCADE,
         related_name="quiz",
     )
-    status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, default="draft"
-    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="draft")
     current_round = models.ForeignKey(
         "QuizRound",
         on_delete=models.SET_NULL,
@@ -46,6 +64,15 @@ class QuizEvent(models.Model):
         null=True,
         blank=True,
         help_text=_("When table assignments were last generated."),
+    )
+    display_token = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text=_(
+            "Shared secret for projector display access. "
+            "Leave blank for unrestricted access."
+        ),
     )
     question_started_at = models.DateTimeField(
         null=True,
@@ -98,13 +125,37 @@ class QuizEvent(models.Model):
             return questions[self.current_question_index]
         return None
 
+    def ensure_tables(self):
+        """Create or reconcile QuizTable objects to match self.num_tables.
+
+        - Creates missing tables (1..num_tables)
+        - Removes excess tables only if they have no scores attached
+        Returns the dict of {table_number: QuizTable} objects.
+        """
+        if not self.num_tables:
+            return {}
+
+        existing = {t.table_number: t for t in QuizTable.objects.filter(quiz=self)}
+        tables = {}
+        for t in range(1, self.num_tables + 1):
+            if t in existing:
+                tables[t] = existing[t]
+            else:
+                tables[t] = QuizTable.objects.create(quiz=self, table_number=t)
+
+        # Remove excess tables only if they have no scores
+        for t_num, t_obj in existing.items():
+            if t_num > self.num_tables:
+                if not t_obj.round_scores.exists():
+                    t_obj.delete()
+
+        return tables
+
 
 class QuizRound(models.Model):
     """A named round within a quiz (e.g., 'Round 1: Movies')."""
 
-    quiz = models.ForeignKey(
-        QuizEvent, on_delete=models.CASCADE, related_name="rounds"
-    )
+    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="rounds")
     title = models.CharField(max_length=200)
     sort_order = models.PositiveIntegerField(default=0)
     time_per_question = models.PositiveIntegerField(
@@ -164,9 +215,7 @@ class QuizQuestion(models.Model):
 class QuizTable(models.Model):
     """A group of participants at a physical table during the quiz."""
 
-    quiz = models.ForeignKey(
-        QuizEvent, on_delete=models.CASCADE, related_name="tables"
-    )
+    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="tables")
     table_number = models.PositiveIntegerField()
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -184,13 +233,22 @@ class QuizTable(models.Model):
         return f"Table {self.table_number} - {self.quiz.event}"
 
     def get_total_score(self):
-        """Sum of all member scores for this table's quiz."""
-        return (
-            IndividualScore.objects.filter(
-                quiz=self.quiz, user__in=self.members.all()
-            ).aggregate(total=models.Sum("points_earned"))["total"]
-            or 0
-        )
+        """Sum of points for questions this table answered correctly.
+
+        Uses TableRoundScore (table-level results) rather than
+        IndividualScore (user-level) so that rotation-based quiz nights
+        correctly attribute scores to the table, not to users who may
+        have moved to other tables in later rounds.
+        """
+        total = 0
+        for score in TableRoundScore.objects.filter(
+            quiz=self.quiz, table=self, is_correct=True
+        ).select_related("question__round"):
+            pts = score.question.points
+            if score.question.round.is_bonus:
+                pts *= 2
+            total += pts
+        return total
 
 
 class QuizTableMembership(models.Model):
@@ -199,9 +257,7 @@ class QuizTableMembership(models.Model):
     table = models.ForeignKey(
         QuizTable, on_delete=models.CASCADE, related_name="memberships"
     )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -228,9 +284,7 @@ class QuizRotationSchedule(models.Model):
     table = models.ForeignKey(
         QuizTable, on_delete=models.CASCADE, related_name="rotation_entries"
     )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     rotation_group = models.CharField(
         max_length=1,
@@ -273,15 +327,15 @@ class TableRoundScore(models.Model):
 
     def __str__(self):
         status = "correct" if self.is_correct else "incorrect"
-        return f"Table {self.table.table_number} - Q{self.question.sort_order} - {status}"
+        return (
+            f"Table {self.table.table_number} - Q{self.question.sort_order} - {status}"
+        )
 
 
 class IndividualScore(models.Model):
     """Score per user per question."""
 
-    quiz = models.ForeignKey(
-        QuizEvent, on_delete=models.CASCADE, related_name="scores"
-    )
+    quiz = models.ForeignKey(QuizEvent, on_delete=models.CASCADE, related_name="scores")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -290,9 +344,7 @@ class IndividualScore(models.Model):
     question = models.ForeignKey(
         QuizQuestion, on_delete=models.CASCADE, related_name="scores"
     )
-    answer = models.JSONField(
-        default=str, blank=True, help_text=_("The chosen answer")
-    )
+    answer = models.JSONField(default=str, blank=True, help_text=_("The chosen answer"))
     is_correct = models.BooleanField(default=False)
     points_earned = models.PositiveIntegerField(default=0)
     answered_at = models.DateTimeField(auto_now_add=True)

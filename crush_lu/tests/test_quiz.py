@@ -1,9 +1,9 @@
 """Tests for the live quiz feature (models, consumer, API, rotation)."""
+
 import pytest
 from datetime import date, timedelta
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.test import RequestFactory
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -277,9 +277,7 @@ class TestAdvanceRoundAndRotate:
             )
             if not next_round:
                 next_round = (
-                    quiz_event.rounds.filter(
-                        sort_order=current_sort, pk__gt=current_pk
-                    )
+                    quiz_event.rounds.filter(sort_order=current_sort, pk__gt=current_pk)
                     .order_by("pk")
                     .first()
                 )
@@ -307,9 +305,7 @@ class TestAdvanceRoundAndRotate:
         )
         if not next_round:
             next_round = (
-                quiz_event.rounds.filter(
-                    sort_order=current_sort, pk__gt=current_pk
-                )
+                quiz_event.rounds.filter(sort_order=current_sort, pk__gt=current_pk)
                 .order_by("pk")
                 .first()
             )
@@ -342,6 +338,58 @@ class TestAdvanceRoundAndRotate:
 
             quiz_event.current_round = next_round
             quiz_event.save()
+
+
+class TestLastRoundDetection:
+    """Test that the quiz correctly detects when the last round's questions are done."""
+
+    def test_has_next_round_true(self, quiz_event, quiz_round, bonus_round):
+        """When on first round with a second round existing, has_next_round is True."""
+        quiz_event.current_round = quiz_round
+        quiz_event.save()
+
+        current_sort = quiz_event.current_round.sort_order
+        current_pk = quiz_event.current_round.pk
+        has_next = (
+            quiz_event.rounds.filter(sort_order__gt=current_sort).exists()
+            or quiz_event.rounds.filter(
+                sort_order=current_sort, pk__gt=current_pk
+            ).exists()
+        )
+        assert has_next is True
+
+    def test_has_next_round_false_on_last(self, quiz_event, quiz_round, bonus_round):
+        """When on the last round, has_next_round is False."""
+        quiz_event.current_round = bonus_round  # sort_order=1, highest
+        quiz_event.save()
+
+        current_sort = quiz_event.current_round.sort_order
+        current_pk = quiz_event.current_round.pk
+        has_next = (
+            quiz_event.rounds.filter(sort_order__gt=current_sort).exists()
+            or quiz_event.rounds.filter(
+                sort_order=current_sort, pk__gt=current_pk
+            ).exists()
+        )
+        assert has_next is False
+
+    def test_single_round_is_last(self, quiz_event):
+        """A quiz with only one round should detect it as last."""
+        single_round = QuizRound.objects.create(
+            quiz=quiz_event, title="Only Round", sort_order=0
+        )
+        quiz_event.current_round = single_round
+        quiz_event.save()
+
+        current_sort = quiz_event.current_round.sort_order
+        current_pk = quiz_event.current_round.pk
+        has_next = (
+            quiz_event.rounds.filter(sort_order__gt=current_sort).exists()
+            or quiz_event.rounds.filter(
+                sort_order=current_sort, pk__gt=current_pk
+            ).exists()
+        )
+        assert has_next is False
 
 
 class TestQuizRoundModel:
@@ -384,15 +432,51 @@ class TestQuizTableModel:
         assert quiz_table.get_total_score() == 0
 
     def test_get_total_score(self, quiz_table, quiz_event, quiz_questions, quiz_user):
-        IndividualScore.objects.create(
+        # get_total_score uses TableRoundScore (table-level results)
+        TableRoundScore.objects.create(
             quiz=quiz_event,
-            user=quiz_user,
+            table=quiz_table,
             question=quiz_questions[0],
-            answer="Luxembourg City",
             is_correct=True,
-            points_earned=10,
         )
+        # Question has 10 points by default
         assert quiz_table.get_total_score() == 10
+
+    def test_get_total_score_bonus_round(self, quiz_event, quiz_user):
+        """Bonus round questions should have doubled points in table score."""
+        bonus = QuizRound.objects.create(
+            quiz=quiz_event, title="Bonus", sort_order=5, is_bonus=True
+        )
+        q = QuizQuestion.objects.create(
+            round=bonus,
+            text="Bonus Q",
+            question_type="multiple_choice",
+            choices=[{"text": "A", "is_correct": True}],
+            sort_order=0,
+            points=10,
+        )
+        table = QuizTable.objects.create(quiz=quiz_event, table_number=99)
+        from crush_lu.models.quiz import QuizTableMembership
+
+        QuizTableMembership.objects.create(table=table, user=quiz_user)
+        TableRoundScore.objects.create(
+            quiz=quiz_event,
+            table=table,
+            question=q,
+            is_correct=True,
+        )
+        # 10 points * 2 (bonus) = 20
+        assert table.get_total_score() == 20
+
+    def test_get_total_score_wrong_answer(self, quiz_table, quiz_event, quiz_questions):
+        """Wrong answers should not contribute to table score."""
+        TableRoundScore.objects.create(
+            quiz=quiz_event,
+            table=quiz_table,
+            question=quiz_questions[0],
+            is_correct=False,
+        )
+        assert quiz_table.get_total_score() == 0
 
 
 class TestTableRoundScoreModel:
@@ -522,9 +606,7 @@ class TestRotationAlgorithm:
         for entry in schedule:
             if entry["role"] == "anchor":
                 # All rounds should have same table for this man
-                man_entries = [
-                    e for e in schedule if e["user"] == entry["user"]
-                ]
+                man_entries = [e for e in schedule if e["user"] == entry["user"]]
                 tables = set(e["table_number"] for e in man_entries)
                 assert len(tables) == 1, "Anchor should stay at same table"
 
@@ -545,9 +627,9 @@ class TestRotationAlgorithm:
                 e for e in schedule if e["user"] == w and e["role"] == "rotator"
             ]
             tables_visited = set(e["table_number"] for e in w_entries)
-            assert len(tables_visited) == num_tables, (
-                f"Woman should visit all {num_tables} tables, visited {tables_visited}"
-            )
+            assert (
+                len(tables_visited) == num_tables
+            ), f"Woman should visit all {num_tables} tables, visited {tables_visited}"
 
     def test_no_duplicate_women_pairing(self):
         """No two women from the same group appear at the same table in the same round."""
@@ -618,9 +700,7 @@ class TestRotationAlgorithm:
         result = generate_rotation_schedule(men, women)
         schedule = result["schedule"]
         # All 6 women should appear in the schedule
-        scheduled_women = set(
-            e["user"] for e in schedule if e["role"] == "rotator"
-        )
+        scheduled_women = set(e["user"] for e in schedule if e["role"] == "rotator")
         assert len(scheduled_women) == 6
         assert any("spillover" in w for w in result["warnings"])
 
@@ -690,9 +770,9 @@ class TestRotationAlgorithm:
             )
             registrations.append(reg)
 
-        regs = EventRegistration.objects.filter(
-            event=event
-        ).select_related("user__crushprofile")
+        regs = EventRegistration.objects.filter(event=event).select_related(
+            "user__crushprofile"
+        )
 
         men, women = split_participants_by_gender(regs)
         # 2M + 2F + 1NB: NB should go to men (equal pools, men <= women)
@@ -866,7 +946,9 @@ class TestQuizAPI:
         assert response.status_code == 200
         assert response.json()["points_awarded"] == 20  # Doubled
 
-    def test_score_table_rejects_non_host(self, quiz_event, quiz_table, quiz_questions, quiz_user):
+    def test_score_table_rejects_non_host(
+        self, quiz_event, quiz_table, quiz_questions, quiz_user
+    ):
         client = APIClient()
         client.force_login(quiz_user)
         response = client.post(
@@ -895,39 +977,367 @@ class TestQuizViews:
             event=quiz_event.event, user=quiz_user, status="attended"
         )
         client.force_login(quiz_user)
-        response = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/"
-        )
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/")
         assert response.status_code == 200
         assert b"quizLive" in response.content
 
     def test_quiz_live_view_rejects_non_attendee(self, client, quiz_event, quiz_user):
         client.force_login(quiz_user)
-        response = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/"
-        )
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/")
         assert response.status_code == 404
 
     def test_quiz_coach_view_requires_coach(self, client, quiz_event, quiz_user):
         client.force_login(quiz_user)
-        response = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/coach/"
-        )
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
         assert response.status_code == 404  # Not a coach
 
     def test_quiz_coach_view_staff(self, client, quiz_event, coach_user):
         client.force_login(coach_user)
-        response = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/coach/"
-        )
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
         assert response.status_code == 200
         assert b"quizHost" in response.content
 
     def test_quiz_night_context(self, client, quiz_event, coach_user):
         """Host view passes is_quiz_night context."""
         client.force_login(coach_user)
-        response = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/coach/"
-        )
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
         assert response.status_code == 200
         assert b"data-quiz-night" in response.content
+
+
+# ============================================================================
+# ENSURE TABLES
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestEnsureTables:
+    def test_creates_tables(self, quiz_event):
+        """ensure_tables creates QuizTable objects matching num_tables."""
+        quiz_event.num_tables = 3
+        quiz_event.save()
+
+        tables = quiz_event.ensure_tables()
+
+        assert len(tables) == 3
+        assert QuizTable.objects.filter(quiz=quiz_event).count() == 3
+        assert set(tables.keys()) == {1, 2, 3}
+
+    def test_idempotent(self, quiz_event):
+        """Calling ensure_tables twice doesn't create duplicates."""
+        quiz_event.num_tables = 3
+        quiz_event.save()
+
+        quiz_event.ensure_tables()
+        quiz_event.ensure_tables()
+
+        assert QuizTable.objects.filter(quiz=quiz_event).count() == 3
+
+    def test_removes_excess_tables(self, quiz_event):
+        """Excess tables are removed when num_tables decreases."""
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        quiz_event.ensure_tables()
+        assert QuizTable.objects.filter(quiz=quiz_event).count() == 4
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        quiz_event.ensure_tables()
+        assert QuizTable.objects.filter(quiz=quiz_event).count() == 2
+
+    def test_no_num_tables_returns_empty(self, quiz_event):
+        """Returns empty dict when num_tables is not set."""
+        assert quiz_event.ensure_tables() == {}
+
+
+# ============================================================================
+# ASSIGN TABLE ON CHECK-IN
+# ============================================================================
+
+
+def _create_profile(user, gender="M"):
+    """Create a CrushProfile for the user with the given gender."""
+    from crush_lu.models.profiles import CrushProfile
+
+    profile, _ = CrushProfile.objects.get_or_create(
+        user=user,
+        defaults={
+            "gender": gender,
+            "date_of_birth": date(1995, 1, 1),
+        },
+    )
+    if profile.gender != gender:
+        profile.gender = gender
+        profile.save(update_fields=["gender"])
+    return profile
+
+
+@pytest.mark.django_db
+class TestAssignTableOnCheckin:
+    def _make_users(self, gender, count, start=1):
+        users = []
+        for i in range(count):
+            idx = start + i
+            user = User.objects.create_user(
+                username=f"{gender.lower()}{idx}@test.com",
+                email=f"{gender.lower()}{idx}@test.com",
+                password="testpass123",
+            )
+            _grant_consent(user)
+            _create_profile(user, gender)
+            users.append(user)
+        return users
+
+    def test_distributes_evenly(self, quiz_event):
+        """6M + 6F with 3 tables → 2 anchors + 2 rotators per table."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        quiz_event.ensure_tables()
+
+        men = self._make_users("M", 6)
+        women = self._make_users("F", 6, start=7)
+
+        # Check in all men, then all women
+        for user in men:
+            result = assign_table_on_checkin(quiz_event, user)
+            assert result is not None
+            assert result["role"] == "anchor"
+
+        for user in women:
+            result = assign_table_on_checkin(quiz_event, user)
+            assert result is not None
+            assert result["role"] == "rotator"
+
+        # Verify distribution: 2 anchors + 2 rotators per table
+        for t in range(1, 4):
+            table = QuizTable.objects.get(quiz=quiz_event, table_number=t)
+            anchors = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, table=table, role="anchor"
+            ).count()
+            rotators = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, table=table, role="rotator"
+            ).count()
+            assert anchors == 2, f"Table {t} has {anchors} anchors, expected 2"
+            assert rotators == 2, f"Table {t} has {rotators} rotators, expected 2"
+
+    def test_idempotent(self, quiz_event):
+        """Same user checked in twice returns same table."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        quiz_event.ensure_tables()
+
+        users = self._make_users("M", 1)
+        user = users[0]
+
+        result1 = assign_table_on_checkin(quiz_event, user)
+        result2 = assign_table_on_checkin(quiz_event, user)
+
+        assert result1["table_number"] == result2["table_number"]
+        assert result1["role"] == result2["role"]
+
+        # Only one membership created
+        assert (
+            QuizTableMembership.objects.filter(
+                table__quiz=quiz_event, user=user
+            ).count()
+            == 1
+        )
+
+    def test_flexible_gender(self, quiz_event):
+        """NB user is assigned to the smaller pool."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        quiz_event.ensure_tables()
+
+        # Create 2 anchors first
+        men = self._make_users("M", 2)
+        for u in men:
+            assign_table_on_checkin(quiz_event, u)
+
+        # Create NB user - should become rotator (anchor pool already has 2)
+        nb_user = User.objects.create_user(
+            username="nb1@test.com", email="nb1@test.com", password="testpass123"
+        )
+        _grant_consent(nb_user)
+        _create_profile(nb_user, "NB")
+
+        result = assign_table_on_checkin(quiz_event, nb_user)
+        assert result["role"] == "rotator"
+
+    def test_no_quiz_returns_none(self):
+        """Returns None when quiz has no num_tables."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        # Create a quiz without tables
+        user = User.objects.create_user(
+            username="noq@test.com", email="noq@test.com", password="testpass123"
+        )
+        _grant_consent(user)
+        event = __import__(
+            "crush_lu.models", fromlist=["MeetupEvent"]
+        ).MeetupEvent.objects.create(
+            title="No Quiz",
+            description="Test",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=1),
+            location="Test",
+            address="Test",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(hours=12),
+        )
+        quiz = QuizEvent.objects.create(event=event, status="draft", created_by=user)
+        result = assign_table_on_checkin(quiz, user)
+        assert result is None
+
+
+# ============================================================================
+# CHECKIN API WITH TABLE ASSIGNMENT
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestCheckinAPITableAssignment:
+    def test_checkin_returns_table_number(self):
+        """Check-in API returns table_number for quiz night events."""
+        from django.core.signing import Signer
+        from django.test import Client
+
+        from crush_lu.models import MeetupEvent
+        from crush_lu.models.events import EventRegistration
+
+        # Event must be within 12-hour check-in window
+        event = MeetupEvent.objects.create(
+            title="Quiz Night Checkin Test",
+            description="Test",
+            event_type="quiz_night",
+            date_time=timezone.now() + timedelta(hours=2),
+            location="Test",
+            address="Test",
+            max_participants=30,
+            registration_deadline=timezone.now() + timedelta(hours=1),
+            is_published=True,
+        )
+        coach = User.objects.create_user(
+            username="checkincoach@test.com",
+            email="checkincoach@test.com",
+            password="testpass123",
+        )
+        _grant_consent(coach)
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach, num_tables=3
+        )
+        quiz.ensure_tables()
+
+        user = User.objects.create_user(
+            username="checkintest@test.com",
+            email="checkintest@test.com",
+            password="testpass123",
+        )
+        _grant_consent(user)
+        _create_profile(user, "M")
+
+        reg = EventRegistration.objects.create(
+            event=event,
+            user=user,
+            status="confirmed",
+        )
+
+        signer = Signer()
+        token = signer.sign(f"{reg.id}:{event.id}")
+        reg.checkin_token = token
+        reg.save()
+
+        client = Client()
+        response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
+        data = response.json()
+
+        assert data["success"] is True
+        assert "table_number" in data
+        assert data["table_number"] in [1, 2, 3]
+        assert data["role"] == "anchor"
+
+    def test_checkin_non_quiz_no_table(self):
+        """Check-in API doesn't return table_number for non-quiz events."""
+        from django.core.signing import Signer
+        from django.test import Client
+
+        from crush_lu.models import MeetupEvent
+        from crush_lu.models.events import EventRegistration
+
+        event = MeetupEvent.objects.create(
+            title="Mixer Event",
+            description="No quiz",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(hours=2),
+            location="Test",
+            address="Test",
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(hours=1),
+        )
+
+        user = User.objects.create_user(
+            username="mixertest@test.com",
+            email="mixertest@test.com",
+            password="testpass123",
+        )
+        _grant_consent(user)
+
+        reg = EventRegistration.objects.create(
+            event=event, user=user, status="confirmed"
+        )
+
+        signer = Signer()
+        token = signer.sign(f"{reg.id}:{event.id}")
+        reg.checkin_token = token
+        reg.save()
+
+        client = Client()
+        response = client.post(f"/api/events/checkin/{reg.id}/{token}/")
+        data = response.json()
+
+        assert data["success"] is True
+        assert "table_number" not in data
+
+
+# ============================================================================
+# PUBLIC DISPLAY ENDPOINT
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestQuizTableDisplay:
+    def test_display_view_renders(self, client, quiz_event):
+        """Public display view renders without auth."""
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        assert response.status_code == 200
+        assert b"quizTableDisplay" in response.content
+
+    def test_display_data_returns_tables(self, client, quiz_event):
+        """Display data JSON endpoint returns table info."""
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        quiz_event.ensure_tables()
+
+        response = client.get(f"/api/quiz/{quiz_event.event_id}/display-data/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "tables" in data
+        assert len(data["tables"]) == 2
+        assert data["attended_count"] == 0
+
+    def test_display_token_blocks_unauthorized(self, client, quiz_event):
+        """Display with token set blocks requests without token."""
+        quiz_event.display_token = "secret123"
+        quiz_event.save()
+
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        assert response.status_code == 404
+
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=secret123")
+        assert response.status_code == 200

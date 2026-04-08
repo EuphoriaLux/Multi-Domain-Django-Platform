@@ -440,6 +440,10 @@
     gap: 0.5rem;
 }
 
+.canton-map-error.hidden {
+    display: none;
+}
+
 .canton-map-error svg {
     flex-shrink: 0;
     width: 1rem;

@@ -32,7 +32,9 @@ def _parse_choices_json(raw_json, question_type):
     for choice in choices:
         if not isinstance(choice, dict):
             return None
-        if "text" not in choice or ("isCorrect" not in choice and "is_correct" not in choice):
+        if "text" not in choice or (
+            "isCorrect" not in choice and "is_correct" not in choice
+        ):
             return None
     return [
         {
@@ -56,7 +58,10 @@ def _choices_for_alpine(choices):
     if not choices:
         return "[]"
     return json.dumps(
-        [{"text": c.get("text", ""), "isCorrect": c.get("is_correct", False)} for c in choices]
+        [
+            {"text": c.get("text", ""), "isCorrect": c.get("is_correct", False)}
+            for c in choices
+        ]
     )
 
 
@@ -97,11 +102,42 @@ def coach_quiz_config(request, event_id):
 @require_POST
 def coach_quiz_create(request, event_id):
     event = get_object_or_404(MeetupEvent, id=event_id)
-    QuizEvent.objects.get_or_create(
+    num_tables = request.POST.get("num_tables", "").strip()
+    if not num_tables or int(num_tables) < 2:
+        messages.error(request, _("Number of tables is required (minimum 2)."))
+        return redirect("crush_lu:coach_quiz_config", event_id=event.id)
+    quiz, created = QuizEvent.objects.get_or_create(
         event=event,
-        defaults={"created_by": request.user, "status": "draft"},
+        defaults={
+            "created_by": request.user,
+            "status": "draft",
+            "num_tables": int(num_tables),
+        },
     )
+    if not created and not quiz.num_tables:
+        quiz.num_tables = int(num_tables)
+        quiz.save(update_fields=["num_tables"])
+    quiz.ensure_tables()
     messages.success(request, _("Quiz created for this event."))
+    return redirect("crush_lu:coach_quiz_config", event_id=event.id)
+
+
+@coach_required
+@require_POST
+def coach_quiz_update_tables(request, event_id):
+    """Update the number of tables for an existing quiz."""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    quiz = get_object_or_404(QuizEvent, event=event)
+
+    num_tables = request.POST.get("num_tables", "").strip()
+    if not num_tables or int(num_tables) < 2:
+        messages.error(request, _("Number of tables is required (minimum 2)."))
+        return redirect("crush_lu:coach_quiz_config", event_id=event.id)
+
+    quiz.num_tables = int(num_tables)
+    quiz.save(update_fields=["num_tables"])
+    quiz.ensure_tables()
+    messages.success(request, _("Table count updated to %d.") % quiz.num_tables)
     return redirect("crush_lu:coach_quiz_config", event_id=event.id)
 
 
@@ -117,9 +153,13 @@ def coach_quiz_round_add(request, event_id):
 
     if request.method == "POST":
         # At least one language title is required
-        titles = {lang: request.POST.get(f"title_{lang}", "").strip() for lang in LANGUAGES}
+        titles = {
+            lang: request.POST.get(f"title_{lang}", "").strip() for lang in LANGUAGES
+        }
         if not any(titles.values()):
-            messages.error(request, _("Round title is required in at least one language."))
+            messages.error(
+                request, _("Round title is required in at least one language.")
+            )
             return render(
                 request,
                 "crush_lu/coach_quiz_round_form.html",
@@ -157,9 +197,13 @@ def coach_quiz_round_edit(request, event_id, round_id):
     quiz_round = get_object_or_404(QuizRound, id=round_id, quiz=quiz)
 
     if request.method == "POST":
-        titles = {lang: request.POST.get(f"title_{lang}", "").strip() for lang in LANGUAGES}
+        titles = {
+            lang: request.POST.get(f"title_{lang}", "").strip() for lang in LANGUAGES
+        }
         if not any(titles.values()):
-            messages.error(request, _("Round title is required in at least one language."))
+            messages.error(
+                request, _("Round title is required in at least one language.")
+            )
             return render(
                 request,
                 "crush_lu/coach_quiz_round_form.html",
@@ -177,7 +221,10 @@ def coach_quiz_round_edit(request, event_id, round_id):
             5, int(request.POST.get("time_per_question", 30) or 30)
         )
         quiz_round.is_bonus = request.POST.get("is_bonus") == "on"
-        quiz_round.sort_order = int(request.POST.get("sort_order", quiz_round.sort_order) or quiz_round.sort_order)
+        quiz_round.sort_order = int(
+            request.POST.get("sort_order", quiz_round.sort_order)
+            or quiz_round.sort_order
+        )
         quiz_round.save()
         messages.success(request, _("Round updated."))
         return redirect("crush_lu:coach_quiz_config", event_id=event.id)
@@ -202,7 +249,9 @@ def coach_quiz_round_delete(request, event_id, round_id):
     quiz_round = get_object_or_404(QuizRound, id=round_id, quiz=quiz)
 
     if quiz.status not in ("draft", "paused"):
-        messages.error(request, _("Cannot delete rounds from an active or finished quiz."))
+        messages.error(
+            request, _("Cannot delete rounds from an active or finished quiz.")
+        )
         return redirect("crush_lu:coach_quiz_config", event_id=event.id)
 
     quiz_round.delete()
@@ -249,7 +298,9 @@ def coach_quiz_question_edit(request, event_id, question_id):
     choices_by_lang = {}
     for lang in LANGUAGES:
         lang_choices = getattr(question, f"choices_{lang}", None)
-        choices_by_lang[lang] = _choices_for_alpine(lang_choices) if lang_choices else "[]"
+        choices_by_lang[lang] = (
+            _choices_for_alpine(lang_choices) if lang_choices else "[]"
+        )
 
     return render(
         request,
@@ -275,7 +326,9 @@ def coach_quiz_question_delete(request, event_id, question_id):
     question = get_object_or_404(QuizQuestion, id=question_id, round__quiz=quiz)
 
     if quiz.status not in ("draft", "paused"):
-        messages.error(request, _("Cannot delete questions from an active or finished quiz."))
+        messages.error(
+            request, _("Cannot delete questions from an active or finished quiz.")
+        )
         return redirect("crush_lu:coach_quiz_config", event_id=event.id)
 
     question.delete()
@@ -294,11 +347,16 @@ def _save_question(request, event, quiz_round, question=None):
     texts = {lang: request.POST.get(f"text_{lang}", "").strip() for lang in LANGUAGES}
     question_type = request.POST.get("question_type", "multiple_choice")
     points = int(request.POST.get("points", 10) or 10)
-    correct_answers = {lang: request.POST.get(f"correct_answer_{lang}", "").strip() for lang in LANGUAGES}
+    correct_answers = {
+        lang: request.POST.get(f"correct_answer_{lang}", "").strip()
+        for lang in LANGUAGES
+    }
 
     # At least one language text is required
     if not any(texts.values()):
-        messages.error(request, _("Question text is required in at least one language."))
+        messages.error(
+            request, _("Question text is required in at least one language.")
+        )
         return _render_question_form(request, event, quiz_round, question)
 
     # Parse choices per language
@@ -309,13 +367,19 @@ def _save_question(request, event, quiz_round, question=None):
             parsed = _parse_choices_json(choices_raw, question_type)
             if parsed is not None and len(parsed) >= 2:
                 if not any(c["is_correct"] for c in parsed):
-                    messages.error(request, _("At least one choice must be marked as correct."))
+                    messages.error(
+                        request, _("At least one choice must be marked as correct.")
+                    )
                     return _render_question_form(request, event, quiz_round, question)
             choices_by_lang[lang] = parsed
 
         # At least one language must have valid choices
-        if not any(v for v in choices_by_lang.values() if v is not None and len(v) >= 2):
-            messages.error(request, _("Please provide answer choices in at least one language."))
+        if not any(
+            v for v in choices_by_lang.values() if v is not None and len(v) >= 2
+        ):
+            messages.error(
+                request, _("Please provide answer choices in at least one language.")
+            )
             return _render_question_form(request, event, quiz_round, question)
     else:
         for lang in LANGUAGES:

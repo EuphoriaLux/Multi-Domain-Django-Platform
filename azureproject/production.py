@@ -300,6 +300,8 @@ DATABASES = {
         "HOST": conn_str_params["host"],
         "USER": conn_str_params["user"],
         "PASSWORD": conn_str_params["password"],
+        "CONN_MAX_AGE": 600,
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 

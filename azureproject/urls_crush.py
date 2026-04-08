@@ -34,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -187,6 +187,7 @@ urlpatterns = base_patterns + api_patterns + [
     # Profile Photo Upload/Delete APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='api_upload_profile_photo'),
     path('api/profile/delete-photo/<int:slot>/', views_profile.delete_profile_photo, name='api_delete_profile_photo'),
+    path('api/profile/settings/', views.api_profile_settings_autosave, name='api_profile_settings_autosave'),
 
     # Profile Completion API (called from alpine-components.js with hardcoded paths)
     path('api/profile/complete/', views_profile.complete_profile_submission, name='api_complete_profile_submission'),
@@ -218,7 +219,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
     path('api/quiz/<int:quiz_id>/my-assignment/', api_quiz.my_assignment, name='api_quiz_my_assignment'),
     path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
-    path('api/quiz/<int:quiz_id>/regenerate-tables/', api_quiz.regenerate_tables, name='api_quiz_regenerate_tables'),
+
+    # Quiz table display (projector view, language-neutral, no auth)
+    path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),
+    path('api/quiz/<int:event_id>/display-data/', views_quiz.quiz_table_display_data, name='quiz_table_display_data'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix

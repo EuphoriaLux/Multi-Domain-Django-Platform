@@ -86,13 +86,21 @@ def event_checkin_api(request, registration_id, token):
     # Check if already attended
     if registration.status == "attended":
         display_name = _get_display_name(registration)
-        return JsonResponse({
+        response_data = {
             "success": True,
             "already_checked_in": True,
             "attendee_name": display_name,
-            "checked_in_at": registration.checked_in_at.isoformat() if registration.checked_in_at else None,
+            "checked_in_at": (
+                registration.checked_in_at.isoformat()
+                if registration.checked_in_at
+                else None
+            ),
             "message": f"{display_name} was already checked in.",
-        })
+        }
+        table_info = _get_existing_table_assignment(registration)
+        if table_info:
+            response_data.update(table_info)
+        return JsonResponse(response_data)
 
     # Verify status is confirmed
     if registration.status != "confirmed":
@@ -123,23 +131,48 @@ def event_checkin_api(request, registration_id, token):
         )
 
     # Mark as attended (with lock to prevent duplicate concurrent check-ins)
+    table_assignment = None
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update()
+            .select_related("event", "user")
             .get(id=registration_id)
         )
         if registration.status == "attended":
             display_name = _get_display_name(registration)
-            return JsonResponse({
+            response_data = {
                 "success": True,
                 "already_checked_in": True,
                 "attendee_name": display_name,
-                "checked_in_at": registration.checked_in_at.isoformat() if registration.checked_in_at else None,
+                "checked_in_at": (
+                    registration.checked_in_at.isoformat()
+                    if registration.checked_in_at
+                    else None
+                ),
                 "message": f"{display_name} was already checked in.",
-            })
+            }
+            table_info = _get_existing_table_assignment(registration)
+            if table_info:
+                response_data.update(table_info)
+            return JsonResponse(response_data)
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+
+        # Quiz table assignment (if this is a quiz night event)
+        try:
+            quiz_event = getattr(registration.event, "quiz", None)
+            if quiz_event and quiz_event.num_tables:
+                from .services.quiz_rotation import assign_table_on_checkin
+
+                table_assignment = assign_table_on_checkin(
+                    quiz_event, registration.user
+                )
+        except Exception:
+            logger.exception(
+                "Quiz table assignment failed for registration %s",
+                registration.id,
+            )
 
     display_name = _get_display_name(registration)
 
@@ -150,13 +183,18 @@ def event_checkin_api(request, registration_id, token):
         registration.event_id,
     )
 
-    return JsonResponse({
+    response_data = {
         "success": True,
         "already_checked_in": False,
         "attendee_name": display_name,
         "checked_in_at": now.isoformat(),
         "message": f"{display_name} has been checked in!",
-    })
+    }
+    if table_assignment:
+        response_data["table_number"] = table_assignment["table_number"]
+        response_data["role"] = table_assignment["role"]
+
+    return JsonResponse(response_data)
 
 
 def _get_display_name(registration):
@@ -165,3 +203,34 @@ def _get_display_name(registration):
         return registration.user.crushprofile.display_name
     except Exception:
         return registration.user.first_name or registration.user.username
+
+
+def _get_existing_table_assignment(registration):
+    """Look up existing quiz table assignment for a registration.
+
+    Returns dict with table_number and role, or None.
+    """
+    try:
+        quiz_event = getattr(registration.event, "quiz", None)
+        if not quiz_event:
+            return None
+        from .models.quiz import QuizRotationSchedule, QuizTableMembership
+
+        membership = (
+            QuizTableMembership.objects.filter(
+                table__quiz=quiz_event, user=registration.user
+            )
+            .select_related("table")
+            .first()
+        )
+        if not membership:
+            return None
+        rotation = QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=0, user=registration.user
+        ).first()
+        return {
+            "table_number": membership.table.table_number,
+            "role": rotation.role if rotation else "",
+        }
+    except Exception:
+        return None

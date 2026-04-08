@@ -1,0 +1,150 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ event.title }} - {% trans "Table Display" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-crush-dark pt-4 pb-8"
+     x-data="quizTableDisplay"
+     data-event-id="{{ event.id }}"
+     data-num-tables="{{ num_tables }}"
+     data-confirmed-count="{{ confirmed_count }}"
+     data-display-token="{{ quiz.display_token }}">
+
+    {# Header #}
+    <div class="mx-auto max-w-6xl px-4 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-white">{{ event.title }}</h1>
+                <p class="mt-1 text-gray-400">{{ event.date_time|date:"D, M j" }} {{ event.date_time|date:"g:i A" }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-4xl font-bold text-crush-pink" x-text="attendedCountDisplay"></p>
+                <p class="text-sm text-gray-400">{% trans "checked in" %}</p>
+            </div>
+        </div>
+        {# Progress bar #}
+        <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-700">
+            <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-500"
+                 x-bind:style="progressBarStyle"></div>
+        </div>
+    </div>
+
+    {# Table grid #}
+    <div class="mx-auto max-w-6xl px-4">
+        <div x-ref="tablegrid" class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block pre_alpine_js %}
+<script>
+document.addEventListener('alpine:init', function() {
+    Alpine.data('quizTableDisplay', function() {
+        var eventId = parseInt(this.$el.dataset.eventId);
+        var numTables = parseInt(this.$el.dataset.numTables) || 0;
+        var confirmedCount = parseInt(this.$el.dataset.confirmedCount) || 0;
+        var displayToken = this.$el.dataset.displayToken || '';
+        var pollUrl = '/api/quiz/' + eventId + '/display-data/';
+        if (displayToken) pollUrl += '?token=' + encodeURIComponent(displayToken);
+
+        return {
+            attendedCount: 0,
+            confirmedCount: confirmedCount,
+            tables: [],
+            _interval: null,
+
+            init: function() {
+                var self = this;
+                self.fetchData();
+                self._interval = setInterval(function() { self.fetchData(); }, 5000);
+            },
+
+            destroy: function() {
+                if (this._interval) clearInterval(this._interval);
+            },
+
+            get attendedCountDisplay() {
+                return this.attendedCount + ' / ' + this.confirmedCount;
+            },
+
+            get progressBarStyle() {
+                var pct = this.confirmedCount > 0
+                    ? Math.round((this.attendedCount / this.confirmedCount) * 100)
+                    : 0;
+                return 'width: ' + pct + '%';
+            },
+
+            fetchData: function() {
+                var self = this;
+                fetch(pollUrl)
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        self.attendedCount = data.attended_count || 0;
+                        self.confirmedCount = data.confirmed_count || confirmedCount;
+                        self.tables = data.tables || [];
+                        self.renderTables();
+                    })
+                    .catch(function() {});
+            },
+
+            renderTables: function() {
+                var grid = this.$refs.tablegrid;
+                if (!grid) return;
+                grid.innerHTML = '';
+                var self = this;
+                self.tables.forEach(function(table) {
+                    var card = document.createElement('div');
+                    card.className = 'rounded-xl bg-slate-800 p-5 shadow-lg ring-1 ring-white/5';
+
+                    var header = document.createElement('div');
+                    header.className = 'flex items-center justify-between mb-3';
+                    header.innerHTML = '<div class="flex items-center gap-3">'
+                        + '<div class="flex h-12 w-12 items-center justify-center rounded-xl bg-crush-purple/20 text-lg font-bold text-crush-purple">' + table.table_number + '</div>'
+                        + '<span class="text-lg font-semibold text-white">Table ' + table.table_number + '</span>'
+                        + '</div>'
+                        + '<span class="rounded-full bg-slate-700 px-3 py-1 text-sm font-medium text-gray-300">' + table.members.length + '</span>';
+                    card.appendChild(header);
+
+                    if (table.members.length === 0) {
+                        var empty = document.createElement('p');
+                        empty.className = 'text-sm text-gray-500 italic';
+                        empty.textContent = 'Waiting for attendees...';
+                        card.appendChild(empty);
+                    } else {
+                        var list = document.createElement('div');
+                        list.className = 'space-y-1.5';
+                        table.members.forEach(function(m) {
+                            var row = document.createElement('div');
+                            row.className = 'flex items-center gap-2 rounded-lg bg-slate-700/50 px-3 py-2';
+                            var roleColor = m.role === 'anchor' ? 'text-blue-400' : 'text-pink-400';
+                            var roleIcon = m.role === 'anchor' ? '\u2693' : '\u21BB';
+                            row.innerHTML = '<span class="text-sm ' + roleColor + '">' + roleIcon + '</span>'
+                                + '<span class="text-sm font-medium text-white">' + self.escapeHtml(m.display_name) + '</span>';
+                            list.appendChild(row);
+                        });
+                        card.appendChild(list);
+                    }
+
+                    if (table.total_score > 0) {
+                        var score = document.createElement('div');
+                        score.className = 'mt-3 text-right text-sm font-medium text-crush-pink';
+                        score.textContent = table.total_score + ' pts';
+                        card.appendChild(score);
+                    }
+
+                    grid.appendChild(card);
+                });
+            },
+
+            escapeHtml: function(text) {
+                var div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+        };
+    });
+});
+</script>
+{% endblock %}

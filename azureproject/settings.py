@@ -54,11 +54,10 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
 if not SECRET_KEY:
-    if DEBUG or _env_bool("ALLOW_INSECURE_SECRET", False):
-        # Development fallback explicitly allowed
+    if DEBUG:
         SECRET_KEY = "dev-insecure-key-change-in-production"
         logging.getLogger(__name__).warning(
-            "Using insecure fallback SECRET_KEY because DJANGO_DEBUG is true or ALLOW_INSECURE_SECRET is set"
+            "Using insecure fallback SECRET_KEY in DEBUG mode"
         )
     else:
         raise ImproperlyConfigured(

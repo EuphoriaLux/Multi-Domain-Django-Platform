@@ -4,34 +4,20 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_choices(choices):
-    """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
-    if isinstance(choices, str):
-        try:
-            choices = json.loads(choices)
-        except (json.JSONDecodeError, TypeError):
-            return []
-    if not isinstance(choices, list):
-        return []
-    # Normalize: if items are plain strings, wrap them in {"text": ...}
-    result = []
-    for c in choices:
-        if isinstance(c, dict):
-            result.append(c)
-        elif isinstance(c, str):
-            result.append({"text": c, "is_correct": False})
-    return result
-
 from crush_lu.models.quiz import (
+    parse_choices as _parse_choices,
     IndividualScore,
     QuizEvent,
     QuizRotationSchedule,
@@ -56,9 +42,9 @@ def _is_quiz_host(quiz, user):
 def quiz_state(request, quiz_id):
     """Return current quiz state for initial page load."""
     try:
-        quiz = QuizEvent.objects.select_related(
-            "event", "current_round"
-        ).get(id=quiz_id)
+        quiz = QuizEvent.objects.select_related("event", "current_round").get(
+            id=quiz_id
+        )
     except QuizEvent.DoesNotExist:
         return Response({"error": "Quiz not found"}, status=404)
 
@@ -116,9 +102,7 @@ def quiz_tables(request, quiz_id):
             try:
                 round_num_int = int(round_num)
             except (ValueError, TypeError):
-                return Response(
-                    {"error": "Invalid round number"}, status=400
-                )
+                return Response({"error": "Invalid round number"}, status=400)
             rotations = QuizRotationSchedule.objects.filter(
                 quiz_id=quiz_id,
                 round_number=round_num_int,
@@ -137,9 +121,7 @@ def quiz_tables(request, quiz_id):
                     }
                 )
         else:
-            for membership in table.memberships.select_related(
-                "user__crushprofile"
-            ):
+            for membership in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(membership.user, "crushprofile", None)
                 # AUTHZ-02: Removed user_id to avoid exposing internal IDs
                 members.append(
@@ -166,9 +148,9 @@ def quiz_tables(request, quiz_id):
 def my_assignment(request, quiz_id):
     """Return current user's table assignment, role, tablemates, and score."""
     try:
-        quiz = QuizEvent.objects.select_related(
-            "event", "current_round"
-        ).get(id=quiz_id)
+        quiz = QuizEvent.objects.select_related("event", "current_round").get(
+            id=quiz_id
+        )
     except QuizEvent.DoesNotExist:
         return Response({"error": "Quiz not found"}, status=404)
 
@@ -189,16 +171,12 @@ def my_assignment(request, quiz_id):
     if not rotation:
         # Fall back to static membership
         membership = (
-            QuizTableMembership.objects.filter(
-                table__quiz=quiz, user=user
-            )
+            QuizTableMembership.objects.filter(table__quiz=quiz, user=user)
             .select_related("table")
             .first()
         )
         if not membership:
-            return Response(
-                {"error": "Not assigned to a table"}, status=404
-            )
+            return Response({"error": "Not assigned to a table"}, status=404)
 
         return Response(
             {
@@ -224,9 +202,7 @@ def my_assignment(request, quiz_id):
         profile = getattr(r.user, "crushprofile", None)
         tablemates.append(
             {
-                "display_name": (
-                    profile.display_name if profile else "Anonymous"
-                ),
+                "display_name": (profile.display_name if profile else "Anonymous"),
                 "role": r.role,
             }
         )
@@ -273,9 +249,9 @@ def score_table(request, quiz_id):
         return JsonResponse({"error": "POST required"}, status=405)
 
     try:
-        quiz = QuizEvent.objects.select_related(
-            "event", "current_round"
-        ).get(id=quiz_id)
+        quiz = QuizEvent.objects.select_related("event", "current_round").get(
+            id=quiz_id
+        )
     except QuizEvent.DoesNotExist:
         return JsonResponse({"error": "Quiz not found"}, status=404)
 
@@ -293,9 +269,7 @@ def score_table(request, quiz_id):
     is_correct = body.get("is_correct", False)
 
     if table_id is None or question_id is None:
-        return JsonResponse(
-            {"error": "table_id and question_id required"}, status=400
-        )
+        return JsonResponse({"error": "table_id and question_id required"}, status=400)
 
     from crush_lu.models.quiz import QuizQuestion
 
@@ -305,9 +279,7 @@ def score_table(request, quiz_id):
             id=question_id, round__quiz=quiz
         )
     except (QuizTable.DoesNotExist, QuizQuestion.DoesNotExist):
-        return JsonResponse(
-            {"error": "Table or question not found"}, status=404
-        )
+        return JsonResponse({"error": "Table or question not found"}, status=404)
 
     # CONC-04: Wrap scoring in atomic transaction to ensure all-or-nothing
     from django.db import transaction
@@ -371,126 +343,5 @@ def score_table(request, quiz_id):
             "is_correct": is_correct,
             "points_awarded": points,
             "members_scored": len(rotation_users),
-        }
-    )
-
-
-@login_required
-def regenerate_tables(request, quiz_id):
-    """Host-only endpoint to regenerate table assignments based on current attendees."""
-    if request.method != "POST":
-        return JsonResponse({"error": "POST required"}, status=405)
-
-    try:
-        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
-    except QuizEvent.DoesNotExist:
-        return JsonResponse({"error": "Quiz not found"}, status=404)
-
-    if not _is_quiz_host(quiz, request.user):
-        return JsonResponse({"error": "Not authorized"}, status=403)
-
-    if quiz.status == "active":
-        return JsonResponse(
-            {"error": "Cannot regenerate tables while quiz is active. Pause or end the quiz first."},
-            status=409,
-        )
-
-    from django.utils import timezone
-
-    from crush_lu.models.events import EventRegistration
-    from crush_lu.services.quiz_rotation import (
-        generate_rotation_schedule,
-        split_participants_by_gender,
-    )
-
-    # Get currently attended or confirmed registrations
-    registrations = (
-        EventRegistration.objects.filter(
-            event=quiz.event, status__in=["confirmed", "attended"]
-        )
-        .select_related("user__crushprofile")
-        .order_by("registered_at")
-    )
-
-    if registrations.count() < 4:
-        return JsonResponse(
-            {
-                "error": f"Need at least 4 registrations, "
-                f"got {registrations.count()}."
-            },
-            status=400,
-        )
-
-    men, women = split_participants_by_gender(registrations)
-
-    try:
-        num_rounds = quiz.rounds.count() or 3
-        result = generate_rotation_schedule(
-            men, women, num_rounds, num_tables=quiz.num_tables
-        )
-    except Exception:
-        logger.exception("Failed to generate rotation schedule for quiz %s", quiz.pk)
-        return JsonResponse({"error": "Failed to generate rotation schedule."}, status=400)
-
-    schedule = result["schedule"]
-    actual_num_tables = result["num_tables"]
-
-    # Clear rotation data and memberships (preserve tables for score FKs)
-    QuizRotationSchedule.objects.filter(quiz=quiz).delete()
-    QuizTableMembership.objects.filter(table__quiz=quiz).delete()
-
-    # Reuse or create tables
-    existing_tables = {
-        t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)
-    }
-    tables = {}
-    for t in range(1, actual_num_tables + 1):
-        if t in existing_tables:
-            tables[t] = existing_tables[t]
-        else:
-            tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
-
-    # Remove excess tables only if they have no scores
-    for t_num, t_obj in existing_tables.items():
-        if t_num > actual_num_tables:
-            if not t_obj.round_scores.exists():
-                t_obj.delete()
-
-    # Build rotation schedule and round-0 memberships
-    rotation_entries = []
-    round_0_members = set()
-    for entry in schedule:
-        table = tables[entry["table_number"]]
-        rotation_entries.append(
-            QuizRotationSchedule(
-                quiz=quiz,
-                round_number=entry["round_number"],
-                table=table,
-                user=entry["user"],
-                role=entry["role"],
-                rotation_group=entry["rotation_group"],
-            )
-        )
-        if entry["round_number"] == 0:
-            round_0_members.add((entry["table_number"], entry["user"]))
-
-    QuizRotationSchedule.objects.bulk_create(rotation_entries)
-
-    memberships = []
-    for table_num, user in round_0_members:
-        memberships.append(
-            QuizTableMembership(table=tables[table_num], user=user)
-        )
-    QuizTableMembership.objects.bulk_create(memberships)
-
-    quiz.tables_generated_at = timezone.now()
-    quiz.save(update_fields=["tables_generated_at"])
-
-    return JsonResponse(
-        {
-            "num_tables": actual_num_tables,
-            "anchors": len(men),
-            "rotators": len(women),
-            "warnings": result["warnings"],
         }
     )

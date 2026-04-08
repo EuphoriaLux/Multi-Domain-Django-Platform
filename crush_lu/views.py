@@ -30,6 +30,28 @@ import json
 
 logger = logging.getLogger(__name__)
 
+AUTOSAVE_ABOUT_FIELDS = {
+    "bio",
+    "interests",
+    "phone_number",
+    "location",
+    "event_languages",
+    "qualities_ids",
+    "defects_ids",
+}
+AUTOSAVE_PREFERENCES_FIELDS = {
+    "preferred_age_min",
+    "preferred_age_max",
+    "preferred_genders",
+    "first_step_preference",
+    "sought_qualities_ids",
+    "astro_enabled",
+}
+AUTOSAVE_PRIVACY_FIELDS = {
+    "show_full_name",
+    "show_exact_age",
+}
+
 from .models import (
     CrushProfile,
     CrushCoach,
@@ -756,8 +778,65 @@ def _edit_section_photos(request, profile):
     return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
 
 
-def _edit_section_about(request, profile):
-    """Handle about section editing (bio, interests, traits, contact, details, event prefs)."""
+def _normalize_form_errors(errors):
+    """Return a plain dict of field -> [messages] for JSON responses."""
+    normalized = {}
+    for field, field_errors in errors.items():
+        normalized[field] = [str(error) for error in field_errors]
+    return normalized
+
+
+def _get_profile_form_initial_data(profile):
+    return {
+        "phone_number": profile.phone_number or "",
+        "date_of_birth": profile.date_of_birth.isoformat() if profile.date_of_birth else "",
+        "gender": profile.gender or "",
+        "location": profile.location or "",
+        "bio": profile.bio or "",
+        "interests": profile.interests or "",
+        "event_languages": list(profile.event_languages or []),
+        "qualities_ids": ",".join(
+            str(pk) for pk in profile.qualities.values_list("pk", flat=True)
+        ),
+        "defects_ids": ",".join(
+            str(pk) for pk in profile.defects.values_list("pk", flat=True)
+        ),
+        "show_full_name": bool(profile.show_full_name),
+        "show_exact_age": bool(profile.show_exact_age),
+    }
+
+
+def _get_preferences_form_initial_data(profile):
+    return {
+        "preferred_age_min": profile.preferred_age_min or 18,
+        "preferred_age_max": profile.preferred_age_max or 99,
+        "preferred_genders": list(profile.preferred_genders or []),
+        "first_step_preference": profile.first_step_preference or "",
+        "sought_qualities_ids": ",".join(
+            str(pk) for pk in profile.sought_qualities.values_list("pk", flat=True)
+        ),
+        "astro_enabled": bool(profile.astro_enabled),
+    }
+
+
+def _merge_autosave_payload(base_data, payload, allowed_fields):
+    from django.http import QueryDict
+
+    merged = dict(base_data)
+    for field in allowed_fields:
+        if field in payload:
+            merged[field] = payload[field]
+    # Convert to QueryDict so MultipleChoiceField / multi-value fields work
+    qd = QueryDict(mutable=True)
+    for key, value in merged.items():
+        if isinstance(value, list):
+            qd.setlist(key, value)
+        else:
+            qd[key] = value if value is not None else ""
+    return qd
+
+
+def _render_about_section(request, profile, form=None):
     from .models import Trait
 
     qualities_list = list(Trait.objects.filter(trait_type="quality"))
@@ -767,83 +846,32 @@ def _edit_section_about(request, profile):
     selected_qualities = list(profile.qualities.values_list("pk", flat=True))
     selected_defects = list(profile.defects.values_list("pk", flat=True))
 
-    trait_context = {
+    if form is None:
+        form = CrushProfileForm(instance=profile)
+
+    return {
+        "form": form,
+        "profile": profile,
+        "section": "about",
         "qualities_grouped": qualities_grouped,
         "defects_grouped": defects_grouped,
         "selected_qualities_json": json.dumps(selected_qualities),
         "selected_defects_json": json.dumps(selected_defects),
     }
 
-    if request.method == "POST":
-        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
-        if form.is_valid():
-            updated_profile = form.save()
-            from .matching import update_match_scores_for_user
 
-            transaction.on_commit(
-                lambda: update_match_scores_for_user(request.user)
-            )
-            if request.htmx:
-                return render(
-                    request,
-                    "crush_lu/edit_profile.html#edit_success",
-                    {"profile": updated_profile},
-                )
-            messages.success(request, _("Profile updated successfully!"))
-            return redirect("crush_lu:edit_profile")
-        else:
-            if request.htmx:
-                return render(
-                    request,
-                    "crush_lu/partials/edit_about.html",
-                    {
-                        "form": form,
-                        "profile": profile,
-                        "has_errors": True,
-                        **trait_context,
-                    },
-                )
-    else:
-        form = CrushProfileForm(instance=profile)
-
-    context = {
-        "form": form,
-        "profile": profile,
-        "section": "about",
-        **trait_context,
-    }
-    template = "crush_lu/partials/edit_about.html"
-    if request.htmx:
-        return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
-
-
-def _edit_section_preferences(request, profile):
-    """Handle ideal crush preferences section."""
+def _render_preferences_section(request, profile, form=None):
     from .models import Trait
     from .matching import (
-        get_western_zodiac, get_chinese_zodiac,
-        update_match_scores_for_user,
-        ZODIAC_SIGN_EMOJIS, CHINESE_ANIMAL_EMOJIS,
-        ZODIAC_SIGN_LABELS, CHINESE_ANIMAL_LABELS,
+        get_western_zodiac,
+        get_chinese_zodiac,
+        ZODIAC_SIGN_EMOJIS,
+        CHINESE_ANIMAL_EMOJIS,
+        ZODIAC_SIGN_LABELS,
+        CHINESE_ANIMAL_LABELS,
     )
 
-    if request.method == "POST":
-        form = IdealCrushPreferencesForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
-            transaction.on_commit(
-                lambda: update_match_scores_for_user(request.user)
-            )
-            if request.htmx:
-                return render(
-                    request,
-                    "crush_lu/edit_profile.html#edit_success",
-                    {"profile": profile},
-                )
-            messages.success(request, _("Preferences saved!"))
-            return redirect("crush_lu:edit_profile")
-    else:
+    if form is None:
         form = IdealCrushPreferencesForm(instance=profile)
 
     qualities_list = list(Trait.objects.filter(trait_type="quality"))
@@ -853,7 +881,7 @@ def _edit_section_preferences(request, profile):
     zodiac_sign = get_western_zodiac(profile.date_of_birth)
     chinese_animal = get_chinese_zodiac(profile.date_of_birth)
 
-    context = {
+    return {
         "form": form,
         "profile": profile,
         "section": "preferences",
@@ -864,6 +892,72 @@ def _edit_section_preferences(request, profile):
         "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
         "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
     }
+
+
+def _render_privacy_section(profile, form=None):
+    if form is None:
+        form = CrushProfileForm(instance=profile)
+
+    return {
+        "form": form,
+        "profile": profile,
+        "section": "privacy",
+    }
+
+
+def _edit_section_about(request, profile):
+    """Handle about section editing (bio, interests, traits, contact, details, event prefs)."""
+    if request.method == "POST":
+        form = CrushProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            updated_profile = form.save()
+            from .matching import update_match_scores_for_user
+
+            transaction.on_commit(
+                lambda: update_match_scores_for_user(request.user)
+            )
+            if request.htmx:
+                context = _render_about_section(request, updated_profile)
+                return render(request, "crush_lu/partials/edit_about.html", context)
+            messages.success(request, _("Profile updated successfully!"))
+            return redirect("crush_lu:edit_profile")
+        else:
+            if request.htmx:
+                context = _render_about_section(request, profile, form=form)
+                context["has_errors"] = True
+                return render(request, "crush_lu/partials/edit_about.html", context)
+    else:
+        form = CrushProfileForm(instance=profile)
+
+    context = _render_about_section(request, profile, form=form)
+    template = "crush_lu/partials/edit_about.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+
+
+def _edit_section_preferences(request, profile):
+    """Handle ideal crush preferences section."""
+    from .matching import (
+        update_match_scores_for_user,
+    )
+
+    if request.method == "POST":
+        form = IdealCrushPreferencesForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            transaction.on_commit(
+                lambda: update_match_scores_for_user(request.user)
+            )
+            if request.htmx:
+                context = _render_preferences_section(request, profile)
+                return render(request, "crush_lu/partials/edit_preferences.html", context)
+            messages.success(request, _("Preferences saved!"))
+            return redirect("crush_lu:edit_profile")
+    else:
+        form = IdealCrushPreferencesForm(instance=profile)
+
+    context = _render_preferences_section(request, profile, form=form)
     template = "crush_lu/partials/edit_preferences.html"
     if request.htmx:
         return render(request, template, context)
@@ -877,21 +971,14 @@ def _edit_section_privacy(request, profile):
         if form.is_valid():
             form.save()
             if request.htmx:
-                return render(
-                    request,
-                    "crush_lu/edit_profile.html#edit_success",
-                    {"profile": profile},
-                )
+                context = _render_privacy_section(profile)
+                return render(request, "crush_lu/partials/edit_privacy.html", context)
             messages.success(request, _("Privacy settings updated!"))
             return redirect("crush_lu:edit_profile")
     else:
         form = CrushProfileForm(instance=profile)
 
-    context = {
-        "form": form,
-        "profile": profile,
-        "section": "privacy",
-    }
+    context = _render_privacy_section(profile, form=form)
     template = "crush_lu/partials/edit_privacy.html"
     if request.htmx:
         return render(request, template, context)
@@ -1092,6 +1179,141 @@ def _edit_sub_account_danger(request, profile):
     return render(
         request, "crush_lu/edit_profile.html", {**context, "section_template": template}
     )
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def api_profile_settings_autosave(request):
+    """Auto-save approved profile settings sections via JSON."""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Profile not found."}, status=404)
+
+    if not profile.is_approved:
+        return JsonResponse(
+            {"success": False, "error": "Auto-save is only available for approved profiles."},
+            status=403,
+        )
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON."}, status=400)
+
+    section = payload.get("section", "")
+
+    if section == "about":
+        data = _merge_autosave_payload(
+            _get_profile_form_initial_data(profile),
+            payload,
+            AUTOSAVE_ABOUT_FIELDS,
+        )
+        form = CrushProfileForm(data, instance=profile)
+        if form.is_valid():
+            updated_profile = form.save()
+            from .matching import update_match_scores_for_user
+
+            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
+            return JsonResponse(
+                {
+                    "success": True,
+                    "saved_fields": sorted(AUTOSAVE_ABOUT_FIELDS & set(payload.keys())),
+                    "values": {
+                        "bio": updated_profile.bio or "",
+                        "interests": updated_profile.interests or "",
+                        "phone_number": updated_profile.phone_number or "",
+                        "location": updated_profile.location or "",
+                        "event_languages": list(updated_profile.event_languages or []),
+                        "qualities_ids": list(
+                            updated_profile.qualities.values_list("pk", flat=True)
+                        ),
+                        "defects_ids": list(
+                            updated_profile.defects.values_list("pk", flat=True)
+                        ),
+                    },
+                }
+            )
+
+        return JsonResponse(
+            {
+                "success": False,
+                "errors": _normalize_form_errors(form.errors),
+                "non_field_errors": [str(error) for error in form.non_field_errors()],
+            },
+            status=400,
+        )
+
+    if section == "preferences":
+        data = _merge_autosave_payload(
+            _get_preferences_form_initial_data(profile),
+            payload,
+            AUTOSAVE_PREFERENCES_FIELDS,
+        )
+        form = IdealCrushPreferencesForm(data, instance=profile)
+        if form.is_valid():
+            updated_profile = form.save()
+            from .matching import update_match_scores_for_user
+
+            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
+            return JsonResponse(
+                {
+                    "success": True,
+                    "saved_fields": sorted(
+                        AUTOSAVE_PREFERENCES_FIELDS & set(payload.keys())
+                    ),
+                    "values": {
+                        "preferred_age_min": updated_profile.preferred_age_min or 18,
+                        "preferred_age_max": updated_profile.preferred_age_max or 99,
+                        "preferred_genders": list(updated_profile.preferred_genders or []),
+                        "first_step_preference": updated_profile.first_step_preference or "",
+                        "sought_qualities_ids": list(
+                            updated_profile.sought_qualities.values_list("pk", flat=True)
+                        ),
+                        "astro_enabled": bool(updated_profile.astro_enabled),
+                    },
+                }
+            )
+
+        return JsonResponse(
+            {
+                "success": False,
+                "errors": _normalize_form_errors(form.errors),
+                "non_field_errors": [str(error) for error in form.non_field_errors()],
+            },
+            status=400,
+        )
+
+    if section == "privacy":
+        data = _merge_autosave_payload(
+            _get_profile_form_initial_data(profile),
+            payload,
+            AUTOSAVE_PRIVACY_FIELDS,
+        )
+        form = CrushProfileForm(data, instance=profile)
+        if form.is_valid():
+            updated_profile = form.save()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "saved_fields": sorted(AUTOSAVE_PRIVACY_FIELDS & set(payload.keys())),
+                    "values": {
+                        "show_full_name": bool(updated_profile.show_full_name),
+                        "show_exact_age": bool(updated_profile.show_exact_age),
+                    },
+                }
+            )
+
+        return JsonResponse(
+            {
+                "success": False,
+                "errors": _normalize_form_errors(form.errors),
+                "non_field_errors": [str(error) for error in form.non_field_errors()],
+            },
+            status=400,
+        )
+
+    return JsonResponse({"success": False, "error": "Invalid section."}, status=400)
 
 
 @crush_login_required

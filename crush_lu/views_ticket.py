@@ -88,12 +88,31 @@ def event_ticket(request, event_id):
         else ""
     )
 
+    # Quiz table assignment (show table number after check-in)
+    table_number = None
+    if already_checked_in:
+        try:
+            from crush_lu.models.quiz import QuizTableMembership
+
+            membership = (
+                QuizTableMembership.objects.filter(
+                    table__quiz__event=event, user=request.user
+                )
+                .select_related("table")
+                .first()
+            )
+            if membership:
+                table_number = membership.table.table_number
+        except Exception:
+            pass
+
     context = {
         "event": event,
         "registration": registration,
         "checkin_url": checkin_url,
         "display_name": display_name,
         "already_checked_in": already_checked_in,
+        "table_number": table_number,
         "wallet_enabled": wallet_enabled,
         "apple_wallet_enabled": apple_wallet_enabled,
         "apple_wallet_url": apple_wallet_url,

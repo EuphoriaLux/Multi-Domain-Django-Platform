@@ -531,6 +531,8 @@ document.addEventListener("alpine:init", function () {
             errorState: false,
             message: "",
             checkins: [],
+            lastTableNumber: 0,
+            lastRole: "",
 
             get scannerButtonText() {
                 return this.scannerActive ? "Stop Scanner" : "Start Scanner";
@@ -546,6 +548,12 @@ document.addEventListener("alpine:init", function () {
             },
             get resultMessage() {
                 return this.message;
+            },
+            get hasTableAssignment() {
+                return this.lastTableNumber > 0;
+            },
+            get tableAssignmentText() {
+                return "Table " + this.lastTableNumber;
             },
             get recentCheckins() {
                 return this.checkins;
@@ -650,10 +658,15 @@ document.addEventListener("alpine:init", function () {
                         if (data.success) {
                             self.success = true;
                             self.errorState = false;
-                            self.message = data.message;
+                            self.lastTableNumber = data.table_number || 0;
+                            self.lastRole = data.role || "";
+                            self.message = data.table_number
+                                ? data.message + " \u2192 Table " + data.table_number
+                                : data.message;
                             if (!data.already_checked_in) {
                                 self.checkins.unshift({
                                     name: data.attendee_name,
+                                    table: data.table_number || 0,
                                     time: new Date().toLocaleTimeString([], {
                                         hour: "2-digit",
                                         minute: "2-digit",
@@ -664,6 +677,16 @@ document.addEventListener("alpine:init", function () {
                                 if (counter) {
                                     counter.textContent =
                                         parseInt(counter.textContent) + 1;
+                                }
+                                // Update table fill display
+                                if (data.table_number) {
+                                    var fillEl = document.getElementById(
+                                        "table-fill-" + data.table_number,
+                                    );
+                                    if (fillEl) {
+                                        fillEl.textContent =
+                                            parseInt(fillEl.textContent) + 1;
+                                    }
                                 }
                             }
                         } else {
@@ -985,7 +1008,11 @@ document.addEventListener("alpine:init", function () {
                 this.$el.addEventListener("change", function (event) {
                     if (event.target.classList.contains("email-pref-toggle")) {
                         var prefKey = event.target.dataset.prefKey;
-                        self.updatePreference(prefKey, event.target.checked, event.target);
+                        self.updatePreference(
+                            prefKey,
+                            event.target.checked,
+                            event.target,
+                        );
                     }
                 });
             },
@@ -994,11 +1021,11 @@ document.addEventListener("alpine:init", function () {
                 this.updatePreference("unsubscribed_all", this.unsubscribeAll, null);
             },
             getCsrfToken: function () {
-                var cookie = document.cookie
-                    .split("; ")
-                    .find(function (row) {
-                        return row.startsWith("csrftoken=");
-                    });
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                var cookie = document.cookie.split("; ").find(function (row) {
+                    return row.startsWith("csrftoken=");
+                });
                 return cookie ? cookie.split("=")[1] : "";
             },
             updatePreference: function (key, value, checkbox) {
@@ -1047,6 +1074,304 @@ document.addEventListener("alpine:init", function () {
                             self.saveError = false;
                         }, 3000);
                     });
+            },
+        };
+    });
+
+    Alpine.data("profileSectionAutosave", function () {
+        return {
+            saveUrl: "",
+            section: "",
+            saving: false,
+            saveSuccess: false,
+            saveError: false,
+            fieldErrors: {},
+            nonFieldErrors: [],
+            lastSavedData: {},
+            _debounceTimer: null,
+            _activeController: null,
+
+            init: function () {
+                var self = this;
+                this.saveUrl = this.$el.getAttribute("data-save-url") || "";
+                this.section = this.$el.getAttribute("data-section") || "";
+                this.lastSavedData = this.serializeForm();
+
+                this.$el.addEventListener("input", function (event) {
+                    if (!self._shouldHandleTarget(event.target)) {
+                        return;
+                    }
+
+                    if (self._isDebouncedField(event.target)) {
+                        self.scheduleSave(event.target, 900);
+                    } else if (event.target.type === "range") {
+                        self.scheduleSave(event.target, 250);
+                    }
+                });
+
+                this.$el.addEventListener("change", function (event) {
+                    if (!self._shouldHandleTarget(event.target)) {
+                        return;
+                    }
+
+                    if (event.target.type === "range") {
+                        self.save(event.target);
+                        return;
+                    }
+
+                    if (!self._isDebouncedField(event.target)) {
+                        self.save(event.target);
+                    }
+                });
+
+                this.$el.addEventListener("profile-autosave:trigger", function () {
+                    self.save(null);
+                });
+            },
+
+            get showSaving() {
+                return this.saving;
+            },
+
+            get showSuccess() {
+                return this.saveSuccess;
+            },
+
+            get showError() {
+                return this.saveError;
+            },
+
+            get showIdleMessage() {
+                return !this.saving && !this.saveSuccess && !this.saveError;
+            },
+
+            scheduleSave: function (trigger, wait) {
+                var self = this;
+                clearTimeout(this._debounceTimer);
+                this._debounceTimer = setTimeout(function () {
+                    self.save(trigger);
+                }, wait || 800);
+            },
+
+            save: function (trigger) {
+                var self = this;
+                var payload;
+
+                if (!this.saveUrl || !this.section) {
+                    return;
+                }
+
+                clearTimeout(this._debounceTimer);
+
+                payload = this.serializeForm();
+                payload.section = this.section;
+
+                if (this._activeController) {
+                    this._activeController.abort();
+                }
+
+                this._activeController = new AbortController();
+                this.saving = true;
+                this.saveSuccess = false;
+                this.saveError = false;
+
+                fetch(this.saveUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                    signal: this._activeController.signal,
+                })
+                    .then(function (response) {
+                        return response.json().then(function (data) {
+                            return { ok: response.ok, data: data };
+                        });
+                    })
+                    .then(function (result) {
+                        self.saving = false;
+
+                        if (result.ok && result.data.success) {
+                            self._activeController = null;
+                            self.lastSavedData = self.serializeForm();
+                            self.clearErrors();
+                            self.saveSuccess = true;
+                            setTimeout(function () {
+                                self.saveSuccess = false;
+                            }, 1800);
+                            return;
+                        }
+
+                        self._activeController = null;
+                        self.saveError = true;
+                        self.applyErrors(
+                            result.data.errors || {},
+                            result.data.non_field_errors || [],
+                        );
+                        self.revertControlIfNeeded(trigger);
+                        setTimeout(function () {
+                            self.saveError = false;
+                        }, 3000);
+                    })
+                    .catch(function (error) {
+                        if (error && error.name === "AbortError") {
+                            return;
+                        }
+
+                        self.saving = false;
+                        self.saveError = true;
+                        self.revertControlIfNeeded(trigger);
+                        setTimeout(function () {
+                            self.saveError = false;
+                        }, 3000);
+                    });
+            },
+
+            serializeForm: function () {
+                var formData = new FormData(this.$el);
+                var data = {};
+                var checkboxGroups = {};
+                var inputs;
+                var i;
+
+                formData.forEach(function (value, key) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        if (!Array.isArray(data[key])) {
+                            data[key] = [data[key]];
+                        }
+                        data[key].push(value);
+                    } else {
+                        data[key] = value;
+                    }
+                });
+
+                inputs = this.$el.querySelectorAll("input[type='checkbox'][name]");
+                for (i = 0; i < inputs.length; i++) {
+                    checkboxGroups[inputs[i].name] =
+                        (checkboxGroups[inputs[i].name] || 0) + 1;
+                }
+
+                Object.keys(checkboxGroups).forEach(function (name) {
+                    if (!Object.prototype.hasOwnProperty.call(data, name)) {
+                        data[name] = checkboxGroups[name] > 1 ? [] : false;
+                    } else if (checkboxGroups[name] === 1) {
+                        data[name] = data[name] === true || data[name] === "on";
+                    }
+                });
+
+                return data;
+            },
+
+            applyErrors: function (fieldErrors, nonFieldErrors) {
+                var self = this;
+                this.fieldErrors = fieldErrors || {};
+                this.nonFieldErrors = nonFieldErrors || [];
+
+                this.$el.querySelectorAll("[data-error-for]").forEach(function (node) {
+                    var field = node.getAttribute("data-error-for");
+                    var messages = self.fieldErrors[field] || [];
+                    // Find or create a dedicated text span to avoid destroying child nodes (e.g. SVG icons)
+                    var span = node.querySelector("[data-error-text]");
+                    if (!span) {
+                        span = document.createElement("span");
+                        span.setAttribute("data-error-text", "");
+                        node.appendChild(span);
+                    }
+                    span.textContent = messages.length ? messages[0] : "";
+                    node.classList.toggle("hidden", messages.length === 0);
+                });
+
+                this.$el
+                    .querySelectorAll("[data-non-field-errors]")
+                    .forEach(function (node) {
+                        node.textContent = "";
+                        if (self.nonFieldErrors.length) {
+                            self.nonFieldErrors.forEach(function (message) {
+                                var p = document.createElement("p");
+                                p.textContent = message;
+                                node.appendChild(p);
+                            });
+                            node.classList.remove("hidden");
+                        } else {
+                            node.classList.add("hidden");
+                        }
+                    });
+            },
+
+            clearErrors: function () {
+                this.applyErrors({}, []);
+            },
+
+            revertControlIfNeeded: function (trigger) {
+                var savedValue;
+                var groupValues;
+                var radios;
+
+                if (!trigger || !trigger.name) {
+                    return;
+                }
+
+                savedValue = this.lastSavedData[trigger.name];
+
+                if (trigger.type === "checkbox") {
+                    groupValues = Array.isArray(savedValue) ? savedValue : null;
+
+                    if (groupValues) {
+                        this.$el
+                            .querySelectorAll(
+                                "input[type='checkbox'][name='" + trigger.name + "']",
+                            )
+                            .forEach(function (checkbox) {
+                                checkbox.checked =
+                                    groupValues.indexOf(checkbox.value) !== -1;
+                            });
+                        return;
+                    }
+
+                    trigger.checked = !!savedValue;
+                    return;
+                }
+
+                if (trigger.type === "radio") {
+                    radios = this.$el.querySelectorAll(
+                        "input[type='radio'][name='" + trigger.name + "']",
+                    );
+                    radios.forEach(function (radio) {
+                        radio.checked = radio.value === savedValue;
+                    });
+                    return;
+                }
+
+                if (savedValue !== undefined) {
+                    trigger.value = savedValue;
+                }
+            },
+
+            _shouldHandleTarget: function (target) {
+                return (
+                    target &&
+                    target.form === this.$el &&
+                    target.name &&
+                    target.type !== "file"
+                );
+            },
+
+            _isDebouncedField: function (target) {
+                return (
+                    target.tagName === "TEXTAREA" ||
+                    target.type === "text" ||
+                    target.type === "tel"
+                );
+            },
+
+            getCsrfToken: function () {
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (input && input.value) return input.value;
+                var cookie = document.cookie.split("; ").find(function (row) {
+                    return row.startsWith("csrftoken=");
+                });
+                return cookie ? cookie.split("=")[1] : "";
             },
         };
     });
@@ -8529,11 +8854,15 @@ document.addEventListener("alpine:init", function () {
             },
 
             get stepTwoIndicatorClass() {
-                return this.guideStep >= 2 ? "bg-purple-500 w-8" : "bg-gray-200 dark:bg-slate-600 w-4";
+                return this.guideStep >= 2
+                    ? "bg-purple-500 w-8"
+                    : "bg-gray-200 dark:bg-slate-600 w-4";
             },
 
             get stepThreeIndicatorClass() {
-                return this.guideStep >= 3 ? "bg-purple-500 w-8" : "bg-gray-200 dark:bg-slate-600 w-4";
+                return this.guideStep >= 3
+                    ? "bg-purple-500 w-8"
+                    : "bg-gray-200 dark:bg-slate-600 w-4";
             },
 
             init: function () {
@@ -11811,6 +12140,11 @@ document.addEventListener("alpine:init", function () {
                     this.selected.push(id);
                 }
                 this._syncAllChips();
+                this.$nextTick(
+                    function () {
+                        this.$dispatch("profile-autosave:trigger");
+                    }.bind(this),
+                );
             },
 
             _syncAllChips: function () {
@@ -11934,6 +12268,11 @@ document.addEventListener("alpine:init", function () {
             toggle: function () {
                 this.enabled = !this.enabled;
                 this._syncVisual();
+                this.$nextTick(
+                    function () {
+                        this.$dispatch("profile-autosave:trigger");
+                    }.bind(this),
+                );
             },
 
             _syncVisual: function () {

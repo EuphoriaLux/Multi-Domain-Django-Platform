@@ -5,11 +5,7 @@
 <div class="max-w-3xl mx-auto">
     <form method="post"
           enctype="multipart/form-data"
-          id="editPhotosForm"
-          hx-post="{% url 'crush_lu:edit_profile' %}?section=photos"
-          hx-target="#section-content"
-          hx-swap="innerHTML"
-          hx-indicator="#submit-indicator-photos">
+          id="editPhotosForm">
         {% csrf_token %}
 
         <div class="section-card mb-4">
@@ -106,16 +102,6 @@
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
                 {% trans "Back" %}
             </a>
-            <button type="submit" class="btn-crush-primary relative gap-2">
-                <span id="submit-indicator-photos" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
-                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
-                    <span>{% trans "Saving..." %}</span>
-                </span>
-                <span class="button-text inline-flex items-center gap-2">
-                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    <span>{% trans "Save Photos" %}</span>
-                </span>
-            </button>
         </div>
     </form>
 </div>

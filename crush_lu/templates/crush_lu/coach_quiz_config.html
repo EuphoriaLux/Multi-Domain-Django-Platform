@@ -46,8 +46,14 @@
     </svg>
     <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">{% trans "No quiz configured for this event" %}</h3>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{% trans "Create a quiz to add rounds and questions." %}</p>
-    <form method="post" action="{% url 'crush_lu:coach_quiz_create' event.id %}">
+    <form method="post" action="{% url 'crush_lu:coach_quiz_create' event.id %}" class="inline-flex flex-col items-center gap-4">
         {% csrf_token %}
+        <div class="flex items-center gap-3">
+            <label for="num_tables" class="text-sm font-medium text-gray-700 dark:text-gray-300">{% trans "Number of tables" %}</label>
+            <input type="number" name="num_tables" id="num_tables" min="2" max="50" required
+                   class="w-20 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-center text-sm font-medium dark:text-white focus:border-crush-purple focus:ring-1 focus:ring-crush-purple"
+                   placeholder="3">
+        </div>
         <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-crush-purple text-white hover:bg-purple-700 rounded-lg transition-colors font-medium">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             {% trans "Create Quiz" %}
@@ -84,6 +90,45 @@
         <p class="text-2xl font-bold text-crush-purple">{{ quiz.get_status_display }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Status" %}</p>
     </div>
+</div>
+
+<!-- Table Settings -->
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-crush-purple/10 dark:bg-crush-purple/20">
+                <svg class="w-5 h-5 text-crush-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">{% trans "Table Setup" %}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Set the number of physical tables at the venue. Attendees are assigned a table when they check in." %}</p>
+            </div>
+        </div>
+    </div>
+    <form method="post" action="{% url 'crush_lu:coach_quiz_update_tables' event.id %}" class="mt-4 flex items-end gap-3">
+        {% csrf_token %}
+        <div>
+            <label for="num_tables_update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Number of tables" %}</label>
+            <input type="number" name="num_tables" id="num_tables_update" min="2" max="50" required
+                   value="{{ quiz.num_tables|default:'' }}"
+                   class="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-center text-sm font-medium dark:text-white focus:border-crush-purple focus:ring-1 focus:ring-crush-purple"
+                   placeholder="3">
+        </div>
+        <button type="submit" class="px-4 py-2 text-sm font-medium bg-crush-purple text-white hover:bg-purple-700 rounded-lg transition-colors">
+            {% trans "Update" %}
+        </button>
+        {% if quiz.num_tables %}
+        <span class="text-sm text-green-600 dark:text-green-400 font-medium">
+            {{ quiz.num_tables }} {% trans "tables ready" %}
+        </span>
+        {% else %}
+        <span class="text-sm text-red-500 dark:text-red-400 font-medium">
+            {% trans "Required before check-in" %}
+        </span>
+        {% endif %}
+    </form>
 </div>
 
 <!-- Rounds -->

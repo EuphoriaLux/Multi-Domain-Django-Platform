@@ -5,14 +5,12 @@ from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.models.quiz import (
-    IndividualScore,
     QuizEvent,
     QuizQuestion,
     QuizRound,
     QuizRotationSchedule,
     QuizTable,
     QuizTableMembership,
-    TableRoundScore,
 )
 
 
@@ -125,17 +123,14 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
 
         # Reuse or create tables (don't delete -- TableRoundScore has FK)
         existing_tables = {
-            t.table_number: t
-            for t in QuizTable.objects.filter(quiz=quiz)
+            t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)
         }
         tables = {}
         for t in range(1, actual_num_tables + 1):
             if t in existing_tables:
                 tables[t] = existing_tables[t]
             else:
-                tables[t] = QuizTable.objects.create(
-                    quiz=quiz, table_number=t
-                )
+                tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
 
         # Remove excess tables (only if no scores attached)
         for t_num, t_obj in existing_tables.items():
@@ -167,9 +162,7 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
         # Create QuizTableMembership for round 0 (backward compat with consumer)
         memberships = []
         for table_num, user in round_0_members:
-            memberships.append(
-                QuizTableMembership(table=tables[table_num], user=user)
-            )
+            memberships.append(QuizTableMembership(table=tables[table_num], user=user))
         QuizTableMembership.objects.bulk_create(memberships)
 
         # Update generation timestamp
@@ -184,9 +177,7 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
         )
 
 
-generate_quiz_night_tables.short_description = _(
-    "Generate Quiz Night table rotation"
-)
+generate_quiz_night_tables.short_description = _("Generate Quiz Night table rotation")
 
 
 def populate_crush_quiz_questions(modeladmin, request, queryset):
@@ -232,6 +223,11 @@ class QuizEventAdmin(admin.ModelAdmin):
     raw_id_fields = ("event", "created_by", "current_round")
     readonly_fields = ("created_at", "updated_at", "tables_generated_at")
     actions = [generate_quiz_night_tables, populate_crush_quiz_questions]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.num_tables:
+            obj.ensure_tables()
 
 
 class QuizRoundAdmin(AutoTranslateMixin, TranslationAdmin):

@@ -1,7 +1,7 @@
 import json
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from crush_lu.models import CrushCoach
 from crush_lu.models.events import EventRegistration
@@ -193,3 +193,56 @@ def quiz_coach_view(request, event_id):
         "table_members_json": json.dumps(table_members),
     }
     return render(request, "crush_lu/quiz_coach.html", context)
+
+
+def quiz_table_display(request, event_id):
+    """Full-screen projector view of quiz table assignments. No auth required."""
+    quiz = get_object_or_404(
+        QuizEvent.objects.select_related("event"), event_id=event_id
+    )
+
+    # Optional token-based access control
+    if quiz.display_token:
+        if request.GET.get("token") != quiz.display_token:
+            raise Http404
+
+    confirmed_count = EventRegistration.objects.filter(
+        event_id=event_id, status__in=["confirmed", "attended"]
+    ).count()
+
+    context = {
+        "quiz": quiz,
+        "event": quiz.event,
+        "num_tables": quiz.num_tables or 0,
+        "confirmed_count": confirmed_count,
+    }
+    return render(request, "crush_lu/quiz_table_display.html", context)
+
+
+def quiz_table_display_data(request, event_id):
+    """JSON endpoint for table assignments, polled by the display page."""
+    try:
+        quiz = QuizEvent.objects.get(event_id=event_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"error": "Quiz not found"}, status=404)
+
+    # Optional token check
+    if quiz.display_token and request.GET.get("token") != quiz.display_token:
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    round_number = quiz.get_round_number()
+    tables = _get_table_members_json(quiz, round_number)
+    attended_count = EventRegistration.objects.filter(
+        event_id=event_id, status="attended"
+    ).count()
+    confirmed_count = EventRegistration.objects.filter(
+        event_id=event_id, status__in=["confirmed", "attended"]
+    ).count()
+
+    return JsonResponse(
+        {
+            "tables": tables,
+            "attended_count": attended_count,
+            "confirmed_count": confirmed_count,
+        }
+    )

@@ -1,4 +1,3 @@
-import json
 import logging
 
 from channels.db import database_sync_to_async
@@ -9,26 +8,9 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+from crush_lu.models.quiz import parse_choices as _parse_choices
+
 _QUIZ_LANGUAGES = ("en", "de", "fr")
-
-
-def _parse_choices(choices):
-    """Safely parse question choices — handles list-of-dicts, list-of-strings, and JSON strings."""
-    if isinstance(choices, str):
-        try:
-            choices = json.loads(choices)
-        except (json.JSONDecodeError, TypeError):
-            return []
-    if not isinstance(choices, list):
-        return []
-    # Normalize: if items are plain strings, wrap them in {"text": ...}
-    result = []
-    for c in choices:
-        if isinstance(c, dict):
-            result.append(c)
-        elif isinstance(c, str):
-            result.append({"text": c, "is_correct": False})
-    return result
 
 
 def _build_question_data(question, include_answers=False):
@@ -73,8 +55,8 @@ def _build_question_data(question, include_answers=False):
                     q_data[f"choices_with_answers_{lang}"] = parsed
 
     elif question.question_type == "open_ended":
-        q_data["correct_answer"] = question.correct_answer
         if include_answers:
+            q_data["correct_answer"] = question.correct_answer
             for lang in _QUIZ_LANGUAGES:
                 val = getattr(question, f"correct_answer_{lang}", None)
                 if val:
@@ -136,9 +118,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         try:
             self._total_tables = await self._get_total_tables()
         except Exception:
-            logger.exception(
-                "Failed to get total tables for quiz %s", self.quiz_id
-            )
+            logger.exception("Failed to get total tables for quiz %s", self.quiz_id)
             self._total_tables = 0
 
         # Send current quiz state on connect
@@ -180,17 +160,29 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         # Host-only actions
         host_actions = {
-            "start_quiz", "next_question", "set_round", "pause_quiz",
-            "end_quiz", "score_table", "rotate", "show_leaderboard",
+            "start_quiz",
+            "resume_quiz",
+            "next_question",
+            "set_round",
+            "pause_quiz",
+            "end_quiz",
+            "score_table",
+            "rotate",
+            "show_leaderboard",
         }
 
         if action in host_actions:
             if not await self.is_host(user):
-                await self.send_error("Not authorized. Only the host can perform this action.")
+                await self.send_error(
+                    "Not authorized. Only the host can perform this action."
+                )
                 return
 
         if action == "start_quiz":
             await self.handle_start_quiz()
+
+        elif action == "resume_quiz":
+            await self.handle_resume_quiz()
 
         elif action == "next_question":
             await self.handle_next_question()
@@ -211,7 +203,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 return
             is_quiz_night = await self.is_quiz_night_event()
             if is_quiz_night:
-                await self.send_error("Individual answers are not used in quiz night events.")
+                await self.send_error(
+                    "Individual answers are not used in quiz night events."
+                )
                 return
             await self.handle_table_answer(user, content)
 
@@ -256,10 +250,46 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 {"type": "quiz.question", "data": result["question_data"]},
             )
 
+    async def handle_resume_quiz(self):
+        """Resume a paused quiz without resetting progress."""
+        result = await self.set_quiz_status("active")
+        if not result:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+        # Re-send current question state so all clients sync up
+        state = await self.get_quiz_state()
+        if state:
+            # Include leaderboard for reconnecting clients
+            try:
+                state["leaderboard"] = await self.get_leaderboard()
+            except Exception:
+                pass
+            await self.channel_layer.group_send(
+                self.quiz_group,
+                {"type": "quiz.status", "data": result},
+            )
+            # If there's an active question, re-broadcast it
+            if state.get("question"):
+                q_data = state["question"]
+                q_data["time"] = state.get("time", 30)
+                q_data["index"] = state.get("index", 0)
+                q_data["total"] = state.get("total", 0)
+                q_data["is_bonus"] = state.get("is_bonus", False)
+                q_data["time_remaining"] = state.get("time_remaining")
+                q_data["total_tables"] = state.get("total_tables", 0)
+                q_data["scored_count"] = state.get("scored_count", 0)
+                q_data["scored_tables"] = state.get("scored_tables", {})
+                await self.channel_layer.group_send(
+                    self.quiz_group,
+                    {"type": "quiz.question", "data": q_data},
+                )
+
     async def handle_next_question(self):
         # For quiz night events, ensure all tables are scored before advancing
-        unscored = await self.check_all_tables_scored()
-        if unscored is not None and not unscored:
+        all_scored = await self.check_all_tables_scored()
+        if all_scored is not None and not all_scored:
             await self.send_error("All tables must be scored before advancing.")
             return
 
@@ -274,10 +304,32 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 {"type": "quiz.question", "data": question_data},
             )
         else:
-            await self.channel_layer.group_send(
-                self.quiz_group,
-                {"type": "quiz.status", "data": {"status": "round_complete"}},
-            )
+            # Round complete — check if this was the last round
+            next_exists = await self.has_next_round()
+            if not next_exists:
+                # Last round done — auto-finish the quiz
+                result = await self.set_quiz_status("finished")
+                if result and not result.get("error"):
+                    leaderboard = await self.get_leaderboard()
+                    result["leaderboard"] = leaderboard
+                    await self.channel_layer.group_send(
+                        self.quiz_group,
+                        {"type": "quiz.status", "data": result},
+                    )
+                else:
+                    # Fallback: still broadcast round_complete
+                    await self.channel_layer.group_send(
+                        self.quiz_group,
+                        {
+                            "type": "quiz.status",
+                            "data": {"status": "round_complete", "is_last_round": True},
+                        },
+                    )
+            else:
+                await self.channel_layer.group_send(
+                    self.quiz_group,
+                    {"type": "quiz.status", "data": {"status": "round_complete"}},
+                )
 
     async def handle_set_round(self, content):
         """Host selects a round to play — sets current_round and resets question index."""
@@ -607,9 +659,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "status": quiz.status,
             "event_type": quiz.event.event_type,
             "current_round": (
-                _build_round_data(quiz.current_round)
-                if quiz.current_round
-                else None
+                _build_round_data(quiz.current_round) if quiz.current_round else None
             ),
             "question_index": quiz.current_question_index,
             # Round list with status for guided flow
@@ -684,26 +734,49 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def start_quiz_from_first_round(self):
         """Set quiz to active, select first round by sort_order, advance to first question."""
-        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.models.quiz import QuizEvent, QuizRotationSchedule
 
         try:
             quiz = QuizEvent.objects.get(id=self.quiz_id)
         except QuizEvent.DoesNotExist:
             return None
 
-        # CONC-02: Prevent double-start resetting an active or finished quiz
-        if quiz.status not in ("draft", "paused"):
-            return {"error": f"Cannot start quiz in '{quiz.status}' state."}
+        # CONC-02: Only allow starting from draft — use resume_quiz for paused
+        if quiz.status != "draft":
+            return {
+                "error": f"Cannot start quiz in '{quiz.status}' state. Use resume for paused quizzes."
+            }
 
         first_round = quiz.rounds.order_by("sort_order").first()
         if not first_round:
             return None
 
+        # Auto-generate rotation schedule (rounds 1+) if not yet created
+        if (
+            quiz.num_tables
+            and not QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=1
+            ).exists()
+        ):
+            try:
+                from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+                generate_rotation_rounds(quiz)
+            except Exception:
+                logger.exception("Auto-rotation generation failed for quiz %s", quiz.pk)
+
         quiz.current_round = first_round
         quiz.current_question_index = 0
         quiz.status = "active"
         quiz.question_started_at = timezone.now()
-        quiz.save(update_fields=["current_round", "current_question_index", "status", "question_started_at"])
+        quiz.save(
+            update_fields=[
+                "current_round",
+                "current_question_index",
+                "status",
+                "question_started_at",
+            ]
+        )
 
         round_info = {
             "status": "active",
@@ -775,12 +848,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         allowed = self.VALID_STATUS_TRANSITIONS.get(quiz.status, set())
         if status not in allowed:
-            return {
-                "error": f"Cannot transition from '{quiz.status}' to '{status}'."
-            }
+            return {"error": f"Cannot transition from '{quiz.status}' to '{status}'."}
 
         quiz.status = status
-        quiz.question_started_at = None
+        if status == "active" and quiz.current_question_index >= 0:
+            # Resuming: reset timer so clients get a fresh countdown
+            quiz.question_started_at = timezone.now()
+        else:
+            quiz.question_started_at = None
         quiz.save(update_fields=["status", "question_started_at"])
         return {"status": status}
 
@@ -816,6 +891,32 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         return scored_count >= total_tables
 
     @database_sync_to_async
+    def has_next_round(self):
+        """Check whether there's another round after the current one."""
+        from crush_lu.models.quiz import QuizEvent
+
+        try:
+            quiz = QuizEvent.objects.select_related("current_round").get(
+                id=self.quiz_id
+            )
+        except QuizEvent.DoesNotExist:
+            return False
+
+        if not quiz.current_round:
+            return False
+
+        current_sort = quiz.current_round.sort_order
+        current_pk = quiz.current_round.pk
+
+        # Check for round with higher sort_order
+        if quiz.rounds.filter(sort_order__gt=current_sort).exists():
+            return True
+        # Check for round with same sort_order but higher pk
+        if quiz.rounds.filter(sort_order=current_sort, pk__gt=current_pk).exists():
+            return True
+        return False
+
+    @database_sync_to_async
     def advance_question(self):
         """Advance to the next question in the current round.
 
@@ -832,9 +933,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         with transaction.atomic():
             try:
-                quiz = QuizEvent.objects.select_for_update().select_related(
-                    "current_round"
-                ).get(id=self.quiz_id)
+                # Lock QuizEvent row without select_related on nullable FK
+                # (current_round is nullable → LEFT OUTER JOIN → incompatible
+                # with FOR UPDATE on PostgreSQL).
+                quiz = QuizEvent.objects.select_for_update().get(id=self.quiz_id)
             except QuizEvent.DoesNotExist:
                 return None
 
@@ -842,10 +944,14 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             if quiz.status != "active":
                 return None
 
-            if not quiz.current_round:
+            if not quiz.current_round_id:
                 return None
 
-            questions = quiz.current_round.questions.order_by("sort_order")
+            # Fetch round separately (outside select_for_update scope)
+            from crush_lu.models.quiz import QuizRound
+
+            current_round = QuizRound.objects.get(pk=quiz.current_round_id)
+            questions = current_round.questions.order_by("sort_order")
             total = questions.count()
             next_index = quiz.current_question_index + 1
 
@@ -858,10 +964,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         question = questions[next_index]
         q_data = _build_question_data(question, include_answers=True)
-        q_data["time"] = quiz.current_round.time_per_question
+        q_data["time"] = current_round.time_per_question
         q_data["index"] = next_index
         q_data["total"] = total
-        q_data["is_bonus"] = quiz.current_round.is_bonus
+        q_data["is_bonus"] = current_round.is_bonus
 
         return q_data
 
@@ -988,35 +1094,51 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def advance_round_and_rotate(self):
-        """Advance to the next round and return rotation assignments."""
+        """Advance to the next round and return rotation assignments.
+
+        CONC-05: Uses select_for_update to prevent race conditions when
+        multiple host tabs send rotate simultaneously.
+        """
+        from django.db import transaction
+
         from crush_lu.models.quiz import QuizEvent, QuizRotationSchedule
 
-        try:
-            quiz = QuizEvent.objects.select_related("current_round").get(
-                id=self.quiz_id
-            )
-        except QuizEvent.DoesNotExist:
-            return {}
+        with transaction.atomic():
+            try:
+                # Lock QuizEvent row (same pattern as advance_question CONC-01)
+                quiz = QuizEvent.objects.select_for_update().get(id=self.quiz_id)
+            except QuizEvent.DoesNotExist:
+                return {}
 
-        # Find next round by (sort_order, pk) — handles duplicate sort_orders
-        current_sort = quiz.current_round.sort_order if quiz.current_round else -1
-        current_pk = quiz.current_round.pk if quiz.current_round else -1
-        next_round = (
-            quiz.rounds.filter(sort_order__gt=current_sort)
-            .order_by("sort_order", "pk")
-            .first()
-        )
-        # Same sort_order: advance by pk within that group
-        if not next_round and quiz.current_round:
+            # Fetch current_round separately (nullable FK, outside lock scope)
+            from crush_lu.models.quiz import QuizRound
+
+            current_round = None
+            if quiz.current_round_id:
+                current_round = QuizRound.objects.get(pk=quiz.current_round_id)
+
+            # Find next round by (sort_order, pk) — handles duplicate sort_orders
+            current_sort = current_round.sort_order if current_round else -1
+            current_pk = current_round.pk if current_round else -1
             next_round = (
-                quiz.rounds.filter(
-                    sort_order=current_sort, pk__gt=current_pk
-                )
-                .order_by("pk")
+                quiz.rounds.filter(sort_order__gt=current_sort)
+                .order_by("sort_order", "pk")
                 .first()
             )
+            # Same sort_order: advance by pk within that group
+            if not next_round and current_round:
+                next_round = (
+                    quiz.rounds.filter(sort_order=current_sort, pk__gt=current_pk)
+                    .order_by("pk")
+                    .first()
+                )
 
-        if next_round:
+            if not next_round:
+                # Issue #5: Set status to finished when no more rounds
+                quiz.status = "finished"
+                quiz.save(update_fields=["status"])
+                return {"finished": True, "status": "finished"}
+
             quiz.current_round = next_round
             # Set to -1 so first next_question lands on Q0 (Issue #2)
             quiz.current_question_index = -1
@@ -1025,44 +1147,39 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 update_fields=["current_round", "current_question_index", "status"]
             )
 
-            # Get the round_number for rotation lookup
-            round_number = quiz.get_round_number(next_round)
+        # Get the round_number for rotation lookup
+        round_number = quiz.get_round_number(next_round)
 
-            # Build per-user assignment map from rotation schedule
-            assignments = {}
-            rotations = QuizRotationSchedule.objects.filter(
-                quiz=quiz, round_number=round_number
-            ).select_related("table", "user__crushprofile")
+        # Build per-user assignment map from rotation schedule
+        assignments = {}
+        rotations = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number
+        ).select_related("table", "user__crushprofile")
 
-            for r in rotations:
-                profile = getattr(r.user, "crushprofile", None)
-                # Use string keys — msgpack (channel layer) forbids integer map keys
-                assignments[str(r.user_id)] = {
-                    "table_number": r.table.table_number,
-                    "table_id": r.table_id,
-                    "role": r.role,
-                    "display_name": (profile.display_name if profile else "Anonymous"),
-                }
-
-            if not assignments:
-                logger.warning(
-                    "No rotation assignments for quiz %s round_number %d. "
-                    "Rotation schedule may need regeneration.",
-                    quiz.id,
-                    round_number,
-                )
-
-            return {
-                "round_title": next_round.title,
-                "round_number": round_number,
-                "is_bonus": next_round.is_bonus,
-                "assignments": assignments,
+        for r in rotations:
+            profile = getattr(r.user, "crushprofile", None)
+            # Use string keys — msgpack (channel layer) forbids integer map keys
+            assignments[str(r.user_id)] = {
+                "table_number": r.table.table_number,
+                "table_id": r.table_id,
+                "role": r.role,
+                "display_name": (profile.display_name if profile else "Anonymous"),
             }
 
-        # Issue #5: Set status to finished when no more rounds
-        quiz.status = "finished"
-        quiz.save(update_fields=["status"])
-        return {"finished": True, "status": "finished"}
+        if not assignments:
+            logger.warning(
+                "No rotation assignments for quiz %s round_number %d. "
+                "Rotation schedule may need regeneration.",
+                quiz.id,
+                round_number,
+            )
+
+        return {
+            "round_title": next_round.title,
+            "round_number": round_number,
+            "is_bonus": next_round.is_bonus,
+            "assignments": assignments,
+        }
 
     @database_sync_to_async
     def score_answer(self, user_id, question_id, answer):
@@ -1081,15 +1198,23 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         for lang in _QUIZ_LANGUAGES:
             lang_choices = getattr(question, f"choices_{lang}", None) or []
             for choice in lang_choices:
-                if isinstance(choice, dict) and choice.get("text") == answer and choice.get("is_correct"):
+                if (
+                    isinstance(choice, dict)
+                    and choice.get("text") == answer
+                    and choice.get("is_correct")
+                ):
                     is_correct = True
                     break
             if is_correct:
                 break
         # Fallback: check the default choices field too
         if not is_correct:
-            for choice in (question.choices or []):
-                if isinstance(choice, dict) and choice.get("text") == answer and choice.get("is_correct"):
+            for choice in question.choices or []:
+                if (
+                    isinstance(choice, dict)
+                    and choice.get("text") == answer
+                    and choice.get("is_correct")
+                ):
                     is_correct = True
                     break
 
@@ -1111,7 +1236,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         # Return correct answer in default language
         correct_text = next(
-            (c["text"] for c in (question.choices or []) if isinstance(c, dict) and c.get("is_correct")),
+            (
+                c["text"]
+                for c in (question.choices or [])
+                if isinstance(c, dict) and c.get("is_correct")
+            ),
             None,
         )
 

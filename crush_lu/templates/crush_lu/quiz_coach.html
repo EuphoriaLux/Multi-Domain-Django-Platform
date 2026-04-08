@@ -84,19 +84,7 @@
                 {% trans "Table Setup" %}
             </h2>
             <div x-ref="tableoverview" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
-            <div class="mt-3 flex items-center justify-between">
-                <button x-on:click="regenerateTables"
-                        x-bind:disabled="isRegenerating"
-                        class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-slate-600 transition-all disabled:opacity-50">
-                    <span x-show="isRegenerating">{% trans "Regenerating..." %}</span>
-                    <span x-show="isNotRegenerating">{% trans "Regenerate Tables" %}</span>
-                </button>
-                {% if quiz.tables_generated_at %}
-                <span class="text-xs text-gray-500">
-                    {% trans "Last generated:" %} {{ quiz.tables_generated_at|date:"d M H:i" }}
-                </span>
-                {% endif %}
-            </div>
+
         </div>
 
         {# --- Current question info --- #}
@@ -183,6 +171,16 @@
                 {% trans "Start Quiz" %}
             </button>
 
+            <button x-on:click="resumeQuiz"
+                    x-show="canResume"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-500 active:scale-[0.98]">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {% trans "Resume Quiz" %}
+            </button>
+
             {# Rotate Tables — prominent when available #}
             <button x-on:click="triggerRotate"
                     x-show="canRotate"
@@ -214,12 +212,14 @@
 
                 <button x-on:click="endQuiz"
                         x-show="canEnd"
-                        class="flex flex-col items-center justify-center gap-1 rounded-xl bg-red-700/80 py-3 text-xs font-medium text-red-100 shadow transition-all hover:bg-red-600 active:scale-95">
+                        x-bind:class="endQuizBtnClass"
+                        class="flex flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
                     </svg>
-                    {% trans "End Quiz" %}
+                    <span x-show="isNotConfirmingEnd">{% trans "End Quiz" %}</span>
+                    <span x-show="isConfirmingEnd">{% trans "Confirm End?" %}</span>
                 </button>
             </div>
         </div>
@@ -229,7 +229,7 @@
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
             {# Rendered via JS for CSP compliance #}
             <div x-ref="tableboard" class="space-y-2"></div>
-            <p x-show="!hasLeaderboard" class="text-center text-sm text-gray-500 py-4">
+            <p x-show="hasNoLeaderboard" class="text-center text-sm text-gray-500 py-4">
                 {% trans "Standings will appear after the first question is scored." %}
             </p>
         </div>

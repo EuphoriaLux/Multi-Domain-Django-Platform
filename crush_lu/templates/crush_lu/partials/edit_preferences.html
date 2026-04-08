@@ -5,19 +5,32 @@
 <div class="max-w-3xl mx-auto">
     <form method="post"
           id="editPreferencesForm"
-          hx-post="{% url 'crush_lu:edit_profile' %}?section=preferences"
-          hx-target="#section-content"
-          hx-swap="innerHTML"
-          hx-indicator="#submit-indicator-prefs">
+          x-data="profileSectionAutosave"
+          data-section="preferences"
+          data-save-url="{% url 'api_profile_settings_autosave' %}">
         {% csrf_token %}
 
-        {% if form.non_field_errors %}
-        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4 mb-4">
+        <div data-non-field-errors class="{% if not form.non_field_errors %}hidden {% endif %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4 mb-4">
             {% for error in form.non_field_errors %}
                 <p class="text-red-600 dark:text-red-400 text-sm">{{ error }}</p>
             {% endfor %}
         </div>
-        {% endif %}
+
+        <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+            <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                <span>{% trans "Saving..." %}</span>
+            </div>
+            <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                <span>✓</span>
+                <span>{% trans "Saved" %}</span>
+            </div>
+            <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                <span>✗</span>
+                <span>{% trans "Error saving. Please try again." %}</span>
+            </div>
+            <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+        </div>
 
         <div class="section-card mb-4">
             <h5 class="section-title">
@@ -94,9 +107,7 @@
                     {% endfor %}
                 </div>
                 <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Select all that apply. Leave empty if you're open to everyone." %}</p>
-                {% if form.preferred_genders.errors %}
-                    <div class="text-red-600 text-sm mt-1">{{ form.preferred_genders.errors.0 }}</div>
-                {% endif %}
+                <div data-error-for="preferred_genders" class="{% if not form.preferred_genders.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.preferred_genders.errors %}{{ form.preferred_genders.errors.0 }}{% endif %}</div>
             </div>
 
             <!-- First Step Preference -->
@@ -124,9 +135,7 @@
                     {% endfor %}
                 </div>
                 <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "This is a soft preference, not a hard filter." %}</p>
-                {% if form.first_step_preference.errors %}
-                    <div class="text-red-600 text-sm mt-1">{{ form.first_step_preference.errors.0 }}</div>
-                {% endif %}
+                <div data-error-for="first_step_preference" class="{% if not form.first_step_preference.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.first_step_preference.errors %}{{ form.first_step_preference.errors.0 }}{% endif %}</div>
             </div>
         </div>
 
@@ -170,9 +179,7 @@
                 </div>
                 {% endfor %}
                 <input type="hidden" name="sought_qualities_ids" x-bind:value="hiddenValue">
-                {% if form.sought_qualities_ids.errors %}
-                    <div class="text-red-600 text-sm mt-1">{{ form.sought_qualities_ids.errors.0 }}</div>
-                {% endif %}
+                <div data-error-for="sought_qualities_ids" class="{% if not form.sought_qualities_ids.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.sought_qualities_ids.errors %}{{ form.sought_qualities_ids.errors.0 }}{% endif %}</div>
             </div>
         </div>
 
@@ -218,9 +225,7 @@
                 </p>
             </div>
 
-            {% if form.preferred_age_min.errors %}
-                <div class="text-red-600 text-sm mb-4">{{ form.preferred_age_min.errors.0 }}</div>
-            {% endif %}
+            <div data-error-for="preferred_age_min" class="{% if not form.preferred_age_min.errors %}hidden {% endif %}text-red-600 text-sm mb-4">{% if form.preferred_age_min.errors %}{{ form.preferred_age_min.errors.0 }}{% endif %}</div>
         </div>
 
         <!-- Action Buttons -->
@@ -229,16 +234,6 @@
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
                 {% trans "Back" %}
             </a>
-            <button type="submit" class="btn-crush-primary relative gap-2">
-                <span id="submit-indicator-prefs" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
-                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
-                    <span>{% trans "Saving..." %}</span>
-                </span>
-                <span class="button-text inline-flex items-center gap-2">
-                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    <span>{% trans "Save Preferences" %}</span>
-                </span>
-            </button>
         </div>
     </form>
 </div>

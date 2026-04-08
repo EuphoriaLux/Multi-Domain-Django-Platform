@@ -190,7 +190,6 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       // Production domains - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu'
       ALLOWED_HOSTS_ENV: 'crush.lu,www.crush.lu,entreprinder.lu,www.entreprinder.lu,vinsdelux.com,www.vinsdelux.com,power-up.lu,www.power-up.lu,powerup.lu,www.powerup.lu,tableau.lu,www.tableau.lu,arborist.lu,www.arborist.lu,delegations.lu,www.delegations.lu,${prefix}-app-service.azurewebsites.net'
-      FLASK_DEBUG: 'False'
       // Azure Storage Account Configuration for Media Files (uses Managed Identity - no key needed)
       AZURE_ACCOUNT_NAME: storageAccount.name
       // AZURE_CONTAINER_NAME removed - all models now use platform-specific storage
@@ -321,7 +320,6 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       // Staging domains (test.*) - marked as slot-sticky via slotConfigNames (won't swap)
       CUSTOM_DOMAINS: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu'
       ALLOWED_HOSTS_ENV: 'test.crush.lu,test.entreprinder.lu,test.vinsdelux.com,test.power-up.lu,test.powerup.lu,test.tableau.lu,test.arborist.lu,test.delegations.lu,${prefix}-app-service-staging.azurewebsites.net'
-      FLASK_DEBUG: 'False'
       AZURE_ACCOUNT_NAME: storageAccount.name
       // AZURE_CONTAINER_NAME removed - all models now use platform-specific storage
       // Staging platform containers: crush-lu-media-staging, vinsdelux-media-staging, etc.

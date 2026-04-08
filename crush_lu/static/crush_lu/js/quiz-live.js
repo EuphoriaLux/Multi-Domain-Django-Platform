@@ -854,6 +854,7 @@ document.addEventListener("alpine:init", function () {
             destroy: function () {
                 if (this.countdownTimer) clearInterval(this.countdownTimer);
                 if (this.tableScoredTimer) clearTimeout(this.tableScoredTimer);
+                if (this._tableInterval) clearInterval(this._tableInterval);
                 if (this.ws) this.ws.close();
             },
         };
@@ -883,6 +884,7 @@ document.addEventListener("alpine:init", function () {
 
             // Guided flow: round list with statuses
             rounds: [], // [{ id, title, sort_order, is_bonus, question_count, status: 'done'|'current'|'upcoming' }]
+            isLastRound: false, // Set when round completes and no more rounds exist
 
             // Scoring
             tableCount: 0,
@@ -893,25 +895,23 @@ document.addEventListener("alpine:init", function () {
 
             // Table overview (who sits where)
             tableMembers: [], // [{ table_number, members: [{display_name, role}], total_score }]
+            _currentRoundNumber: 0, // Rotation round number for table API
 
             // Leaderboard
             tables: [],
 
+            // Confirmation state
+            confirmingEnd: false,
+            _confirmTimer: null,
+
             // Error / feedback
             errorMessage: "",
             errorTimer: null,
-            regenerating: false,
 
             // --- Getters ---
 
             get hasError() {
                 return this.errorMessage !== "";
-            },
-            get isRegenerating() {
-                return this.regenerating;
-            },
-            get isNotRegenerating() {
-                return !this.regenerating;
             },
             get isConnected() {
                 return this.connected;
@@ -924,6 +924,9 @@ document.addEventListener("alpine:init", function () {
             },
             get canStart() {
                 return this.status === "draft";
+            },
+            get canResume() {
+                return this.status === "paused";
             },
             get canPause() {
                 return this.status === "active";
@@ -938,12 +941,13 @@ document.addEventListener("alpine:init", function () {
                 return this.roundComplete;
             },
             get canRotate() {
-                return this.isQuizNight && this.roundComplete;
+                return this.isQuizNight && this.roundComplete && !this.isLastRound;
             },
             get allTablesScored() {
                 return this.totalTables > 0 && this.scoredCount >= this.totalTables;
             },
             get showNextQuestion() {
+                if (this.status !== "active") return false;
                 if (this.roundComplete || this.isFinished) return false;
                 // In quiz night mode, block advancing until all tables are scored
                 if (
@@ -959,6 +963,9 @@ document.addEventListener("alpine:init", function () {
             },
             get hasLeaderboard() {
                 return this.tables.length > 0;
+            },
+            get hasNoLeaderboard() {
+                return this.tables.length === 0;
             },
             get scoringProgress() {
                 return this.scoredCount + " / " + this.totalTables;
@@ -1034,6 +1041,18 @@ document.addEventListener("alpine:init", function () {
             get hasCorrectAnswer() {
                 return this.correctAnswerText !== "";
             },
+            get isConfirmingEnd() {
+                return this.confirmingEnd;
+            },
+            get isNotConfirmingEnd() {
+                return !this.confirmingEnd;
+            },
+            get endQuizBtnClass() {
+                if (this.confirmingEnd) {
+                    return "bg-red-600 text-white ring-2 ring-red-400 animate-pulse";
+                }
+                return "bg-red-700/80 text-red-100 hover:bg-red-600";
+            },
             // --- Init ---
 
             init: function () {
@@ -1055,6 +1074,13 @@ document.addEventListener("alpine:init", function () {
                 }
                 this.connectWebSocket();
                 this._renderTableOverview();
+                // Poll table overview for live check-in updates
+                if (this.isQuizNight) {
+                    var self = this;
+                    this._tableInterval = setInterval(function () {
+                        self._fetchTableOverview();
+                    }, 5000);
+                }
             },
 
             connectWebSocket: function () {
@@ -1114,6 +1140,15 @@ document.addEventListener("alpine:init", function () {
                     }
                     if (data.rounds) {
                         this.rounds = data.rounds;
+                        // Derive isLastRound: current round has no upcoming rounds after it
+                        var hasUpcoming = false;
+                        for (var ri = 0; ri < this.rounds.length; ri++) {
+                            if (this.rounds[ri].status === "upcoming") {
+                                hasUpcoming = true;
+                                break;
+                            }
+                        }
+                        this.isLastRound = !hasUpcoming;
                         this._renderRoundButtons();
                     }
                     if (data.question) {
@@ -1153,6 +1188,7 @@ document.addEventListener("alpine:init", function () {
                     this.isBonusRound = data.is_bonus || false;
                     this.status = "active";
                     this.roundComplete = false;
+                    this.isLastRound = false;
                     // Reset scoring state for new question
                     this.scoredTables = {};
                     this.scoredCount = 0;
@@ -1171,6 +1207,7 @@ document.addEventListener("alpine:init", function () {
                     if (data.status === "round_complete") {
                         this.currentQuestion = null;
                         this.roundComplete = true;
+                        this.isLastRound = !!data.is_last_round;
                         // Mark current round as done in guided flow
                         this._markCurrentRoundDone();
                     } else if (data.status) {
@@ -1199,9 +1236,11 @@ document.addEventListener("alpine:init", function () {
                         this.isBonusRound = data.is_bonus;
                     }
                     this.roundComplete = false;
+                    this.isLastRound = false;
                     this.currentQuestion = null;
                     // Update rounds to reflect the new current round from rotation
                     if (data.round_number !== undefined) {
+                        this._currentRoundNumber = data.round_number;
                         this._advanceRoundsByNumber(data.round_number);
                     }
                 } else if (type === "quiz.table_scored") {
@@ -1238,49 +1277,6 @@ document.addEventListener("alpine:init", function () {
 
             // --- Host actions ---
 
-            regenerateTables: function () {
-                if (this.regenerating) return;
-                var self = this;
-                this.regenerating = true;
-                fetch("/api/quiz/" + this.quizId + "/regenerate-tables/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": this._getCsrfToken(),
-                    },
-                })
-                    .then(function (resp) {
-                        return resp.json().then(function (d) {
-                            return { ok: resp.ok, data: d };
-                        });
-                    })
-                    .then(function (result) {
-                        self.regenerating = false;
-                        if (!result.ok) {
-                            self.showError(result.data.error || "Regeneration failed");
-                            return;
-                        }
-                        var d = result.data;
-                        // Refresh table overview by refetching assignment data
-                        self._fetchTableOverview();
-                        var msg =
-                            d.num_tables +
-                            " tables: " +
-                            d.anchors +
-                            " anchors + " +
-                            d.rotators +
-                            " rotators";
-                        if (d.warnings && d.warnings.length) {
-                            msg += ". Warnings: " + d.warnings.join("; ");
-                        }
-                        self.showError(msg); // Reuse error banner for feedback
-                    })
-                    .catch(function () {
-                        self.regenerating = false;
-                        self.showError("Network error during regeneration");
-                    });
-            },
-
             _getCsrfToken: function () {
                 // Hidden form input first (works with CSRF_COOKIE_HTTPONLY=True)
                 var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
@@ -1294,7 +1290,12 @@ document.addEventListener("alpine:init", function () {
 
             _fetchTableOverview: function () {
                 var self = this;
-                fetch("/api/quiz/" + this.quizId + "/tables/?round=0")
+                fetch(
+                    "/api/quiz/" +
+                        this.quizId +
+                        "/tables/?round=" +
+                        this._currentRoundNumber,
+                )
                     .then(function (resp) {
                         return resp.json();
                     })
@@ -1331,6 +1332,12 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            resumeQuiz: function () {
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({ action: "resume_quiz" }));
+                }
+            },
+
             pauseQuiz: function () {
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({ action: "pause_quiz" }));
@@ -1338,6 +1345,18 @@ document.addEventListener("alpine:init", function () {
             },
 
             endQuiz: function () {
+                if (!this.confirmingEnd) {
+                    // First click: show confirmation
+                    this.confirmingEnd = true;
+                    var self = this;
+                    this._confirmTimer = setTimeout(function () {
+                        self.confirmingEnd = false;
+                    }, 5000);
+                    return;
+                }
+                // Second click: confirmed
+                this.confirmingEnd = false;
+                if (this._confirmTimer) clearTimeout(this._confirmTimer);
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({ action: "end_quiz" }));
                 }

@@ -31,6 +31,19 @@
     </div>
 </div>
 
+{% if is_quiz_night %}
+{# Table Fill Summary #}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+    <h3 class="font-semibold text-lg mb-3 dark:text-white">
+        <svg class="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        {% trans "Table Assignments" %}
+    </h3>
+    <div id="table-fill-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
+</div>
+{% endif %}
+
 {# QR Scanner Section #}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6" x-data="coachCheckin">
     {# Scanner Controls #}
@@ -51,10 +64,13 @@
     <div x-show="hasResult" class="mb-4" style="display: none;">
         <div x-show="isSuccess" class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4" style="display: none;">
             <div class="flex items-center gap-2">
-                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-6 h-6 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
                 <span class="font-semibold text-green-800 dark:text-green-300" x-text="resultMessage"></span>
+            </div>
+            <div x-show="hasTableAssignment" class="mt-2 flex items-center gap-2" style="display: none;">
+                <span class="inline-flex items-center rounded-full bg-crush-purple/20 px-3 py-1 text-sm font-bold text-crush-purple dark:text-purple-300" x-text="tableAssignmentText"></span>
             </div>
         </div>
         <div x-show="isError" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4" style="display: none;">
@@ -73,7 +89,10 @@
         <div class="space-y-2">
             <template x-for="checkin in recentCheckins">
                 <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2 text-sm">
-                    <span class="font-medium dark:text-white" x-text="checkin.name"></span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium dark:text-white" x-text="checkin.name"></span>
+                        <span x-show="checkin.table" class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" x-text="'T' + checkin.table"></span>
+                    </div>
                     <span class="text-gray-400 dark:text-gray-500 text-xs" x-text="checkin.time"></span>
                 </div>
             </template>
@@ -116,7 +135,10 @@
                 {% trans "Check In" %}
             </button>
             {% else %}
-            <span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">{% trans "Checked In" %}</span>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">{% trans "Checked In" %}</span>
+                <span class="manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" data-user-id="{{ reg.user.id }}" style="display: none;"></span>
+            </div>
             {% endif %}
         </div>
         {% empty %}
@@ -134,7 +156,30 @@ var _i18n = {
     checkinFailed: '{% filter escapejs %}{% trans "Check-in failed" %}{% endfilter %}',
     networkError: '{% filter escapejs %}{% trans "Network error" %}{% endfilter %}'
 };
+var _tableAssignments = {{ table_assignments_json|safe }};
+var _tableFill = {{ table_fill_json|safe }};
 document.addEventListener('DOMContentLoaded', function() {
+    // Render table fill grid
+    var grid = document.getElementById('table-fill-grid');
+    if (grid && _tableFill.length) {
+        _tableFill.forEach(function(t) {
+            var div = document.createElement('div');
+            div.className = 'bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-center';
+            div.innerHTML = '<p class="text-xs text-gray-500 dark:text-gray-400">Table ' + t.number + '</p><p class="text-xl font-bold dark:text-white"><span id="table-fill-' + t.number + '">' + t.count + '</span></p>';
+            grid.appendChild(div);
+        });
+    }
+
+    // Populate existing table badges
+    document.querySelectorAll('.manual-table-badge').forEach(function(badge) {
+        var userId = badge.getAttribute('data-user-id');
+        var tableNum = _tableAssignments[userId];
+        if (tableNum) {
+            badge.textContent = 'T' + tableNum;
+            badge.style.display = '';
+        }
+    });
+
     // Manual check-in buttons
     document.querySelectorAll('.manual-checkin-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -152,14 +197,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Replace circle with checkmark
                             var circle = row.querySelector('.border-gray-300, .border-gray-600');
                             if (circle) {
-                                circle.outerHTML = '<svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                                circle.outerHTML = '<svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
                             }
-                            btn.outerHTML = '<span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' + _i18n.checkedIn + '</span>';
+                            var tableBadge = data.table_number ? ' <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300">T' + data.table_number + '</span>' : '';
+                            btn.outerHTML = '<div class="flex items-center gap-2"><span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' + _i18n.checkedIn + '</span>' + tableBadge + '</div>';
                         }
                         // Update counter
                         var counter = document.getElementById('attended-count');
                         if (counter) {
                             counter.textContent = parseInt(counter.textContent) + 1;
+                        }
+                        // Update table fill display
+                        if (data.table_number) {
+                            var fillEl = document.getElementById('table-fill-' + data.table_number);
+                            if (fillEl) {
+                                fillEl.textContent = parseInt(fillEl.textContent) + 1;
+                            }
                         }
                     } else {
                         btn.disabled = false;

@@ -288,6 +288,7 @@ urlpatterns = [
     # Coach quiz configuration
     path('coach/events/<int:event_id>/quiz/config/', views_quiz_config.coach_quiz_config, name='coach_quiz_config'),
     path('coach/events/<int:event_id>/quiz/config/create/', views_quiz_config.coach_quiz_create, name='coach_quiz_create'),
+    path('coach/events/<int:event_id>/quiz/config/tables/', views_quiz_config.coach_quiz_update_tables, name='coach_quiz_update_tables'),
     path('coach/events/<int:event_id>/quiz/config/round/add/', views_quiz_config.coach_quiz_round_add, name='coach_quiz_round_add'),
     path('coach/events/<int:event_id>/quiz/config/round/<int:round_id>/edit/', views_quiz_config.coach_quiz_round_edit, name='coach_quiz_round_edit'),
     path('coach/events/<int:event_id>/quiz/config/round/<int:round_id>/delete/', views_quiz_config.coach_quiz_round_delete, name='coach_quiz_round_delete'),

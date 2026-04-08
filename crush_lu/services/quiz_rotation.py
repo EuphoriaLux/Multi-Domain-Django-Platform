@@ -129,9 +129,11 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
             if num_tables == 2:
                 # 2 tables: all women in one group, rotating +1
                 for offset in range(2):
-                    w_idx = (table_idx * 2 + offset + round_num) % len(
-                        group_a
-                    ) if group_a else -1
+                    w_idx = (
+                        (table_idx * 2 + offset + round_num) % len(group_a)
+                        if group_a
+                        else -1
+                    )
                     if 0 <= w_idx < len(group_a):
                         schedule.append(
                             {
@@ -185,6 +187,251 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
         "schedule": schedule,
         "num_tables": num_tables,
         "warnings": warnings,
+    }
+
+
+def assign_table_on_checkin(quiz_event, user):
+    """
+    Incrementally assign a user to a quiz table at check-in time (round 0).
+
+    Uses the same gender-based role logic as the batch algorithm:
+    M → anchor, F → rotator, NB/O/P → whichever pool is smaller.
+
+    Returns:
+        dict with {"table_number": int, "role": str} or None if no tables.
+    """
+    from django.db import transaction
+    from django.db.models import Count
+
+    from crush_lu.models.quiz import (
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    if not quiz_event.num_tables:
+        return None
+
+    tables = QuizTable.objects.filter(quiz=quiz_event)
+    if not tables.exists():
+        return None
+
+    # Determine role based on gender (outside atomic — read-only)
+    profile = getattr(user, "crushprofile", None)
+    gender = profile.gender if profile else ""
+
+    # Find table with fewest members of the same role, tie-break by table_number
+    with transaction.atomic():
+        # Lock tables to prevent race conditions
+        locked_tables = list(
+            QuizTable.objects.filter(quiz=quiz_event)
+            .select_for_update()
+            .order_by("table_number")
+        )
+
+        # Idempotent check inside atomic block to prevent race condition
+        existing = (
+            QuizTableMembership.objects.filter(table__quiz=quiz_event, user=user)
+            .select_related("table")
+            .first()
+        )
+        if existing:
+            rotation = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, user=user
+            ).first()
+            return {
+                "table_number": existing.table.table_number,
+                "role": rotation.role if rotation else "",
+            }
+
+        if gender == "M":
+            role = "anchor"
+        elif gender == "F":
+            role = "rotator"
+        else:
+            # Flexible: join the smaller pool
+            anchor_count = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, role="anchor"
+            ).count()
+            rotator_count = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, role="rotator"
+            ).count()
+            role = "anchor" if anchor_count <= rotator_count else "rotator"
+
+        # Count role members per table from rotation schedule
+        role_counts = dict(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, role=role
+            )
+            .values_list("table_id")
+            .annotate(cnt=Count("id"))
+            .values_list("table_id", "cnt")
+        )
+
+        # Pick table with fewest members of this role
+        target_table = min(
+            locked_tables,
+            key=lambda t: (role_counts.get(t.id, 0), t.table_number),
+        )
+
+        # Determine rotation group for rotators
+        rotation_group = ""
+        if role == "rotator":
+            num_tables = quiz_event.num_tables
+            existing_rotators = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=0, role="rotator"
+            ).count()
+            if existing_rotators < num_tables:
+                rotation_group = "A"
+            elif existing_rotators < num_tables * 2:
+                rotation_group = "B"
+            else:
+                rotation_group = "C"
+
+        QuizTableMembership.objects.create(table=target_table, user=user)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=target_table,
+            user=user,
+            role=role,
+            rotation_group=rotation_group,
+        )
+
+    return {
+        "table_number": target_table.table_number,
+        "role": role,
+    }
+
+
+def generate_rotation_rounds(quiz):
+    """
+    Generate rotation schedule for rounds 1+ using existing round-0 check-in assignments.
+
+    Preserves round-0 table assignments and builds rotation rounds on top.
+    Used by both "Start Quiz" (auto) and "Regenerate Tables" (manual).
+
+    Args:
+        quiz: QuizEvent instance with num_tables set and round-0 data populated.
+
+    Returns:
+        dict: {"num_tables": int, "warnings": list, "anchors": int, "rotators": int}
+
+    Raises:
+        ValidationError: if not enough participants for rotation.
+    """
+    from collections import defaultdict
+
+    from django.utils import timezone
+
+    from crush_lu.models.events import EventRegistration
+    from crush_lu.models.quiz import QuizRotationSchedule, QuizTable
+
+    # Delete existing rounds 1+ (idempotent)
+    QuizRotationSchedule.objects.filter(quiz=quiz).exclude(round_number=0).delete()
+
+    # Get registrations for late-arrival handling
+    registrations = (
+        EventRegistration.objects.filter(
+            event=quiz.event, status__in=["confirmed", "attended"]
+        )
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
+    men_all, women_all = split_participants_by_gender(registrations)
+
+    num_rounds = quiz.rounds.count() or 3
+    num_tables = quiz.num_tables
+
+    # Read round-0 assignments
+    round_0 = QuizRotationSchedule.objects.filter(
+        quiz=quiz, round_number=0
+    ).select_related("table")
+
+    anchors_by_table = defaultdict(list)
+    rotators_by_table = defaultdict(list)  # keyed by (group, table)
+    round_0_users = set()
+
+    for r in round_0:
+        round_0_users.add(r.user_id)
+        t_idx = r.table.table_number - 1
+        if r.role == "anchor":
+            anchors_by_table[t_idx].append(r.user)
+        else:
+            rotators_by_table[(r.rotation_group, t_idx)].append(r.user)
+
+    # Interleave anchors to match _distribute_evenly round-robin
+    ordered_men = []
+    max_anchors = (
+        max(len(v) for v in anchors_by_table.values()) if anchors_by_table else 0
+    )
+    for rank in range(max_anchors):
+        for t in range(num_tables):
+            if rank < len(anchors_by_table.get(t, [])):
+                ordered_men.append(anchors_by_table[t][rank])
+    # Append late arrivals not in round 0
+    for m in men_all:
+        if m.id not in round_0_users:
+            ordered_men.append(m)
+
+    # Rotators: ordered by group (A, B, C), then by table index
+    ordered_women = []
+    for group in ["A", "B", "C"]:
+        for t in range(num_tables):
+            ordered_women.extend(rotators_by_table.get((group, t), []))
+    for w in women_all:
+        if w.id not in round_0_users:
+            ordered_women.append(w)
+
+    result = generate_rotation_schedule(
+        ordered_men, ordered_women, num_rounds, num_tables=num_tables
+    )
+
+    schedule = result["schedule"]
+    actual_num_tables = result["num_tables"]
+
+    # Reuse or create tables
+    existing_tables = {t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)}
+    tables = {}
+    for t in range(1, actual_num_tables + 1):
+        if t in existing_tables:
+            tables[t] = existing_tables[t]
+        else:
+            tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
+
+    # Remove excess tables only if they have no scores
+    for t_num, t_obj in existing_tables.items():
+        if t_num > actual_num_tables:
+            if not t_obj.round_scores.exists():
+                t_obj.delete()
+
+    # Build rotation entries for rounds 1+ (skip round 0)
+    rotation_entries = []
+    for entry in schedule:
+        if entry["round_number"] == 0:
+            continue
+        table = tables[entry["table_number"]]
+        rotation_entries.append(
+            QuizRotationSchedule(
+                quiz=quiz,
+                round_number=entry["round_number"],
+                table=table,
+                user=entry["user"],
+                role=entry["role"],
+                rotation_group=entry["rotation_group"],
+            )
+        )
+
+    QuizRotationSchedule.objects.bulk_create(rotation_entries)
+
+    quiz.tables_generated_at = timezone.now()
+    quiz.save(update_fields=["tables_generated_at"])
+
+    return {
+        "num_tables": actual_num_tables,
+        "warnings": result["warnings"],
+        "anchors": len(ordered_men),
+        "rotators": len(ordered_women),
     }
 
 

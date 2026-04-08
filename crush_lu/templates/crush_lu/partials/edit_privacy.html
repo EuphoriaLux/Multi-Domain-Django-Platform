@@ -5,11 +5,26 @@
 <div class="max-w-3xl mx-auto">
     <form method="post"
           id="editPrivacyForm"
-          hx-post="{% url 'crush_lu:edit_profile' %}?section=privacy"
-          hx-target="#section-content"
-          hx-swap="innerHTML"
-          hx-indicator="#submit-indicator-privacy">
+          x-data="profileSectionAutosave"
+          data-section="privacy"
+          data-save-url="{% url 'api_profile_settings_autosave' %}">
         {% csrf_token %}
+
+        <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+            <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                <span>{% trans "Saving..." %}</span>
+            </div>
+            <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                <span>✓</span>
+                <span>{% trans "Saved" %}</span>
+            </div>
+            <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                <span>✗</span>
+                <span>{% trans "Error saving. Please try again." %}</span>
+            </div>
+            <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+        </div>
 
         <div class="section-card mb-4">
             <h5 class="section-title">
@@ -52,16 +67,6 @@
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
                 {% trans "Back" %}
             </a>
-            <button type="submit" class="btn-crush-primary relative gap-2">
-                <span id="submit-indicator-privacy" class="htmx-indicator absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink">
-                    {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
-                    <span>{% trans "Saving..." %}</span>
-                </span>
-                <span class="button-text inline-flex items-center gap-2">
-                    {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
-                    <span>{% trans "Save Privacy Settings" %}</span>
-                </span>
-            </button>
         </div>
     </form>
 </div>
