@@ -262,264 +262,8 @@ document.addEventListener("alpine:init", function () {
     });
 
     // =========================================================================
-    // DASHBOARD COMPONENTS (Phase 3)
-    // =========================================================================
-
-    // Pull-to-refresh — touch-based pull down on dashboard
-    Alpine.data("pullToRefresh", function () {
-        return {
-            pulling: false,
-            refreshing: false,
-            pullDistance: 0,
-            startY: 0,
-            threshold: 60,
-
-            get isPulling() {
-                return this.pulling;
-            },
-            get isRefreshing() {
-                return this.refreshing;
-            },
-            get showSpinner() {
-                return this.pulling || this.refreshing;
-            },
-            get spinnerTransform() {
-                var dist = Math.min(this.pullDistance, this.threshold);
-                return "transform: translateY(" + dist + "px)";
-            },
-
-            handleTouchStart: function (event) {
-                if (window.scrollY === 0) {
-                    this.startY = event.touches[0].clientY;
-                }
-            },
-            handleTouchMove: function (event) {
-                if (this.startY === 0 || this.refreshing) return;
-                var currentY = event.touches[0].clientY;
-                var diff = currentY - this.startY;
-                if (diff > 0 && window.scrollY === 0) {
-                    this.pulling = true;
-                    this.pullDistance = diff * 0.5;
-                }
-            },
-            handleTouchEnd: function () {
-                if (!this.pulling) {
-                    this.startY = 0;
-                    return;
-                }
-                if (this.pullDistance >= this.threshold) {
-                    this.refreshing = true;
-                    this.pulling = false;
-                    this.pullDistance = 0;
-                    if (navigator.vibrate) {
-                        navigator.vibrate(10);
-                    }
-                    window.location.reload();
-                } else {
-                    this.pulling = false;
-                    this.pullDistance = 0;
-                }
-                this.startY = 0;
-            },
-        };
-    });
-
-    // Skeleton loader — show/hide placeholders during HTMX loads
-    Alpine.data("skeletonLoader", function () {
-        return {
-            loading: false,
-
-            get isLoading() {
-                return this.loading;
-            },
-
-            init: function () {
-                var self = this;
-                document.addEventListener("htmx:beforeRequest", function (evt) {
-                    if (evt.detail.target && evt.detail.target.id === "main-content") {
-                        self.loading = true;
-                    }
-                });
-                document.addEventListener("htmx:afterSettle", function () {
-                    self.loading = false;
-                });
-            },
-        };
-    });
-
-    // =========================================================================
     // SHARED FORM COMPONENTS (Phase 4)
     // =========================================================================
-
-    // Toggle switch — iOS-style toggle with auto-save
-    Alpine.data("toggleSwitch", function () {
-        return {
-            value: false,
-
-            init: function () {
-                this.value = this.$el.dataset.initial === "true";
-            },
-
-            get isOn() {
-                return this.value;
-            },
-            get isOff() {
-                return !this.value;
-            },
-            get thumbClass() {
-                return this.value ? "translate-x-5" : "translate-x-0";
-            },
-            get trackClass() {
-                return this.value ? "toggle-switch-on" : "toggle-switch-off";
-            },
-
-            toggle: function () {
-                this.value = !this.value;
-                if (navigator.vibrate) {
-                    navigator.vibrate(10);
-                }
-                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
-            },
-        };
-    });
-
-    // Tag picker — searchable, tappable tag selection
-    Alpine.data("tagPicker", function () {
-        return {
-            selectedTags: [],
-            allTags: [],
-            searchQuery: "",
-            maxTags: 10,
-
-            init: function () {
-                try {
-                    this.allTags = JSON.parse(this.$el.dataset.tags || "[]");
-                    this.selectedTags = JSON.parse(this.$el.dataset.selected || "[]");
-                } catch (e) {
-                    this.allTags = [];
-                    this.selectedTags = [];
-                }
-                this.maxTags = parseInt(this.$el.dataset.max || "10", 10);
-            },
-
-            get filteredTags() {
-                var query = this.searchQuery.toLowerCase();
-                if (!query) return this.allTags;
-                return this.allTags.filter(function (tag) {
-                    return tag.label.toLowerCase().indexOf(query) !== -1;
-                });
-            },
-            get selectedCount() {
-                return this.selectedTags.length;
-            },
-            get isAtMax() {
-                return this.selectedTags.length >= this.maxTags;
-            },
-            get hasSearch() {
-                return this.searchQuery.length > 0;
-            },
-
-            isSelected: function (tagId) {
-                return this.selectedTags.indexOf(tagId) !== -1;
-            },
-            toggleTag: function (tagId) {
-                if (this.isSelected(tagId)) {
-                    this.selectedTags = this.selectedTags.filter(function (id) {
-                        return id !== tagId;
-                    });
-                } else {
-                    if (this.isAtMax) return;
-                    this.selectedTags.push(tagId);
-                }
-                if (navigator.vibrate) {
-                    navigator.vibrate(10);
-                }
-                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
-            },
-            clearSearch: function () {
-                this.searchQuery = "";
-            },
-        };
-    });
-
-    // Bottom sheet — slide-up panel for custom selects on mobile
-    Alpine.data("bottomSheet", function () {
-        return {
-            isOpen: false,
-            startY: 0,
-            currentY: 0,
-
-            init: function () {
-                var self = this;
-                this.$el.addEventListener("open-sheet", function () {
-                    self.open();
-                });
-            },
-
-            get sheetOpen() {
-                return this.isOpen;
-            },
-            get sheetClosed() {
-                return !this.isOpen;
-            },
-
-            open: function () {
-                this.isOpen = true;
-                document.body.style.overflow = "hidden";
-            },
-            close: function () {
-                this.isOpen = false;
-                document.body.style.overflow = "";
-            },
-            handleOverlayClick: function () {
-                this.close();
-            },
-            handleSheetTouchStart: function (event) {
-                this.startY = event.touches[0].clientY;
-            },
-            handleSheetTouchMove: function (event) {
-                this.currentY = event.touches[0].clientY;
-            },
-            handleSheetTouchEnd: function () {
-                var diff = this.currentY - this.startY;
-                if (diff > 80) {
-                    this.close();
-                }
-                this.startY = 0;
-                this.currentY = 0;
-            },
-        };
-    });
-
-    // Range slider — custom styled range input
-    Alpine.data("rangeSlider", function () {
-        return {
-            value: 50,
-            minVal: 0,
-            maxVal: 100,
-
-            init: function () {
-                this.value = parseInt(this.$el.dataset.value || "50", 10);
-                this.minVal = parseInt(this.$el.dataset.min || "0", 10);
-                this.maxVal = parseInt(this.$el.dataset.max || "100", 10);
-            },
-
-            get currentValue() {
-                return this.value;
-            },
-            get fillPercentage() {
-                return ((this.value - this.minVal) / (this.maxVal - this.minVal)) * 100;
-            },
-            get fillStyle() {
-                return "width: " + this.fillPercentage + "%";
-            },
-
-            updateValue: function (event) {
-                this.value = parseInt(event.target.value, 10);
-                this.$el.dispatchEvent(new Event("change", { bubbles: true }));
-            },
-        };
-    });
 
     // Coach check-in scanner component
     Alpine.data("coachCheckin", function () {
@@ -927,32 +671,6 @@ document.addEventListener("alpine:init", function () {
             },
             showPast() {
                 this.activeTab = "past";
-            },
-        };
-    });
-
-    // Screening dashboard row component
-    Alpine.data("screeningRow", function () {
-        return {
-            showCompleteModal: false,
-            openModal: function () {
-                this.showCompleteModal = true;
-            },
-            closeModal: function () {
-                this.showCompleteModal = false;
-            },
-        };
-    });
-
-    // Completed screening row component (view notes)
-    Alpine.data("completedScreeningRow", function () {
-        return {
-            showNotesModal: false,
-            openNotesModal: function () {
-                this.showNotesModal = true;
-            },
-            closeNotesModal: function () {
-                this.showNotesModal = false;
             },
         };
     });
@@ -6654,39 +6372,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Gift Landing Page Component
-    // Handles animated chapter reveal
-    Alpine.data("giftLanding", function () {
-        return {
-            chaptersVisible: false,
-            animationComplete: false,
-
-            // Computed getters for CSP compatibility
-            get chaptersReady() {
-                return this.chaptersVisible;
-            },
-            get chaptersHidden() {
-                return !this.chaptersVisible;
-            },
-            get animationDone() {
-                return this.animationComplete;
-            },
-
-            init: function () {
-                var self = this;
-                // Delay chapter reveal for dramatic effect
-                setTimeout(function () {
-                    self.chaptersVisible = true;
-                }, 800);
-
-                // Mark animation complete after all chapters animate in
-                setTimeout(function () {
-                    self.animationComplete = true;
-                }, 2500);
-            },
-        };
-    });
-
     // Gift Create Form Component
     // Multi-step form for creating journey gifts with media uploads
     Alpine.data("giftCreateForm", function () {
@@ -10637,68 +10322,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Form Button Component - Standardized loading states for submit buttons
-    // Usage: <button x-data="formButton" @click="setLoading" :disabled="isLoading" :class="buttonClass">
-    //           <span x-show="!isLoading" x-text="label"></span>
-    //           <span x-show="isLoading" class="flex items-center">
-    //               <svg class="animate-spin -ml-1 mr-2 h-4 w-4" ...>...</svg>
-    //               <span x-text="loadingLabel"></span>
-    //           </span>
-    //        </button>
-    Alpine.data("formButton", function () {
-        return {
-            isLoading: false,
-            label: "",
-            loadingLabel: "",
-            baseClass: "",
-
-            init: function () {
-                // Read attributes from button element
-                this.label = this.$el.dataset.label || this.$el.textContent.trim();
-                this.loadingLabel = this.$el.dataset.loadingLabel || "Processing...";
-                this.baseClass = this.$el.className;
-
-                // Listen for form submission
-                const form = this.$el.closest("form");
-                if (form) {
-                    form.addEventListener("submit", () => {
-                        this.setLoading();
-                    });
-                }
-
-                // Listen for HTMX request events
-                this.$el.addEventListener("htmx:beforeRequest", () => {
-                    this.setLoading();
-                });
-                this.$el.addEventListener("htmx:afterRequest", () => {
-                    this.resetLoading();
-                });
-            },
-
-            // Computed property for button classes
-            get buttonClass() {
-                return (
-                    this.baseClass +
-                    (this.isLoading ? " opacity-75 cursor-not-allowed" : "")
-                );
-            },
-
-            // Computed property for disabled state
-            get isDisabled() {
-                return this.isLoading;
-            },
-
-            // Actions
-            setLoading: function () {
-                this.isLoading = true;
-            },
-
-            resetLoading: function () {
-                this.isLoading = false;
-            },
-        };
-    });
-
     /**
      * Theme Toggle Component
      *
@@ -11230,80 +10853,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // =========================================================================
-    // Form Validation Summary - Aggregates field errors at the top of a form
-    // =========================================================================
-    // Usage: <form x-data="formValidationSummary" @submit="handleSubmit">
-    //   <div x-show="hasErrors" role="alert" class="bg-red-50 ...">
-    //     <ul>
-    //       <template x-for="err in errorList"><li x-text="err"></li></template>
-    //     </ul>
-    //   </div>
-    //   ... fieldValidator fields ...
-    //   <button type="submit">Submit</button>
-    // </form>
-    Alpine.data("formValidationSummary", function () {
-        return {
-            errors: [],
-            submitted: false,
-
-            get hasErrors() {
-                return this.submitted && this.errors.length > 0;
-            },
-
-            get errorCount() {
-                return this.errors.length;
-            },
-
-            get errorList() {
-                return this.errors;
-            },
-
-            _collectErrors: function () {
-                var errs = [];
-                var validators = this.$el.querySelectorAll('[x-data="fieldValidator"]');
-                for (var i = 0; i < validators.length; i++) {
-                    var component = validators[i].__x;
-                    if (component && component.$data) {
-                        // Trigger validation on all fields
-                        var input = validators[i].querySelector(
-                            "input, textarea, select",
-                        );
-                        if (input) {
-                            component.$data.value = input.value;
-                        }
-                        component.$data.touched = true;
-                        component.$data._validate();
-                        if (component.$data.error) {
-                            errs.push(component.$data.error);
-                        }
-                    }
-                }
-                return errs;
-            },
-
-            handleSubmit: function (e) {
-                this.submitted = true;
-                this.errors = this._collectErrors();
-                if (this.errors.length > 0) {
-                    e.preventDefault();
-                    // Scroll to the summary
-                    var alert = this.$el.querySelector('[role="alert"]');
-                    if (alert) {
-                        alert.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
-                    // Focus first invalid field
-                    var firstInvalid = this.$el.querySelector(
-                        '[x-data="fieldValidator"] .border-red-500',
-                    );
-                    if (firstInvalid) {
-                        firstInvalid.focus();
-                    }
-                }
-            },
-        };
-    });
-
     // Section navigation for meeting guide page
     Alpine.data("sectionNav", function () {
         return {
@@ -11388,51 +10937,6 @@ document.addEventListener("alpine:init", function () {
 
             get isOverLimit() {
                 return this.description.length > this.maxLength;
-            },
-        };
-    });
-
-    /**
-     * sparkJourneyBuilder - Multi-step media upload for journey creation
-     * Used on spark_create_journey.html
-     */
-    Alpine.data("sparkJourneyBuilder", function () {
-        return {
-            submitting: false,
-
-            get isSubmitting() {
-                return this.submitting;
-            },
-
-            submitForm() {
-                this.submitting = true;
-            },
-        };
-    });
-
-    /**
-     * coachSparkAssign - Searchable attendee list for coach assignment
-     * Used on coach_spark_assign.html
-     */
-    Alpine.data("coachSparkAssign", function () {
-        return {
-            searchQuery: "",
-            selectedUserId: null,
-
-            get hasSelection() {
-                return this.selectedUserId !== null;
-            },
-
-            selectUser(userId) {
-                this.selectedUserId = userId;
-            },
-
-            clearSelection() {
-                this.selectedUserId = null;
-            },
-
-            isSelected(userId) {
-                return this.selectedUserId === userId;
             },
         };
     });
@@ -12652,6 +12156,192 @@ document.addEventListener("alpine:init", function () {
                 return this.canSubmit
                     ? "bg-crush-purple hover:bg-purple-700 text-white"
                     : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed";
+            },
+        };
+    });
+
+    // ── Submission Status (profile_submitted.html pending state) ──
+    Alpine.data("submissionStatus", function () {
+        return {
+            // State from server (initialized via data-* attributes)
+            status: "",
+            queuePosition: 0,
+            totalPending: 0,
+            hoursWaiting: 0,
+            waitStatus: "",
+            progressPercent: 0,
+
+            // Note state
+            noteText: "",
+            noteSending: false,
+            noteSent: false,
+            noteError: "",
+
+            // UI toggles
+            showCallPrep: false,
+            showNoteForm: false,
+
+            // Polling
+            pollInterval: null,
+
+            init: function () {
+                var el = this.$el;
+                this.status = el.dataset.status || "pending";
+                this.queuePosition = parseInt(el.dataset.queuePosition || "0", 10);
+                this.totalPending = parseInt(el.dataset.totalPending || "0", 10);
+                this.hoursWaiting = parseFloat(el.dataset.hoursWaiting || "0");
+                this.waitStatus = el.dataset.waitStatus || "fresh";
+                this.progressPercent = parseInt(el.dataset.progressPercent || "0", 10);
+                this.noteSent = el.dataset.hasNote === "true";
+
+                if (this.status === "pending") {
+                    this.startPolling();
+                }
+            },
+
+            startPolling: function () {
+                var self = this;
+                self.pollInterval = setInterval(function () {
+                    self.checkStatus();
+                }, 60000);
+            },
+
+            checkStatus: function () {
+                var self = this;
+                fetch("/api/submission/status/", { credentials: "same-origin" })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.status !== self.status) {
+                            window.location.reload();
+                            return;
+                        }
+                        self.queuePosition = data.queue_position;
+                        self.hoursWaiting = data.hours_waiting;
+                        self.waitStatus = data.wait_status;
+                    })
+                    .catch(function () {
+                        // Silently ignore polling errors
+                    });
+            },
+
+            sendNote: function () {
+                if (!this.isNoteValid || this.noteSending) return;
+                var self = this;
+                self.noteSending = true;
+                self.noteError = "";
+
+                var csrfToken = "";
+                var csrfEl = document.querySelector(
+                    '[name="csrfmiddlewaretoken"]',
+                );
+                if (csrfEl) csrfToken = csrfEl.value;
+
+                fetch("/api/submission/note/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken,
+                    },
+                    body: JSON.stringify({ note: self.noteText }),
+                })
+                    .then(function (r) {
+                        return r.json().then(function (data) {
+                            return { ok: r.ok, data: data };
+                        });
+                    })
+                    .then(function (result) {
+                        self.noteSending = false;
+                        if (result.ok) {
+                            self.noteSent = true;
+                            self.showNoteForm = false;
+                        } else {
+                            self.noteError =
+                                result.data.error || "Something went wrong";
+                        }
+                    })
+                    .catch(function () {
+                        self.noteSending = false;
+                        self.noteError = "Network error. Please try again.";
+                    });
+            },
+
+            toggleCallPrep: function () {
+                this.showCallPrep = !this.showCallPrep;
+            },
+
+            toggleNoteForm: function () {
+                this.showNoteForm = !this.showNoteForm;
+            },
+
+            updateNoteText: function (e) {
+                this.noteText = e.target.value;
+            },
+
+            // CSP-safe getters
+            get isPending() {
+                return this.status === "pending";
+            },
+            get isNoteSending() {
+                return this.noteSending;
+            },
+            get isNoteNotSending() {
+                return !this.noteSending;
+            },
+            get isNoteSent() {
+                return this.noteSent;
+            },
+            get isNoteNotSent() {
+                return !this.noteSent;
+            },
+            get hasNoteError() {
+                return this.noteError !== "";
+            },
+            get isNoteValid() {
+                return this.noteText.length >= 10 && this.noteText.length <= 500;
+            },
+            get noteCharCount() {
+                return this.noteText.length + "/500";
+            },
+            get isCallPrepOpen() {
+                return this.showCallPrep;
+            },
+            get isNoteFormOpen() {
+                return this.showNoteForm && !this.noteSent;
+            },
+            get showQueuePosition() {
+                return this.queuePosition > 0;
+            },
+            get waitBadgeClass() {
+                if (this.waitStatus === "fresh")
+                    return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+                if (this.waitStatus === "normal")
+                    return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+                if (this.waitStatus === "extended")
+                    return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+                return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300";
+            },
+            get waitBadgeText() {
+                if (this.waitStatus === "fresh") return "Just submitted";
+                if (this.waitStatus === "normal") return "In progress";
+                if (this.waitStatus === "extended") return "Taking a bit longer";
+                return "Extended wait";
+            },
+            get noteIconBgClass() {
+                return this.noteSent
+                    ? "bg-green-100 dark:bg-green-900/30"
+                    : "bg-blue-100 dark:bg-blue-900/30";
+            },
+            get noteButtonClass() {
+                return this.isNoteValid && !this.noteSending
+                    ? "bg-crush-purple hover:bg-purple-700 text-white"
+                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed";
+            },
+
+            destroy: function () {
+                if (this.pollInterval) clearInterval(this.pollInterval);
             },
         };
     });

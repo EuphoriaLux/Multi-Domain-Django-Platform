@@ -7,10 +7,6 @@
 @source "../../crush_lu/templates/**/*.html";
 @source "../../crush_lu/**/*.py";
 @source "../../crush_lu/static/crush_lu/js/**/*.js";
-@source "../../power_up/templates/**/*.html";
-@source "../../power_up/**/*.py";
-@source "../../tableau/templates/**/*.html";
-@source "../../tableau/**/*.py";
 
 /* Tailwind v4 plugins */
 @plugin "@tailwindcss/forms";
@@ -63,20 +59,6 @@
     --color-crush-danger: #dc3545;
     --color-crush-info: #17a2b8;
 
-    /* Power-Up brand colors */
-    --color-powerup-orange: #fe4901;
-    --color-powerup-orange-light: #ff6a2d;
-    --color-powerup-orange-lighter: #ff8c5a;
-    --color-powerup-orange-dark: #d93e00;
-    --color-powerup-orange-darker: #b33300;
-    --color-powerup-dark-blue: #151625;
-    --color-powerup-darker-blue: #010106;
-    --color-powerup-navy: #0a0b15;
-    --color-powerup-tan: #80735f;
-    --color-powerup-tan-light: #a09580;
-    --color-powerup-cream: #faf8f5;
-    --color-powerup-warm-gray: #f5f3f0;
-
     /* Custom border radius */
     --radius-crush-sm: 8px;
     --radius-crush-md: 12px;
@@ -91,10 +73,6 @@
     --shadow-crush-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
     --shadow-crush-purple: 0 5px 15px rgba(155, 89, 182, 0.4);
     --shadow-crush-pink: 0 5px 15px rgba(255, 107, 157, 0.4);
-    --shadow-powerup-sm: 0 2px 10px rgba(254, 73, 1, 0.1);
-    --shadow-powerup-md: 0 4px 20px rgba(254, 73, 1, 0.15);
-    --shadow-powerup-lg: 0 10px 30px rgba(254, 73, 1, 0.2);
-    --shadow-powerup-orange: 0 5px 15px rgba(254, 73, 1, 0.4);
 
     /* ===================
      JOURNEY SYSTEM TOKENS
@@ -121,6 +99,16 @@
 }
 
 /* =============================================================================
+   LIGHT MODE WARMTH
+   Soften pure whites to a subtle lavender tint matching the Crush.lu palette.
+   Tailwind v4 uses var(--color-white) for bg-white, text-white, border-white etc.
+   Placed outside @layer so it wins over Tailwind's @layer theme definition.
+   ============================================================================= */
+html:not(.dark) {
+    --color-white: #F0ECF5;
+}
+
+/* =============================================================================
    GRADIENT CUSTOM PROPERTIES
    Define gradients as CSS custom properties for reusability
    Usage: background: var(--gradient-crush-primary);
@@ -130,10 +118,6 @@
     --gradient-crush-primary: linear-gradient(135deg, #9b59b6, #ff6b9d);
     --gradient-crush-hover: linear-gradient(135deg, #8e44ad, #d94d7b);
     --gradient-crush-vertical: linear-gradient(180deg, #9b59b6, #ff6b9d);
-
-    /* Power-UP gradients */
-    --gradient-powerup-primary: linear-gradient(135deg, #fe4901, #ff6a2d);
-    --gradient-powerup-hover: linear-gradient(135deg, #d93e00, #fe4901);
 
     /* Journey system gradients (Wonderland experience) */
     --gradient-journey-bg: linear-gradient(
@@ -455,11 +439,6 @@ body.journey-bg {
         @apply overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98] dark:border-gray-700 dark:bg-gray-800 dark:shadow-2xl dark:hover:shadow-2xl;
     }
 
-    /* Profile card - for user profiles */
-    .profile-card {
-        @apply shadow-crush-md overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800 dark:shadow-2xl;
-    }
-
     /* Section container - for page sections with background */
     .section-container {
         @apply mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8;
@@ -621,15 +600,6 @@ body.journey-bg {
     /* =========================================================================
      ACTION BUTTONS & INTERACTIVE ELEMENTS
      ========================================================================= */
-    /* Action card with icon - for dashboard actions */
-    .action-card {
-        @apply hover:border-crush-purple/30 dark:hover:border-crush-purple/30 hover:from-crush-purple/5 dark:hover:from-crush-purple/10 flex items-start gap-5 rounded-xl border-2 border-gray-100 bg-white p-5 transition-all duration-300 hover:bg-gradient-to-r hover:to-transparent dark:border-gray-700 dark:bg-gray-900 dark:hover:to-transparent;
-    }
-
-    .action-card-icon {
-        @apply flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl shadow-md transition-transform duration-300;
-    }
-
     /* =========================================================================
      BADGES
      ========================================================================= */
@@ -4881,7 +4851,7 @@ footer hr {
 }
 
 .btn-crush-secondary:hover {
-    background: white;
+    background: var(--color-white);
     color: var(--crush-purple);
     border-color: white;
     text-decoration: none;
@@ -4921,7 +4891,7 @@ html.dark .btn-crush-outline {
 
 /* Hero Button */
 .btn-hero-primary {
-    background: white;
+    background: var(--color-white);
     color: var(--crush-purple);
     font-weight: var(--font-semibold);
     padding: 1rem 2.5rem;
@@ -4991,7 +4961,7 @@ html.dark .btn-crush-outline {
    (from components/cards.css)
    =================== */
 .crush-card {
-    background: white;
+    background: var(--color-white);
     border: none;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
@@ -5075,7 +5045,7 @@ html.dark .btn-crush-outline {
 /* Gradient Border Card */
 .crush-card-gradient-border {
     position: relative;
-    background: white;
+    background: var(--color-white);
 }
 
 .crush-card-gradient-border::before {
@@ -5101,7 +5071,7 @@ html.dark .btn-crush-outline {
 .gift-landing .feature-card {
     text-align: center;
     padding: var(--space-12) var(--space-8);
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-md);
     transition: all var(--transition-base);
@@ -5174,7 +5144,7 @@ html.dark .btn-crush-outline {
 
 /* Stat Card */
 .stat-card {
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-lg);
     padding: var(--space-6);
     text-align: center;
@@ -5205,7 +5175,7 @@ html.dark .btn-crush-outline {
 /* Gender Card */
 .gender-card {
     border: 2px solid transparent;
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-xl);
     padding: var(--space-8);
     cursor: pointer;
@@ -5226,7 +5196,7 @@ html.dark .btn-crush-outline {
 
 /* Connection Card */
 .connection-card {
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-lg);
     padding: var(--space-6);
     box-shadow: var(--shadow-sm);
@@ -5517,7 +5487,7 @@ html.dark .btn-crush-outline {
     padding: var(--space-1) var(--space-2);
     border: 1px solid rgba(155, 89, 182, 0.2);
     border-radius: var(--radius-sm);
-    background: white;
+    background: var(--color-white);
     width: 100%;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -5654,7 +5624,7 @@ html.dark .btn-crush-outline {
 }
 
 .social-photo-mini-card {
-    background: white;
+    background: var(--color-white);
     border-radius: 10px;
     padding: 0.6rem;
     text-align: center;
@@ -5673,7 +5643,7 @@ html.dark .btn-crush-outline {
     position: absolute;
     top: -6px;
     right: -6px;
-    background: white;
+    background: var(--color-white);
     border-radius: 50%;
     width: 22px;
     height: 22px;
@@ -5922,7 +5892,7 @@ html.dark .btn-crush-outline {
 }
 
 .step-card {
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-xl);
     padding: var(--space-8);
     box-shadow: var(--shadow-md);
@@ -6002,7 +5972,7 @@ html.dark .btn-crush-outline {
     text-align: center;
     cursor: pointer;
     transition: var(--transition-base);
-    background: white;
+    background: var(--color-white);
 }
 
 .looking-card:hover {
@@ -6045,7 +6015,7 @@ html.dark .btn-crush-outline {
     text-align: center;
     cursor: pointer;
     transition: var(--transition-base);
-    background: white;
+    background: var(--color-white);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -6142,7 +6112,7 @@ html.dark .btn-crush-outline {
     align-items: start;
     gap: var(--space-4);
     padding: var(--space-4);
-    background: white;
+    background: var(--color-white);
     border-radius: var(--radius-sm);
     margin-bottom: var(--space-4);
 }
@@ -6589,7 +6559,7 @@ html.dark .section-card {
 }
 
 .btn-hero-secondary:hover {
-    background: white;
+    background: var(--color-white);
     color: var(--crush-purple);
 }
 
@@ -6753,7 +6723,7 @@ html.dark .home-page .feature-text {
 
 /* Gift landing page overrides */
 .gift-landing .feature-card {
-    background: white;
+    background: var(--color-white);
     border-radius: 25px;
     padding: 2.5rem 2rem;
     text-align: center;
@@ -7670,7 +7640,7 @@ html.dark .results-preview {
     border-radius: 15px;
     padding: 2rem;
     margin-bottom: 2rem;
-    background: white;
+    background: var(--color-white);
 }
 
 html.dark .demo-section {
@@ -7705,7 +7675,7 @@ html.dark .demo-section.active {
 
 .tour-tooltip {
     position: absolute;
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     padding: 2rem;
     max-width: 400px;
@@ -8658,7 +8628,7 @@ html.dark .progress-bar-container {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: shimmer 4s ease infinite;
+    animation: text-shimmer 4s ease infinite;
 }
 
 .gift-landing .hero-from {
@@ -8928,7 +8898,7 @@ html.dark .progress-bar-container {
     }
 }
 
-@keyframes shimmer {
+@keyframes text-shimmer {
     0%,
     100% {
         background-position: 0% 50%;
@@ -10623,7 +10593,7 @@ html.dark .poll-option-check-active {
 }
 .poll-option-card.poll-option-selected {
     border-color: #9b59b6;
-    background: white;
+    background: var(--color-white);
     box-shadow:
         0 0 0 1px #9b59b6,
         0 4px 12px rgba(155, 89, 182, 0.2);
@@ -10961,8 +10931,8 @@ html.dark .crush-connect-cta {
         display: flex;
         justify-content: space-around;
         align-items: center;
-        background: white;
-        border-top: 1px solid #e5e7eb;
+        background: var(--bg-secondary, #F0ECF5);
+        border-top: 1px solid var(--border-color, #ddd8e6);
         padding-bottom: env(safe-area-inset-bottom, 0px);
         height: auto;
         min-height: 56px;
@@ -11048,10 +11018,8 @@ html.dark .crush-connect-cta {
         height: 48px;
         padding: 0 16px;
         padding-top: env(safe-area-inset-top, 0px);
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+        background: linear-gradient(135deg, #9b59b6, #c0399e, #ff6b9d);
+        border-bottom: 1px solid rgba(155, 89, 182, 0.3);
     }
 
     /* Hide top bar on desktop */
@@ -11071,20 +11039,16 @@ html.dark .crush-connect-cta {
         align-items: center;
         gap: 8px;
         text-decoration: none;
-        color: var(--color-crush-purple);
+        color: white;
         font-weight: 700;
         font-size: 16px;
-    }
-
-    html.dark .top-bar-mobile-logo {
-        color: #a78bfa;
     }
 
     .top-bar-mobile-back {
         display: flex;
         align-items: center;
         gap: 4px;
-        color: var(--color-crush-purple);
+        color: white;
         font-size: 14px;
         font-weight: 500;
         text-decoration: none;
@@ -11093,25 +11057,17 @@ html.dark .crush-connect-cta {
         -webkit-tap-highlight-color: transparent;
     }
 
-    html.dark .top-bar-mobile-back {
-        color: #a78bfa;
-    }
-
     .top-bar-mobile-title {
         position: absolute;
         left: 50%;
         transform: translateX(-50%);
         font-size: 16px;
         font-weight: 600;
-        color: #1f2937;
+        color: white;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 60%;
-    }
-
-    html.dark .top-bar-mobile-title {
-        color: #f1f5f9;
     }
 
     .top-bar-mobile-actions {
@@ -11127,12 +11083,8 @@ html.dark .crush-connect-cta {
         justify-content: center;
         width: 36px;
         height: 36px;
-        color: #6b7280;
+        color: rgba(255, 255, 255, 0.85);
         -webkit-tap-highlight-color: transparent;
-    }
-
-    html.dark .top-bar-mobile-bell {
-        color: #9ca3af;
     }
 
     .top-bar-mobile-bell-badge {
@@ -11312,7 +11264,7 @@ html.dark .crush-connect-cta {
         white-space: nowrap;
         border: 1px solid #e5e7eb;
         color: #4b5563;
-        background: white;
+        background: var(--color-white);
         text-decoration: none;
         transition: all 0.15s ease;
         -webkit-tap-highlight-color: transparent;
@@ -11392,7 +11344,7 @@ html.dark .crush-connect-cta {
         width: 20px;
         height: 20px;
         border-radius: 50%;
-        background: white;
+        background: var(--color-white);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         transition: transform 0.2s ease;
     }
@@ -11420,7 +11372,7 @@ html.dark .crush-connect-cta {
         left: 2px;
         width: 1.25rem; /* h-5 w-5 */
         height: 1.25rem;
-        background-color: white;
+        background-color: var(--color-white);
         border: 1px solid #d1d5db; /* border-gray-300 */
         border-radius: 9999px;
         transition: transform 0.2s ease;
@@ -11487,7 +11439,7 @@ html.dark .crush-connect-cta {
         font-weight: 500;
         border: 1px solid #e5e7eb;
         color: #4b5563;
-        background: white;
+        background: var(--color-white);
         cursor: pointer;
         transition: all 0.15s ease;
         -webkit-tap-highlight-color: transparent;
@@ -11531,7 +11483,7 @@ html.dark .crush-connect-cta {
         left: 0;
         right: 0;
         z-index: 51;
-        background: white;
+        background: var(--color-white);
         border-radius: 16px 16px 0 0;
         max-height: 70vh;
         overflow-y: auto;
@@ -11634,7 +11586,7 @@ html.dark .crush-connect-cta {
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.25rem;
-        background: white;
+        background: var(--color-white);
         border-radius: 1rem;
         border: 1px solid #e5e7eb;
         text-decoration: none;
@@ -11802,7 +11754,7 @@ html.dark .about-hero {
 
 /* Mission Section */
 .about-mission-card {
-    background: white;
+    background: var(--color-white);
     border-radius: 20px;
     padding: 2rem 1.5rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -11863,7 +11815,7 @@ html.dark .about-blockquote cite {
 
 /* Founder Cards */
 .founder-card {
-    background: white;
+    background: var(--color-white);
     border-radius: 20px;
     padding: 2rem 1.5rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
@@ -11957,7 +11909,7 @@ html.dark .about-press-section {
 }
 
 .press-card {
-    background: white;
+    background: var(--color-white);
     border-radius: 16px;
     padding: 1.5rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -12061,7 +12013,7 @@ html.dark .press-link {
 .about-stat-card {
     text-align: center;
     padding: 1.25rem 0.5rem;
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
@@ -12172,7 +12124,7 @@ html.dark .about-feature-list li {
 .about-why-card {
     text-align: center;
     padding: 1.5rem 1rem;
-    background: white;
+    background: var(--color-white);
     border-radius: 16px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     height: 100%;
@@ -12508,7 +12460,7 @@ html.dark .how-it-works-hero {
 .stat-card {
     text-align: center;
     padding: 1.25rem 0.5rem;
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
@@ -12543,7 +12495,7 @@ html.dark .stat-label {
     border-radius: 20px;
     overflow: hidden;
     height: 100%;
-    background: white;
+    background: var(--color-white);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     position: relative;
 }
@@ -12568,7 +12520,7 @@ html.dark .step-card {
     box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
 }
 
-@keyframes float {
+@keyframes step-float {
     0%,
     100% {
         transform: translateY(0);
@@ -12875,7 +12827,7 @@ html.dark .hiw-cta-section p {
     }
 
     .step-icon {
-        animation: float 3s ease-in-out infinite;
+        animation: step-float 3s ease-in-out infinite;
     }
 
     .step-card:nth-child(1) .step-icon {
@@ -12995,7 +12947,7 @@ html.dark .crush-coach-hero {
 }
 
 .hero-btn-primary {
-    background: white;
+    background: var(--color-white);
     color: #9b59b6;
 }
 
@@ -13026,7 +12978,7 @@ html.dark .crush-coach-hero {
 .coach-stat-card {
     text-align: center;
     padding: 1.25rem 0.5rem;
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
@@ -13101,7 +13053,7 @@ html.dark .page-crush-coach .section-header p {
     border-radius: 20px;
     overflow: hidden;
     height: 100%;
-    background: white;
+    background: var(--color-white);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     padding: 1.5rem;
     text-align: center;
@@ -13153,7 +13105,7 @@ html.dark .why-card p {
     align-items: flex-start;
     gap: 1rem;
     padding: 1.25rem;
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     height: 100%;
@@ -13268,7 +13220,7 @@ html.dark .checklist li {
 }
 
 .reassurance-block {
-    background: white;
+    background: var(--color-white);
     border-radius: 15px;
     padding: 1.5rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -13403,7 +13355,7 @@ html.dark .coach-cta-section {
     justify-content: center;
     gap: 0.5rem;
     padding: 1rem 2.5rem;
-    background: white;
+    background: var(--color-white);
     color: #9b59b6;
     border-radius: 9999px;
     font-weight: 700;
