@@ -57,9 +57,9 @@ class AccountDeletionTests(TestCase):
             )
 
     @patch('crush_lu.storage.delete_user_storage', return_value=(True, 0))
-    def test_delete_user_data_removes_connections_and_messages(self, _mock_storage):
+    def test_delete_full_account_removes_connections_and_messages(self, _mock_storage):
         from crush_lu.models import EventConnection, ConnectionMessage
-        from crush_lu.views import delete_user_data
+        from crush_lu.views import delete_full_account
 
         connection = EventConnection.objects.create(
             event=self.event,
@@ -72,7 +72,7 @@ class AccountDeletionTests(TestCase):
             message='hello'
         )
 
-        delete_user_data(self.user, confirmation_code='test-code')
+        delete_full_account(self.user)
 
         self.assertFalse(EventConnection.objects.exists())
         self.assertFalse(ConnectionMessage.objects.exists())

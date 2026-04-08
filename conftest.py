@@ -7,6 +7,7 @@ without requiring real Azure, email, or OAuth credentials.
 """
 import os
 import sys
+from typing import TYPE_CHECKING
 import pytest
 from unittest.mock import MagicMock
 
@@ -96,11 +97,15 @@ def _patch_static_storage():
     # No cleanup needed
 
 
-# Import User model after Django is configured
-from django.contrib.auth import get_user_model
-from playwright.sync_api import Page
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
 
-User = get_user_model()
+
+def _user_model():
+    """Resolve the Django user model lazily to keep pytest startup light."""
+    from django.contrib.auth import get_user_model
+
+    return get_user_model()
 
 
 @pytest.fixture(scope='session')
@@ -110,30 +115,12 @@ def django_db_modify_db_settings():
 
 
 @pytest.fixture(scope='session', autouse=True)
-def django_db_setup_once(django_db_setup, django_db_blocker):
+def setup_site_for_live_server(django_db_setup, django_db_blocker):
     """
-    Ensure migrations run once before parallel test execution.
-    This prevents race conditions when pytest-xdist workers try to
-    apply migrations simultaneously.
+    Seed Site objects once per worker after pytest-django prepares the DB.
 
-    Must run after django_db_setup to ensure database is ready.
-    """
-    with django_db_blocker.unblock():
-        # Force migrations to complete before parallel execution starts
-        from django.core.management import call_command
-        call_command('migrate', '--run-syncdb', verbosity=0, interactive=False)
-
-
-@pytest.fixture(scope='session', autouse=True)
-def setup_site_for_live_server(django_db_setup_once, django_db_blocker):
-    """
-    Create Site objects at session start for live_server tests.
-
-    This must run before any live_server tests start to ensure the
-    Site exists in the database when Django's allauth tries to look it up.
-
-    Note: django_db_setup_once ensures migrations are fully applied before
-    we try to access the Site model.
+    pytest-django already handles database creation/migrations and DB reuse.
+    Re-running `migrate` here adds startup cost without helping normal runs.
     """
     with django_db_blocker.unblock():
         from django.contrib.sites.models import Site
@@ -156,24 +143,6 @@ def setup_site_for_live_server(django_db_setup_once, django_db_blocker):
         )
 
 
-@pytest.fixture(autouse=True)
-def setup_site(db):
-    """Create Site objects for non-live_server tests."""
-    from django.contrib.sites.models import Site
-    Site.objects.get_or_create(
-        id=1,
-        defaults={'domain': 'localhost', 'name': 'localhost'}
-    )
-    Site.objects.update_or_create(
-        domain='testserver',
-        defaults={'name': 'Test Server'}
-    )
-    Site.objects.update_or_create(
-        domain='127.0.0.1',
-        defaults={'name': 'Live Server'}
-    )
-
-
 @pytest.fixture
 def live_server_url(live_server):
     """Return the URL of the live test server."""
@@ -183,7 +152,7 @@ def live_server_url(live_server):
 @pytest.fixture
 def test_user(db):
     """Create a test user for authentication tests."""
-    user = User.objects.create_user(
+    user = _user_model().objects.create_user(
         username='testuser@example.com',
         email='testuser@example.com',
         password='testpass123',
@@ -213,7 +182,7 @@ def test_user_with_profile(db, test_user):
 
 
 @pytest.fixture
-def authenticated_page(page: Page, live_server_url, test_user):
+def authenticated_page(page: 'Page', live_server_url, test_user):
     """
     Provide a Playwright page with an authenticated user session.
     Logs in the test user and returns the page ready for testing.
@@ -239,7 +208,7 @@ def coach_user(db):
     """Create a test coach user."""
     from crush_lu.models import CrushCoach
 
-    user = User.objects.create_user(
+    user = _user_model().objects.create_user(
         username='coach@example.com',
         email='coach@example.com',
         password='coachpass123',
@@ -327,7 +296,7 @@ def connection_pair(db):
     from django.utils import timezone
 
     # Create two users with profiles
-    user1 = User.objects.create_user(
+    user1 = _user_model().objects.create_user(
         username='user1@example.com',
         email='user1@example.com',
         password='testpass123',
@@ -335,7 +304,7 @@ def connection_pair(db):
         last_name='Doe'
     )
 
-    user2 = User.objects.create_user(
+    user2 = _user_model().objects.create_user(
         username='user2@example.com',
         email='user2@example.com',
         password='testpass123',
@@ -502,7 +471,7 @@ def sender_user(transactional_db):
     """Create an authenticated user who will create journey gifts."""
     from allauth.account.models import EmailAddress
 
-    user = User.objects.create_user(
+    user = _user_model().objects.create_user(
         username='sender@example.com',
         email='sender@example.com',
         password='sender123',
@@ -524,7 +493,7 @@ def recipient_user(transactional_db):
     """Create a user who will claim a journey gift."""
     from allauth.account.models import EmailAddress
 
-    user = User.objects.create_user(
+    user = _user_model().objects.create_user(
         username='recipient@example.com',
         email='recipient@example.com',
         password='recipient123',
@@ -595,7 +564,7 @@ def claimed_gift(transactional_db, sender_user, recipient_user):
 
 
 @pytest.fixture
-def authenticated_sender_page(page: Page, live_server_url, sender_user, transactional_db):
+def authenticated_sender_page(page: 'Page', live_server_url, sender_user, transactional_db):
     """Playwright page logged in as the gift sender."""
     # Note: transactional_db commits data so live_server can see it
     # Ensure Site exists for live_server
@@ -622,7 +591,7 @@ def authenticated_sender_page(page: Page, live_server_url, sender_user, transact
 
 
 @pytest.fixture
-def authenticated_recipient_page(page: Page, live_server_url, recipient_user, transactional_db):
+def authenticated_recipient_page(page: 'Page', live_server_url, recipient_user, transactional_db):
     """Playwright page logged in as the gift recipient."""
     # Note: transactional_db commits data so live_server can see it
     # Ensure Site exists for live_server

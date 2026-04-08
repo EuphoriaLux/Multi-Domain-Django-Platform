@@ -126,7 +126,7 @@ def facebook_data_deletion_callback(request):
             )
 
             # Delete/anonymize user data
-            delete_user_data(user, confirmation_code)
+            delete_full_account(user)
 
             # Build the status URL where user can check deletion status
             status_url = request.build_absolute_uri(
@@ -334,20 +334,6 @@ def delete_full_account(user):
 
     logger.info(f"Full account deleted for user {user.id} (all platforms)")
 
-
-def delete_user_data(user, confirmation_code):
-    """
-    DEPRECATED: Legacy function for backwards compatibility.
-    Use delete_crushlu_profile_only() or delete_full_account() instead.
-
-    This function now calls delete_full_account() for backwards compatibility
-    with existing code that may reference it.
-    """
-    logger.warning(
-        f"delete_user_data() is deprecated. Use delete_full_account() instead. "
-        f"Called for user {user.id}, confirmation: {confirmation_code}"
-    )
-    delete_full_account(user)
 
 
 def data_deletion_status(request):
@@ -882,16 +868,6 @@ def gdpr_data_management(request):
     }
     return render(request, 'crush_lu/gdpr_data_management.html', context)
 
-
-@crush_login_required
-@require_http_methods(["GET", "POST"])
-def delete_account(request):
-    """
-    DEPRECATED: Legacy account deletion view.
-    Redirects to new GDPR data management dashboard.
-    """
-    messages.info(request, _('Account deletion has been moved to the data management page.'))
-    return redirect('crush_lu:gdpr_data_management')
 
 
 @login_required
