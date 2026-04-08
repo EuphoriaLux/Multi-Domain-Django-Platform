@@ -353,7 +353,7 @@ def unapproved_user(db):
     from crush_lu.models import CrushProfile
     from datetime import date
 
-    user = User.objects.create_user(
+    user = _user_model().objects.create_user(
         username='unapproved@example.com',
         email='unapproved@example.com',
         password='testpass123',
