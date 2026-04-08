@@ -13,39 +13,364 @@
         <div>
             <div class="text-center">
                 {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                {# ═══════════════════════════════════════════════════════ #}
+                {# PENDING STATE — Enhanced with real stats & proactive features #}
+                {# ═══════════════════════════════════════════════════════ #}
+                {% csrf_token %}
+                <div x-data="submissionStatus"
+                     data-status="{{ submission.status }}"
+                     data-queue-position="{{ queue_position }}"
+                     data-total-pending="{{ total_coach_pending }}"
+                     data-hours-waiting="{{ hours_waiting }}"
+                     data-wait-status="{{ wait_status }}"
+                     data-progress-percent="{{ progress_percent }}"
+                     data-has-note="{{ has_candidate_note|yesno:'true,false' }}">
+
+                    {# ── Section 1: Status Header ── #}
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            ⏳
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg animate-pulse">
+                            {% include "shared/icons/hourglass.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
-                    <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
-                    <p class="text-base text-gray-600 dark:text-gray-300 mb-4">
-                        {% trans "Your profile is currently being reviewed by our Crush Coaches." %}
+                    <h2 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
+                    <div class="flex justify-center mb-4">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                              x-bind:class="waitBadgeClass">
+                            {% include "shared/icons/clock.html" with class="w-3.5 h-3.5" %}
+                            <span x-text="waitBadgeText"></span>
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                        {% blocktrans with time=submission.submitted_at|timesince %}Submitted {{ time }} ago{% endblocktrans %}
                     </p>
 
-                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden text-left mb-6">
-                        <div class="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50">
-                            {% include "shared/icons/clock.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" %}
-                            <div>
-                                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{{ submission.get_status_display }}</p>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 mb-0">
-                                    {% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}
-                                    {% if submission.coach %} · {% trans "Coach:" %} {{ submission.coach.user.get_full_name }}{% endif %}
-                                </p>
+                    {# ── Section 2: Estimated Time Card ── #}
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
+                        <div class="px-5 py-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
+                                        {% if is_coach_specific_estimate %}
+                                            {% trans "Your coach's avg. review time" %}
+                                        {% else %}
+                                            {% trans "Estimated review time" %}
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-2xl font-bold text-crush-purple dark:text-purple-400 mb-0">{{ estimated_review_display }}</p>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                                    {% include "shared/icons/clock.html" with class="w-6 h-6 text-crush-purple dark:text-purple-400" %}
+                                </div>
                             </div>
-                        </div>
-                        <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                            <p class="font-semibold mb-2">{% trans "What happens next?" %}</p>
-                            <ol class="list-decimal ml-5 space-y-1 text-sm mb-3">
-                                <li>{% trans "Your assigned Crush Coach will review your profile" %}</li>
-                                <li>{% trans "You'll receive feedback within 24-48 hours" %}</li>
-                                <li>{% trans "Once approved, you can register for events!" %}</li>
-                            </ol>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
-                                {% trans "You cannot edit your profile while it's under review." %}
+                            {# Progress bar #}
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                                <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-full rounded-full transition-all duration-1000"
+                                     style="width: {{ progress_percent }}%"></div>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 mb-0">
+                                {% trans "Based on recent review data. Actual time may vary." %}
                             </p>
                         </div>
                     </div>
+
+                    {# ── Section 3: Review Progress Timeline ── #}
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
+                        <div class="px-5 py-4">
+                            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                {% include "shared/icons/list-bullet.html" with class="w-4 h-4 text-crush-purple" %}
+                                {% trans "Review Progress" %}
+                            </h3>
+                            <div class="space-y-0">
+                                {# Step 1: Profile Submitted — COMPLETED #}
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                            {% include "shared/icons/check.html" with class="w-4 h-4 text-white" %}
+                                        </div>
+                                        <div class="w-0.5 h-full bg-green-300 dark:bg-green-700 min-h-[2rem]"></div>
+                                    </div>
+                                    <div class="pb-4">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Profile Submitted" %}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ submission.submitted_at|date:"N j, Y \a\t g:i A" }}</p>
+                                    </div>
+                                </div>
+
+                                {# Step 2: Coach Assigned #}
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        {% if submission.coach %}
+                                        <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                            {% include "shared/icons/check.html" with class="w-4 h-4 text-white" %}
+                                        </div>
+                                        <div class="w-0.5 h-full bg-green-300 dark:bg-green-700 min-h-[2rem]"></div>
+                                        {% else %}
+                                        <div class="w-8 h-8 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                            {% include "shared/icons/clock.html" with class="w-4 h-4 text-white" %}
+                                        </div>
+                                        <div class="w-0.5 h-full bg-gray-200 dark:bg-gray-700 min-h-[2rem]"></div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="pb-4">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Coach Assigned" %}</p>
+                                        {% if submission.coach %}
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ submission.coach.user.get_full_name }}</p>
+                                        {% else %}
+                                        <p class="text-xs text-amber-600 dark:text-amber-400 mb-0">{% trans "Finding the best coach for you..." %}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {# Step 3: Under Review — ACTIVE #}
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        {% if submission.coach %}
+                                        <div class="w-8 h-8 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                            {% include "shared/icons/clock.html" with class="w-4 h-4 text-white" %}
+                                        </div>
+                                        {% else %}
+                                        <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                            {% include "shared/icons/clock.html" with class="w-4 h-4 text-gray-400" %}
+                                        </div>
+                                        {% endif %}
+                                        <div class="w-0.5 h-full bg-gray-200 dark:bg-gray-700 min-h-[2rem]"></div>
+                                    </div>
+                                    <div class="pb-4">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Under Review" %}</p>
+                                        {% if submission.coach and queue_position > 0 %}
+                                        <p class="text-xs text-amber-600 dark:text-amber-400 mb-0">
+                                            {% blocktrans with pos=queue_position total=total_coach_pending %}Position #{{ pos }} of {{ total }} in your coach's queue{% endblocktrans %}
+                                        </p>
+                                        {% elif submission.coach %}
+                                        <p class="text-xs text-green-600 dark:text-green-400 mb-0">{% trans "Next in queue" %}</p>
+                                        {% else %}
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "Waiting for coach assignment" %}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {# Step 4: Feedback & Approval — PENDING #}
+                                <div class="flex gap-3">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                            {% include "shared/icons/sparkles.html" with class="w-4 h-4 text-gray-400" %}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{% trans "Feedback & Approval" %}</p>
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "You'll be notified when complete" %}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Section 4: Your Coach Card ── #}
+                    {% if submission.coach %}
+                    <div class="rounded-xl border border-purple-200 dark:border-purple-800/50 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
+                        <div class="px-5 py-4">
+                            <p class="text-xs font-semibold text-crush-purple uppercase tracking-wide mb-3">{% trans "Your Crush Coach" %}</p>
+                            <div class="flex items-center gap-4 mb-4">
+                                {% if submission.coach.photo %}
+                                <div class="relative flex-shrink-0">
+                                    <div class="w-16 h-16 rounded-full p-0.5 bg-gradient-to-br from-crush-purple to-crush-pink">
+                                        <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
+                                             class="w-full h-full rounded-full object-cover border-2 border-white dark:border-slate-800"
+                                             loading="lazy">
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
+                                    {{ submission.coach.user.get_full_name|slice:":1"|upper }}
+                                </div>
+                                {% endif %}
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-base font-bold text-gray-900 dark:text-white mb-0.5">{{ submission.coach.user.get_full_name }}</p>
+                                    {% if submission.coach.specializations %}
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ submission.coach.specializations }}</p>
+                                    {% endif %}
+                                    {% if submission.coach.get_spoken_languages_display %}
+                                    <div class="flex flex-wrap gap-1">
+                                        {% for lang in submission.coach.get_spoken_languages_display %}
+                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                                            {{ lang.flag }} {{ lang.name }}
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if submission.coach.bio %}
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{{ submission.coach.bio }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="px-5 py-3 border-t border-purple-100 dark:border-purple-800/30 bg-purple-50/50 dark:bg-purple-900/10">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Have a question? Reach out:" %}</p>
+                            <div class="flex flex-wrap gap-2">
+                                {% if coach_phone_available %}
+                                <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I recently submitted my Crush.lu profile and wanted to check in. Is there anything I should prepare for the screening call?' %}"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-semibold transition-colors">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                    {% trans "WhatsApp" %}
+                                </a>
+                                <a href="tel:+{{ coach_contact_phone }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 text-white text-xs font-semibold transition-opacity">
+                                    {% include "shared/icons/phone.html" with class="w-3.5 h-3.5" %}
+                                    {% trans "Call" %}
+                                </a>
+                                {% endif %}
+                                <a href="mailto:{{ submission.coach.user.email }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-xs font-semibold transition-colors">
+                                    {% include "shared/icons/envelope.html" with class="w-3.5 h-3.5" %}
+                                    {% trans "Email" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    {# No coach yet #}
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
+                        <div class="px-5 py-4 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                {% include "shared/icons/user.html" with class="w-5 h-5 text-crush-purple dark:text-purple-400" %}
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{% trans "Coach Assignment in Progress" %}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "We're matching you with the best available coach. You'll be notified once assigned." %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# ── Section 5: Proactive Actions ── #}
+                    <div class="space-y-3 mb-6 text-left">
+
+                        {# 5a: Add a note for your coach #}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            {# Header row — toggles form or shows sent confirmation #}
+                            <button @click="toggleNoteForm"
+                                    class="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                                    type="button">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                                         x-bind:class="noteIconBgClass">
+                                        <span x-show="isNoteSent">{% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-600 dark:text-green-400" %}</span>
+                                        <span x-show="isNoteNotSent">{% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5 text-blue-600 dark:text-blue-400" %}</span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0" x-show="isNoteNotSent">
+                                            {% trans "Send a note to your coach" %}
+                                        </p>
+                                        <p class="text-sm font-semibold text-green-700 dark:text-green-300 mb-0" x-show="isNoteSent">
+                                            {% trans "Note sent to your coach" %}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div x-show="isNoteNotSent" class="flex-shrink-0">
+                                    {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400" %}
+                                </div>
+                            </button>
+
+                            {# Sent confirmation — shows the note text back to the user #}
+                            <div x-show="isNoteSent" class="px-5 pb-4 border-t border-green-100 dark:border-green-800/30 bg-green-50/50 dark:bg-green-900/10">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-1 font-medium">{% trans "Your note:" %}</p>
+                                <p class="text-sm text-gray-700 dark:text-gray-300 mb-0 whitespace-pre-line" x-text="noteText"></p>
+                            </div>
+
+                            {# Note form — only visible when not yet sent #}
+                            <div x-show="isNoteFormOpen" x-cloak class="px-5 pb-4 border-t border-gray-100 dark:border-gray-700">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-2">
+                                    {% trans "Let your coach know anything relevant - availability for the screening call, special circumstances, or questions." %}
+                                </p>
+                                <textarea @input="updateNoteText"
+                                          x-bind:value="noteText"
+                                          class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white p-3 resize-none focus:ring-2 focus:ring-crush-purple focus:border-crush-purple"
+                                          rows="3"
+                                          maxlength="500"
+                                          placeholder="{% trans 'e.g., I am available for a call weekdays after 6 PM...' %}"></textarea>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span class="text-xs text-gray-400" x-text="noteCharCount"></span>
+                                    <button @click="sendNote"
+                                            x-bind:disabled="isNoteSending"
+                                            x-bind:class="noteButtonClass"
+                                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
+                                            type="button">
+                                        {% include "shared/icons/paper-airplane.html" with class="w-3.5 h-3.5" %}
+                                        <span x-show="isNoteSending">{% trans "Sending..." %}</span>
+                                        <span x-show="isNoteNotSending">{% trans "Send Note" %}</span>
+                                    </button>
+                                </div>
+                                <div x-show="hasNoteError" x-cloak class="mt-2 text-xs text-red-600 dark:text-red-400" x-text="noteError"></div>
+                            </div>
+                        </div>
+
+                        {# 5b: Prepare for screening call #}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            <button @click="toggleCallPrep"
+                                    class="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+                                    type="button">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                                        {% include "shared/icons/light-bulb.html" with class="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" %}
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{% trans "Prepare for your screening call" %}</p>
+                                </div>
+                                {% include "shared/icons/chevron-down.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+                            </button>
+                            <div x-show="isCallPrepOpen" x-cloak class="px-5 pb-4 border-t border-gray-100 dark:border-gray-700">
+                                <ul class="mt-3 space-y-2.5">
+                                    <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                                        {% include "shared/icons/phone.html" with class="w-4 h-4 text-crush-purple mt-0.5 flex-shrink-0" %}
+                                        <span>{% trans "Have your phone nearby and charged" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                                        {% include "shared/icons/heart.html" with class="w-4 h-4 text-crush-pink mt-0.5 flex-shrink-0" %}
+                                        <span>{% trans "Think about what you're looking for in a partner" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                                        {% include "shared/icons/photo.html" with class="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" %}
+                                        <span>{% trans "Review your profile photos - make sure they represent you well" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                                        {% include "shared/icons/clock.html" with class="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" %}
+                                        <span>{% trans "The call usually takes 5-10 minutes" %}</span>
+                                    </li>
+                                    <li class="flex items-start gap-2.5 text-sm text-gray-700 dark:text-gray-300">
+                                        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" %}
+                                        <span>{% trans "It's a friendly chat to verify your identity - not an interview!" %}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {# 5c: Browse upcoming events teaser #}
+                        {% if next_event %}
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            <a href="{% url 'crush_lu:event_list' %}" class="block px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center flex-shrink-0">
+                                        {% include "shared/icons/calendar.html" with class="w-4.5 h-4.5 text-crush-pink dark:text-pink-400" %}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{% trans "Upcoming Event" %}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 truncate">{{ next_event.title }} &middot; {{ next_event.date_time|date:"N j" }}</p>
+                                    </div>
+                                    {% include "shared/icons/arrow-right.html" with class="w-4 h-4 text-gray-400 flex-shrink-0" %}
+                                </div>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# ── Section 6: Ghost Story (entertainment) ── #}
+                    <div class="mb-6">
+                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
+                            {% trans "While You Wait: Your Love Story Awaits" %}
+                        </p>
+                        {% include "crush_lu/includes/ghost-story-compact.html" %}
+                    </div>
+
+                </div>{# end x-data #}
 
                 {% elif submission.status == 'revision' %}
                     <div class="flex justify-center mb-4">
@@ -164,8 +489,8 @@
                     </p>
                 {% endif %}
 
+                {# ── Coach card for recontact status ── #}
                 {% if submission.coach and submission.status == 'recontact_coach' %}
-                {# Enhanced coach card for recontact status #}
                 <div class="rounded-xl border border-purple-200 dark:border-purple-800/50 bg-white dark:bg-slate-800 shadow-md mb-6 text-left overflow-hidden">
                     <div class="px-5 py-4">
                         <div class="flex items-center gap-4 mb-4">
@@ -227,56 +552,12 @@
                         </a>
                     </div>
                 </div>
-                {% elif submission.coach and submission.status != 'rejected' and submission.status != 'approved' %}
-                {# Compact coach display for other statuses #}
-                <div class="flex items-center gap-4 mb-6 text-left">
-                    {% if submission.coach.photo %}
-                        <img src="{{ submission.coach.photo.url }}" alt="{{ submission.coach.user.get_full_name }}"
-                             class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md flex-shrink-0"
-                             loading="lazy">
-                    {% else %}
-                        <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0">
-                            {{ submission.coach.user.get_full_name|slice:":1"|upper }}
-                        </div>
-                    {% endif %}
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-crush-purple uppercase tracking-wide mb-0.5">{% trans "Your Crush Coach" %}</p>
-                        <p class="text-base font-bold text-gray-900 dark:text-white mb-0.5">{{ submission.coach.user.get_full_name }}</p>
-                        {% if submission.coach.specializations %}
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{ submission.coach.specializations }}</p>
-                        {% endif %}
-                        {% if submission.coach.bio %}
-                            <p class="text-xs text-gray-600 dark:text-gray-300 mb-1.5">{{ submission.coach.bio }}</p>
-                        {% endif %}
-                        <div class="flex items-center gap-3 flex-wrap">
-                            <a href="mailto:{{ submission.coach.user.email }}"
-                               class="inline-flex items-center gap-1 text-xs text-crush-purple hover:text-crush-pink transition-colors font-medium">
-                                {% include "shared/icons/envelope.html" with class="w-3.5 h-3.5" %}
-                                {% trans "Email Coach" %}
-                            </a>
-                            {% if coach_phone_available %}
-                            <a href="https://wa.me/{{ coach_contact_phone }}?text={% trans 'Hi! I would like to schedule my screening call with my Crush Coach.' %}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors font-medium">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                </svg>
-                                {% trans "WhatsApp" %}
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
                 {% endif %}
 
-                {% if submission.status != 'approved' %}
+                {# ── Ghost story for non-pending, non-approved states ── #}
+                {% if submission.status != 'approved' and submission.status != 'pending' and submission.status != 'under_review' %}
                 <div class="mt-4 mb-4 md:mt-6 md:mb-6">
-                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
-                        <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
-                            {% trans "While You Wait: Your Love Story Awaits" %}
-                        </p>
-                    {% elif submission.status == 'rejected' or submission.status == 'revision' %}
+                    {% if submission.status == 'rejected' or submission.status == 'revision' %}
                         <p class="text-center text-xs text-purple-600/70 dark:text-purple-300/70 mb-2 font-medium">
                             {% trans "Your Perfect Match Is Worth The Effort" %}
                         </p>
@@ -285,15 +566,11 @@
                             {% trans "Almost There! Your Story Is About To Begin" %}
                         </p>
                     {% endif %}
-
-                    {% if submission.status == 'pending' or submission.status == 'under_review' %}
-                        {% include "crush_lu/includes/ghost-story-compact.html" %}
-                    {% else %}
-                        {% include "crush_lu/includes/ghost-story-compact.html" with show_cta=False %}
-                    {% endif %}
+                    {% include "crush_lu/includes/ghost-story-compact.html" with show_cta=False %}
                 </div>
                 {% endif %}
 
+                {# ── Navigation Buttons ── #}
                 <div class="flex flex-col gap-3">
                     <a href="{% url 'crush_lu:dashboard' %}" class="btn-crush-primary">
                         {% trans "Go to Dashboard" %}
@@ -302,7 +579,7 @@
                         <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
                             {% trans "Browse Events" %}
                         </a>
-                    {% else %}
+                    {% elif submission.status != 'pending' and submission.status != 'under_review' %}
                         <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
                             {% trans "Browse Events (while you wait)" %}
                         </a>

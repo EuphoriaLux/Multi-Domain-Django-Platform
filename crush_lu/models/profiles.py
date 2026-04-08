@@ -789,6 +789,17 @@ class ProfileSubmission(models.Model):
         help_text=_("Structured checklist data from screening call")
     )
 
+    # Candidate-to-coach note (write-once, submitted during review wait)
+    candidate_note = models.TextField(
+        blank=True,
+        help_text=_("Optional note from candidate to coach during review wait")
+    )
+    candidate_note_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the candidate submitted their note")
+    )
+
     # Timestamps
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)

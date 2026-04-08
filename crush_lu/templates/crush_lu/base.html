@@ -124,7 +124,7 @@
     <!-- Critical CSS - Inlined for fastest FCP/LCP (above-the-fold styles) -->
     <style>
         /* Critical CSS for Crush.lu - prevents FOUC and enables fast first paint */
-        :root{--crush-pink:#FF6B9D;--crush-purple:#9B59B6;--crush-dark:#2C3E50;--crush-light:#F8F9FA;--bg-primary:#F8F9FA;--bg-secondary:#FFFFFF;--text-primary:#2C3E50;--text-secondary:#64748b;--border-color:#e2e8f0}
+        :root{--crush-pink:#FF6B9D;--crush-purple:#9B59B6;--crush-dark:#2C3E50;--crush-light:#EDE8F4;--bg-primary:#EDE8F4;--bg-secondary:#F0ECF5;--text-primary:#2C3E50;--text-secondary:#64748b;--border-color:#ddd8e6}
         html.dark{--bg-primary:#0f172a;--bg-secondary:#1e293b;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--border-color:#334155;--crush-purple:#A78BFA;--crush-pink:#FB7185}
         [x-cloak]{display:none!important}
         *,::before,::after{box-sizing:border-box}
@@ -153,7 +153,7 @@
         .hero-emoji{font-size:clamp(8rem,20vw,15rem);display:inline-block}
         .hero-ghost-svg{width:clamp(8rem,20vw,15rem);height:auto;display:inline-block;filter:drop-shadow(0 10px 30px rgba(0,0,0,.15))}
         .hero-cta{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;align-items:center}
-        .btn-hero-primary{background:#fff;color:#9B59B6;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:none;font-size:1.1rem;box-shadow:0 8px 20px rgba(0,0,0,.2);text-decoration:none;display:inline-block}
+        .btn-hero-primary{background:var(--color-white);color:#9B59B6;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:none;font-size:1.1rem;box-shadow:0 8px 20px rgba(0,0,0,.2);text-decoration:none;display:inline-block}
         html.dark .btn-hero-primary{background:#1e293b;color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.5)}
         .btn-hero-secondary{background:rgba(255,255,255,.2);color:#fff;font-weight:600;padding:1rem 2.5rem;border-radius:50px;border:2px solid #fff;font-size:1.1rem;text-decoration:none;display:inline-block}
         html.dark .btn-hero-secondary{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.6)}
@@ -1167,7 +1167,7 @@
     </main>
 
     <!-- Footer (Tailwind Grid) -->
-    <footer class="bg-crush-dark text-white py-12">
+    <footer class="{% if user.is_authenticated %}max-lg:hidden{% endif %} bg-crush-dark text-white py-12">
         <div class="container">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <!-- Brand Column -->

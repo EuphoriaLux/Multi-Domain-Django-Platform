@@ -2941,21 +2941,7 @@ def _compute_reassignment_suggestions(coach_data, unassigned_submissions):
     return suggestions
 
 
-def _format_duration(td):
-    """Format a timedelta as a human-readable string like '2d 5h' or '3h'."""
-    if td is None:
-        return None
-    total_seconds = int(td.total_seconds())
-    if total_seconds < 0:
-        return None
-    days = total_seconds // 86400
-    hours = (total_seconds % 86400) // 3600
-    if days > 0:
-        return f"{days}d {hours}h"
-    if hours > 0:
-        return f"{hours}h"
-    minutes = (total_seconds % 3600) // 60
-    return f"{minutes}m"
+from crush_lu.utils.formatting import format_duration as _format_duration
 
 
 @coach_required

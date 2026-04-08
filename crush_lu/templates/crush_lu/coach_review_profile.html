@@ -244,6 +244,30 @@
         </div>
     </div>
 
+    {# ── Candidate Note (if submitted during review wait) ── #}
+    {% if submission.candidate_note %}
+    <div class="mb-6 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 overflow-hidden">
+        <div class="px-5 py-4">
+            <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4 text-blue-600 dark:text-blue-400" %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-1">
+                        {% trans "Note from Candidate" %}
+                        {% if submission.candidate_note_at %}
+                        <span class="normal-case font-normal text-blue-500 dark:text-blue-400">
+                            &middot; {{ submission.candidate_note_at|timesince }} {% trans "ago" %}
+                        </span>
+                        {% endif %}
+                    </p>
+                    <p class="text-sm text-gray-800 dark:text-gray-200 mb-0 whitespace-pre-line">{{ submission.candidate_note }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {# ============================================================ #}
     {# TAB NAVIGATION - 2 tabs: Screening Call + Review Decision    #}
     {# ============================================================ #}

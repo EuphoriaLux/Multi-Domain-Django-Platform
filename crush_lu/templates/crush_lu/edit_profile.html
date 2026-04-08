@@ -177,6 +177,23 @@
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
+
+            {# About Crush.lu (mobile only — replaces footer) #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=about_crushlu"
+               class="section-edit-card card-tappable lg:hidden">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "About Crush.lu" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Links, legal, contact, social" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
         </div>
     </div>
 {% endif %}

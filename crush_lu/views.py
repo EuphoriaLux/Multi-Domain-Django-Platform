@@ -12,16 +12,14 @@ Split into modules for maintainability:
 - views_pwa.py: PWA, service worker, manifest, special experiences
 """
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.db.models import Q, Count
 from django.db import transaction
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from datetime import timedelta
@@ -58,52 +56,22 @@ from .models import (
     ProfileSubmission,
     MeetupEvent,
     EventRegistration,
-    CoachSession,
     EventConnection,
-    ConnectionMessage,
     CoachPushSubscription,
 )
 from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
     CrushSignupForm,
     CrushProfileForm,
-    CrushCoachForm,
-    ProfileReviewForm,
-    CoachSessionForm,
-    EventRegistrationForm,
     IdealCrushPreferencesForm,
 )
 from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
-    send_welcome_email,
-    send_profile_submission_confirmation,
-    send_coach_assignment_notification,
     send_profile_submission_notifications,
-    send_profile_approved_notification,
-    send_profile_revision_request,
-    send_profile_rejected_notification,
-    send_event_registration_confirmation,
-    send_event_waitlist_notification,
-    send_event_cancellation_confirmation,
-)
-from .notification_service import (
-    NotificationService,
-    NotificationType,
-    notify_profile_approved,
-    notify_profile_revision,
-    notify_profile_rejected,
-    notify_new_message,
-    notify_new_connection,
-    notify_connection_accepted,
 )
 from .coach_notifications import (
     notify_coach_new_submission,
     notify_coach_user_revision,
-)
-from .referrals import (
-    capture_referral,
-    capture_referral_from_request,
-    apply_referral_to_user,
 )
 from .utils.i18n import is_valid_language
 
@@ -236,7 +204,6 @@ from .views_pwa import (  # noqa: F401
     pwa_debug_view,
 )
 
-
 # =============================================================================
 # Dashboard, profile management, and remaining core views
 # =============================================================================
@@ -276,9 +243,11 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
-        has_crush_preferences = bool(profile.preferred_genders) or (
-            profile.preferred_age_min != 18 or profile.preferred_age_max != 99
-        ) or bool(profile.first_step_preference)
+        has_crush_preferences = (
+            bool(profile.preferred_genders)
+            or (profile.preferred_age_min != 18 or profile.preferred_age_max != 99)
+            or bool(profile.first_step_preference)
+        )
 
         # Crush Connect waitlist status
         on_crush_connect_waitlist = False
@@ -326,18 +295,26 @@ def dashboard(request):
 
 def _get_coaches_for_selection(user_language=None):
     """Return active coaches with pending review counts for coach selection step."""
-    coaches = CrushCoach.objects.filter(is_active=True).annotate(
-        pending_count=Count(
-            'profilesubmission',
-            filter=Q(profilesubmission__status='pending'),
+    coaches = (
+        CrushCoach.objects.filter(is_active=True)
+        .annotate(
+            pending_count=Count(
+                "profilesubmission",
+                filter=Q(profilesubmission__status="pending"),
+            )
         )
-    ).select_related('user')
+        .select_related("user")
+    )
     return [
         {
-            'coach': coach,
-            'pending_count': coach.pending_count,
-            'available': coach.pending_count < coach.max_active_reviews,
-            'language_match': user_language in (coach.spoken_languages or []) if user_language else False,
+            "coach": coach,
+            "pending_count": coach.pending_count,
+            "available": coach.pending_count < coach.max_active_reviews,
+            "language_match": (
+                user_language in (coach.spoken_languages or [])
+                if user_language
+                else False
+            ),
         }
         for coach in coaches
     ]
@@ -347,15 +324,19 @@ def _get_coaches_for_selection(user_language=None):
 @ratelimit(key="user", rate="10/15m", method="POST", block=True)
 def create_profile(request):
     """Profile creation - coaches can also create dating profiles"""
-    from crush_lu.models.profiles import UserDataConsent
 
     # Check if user is banned from Crush.lu
-    if hasattr(request.user, 'data_consent') and request.user.data_consent.crushlu_banned:
+    if (
+        hasattr(request.user, "data_consent")
+        and request.user.data_consent.crushlu_banned
+    ):
         messages.error(
             request,
-            _('You cannot create a new Crush.lu profile. Your previous profile was permanently deleted.')
+            _(
+                "You cannot create a new Crush.lu profile. Your previous profile was permanently deleted."
+            ),
         )
-        return redirect('crush_lu:account_settings')
+        return redirect("crush_lu:account_settings")
 
     # If it's a POST request, process the form submission first
     if request.method == "POST":
@@ -381,15 +362,20 @@ def create_profile(request):
             if not phone_check_profile.phone_verified:
                 messages.error(
                     request,
-                    _("Please verify your phone number before submitting your profile."),
+                    _(
+                        "Please verify your phone number before submitting your profile."
+                    ),
                 )
                 from .social_photos import get_all_social_photos
+
                 context = {
                     "form": form,
                     "profile": phone_check_profile,
                     "current_step": "step1",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -436,7 +422,9 @@ def create_profile(request):
                     if rejected_submission:
                         messages.error(
                             request,
-                            _("Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."),
+                            _(
+                                "Your profile has been rejected and cannot be resubmitted. Please contact support@crush.lu."
+                            ),
                         )
                         return redirect("crush_lu:profile_rejected")
 
@@ -487,12 +475,14 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
             # Assign selected coach (mandatory user selection)
-            selected_coach_id = request.POST.get('selected_coach')
+            selected_coach_id = request.POST.get("selected_coach")
             if selected_coach_id:
                 try:
                     selected_coach = CrushCoach.objects.get(
@@ -504,15 +494,20 @@ def create_profile(request):
                     if not is_same_coach and not selected_coach.can_accept_reviews():
                         messages.warning(
                             request,
-                            _("The coach you selected is no longer available. Please choose another coach."),
+                            _(
+                                "The coach you selected is no longer available. Please choose another coach."
+                            ),
                         )
                         from .social_photos import get_all_social_photos
+
                         context = {
                             "form": form,
                             "profile": profile,
                             "current_step": "step3",
                             "social_photos": get_all_social_photos(request.user),
-                            "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                            "coaches": _get_coaches_for_selection(
+                                user_language=getattr(request, "LANGUAGE_CODE", None)
+                            ),
                         }
                         return render(request, "crush_lu/create_profile.html", context)
                     submission.coach = selected_coach
@@ -520,27 +515,35 @@ def create_profile(request):
                 except CrushCoach.DoesNotExist:
                     messages.error(
                         request,
-                        _("The coach you selected is no longer available. Please choose another coach."),
+                        _(
+                            "The coach you selected is no longer available. Please choose another coach."
+                        ),
                     )
                     from .social_photos import get_all_social_photos
+
                     context = {
                         "form": form,
                         "profile": profile,
                         "current_step": "step3",
                         "social_photos": get_all_social_photos(request.user),
-                        "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                        "coaches": _get_coaches_for_selection(
+                            user_language=getattr(request, "LANGUAGE_CODE", None)
+                        ),
                     }
                     return render(request, "crush_lu/create_profile.html", context)
             else:
                 # No coach selected — edge case / tampering
                 messages.error(request, _("Please select a coach before submitting."))
                 from .social_photos import get_all_social_photos
+
                 context = {
                     "form": form,
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -589,10 +592,17 @@ def create_profile(request):
             for field, errors in form.errors.items():
                 for error in errors:
                     if field == "__all__":
-                        messages.error(request, _("Form error: %(error)s") % {"error": error})
+                        messages.error(
+                            request, _("Form error: %(error)s") % {"error": error}
+                        )
                     else:
                         messages.error(
-                            request, _("%(field)s: %(error)s") % {"field": field.replace('_', ' ').title(), "error": error}
+                            request,
+                            _("%(field)s: %(error)s")
+                            % {
+                                "field": field.replace("_", " ").title(),
+                                "error": error,
+                            },
                         )
 
             from .social_photos import get_all_social_photos
@@ -601,7 +611,9 @@ def create_profile(request):
                 "form": form,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                "coaches": _get_coaches_for_selection(
+                    user_language=getattr(request, "LANGUAGE_CODE", None)
+                ),
             }
             return render(request, "crush_lu/create_profile.html", context)
 
@@ -633,8 +645,12 @@ def create_profile(request):
                     "social_photos": get_all_social_photos(request.user),
                     "submission": latest_submission,
                     "is_revision": True,
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
-                    "selected_coach_id": latest_submission.coach_id if latest_submission.coach else None,
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
+                    "selected_coach_id": (
+                        latest_submission.coach_id if latest_submission.coach else None
+                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -653,7 +669,9 @@ def create_profile(request):
                     "form": form,
                     "profile": profile,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
                 },
             )
         elif profile.completion_status in ["step1", "step2", "step3", "step4"]:
@@ -668,7 +686,9 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": profile.completion_status,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                    "coaches": _get_coaches_for_selection(
+                        user_language=getattr(request, "LANGUAGE_CODE", None)
+                    ),
                 },
             )
         else:
@@ -684,7 +704,9 @@ def create_profile(request):
                 "form": form,
                 "profile": None,
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(user_language=getattr(request, 'LANGUAGE_CODE', None)),
+                "coaches": _get_coaches_for_selection(
+                    user_language=getattr(request, "LANGUAGE_CODE", None)
+                ),
             },
         )
 
@@ -709,7 +731,7 @@ def _render_edit_profile_form(request):
         return redirect("crush_lu:create_profile")
 
     section = request.GET.get("section", "")
-    valid_sections = ("photos", "about", "preferences", "privacy", "account")
+    valid_sections = ("photos", "about", "preferences", "privacy", "account", "about_crushlu")
 
     # --- Section: Photos ---
     if section == "photos":
@@ -731,11 +753,15 @@ def _render_edit_profile_form(request):
     if section == "account":
         return _edit_section_account(request, profile)
 
+    # --- Section: About Crush.lu (mobile footer content) ---
+    if section == "about_crushlu":
+        return _edit_section_about_crushlu(request, profile)
+
     # --- Default: Card-based section list ---
-    has_crush_preferences = bool(profile.preferred_genders) or (
-        profile.preferred_age_min and profile.preferred_age_min != 18
-    ) or (
-        profile.preferred_age_max and profile.preferred_age_max != 99
+    has_crush_preferences = (
+        bool(profile.preferred_genders)
+        or (profile.preferred_age_min and profile.preferred_age_min != 18)
+        or (profile.preferred_age_max and profile.preferred_age_max != 99)
     )
 
     context = {
@@ -773,7 +799,9 @@ def _edit_section_photos(request, profile):
     template = "crush_lu/partials/edit_photos.html"
     if request.htmx:
         return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 def _normalize_form_errors(errors):
@@ -787,7 +815,9 @@ def _normalize_form_errors(errors):
 def _get_profile_form_initial_data(profile):
     return {
         "phone_number": profile.phone_number or "",
-        "date_of_birth": profile.date_of_birth.isoformat() if profile.date_of_birth else "",
+        "date_of_birth": (
+            profile.date_of_birth.isoformat() if profile.date_of_birth else ""
+        ),
         "gender": profile.gender or "",
         "location": profile.location or "",
         "bio": profile.bio or "",
@@ -911,9 +941,7 @@ def _edit_section_about(request, profile):
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
 
-            transaction.on_commit(
-                lambda: update_match_scores_for_user(request.user)
-            )
+            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
             if request.htmx:
                 context = _render_about_section(request, updated_profile)
                 return render(request, "crush_lu/partials/edit_about.html", context)
@@ -931,7 +959,9 @@ def _edit_section_about(request, profile):
     template = "crush_lu/partials/edit_about.html"
     if request.htmx:
         return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 def _edit_section_preferences(request, profile):
@@ -944,12 +974,12 @@ def _edit_section_preferences(request, profile):
         form = IdealCrushPreferencesForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
-            transaction.on_commit(
-                lambda: update_match_scores_for_user(request.user)
-            )
+            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
             if request.htmx:
                 context = _render_preferences_section(request, profile)
-                return render(request, "crush_lu/partials/edit_preferences.html", context)
+                return render(
+                    request, "crush_lu/partials/edit_preferences.html", context
+                )
             messages.success(request, _("Preferences saved!"))
             return redirect("crush_lu:edit_profile")
     else:
@@ -959,7 +989,9 @@ def _edit_section_preferences(request, profile):
     template = "crush_lu/partials/edit_preferences.html"
     if request.htmx:
         return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 def _edit_section_privacy(request, profile):
@@ -980,7 +1012,9 @@ def _edit_section_privacy(request, profile):
     template = "crush_lu/partials/edit_privacy.html"
     if request.htmx:
         return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 def _edit_section_account(request, profile):
@@ -1002,12 +1036,27 @@ def _edit_section_account(request, profile):
     template = "crush_lu/partials/edit_account.html"
     if request.htmx:
         return render(request, template, context)
-    return render(request, "crush_lu/edit_profile.html", {**context, "section_template": template})
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
+
+
+def _edit_section_about_crushlu(request, profile):
+    """Render the About Crush.lu section (mobile footer content)."""
+    context = {
+        "profile": profile,
+        "section": "about_crushlu",
+    }
+    template = "crush_lu/partials/edit_about_crushlu.html"
+    if request.htmx:
+        return render(request, template, context)
+    return render(
+        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
+    )
 
 
 def _edit_sub_account_settings(request, profile):
     """Handle account settings sub-section (account info, linked accounts, password)."""
-    import json
     from allauth.socialaccount.models import SocialApp
     from django.contrib.sites.models import Site
     from .social_photos import get_all_social_photos
@@ -1077,7 +1126,7 @@ def _edit_sub_account_notifications(request, profile):
     Email preferences are saved via the JSON API endpoint (api_update_email_preference).
     """
     import json
-    from .models import EmailPreference, PushSubscription, CoachPushSubscription
+    from .models import EmailPreference, PushSubscription
 
     def get_device_type(device_name):
         mobile_devices = ["Android Chrome", "iPhone Safari"]
@@ -1119,9 +1168,7 @@ def _edit_sub_account_notifications(request, profile):
         if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
             is_coach = True
             coach = request.user.crushcoach
-            coach_subs = CoachPushSubscription.objects.filter(
-                coach=coach, enabled=True
-            )
+            coach_subs = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
             for sub in coach_subs:
                 coach_push_subscriptions.append(
                     {
@@ -1186,11 +1233,16 @@ def api_profile_settings_autosave(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
     except CrushProfile.DoesNotExist:
-        return JsonResponse({"success": False, "error": "Profile not found."}, status=404)
+        return JsonResponse(
+            {"success": False, "error": "Profile not found."}, status=404
+        )
 
     if not profile.is_approved:
         return JsonResponse(
-            {"success": False, "error": "Auto-save is only available for approved profiles."},
+            {
+                "success": False,
+                "error": "Auto-save is only available for approved profiles.",
+            },
             status=403,
         )
 
@@ -1263,10 +1315,15 @@ def api_profile_settings_autosave(request):
                     "values": {
                         "preferred_age_min": updated_profile.preferred_age_min or 18,
                         "preferred_age_max": updated_profile.preferred_age_max or 99,
-                        "preferred_genders": list(updated_profile.preferred_genders or []),
-                        "first_step_preference": updated_profile.first_step_preference or "",
+                        "preferred_genders": list(
+                            updated_profile.preferred_genders or []
+                        ),
+                        "first_step_preference": updated_profile.first_step_preference
+                        or "",
                         "sought_qualities_ids": list(
-                            updated_profile.sought_qualities.values_list("pk", flat=True)
+                            updated_profile.sought_qualities.values_list(
+                                "pk", flat=True
+                            )
                         ),
                         "astro_enabled": bool(updated_profile.astro_enabled),
                     },
@@ -1294,7 +1351,9 @@ def api_profile_settings_autosave(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "saved_fields": sorted(AUTOSAVE_PRIVACY_FIELDS & set(payload.keys())),
+                    "saved_fields": sorted(
+                        AUTOSAVE_PRIVACY_FIELDS & set(payload.keys())
+                    ),
                     "values": {
                         "show_full_name": bool(updated_profile.show_full_name),
                         "show_exact_age": bool(updated_profile.show_exact_age),
@@ -1416,7 +1475,11 @@ def edit_profile(request):
         pass
 
     current_step_to_show = None
-    if latest_submission and latest_submission.status in ["rejected", "revision", "recontact_coach"]:
+    if latest_submission and latest_submission.status in [
+        "rejected",
+        "revision",
+        "recontact_coach",
+    ]:
         current_step_to_show = None
     elif profile.completion_status == "submitted":
         current_step_to_show = None
@@ -1456,12 +1519,14 @@ def _group_traits_by_category(qs):
     for cat_value, cat_label in TraitCategory.choices:
         traits = [t for t in qs if t.category == cat_value]
         if traits:
-            grouped.append({
-                "key": cat_value,
-                "label": cat_label,
-                "ghost_include": _TRAIT_CATEGORY_META.get(cat_value, ""),
-                "traits": traits,
-            })
+            grouped.append(
+                {
+                    "key": cat_value,
+                    "label": cat_label,
+                    "ghost_include": _TRAIT_CATEGORY_META.get(cat_value, ""),
+                    "traits": traits,
+                }
+            )
     return grouped
 
 
@@ -1469,7 +1534,6 @@ def _group_traits_by_category(qs):
 def crush_preferences(request):
     """Redirect to new section-based preferences page.
     Kept for backwards compatibility with existing URL."""
-    from django.urls import reverse
 
     return HttpResponseRedirect(
         reverse("crush_lu:edit_profile") + "?section=preferences"
@@ -1489,7 +1553,9 @@ def matches_list(request):
         return redirect("crush_lu:create_profile")
 
     if not profile.is_approved:
-        messages.warning(request, _("Your profile must be approved before viewing matches."))
+        messages.warning(
+            request, _("Your profile must be approved before viewing matches.")
+        )
         return redirect("crush_lu:dashboard")
 
     has_traits = profile.sought_qualities.exists()
@@ -1508,28 +1574,37 @@ def matches_list(request):
                 continue
 
             # Gender filter (age filtering handled by hard filter in matching.py)
-            if profile.preferred_genders and other_profile.gender not in profile.preferred_genders:
+            if (
+                profile.preferred_genders
+                and other_profile.gender not in profile.preferred_genders
+            ):
                 continue
 
             score_display = get_score_display(ms.score_final)
             if score_display:
-                matches.append({
-                    "profile": other_profile,
-                    "score": ms.score_final,
-                    "score_percent": int(ms.score_final * 100),
-                    "display": score_display,
-                })
+                matches.append(
+                    {
+                        "profile": other_profile,
+                        "score": ms.score_final,
+                        "score_percent": int(ms.score_final * 100),
+                        "display": score_display,
+                    }
+                )
 
     paginator = Paginator(matches, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    return render(request, "crush_lu/matches.html", {
-        "page_obj": page_obj,
-        "matches": page_obj.object_list,
-        "has_traits": has_traits,
-        "profile": profile,
-    })
+    return render(
+        request,
+        "crush_lu/matches.html",
+        {
+            "page_obj": page_obj,
+            "matches": page_obj.object_list,
+            "has_traits": has_traits,
+            "profile": profile,
+        },
+    )
 
 
 @require_http_methods(["GET"])
@@ -1560,25 +1635,29 @@ def api_match_list(request):
 
         display = get_score_display(ms.score_final)
         if display:
-            results.append({
-                "user_id": other_user.pk,
-                "display_name": other_profile.display_name,
-                "age": other_profile.age if other_profile.show_exact_age else None,
-                "score_percent": int(ms.score_final * 100),
-                "score_label": display["label"],
-            })
+            results.append(
+                {
+                    "user_id": other_user.pk,
+                    "display_name": other_profile.display_name,
+                    "age": other_profile.age if other_profile.show_exact_age else None,
+                    "score_percent": int(ms.score_final * 100),
+                    "score_label": display["label"],
+                }
+            )
 
     # Paginate
     start = (page - 1) * per_page
     end = start + per_page
     paginated = results[start:end]
 
-    return JsonResponse({
-        "matches": paginated,
-        "total": len(results),
-        "page": page,
-        "per_page": per_page,
-    })
+    return JsonResponse(
+        {
+            "matches": paginated,
+            "total": len(results),
+            "page": page,
+            "per_page": per_page,
+        }
+    )
 
 
 @require_http_methods(["GET"])
@@ -1598,20 +1677,26 @@ def api_match_score(request, user_id):
     scores = compute_match_score(my_profile, other_profile)
     display = get_score_display(scores["score_final"])
 
-    return JsonResponse({
-        "score_final": scores["score_final"],
-        "score_percent": int(scores["score_final"] * 100),
-        "score_qualities": scores["score_qualities"],
-        "score_zodiac_west": scores["score_zodiac_west"],
-        "score_zodiac_cn": scores["score_zodiac_cn"],
-        "label": display["label"] if display else None,
-        "color": display["hex"] if display else None,
-    })
+    return JsonResponse(
+        {
+            "score_final": scores["score_final"],
+            "score_percent": int(scores["score_final"] * 100),
+            "score_qualities": scores["score_qualities"],
+            "score_zodiac_west": scores["score_zodiac_west"],
+            "score_zodiac_cn": scores["score_zodiac_cn"],
+            "label": display["label"] if display else None,
+            "color": display["hex"] if display else None,
+        }
+    )
 
 
 @crush_login_required
 def profile_submitted(request):
-    """Confirmation page after profile submission"""
+    """Confirmation page after profile submission with real-time stats."""
+    from django.db.models import Avg, ExpressionWrapper, F, DurationField
+    from django.db.models.functions import Extract
+    from .utils.formatting import format_review_estimate
+
     try:
         profile = CrushProfile.objects.get(user=request.user)
         submission = ProfileSubmission.objects.filter(profile=profile).latest(
@@ -1629,19 +1714,217 @@ def profile_submitted(request):
         coach_phone_available = True
     else:
         from .models import CrushSiteConfig
+
         try:
             config = CrushSiteConfig.get_config()
             coach_contact_phone = config.whatsapp_number
-            coach_phone_available = config.whatsapp_enabled and bool(coach_contact_phone)
+            coach_phone_available = config.whatsapp_enabled and bool(
+                coach_contact_phone
+            )
         except Exception:
             pass
+
+    # --- Review time statistics ---
+    now = timezone.now()
+
+    # Global average review time
+    reviewed_qs = ProfileSubmission.objects.filter(
+        reviewed_at__isnull=False, submitted_at__isnull=False
+    )
+    avg_review_hours = 0
+    if reviewed_qs.count() >= 5:
+        avg_result = reviewed_qs.annotate(
+            review_duration=ExpressionWrapper(
+                F("reviewed_at") - F("submitted_at"),
+                output_field=DurationField(),
+            )
+        ).aggregate(avg_seconds=Avg(Extract("review_duration", "epoch")))
+        avg_seconds = avg_result["avg_seconds"] or 0
+        avg_review_hours = max(0, avg_seconds / 3600)
+
+    # Per-coach average (if coach assigned and has enough data)
+    coach_avg_review_hours = None
+    if submission.coach:
+        coach_reviewed = reviewed_qs.filter(coach=submission.coach)
+        if coach_reviewed.count() >= 3:
+            coach_result = coach_reviewed.annotate(
+                review_duration=ExpressionWrapper(
+                    F("reviewed_at") - F("submitted_at"),
+                    output_field=DurationField(),
+                )
+            ).aggregate(avg_seconds=Avg(Extract("review_duration", "epoch")))
+            coach_seconds = coach_result["avg_seconds"] or 0
+            coach_avg_review_hours = max(0, coach_seconds / 3600)
+
+    # Use coach-specific avg if available, else global
+    effective_avg = coach_avg_review_hours or avg_review_hours
+    estimated_review_display = format_review_estimate(effective_avg)
+    is_coach_specific_estimate = coach_avg_review_hours is not None
+
+    # Queue position
+    queue_position = 0
+    total_coach_pending = 0
+    if submission.coach:
+        queue_position = ProfileSubmission.objects.filter(
+            status="pending",
+            coach=submission.coach,
+            submitted_at__lt=submission.submitted_at,
+        ).count()
+        total_coach_pending = submission.coach.get_active_reviews_count()
+    else:
+        queue_position = ProfileSubmission.objects.filter(
+            status="pending",
+            coach__isnull=True,
+            submitted_at__lt=submission.submitted_at,
+        ).count()
+
+    # Wait time and status
+    hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+    if hours_waiting < 6:
+        wait_status = "fresh"
+    elif hours_waiting < 24:
+        wait_status = "normal"
+    elif hours_waiting < 48:
+        wait_status = "extended"
+    else:
+        wait_status = "long"
+
+    # Progress bar percentage (capped at 95%)
+    if effective_avg > 0:
+        progress_percent = min(95, int((hours_waiting / effective_avg) * 100))
+    else:
+        progress_percent = min(95, int(hours_waiting / 36 * 100))
+
+    # Next upcoming event teaser
+    next_event = (
+        MeetupEvent.objects.filter(
+            is_published=True, is_cancelled=False, date_time__gte=now
+        )
+        .order_by("date_time")
+        .first()
+    )
 
     context = {
         "submission": submission,
         "coach_contact_phone": coach_contact_phone,
         "coach_phone_available": coach_phone_available,
+        "estimated_review_display": estimated_review_display,
+        "is_coach_specific_estimate": is_coach_specific_estimate,
+        "queue_position": queue_position,
+        "total_coach_pending": total_coach_pending,
+        "hours_waiting": round(hours_waiting, 1),
+        "wait_status": wait_status,
+        "progress_percent": progress_percent,
+        "next_event": next_event,
+        "has_candidate_note": bool(submission.candidate_note),
     }
     return render(request, "crush_lu/profile_submitted.html", context)
+
+
+@crush_login_required
+@require_http_methods(["GET"])
+def api_submission_status(request):
+    """JSON endpoint for polling submission status changes."""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+        submission = ProfileSubmission.objects.filter(profile=profile).latest(
+            "submitted_at"
+        )
+    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+        return JsonResponse({"error": "No submission found"}, status=404)
+
+    now = timezone.now()
+    hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+
+    if hours_waiting < 6:
+        wait_status = "fresh"
+    elif hours_waiting < 24:
+        wait_status = "normal"
+    elif hours_waiting < 48:
+        wait_status = "extended"
+    else:
+        wait_status = "long"
+
+    queue_position = 0
+    if submission.coach:
+        queue_position = ProfileSubmission.objects.filter(
+            status="pending",
+            coach=submission.coach,
+            submitted_at__lt=submission.submitted_at,
+        ).count()
+
+    return JsonResponse(
+        {
+            "status": submission.status,
+            "status_display": submission.get_status_display(),
+            "coach_assigned": submission.coach is not None,
+            "queue_position": queue_position,
+            "hours_waiting": round(hours_waiting, 1),
+            "wait_status": wait_status,
+            "has_feedback": bool(submission.feedback_to_user),
+        }
+    )
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def api_submission_note(request):
+    """Allow candidate to send a one-time note to their coach during review."""
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+        submission = ProfileSubmission.objects.filter(profile=profile).latest(
+            "submitted_at"
+        )
+    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+        return JsonResponse({"error": "No submission found"}, status=404)
+
+    if submission.status != "pending":
+        return JsonResponse(
+            {"error": "Notes can only be sent while your profile is under review"},
+            status=400,
+        )
+
+    if submission.candidate_note:
+        return JsonResponse(
+            {"error": "You have already sent a note to your coach"},
+            status=400,
+        )
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid request"}, status=400)
+
+    note = data.get("note", "").strip()
+    if len(note) < 10 or len(note) > 500:
+        return JsonResponse(
+            {"error": "Note must be between 10 and 500 characters"},
+            status=400,
+        )
+
+    submission.candidate_note = note
+    submission.candidate_note_at = timezone.now()
+    submission.save(update_fields=["candidate_note", "candidate_note_at"])
+
+    # Notify coach via push notification
+    if submission.coach:
+        try:
+            from .coach_notifications import notify_coach_system_alert
+
+            display_name = profile.display_name or request.user.first_name
+            notify_coach_system_alert(
+                coach=submission.coach,
+                title=str(_("Candidate Note")),
+                message=str(
+                    _("%(name)s sent a note about their profile review")
+                    % {"name": display_name}
+                ),
+                url=f"/coach/review/{submission.id}/",
+            )
+        except Exception:
+            logger.warning("Failed to send coach notification for candidate note")
+
+    return JsonResponse({"success": True})
 
 
 @crush_login_required

@@ -192,6 +192,10 @@ urlpatterns = base_patterns + api_patterns + [
     # Profile Completion API (called from alpine-components.js with hardcoded paths)
     path('api/profile/complete/', views_profile.complete_profile_submission, name='api_complete_profile_submission'),
 
+    # Submission status polling and candidate note (called from profile_submitted.html)
+    path('api/submission/status/', views.api_submission_status, name='api_submission_status'),
+    path('api/submission/note/', views.api_submission_note, name='api_submission_note'),
+
     # Event Check-In API (language-neutral - called from QR codes and scanner)
     path('api/events/checkin/<int:registration_id>/<str:token>/', views_checkin.event_checkin_api, name='event_checkin_api'),
 
