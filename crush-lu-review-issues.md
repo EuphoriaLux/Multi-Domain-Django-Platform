@@ -45,9 +45,9 @@ Wrap in `transaction.atomic()`, use `F('total_votes') + 1` for the counter, and 
 **Priority:** P1-High
 **Labels:** `security`
 **Files:**
-- `crush_lu/api_push.py` - 10 endpoints with `@csrf_exempt`
+- `crush_lu/api_push.py` - 9 endpoints with `@csrf_exempt`
 - `crush_lu/api_coach_push.py` - 5 endpoints with `@csrf_exempt`
-- `crush_lu/views_account.py:543` - `api_update_email_preference`
+- `crush_lu/views_account.py` - 2 endpoints with `@csrf_exempt` (line 80: Facebook data deletion callback, line 529: `api_update_email_preference`)
 
 ### Description
 
@@ -211,32 +211,17 @@ Two problems:
 
 ---
 
-## Issue 8: Missing server-side MIME type validation on photo uploads
+## Issue 8: ~~Missing server-side MIME type validation on photo uploads~~ (Invalid)
 
-**Priority:** P3-Low
-**Labels:** `security`, `enhancement`
-**Files:** `crush_lu/views_profile.py`, `crush_lu/forms.py`
+**Priority:** ~~P3-Low~~ N/A
+**Labels:** `invalid`
+**Files:** `crush_lu/forms.py` lines 445-450
 
 ### Description
 
-The `python-magic` library is included in `requirements.txt` but is not used for upload validation. Currently:
-- File extension is the only initial check
-- A crafted file with a `.jpg` extension could bypass initial checks
-- Pillow's `Image.open()` would likely fail during processing, but error handling may not consistently reject the file
+**This issue was a false positive.** The `python-magic` library IS used for MIME type validation in `crush_lu/forms.py` (line 445: `import magic`, line 450: `mime = magic.from_buffer(file_header, mime=True)`). The `CrushProfileForm` validates uploaded files via `python-magic` before processing.
 
-### Suggested Fix
-
-Add MIME type validation using `python-magic` before processing:
-
-```python
-import magic
-
-def validate_image_mime(file):
-    mime = magic.from_buffer(file.read(2048), mime=True)
-    file.seek(0)
-    if mime not in ('image/jpeg', 'image/png', 'image/webp', 'image/gif'):
-        raise ValidationError('Unsupported file type')
-```
+The only scenario where MIME validation is bypassed is via the fallback path described in Issue 3, which is already covered there.
 
 ---
 
