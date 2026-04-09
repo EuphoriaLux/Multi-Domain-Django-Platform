@@ -7,6 +7,7 @@ redirected to the consent confirmation page.
 
 Only active on the Crush.lu domain (checks request.urlconf).
 """
+
 import logging
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -15,7 +16,7 @@ from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 
-CRUSH_URLCONF = 'azureproject.urls_crush'
+CRUSH_URLCONF = "azureproject.urls_crush"
 
 
 class CrushConsentMiddleware:
@@ -34,83 +35,124 @@ class CrushConsentMiddleware:
     # Uses prefix matching: '/about/' matches '/about/', '/about/team/', etc.
     EXEMPT_PATHS = [
         # Auth
-        '/login/',
-        '/signup/',
-        '/logout/',
-        '/oauth-complete/',
-        '/oauth/',
-        '/accounts/',  # Allauth endpoints
-
+        "/login/",
+        "/signup/",
+        "/logout/",
+        "/oauth-complete/",
+        "/oauth/",
+        "/accounts/",  # Allauth endpoints
         # Consent & ban flow (must be exempt to avoid redirect loops)
-        '/consent/confirm/',
-        '/account/banned/',
-
+        "/consent/confirm/",
+        "/account/banned/",
         # Public/landing pages
-        '/about/',
-        '/how-it-works/',
-        '/membership/',
-        '/privacy-policy/',
-        '/terms-of-service/',
-        '/data-deletion/',
-        '/test-ghost-story/',
-        '/test-upstair/',
-
+        "/about/",
+        "/how-it-works/",
+        "/membership/",
+        "/privacy-policy/",
+        "/terms-of-service/",
+        "/data-deletion/",
+        "/test-ghost-story/",
+        "/test-upstair/",
         # Public landing pages
-        '/r/',  # Referral redirect
-        '/invite/',  # Invitation landing
-        '/unsubscribe/',
-        '/facebook/',  # Data deletion callback
-        '/voting-demo/',
-
+        "/r/",  # Referral redirect
+        "/invite/",  # Invitation landing
+        "/unsubscribe/",
+        "/facebook/",  # Data deletion callback
+        "/voting-demo/",
         # LuxID mockups
-        '/mockup/',
-
+        "/mockup/",
         # Infrastructure
-        '/api/',
-        '/static/',
-        '/media/',
-        '/admin/',
-        '/crush-admin/',
-        '/healthz/',
-        '/robots.txt',
-        '/sitemap.xml',
-        '/favicon.ico',
-        '/pwa-debug/',
-        '/sw-workbox.js',
-        '/manifest.json',
-        '/offline/',
+        "/api/",
+        "/static/",
+        "/media/",
+        "/admin/",
+        "/crush-admin/",
+        "/healthz/",
+        "/robots.txt",
+        "/sitemap.xml",
+        "/favicon.ico",
+        "/pwa-debug/",
+        "/sw-workbox.js",
+        "/manifest.json",
+        "/offline/",
+        "/csp-report/",
     ]
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        # Early exit for exempt paths - avoids triggering request.user.is_authenticated
+        # which opens a DB connection. Critical for media/static/CSP paths that don't
+        # need auth checks and would otherwise exhaust the connection pool.
+        if self.is_on_crush_domain(request) and self._is_exempt_path(request.path):
+            return self.get_response(request)
+
         # Check ban status before anything else (for authenticated Crush.lu users)
         if self.is_on_crush_domain(request) and request.user.is_authenticated:
             if self.is_banned(request.user):
                 path = request.path
                 # Allow access to banned page, logout, and static assets
-                if not any(path.startswith(p) for p in ['/account/banned/', '/logout/', '/static/', '/media/', '/healthz/']) and '/account/banned/' not in path:
-                    logger.info(f"Banned user {request.user.id} redirected from {path} to banned page")
-                    return redirect(reverse('crush_lu:account_banned', urlconf=CRUSH_URLCONF))
+                if (
+                    not any(
+                        path.startswith(p)
+                        for p in [
+                            "/account/banned/",
+                            "/logout/",
+                            "/static/",
+                            "/media/",
+                            "/healthz/",
+                        ]
+                    )
+                    and "/account/banned/" not in path
+                ):
+                    logger.info(
+                        f"Banned user {request.user.id} redirected from {path} to banned page"
+                    )
+                    return redirect(
+                        reverse("crush_lu:account_banned", urlconf=CRUSH_URLCONF)
+                    )
 
         # Check if consent is required
         if self.requires_consent_check(request):
             # Check if user has consent
             if not self.has_crushlu_consent(request.user):
-                logger.info(f"User {request.user.id} attempted to access {request.path} without Crush.lu consent")
-                return redirect(reverse('crush_lu:consent_confirm', urlconf=CRUSH_URLCONF))
+                logger.info(
+                    f"User {request.user.id} attempted to access {request.path} without Crush.lu consent"
+                )
+                return redirect(
+                    reverse("crush_lu:consent_confirm", urlconf=CRUSH_URLCONF)
+                )
 
         response = self.get_response(request)
         return response
 
+    def _is_exempt_path(self, path):
+        """
+        Check if path is exempt from DB-requiring middleware checks.
+        Strips language prefix before matching against EXEMPT_PATHS.
+        """
+        # Strip language prefix for consistent matching
+        for lang_prefix in ["/en/", "/fr/", "/de/"]:
+            if path.startswith(lang_prefix):
+                path = "/" + path[len(lang_prefix) :]
+                break
+
+        # Check against exempt paths
+        for exempt_path in self.EXEMPT_PATHS:
+            if path == exempt_path or path.startswith(exempt_path):
+                return True
+
+        # Root path is always exempt
+        return path == "/"
+
     def is_on_crush_domain(self, request):
         """Check if request is on the Crush.lu domain."""
-        return getattr(request, 'urlconf', None) == CRUSH_URLCONF
+        return getattr(request, "urlconf", None) == CRUSH_URLCONF
 
     def is_banned(self, user):
         """Check if user is banned from Crush.lu."""
-        if not hasattr(user, 'data_consent'):
+        if not hasattr(user, "data_consent"):
             return False
         return user.data_consent.crushlu_banned
 
@@ -128,7 +170,7 @@ class CrushConsentMiddleware:
         - Path is not in EXEMPT_PATHS
         """
         # Only apply on Crush.lu domain
-        if getattr(request, 'urlconf', None) != CRUSH_URLCONF:
+        if getattr(request, "urlconf", None) != CRUSH_URLCONF:
             return False
 
         # Not authenticated - no check needed
@@ -138,9 +180,9 @@ class CrushConsentMiddleware:
         path = request.path
 
         # Strip language prefix for consistent matching
-        for lang_prefix in ['/en/', '/fr/', '/de/']:
+        for lang_prefix in ["/en/", "/fr/", "/de/"]:
             if path.startswith(lang_prefix):
-                path = '/' + path[len(lang_prefix):]
+                path = "/" + path[len(lang_prefix) :]
                 break
 
         # Check if path is exempt (exact match or prefix match)
@@ -149,7 +191,7 @@ class CrushConsentMiddleware:
                 return False
 
         # The bare root path '/' is always exempt (landing page)
-        if path == '/':
+        if path == "/":
             return False
 
         # All non-exempt paths require consent for authenticated users
@@ -162,7 +204,7 @@ class CrushConsentMiddleware:
         Returns True if:
         - User has UserDataConsent record with crushlu_consent_given=True
         """
-        if not hasattr(user, 'data_consent'):
+        if not hasattr(user, "data_consent"):
             # No consent record - should not happen with signals, but be safe
             logger.warning(f"User {user.id} has no data_consent record")
             return False

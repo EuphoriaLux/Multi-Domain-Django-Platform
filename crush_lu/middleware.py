@@ -11,15 +11,15 @@ logger = logging.getLogger(__name__)
 
 # Paths to skip for activity tracking (static files, API endpoints that shouldn't count as visits)
 SKIP_PATHS = (
-    '/static/',
-    '/media/',
-    '/healthz/',
-    '/favicon.ico',
-    '/robots.txt',
-    '/sitemap.xml',
-    '/manifest.json',
-    '/service-worker.js',
-    '/api/',  # API calls shouldn't count as page visits
+    "/static/",
+    "/media/",
+    "/healthz/",
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/manifest.json",
+    "/service-worker.js",
+    "/api/",  # API calls shouldn't count as page visits
 )
 
 # Minimum seconds between activity updates (to avoid DB write on every request)
@@ -50,19 +50,19 @@ class UserActivityMiddleware:
         # Process response first
         response = self.get_response(request)
 
-        # Only track authenticated users on Crush.lu domain
-        if not request.user.is_authenticated:
-            return response
-
-        # Skip certain paths
+        # Skip certain paths BEFORE checking auth - avoids unnecessary DB connections
         path = request.path
         if any(path.startswith(skip) for skip in SKIP_PATHS):
+            return response
+
+        # Only track authenticated users on Crush.lu domain
+        if not request.user.is_authenticated:
             return response
 
         # Check if this is a Crush.lu request (domain routing)
         # Skip if not on crush.lu domain
         host = request.get_host().lower()
-        if not ('crush' in host or 'localhost' in host or '127.0.0.1' in host):
+        if not ("crush" in host or "localhost" in host or "127.0.0.1" in host):
             return response
 
         # Update user activity
@@ -85,9 +85,9 @@ class UserActivityMiddleware:
             activity, created = UserActivity.objects.get_or_create(
                 user=user,
                 defaults={
-                    'last_seen': now,
-                    'total_visits': 1,
-                }
+                    "last_seen": now,
+                    "total_visits": 1,
+                },
             )
 
             if created:
@@ -103,21 +103,19 @@ class UserActivityMiddleware:
             is_pwa = self._detect_pwa(request)
 
             # Build update fields
-            update_fields = ['last_seen']
+            update_fields = ["last_seen"]
             activity.last_seen = now
 
             # Increment visit counter atomically
             # We need to use update() for F() expression
             UserActivity.objects.filter(pk=activity.pk).update(
-                last_seen=now,
-                total_visits=F('total_visits') + 1
+                last_seen=now, total_visits=F("total_visits") + 1
             )
 
             # Handle PWA-specific updates separately (can't mix with F())
             if is_pwa:
                 UserActivity.objects.filter(pk=activity.pk).update(
-                    is_pwa_user=True,
-                    last_pwa_visit=now
+                    is_pwa_user=True, last_pwa_visit=now
                 )
                 logger.debug(f"PWA visit recorded for {user.username}")
 
@@ -143,22 +141,22 @@ class UserActivityMiddleware:
         # But the key indicator is the display mode
 
         # Method 2: Custom header from service worker
-        if request.headers.get('X-PWA-Mode') == 'standalone':
+        if request.headers.get("X-PWA-Mode") == "standalone":
             return True
 
         # Method 3: Check for PWA-specific query parameter
         # (can be added by manifest start_url)
-        if request.GET.get('pwa') == '1':
+        if request.GET.get("pwa") == "1":
             return True
 
         # Method 4: Check session flag (set by mark_pwa_user API)
-        if request.session.get('is_pwa_user'):
+        if request.session.get("is_pwa_user"):
             return True
 
         # Method 5: Check if user already marked as PWA user
         # (don't need to re-check headers if we already know)
         try:
-            if hasattr(request.user, 'activity') and request.user.activity.is_pwa_user:
+            if hasattr(request.user, "activity") and request.user.activity.is_pwa_user:
                 return True
         except Exception:
             pass

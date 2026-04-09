@@ -95,7 +95,7 @@ ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
 from azureproject.domains import DOMAINS
 
 for _config in DOMAINS.values():
-    for _alias in _config.get('aliases', []):
+    for _alias in _config.get("aliases", []):
         if _alias not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_alias)
 
@@ -288,8 +288,7 @@ try:
     # Get Connection String (POSTGRESQLCONNSTR_ prefix from Azure Connection Strings section)
     # Azure automatically prefixes connection strings with type (POSTGRESQLCONNSTR_, SQLCONNSTR_, etc.)
     conn_str_key = next(
-        (k for k in os.environ.keys() if k.startswith('POSTGRESQLCONNSTR_')),
-        None
+        (k for k in os.environ.keys() if k.startswith("POSTGRESQLCONNSTR_")), None
     )
 
     if not conn_str_key:
@@ -314,7 +313,7 @@ DATABASES = {
         "HOST": conn_str_params["host"],
         "USER": conn_str_params["user"],
         "PASSWORD": conn_str_params["password"],
-        "CONN_MAX_AGE": 600,
+        "CONN_MAX_AGE": 0,  # Close after each request - prevents pool exhaustion with ASGI workers
         "CONN_HEALTH_CHECKS": True,
     }
 }
@@ -601,6 +600,7 @@ from azureproject.telemetry_config import configure_azure_monitor_telemetry
 telemetry_ok = configure_azure_monitor_telemetry(environment=DJANGO_ENV)
 if not telemetry_ok:
     import sys
+
     print(
         "WARNING: Azure Monitor telemetry not configured. "
         "Check APPLICATIONINSIGHTS_CONNECTION_STRING is set.",
