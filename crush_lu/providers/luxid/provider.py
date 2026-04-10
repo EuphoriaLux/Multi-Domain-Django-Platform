@@ -8,13 +8,16 @@ like LinkedIn (/accounts/oidc/).
 
 Django Admin setup:
     Provider: LuxID
-    Provider ID: luxid  (auto-set)
     Name: LuxID
     Client ID: (from POST)
     Secret Key: (from POST)
     Settings: {"server_url": "https://login-uat.luxid.lu"}
     Sites: test.crush.lu (UAT) or crush.lu (Prod)
 """
+
+from urllib.parse import urlencode
+
+from django.urls import reverse
 
 from allauth.socialaccount.providers.openid_connect.provider import (
     OpenIDConnectProvider,
@@ -32,11 +35,22 @@ class LuxIDProvider(OpenIDConnectProvider):
     account_class = LuxIDAccount
 
     def __init__(self, request, app=None):
-        # Skip OpenIDConnectProvider.__init__ which expects app.name
-        # and call the grandparent instead, then set name explicitly
         super().__init__(request, app=app)
         if app and app.name:
             self.name = app.name
+
+    def get_login_url(self, request, **kwargs):
+        # Override OpenIDConnectProvider which uses provider_id kwargs.
+        # Our urls.py uses default_urlpatterns() which registers "luxid_login"
+        # without a provider_id path parameter.
+        url = reverse(f"{self.id}_login")
+        if kwargs:
+            url = f"{url}?{urlencode(kwargs)}"
+        return url
+
+    def get_callback_url(self):
+        # Override to use "luxid_callback" instead of "openid_connect_callback"
+        return reverse(f"{self.id}_callback")
 
 
 provider_classes = [LuxIDProvider]
