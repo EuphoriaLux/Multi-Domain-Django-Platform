@@ -256,6 +256,14 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             user.last_name = name_data.get('lastName', '') or data.get('last_name', '') or ''
             if extra_data.get('email'):
                 user.email = extra_data['email']
+        # Handle LuxID OIDC provider (POST Luxembourg CIAM)
+        # OIDC standard claims: given_name, family_name, email
+        elif sociallogin.account.provider == 'luxid':
+            extra_data = sociallogin.account.extra_data
+            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '') or ''
+            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '') or ''
+            if extra_data.get('email'):
+                user.email = extra_data['email']
         else:
             # Other providers (LinkedIn, etc.)
             user.first_name = data.get('first_name', '') or ''

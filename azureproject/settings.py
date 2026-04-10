@@ -461,12 +461,31 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["email", "name"],
         "VERIFIED_EMAIL": True,
     },
+    # LuxID CIAM (POST Luxembourg) - OIDC provider for crush.lu
+    # Credentials provided by POST after signing the CIAM Agreement
+    "openid_connect": {
+        "APPS": [
+            {
+                "provider_id": "luxid",
+                "name": "LuxID",
+                "client_id": os.environ.get("LUXID_CLIENT_ID", ""),
+                "secret": os.environ.get("LUXID_CLIENT_SECRET", ""),
+                "settings": {
+                    "server_url": os.environ.get(
+                        "LUXID_SERVER_URL",
+                        "https://luxid.lu/.well-known/openid-configuration",
+                    ),
+                    "token_auth_method": "client_secret_post",
+                },
+            }
+        ],
+    },
 }
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
 # the social account will be automatically linked if the provider is in this list.
-SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid"]
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
