@@ -206,6 +206,10 @@ def event_checkin_api(request, registration_id, token):
 
     _broadcast_checkin(registration.event_id, response_data)
 
+    # Notify quiz participants about the new tablemate
+    if table_assignment:
+        _broadcast_quiz_table_update(registration.event, table_assignment)
+
     return JsonResponse(response_data)
 
 
@@ -219,6 +223,8 @@ def _get_display_name(registration):
 
 def _get_profile_data(registration):
     """Build privacy-aware profile card data for check-in toast."""
+    from .models import ProfileSubmission
+
     try:
         profile = registration.user.crushprofile
     except Exception:
@@ -229,12 +235,28 @@ def _get_profile_data(registration):
         "age_display": profile.age_display,
         "is_approved": profile.is_approved,
         "user_id": registration.user_id,
+        "location": profile.location or "",
+        "interests": profile.interests or "",
     }
     if profile.photo_1:
         data["photo_url"] = reverse(
             "crush_lu:serve_profile_photo",
             kwargs={"user_id": registration.user_id, "photo_field": "photo_1"},
         )
+
+    # Include coach info for unverified profiles
+    if not profile.is_approved:
+        latest_submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .select_related("coach__user")
+            .order_by("-submitted_at")
+            .first()
+        )
+        if latest_submission:
+            data["submission_status"] = latest_submission.get_status_display()
+            if latest_submission.coach:
+                data["coach_name"] = latest_submission.coach.user.first_name
+
     return data
 
 
@@ -246,6 +268,38 @@ def _broadcast_checkin(event_id, response_data):
             f"checkin_{event_id}",
             {"type": "checkin.update", "data": response_data},
         )
+
+
+def _broadcast_quiz_table_update(event, table_assignment):
+    """Notify quiz participants at a table that a new person has joined."""
+    from .models.quiz import QuizTable
+
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    try:
+        quiz_event = getattr(event, "quiz", None)
+        if not quiz_event:
+            return
+        table_number = table_assignment.get("table_number")
+        if not table_number:
+            return
+        # Look up the QuizTable PK — the consumer subscribes using table PK, not table_number
+        quiz_table = QuizTable.objects.filter(
+            quiz=quiz_event, table_number=table_number
+        ).first()
+        if not quiz_table:
+            return
+        # Broadcast to the specific table group so only affected participants refresh
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}_table_{quiz_table.id}",
+            {
+                "type": "quiz.table_update",
+                "data": {"table_number": table_number},
+            },
+        )
+    except Exception:
+        logger.exception("Failed to broadcast quiz table update for event %s", event.id)
 
 
 def _get_existing_table_assignment(registration):

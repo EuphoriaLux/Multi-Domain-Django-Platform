@@ -349,13 +349,6 @@
                                     <li>{% trans "Your personal score follows you when you switch tables" %}</li>
                                     <li>{% trans "After the quiz, connect with people you clicked with!" %}</li>
                                 </ul>
-                                {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
-                                    <div class="mt-3 sm:mt-4">
-                                        <a href="{% url 'crush_lu:quiz_live' event.id %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:text-base">
-                                            {% trans "Join Quiz" %}
-                                        </a>
-                                    </div>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -364,16 +357,24 @@
                 <hr class="my-6 sm:my-8 border-gray-200 dark:border-gray-700">
                 {% endif %}
 
-                {% if is_past %}
-                {# Past event: show connections button if user attended #}
+                {# Prominent action buttons for attended users #}
                 {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
-                <a href="{% url 'crush_lu:event_attendees' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                    {% trans "View Attendees & Connections" %}
-                </a>
-                {% endif %}
+                <div class="space-y-3 mb-6">
+                    {% if event.quiz_join_available %}
+                    <a href="{% url 'crush_lu:quiz_live' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        {% trans "Join Quiz" %}
+                    </a>
+                    {% endif %}
+                    {% if is_past %}
+                    <a href="{% url 'crush_lu:event_attendees' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        {% trans "View Attendees & Connections" %}
+                    </a>
+                    {% endif %}
+                </div>
                 {% elif user.is_authenticated %}
                     {% if user_registration %}
                         {# Already registered - show status #}

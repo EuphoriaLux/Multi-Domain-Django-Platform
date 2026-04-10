@@ -612,6 +612,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def quiz_error(self, event):
         await self.send_json({"type": "quiz.error", "data": event["data"]})
 
+    async def quiz_table_update(self, event):
+        await self.send_json({"type": "quiz.table_update", "data": event["data"]})
+
     # --- Database helpers ---
 
     @database_sync_to_async

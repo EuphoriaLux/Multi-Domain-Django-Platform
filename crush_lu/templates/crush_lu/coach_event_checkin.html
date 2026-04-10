@@ -9,37 +9,7 @@
 
 {# Profile Toast Cards (fixed top-right) #}
 <div class="fixed top-4 right-4 z-50 space-y-3 pointer-events-none" style="max-width: 320px;">
-    <template x-for="toast in activeToasts" :key="toast.id">
-        <div class="checkin-toast pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/40 border border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3">
-            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                <template x-if="toast.hasPhoto">
-                    <img x-bind:src="toast.photoUrl" class="w-full h-full object-cover" alt="">
-                </template>
-                <template x-if="toast.hasPhoto === false">
-                    <div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-crush-purple/50 dark:text-crush-pink/50" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                </template>
-            </div>
-            <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1.5">
-                    <span class="font-semibold text-sm dark:text-white truncate" x-text="toast.name"></span>
-                    <template x-if="toast.isApproved">
-                        <span class="text-green-500 text-xs shrink-0" title="{% trans 'Verified' %}">&#10003;</span>
-                    </template>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span x-text="toast.genderIcon"></span>
-                    <span x-text="toast.ageDisplay"></span>
-                    <template x-if="toast.hasTable">
-                        <span class="text-crush-purple dark:text-purple-300 font-medium" x-text="toast.tableLabel"></span>
-                    </template>
-                </div>
-            </div>
-        </div>
-    </template>
+    <div id="checkin-toasts-container"></div>
 </div>
 
 {# Header #}
@@ -129,17 +99,7 @@
     <div x-show="recentCheckinCount" style="display: none;">
         <h4 class="font-medium text-sm text-gray-500 dark:text-gray-400 mb-2">{% trans "Recent Check-ins" %}</h4>
         <div class="space-y-2">
-            <template x-for="checkin in recentCheckins" :key="checkin.time + checkin.name">
-                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2 text-sm">
-                    <div class="flex items-center gap-2">
-                        <span class="font-medium dark:text-white" x-text="checkin.name"></span>
-                        <template x-if="checkin.hasTable">
-                            <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" x-text="checkin.tableLabel"></span>
-                        </template>
-                    </div>
-                    <span class="text-gray-400 dark:text-gray-500 text-xs" x-text="checkin.time"></span>
-                </div>
-            </template>
+            <div id="recent-checkins-container" class="space-y-2"></div>
         </div>
     </div>
 </div>
@@ -212,7 +172,10 @@ window._checkinI18n = {
     checkedIn: '{% filter escapejs %}{% trans "Checked In" %}{% endfilter %}',
     checkIn: '{% filter escapejs %}{% trans "Check In" %}{% endfilter %}',
     checkinFailed: '{% filter escapejs %}{% trans "Check-in failed" %}{% endfilter %}',
-    networkError: '{% filter escapejs %}{% trans "Network error" %}{% endfilter %}'
+    networkError: '{% filter escapejs %}{% trans "Network error" %}{% endfilter %}',
+    verified: '{% filter escapejs %}{% trans "Verified" %}{% endfilter %}',
+    unverified: '{% filter escapejs %}{% trans "Unverified Profile" %}{% endfilter %}',
+    coach: '{% filter escapejs %}{% trans "Coach" %}{% endfilter %}'
 };
 var _tableAssignments = {{ table_assignments_json|safe }};
 var _tableFill = {{ table_fill_json|safe }};

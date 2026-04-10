@@ -499,6 +499,9 @@ document.addEventListener("alpine:init", function () {
                     }
                 } else if (type === "quiz.table_score") {
                     // Legacy table score update
+                } else if (type === "quiz.table_update") {
+                    // New person checked in at this table — refresh tablemates
+                    this.fetchAssignment();
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }

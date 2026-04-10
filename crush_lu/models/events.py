@@ -68,11 +68,13 @@ class MeetupEvent(models.Model):
 
     # Event Banner Image
     image = models.ImageField(
-        upload_to=crush_upload_path('events/banners'),
+        upload_to=crush_upload_path("events/banners"),
         storage=crush_media_storage,  # This is a callable factory that returns storage instance
         blank=True,
         null=True,
-        help_text=_("Event banner image (recommended: 1200x600px, 2:1 ratio for best results)")
+        help_text=_(
+            "Event banner image (recommended: 1200x600px, 2:1 ratio for best results)"
+        ),
     )
 
     # Event Details
@@ -237,7 +239,9 @@ class MeetupEvent(models.Model):
     )
     spark_request_deadline_hours = models.PositiveIntegerField(
         default=168,
-        help_text=_("Hours after event end until spark requests close (default: 7 days)"),
+        help_text=_(
+            "Hours after event end until spark requests close (default: 7 days)"
+        ),
     )
 
     # Cross-gender connection limit
@@ -344,13 +348,9 @@ class MeetupEvent(models.Model):
                 % {"min": self.min_age, "max": self.max_age}
             )
         if self.min_age < 18:
-            raise ValidationError(
-                {"min_age": _("Minimum age must be at least 18.")}
-            )
+            raise ValidationError({"min_age": _("Minimum age must be at least 18.")})
         if self.max_age > 120:
-            raise ValidationError(
-                {"max_age": _("Maximum age cannot exceed 120.")}
-            )
+            raise ValidationError({"max_age": _("Maximum age cannot exceed 120.")})
 
         # Sum of gender caps must not exceed total max_participants
         if len(set_caps) == 3:
@@ -396,6 +396,14 @@ class MeetupEvent(models.Model):
     def end_time(self):
         """Calculate event end time based on start time and duration."""
         return self.date_time + timedelta(minutes=self.duration_minutes)
+
+    @property
+    def quiz_join_available(self):
+        """Quiz join button visible during event + 2 days after."""
+        return (
+            self.event_type == "quiz_night"
+            and timezone.now() <= self.end_time + timedelta(days=2)
+        )
 
     def get_confirmed_count(self):
         """

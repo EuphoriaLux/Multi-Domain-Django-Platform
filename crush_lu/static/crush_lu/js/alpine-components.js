@@ -293,8 +293,7 @@ document.addEventListener("alpine:init", function () {
             processedIds: {},
 
             init: function () {
-                this.eventId =
-                    parseInt(this.$el.getAttribute("data-event-id")) || 0;
+                this.eventId = parseInt(this.$el.getAttribute("data-event-id")) || 0;
                 if (this.eventId) {
                     this.connectWebSocket();
                 }
@@ -322,35 +321,158 @@ document.addEventListener("alpine:init", function () {
             get tableAssignmentText() {
                 return "Table " + this.lastTableNumber;
             },
-            get recentCheckins() {
-                return this.checkins;
-            },
             get recentCheckinCount() {
                 return this.checkins.length;
-            },
-            get activeToasts() {
-                return this.toasts;
-            },
-            get hasToasts() {
-                return this.toasts.length > 0;
             },
             get isConnected() {
                 return this.connected;
             },
             get connectionDot() {
-                return this.connected
-                    ? "bg-green-500"
-                    : "bg-gray-400 dark:bg-gray-600";
+                return this.connected ? "bg-green-500" : "bg-gray-400 dark:bg-gray-600";
             },
             get connectionLabel() {
                 return this.connected ? "Live" : "Offline";
             },
 
+            // --- HTML helpers (XSS protection) ---
+            _esc: function (str) {
+                if (!str) return "";
+                var div = document.createElement("div");
+                div.appendChild(document.createTextNode(str));
+                return div.innerHTML;
+            },
+            _escAttr: function (str) {
+                return this._esc(str).replace(/"/g, "&quot;");
+            },
+
+            // --- Imperative DOM rendering (CSP-safe) ---
+            _renderToastElement: function (t) {
+                var container = document.getElementById("checkin-toasts-container");
+                if (!container) return;
+                var i18n = window._checkinI18n || {};
+                var photoHtml;
+                if (t.hasPhoto) {
+                    photoHtml =
+                        '<img src="' +
+                        this._escAttr(t.photoUrl) +
+                        '" class="w-full h-full object-cover" alt="">';
+                } else {
+                    photoHtml =
+                        '<div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">' +
+                        '<svg class="w-6 h-6 text-crush-purple/50 dark:text-crush-pink/50" fill="currentColor" viewBox="0 0 20 20">' +
+                        '<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>' +
+                        "</svg></div>";
+                }
+                var approvedHtml = t.isApproved
+                    ? ' <span class="text-green-500 text-xs shrink-0" title="' +
+                      this._escAttr(i18n.verified || "Verified") +
+                      '">&#10003;</span>'
+                    : "";
+                var tableHtml = t.hasTable
+                    ? ' <span class="text-crush-purple dark:text-purple-300 font-medium">' +
+                      this._esc(t.tableLabel) +
+                      "</span>"
+                    : "";
+                var locationHtml = t.location
+                    ? "<span>\uD83D\uDCCD " + this._esc(t.location) + "</span>"
+                    : "";
+                var interestsHtml = t.interests
+                    ? '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">' +
+                      this._esc(t.interests) +
+                      "</p>"
+                    : "";
+                // Unverified profile warning banner
+                var warningHtml = "";
+                if (!t.isApproved) {
+                    var coachLine = t.coachName
+                        ? '<span class="font-medium">' +
+                          (i18n.coach || "Coach") +
+                          ": " +
+                          this._esc(t.coachName) +
+                          "</span>"
+                        : "";
+                    var statusLine = t.submissionStatus
+                        ? ' <span class="opacity-75">\u00B7 ' +
+                          this._esc(t.submissionStatus) +
+                          "</span>"
+                        : "";
+                    warningHtml =
+                        '<div class="mt-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-300">' +
+                        '<div class="flex items-center gap-1.5 font-semibold mb-0.5">' +
+                        '<svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>' +
+                        (i18n.unverified || "Unverified Profile") +
+                        "</div>" +
+                        (coachLine || statusLine
+                            ? "<div>" + coachLine + statusLine + "</div>"
+                            : "") +
+                        "</div>";
+                }
+                var div = document.createElement("div");
+                div.className =
+                    "checkin-toast pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/40 border " +
+                    (t.isApproved
+                        ? "border-gray-200 dark:border-gray-700"
+                        : "border-amber-300 dark:border-amber-600") +
+                    " p-3";
+                div.setAttribute("data-toast-id", t.id);
+                div.innerHTML =
+                    '<div class="flex items-center gap-3">' +
+                    '<div class="w-12 h-12 rounded-full overflow-hidden shrink-0">' +
+                    photoHtml +
+                    "</div>" +
+                    '<div class="min-w-0 flex-1">' +
+                    '<div class="flex items-center gap-1.5">' +
+                    '<span class="font-semibold text-sm dark:text-white truncate">' +
+                    this._esc(t.name) +
+                    "</span>" +
+                    approvedHtml +
+                    "</div>" +
+                    '<div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">' +
+                    "<span>" +
+                    this._esc(t.genderIcon) +
+                    "</span>" +
+                    "<span>" +
+                    this._esc(t.ageDisplay) +
+                    "</span>" +
+                    locationHtml +
+                    tableHtml +
+                    "</div>" +
+                    interestsHtml +
+                    "</div></div>" +
+                    warningHtml;
+                container.appendChild(div);
+            },
+
+            _renderCheckins: function () {
+                var container = document.getElementById("recent-checkins-container");
+                if (!container) return;
+                var html = "";
+                for (var i = 0; i < this.checkins.length; i++) {
+                    var c = this.checkins[i];
+                    var tableHtml = c.hasTable
+                        ? ' <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300">' +
+                          this._esc(c.tableLabel) +
+                          "</span>"
+                        : "";
+                    html +=
+                        '<div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2 text-sm">' +
+                        '<div class="flex items-center gap-2">' +
+                        '<span class="font-medium dark:text-white">' +
+                        this._esc(c.name) +
+                        "</span>" +
+                        tableHtml +
+                        "</div>" +
+                        '<span class="text-gray-400 dark:text-gray-500 text-xs">' +
+                        this._esc(c.time) +
+                        "</span></div>";
+                }
+                container.innerHTML = html;
+            },
+
             // --- WebSocket ---
             connectWebSocket: function () {
                 var self = this;
-                var protocol =
-                    window.location.protocol === "https:" ? "wss:" : "ws:";
+                var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
                 var url =
                     protocol +
                     "//" +
@@ -402,30 +524,38 @@ document.addEventListener("alpine:init", function () {
                 if (gender === "M") genderIcon = "\u2642";
                 else if (gender === "F") genderIcon = "\u2640";
 
-                this.toasts.push({
+                var toastObj = {
                     id: id,
                     name: profile.display_name || data.attendee_name || "",
                     genderIcon: genderIcon,
                     ageDisplay: profile.age_display || "",
                     isApproved: profile.is_approved || false,
                     photoUrl: profile.photo_url || "",
-                    hasPhoto: !!(profile.photo_url),
+                    hasPhoto: !!profile.photo_url,
+                    location: profile.location || "",
+                    interests: profile.interests || "",
+                    submissionStatus: profile.submission_status || "",
+                    coachName: profile.coach_name || "",
                     table: data.table_number || 0,
-                    hasTable: !!(data.table_number),
-                    tableLabel: data.table_number
-                        ? "T" + data.table_number
-                        : "",
+                    hasTable: !!data.table_number,
+                    tableLabel: data.table_number ? "T" + data.table_number : "",
                     alreadyCheckedIn: data.already_checked_in || false,
-                });
+                };
+                this.toasts.push(toastObj);
+                this._renderToastElement(toastObj);
+                // Unverified profiles stay longer so coach can read the warning
+                var duration = toastObj.isApproved ? 5000 : 10000;
                 setTimeout(function () {
                     self.dismissToast(id);
-                }, 5000);
+                }, duration);
             },
 
             dismissToast: function (id) {
                 this.toasts = this.toasts.filter(function (t) {
                     return t.id !== id;
                 });
+                var el = document.querySelector('[data-toast-id="' + id + '"]');
+                if (el) el.remove();
             },
 
             // --- Shared UI update logic ---
@@ -437,15 +567,14 @@ document.addEventListener("alpine:init", function () {
                 this.checkins.unshift({
                     name: data.attendee_name,
                     table: data.table_number || 0,
-                    hasTable: !!(data.table_number),
-                    tableLabel: data.table_number
-                        ? "T" + data.table_number
-                        : "",
+                    hasTable: !!data.table_number,
+                    tableLabel: data.table_number ? "T" + data.table_number : "",
                     time: new Date().toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                     }),
                 });
+                this._renderCheckins();
 
                 // Update attended counter
                 var counter = document.getElementById("attended-count");
@@ -576,6 +705,13 @@ document.addEventListener("alpine:init", function () {
                     self.scanner.pause(true);
                 }
 
+                // Pre-mark registration as processed to prevent WebSocket duplicate
+                // URL format: /api/events/checkin/<reg_id>/<token>/
+                var urlMatch = url.match(/\/checkin\/(\d+)\//);
+                if (urlMatch) {
+                    self.processedIds[urlMatch[1]] = true;
+                }
+
                 fetch(url, { method: "POST" })
                     .then(function (r) {
                         return r.json();
@@ -588,11 +724,8 @@ document.addEventListener("alpine:init", function () {
                             self.lastTableNumber = data.table_number || 0;
                             self.lastRole = data.role || "";
                             self.message = data.table_number
-                                ? data.message +
-                                  " \u2192 Table " +
-                                  data.table_number
+                                ? data.message + " \u2192 Table " + data.table_number
                                 : data.message;
-                            // Mark as processed locally (dedup WebSocket)
                             if (data.registration_id) {
                                 self.processedIds[data.registration_id] = true;
                             }
@@ -635,6 +768,11 @@ document.addEventListener("alpine:init", function () {
                 btn.disabled = true;
                 btn.textContent = "...";
 
+                // Pre-mark as processed to prevent WebSocket duplicate
+                if (regId) {
+                    self.processedIds[regId] = true;
+                }
+
                 fetch(url, { method: "POST" })
                     .then(function (r) {
                         return r.json();
@@ -651,9 +789,7 @@ document.addEventListener("alpine:init", function () {
                             var i18n = window._checkinI18n || {};
                             btn.textContent = i18n.checkIn || "Check In";
                             alert(
-                                data.error ||
-                                    i18n.checkinFailed ||
-                                    "Check-in failed",
+                                data.error || i18n.checkinFailed || "Check-in failed",
                             );
                         }
                     })
@@ -12436,9 +12572,7 @@ document.addEventListener("alpine:init", function () {
                 self.noteError = "";
 
                 var csrfToken = "";
-                var csrfEl = document.querySelector(
-                    '[name="csrfmiddlewaretoken"]',
-                );
+                var csrfEl = document.querySelector('[name="csrfmiddlewaretoken"]');
                 if (csrfEl) csrfToken = csrfEl.value;
 
                 fetch("/api/submission/note/", {
