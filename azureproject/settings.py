@@ -462,24 +462,16 @@ SOCIALACCOUNT_PROVIDERS = {
         "VERIFIED_EMAIL": True,
     },
     # LuxID CIAM (POST Luxembourg) - OIDC provider for crush.lu
-    # Credentials provided by POST after signing the CIAM Agreement
-    "openid_connect": {
-        "APPS": [
-            {
-                "provider_id": "luxid",
-                "name": "LuxID",
-                "client_id": os.environ.get("LUXID_CLIENT_ID", ""),
-                "secret": os.environ.get("LUXID_CLIENT_SECRET", ""),
-                "settings": {
-                    "server_url": os.environ.get(
-                        "LUXID_SERVER_URL",
-                        "https://luxid.lu/.well-known/openid-configuration",
-                    ),
-                    "token_auth_method": "client_secret_post",
-                },
-            }
-        ],
-    },
+    # Credentials and server_url are managed via Django Admin (SocialApp model),
+    # consistent with how Google, Facebook, Microsoft, and Apple are configured.
+    # To set up: Admin > Social Applications > Add:
+    #   Provider: OpenID Connect
+    #   Provider ID: luxid
+    #   Name: LuxID
+    #   Client ID: (from POST)
+    #   Secret Key: (from POST)
+    #   Settings: {"server_url": "https://luxid.lu", "token_auth_method": "client_secret_post"}
+    #   Sites: crush.lu (and test.crush.lu for UAT)
 }
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
