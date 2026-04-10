@@ -461,12 +461,23 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["email", "name"],
         "VERIFIED_EMAIL": True,
     },
+    # LuxID CIAM (POST Luxembourg) - OIDC provider for crush.lu
+    # Credentials and server_url are managed via Django Admin (SocialApp model),
+    # consistent with how Google, Facebook, Microsoft, and Apple are configured.
+    # To set up: Admin > Social Applications > Add:
+    #   Provider: OpenID Connect
+    #   Provider ID: luxid
+    #   Name: LuxID
+    #   Client ID: (from POST)
+    #   Secret Key: (from POST)
+    #   Settings: {"server_url": "https://luxid.lu", "token_auth_method": "client_secret_post"}
+    #   Sites: crush.lu (and test.crush.lu for UAT)
 }
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
 # the social account will be automatically linked if the provider is in this list.
-SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid"]
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)

@@ -1467,6 +1467,212 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
 
 
 # =============================================================================
+# LUXID OIDC PROVIDER (POST Luxembourg CIAM)
+# =============================================================================
+
+# Gender mapping from OIDC standard values to CrushProfile codes
+LUXID_GENDER_MAP = {
+    "male": "M",
+    "female": "F",
+}
+
+
+@receiver(pre_social_login)
+def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
+    """
+    Update CrushProfile with LuxID OIDC data when user logs in.
+    Only processes LuxID logins for Crush.lu domain.
+
+    LuxID provides standard OIDC claims (Annex C6 of CIAM Agreement):
+    - given_name, family_name, email (mapped in adapter populate_user)
+    - birthdate, gender, phone_number, locale (mapped here to CrushProfile)
+    """
+    # Reset the flag at the start (only for LuxID provider)
+    if sociallogin.account.provider == "luxid":
+        _thread_local.is_crush_luxid_login = False
+
+    # Only process LuxID logins
+    if sociallogin.account.provider != "luxid":
+        return
+
+    # Only process for crush.lu domain
+    if not _is_crush_domain(request):
+        return
+
+    # Set flag for post_save handler
+    _thread_local.is_crush_luxid_login = True
+
+    # Store request for welcome email on new signups
+    if not sociallogin.is_existing:
+        _thread_local.oauth_signup_request = request
+
+    # Track implicit consent for new OAuth signups
+    if not sociallogin.is_existing:
+        from crush_lu.models.profiles import UserDataConsent
+        from crush_lu.oauth_statekit import get_client_ip
+
+        _thread_local.oauth_consent_data = {
+            "crushlu_consent": True,
+            "crushlu_consent_ip": get_client_ip(request),
+        }
+
+    logger.info("pre_social_login signal received for LuxID provider on crush.lu")
+
+    try:
+        extra_data = sociallogin.account.extra_data
+
+        # Update CrushProfile for existing users
+        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+            try:
+                profile = CrushProfile.objects.get(user=sociallogin.user)
+                updated_fields = []
+
+                # Map birthdate (OIDC format: YYYY-MM-DD)
+                birthdate = extra_data.get("birthdate")
+                if birthdate and not profile.date_of_birth:
+                    try:
+                        profile.date_of_birth = datetime.strptime(
+                            birthdate, "%Y-%m-%d"
+                        ).date()
+                        updated_fields.append("date_of_birth")
+                    except (ValueError, TypeError):
+                        logger.warning("Invalid birthdate format from LuxID")
+
+                # Map gender
+                gender = extra_data.get("gender", "").lower()
+                if gender and not profile.gender:
+                    mapped = LUXID_GENDER_MAP.get(gender, "")
+                    if mapped:
+                        profile.gender = mapped
+                        updated_fields.append("gender")
+
+                # Map phone_number
+                phone = extra_data.get("phone_number")
+                if phone and not profile.phone_number:
+                    profile.phone_number = phone
+                    updated_fields.append("phone_number")
+
+                # Map locale to preferred_language
+                locale = extra_data.get("locale", "")
+                if locale and profile.preferred_language == "en":
+                    lang_code = locale[:2].lower()
+                    if lang_code in ("de", "fr"):
+                        profile.preferred_language = lang_code
+                        updated_fields.append("preferred_language")
+
+                if updated_fields:
+                    profile.save(update_fields=updated_fields)
+                    logger.info(
+                        f"Updated CrushProfile for LuxID user {sociallogin.user.email}: "
+                        f"{updated_fields}"
+                    )
+
+            except CrushProfile.DoesNotExist:
+                logger.info(
+                    f"No CrushProfile exists yet for LuxID user {sociallogin.user.email}"
+                )
+
+    except Exception as e:
+        logger.error(
+            f"Error in LuxID pre_social_login handler: {str(e)}", exc_info=True
+        )
+
+
+@receiver(post_save, sender=SocialAccount)
+def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
+    """
+    Create CrushProfile when a new LuxID SocialAccount is created.
+    Populates profile fields from OIDC claims (birthdate, gender, phone, locale).
+    """
+    if instance.provider != "luxid":
+        return
+
+    if not created:
+        return
+
+    if not getattr(_thread_local, "is_crush_luxid_login", False):
+        return
+
+    logger.info(
+        f"SocialAccount post_save signal for LuxID on crush.lu (user: {instance.user.email})"
+    )
+
+    try:
+        profile, profile_created = CrushProfile.objects.get_or_create(
+            user=instance.user
+        )
+
+        if profile_created:
+            extra_data = instance.extra_data
+            updated_fields = []
+
+            # Map birthdate
+            birthdate = extra_data.get("birthdate")
+            if birthdate:
+                try:
+                    profile.date_of_birth = datetime.strptime(
+                        birthdate, "%Y-%m-%d"
+                    ).date()
+                    updated_fields.append("date_of_birth")
+                except (ValueError, TypeError):
+                    pass
+
+            # Map gender
+            gender = extra_data.get("gender", "").lower()
+            mapped = LUXID_GENDER_MAP.get(gender, "")
+            if mapped:
+                profile.gender = mapped
+                updated_fields.append("gender")
+
+            # Map phone_number
+            phone = extra_data.get("phone_number")
+            if phone:
+                profile.phone_number = phone
+                updated_fields.append("phone_number")
+
+            # Map locale to preferred_language
+            locale = extra_data.get("locale", "")
+            if locale:
+                lang_code = locale[:2].lower()
+                if lang_code in ("de", "fr"):
+                    profile.preferred_language = lang_code
+                    updated_fields.append("preferred_language")
+
+            if updated_fields:
+                profile.save(update_fields=updated_fields)
+
+            logger.info(
+                f"Created CrushProfile for LuxID user {instance.user.email} "
+                f"with fields: {updated_fields}"
+            )
+
+        # Send welcome email for new OAuth signups
+        if profile_created:
+            oauth_request = getattr(_thread_local, "oauth_signup_request", None)
+            if oauth_request:
+                try:
+                    from .email_helpers import send_welcome_email
+                    result = send_welcome_email(instance.user, oauth_request)
+                    logger.info(
+                        f"Welcome email sent to LuxID OAuth user {instance.user.email}: {result}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to send welcome email to LuxID OAuth user "
+                        f"{instance.user.email}: {e}",
+                        exc_info=True,
+                    )
+                finally:
+                    _thread_local.oauth_signup_request = None
+
+    except Exception as e:
+        logger.error(
+            f"Error in LuxID SocialAccount post_save handler: {str(e)}",
+            exc_info=True,
+        )
+
+
+# =============================================================================
 # WALLET PASS UPDATE SIGNAL HANDLERS
 # =============================================================================
 
