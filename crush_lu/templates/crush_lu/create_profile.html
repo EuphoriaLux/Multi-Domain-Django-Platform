@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n analytics %}
+{% load static i18n analytics crush_media %}
 
 {% block title %}{% trans "Create Your Profile - Crush.lu" %}{% endblock %}
 
@@ -766,11 +766,11 @@
                 <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6"
                      x-data="photoUpload"
                      data-photo-1-exists="{% if profile and profile.photo_1 %}true{% else %}false{% endif %}"
-                     data-photo-1-url="{% if profile and profile.photo_1 %}{{ profile.photo_1.url }}{% endif %}"
+                     data-photo-1-url="{% if profile and profile.photo_1 %}{% profile_photo_url profile 'photo_1' %}{% endif %}"
                      data-photo-2-exists="{% if profile and profile.photo_2 %}true{% else %}false{% endif %}"
-                     data-photo-2-url="{% if profile and profile.photo_2 %}{{ profile.photo_2.url }}{% endif %}"
+                     data-photo-2-url="{% if profile and profile.photo_2 %}{% profile_photo_url profile 'photo_2' %}{% endif %}"
                      data-photo-3-exists="{% if profile and profile.photo_3 %}true{% else %}false{% endif %}"
-                     data-photo-3-url="{% if profile and profile.photo_3 %}{{ profile.photo_3.url }}{% endif %}">
+                     data-photo-3-url="{% if profile and profile.photo_3 %}{% profile_photo_url profile 'photo_3' %}{% endif %}">
                     <!-- Photo 1 -->
                     <div class="relative aspect-square">
                         <input type="file" name="photo_1" id="photo1" accept="image/*" class="hidden"

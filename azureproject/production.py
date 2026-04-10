@@ -230,9 +230,10 @@ else:
 # - vinsdelux-media/journey/step_01.png
 # - powerup-media/defaults/profile.png
 
-# CDN support: if AZURE_CDN_DOMAIN is set, serve public media through CDN
-# Private containers (crush-lu-private, vinsdelux-private) are NOT served via CDN
-# because SAS token signatures are tied to the storage account hostname.
+# CDN support: if AZURE_CDN_DOMAIN is set, serve media through CDN/Front Door.
+# Private containers (crush-lu-private) are also served via CDN/Front Door.
+# SAS tokens are tied to the storage account name (not the access hostname),
+# so Front Door passes query strings (including SAS tokens) to the blob storage origin.
 _CDN_DOMAIN = os.getenv("AZURE_CDN_DOMAIN")  # e.g., "cdn.crush.lu"
 if _CDN_DOMAIN:
     _MEDIA_ORIGIN = f"https://{_CDN_DOMAIN}"
