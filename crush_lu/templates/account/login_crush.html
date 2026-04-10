@@ -125,9 +125,9 @@
                     Apple
                 </a>
                     {% endif %}
-                    {% if provider.id == "luxid" %}
-                <a href="{% provider_login_url 'luxid' %}" class="social-login-btn luxid-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-blue-500 to-green-400 rounded-lg font-medium text-white hover:from-purple-700 hover:via-blue-600 hover:to-green-500 transition-all shadow-md"
-                   data-oauth-url="{% provider_login_url 'luxid' %}" data-provider="LuxID">
+                    {% if provider.id == "luxid" or provider.app.provider_id == "luxid" %}
+                <a href="{% provider_login_url provider %}" class="social-login-btn luxid-btn no-loading flex items-center justify-center gap-3 w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-blue-500 to-green-400 rounded-lg font-medium text-white hover:from-purple-700 hover:via-blue-600 hover:to-green-500 transition-all shadow-md"
+                   data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID">
                     <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-5 h-5 rounded">
                     LuxID
                 </a>
