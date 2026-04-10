@@ -470,9 +470,15 @@ SOCIALACCOUNT_PROVIDERS = {
     #   Name: LuxID
     #   Client ID: (from POST)
     #   Secret Key: (from POST)
-    #   Settings: {"server_url": "https://luxid.lu", "token_auth_method": "client_secret_post"}
-    #   Sites: crush.lu (and test.crush.lu for UAT)
+    #   Settings (UAT): {"server_url": "https://login-uat.luxid.lu", "token_auth_method": "client_secret_post"}
+    #   Settings (Prod): {"server_url": "https://login.luxid.lu", "token_auth_method": "client_secret_post"}
+    #   Sites: test.crush.lu (UAT) or crush.lu (Prod)
 }
+
+# Remove OIDC URL prefix so LuxID callback matches POST's configuration.
+# Default is "oidc" which gives /accounts/oidc/luxid/login/callback/
+# POST configured the callback as /accounts/luxid/login/callback/
+SOCIALACCOUNT_OPENID_CONNECT_URL_PREFIX = ""
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
