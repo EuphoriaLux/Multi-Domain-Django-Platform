@@ -39,6 +39,15 @@ class LuxIDProvider(OpenIDConnectProvider):
         if app and app.name:
             self.name = app.name
 
+    @property
+    def server_url(self):
+        # Allow admin override via SocialApp settings, but fall back to default
+        url = (self.app.settings or {}).get("server_url", "")
+        if not url:
+            # Default to UAT; production uses login.luxid.lu (set via admin)
+            url = "https://login-uat.luxid.lu"
+        return self.wk_server_url(url)
+
     def get_login_url(self, request, **kwargs):
         # Override OpenIDConnectProvider which uses provider_id kwargs.
         # Our urls.py uses default_urlpatterns() which registers "luxid_login"

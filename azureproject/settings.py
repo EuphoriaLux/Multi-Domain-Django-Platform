@@ -462,6 +462,10 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["email", "name"],
         "VERIFIED_EMAIL": True,
     },
+    "luxid": {
+        "SCOPE": ["openid", "profile", "email"],
+        "VERIFIED_EMAIL": True,
+    },
 }
 
 # LuxID CIAM (POST Luxembourg) - dedicated provider at /accounts/luxid/
