@@ -105,24 +105,31 @@ def crush_user_context(request):
             context["profile_step_label"] = _("Get started")
 
         # Upcoming events for user (includes ongoing events until end_time)
+        # Use a generous cutoff to include events that may still be ongoing,
+        # then filter precisely in Python. This avoids timedelta * F()
+        # which is not supported on SQLite.
         now = timezone.now()
-        event_end_time_expr = ExpressionWrapper(
-            F("event__date_time") + timedelta(minutes=1) * F("event__duration_minutes"),
-            output_field=DateTimeField(),
-        )
-        upcoming_registrations = (
-            EventRegistration.objects.annotate(event_end_time=event_end_time_expr)
-            .filter(
+        generous_cutoff = now - timedelta(hours=24)
+        upcoming_registrations = list(
+            EventRegistration.objects.filter(
                 user=request.user,
-                event_end_time__gte=now,
+                event__date_time__gte=generous_cutoff,
                 status__in=["confirmed", "waitlist", "attended"],
             )
             .select_related("event")
-            .order_by("event__date_time")[:5]
+            .order_by("event__date_time")
         )
+        # Filter precisely: keep events whose end_time hasn't passed
+        upcoming_registrations = [
+            reg
+            for reg in upcoming_registrations
+            if reg.event.date_time
+            + timedelta(minutes=reg.event.duration_minutes or 0)
+            >= now
+        ][:5]
 
         context["upcoming_events"] = upcoming_registrations
-        context["upcoming_events_count"] = upcoming_registrations.count()
+        context["upcoming_events_count"] = len(upcoming_registrations)
 
         # Pending screening calls count for coaches
         if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
