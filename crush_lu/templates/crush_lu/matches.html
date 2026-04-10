@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Your Matches - Crush.lu" %}{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
@@ -41,8 +41,8 @@
         <div class="section-card flex items-center gap-4">
             <!-- Profile photo -->
             <div class="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                {% if match.profile.photo_1 %}
-                    <img src="{{ match.profile.photo_1.url }}" alt="" class="w-full h-full object-cover">
+                {% if match.profile|has_photo:'photo_1' %}
+                    <img src="{% profile_photo_url match.profile 'photo_1' %}" alt="" class="w-full h-full object-cover">
                 {% else %}
                 <div class="w-full h-full bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-700 dark:to-pink-700 flex items-center justify-center">
                     <svg class="w-8 h-8 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>

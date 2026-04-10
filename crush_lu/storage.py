@@ -81,6 +81,11 @@ class PrivateAzureStorage(AzureStorage):
         )
         self.azure_container = container_name
 
+        # CDN/Front Door support for private containers
+        # SAS tokens are tied to the storage account name, not the access hostname,
+        # so Front Door can pass query strings (including SAS tokens) to the origin.
+        self._cdn_domain = os.getenv('AZURE_CDN_DOMAIN')
+
         # Azurite-specific configuration
         self._is_azurite = is_azurite_mode()
         if self._is_azurite:
@@ -126,8 +131,15 @@ class PrivateAzureStorage(AzureStorage):
                 f"http://{self._azurite_host}/{self.account_name}/"
                 f"{self.azure_container}/{name}?{sas_token}"
             )
+        elif self._cdn_domain:
+            # CDN/Front Door URL: https://cdn-domain/container/blob?sas
+            # Front Door forwards query strings (including SAS token) to blob storage origin
+            return (
+                f"https://{self._cdn_domain}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
         else:
-            # Production Azure URL format: https://account.blob.core.windows.net/container/blob?sas
+            # Direct Azure URL: https://account.blob.core.windows.net/container/blob?sas
             return (
                 f"https://{self.account_name}.blob.core.windows.net/"
                 f"{self.azure_container}/{name}?{sas_token}"
