@@ -6,7 +6,6 @@ from django.urls import reverse
 from django.http import HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
-from django.db.models import F, ExpressionWrapper, DateTimeField
 from datetime import timedelta
 import json
 import logging
@@ -134,23 +133,26 @@ def event_list(request):
     """List of upcoming and past events"""
     now = timezone.now()
 
-    end_time_expr = ExpressionWrapper(
-        F("date_time") + timedelta(minutes=1) * F("duration_minutes"),
-        output_field=DateTimeField(),
-    )
-
-    upcoming_events = (
-        MeetupEvent.objects.annotate(computed_end_time=end_time_expr)
-        .filter(is_published=True, is_cancelled=False, computed_end_time__gte=now)
+    # Fetch published, non-cancelled events and split into upcoming/past
+    # in Python using the model's end_time property. This avoids
+    # timedelta * F() which is not supported on SQLite.
+    generous_cutoff = now - timedelta(hours=24)
+    upcoming_events = list(
+        MeetupEvent.objects.filter(
+            is_published=True, is_cancelled=False, date_time__gte=generous_cutoff
+        )
         .prefetch_related("coaches__user")
         .order_by("date_time")
     )
+    upcoming_events = [e for e in upcoming_events if e.end_time >= now]
 
-    past_events = (
-        MeetupEvent.objects.annotate(computed_end_time=end_time_expr)
-        .filter(is_published=True, is_cancelled=False, computed_end_time__lt=now)
-        .order_by("-date_time")[:10]
+    past_events = list(
+        MeetupEvent.objects.filter(
+            is_published=True, is_cancelled=False, date_time__lt=now
+        )
+        .order_by("-date_time")[:50]
     )
+    past_events = [e for e in past_events if e.end_time < now][:10]
 
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
