@@ -475,10 +475,11 @@ SOCIALACCOUNT_PROVIDERS = {
     #   Sites: test.crush.lu (UAT) or crush.lu (Prod)
 }
 
-# Remove OIDC URL prefix so LuxID callback matches POST's configuration.
-# Default is "oidc" which gives /accounts/oidc/luxid/login/callback/
-# POST configured the callback as /accounts/luxid/login/callback/
-SOCIALACCOUNT_OPENID_CONNECT_URL_PREFIX = ""
+# OIDC URL prefix: keep default "oidc" to avoid breaking LinkedIn on Entreprinder.
+# LuxID callback URL: /accounts/oidc/luxid/login/callback/
+# LinkedIn callback URL: /accounts/oidc/openid_connect_linkedin/login/callback/
+# NOTE: Ask POST to update the callback URL from /accounts/luxid/login/callback/
+#       to /accounts/oidc/luxid/login/callback/
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
