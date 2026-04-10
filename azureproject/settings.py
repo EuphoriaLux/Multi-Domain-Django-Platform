@@ -124,7 +124,8 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "allauth.socialaccount.providers.openid_connect",
+    "allauth.socialaccount.providers.openid_connect",  # Generic OIDC (used by LinkedIn on Entreprinder)
+    "crush_lu.providers.luxid",  # LuxID CIAM (POST Luxembourg) - dedicated provider for crush.lu
     "allauth.socialaccount.providers.linkedin_oauth2",
     "allauth.socialaccount.providers.facebook",
     "allauth.socialaccount.providers.google",
@@ -461,25 +462,20 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": ["email", "name"],
         "VERIFIED_EMAIL": True,
     },
-    # LuxID CIAM (POST Luxembourg) - OIDC provider for crush.lu
-    # Credentials and server_url are managed via Django Admin (SocialApp model),
-    # consistent with how Google, Facebook, Microsoft, and Apple are configured.
-    # To set up: Admin > Social Applications > Add:
-    #   Provider: OpenID Connect
-    #   Provider ID: luxid
-    #   Name: LuxID
-    #   Client ID: (from POST)
-    #   Secret Key: (from POST)
-    #   Settings (UAT): {"server_url": "https://login-uat.luxid.lu", "token_auth_method": "client_secret_post"}
-    #   Settings (Prod): {"server_url": "https://login.luxid.lu", "token_auth_method": "client_secret_post"}
-    #   Sites: test.crush.lu (UAT) or crush.lu (Prod)
 }
 
-# OIDC URL prefix: keep default "oidc" to avoid breaking LinkedIn on Entreprinder.
-# LuxID callback URL: /accounts/oidc/luxid/login/callback/
-# LinkedIn callback URL: /accounts/oidc/openid_connect_linkedin/login/callback/
-# NOTE: Ask POST to update the callback URL from /accounts/luxid/login/callback/
-#       to /accounts/oidc/luxid/login/callback/
+# LuxID CIAM (POST Luxembourg) - dedicated provider at /accounts/luxid/
+# Uses crush_lu.providers.luxid instead of the generic openid_connect provider,
+# so LuxID gets its own URL namespace without affecting LinkedIn's OIDC URLs.
+# Callback URL: /accounts/luxid/login/callback/
+# To set up: Admin > Social Applications > Add:
+#   Provider: LuxID
+#   Name: LuxID
+#   Client ID: (from POST)
+#   Secret Key: (from POST)
+#   Settings (UAT): {"server_url": "https://login-uat.luxid.lu"}
+#   Settings (Prod): {"server_url": "https://login.luxid.lu"}
+#   Sites: test.crush.lu (UAT) or crush.lu (Prod)
 
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
