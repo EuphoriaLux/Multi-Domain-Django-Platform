@@ -1,9 +1,13 @@
 import json
+import os
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
-from crush_lu.models import CrushCoach
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from crush_lu.models import CrushCoach, CrushProfile
 from crush_lu.models.events import EventRegistration
 from crush_lu.models.quiz import (
     QuizEvent,
@@ -11,6 +15,34 @@ from crush_lu.models.quiz import (
     QuizTable,
     QuizTableMembership,
 )
+
+
+def _photo_url(profile):
+    """Return public quiz photo URL if photo_1 exists, else None."""
+    if profile and getattr(profile, "photo_1", None):
+        return f"/api/quiz/photo/{profile.user_id}/"
+    return None
+
+
+_AVATAR_COLORS = [
+    "#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6",
+    "#EF4444", "#06B6D4", "#F97316", "#6366F1", "#14B8A6",
+    "#E879F9", "#84CC16", "#F43F5E", "#22D3EE", "#A78BFA",
+]
+
+
+def _member_initials(name):
+    """Extract up to 2 initials from a display name."""
+    parts = name.split()
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[-1][0]).upper()
+    return name[:2].upper() if name else "?"
+
+
+def _member_color(name):
+    """Deterministic color from name."""
+    h = sum(ord(c) for c in name) if name else 0
+    return _AVATAR_COLORS[h % len(_AVATAR_COLORS)]
 
 
 def _get_table_members_json(quiz, round_number=0):
@@ -26,28 +58,33 @@ def _get_table_members_json(quiz, round_number=0):
         if rotations.exists():
             for r in rotations:
                 profile = getattr(r.user, "crushprofile", None)
+                name = profile.display_name if profile else "Anonymous"
                 members.append(
                     {
-                        "display_name": (
-                            profile.display_name if profile else "Anonymous"
-                        ),
+                        "display_name": name,
                         "role": r.role,
+                        "initials": _member_initials(name),
+                        "color": _member_color(name),
+                        "photo_url": _photo_url(profile),
                     }
                 )
         else:
             # Fall back to static membership
             for m in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(m.user, "crushprofile", None)
+                name = profile.display_name if profile else "Anonymous"
                 members.append(
                     {
-                        "display_name": (
-                            profile.display_name if profile else "Anonymous"
-                        ),
+                        "display_name": name,
                         "role": "",
+                        "initials": _member_initials(name),
+                        "color": _member_color(name),
+                        "photo_url": _photo_url(profile),
                     }
                 )
         result.append(
             {
+                "table_id": table.id,
                 "table_number": table.table_number,
                 "members": members,
                 "total_score": table.get_total_score(),
@@ -196,15 +233,15 @@ def quiz_coach_view(request, event_id):
 
 
 def quiz_table_display(request, event_id):
-    """Full-screen projector view of quiz table assignments. No auth required."""
+    """Full-screen projector view for quiz events. No auth required."""
     quiz = get_object_or_404(
         QuizEvent.objects.select_related("event"), event_id=event_id
     )
 
-    # Optional token-based access control
-    if quiz.display_token:
-        if request.GET.get("token") != quiz.display_token:
-            raise Http404
+    pin_required = bool(quiz.display_token)
+    # If PIN provided in query string, validate for initial page load
+    if pin_required and request.GET.get("token") == quiz.display_token:
+        pin_required = False
 
     confirmed_count = EventRegistration.objects.filter(
         event_id=event_id, status__in=["confirmed", "attended"]
@@ -215,14 +252,40 @@ def quiz_table_display(request, event_id):
         "event": quiz.event,
         "num_tables": quiz.num_tables or 0,
         "confirmed_count": confirmed_count,
+        "pin_required": pin_required,
     }
-    return render(request, "crush_lu/quiz_table_display.html", context)
+    return render(request, "crush_lu/quiz_display.html", context)
+
+
+@csrf_exempt
+@require_POST
+def quiz_display_verify_pin(request, event_id):
+    """Verify a 4-digit PIN for projector display access."""
+    try:
+        quiz = QuizEvent.objects.get(event_id=event_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"valid": False}, status=404)
+
+    # No PIN configured — always valid
+    if not quiz.display_token:
+        return JsonResponse({"valid": True})
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"valid": False})
+
+    pin = str(data.get("pin", ""))
+    valid = pin == quiz.display_token
+    return JsonResponse({"valid": valid})
 
 
 def quiz_table_display_data(request, event_id):
     """JSON endpoint for table assignments, polled by the display page."""
+    from crush_lu.models.quiz import TableRoundScore
+
     try:
-        quiz = QuizEvent.objects.get(event_id=event_id)
+        quiz = QuizEvent.objects.select_related("current_round").get(event_id=event_id)
     except QuizEvent.DoesNotExist:
         return JsonResponse({"error": "Quiz not found"}, status=404)
 
@@ -239,10 +302,148 @@ def quiz_table_display_data(request, event_id):
         event_id=event_id, status__in=["confirmed", "attended"]
     ).count()
 
-    return JsonResponse(
-        {
-            "tables": tables,
-            "attended_count": attended_count,
-            "confirmed_count": confirmed_count,
+    data = {
+        "tables": tables,
+        "attended_count": attended_count,
+        "confirmed_count": confirmed_count,
+        "quiz_status": quiz.status,
+    }
+
+    # Include current question and scoring state for polling-based display
+    total_tables = QuizTable.objects.filter(quiz=quiz).count()
+    data["total_tables"] = total_tables
+
+    question = quiz.get_current_question()
+    if question and quiz.is_active:
+        data["question"] = {
+            "id": question.id,
+            "text": question.text,
+            "question_type": question.question_type,
+            "points": question.points,
         }
+        if question.question_type in ("multiple_choice", "true_false"):
+            from crush_lu.models.quiz import parse_choices
+
+            choices = parse_choices(question.choices)
+            data["question"]["choices"] = [
+                {"text": c["text"]} for c in choices if isinstance(c, dict)
+            ]
+
+        questions = quiz.current_round.questions.order_by("sort_order")
+        data["question_index"] = quiz.current_question_index
+        data["question_total"] = questions.count()
+        data["is_bonus"] = quiz.current_round.is_bonus if quiz.current_round else False
+        data["round_title"] = quiz.current_round.title if quiz.current_round else ""
+        data["time_per_question"] = (
+            quiz.current_round.time_per_question if quiz.current_round else 30
+        )
+
+        # Scoring progress for current question
+        scored_count = TableRoundScore.objects.filter(
+            quiz=quiz, question=question
+        ).count()
+        data["scored_count"] = scored_count
+        all_scored = scored_count >= total_tables and total_tables > 0
+
+        # If all tables scored, include reveal results
+        if all_scored:
+            reveal = []
+            for s in TableRoundScore.objects.filter(
+                quiz=quiz, question=question
+            ).select_related("table"):
+                reveal.append(
+                    {
+                        "table_id": s.table_id,
+                        "table_number": s.table.table_number,
+                        "is_correct": s.is_correct,
+                    }
+                )
+            reveal.sort(key=lambda x: x["table_number"])
+            data["reveal_results"] = reveal
+
+    # Include leaderboard
+    leaderboard_tables = []
+    for table in QuizTable.objects.filter(quiz=quiz).order_by("table_number"):
+        leaderboard_tables.append(
+            {
+                "table_number": table.table_number,
+                "total_score": table.get_total_score(),
+            }
+        )
+    leaderboard_tables.sort(key=lambda x: x["total_score"], reverse=True)
+    data["leaderboard_tables"] = leaderboard_tables
+
+    # Individual top scorers
+    from crush_lu.models.quiz import IndividualScore
+    from django.db.models import Sum
+
+    top_individuals = (
+        IndividualScore.objects.filter(quiz=quiz)
+        .values("user_id")
+        .annotate(total=Sum("points_earned"))
+        .order_by("-total")[:10]
     )
+    individual_scores = []
+    for entry in top_individuals:
+        try:
+            profile = CrushProfile.objects.get(user_id=entry["user_id"])
+            name = profile.display_name
+            has_photo = bool(getattr(profile, "photo_1", None))
+            photo_url = (
+                f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
+            )
+        except CrushProfile.DoesNotExist:
+            name = "Anonymous"
+            photo_url = None
+        individual_scores.append(
+            {
+                "display_name": name,
+                "total_score": entry["total"],
+                "initials": _member_initials(name),
+                "color": _member_color(name),
+                "photo_url": photo_url,
+            }
+        )
+    data["leaderboard_individuals"] = individual_scores
+
+    return JsonResponse(data)
+
+
+def quiz_display_photo(request, user_id):
+    """Serve photo_1 for quiz display without authentication.
+
+    Only serves photos for users who have an approved CrushProfile.
+    Returns a small cache-friendly response suitable for projector displays.
+    """
+    profile = get_object_or_404(CrushProfile, user_id=user_id)
+
+    photo = getattr(profile, "photo_1", None)
+    if not photo:
+        raise Http404("No photo")
+
+    # Azure Blob Storage: redirect with SAS token
+    if hasattr(settings, "AZURE_ACCOUNT_NAME") and settings.AZURE_ACCOUNT_NAME:
+        from crush_lu.storage import CrushProfilePhotoStorage
+        from django.shortcuts import redirect
+
+        storage = CrushProfilePhotoStorage()
+        secure_url = storage.url(photo.name, expire=3600)
+        response = redirect(secure_url)
+        response["Cache-Control"] = "public, max-age=1800"
+        return response
+
+    # Local filesystem
+    photo_path = photo.path
+    if not os.path.exists(photo_path):
+        raise Http404("Photo file not found")
+
+    with open(photo_path, "rb") as f:
+        content_type = "image/jpeg"
+        if photo_path.lower().endswith(".png"):
+            content_type = "image/png"
+        elif photo_path.lower().endswith(".webp"):
+            content_type = "image/webp"
+        response = HttpResponse(f.read(), content_type=content_type)
+        response["Content-Disposition"] = "inline"
+        response["Cache-Control"] = "public, max-age=1800"
+        return response

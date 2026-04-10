@@ -5,6 +5,44 @@
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
+<div x-data="coachCheckin" data-event-id="{{ event.id }}">
+
+{# Profile Toast Cards (fixed top-right) #}
+<div class="fixed top-4 right-4 z-50 space-y-3 pointer-events-none" style="max-width: 320px;">
+    <template x-for="toast in activeToasts" :key="toast.id">
+        <div class="checkin-toast pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/40 border border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0">
+                <template x-if="toast.hasPhoto">
+                    <img x-bind:src="toast.photoUrl" class="w-full h-full object-cover" alt="">
+                </template>
+                <template x-if="toast.hasPhoto === false">
+                    <div class="w-full h-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-crush-purple/50 dark:text-crush-pink/50" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                </template>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                    <span class="font-semibold text-sm dark:text-white truncate" x-text="toast.name"></span>
+                    <template x-if="toast.isApproved">
+                        <span class="text-green-500 text-xs shrink-0" title="{% trans 'Verified' %}">&#10003;</span>
+                    </template>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span x-text="toast.genderIcon"></span>
+                    <span x-text="toast.ageDisplay"></span>
+                    <template x-if="toast.hasTable">
+                        <span class="text-crush-purple dark:text-purple-300 font-medium" x-text="toast.tableLabel"></span>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+
+{# Header #}
 <div class="mb-6">
     <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
         <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="hover:text-crush-purple transition-colors">{{ event.title|truncatechars:30 }}</a>
@@ -15,6 +53,10 @@
         <div>
             <h2 class="text-2xl font-bold dark:text-white">{% trans "Event Check-In" %}</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ event.title }} &middot; {{ event.date_time|date:"D, M j" }} {{ event.date_time|date:"g:i A" }}</p>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+            <span class="w-2 h-2 rounded-full" x-bind:class="connectionDot"></span>
+            <span class="text-gray-500 dark:text-gray-400" x-text="connectionLabel"></span>
         </div>
     </div>
 </div>
@@ -45,7 +87,7 @@
 {% endif %}
 
 {# QR Scanner Section #}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6" x-data="coachCheckin">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
     {# Scanner Controls #}
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-lg dark:text-white">{% trans "QR Scanner" %}</h3>
@@ -87,11 +129,13 @@
     <div x-show="recentCheckinCount" style="display: none;">
         <h4 class="font-medium text-sm text-gray-500 dark:text-gray-400 mb-2">{% trans "Recent Check-ins" %}</h4>
         <div class="space-y-2">
-            <template x-for="checkin in recentCheckins">
+            <template x-for="checkin in recentCheckins" :key="checkin.time + checkin.name">
                 <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2 text-sm">
                     <div class="flex items-center gap-2">
                         <span class="font-medium dark:text-white" x-text="checkin.name"></span>
-                        <span x-show="checkin.table" class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" x-text="'T' + checkin.table"></span>
+                        <template x-if="checkin.hasTable">
+                            <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" x-text="checkin.tableLabel"></span>
+                        </template>
                     </div>
                     <span class="text-gray-400 dark:text-gray-500 text-xs" x-text="checkin.time"></span>
                 </div>
@@ -100,7 +144,7 @@
     </div>
 </div>
 
-{# Manual Check-in Fallback - Attendee List #}
+{# Manual Check-in - Attendee List #}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
     <h3 class="font-semibold text-lg mb-4 dark:text-white">{% trans "Manual Check-In" %}</h3>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "Tap a name to manually check in an attendee." %}</p>
@@ -131,6 +175,7 @@
                 class="manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors"
                 data-checkin-url="/api/events/checkin/{{ reg.id }}/{{ reg.checkin_token }}/"
                 data-reg-id="{{ reg.id }}"
+                @click="manualCheckin"
             >
                 {% trans "Check In" %}
             </button>
@@ -147,10 +192,23 @@
     </div>
 </div>
 
+</div>{# end x-data="coachCheckin" #}
+
+{# Toast animation #}
+<style>
+@keyframes checkin-slide-in {
+    from { opacity: 0; transform: translateX(1rem); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.checkin-toast {
+    animation: checkin-slide-in 0.3s ease-out;
+}
+</style>
+
 {# html5-qrcode library #}
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
-var _i18n = {
+window._checkinI18n = {
     checkedIn: '{% filter escapejs %}{% trans "Checked In" %}{% endfilter %}',
     checkIn: '{% filter escapejs %}{% trans "Check In" %}{% endfilter %}',
     checkinFailed: '{% filter escapejs %}{% trans "Check-in failed" %}{% endfilter %}',
@@ -178,54 +236,6 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.textContent = 'T' + tableNum;
             badge.style.display = '';
         }
-    });
-
-    // Manual check-in buttons
-    document.querySelectorAll('.manual-checkin-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var url = btn.getAttribute('data-checkin-url');
-            var regId = btn.getAttribute('data-reg-id');
-            btn.disabled = true;
-            btn.textContent = '...';
-
-            fetch(url, { method: 'POST' })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data.success) {
-                        var row = document.getElementById('manual-reg-' + regId);
-                        if (row) {
-                            // Replace circle with checkmark
-                            var circle = row.querySelector('.border-gray-300, .border-gray-600');
-                            if (circle) {
-                                circle.outerHTML = '<svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
-                            }
-                            var tableBadge = data.table_number ? ' <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300">T' + data.table_number + '</span>' : '';
-                            btn.outerHTML = '<div class="flex items-center gap-2"><span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' + _i18n.checkedIn + '</span>' + tableBadge + '</div>';
-                        }
-                        // Update counter
-                        var counter = document.getElementById('attended-count');
-                        if (counter) {
-                            counter.textContent = parseInt(counter.textContent) + 1;
-                        }
-                        // Update table fill display
-                        if (data.table_number) {
-                            var fillEl = document.getElementById('table-fill-' + data.table_number);
-                            if (fillEl) {
-                                fillEl.textContent = parseInt(fillEl.textContent) + 1;
-                            }
-                        }
-                    } else {
-                        btn.disabled = false;
-                        btn.textContent = _i18n.checkIn;
-                        alert(data.error || _i18n.checkinFailed);
-                    }
-                })
-                .catch(function() {
-                    btn.disabled = false;
-                    btn.textContent = _i18n.checkIn;
-                    alert(_i18n.networkError);
-                });
-        });
     });
 });
 </script>

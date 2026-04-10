@@ -221,8 +221,41 @@ class QuizEventAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     inlines = [QuizRoundInline, QuizRotationScheduleInline]
     raw_id_fields = ("event", "created_by", "current_round")
-    readonly_fields = ("created_at", "updated_at", "tables_generated_at")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "tables_generated_at",
+        "readiness_check_display",
+    )
     actions = [generate_quiz_night_tables, populate_crush_quiz_questions]
+
+    def readiness_check_display(self, obj):
+        from django.utils.html import format_html, format_html_join
+
+        checks = obj.readiness_check()
+        rows = format_html_join(
+            "\n",
+            '<tr><td style="padding:4px 8px">{}</td>'
+            '<td style="padding:4px 8px;font-weight:600">{}</td>'
+            '<td style="padding:4px 8px;color:#666">{}</td></tr>',
+            (
+                (
+                    format_html(
+                        '<span style="color:{}">{}</span>',
+                        "#16a34a" if c["ok"] else "#dc2626",
+                        "\u2705" if c["ok"] else "\u274c",
+                    ),
+                    c["label"],
+                    c["detail"],
+                )
+                for c in checks
+            ),
+        )
+        return format_html(
+            '<table style="border-collapse:collapse">{}</table>', rows
+        )
+
+    readiness_check_display.short_description = _("Readiness Check")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)

@@ -80,6 +80,8 @@ def coach_quiz_config(request, event_id):
         rounds = quiz.rounds.prefetch_related("questions").order_by("sort_order")
         total_questions = sum(r.questions.count() for r in rounds)
 
+    readiness = quiz.readiness_check() if quiz else []
+
     return render(
         request,
         "crush_lu/coach_quiz_config.html",
@@ -89,6 +91,7 @@ def coach_quiz_config(request, event_id):
             "rounds": rounds,
             "total_questions": total_questions,
             "coach": request.coach,
+            "readiness": readiness,
         },
     )
 

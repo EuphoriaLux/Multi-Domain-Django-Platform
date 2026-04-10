@@ -227,6 +227,8 @@ urlpatterns = base_patterns + api_patterns + [
     # Quiz table display (projector view, language-neutral, no auth)
     path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),
     path('api/quiz/<int:event_id>/display-data/', views_quiz.quiz_table_display_data, name='quiz_table_display_data'),
+    path('api/quiz/<int:event_id>/verify-pin/', views_quiz.quiz_display_verify_pin, name='quiz_display_verify_pin'),
+    path('api/quiz/photo/<int:user_id>/', views_quiz.quiz_display_photo, name='quiz_display_photo'),
 
     # Referral redirect (language-neutral for wallet passes and sharing)
     # This allows https://crush.lu/r/CODE/ to work without language prefix

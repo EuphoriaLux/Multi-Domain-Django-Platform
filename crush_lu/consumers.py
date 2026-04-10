@@ -86,7 +86,60 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         # AUTH-01: Reject unauthenticated connections before accepting
         user = self.scope.get("user")
+        self.is_display = False
+
         if not user or not user.is_authenticated:
+            # Check for display token auth (projector display page)
+            query_string = self.scope.get("query_string", b"").decode()
+            params = dict(p.split("=", 1) for p in query_string.split("&") if "=" in p)
+            display_token = params.get("display_token", "")
+            is_display_request = params.get("display", "") == "true"
+            quiz_id = self.scope["url_route"]["kwargs"]["quiz_id"]
+
+            # Allow display connection if: valid token provided, OR display
+            # mode requested and quiz has no token set (open access)
+            display_auth = False
+            if display_token:
+                display_auth = await self._verify_display_token(quiz_id, display_token)
+            elif is_display_request:
+                display_auth = await self._quiz_has_no_display_token(quiz_id)
+
+            if display_auth:
+                self.is_display = True
+                self.quiz_id = quiz_id
+                self.quiz_group = f"quiz_{quiz_id}"
+                self.table_group = None
+
+                await self.channel_layer.group_add(self.quiz_group, self.channel_name)
+                await self.accept()
+
+                try:
+                    self._total_tables = await self._get_total_tables()
+                except Exception:
+                    self._total_tables = 0
+
+                # Send initial state (without answer data)
+                try:
+                    state = await self.get_quiz_state()
+                except Exception:
+                    state = None
+                if state:
+                    if state.get("status") in ("active", "paused", "finished"):
+                        try:
+                            state["leaderboard"] = await self.get_leaderboard()
+                        except Exception:
+                            pass
+                    q = state.get("question")
+                    if q and isinstance(q, dict):
+                        state["question"] = {
+                            k: v
+                            for k, v in q.items()
+                            if not k.startswith("choices_with_answers")
+                            and not k.startswith("correct_answer")
+                        }
+                    await self.send_json({"type": "quiz.state", "data": state})
+                return
+
             await self.close()
             return
 
@@ -150,11 +203,16 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "quiz.state", "data": state})
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
-        if self.table_group:
+        if hasattr(self, "quiz_group"):
+            await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
+        if getattr(self, "table_group", None):
             await self.channel_layer.group_discard(self.table_group, self.channel_name)
 
     async def receive_json(self, content):
+        # Display connections are read-only (projector view)
+        if self.is_display:
+            return
+
         action = content.get("action")
         user = self.scope.get("user")
 
@@ -492,11 +550,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         CLIENT-02: The broadcast includes ``choices_with_answers`` and
         ``correct_answer_*`` so the host can display the reference answer.
-        Attendees must NOT see this data (trivially visible in DevTools).
+        Attendees and display connections must NOT see this data.
         """
         data = event["data"]
         user = self.scope.get("user")
-        if not await self.is_host(user):
+        if self.is_display or not await self.is_host(user):
             # Build a sanitized copy without answer keys
             data = {
                 k: v
@@ -555,6 +613,20 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.error", "data": event["data"]})
 
     # --- Database helpers ---
+
+    @database_sync_to_async
+    def _verify_display_token(self, quiz_id, token):
+        """Verify a display_token for projector display WebSocket auth."""
+        from crush_lu.models.quiz import QuizEvent
+
+        return QuizEvent.objects.filter(id=quiz_id, display_token=token).exists()
+
+    @database_sync_to_async
+    def _quiz_has_no_display_token(self, quiz_id):
+        """Allow display connections when no PIN is configured."""
+        from crush_lu.models.quiz import QuizEvent
+
+        return QuizEvent.objects.filter(id=quiz_id, display_token="").exists()
 
     @database_sync_to_async
     def _get_total_tables(self):
@@ -1021,7 +1093,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         # Get users at this table for the current round
         round_number = quiz.get_round_number()
-        is_quiz_night = quiz.event.event_type == "quiz_night"
 
         # Try rotation schedule first
         rotation_users = list(
@@ -1032,8 +1103,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             ).values_list("user_id", flat=True)
         )
 
-        # Fall back to static membership only for non-quiz-night events
-        if not rotation_users and not is_quiz_night:
+        # Fall back to static membership when no rotation schedule exists
+        if not rotation_users:
             rotation_users = list(
                 QuizTableMembership.objects.filter(table=table).values_list(
                     "user_id", flat=True
@@ -1311,13 +1382,69 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             try:
                 profile = CrushProfile.objects.get(user_id=entry["user_id"])
                 name = profile.display_name
+                has_photo = bool(getattr(profile, "photo_1", None))
+                photo_url = (
+                    f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
+                )
             except CrushProfile.DoesNotExist:
                 name = "Anonymous"
+                photo_url = None
+            from crush_lu.views_quiz import _member_color, _member_initials
+
             individual_scores.append(
-                {"display_name": name, "total_score": entry["total"]}
+                {
+                    "display_name": name,
+                    "total_score": entry["total"],
+                    "initials": _member_initials(name),
+                    "color": _member_color(name),
+                    "photo_url": photo_url,
+                }
             )
 
         return {
             "tables": leaderboard,
             "individuals": individual_scores,
         }
+
+
+class CheckinConsumer(AsyncJsonWebsocketConsumer):
+    """WebSocket consumer for live check-in updates during events.
+
+    Read-only consumer: coaches receive broadcasts when attendees are checked in.
+    All check-in data flows from the HTTP API via channel layer group_send.
+    """
+
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+
+        if not await self._is_coach(user):
+            await self.close()
+            return
+
+        self.event_id = self.scope["url_route"]["kwargs"]["event_id"]
+        self.checkin_group = f"checkin_{self.event_id}"
+
+        await self.channel_layer.group_add(self.checkin_group, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "checkin_group"):
+            await self.channel_layer.group_discard(
+                self.checkin_group, self.channel_name
+            )
+
+    async def receive_json(self, content):
+        pass
+
+    async def checkin_update(self, event):
+        """Forward check-in update to connected coaches."""
+        await self.send_json({"type": "checkin.update", "data": event["data"]})
+
+    @database_sync_to_async
+    def _is_coach(self, user):
+        from crush_lu.models import CrushCoach
+
+        return CrushCoach.objects.filter(user=user, is_active=True).exists()

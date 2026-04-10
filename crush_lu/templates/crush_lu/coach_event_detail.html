@@ -74,11 +74,22 @@
     </div>
 </div>
 
-<!-- Event Control (Speed Dating phases) -->
-{% if event.enable_activity_voting %}
+<!-- Event Control -->
 <div class="mb-6">
     <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Event Control" %}</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="{% url 'crush_lu:coach_event_checkin' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-lg">
+                    📱
+                </div>
+                <div>
+                    <p class="font-semibold dark:text-white">{% trans "Check-In Scanner" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Scan attendee QR codes" %}</p>
+                </div>
+            </div>
+        </a>
+        {% if event.enable_activity_voting %}
         <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg">
@@ -101,20 +112,9 @@
                 </div>
             </div>
         </a>
-        <a href="{% url 'crush_lu:coach_event_checkin' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-lg">
-                    📱
-                </div>
-                <div>
-                    <p class="font-semibold dark:text-white">{% trans "Check-In Scanner" %}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Scan attendee QR codes" %}</p>
-                </div>
-            </div>
-        </a>
+        {% endif %}
     </div>
 </div>
-{% endif %}
 
 <!-- Post-Event Activity -->
 {% if connection_count or spark_count %}

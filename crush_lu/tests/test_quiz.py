@@ -1316,7 +1316,7 @@ class TestQuizTableDisplay:
         """Public display view renders without auth."""
         response = client.get(f"/quiz/{quiz_event.event_id}/display/")
         assert response.status_code == 200
-        assert b"quizTableDisplay" in response.content
+        assert b"quizDisplay" in response.content
 
     def test_display_data_returns_tables(self, client, quiz_event):
         """Display data JSON endpoint returns table info."""
@@ -1330,14 +1330,73 @@ class TestQuizTableDisplay:
         assert "tables" in data
         assert len(data["tables"]) == 2
         assert data["attended_count"] == 0
+        assert "quiz_status" in data
 
-    def test_display_token_blocks_unauthorized(self, client, quiz_event):
-        """Display with token set blocks requests without token."""
-        quiz_event.display_token = "secret123"
+    def test_display_pin_gate_shown_when_token_set(self, client, quiz_event):
+        """Display shows PIN gate when display_token is configured."""
+        quiz_event.display_token = "1234"
         quiz_event.save()
 
         response = client.get(f"/quiz/{quiz_event.event_id}/display/")
-        assert response.status_code == 404
-
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=secret123")
         assert response.status_code == 200
+        assert response.context["pin_required"] is True
+
+    def test_display_no_pin_gate_when_no_token(self, client, quiz_event):
+        """Display renders directly when no display_token configured."""
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        assert response.status_code == 200
+        assert response.context["pin_required"] is False
+
+    def test_display_token_bypasses_pin_gate(self, client, quiz_event):
+        """Providing correct token in URL bypasses PIN gate."""
+        quiz_event.display_token = "1234"
+        quiz_event.save()
+
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=1234")
+        assert response.status_code == 200
+        assert response.context["pin_required"] is False
+
+    def test_display_wrong_token_shows_pin_gate(self, client, quiz_event):
+        """Wrong token in URL still shows PIN gate."""
+        quiz_event.display_token = "1234"
+        quiz_event.save()
+
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=9999")
+        assert response.status_code == 200
+        assert response.context["pin_required"] is True
+
+    def test_verify_pin_correct(self, client, quiz_event):
+        """Correct PIN returns valid=true."""
+        quiz_event.display_token = "5678"
+        quiz_event.save()
+
+        response = client.post(
+            f"/api/quiz/{quiz_event.event_id}/verify-pin/",
+            data='{"pin": "5678"}',
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+
+    def test_verify_pin_wrong(self, client, quiz_event):
+        """Wrong PIN returns valid=false."""
+        quiz_event.display_token = "5678"
+        quiz_event.save()
+
+        response = client.post(
+            f"/api/quiz/{quiz_event.event_id}/verify-pin/",
+            data='{"pin": "0000"}',
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json()["valid"] is False
+
+    def test_verify_pin_no_token_set(self, client, quiz_event):
+        """When no display_token configured, any PIN is valid."""
+        response = client.post(
+            f"/api/quiz/{quiz_event.event_id}/verify-pin/",
+            data='{"pin": "1234"}',
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json()["valid"] is True

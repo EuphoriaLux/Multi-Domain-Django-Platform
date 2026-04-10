@@ -92,6 +92,38 @@
     </div>
 </div>
 
+<!-- Readiness Check -->
+{% if readiness %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-crush-purple/10 dark:bg-crush-purple/20">
+            <svg class="w-5 h-5 text-crush-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <div>
+            <h3 class="font-semibold text-gray-900 dark:text-white">{% trans "Readiness Check" %}</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Verify your quiz is correctly configured before starting." %}</p>
+        </div>
+    </div>
+    <div class="space-y-2">
+        {% for check in readiness %}
+        <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg {% if check.ok %}bg-green-50 dark:bg-green-900/10{% else %}bg-red-50 dark:bg-red-900/10{% endif %}">
+            <div class="flex items-center gap-2.5">
+                {% if check.ok %}
+                <svg class="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                {% else %}
+                <svg class="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                {% endif %}
+                <span class="text-sm font-medium {% if check.ok %}text-green-800 dark:text-green-300{% else %}text-red-800 dark:text-red-300{% endif %}">{{ check.label }}</span>
+            </div>
+            <span class="text-xs {% if check.ok %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ check.detail }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Table Settings -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
     <div class="flex items-center justify-between">

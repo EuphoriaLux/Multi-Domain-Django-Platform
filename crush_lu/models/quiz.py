@@ -151,6 +151,129 @@ class QuizEvent(models.Model):
 
         return tables
 
+    def readiness_check(self):
+        """Return a list of checks with pass/fail status for quiz readiness.
+
+        Each item: {"label": str, "ok": bool, "detail": str}
+        """
+        from crush_lu.models.events import EventRegistration
+
+        checks = []
+
+        # 1. Has rounds?
+        round_count = self.rounds.count()
+        checks.append({
+            "label": _("Rounds"),
+            "ok": round_count > 0,
+            "detail": str(round_count) if round_count else _("No rounds created"),
+        })
+
+        # 2. Has questions?
+        question_count = sum(
+            r.questions.count()
+            for r in self.rounds.prefetch_related("questions").all()
+        )
+        checks.append({
+            "label": _("Questions"),
+            "ok": question_count > 0,
+            "detail": str(question_count) if question_count else _("No questions created"),
+        })
+
+        # 3. Questions have correct answers?
+        bad_questions = []
+        for r in self.rounds.prefetch_related("questions").all():
+            for q in r.questions.all():
+                if q.question_type in ("multiple_choice", "true_false"):
+                    choices = q.choices or []
+                    has_correct = any(
+                        isinstance(c, dict) and c.get("is_correct")
+                        for c in choices
+                    )
+                    if not has_correct:
+                        bad_questions.append(q.text[:40])
+        checks.append({
+            "label": _("Correct answers"),
+            "ok": len(bad_questions) == 0 and question_count > 0,
+            "detail": (
+                _("All questions have a correct answer")
+                if not bad_questions and question_count > 0
+                else ", ".join(bad_questions[:3]) + ("..." if len(bad_questions) > 3 else "")
+                if bad_questions
+                else _("No questions to check")
+            ),
+        })
+
+        # 4. Tables configured?
+        table_count = QuizTable.objects.filter(quiz=self).count()
+        checks.append({
+            "label": _("Tables"),
+            "ok": table_count >= 2,
+            "detail": (
+                str(table_count)
+                if table_count >= 2
+                else _("Need at least 2 tables")
+            ),
+        })
+
+        # 5. Registrations?
+        reg_count = EventRegistration.objects.filter(
+            event=self.event, status__in=["confirmed", "attended"]
+        ).count()
+        checks.append({
+            "label": _("Registrations"),
+            "ok": reg_count >= 4,
+            "detail": (
+                _("%(count)d confirmed/attended") % {"count": reg_count}
+                if reg_count >= 4
+                else _("%(count)d (need at least 4)") % {"count": reg_count}
+            ),
+        })
+
+        # 6. Table members assigned?
+        member_count = QuizTableMembership.objects.filter(table__quiz=self).count()
+        rotation_count = QuizRotationSchedule.objects.filter(quiz=self).count()
+        has_assignments = member_count > 0 or rotation_count > 0
+        checks.append({
+            "label": _("Table assignments"),
+            "ok": has_assignments,
+            "detail": (
+                _("%(members)d members (%(rotations)d rotations)")
+                % {"members": member_count, "rotations": rotation_count}
+                if has_assignments
+                else _("No members assigned to tables")
+            ),
+        })
+
+        # 7. Members have photos?
+        if has_assignments:
+            from crush_lu.models import CrushProfile
+
+            if rotation_count > 0:
+                user_ids = list(
+                    QuizRotationSchedule.objects.filter(quiz=self)
+                    .values_list("user_id", flat=True)
+                    .distinct()
+                )
+            else:
+                user_ids = list(
+                    QuizTableMembership.objects.filter(table__quiz=self)
+                    .values_list("user_id", flat=True)
+                    .distinct()
+                )
+            profiles_with_photo = CrushProfile.objects.filter(
+                user_id__in=user_ids
+            ).exclude(photo_1="").exclude(photo_1__isnull=True).count()
+            checks.append({
+                "label": _("Profile photos"),
+                "ok": profiles_with_photo == len(user_ids),
+                "detail": (
+                    _("%(with)d/%(total)d participants have photos")
+                    % {"with": profiles_with_photo, "total": len(user_ids)}
+                ),
+            })
+
+        return checks
+
 
 class QuizRound(models.Model):
     """A named round within a quiz (e.g., 'Round 1: Movies')."""

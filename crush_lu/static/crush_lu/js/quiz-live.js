@@ -1365,19 +1365,55 @@ document.addEventListener("alpine:init", function () {
             // --- Table scoring (quiz night) ---
 
             _scoreTable: function (tableId, isCorrect) {
-                if (!this.ws || !this.connected || !this.currentQuestion) return;
+                if (!this.currentQuestion) return;
                 // Prevent re-scoring a table that has already been scored
                 if (this.scoredTables[String(tableId)] !== undefined) return;
-                this.ws.send(
-                    JSON.stringify({
-                        action: "score_table",
-                        table_id: tableId,
-                        question_id: this.currentQuestion.id,
-                        is_correct: isCorrect,
-                    }),
-                );
                 this.scoredTables[String(tableId)] = "pending";
                 this._updateTableButtons();
+
+                if (this.ws && this.connected) {
+                    this.ws.send(
+                        JSON.stringify({
+                            action: "score_table",
+                            table_id: tableId,
+                            question_id: this.currentQuestion.id,
+                            is_correct: isCorrect,
+                        }),
+                    );
+                } else {
+                    // HTTP fallback when WebSocket is not available
+                    var self = this;
+                    fetch("/api/quiz/" + this.quizId + "/score-table/", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": this._getCsrfToken(),
+                        },
+                        body: JSON.stringify({
+                            table_id: tableId,
+                            question_id: this.currentQuestion.id,
+                            is_correct: isCorrect,
+                        }),
+                    })
+                        .then(function (r) {
+                            return r.json();
+                        })
+                        .then(function (data) {
+                            if (data.scored_count !== undefined) {
+                                self.scoredCount = data.scored_count;
+                            }
+                            if (data.total_tables !== undefined) {
+                                self.totalTables = data.total_tables;
+                            }
+                            self.scoredTables[String(tableId)] = "scored";
+                            self._updateTableButtons();
+                        })
+                        .catch(function () {
+                            // Revert on failure
+                            delete self.scoredTables[String(tableId)];
+                            self._updateTableButtons();
+                        });
+                }
             },
 
             scoreTableCorrectFromEl: function () {

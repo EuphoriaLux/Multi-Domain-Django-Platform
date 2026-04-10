@@ -8,7 +8,10 @@ verifies the token and marks the registration as attended.
 
 import logging
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
@@ -90,6 +93,7 @@ def event_checkin_api(request, registration_id, token):
         response_data = {
             "success": True,
             "already_checked_in": True,
+            "registration_id": registration.id,
             "attendee_name": display_name,
             "checked_in_at": (
                 registration.checked_in_at.isoformat()
@@ -97,6 +101,7 @@ def event_checkin_api(request, registration_id, token):
                 else None
             ),
             "message": f"{display_name} was already checked in.",
+            "profile": _get_profile_data(registration),
         }
         table_info = _get_existing_table_assignment(registration)
         if table_info:
@@ -144,6 +149,7 @@ def event_checkin_api(request, registration_id, token):
             response_data = {
                 "success": True,
                 "already_checked_in": True,
+                "registration_id": registration.id,
                 "attendee_name": display_name,
                 "checked_in_at": (
                     registration.checked_in_at.isoformat()
@@ -151,6 +157,7 @@ def event_checkin_api(request, registration_id, token):
                     else None
                 ),
                 "message": f"{display_name} was already checked in.",
+                "profile": _get_profile_data(registration),
             }
             table_info = _get_existing_table_assignment(registration)
             if table_info:
@@ -187,13 +194,17 @@ def event_checkin_api(request, registration_id, token):
     response_data = {
         "success": True,
         "already_checked_in": False,
+        "registration_id": registration.id,
         "attendee_name": display_name,
         "checked_in_at": now.isoformat(),
         "message": f"{display_name} has been checked in!",
+        "profile": _get_profile_data(registration),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
         response_data["role"] = table_assignment["role"]
+
+    _broadcast_checkin(registration.event_id, response_data)
 
     return JsonResponse(response_data)
 
@@ -204,6 +215,37 @@ def _get_display_name(registration):
         return registration.user.crushprofile.display_name
     except Exception:
         return _("Attendee")
+
+
+def _get_profile_data(registration):
+    """Build privacy-aware profile card data for check-in toast."""
+    try:
+        profile = registration.user.crushprofile
+    except Exception:
+        return {}
+    data = {
+        "display_name": profile.display_name,
+        "gender": profile.gender or "",
+        "age_display": profile.age_display,
+        "is_approved": profile.is_approved,
+        "user_id": registration.user_id,
+    }
+    if profile.photo_1:
+        data["photo_url"] = reverse(
+            "crush_lu:serve_profile_photo",
+            kwargs={"user_id": registration.user_id, "photo_field": "photo_1"},
+        )
+    return data
+
+
+def _broadcast_checkin(event_id, response_data):
+    """Broadcast check-in update to WebSocket group for live coach updates."""
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"checkin_{event_id}",
+            {"type": "checkin.update", "data": response_data},
+        )
 
 
 def _get_existing_table_assignment(registration):

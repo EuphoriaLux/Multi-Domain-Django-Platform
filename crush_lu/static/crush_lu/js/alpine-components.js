@@ -268,6 +268,7 @@ document.addEventListener("alpine:init", function () {
     // Coach check-in scanner component
     Alpine.data("coachCheckin", function () {
         return {
+            // Scanner state
             scannerActive: false,
             scanner: null,
             result: false,
@@ -278,6 +279,28 @@ document.addEventListener("alpine:init", function () {
             lastTableNumber: 0,
             lastRole: "",
 
+            // WebSocket state
+            ws: null,
+            connected: false,
+            reconnectAttempts: 0,
+            eventId: 0,
+
+            // Toast state
+            toasts: [],
+            toastCounter: 0,
+
+            // Deduplication
+            processedIds: {},
+
+            init: function () {
+                this.eventId =
+                    parseInt(this.$el.getAttribute("data-event-id")) || 0;
+                if (this.eventId) {
+                    this.connectWebSocket();
+                }
+            },
+
+            // --- Getters (CSP-safe) ---
             get scannerButtonText() {
                 return this.scannerActive ? "Stop Scanner" : "Start Scanner";
             },
@@ -305,7 +328,170 @@ document.addEventListener("alpine:init", function () {
             get recentCheckinCount() {
                 return this.checkins.length;
             },
+            get activeToasts() {
+                return this.toasts;
+            },
+            get hasToasts() {
+                return this.toasts.length > 0;
+            },
+            get isConnected() {
+                return this.connected;
+            },
+            get connectionDot() {
+                return this.connected
+                    ? "bg-green-500"
+                    : "bg-gray-400 dark:bg-gray-600";
+            },
+            get connectionLabel() {
+                return this.connected ? "Live" : "Offline";
+            },
 
+            // --- WebSocket ---
+            connectWebSocket: function () {
+                var self = this;
+                var protocol =
+                    window.location.protocol === "https:" ? "wss:" : "ws:";
+                var url =
+                    protocol +
+                    "//" +
+                    window.location.host +
+                    "/ws/checkin/" +
+                    this.eventId +
+                    "/";
+                this.ws = new WebSocket(url);
+                this.ws.onopen = function () {
+                    self.connected = true;
+                    self.reconnectAttempts = 0;
+                };
+                this.ws.onclose = function () {
+                    self.connected = false;
+                    if (self.reconnectAttempts >= 20) return;
+                    var delay = Math.min(
+                        1000 * Math.pow(2, self.reconnectAttempts),
+                        30000,
+                    );
+                    self.reconnectAttempts++;
+                    setTimeout(function () {
+                        self.connectWebSocket();
+                    }, delay);
+                };
+                this.ws.onmessage = function (event) {
+                    var msg = JSON.parse(event.data);
+                    if (msg.type === "checkin.update") {
+                        self.handleRemoteCheckin(msg.data);
+                    }
+                };
+            },
+
+            handleRemoteCheckin: function (data) {
+                var regId = data.registration_id;
+                if (this.processedIds[regId]) return;
+                this.processedIds[regId] = true;
+
+                this.showProfileToast(data);
+                this._updateCheckinUI(data);
+            },
+
+            // --- Toast management ---
+            showProfileToast: function (data) {
+                var self = this;
+                var id = ++this.toastCounter;
+                var profile = data.profile || {};
+                var gender = profile.gender || "";
+                var genderIcon = "\u26A7";
+                if (gender === "M") genderIcon = "\u2642";
+                else if (gender === "F") genderIcon = "\u2640";
+
+                this.toasts.push({
+                    id: id,
+                    name: profile.display_name || data.attendee_name || "",
+                    genderIcon: genderIcon,
+                    ageDisplay: profile.age_display || "",
+                    isApproved: profile.is_approved || false,
+                    photoUrl: profile.photo_url || "",
+                    hasPhoto: !!(profile.photo_url),
+                    table: data.table_number || 0,
+                    hasTable: !!(data.table_number),
+                    tableLabel: data.table_number
+                        ? "T" + data.table_number
+                        : "",
+                    alreadyCheckedIn: data.already_checked_in || false,
+                });
+                setTimeout(function () {
+                    self.dismissToast(id);
+                }, 5000);
+            },
+
+            dismissToast: function (id) {
+                this.toasts = this.toasts.filter(function (t) {
+                    return t.id !== id;
+                });
+            },
+
+            // --- Shared UI update logic ---
+            _updateCheckinUI: function (data) {
+                var regId = data.registration_id;
+                if (data.already_checked_in) return;
+
+                // Add to recent checkins list
+                this.checkins.unshift({
+                    name: data.attendee_name,
+                    table: data.table_number || 0,
+                    hasTable: !!(data.table_number),
+                    tableLabel: data.table_number
+                        ? "T" + data.table_number
+                        : "",
+                    time: new Date().toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }),
+                });
+
+                // Update attended counter
+                var counter = document.getElementById("attended-count");
+                if (counter) {
+                    counter.textContent = parseInt(counter.textContent) + 1;
+                }
+
+                // Update table fill display
+                if (data.table_number) {
+                    var fillEl = document.getElementById(
+                        "table-fill-" + data.table_number,
+                    );
+                    if (fillEl) {
+                        fillEl.textContent = parseInt(fillEl.textContent) + 1;
+                    }
+                }
+
+                // Update manual check-in row
+                var row = document.getElementById("manual-reg-" + regId);
+                if (row) {
+                    var circle = row.querySelector(
+                        ".border-gray-300, .border-gray-600",
+                    );
+                    if (circle) {
+                        circle.outerHTML =
+                            '<svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                    }
+                    var btn = row.querySelector(".manual-checkin-btn");
+                    if (btn) {
+                        var tableBadge = data.table_number
+                            ? ' <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300">T' +
+                              data.table_number +
+                              "</span>"
+                            : "";
+                        var i18n = window._checkinI18n || {};
+                        btn.outerHTML =
+                            '<div class="flex items-center gap-2"><span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' +
+                            (i18n.checkedIn || "Checked In") +
+                            "</span>" +
+                            tableBadge +
+                            "</div>";
+                    }
+                }
+            },
+
+            // --- Scanner ---
             toggleScanner: function () {
                 if (this.scannerActive) {
                     this.stopScanner();
@@ -386,13 +572,10 @@ document.addEventListener("alpine:init", function () {
 
             handleScan: function (url) {
                 var self = this;
-                // Pause scanning while processing
                 if (self.scanner) {
                     self.scanner.pause(true);
                 }
 
-                // Extract check-in URL from QR code
-                // URL format: https://host/api/events/checkin/{reg_id}/{token}/
                 fetch(url, { method: "POST" })
                     .then(function (r) {
                         return r.json();
@@ -405,40 +588,21 @@ document.addEventListener("alpine:init", function () {
                             self.lastTableNumber = data.table_number || 0;
                             self.lastRole = data.role || "";
                             self.message = data.table_number
-                                ? data.message + " \u2192 Table " + data.table_number
+                                ? data.message +
+                                  " \u2192 Table " +
+                                  data.table_number
                                 : data.message;
-                            if (!data.already_checked_in) {
-                                self.checkins.unshift({
-                                    name: data.attendee_name,
-                                    table: data.table_number || 0,
-                                    time: new Date().toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    }),
-                                });
-                                // Update counter
-                                var counter = document.getElementById("attended-count");
-                                if (counter) {
-                                    counter.textContent =
-                                        parseInt(counter.textContent) + 1;
-                                }
-                                // Update table fill display
-                                if (data.table_number) {
-                                    var fillEl = document.getElementById(
-                                        "table-fill-" + data.table_number,
-                                    );
-                                    if (fillEl) {
-                                        fillEl.textContent =
-                                            parseInt(fillEl.textContent) + 1;
-                                    }
-                                }
+                            // Mark as processed locally (dedup WebSocket)
+                            if (data.registration_id) {
+                                self.processedIds[data.registration_id] = true;
                             }
+                            self.showProfileToast(data);
+                            self._updateCheckinUI(data);
                         } else {
                             self.success = false;
                             self.errorState = true;
                             self.message = data.error || "Check-in failed.";
                         }
-                        // Resume scanning after a brief delay
                         setTimeout(function () {
                             if (self.scanner && self.scannerActive) {
                                 try {
@@ -447,7 +611,7 @@ document.addEventListener("alpine:init", function () {
                             }
                         }, 2000);
                     })
-                    .catch(function (err) {
+                    .catch(function () {
                         self.result = true;
                         self.success = false;
                         self.errorState = true;
@@ -459,6 +623,45 @@ document.addEventListener("alpine:init", function () {
                                 } catch (e) {}
                             }
                         }, 2000);
+                    });
+            },
+
+            // --- Manual check-in ---
+            manualCheckin: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var url = btn.getAttribute("data-checkin-url");
+                var regId = btn.getAttribute("data-reg-id");
+                btn.disabled = true;
+                btn.textContent = "...";
+
+                fetch(url, { method: "POST" })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            if (data.registration_id) {
+                                self.processedIds[data.registration_id] = true;
+                            }
+                            self.showProfileToast(data);
+                            self._updateCheckinUI(data);
+                        } else {
+                            btn.disabled = false;
+                            var i18n = window._checkinI18n || {};
+                            btn.textContent = i18n.checkIn || "Check In";
+                            alert(
+                                data.error ||
+                                    i18n.checkinFailed ||
+                                    "Check-in failed",
+                            );
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        var i18n = window._checkinI18n || {};
+                        btn.textContent = i18n.checkIn || "Check In";
+                        alert(i18n.networkError || "Network error");
                     });
             },
         };

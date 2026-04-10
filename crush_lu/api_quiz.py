@@ -337,11 +337,18 @@ def score_table(request, quiz_id):
                 },
             )
 
+    total_tables = QuizTable.objects.filter(quiz=quiz).count()
+    scored_count = TableRoundScore.objects.filter(
+        quiz=quiz, question=question
+    ).count()
+
     return JsonResponse(
         {
             "table_number": table.table_number,
             "is_correct": is_correct,
             "points_awarded": points,
             "members_scored": len(rotation_users),
+            "scored_count": scored_count,
+            "total_tables": total_tables,
         }
     )
