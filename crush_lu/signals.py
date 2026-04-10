@@ -1487,9 +1487,15 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     - given_name, family_name, email (mapped in adapter populate_user)
     - birthdate, gender, phone_number, locale (mapped here to CrushProfile)
     """
+    # Reset the flag at the start (only for LuxID provider)
+    if sociallogin.account.provider == "luxid":
+        _thread_local.is_crush_luxid_login = False
+
+    # Only process LuxID logins
     if sociallogin.account.provider != "luxid":
         return
 
+    # Only process for crush.lu domain
     if not _is_crush_domain(request):
         return
 
@@ -1530,7 +1536,7 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         ).date()
                         updated_fields.append("date_of_birth")
                     except (ValueError, TypeError):
-                        logger.warning(f"Invalid birthdate format from LuxID: {birthdate}")
+                        logger.warning("Invalid birthdate format from LuxID")
 
                 # Map gender
                 gender = extra_data.get("gender", "").lower()
