@@ -20,7 +20,7 @@ from allauth.utils import build_absolute_uri
 class LuxIDOAuth2Adapter(OpenIDConnectOAuth2Adapter):
     provider_id = "luxid"
 
-    def __init__(self, request):
+    def __init__(self, request, provider_id=None):
         super().__init__(request, provider_id="luxid")
 
     def get_callback_url(self, request, app):

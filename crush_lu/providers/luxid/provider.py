@@ -34,6 +34,12 @@ class LuxIDProvider(OpenIDConnectProvider):
     name = "LuxID"
     account_class = LuxIDAccount
 
+    @property
+    def oauth2_adapter_class(self):
+        from .views import LuxIDOAuth2Adapter
+
+        return LuxIDOAuth2Adapter
+
     def __init__(self, request, app=None):
         super().__init__(request, app=app)
         if app and app.name:
