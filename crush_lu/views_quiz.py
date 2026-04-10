@@ -409,13 +409,17 @@ def quiz_table_display_data(request, event_id):
     return JsonResponse(data)
 
 
+@login_required
 def quiz_display_photo(request, user_id):
-    """Serve photo_1 for quiz display without authentication.
+    """Serve photo_1 for quiz display.
 
     Only serves photos for users who have an approved CrushProfile.
-    Returns a small cache-friendly response suitable for projector displays.
+    Returns a cache-friendly response suitable for projector displays.
     """
     profile = get_object_or_404(CrushProfile, user_id=user_id)
+
+    if not profile.is_approved:
+        raise Http404("Profile not approved")
 
     photo = getattr(profile, "photo_1", None)
     if not photo:
@@ -427,9 +431,9 @@ def quiz_display_photo(request, user_id):
         from django.shortcuts import redirect
 
         storage = CrushProfilePhotoStorage()
-        secure_url = storage.url(photo.name, expire=3600)
+        secure_url = storage.url(photo.name, expire=1800)
         response = redirect(secure_url)
-        response["Cache-Control"] = "public, max-age=1800"
+        response["Cache-Control"] = "private, max-age=1800"
         return response
 
     # Local filesystem
@@ -445,5 +449,5 @@ def quiz_display_photo(request, user_id):
             content_type = "image/webp"
         response = HttpResponse(f.read(), content_type=content_type)
         response["Content-Disposition"] = "inline"
-        response["Cache-Control"] = "public, max-age=1800"
+        response["Cache-Control"] = "private, max-age=1800"
         return response
