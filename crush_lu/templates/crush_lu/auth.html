@@ -73,8 +73,7 @@
                         {% trans "Continue with Microsoft" %}
                     </a>
                         {% endif %}
-                    {% endfor %}
-                    {# Apple rendered separately — bypasses provider list filtering #}
+                        {% if provider.id == "apple" %}
                     <a href="{% provider_login_url 'apple' %}" class="social-login-btn apple-btn"
                        data-oauth-url="{% provider_login_url 'apple' %}" data-provider="Apple">
                         <span class="social-icon">
@@ -84,6 +83,18 @@
                         </span>
                         {% trans "Continue with Apple" %}
                     </a>
+                        {% endif %}
+                        {% if provider.id == "luxid" %}
+                    <a href="{% provider_login_url 'luxid' %}" class="social-login-btn luxid-btn"
+                       data-oauth-url="{% provider_login_url 'luxid' %}" data-provider="LuxID"
+                       style="background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981); color: white;">
+                        <span class="social-icon">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" style="width: 20px; height: 20px; border-radius: 3px;">
+                        </span>
+                        {% trans "Continue with LuxID" %}
+                    </a>
+                        {% endif %}
+                    {% endfor %}
                 </div>
 
                 <div class="social-login-divider">{% trans "Or use email" %}</div>
