@@ -758,6 +758,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
             data["rounds"].append(r_data)
 
+        # Include table and attendance data for display page
+        from crush_lu.views_quiz import _get_table_members_json
+        from crush_lu.models.events import EventRegistration
+
+        round_number = quiz.get_round_number()
+        data["tables"] = _get_table_members_json(quiz, round_number)
+        data["attended_count"] = EventRegistration.objects.filter(
+            event_id=quiz.event_id, status="attended"
+        ).count()
+        data["confirmed_count"] = EventRegistration.objects.filter(
+            event_id=quiz.event_id, status__in=["confirmed", "attended"]
+        ).count()
+
         if question and quiz.is_active:
             from crush_lu.models.quiz import QuizTable, TableRoundScore
 

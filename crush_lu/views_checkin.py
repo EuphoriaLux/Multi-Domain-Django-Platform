@@ -298,6 +298,14 @@ def _broadcast_quiz_table_update(event, table_assignment):
                 "data": {"table_number": table_number},
             },
         )
+        # Also broadcast to main quiz group so the display page receives the update
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}",
+            {
+                "type": "quiz.table_update",
+                "data": {"table_number": table_number},
+            },
+        )
     except Exception:
         logger.exception("Failed to broadcast quiz table update for event %s", event.id)
 
