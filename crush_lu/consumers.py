@@ -108,9 +108,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 self.is_display = True
                 self.quiz_id = quiz_id
                 self.quiz_group = f"quiz_{quiz_id}"
+                self.display_group = f"quiz_{quiz_id}_display"
                 self.table_group = None
 
                 await self.channel_layer.group_add(self.quiz_group, self.channel_name)
+                await self.channel_layer.group_add(self.display_group, self.channel_name)
                 await self.accept()
 
                 try:
@@ -137,6 +139,13 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                             if not k.startswith("choices_with_answers")
                             and not k.startswith("correct_answer")
                         }
+                    # Enrich with table roster data (display-only)
+                    try:
+                        table_data = await self.get_table_display_data()
+                        if table_data:
+                            state.update(table_data)
+                    except Exception:
+                        pass
                     await self.send_json({"type": "quiz.state", "data": state})
                 return
 
@@ -205,6 +214,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def disconnect(self, close_code):
         if hasattr(self, "quiz_group"):
             await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
+        if getattr(self, "display_group", None):
+            await self.channel_layer.group_discard(self.display_group, self.channel_name)
         if getattr(self, "table_group", None):
             await self.channel_layer.group_discard(self.table_group, self.channel_name)
 
@@ -618,6 +629,28 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     # --- Database helpers ---
 
     @database_sync_to_async
+    def get_table_display_data(self):
+        """Return table roster and attendance counts (display-only)."""
+        from crush_lu.views_quiz import _get_table_members_json
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.models.quiz import QuizEvent
+
+        try:
+            quiz = QuizEvent.objects.get(id=self.quiz_id)
+        except QuizEvent.DoesNotExist:
+            return None
+        round_number = quiz.get_round_number()
+        return {
+            "tables": _get_table_members_json(quiz, round_number),
+            "attended_count": EventRegistration.objects.filter(
+                event_id=quiz.event_id, status="attended"
+            ).count(),
+            "confirmed_count": EventRegistration.objects.filter(
+                event_id=quiz.event_id, status__in=["confirmed", "attended"]
+            ).count(),
+        }
+
+    @database_sync_to_async
     def _verify_display_token(self, quiz_id, token):
         """Verify a display_token for projector display WebSocket auth."""
         from crush_lu.models.quiz import QuizEvent
@@ -757,19 +790,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 )
             )
             data["rounds"].append(r_data)
-
-        # Include table and attendance data for display page
-        from crush_lu.views_quiz import _get_table_members_json
-        from crush_lu.models.events import EventRegistration
-
-        round_number = quiz.get_round_number()
-        data["tables"] = _get_table_members_json(quiz, round_number)
-        data["attended_count"] = EventRegistration.objects.filter(
-            event_id=quiz.event_id, status="attended"
-        ).count()
-        data["confirmed_count"] = EventRegistration.objects.filter(
-            event_id=quiz.event_id, status__in=["confirmed", "attended"]
-        ).count()
 
         if question and quiz.is_active:
             from crush_lu.models.quiz import QuizTable, TableRoundScore
