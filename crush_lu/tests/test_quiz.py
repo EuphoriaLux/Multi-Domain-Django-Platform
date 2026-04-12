@@ -805,43 +805,37 @@ class TestRotationAlgorithm:
 class TestRotationRegistrationFiltering:
     """Regression tests for the no-show rotation bug.
 
-    Verifies that `generate_rotation_rounds` and the admin action only
-    rotate registrations with status='attended', and that still-'confirmed'
-    registrations are auto-flipped to 'no_show' on rotation.
+    `generate_rotation_rounds` must only rotate registrations with
+    status='attended'. Still-'confirmed' registrations stay as-is so
+    late arrivals can still QR check-in (views_checkin.py requires
+    status='confirmed'); the admin action is the explicit path for
+    marking no-shows after the fact.
     """
 
+    def _make_user_with_profile(self, username, gender):
+        u = User.objects.create_user(
+            username=f"{username}@test.com",
+            email=f"{username}@test.com",
+            password="testpass123",
+        )
+        _grant_consent(u)
+        _create_profile(u, gender)
+        return u
+
     def _make_attendees(self, event, men_count, women_count):
-        """Create users + CrushProfiles + EventRegistration(status='attended')
-        and return the registration list."""
+        """Create users + profiles + EventRegistration(status='attended')."""
         from crush_lu.models.events import EventRegistration
-        from crush_lu.models.profiles import CrushProfile
 
         regs = []
         for i in range(men_count):
-            u = User.objects.create_user(
-                username=f"rotm{i}@test.com",
-                email=f"rotm{i}@test.com",
-                password="testpass123",
-            )
-            _grant_consent(u)
-            CrushProfile.objects.create(
-                user=u, gender="M", date_of_birth=date(1990, 1, 1)
-            )
+            u = self._make_user_with_profile(f"rotm{i}", "M")
             regs.append(
                 EventRegistration.objects.create(
                     event=event, user=u, status="attended"
                 )
             )
         for i in range(women_count):
-            u = User.objects.create_user(
-                username=f"rotw{i}@test.com",
-                email=f"rotw{i}@test.com",
-                password="testpass123",
-            )
-            _grant_consent(u)
-            CrushProfile.objects.create(
-                user=u, gender="F", date_of_birth=date(1990, 1, 1)
-            )
+            u = self._make_user_with_profile(f"rotw{i}", "F")
             regs.append(
                 EventRegistration.objects.create(
                     event=event, user=u, status="attended"
@@ -849,22 +843,30 @@ class TestRotationRegistrationFiltering:
             )
         return regs
 
+    def _add_rounds(self, quiz, count):
+        for i in range(count):
+            QuizRound.objects.create(
+                quiz=quiz,
+                title=f"R{i + 1}",
+                sort_order=i,
+                time_per_question=30,
+            )
+
     def test_no_show_excluded_from_rotation_rounds(self, quiz_event):
-        """24 registrations (12M/12F), 3 still 'confirmed' at rotation time:
-        those 3 must be flipped to 'no_show' AND excluded from the schedule."""
+        """Reproduces the reported bug: 24 registrations (12M/12F), 3 still
+        'confirmed' at rotation time, must be excluded from the schedule.
+        Confirmed registrations are left untouched so late arrivals can
+        still QR check-in."""
         from crush_lu.services.quiz_rotation import generate_rotation_rounds
         from crush_lu.models.events import EventRegistration
 
         quiz_event.num_tables = 6
         quiz_event.save()
-        # Add a round so generate_rotation_rounds doesn't fall back to 3
-        QuizRound.objects.create(
-            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
-        )
+        self._add_rounds(quiz_event, 3)
 
         regs = self._make_attendees(quiz_event.event, men_count=12, women_count=12)
 
-        # Mark 3 as "confirmed" (i.e. never checked in): 1 man, 2 women
+        # 3 people never checked in: 1 man, 2 women
         no_show_regs = [regs[0], regs[12], regs[13]]
         for r in no_show_regs:
             r.status = "confirmed"
@@ -873,60 +875,68 @@ class TestRotationRegistrationFiltering:
 
         result = generate_rotation_rounds(quiz_event)
 
-        # The 3 confirmed registrations were auto-flipped to no_show
-        for r in no_show_regs:
-            r.refresh_from_db()
-            assert r.status == "no_show"
-
         # None of the no-show users appear anywhere in the rotation schedule
         scheduled_user_ids = set(
             QuizRotationSchedule.objects.filter(quiz=quiz_event).values_list(
                 "user_id", flat=True
             )
         )
-        assert scheduled_user_ids.isdisjoint(no_show_user_ids)
-
-        # 21 users rotated (11 anchors + 10 rotators, order depends on
-        # gender split — just check the totals)
-        assert result["anchors"] + result["rotators"] == 21
-        # Remaining 21 registrations are "attended"
-        assert (
-            EventRegistration.objects.filter(
-                event=quiz_event.event, status="attended"
-            ).count()
-            == 21
+        assert scheduled_user_ids.isdisjoint(no_show_user_ids), (
+            "No-show users must not appear in the rotation schedule"
         )
+
+        # 21 users rotated (remaining attended)
+        assert result["anchors"] + result["rotators"] == 21
+
+        # Confirmed rows are preserved (not auto-flipped) so late arrivals
+        # can still QR check-in through views_checkin.py
+        for r in no_show_regs:
+            r.refresh_from_db()
+            assert r.status == "confirmed", (
+                "rotation must not touch registration status; "
+                "late arrivals need status='confirmed' for QR check-in"
+            )
+
+        # Totals by status: 21 attended, 3 confirmed, 0 no_show
+        base_q = EventRegistration.objects.filter(event=quiz_event.event)
+        assert base_q.filter(status="attended").count() == 21
+        assert base_q.filter(status="confirmed").count() == 3
+        assert base_q.filter(status="no_show").count() == 0
 
     def test_late_arrival_included_when_attended(self, quiz_event):
-        """Users who check in after round 0 (still 'attended') are rotated;
-        still-'confirmed' stragglers are not."""
+        """A user who checks in after round 0 (status='attended') is
+        rotated; a still-'confirmed' straggler is excluded but NOT
+        auto-flipped — they must remain check-in-eligible."""
         from crush_lu.services.quiz_rotation import generate_rotation_rounds
+        from crush_lu.models.events import EventRegistration
 
-        quiz_event.num_tables = 4
+        quiz_event.num_tables = 2
         quiz_event.save()
-        QuizRound.objects.create(
-            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
-        )
+        self._add_rounds(quiz_event, 3)
 
+        # 4M + 4F = 8, all starting as attended
         regs = self._make_attendees(quiz_event.event, men_count=4, women_count=4)
 
-        # Seed round 0 with 6 of 8 attendees (2 haven't arrived yet)
-        table = QuizTable.objects.create(quiz=quiz_event, table_number=1)
-        for r in regs[:6]:
+        # Simulate: reg[6] and reg[7] (the last two women) didn't make
+        # round 0. reg[6] later QR-checked in → still 'attended'.
+        # reg[7] never showed up → flip to 'confirmed' to simulate.
+        regs[7].status = "confirmed"
+        regs[7].save()
+
+        # Seed round 0 with the 6 who were present at quiz start.
+        table1 = QuizTable.objects.create(quiz=quiz_event, table_number=1)
+        table2 = QuizTable.objects.create(quiz=quiz_event, table_number=2)
+        tables = [table1, table2]
+        for idx, r in enumerate(regs[:6]):
             role = "anchor" if r.user.crushprofile.gender == "M" else "rotator"
             QuizRotationSchedule.objects.create(
                 quiz=quiz_event,
                 round_number=0,
-                table=table,
+                table=tables[idx % 2],
                 user=r.user,
                 role=role,
                 rotation_group="" if role == "anchor" else "A",
             )
-
-        # Late arrival: reg[6] checks in (status already 'attended'),
-        # reg[7] stays 'confirmed' (never showed up)
-        regs[7].status = "confirmed"
-        regs[7].save()
 
         generate_rotation_rounds(quiz_event)
 
@@ -941,8 +951,16 @@ class TestRotationRegistrationFiltering:
         assert regs[7].user_id not in scheduled_user_ids, (
             "Still-'confirmed' registration must be excluded from rotation"
         )
+
+        # reg[7] stays 'confirmed' so it can still be QR-checked in
         regs[7].refresh_from_db()
-        assert regs[7].status == "no_show"
+        assert regs[7].status == "confirmed"
+        assert (
+            EventRegistration.objects.filter(
+                event=quiz_event.event, status="no_show"
+            ).count()
+            == 0
+        )
 
     def test_admin_action_marks_unattended_as_no_show(self, quiz_event):
         """The admin action flips 'confirmed' to 'no_show' and leaves
@@ -952,33 +970,16 @@ class TestRotationRegistrationFiltering:
 
         from crush_lu.admin.quiz import mark_unattended_as_no_show
         from crush_lu.models.events import EventRegistration
-        from crush_lu.models.profiles import CrushProfile
 
         # 2 attended + 2 confirmed on this event
         for i in range(2):
-            u = User.objects.create_user(
-                username=f"att{i}@test.com",
-                email=f"att{i}@test.com",
-                password="test",
-            )
-            _grant_consent(u)
-            CrushProfile.objects.create(
-                user=u, gender="M", date_of_birth=date(1990, 1, 1)
-            )
+            u = self._make_user_with_profile(f"att{i}", "M")
             EventRegistration.objects.create(
                 event=quiz_event.event, user=u, status="attended"
             )
         confirmed_ids = []
         for i in range(2):
-            u = User.objects.create_user(
-                username=f"conf{i}@test.com",
-                email=f"conf{i}@test.com",
-                password="test",
-            )
-            _grant_consent(u)
-            CrushProfile.objects.create(
-                user=u, gender="F", date_of_birth=date(1990, 1, 1)
-            )
+            u = self._make_user_with_profile(f"conf{i}", "F")
             reg = EventRegistration.objects.create(
                 event=quiz_event.event, user=u, status="confirmed"
             )
