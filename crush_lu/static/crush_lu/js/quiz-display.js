@@ -439,6 +439,8 @@ document.addEventListener("alpine:init", function () {
                     this.handleLeaderboard(data);
                 } else if (type === "quiz.rotate") {
                     this.handleRotate(data);
+                } else if (type === "quiz.table_update") {
+                    this.handleTableUpdate(data);
                 }
             },
 
@@ -461,6 +463,17 @@ document.addEventListener("alpine:init", function () {
 
                 if (data.total_tables) {
                     this.totalTables = data.total_tables;
+                }
+
+                // Extract table and attendance data
+                if (data.tables) {
+                    this.tables = data.tables;
+                }
+                if (data.attended_count !== undefined) {
+                    this.attendedCount = data.attended_count;
+                }
+                if (data.confirmed_count !== undefined) {
+                    this.confirmedCount = data.confirmed_count;
                 }
 
                 // Determine screen based on state
@@ -623,6 +636,11 @@ document.addEventListener("alpine:init", function () {
                         }
                     }, 8000);
                 }
+            },
+
+            handleTableUpdate: function (data) {
+                // Refresh table and attendance data from the API
+                this.fetchDisplayData();
             },
 
             // ============================================================
