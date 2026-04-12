@@ -910,32 +910,43 @@ class TestRotationRegistrationFiltering:
         from crush_lu.services.quiz_rotation import generate_rotation_rounds
         from crush_lu.models.events import EventRegistration
 
-        quiz_event.num_tables = 2
+        # num_tables=3 avoids the num_tables==2 special case in
+        # generate_rotation_schedule which creates duplicate (round, user)
+        # entries when len(group_a) is odd.
+        quiz_event.num_tables = 3
         quiz_event.save()
         self._add_rounds(quiz_event, 3)
 
-        # 4M + 4F = 8, all starting as attended
-        regs = self._make_attendees(quiz_event.event, men_count=4, women_count=4)
+        # 6M + 6F = 12, all starting as attended
+        regs = self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        # regs[0..5] = men m0..m5, regs[6..11] = women f0..f5
+        late_arrival_reg = regs[5]  # m5 — stays attended, joins after round 0
+        no_show_reg = regs[11]  # f5 — flipped to confirmed (never shows up)
+        no_show_reg.status = "confirmed"
+        no_show_reg.save()
 
-        # Simulate: reg[6] and reg[7] (the last two women) didn't make
-        # round 0. reg[6] later QR-checked in → still 'attended'.
-        # reg[7] never showed up → flip to 'confirmed' to simulate.
-        regs[7].status = "confirmed"
-        regs[7].save()
-
-        # Seed round 0 with the 6 who were present at quiz start.
-        table1 = QuizTable.objects.create(quiz=quiz_event, table_number=1)
-        table2 = QuizTable.objects.create(quiz=quiz_event, table_number=2)
-        tables = [table1, table2]
-        for idx, r in enumerate(regs[:6]):
+        # Seed round 0 with 10 attendees who were present at quiz start:
+        # m0..m4 and f0..f4. m5 and f5 missed round 0.
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=i + 1)
+            for i in range(3)
+        ]
+        seeded = [regs[0], regs[1], regs[2], regs[3], regs[4]] + [
+            regs[6], regs[7], regs[8], regs[9], regs[10]
+        ]
+        for idx, r in enumerate(seeded):
             role = "anchor" if r.user.crushprofile.gender == "M" else "rotator"
+            rotation_group = ""
+            if role == "rotator":
+                # First 3 women go to group A, next to group B
+                rotation_group = "A" if idx < 8 else "B"
             QuizRotationSchedule.objects.create(
                 quiz=quiz_event,
                 round_number=0,
-                table=tables[idx % 2],
+                table=tables[idx % 3],
                 user=r.user,
                 role=role,
-                rotation_group="" if role == "anchor" else "A",
+                rotation_group=rotation_group,
             )
 
         generate_rotation_rounds(quiz_event)
@@ -945,16 +956,16 @@ class TestRotationRegistrationFiltering:
                 quiz=quiz_event, round_number__gte=1
             ).values_list("user_id", flat=True)
         )
-        assert regs[6].user_id in scheduled_user_ids, (
+        assert late_arrival_reg.user_id in scheduled_user_ids, (
             "Late arrival with status='attended' must be rotated"
         )
-        assert regs[7].user_id not in scheduled_user_ids, (
+        assert no_show_reg.user_id not in scheduled_user_ids, (
             "Still-'confirmed' registration must be excluded from rotation"
         )
 
-        # reg[7] stays 'confirmed' so it can still be QR-checked in
-        regs[7].refresh_from_db()
-        assert regs[7].status == "confirmed"
+        # The no-show stays 'confirmed' so they can still be QR-checked in
+        no_show_reg.refresh_from_db()
+        assert no_show_reg.status == "confirmed"
         assert (
             EventRegistration.objects.filter(
                 event=quiz_event.event, status="no_show"
@@ -965,7 +976,8 @@ class TestRotationRegistrationFiltering:
     def test_admin_action_marks_unattended_as_no_show(self, quiz_event):
         """The admin action flips 'confirmed' to 'no_show' and leaves
         'attended' rows alone."""
-        from django.contrib.messages.storage.fallback import FallbackStorage
+        from unittest.mock import patch
+
         from django.test import RequestFactory
 
         from crush_lu.admin.quiz import mark_unattended_as_no_show
@@ -986,15 +998,14 @@ class TestRotationRegistrationFiltering:
             confirmed_ids.append(reg.id)
 
         request = RequestFactory().get("/admin/")
-        request.session = {}
-        request.user = User.objects.create_user(
-            username="adminuser@test.com", password="test", is_staff=True
-        )
-        request._messages = FallbackStorage(request)
 
-        mark_unattended_as_no_show(
-            None, request, QuizEvent.objects.filter(pk=quiz_event.pk)
-        )
+        # Stub messages.success so we don't need the full messages middleware
+        # stack (FallbackStorage requires session + cookies) just to test
+        # the data mutation.
+        with patch("crush_lu.admin.quiz.messages.success"):
+            mark_unattended_as_no_show(
+                None, request, QuizEvent.objects.filter(pk=quiz_event.pk)
+            )
 
         # Confirmed → no_show
         for rid in confirmed_ids:
@@ -1006,6 +1017,50 @@ class TestRotationRegistrationFiltering:
             ).count()
             == 2
         )
+
+    def test_late_checkin_regenerates_rounds(self, quiz_event):
+        """When a late arrival checks in after rotation is already
+        generated, assign_table_on_checkin must rebuild rounds 1+ so the
+        new person is seated for the rest of the quiz."""
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # 6M + 5F all attended (so rotation is well-formed); plus one
+        # extra woman who arrives late (starts as confirmed, then
+        # transitions to attended when assign_table_on_checkin runs).
+        regs = self._make_attendees(quiz_event.event, men_count=6, women_count=5)
+        late_user = self._make_user_with_profile("late", "F")
+
+        # Generate the initial schedule — late_user is not yet in it.
+        generate_rotation_rounds(quiz_event)
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=late_user
+        ).exists() is False
+
+        # Late arrival checks in: assign_table_on_checkin should place
+        # them in round 0 AND regenerate rounds 1+ to include them.
+        assign_table_on_checkin(quiz_event, late_user)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=0, user=late_user
+        ).exists(), "late arrival must be placed in round 0"
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=late_user
+        ).exists(), (
+            "late arrival must be picked up by rotation regeneration "
+            "into rounds 1+"
+        )
+        # The original 11 attendees are still in the schedule too.
+        for r in regs:
+            assert QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gte=1, user=r.user
+            ).exists()
 
 
 # ============================================================================

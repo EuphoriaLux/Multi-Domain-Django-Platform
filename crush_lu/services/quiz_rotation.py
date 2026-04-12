@@ -298,6 +298,27 @@ def assign_table_on_checkin(quiz_event, user):
             rotation_group=rotation_group,
         )
 
+    # If the quiz has already been started (rounds 1+ exist in the schedule),
+    # regenerate them so this late arrival is seated for the remaining rounds
+    # too. Otherwise they would only appear in round 0 and silently miss
+    # scoring in every subsequent round. Idempotent — rebuilds from the
+    # current round-0 state.
+    rounds_exist = QuizRotationSchedule.objects.filter(
+        quiz=quiz_event, round_number__gte=1
+    ).exists()
+    if rounds_exist:
+        try:
+            generate_rotation_rounds(quiz_event)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to regenerate rotation rounds for late arrival "
+                "(quiz=%s user=%s)",
+                quiz_event.pk,
+                user.pk,
+            )
+
     return {
         "table_number": target_table.table_number,
         "role": role,
