@@ -304,18 +304,16 @@ def assign_table_on_checkin(quiz_event, user):
     # already-played rounds: `advance_round_and_rotate` reads
     # QuizRotationSchedule live at rotate time, so rewriting the current
     # round's rows would move seated participants to different tables
-    # mid-game. generate_rotation_rounds serializes on a quiz-row lock and
-    # only rebuilds rounds >= from_round, leaving lower rounds untouched.
+    # mid-game. ``preserve_current_round=True`` reads ``current_round``
+    # from the DB *under* the quiz row lock, so a concurrent
+    # ``advance_round_and_rotate`` cannot race and make the preserved
+    # boundary stale.
     rounds_exist = QuizRotationSchedule.objects.filter(
         quiz=quiz_event, round_number__gte=1
     ).exists()
     if rounds_exist:
-        current_round_number = 0
-        if quiz_event.current_round_id:
-            current_round_number = quiz_event.get_round_number()
-        from_round = max(1, current_round_number + 1)
         try:
-            generate_rotation_rounds(quiz_event, from_round=from_round)
+            generate_rotation_rounds(quiz_event, preserve_current_round=True)
         except Exception:
             import logging
 
@@ -332,7 +330,7 @@ def assign_table_on_checkin(quiz_event, user):
     }
 
 
-def generate_rotation_rounds(quiz, from_round=1):
+def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
     """
     Generate rotation schedule for rounds >= ``from_round`` using existing
     round-0 check-in assignments.
@@ -347,6 +345,12 @@ def generate_rotation_rounds(quiz, from_round=1):
             as-is, which lets the caller protect the current and already-
             played rounds from being shuffled mid-game. Default 1, which
             preserves only round 0 (check-in placements).
+        preserve_current_round: if True, ``from_round`` is recomputed
+            *after* acquiring the quiz row lock as
+            ``max(from_round, get_round_number(current_round) + 1)``, so
+            the boundary is based on committed state and cannot race
+            against a concurrent ``advance_round_and_rotate`` that has
+            already moved ``current_round`` forward.
 
     Returns:
         dict: {"num_tables": int, "warnings": list, "anchors": int, "rotators": int}
@@ -370,7 +374,26 @@ def generate_rotation_rounds(quiz, from_round=1):
     # sequence below cannot race on the same quiz and violate the
     # (quiz, round_number, user) unique_together constraint.
     with transaction.atomic():
-        QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
+        # Re-fetch under the row lock so current_round reflects committed
+        # state at rebuild time — a concurrent advance_round_and_rotate
+        # cannot slip in between this read and the delete below.
+        locked_quiz = (
+            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
+        )
+        if locked_quiz is None:
+            return {
+                "num_tables": 0,
+                "warnings": [],
+                "anchors": 0,
+                "rotators": 0,
+            }
+        quiz = locked_quiz
+
+        if preserve_current_round:
+            current_round_number = 0
+            if quiz.current_round_id:
+                current_round_number = quiz.get_round_number()
+            from_round = max(from_round, current_round_number + 1)
 
         # Delete existing rounds >= from_round (idempotent). Round 0 and
         # any round < from_round are preserved so in-progress gameplay is
