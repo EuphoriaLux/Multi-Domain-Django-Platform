@@ -716,10 +716,10 @@ class TestSendNewConnectionNotification:
             preferred_language='en'
         )
 
-        # Mock connection with user1/user2 attributes (as expected by the code)
+        # Mock connection with requester/recipient attributes (matching EventConnection model)
         mock_connection = MagicMock()
-        mock_connection.user1 = other_user
-        mock_connection.user2 = push_subscription.user
+        mock_connection.requester = other_user
+        mock_connection.recipient = push_subscription.user
         mock_connection.id = 123
 
         send_new_connection_notification(push_subscription.user, mock_connection)
@@ -730,6 +730,59 @@ class TestSendNewConnectionNotification:
         # display_name property returns user.first_name when show_full_name is False
         assert 'OtherPerson' in call_kwargs['body']
         assert 'connection-123' in call_kwargs['tag']
+
+    @patch('crush_lu.push_notifications.send_push_notification')
+    def test_works_with_real_event_connection_model(
+        self, mock_send_push, push_subscription
+    ):
+        """Regression: must read requester/recipient, not user1/user2.
+
+        Production bug 2026-04-11: send_new_connection_notification crashed with
+        "'EventConnection' object has no attribute 'user2'" because the function
+        referenced non-existent fields. This test uses a real EventConnection
+        instance so any future field rename will break it immediately.
+        """
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+
+        recipient_user = push_subscription.user
+        other_user = User.objects.create_user(
+            username='connreal@example.com',
+            email='connreal@example.com',
+            password='pass123',
+            first_name='RealOther',
+        )
+        CrushProfile.objects.create(
+            user=other_user,
+            date_of_birth=date(1990, 1, 1),
+            gender='F',
+            location='Luxembourg',
+            preferred_language='en',
+        )
+
+        event = MeetupEvent.objects.create(
+            title='Regression Event',
+            description='For regression test',
+            event_type='mixer',
+            date_time=timezone.now() - timedelta(days=1),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True,
+        )
+        connection = EventConnection.objects.create(
+            event=event,
+            requester=other_user,
+            recipient=recipient_user,
+            status='pending',
+        )
+
+        # Must not raise AttributeError
+        send_new_connection_notification(recipient_user, connection)
+
+        mock_send_push.assert_called_once()
+        call_kwargs = mock_send_push.call_args[1]
+        assert 'RealOther' in call_kwargs['body']
 
 
 # =============================================================================

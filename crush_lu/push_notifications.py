@@ -295,7 +295,7 @@ def send_new_connection_notification(user, connection):
         return
 
     # Get the other user's display name
-    other_user = connection.user1 if connection.user2 == user else connection.user2
+    other_user = connection.requester if connection.recipient == user else connection.recipient
     display_name = other_user.crushprofile.display_name if hasattr(other_user, 'crushprofile') else other_user.first_name
 
     # Use context manager for thread-safe language activation
