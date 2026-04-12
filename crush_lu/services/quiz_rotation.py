@@ -299,16 +299,23 @@ def assign_table_on_checkin(quiz_event, user):
         )
 
     # If the quiz has already been started (rounds 1+ exist in the schedule),
-    # regenerate them so this late arrival is seated for the remaining rounds
-    # too. Otherwise they would only appear in round 0 and silently miss
-    # scoring in every subsequent round. Idempotent — rebuilds from the
-    # current round-0 state.
+    # rebuild future rounds so this late arrival is seated for the remainder
+    # of the quiz. We deliberately preserve the current round and any
+    # already-played rounds: `advance_round_and_rotate` reads
+    # QuizRotationSchedule live at rotate time, so rewriting the current
+    # round's rows would move seated participants to different tables
+    # mid-game. generate_rotation_rounds serializes on a quiz-row lock and
+    # only rebuilds rounds >= from_round, leaving lower rounds untouched.
     rounds_exist = QuizRotationSchedule.objects.filter(
         quiz=quiz_event, round_number__gte=1
     ).exists()
     if rounds_exist:
+        current_round_number = 0
+        if quiz_event.current_round_id:
+            current_round_number = quiz_event.get_round_number()
+        from_round = max(1, current_round_number + 1)
         try:
-            generate_rotation_rounds(quiz_event)
+            generate_rotation_rounds(quiz_event, from_round=from_round)
         except Exception:
             import logging
 
@@ -325,15 +332,21 @@ def assign_table_on_checkin(quiz_event, user):
     }
 
 
-def generate_rotation_rounds(quiz):
+def generate_rotation_rounds(quiz, from_round=1):
     """
-    Generate rotation schedule for rounds 1+ using existing round-0 check-in assignments.
+    Generate rotation schedule for rounds >= ``from_round`` using existing
+    round-0 check-in assignments.
 
     Preserves round-0 table assignments and builds rotation rounds on top.
     Used by both "Start Quiz" (auto) and "Regenerate Tables" (manual).
 
     Args:
         quiz: QuizEvent instance with num_tables set and round-0 data populated.
+        from_round: rebuild rounds from this number onwards (inclusive). Must
+            be >= 1. Rounds with ``round_number < from_round`` are preserved
+            as-is, which lets the caller protect the current and already-
+            played rounds from being shuffled mid-game. Default 1, which
+            preserves only round 0 (check-in placements).
 
     Returns:
         dict: {"num_tables": int, "warnings": list, "anchors": int, "rotators": int}
@@ -343,112 +356,134 @@ def generate_rotation_rounds(quiz):
     """
     from collections import defaultdict
 
+    from django.db import transaction
     from django.utils import timezone
 
     from crush_lu.models.events import EventRegistration
-    from crush_lu.models.quiz import QuizRotationSchedule, QuizTable
+    from crush_lu.models.quiz import QuizEvent, QuizRotationSchedule, QuizTable
 
-    # Delete existing rounds 1+ (idempotent)
-    QuizRotationSchedule.objects.filter(quiz=quiz).exclude(round_number=0).delete()
+    if from_round < 1:
+        from_round = 1
 
-    # Only people who actually checked in via QR should be rotated. This
-    # excludes no-shows (status still "confirmed") from the rotation
-    # snapshot without touching their registration row, so late arrivals
-    # can still QR-scan in (views_checkin.py requires status="confirmed")
-    # and be picked up on the next rotation regeneration.
-    registrations = (
-        EventRegistration.objects.filter(event=quiz.event, status="attended")
-        .select_related("user__crushprofile")
-        .order_by("registered_at")
-    )
-    men_all, women_all = split_participants_by_gender(registrations)
+    # Serialize concurrent callers (late check-ins, admin "Regenerate
+    # Tables", and quiz-start auto-generation) so the delete/rebuild
+    # sequence below cannot race on the same quiz and violate the
+    # (quiz, round_number, user) unique_together constraint.
+    with transaction.atomic():
+        QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
 
-    num_rounds = quiz.rounds.count() or 3
-    num_tables = quiz.num_tables
+        # Delete existing rounds >= from_round (idempotent). Round 0 and
+        # any round < from_round are preserved so in-progress gameplay is
+        # not disrupted.
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number__gte=from_round
+        ).delete()
 
-    # Read round-0 assignments
-    round_0 = QuizRotationSchedule.objects.filter(
-        quiz=quiz, round_number=0
-    ).select_related("table")
+        # Only people who actually checked in via QR should be rotated.
+        # This excludes no-shows (status still "confirmed") from the
+        # rotation snapshot without touching their registration row, so
+        # late arrivals can still QR-scan in (views_checkin.py requires
+        # status="confirmed") and be picked up on the next rotation
+        # regeneration.
+        registrations = (
+            EventRegistration.objects.filter(event=quiz.event, status="attended")
+            .select_related("user__crushprofile")
+            .order_by("registered_at")
+        )
+        men_all, women_all = split_participants_by_gender(registrations)
 
-    anchors_by_table = defaultdict(list)
-    rotators_by_table = defaultdict(list)  # keyed by (group, table)
-    round_0_users = set()
+        num_rounds = quiz.rounds.count() or 3
+        num_tables = quiz.num_tables
 
-    for r in round_0:
-        round_0_users.add(r.user_id)
-        t_idx = r.table.table_number - 1
-        if r.role == "anchor":
-            anchors_by_table[t_idx].append(r.user)
-        else:
-            rotators_by_table[(r.rotation_group, t_idx)].append(r.user)
+        # Read round-0 assignments
+        round_0 = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=0
+        ).select_related("table")
 
-    # Interleave anchors to match _distribute_evenly round-robin
-    ordered_men = []
-    max_anchors = (
-        max(len(v) for v in anchors_by_table.values()) if anchors_by_table else 0
-    )
-    for rank in range(max_anchors):
-        for t in range(num_tables):
-            if rank < len(anchors_by_table.get(t, [])):
-                ordered_men.append(anchors_by_table[t][rank])
-    # Append late arrivals not in round 0
-    for m in men_all:
-        if m.id not in round_0_users:
-            ordered_men.append(m)
+        anchors_by_table = defaultdict(list)
+        rotators_by_table = defaultdict(list)  # keyed by (group, table)
+        round_0_users = set()
 
-    # Rotators: ordered by group (A, B, C), then by table index
-    ordered_women = []
-    for group in ["A", "B", "C"]:
-        for t in range(num_tables):
-            ordered_women.extend(rotators_by_table.get((group, t), []))
-    for w in women_all:
-        if w.id not in round_0_users:
-            ordered_women.append(w)
+        for r in round_0:
+            round_0_users.add(r.user_id)
+            t_idx = r.table.table_number - 1
+            if r.role == "anchor":
+                anchors_by_table[t_idx].append(r.user)
+            else:
+                rotators_by_table[(r.rotation_group, t_idx)].append(r.user)
 
-    result = generate_rotation_schedule(
-        ordered_men, ordered_women, num_rounds, num_tables=num_tables
-    )
+        # Interleave anchors to match _distribute_evenly round-robin
+        ordered_men = []
+        max_anchors = (
+            max(len(v) for v in anchors_by_table.values())
+            if anchors_by_table
+            else 0
+        )
+        for rank in range(max_anchors):
+            for t in range(num_tables):
+                if rank < len(anchors_by_table.get(t, [])):
+                    ordered_men.append(anchors_by_table[t][rank])
+        # Append late arrivals not in round 0
+        for m in men_all:
+            if m.id not in round_0_users:
+                ordered_men.append(m)
 
-    schedule = result["schedule"]
-    actual_num_tables = result["num_tables"]
+        # Rotators: ordered by group (A, B, C), then by table index
+        ordered_women = []
+        for group in ["A", "B", "C"]:
+            for t in range(num_tables):
+                ordered_women.extend(rotators_by_table.get((group, t), []))
+        for w in women_all:
+            if w.id not in round_0_users:
+                ordered_women.append(w)
 
-    # Reuse or create tables
-    existing_tables = {t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)}
-    tables = {}
-    for t in range(1, actual_num_tables + 1):
-        if t in existing_tables:
-            tables[t] = existing_tables[t]
-        else:
-            tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
-
-    # Remove excess tables only if they have no scores
-    for t_num, t_obj in existing_tables.items():
-        if t_num > actual_num_tables:
-            if not t_obj.round_scores.exists():
-                t_obj.delete()
-
-    # Build rotation entries for rounds 1+ (skip round 0)
-    rotation_entries = []
-    for entry in schedule:
-        if entry["round_number"] == 0:
-            continue
-        table = tables[entry["table_number"]]
-        rotation_entries.append(
-            QuizRotationSchedule(
-                quiz=quiz,
-                round_number=entry["round_number"],
-                table=table,
-                user=entry["user"],
-                role=entry["role"],
-                rotation_group=entry["rotation_group"],
-            )
+        result = generate_rotation_schedule(
+            ordered_men, ordered_women, num_rounds, num_tables=num_tables
         )
 
-    QuizRotationSchedule.objects.bulk_create(rotation_entries)
+        schedule = result["schedule"]
+        actual_num_tables = result["num_tables"]
 
-    quiz.tables_generated_at = timezone.now()
-    quiz.save(update_fields=["tables_generated_at"])
+        # Reuse or create tables
+        existing_tables = {
+            t.table_number: t for t in QuizTable.objects.filter(quiz=quiz)
+        }
+        tables = {}
+        for t in range(1, actual_num_tables + 1):
+            if t in existing_tables:
+                tables[t] = existing_tables[t]
+            else:
+                tables[t] = QuizTable.objects.create(quiz=quiz, table_number=t)
+
+        # Remove excess tables only if they have no scores
+        for t_num, t_obj in existing_tables.items():
+            if t_num > actual_num_tables:
+                if not t_obj.round_scores.exists():
+                    t_obj.delete()
+
+        # Build rotation entries for rounds >= from_round. Round 0 and
+        # rounds < from_round are never (re)inserted here so they stay
+        # exactly as they are in the DB.
+        rotation_entries = []
+        for entry in schedule:
+            if entry["round_number"] < from_round:
+                continue
+            table = tables[entry["table_number"]]
+            rotation_entries.append(
+                QuizRotationSchedule(
+                    quiz=quiz,
+                    round_number=entry["round_number"],
+                    table=table,
+                    user=entry["user"],
+                    role=entry["role"],
+                    rotation_group=entry["rotation_group"],
+                )
+            )
+
+        QuizRotationSchedule.objects.bulk_create(rotation_entries)
+
+        quiz.tables_generated_at = timezone.now()
+        quiz.save(update_fields=["tables_generated_at"])
 
     return {
         "num_tables": actual_num_tables,

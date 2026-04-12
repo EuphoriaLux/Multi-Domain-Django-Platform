@@ -1062,6 +1062,105 @@ class TestRotationRegistrationFiltering:
                 quiz=quiz_event, round_number__gte=1, user=r.user
             ).exists()
 
+    def test_mid_game_late_checkin_preserves_current_round(self, quiz_event):
+        """If a late arrival happens while the quiz is already in round 2,
+        round 1 (past) and round 2 (current) must be preserved byte-for-byte
+        so players don't get moved to different tables mid-game. Only
+        rounds 3+ should be rewritten to include the new user."""
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        rounds = []
+        for i in range(4):
+            rounds.append(
+                QuizRound.objects.create(
+                    quiz=quiz_event,
+                    title=f"R{i + 1}",
+                    sort_order=i,
+                    time_per_question=30,
+                )
+            )
+
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        generate_rotation_rounds(quiz_event)
+
+        # Quiz advances into the second playable round (round_number=1).
+        quiz_event.current_round = rounds[1]
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["current_round", "status"])
+        assert quiz_event.get_round_number() == 1
+
+        # Capture round 1 (current) as it stands before the late check-in.
+        def _snapshot(round_number):
+            return set(
+                QuizRotationSchedule.objects.filter(
+                    quiz=quiz_event, round_number=round_number
+                ).values_list("user_id", "table_id", "role", "rotation_group")
+            )
+
+        snap_r0 = _snapshot(0)
+        snap_r1 = _snapshot(1)
+        snap_r2 = _snapshot(2)
+        snap_r3 = _snapshot(3)
+
+        # Late arrival scans in during round 2.
+        late_user = self._make_user_with_profile("midgame_late", "F")
+        assign_table_on_checkin(quiz_event, late_user)
+
+        # Round 0 and round 1 (current) must be byte-identical except for
+        # late_user's fresh round-0 placement.
+        snap_r0_after = _snapshot(0)
+        assert snap_r0_after - snap_r0 == {
+            row for row in snap_r0_after if row[0] == late_user.id
+        }, "round 0 should only gain the late arrival's placement"
+        assert snap_r1 == _snapshot(1), (
+            "current round (round_number=1) must not be rewritten mid-game"
+        )
+
+        # Rounds 2+ should be rebuilt with the late user included.
+        assert _snapshot(2) != snap_r2 or _snapshot(3) != snap_r3, (
+            "future rounds should be regenerated to include the late arrival"
+        )
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=2, user=late_user
+        ).exists(), "late arrival must appear in future rounds"
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=1, user=late_user
+        ).exists(), "late arrival must NOT be injected into the current round"
+
+    def test_generate_rotation_rounds_from_round_preserves_lower(self, quiz_event):
+        """Calling generate_rotation_rounds(from_round=N) must leave rows
+        with round_number < N untouched and only rebuild N and above."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 4)
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        generate_rotation_rounds(quiz_event)
+
+        before_r1 = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=1
+            ).values_list("user_id", "table_id")
+        )
+
+        generate_rotation_rounds(quiz_event, from_round=2)
+
+        after_r1 = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=1
+            ).values_list("user_id", "table_id")
+        )
+        assert before_r1 == after_r1, "round 1 must be preserved when from_round=2"
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=2
+        ).exists(), "rounds 2+ must still be populated"
+
 
 # ============================================================================
 # API TESTS
