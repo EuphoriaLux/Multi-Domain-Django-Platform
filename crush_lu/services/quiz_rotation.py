@@ -298,20 +298,19 @@ def assign_table_on_checkin(quiz_event, user):
             rotation_group=rotation_group,
         )
 
-    # If the quiz has already been started (rounds 1+ exist in the schedule),
-    # rebuild future rounds so this late arrival is seated for the remainder
-    # of the quiz. We deliberately preserve the current round and any
-    # already-played rounds: `advance_round_and_rotate` reads
-    # QuizRotationSchedule live at rotate time, so rewriting the current
-    # round's rows would move seated participants to different tables
-    # mid-game. ``preserve_current_round=True`` reads ``current_round``
-    # from the DB *under* the quiz row lock, so a concurrent
-    # ``advance_round_and_rotate`` cannot race and make the preserved
-    # boundary stale.
-    rounds_exist = QuizRotationSchedule.objects.filter(
-        quiz=quiz_event, round_number__gte=1
-    ).exists()
-    if rounds_exist:
+    # If the quiz has already been started, (re)build future rounds so
+    # this late arrival is seated for the remainder of the quiz. We
+    # trigger on status alone — not on "round 1+ rows already exist" —
+    # because the very first auto-generation at quiz start can fail
+    # (e.g. fewer than 4 attendees at that moment), in which case no
+    # rows 1+ exist yet and subsequent check-ins must still be able to
+    # build the schedule. generate_rotation_rounds is idempotent and
+    # serializes on a quiz row lock, so calling it per check-in is
+    # safe. We deliberately preserve the current round and any already-
+    # played rounds via preserve_current_round=True: the boundary is
+    # recomputed under that lock so a concurrent
+    # advance_round_and_rotate cannot make the preserved range stale.
+    if quiz_event.status in ("active", "paused"):
         try:
             generate_rotation_rounds(quiz_event, preserve_current_round=True)
         except Exception:

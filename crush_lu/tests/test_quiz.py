@@ -1039,6 +1039,10 @@ class TestRotationRegistrationFiltering:
 
         # Generate the initial schedule — late_user is not yet in it.
         generate_rotation_rounds(quiz_event)
+        # Quiz is running (assign_table_on_checkin only regenerates
+        # future rounds when status is active/paused).
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["status"])
         assert QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=1, user=late_user
         ).exists() is False
@@ -1160,6 +1164,66 @@ class TestRotationRegistrationFiltering:
         assert QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=2
         ).exists(), "rounds 2+ must still be populated"
+
+    def test_late_checkin_builds_rounds_when_initial_gen_failed(self, quiz_event):
+        """Edge case: the host starts the quiz before enough people have
+        checked in, so the initial auto-generation raised ValidationError
+        and no round 1+ rows exist. As late arrivals trickle in, each
+        subsequent check-in must eventually build the schedule — the
+        regeneration cannot be gated on 'rounds 1+ already exist'."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # Quiz is already active, but no rounds 1+ were ever generated
+        # (host started the quiz too early — initial gen raised).
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["status"])
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists()
+
+        # Enough attendees exist now (6M + 6F). A late check-in must
+        # trigger the rebuild even though rounds 1+ don't yet exist.
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        straggler = self._make_user_with_profile("straggler", "F")
+
+        assign_table_on_checkin(quiz_event, straggler)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists(), (
+            "late check-in must build rounds 1+ even when the initial "
+            "auto-generation never ran"
+        )
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=straggler
+        ).exists(), "straggler must appear in the newly-built rounds"
+
+    def test_assign_table_on_checkin_skips_regen_when_draft(self, quiz_event):
+        """If the quiz is still 'draft' (not yet started), check-in only
+        lays down a round-0 placement and must not kick off rotation
+        generation. The initial build happens at start_quiz_from_first_round."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+        assert quiz_event.status == "draft"
+
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        user = self._make_user_with_profile("early", "F")
+
+        assign_table_on_checkin(quiz_event, user)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=0, user=user
+        ).exists()
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists(), "no rounds 1+ should be generated while quiz is draft"
 
 
 # ============================================================================
