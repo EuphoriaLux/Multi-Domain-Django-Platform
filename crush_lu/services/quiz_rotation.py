@@ -330,11 +330,18 @@ def generate_rotation_rounds(quiz):
     # Delete existing rounds 1+ (idempotent)
     QuizRotationSchedule.objects.filter(quiz=quiz).exclude(round_number=0).delete()
 
-    # Get registrations for late-arrival handling
+    # Any registration still sitting in "confirmed" at rotation time is a
+    # no-show: the QR check-in flow would have flipped them to "attended".
+    # Flip them so status reflects reality and they are excluded below.
+    EventRegistration.objects.filter(
+        event=quiz.event, status="confirmed"
+    ).update(status="no_show", updated_at=timezone.now())
+
+    # Only people who actually checked in via QR should be rotated.
+    # Late arrivals (checked in after round 0) are included here because
+    # their status is "attended"; no-shows were just flipped above.
     registrations = (
-        EventRegistration.objects.filter(
-            event=quiz.event, status__in=["confirmed", "attended"]
-        )
+        EventRegistration.objects.filter(event=quiz.event, status="attended")
         .select_related("user__crushprofile")
         .order_by("registered_at")
     )

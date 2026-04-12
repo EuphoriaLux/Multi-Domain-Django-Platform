@@ -797,6 +797,217 @@ class TestRotationAlgorithm:
 
 
 # ============================================================================
+# ROTATION REGISTRATION FILTERING TESTS
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestRotationRegistrationFiltering:
+    """Regression tests for the no-show rotation bug.
+
+    Verifies that `generate_rotation_rounds` and the admin action only
+    rotate registrations with status='attended', and that still-'confirmed'
+    registrations are auto-flipped to 'no_show' on rotation.
+    """
+
+    def _make_attendees(self, event, men_count, women_count):
+        """Create users + CrushProfiles + EventRegistration(status='attended')
+        and return the registration list."""
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.models.profiles import CrushProfile
+
+        regs = []
+        for i in range(men_count):
+            u = User.objects.create_user(
+                username=f"rotm{i}@test.com",
+                email=f"rotm{i}@test.com",
+                password="testpass123",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.create(
+                user=u, gender="M", date_of_birth=date(1990, 1, 1)
+            )
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        for i in range(women_count):
+            u = User.objects.create_user(
+                username=f"rotw{i}@test.com",
+                email=f"rotw{i}@test.com",
+                password="testpass123",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.create(
+                user=u, gender="F", date_of_birth=date(1990, 1, 1)
+            )
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        return regs
+
+    def test_no_show_excluded_from_rotation_rounds(self, quiz_event):
+        """24 registrations (12M/12F), 3 still 'confirmed' at rotation time:
+        those 3 must be flipped to 'no_show' AND excluded from the schedule."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+        from crush_lu.models.events import EventRegistration
+
+        quiz_event.num_tables = 6
+        quiz_event.save()
+        # Add a round so generate_rotation_rounds doesn't fall back to 3
+        QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+
+        regs = self._make_attendees(quiz_event.event, men_count=12, women_count=12)
+
+        # Mark 3 as "confirmed" (i.e. never checked in): 1 man, 2 women
+        no_show_regs = [regs[0], regs[12], regs[13]]
+        for r in no_show_regs:
+            r.status = "confirmed"
+            r.save()
+        no_show_user_ids = {r.user_id for r in no_show_regs}
+
+        result = generate_rotation_rounds(quiz_event)
+
+        # The 3 confirmed registrations were auto-flipped to no_show
+        for r in no_show_regs:
+            r.refresh_from_db()
+            assert r.status == "no_show"
+
+        # None of the no-show users appear anywhere in the rotation schedule
+        scheduled_user_ids = set(
+            QuizRotationSchedule.objects.filter(quiz=quiz_event).values_list(
+                "user_id", flat=True
+            )
+        )
+        assert scheduled_user_ids.isdisjoint(no_show_user_ids)
+
+        # 21 users rotated (11 anchors + 10 rotators, order depends on
+        # gender split — just check the totals)
+        assert result["anchors"] + result["rotators"] == 21
+        # Remaining 21 registrations are "attended"
+        assert (
+            EventRegistration.objects.filter(
+                event=quiz_event.event, status="attended"
+            ).count()
+            == 21
+        )
+
+    def test_late_arrival_included_when_attended(self, quiz_event):
+        """Users who check in after round 0 (still 'attended') are rotated;
+        still-'confirmed' stragglers are not."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+
+        regs = self._make_attendees(quiz_event.event, men_count=4, women_count=4)
+
+        # Seed round 0 with 6 of 8 attendees (2 haven't arrived yet)
+        table = QuizTable.objects.create(quiz=quiz_event, table_number=1)
+        for r in regs[:6]:
+            role = "anchor" if r.user.crushprofile.gender == "M" else "rotator"
+            QuizRotationSchedule.objects.create(
+                quiz=quiz_event,
+                round_number=0,
+                table=table,
+                user=r.user,
+                role=role,
+                rotation_group="" if role == "anchor" else "A",
+            )
+
+        # Late arrival: reg[6] checks in (status already 'attended'),
+        # reg[7] stays 'confirmed' (never showed up)
+        regs[7].status = "confirmed"
+        regs[7].save()
+
+        generate_rotation_rounds(quiz_event)
+
+        scheduled_user_ids = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gte=1
+            ).values_list("user_id", flat=True)
+        )
+        assert regs[6].user_id in scheduled_user_ids, (
+            "Late arrival with status='attended' must be rotated"
+        )
+        assert regs[7].user_id not in scheduled_user_ids, (
+            "Still-'confirmed' registration must be excluded from rotation"
+        )
+        regs[7].refresh_from_db()
+        assert regs[7].status == "no_show"
+
+    def test_admin_action_marks_unattended_as_no_show(self, quiz_event):
+        """The admin action flips 'confirmed' to 'no_show' and leaves
+        'attended' rows alone."""
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.models.profiles import CrushProfile
+
+        # 2 attended + 2 confirmed on this event
+        for i in range(2):
+            u = User.objects.create_user(
+                username=f"att{i}@test.com",
+                email=f"att{i}@test.com",
+                password="test",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.create(
+                user=u, gender="M", date_of_birth=date(1990, 1, 1)
+            )
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+        confirmed_ids = []
+        for i in range(2):
+            u = User.objects.create_user(
+                username=f"conf{i}@test.com",
+                email=f"conf{i}@test.com",
+                password="test",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.create(
+                user=u, gender="F", date_of_birth=date(1990, 1, 1)
+            )
+            reg = EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="confirmed"
+            )
+            confirmed_ids.append(reg.id)
+
+        request = RequestFactory().get("/admin/")
+        request.session = {}
+        request.user = User.objects.create_user(
+            username="adminuser@test.com", password="test", is_staff=True
+        )
+        request._messages = FallbackStorage(request)
+
+        mark_unattended_as_no_show(
+            None, request, QuizEvent.objects.filter(pk=quiz_event.pk)
+        )
+
+        # Confirmed → no_show
+        for rid in confirmed_ids:
+            assert EventRegistration.objects.get(pk=rid).status == "no_show"
+        # Attended untouched
+        assert (
+            EventRegistration.objects.filter(
+                event=quiz_event.event, status="attended"
+            ).count()
+            == 2
+        )
+
+
+# ============================================================================
 # API TESTS
 # ============================================================================
 
