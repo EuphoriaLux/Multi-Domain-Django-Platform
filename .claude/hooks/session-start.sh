@@ -35,13 +35,21 @@ if [ ! -x "$PYTHON_BIN" ]; then
 fi
 
 # Decide whether the existing .venv is reusable (idempotency).
+# If anything at $VENV_DIR isn't a working Python 3.12 venv, wipe it — uv venv
+# refuses to overwrite an existing directory, so a stale/partial .venv would
+# otherwise abort the whole bootstrap under `set -e`.
 needs_create=1
-if [ -x "$VENV_DIR/bin/python" ]; then
-    existing_version="$("$VENV_DIR/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "")"
-    if [ "$existing_version" = "3.12" ]; then
-        needs_create=0
+if [ -e "$VENV_DIR" ]; then
+    if [ -x "$VENV_DIR/bin/python" ]; then
+        existing_version="$("$VENV_DIR/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "")"
+        if [ "$existing_version" = "3.12" ]; then
+            needs_create=0
+        else
+            echo "session-start hook: existing .venv is Python '$existing_version', recreating with 3.12"
+            rm -rf "$VENV_DIR"
+        fi
     else
-        echo "session-start hook: existing .venv is Python '$existing_version', recreating with 3.12"
+        echo "session-start hook: existing .venv is not a valid virtualenv (no bin/python), recreating"
         rm -rf "$VENV_DIR"
     fi
 fi
