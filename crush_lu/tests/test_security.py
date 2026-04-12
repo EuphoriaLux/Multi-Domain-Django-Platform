@@ -282,3 +282,98 @@ class TestThrottleClasses(TestCase):
         self.assertIn('login', rates)
         self.assertIn('signup', rates)
         self.assertIn('password_reset', rates)
+
+
+class TestPasswordReset(SiteTestCase):
+    """Tests for the Crush.lu password reset flow (via allauth)."""
+
+    def setUp(self):
+        super().setUp()
+        self.client = Client()
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="resetuser@example.com",
+            email="resetuser@example.com",
+            password="OldPassword123!",
+        )
+
+    def test_password_reset_form_renders_crush_branded_template(self):
+        """GET /accounts/password/reset/ renders the crush-branded template."""
+        response = self.client.get('/accounts/password/reset/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # Strings unique to the crush-branded template
+        self.assertIn("Send reset link", content)
+        # The crush base template should be used (Tailwind class)
+        self.assertIn("btn-crush-primary", content)
+
+    def test_password_reset_sends_email_for_existing_user(self):
+        """POST with an existing email sends a password reset email."""
+        from django.core import mail
+
+        mail.outbox = []
+        response = self.client.post(
+            '/accounts/password/reset/',
+            {'email': 'resetuser@example.com'},
+        )
+        # Allauth redirects to the done page on success
+        self.assertIn(response.status_code, (200, 302))
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertIn('resetuser@example.com', sent.to)
+        self.assertIn('Crush.lu', sent.subject)
+        # The body should include a reset URL (password/reset/key/)
+        body = sent.body or ''
+        for alt in getattr(sent, 'alternatives', []) or []:
+            body += alt[0]
+        self.assertIn('password/reset/key/', body)
+
+    def test_password_reset_no_email_for_unknown_user(self):
+        """POST with an unknown email does not send any email (privacy)."""
+        from django.core import mail
+
+        mail.outbox = []
+        response = self.client.post(
+            '/accounts/password/reset/',
+            {'email': 'nobody-here@example.com'},
+        )
+        self.assertIn(response.status_code, (200, 302))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_confirm_changes_password(self):
+        """End-to-end: request reset, follow link, set new password, log in."""
+        import re
+        from django.core import mail
+
+        mail.outbox = []
+        self.client.post(
+            '/accounts/password/reset/',
+            {'email': 'resetuser@example.com'},
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        body = mail.outbox[0].body or ''
+        for alt in getattr(mail.outbox[0], 'alternatives', []) or []:
+            body += alt[0]
+
+        # Extract the reset URL from the email body
+        match = re.search(r'(/accounts/password/reset/key/[^\s"<>]+)', body)
+        self.assertIsNotNone(match, "Reset URL not found in email body")
+        reset_url = match.group(1)
+
+        # GET the reset URL first - allauth redirects to a /set-password/ URL
+        # with the token stored in session
+        get_response = self.client.get(reset_url, follow=True)
+        self.assertEqual(get_response.status_code, 200)
+
+        # The final URL after redirect is where we POST the new password
+        final_url = get_response.request['PATH_INFO']
+        new_password = 'BrandNewPassword456!'
+        post_response = self.client.post(
+            final_url,
+            {'password1': new_password, 'password2': new_password},
+        )
+        self.assertIn(post_response.status_code, (200, 302))
+
+        # Verify password was actually changed
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(new_password))

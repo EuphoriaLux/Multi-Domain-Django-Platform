@@ -125,13 +125,19 @@
                                 {% endif %}
                             </div>
 
-                            <div class="mb-6">
+                            <div class="mb-2">
                                 <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                                 <input type="password" class="w-full px-4 py-3 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_password" name="password" required>
                                 {% if login_form.password.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ login_form.password.errors.0 }}</p>
                                 {% endif %}
+                            </div>
+
+                            <div class="mb-6 text-right">
+                                <a href="{% url 'account_reset_password' %}" class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
+                                    {% trans "Forgot your password?" %}
+                                </a>
                             </div>
 
                             {% if redirect_field_value %}
