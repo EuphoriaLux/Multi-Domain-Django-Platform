@@ -328,8 +328,15 @@ class TestPasswordReset(SiteTestCase):
             body += alt[0]
         self.assertIn('password/reset/key/', body)
 
-    def test_password_reset_no_email_for_unknown_user(self):
-        """POST with an unknown email does not send any email (privacy)."""
+    def test_password_reset_no_reset_link_for_unknown_user(self):
+        """POST with an unknown email must not leak a real reset link (privacy).
+
+        With allauth's ACCOUNT_PREVENT_ENUMERATION=True (default), allauth sends
+        a generic "account not found" email to prevent account enumeration via
+        timing/response differences. That's fine — but the email must NOT
+        contain a real password-reset URL, otherwise an attacker could use the
+        response to probe for valid accounts.
+        """
         from django.core import mail
 
         mail.outbox = []
@@ -338,7 +345,15 @@ class TestPasswordReset(SiteTestCase):
             {'email': 'nobody-here@example.com'},
         )
         self.assertIn(response.status_code, (200, 302))
-        self.assertEqual(len(mail.outbox), 0)
+        for sent in mail.outbox:
+            body = sent.body or ''
+            for alt in getattr(sent, 'alternatives', []) or []:
+                body += alt[0]
+            self.assertNotIn(
+                'password/reset/key/',
+                body,
+                "Unknown-email response leaked a real reset link",
+            )
 
     def test_password_reset_confirm_changes_password(self):
         """End-to-end: request reset, follow link, set new password, log in."""
