@@ -797,6 +797,436 @@ class TestRotationAlgorithm:
 
 
 # ============================================================================
+# ROTATION REGISTRATION FILTERING TESTS
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestRotationRegistrationFiltering:
+    """Regression tests for the no-show rotation bug.
+
+    `generate_rotation_rounds` must only rotate registrations with
+    status='attended'. Still-'confirmed' registrations stay as-is so
+    late arrivals can still QR check-in (views_checkin.py requires
+    status='confirmed'); the admin action is the explicit path for
+    marking no-shows after the fact.
+    """
+
+    def _make_user_with_profile(self, username, gender):
+        u = User.objects.create_user(
+            username=f"{username}@test.com",
+            email=f"{username}@test.com",
+            password="testpass123",
+        )
+        _grant_consent(u)
+        _create_profile(u, gender)
+        return u
+
+    def _make_attendees(self, event, men_count, women_count):
+        """Create users + profiles + EventRegistration(status='attended')."""
+        from crush_lu.models.events import EventRegistration
+
+        regs = []
+        for i in range(men_count):
+            u = self._make_user_with_profile(f"rotm{i}", "M")
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        for i in range(women_count):
+            u = self._make_user_with_profile(f"rotw{i}", "F")
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        return regs
+
+    def _add_rounds(self, quiz, count):
+        for i in range(count):
+            QuizRound.objects.create(
+                quiz=quiz,
+                title=f"R{i + 1}",
+                sort_order=i,
+                time_per_question=30,
+            )
+
+    def test_no_show_excluded_from_rotation_rounds(self, quiz_event):
+        """Reproduces the reported bug: 24 registrations (12M/12F), 3 still
+        'confirmed' at rotation time, must be excluded from the schedule.
+        Confirmed registrations are left untouched so late arrivals can
+        still QR check-in."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+        from crush_lu.models.events import EventRegistration
+
+        quiz_event.num_tables = 6
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        regs = self._make_attendees(quiz_event.event, men_count=12, women_count=12)
+
+        # 3 people never checked in: 1 man, 2 women
+        no_show_regs = [regs[0], regs[12], regs[13]]
+        for r in no_show_regs:
+            r.status = "confirmed"
+            r.save()
+        no_show_user_ids = {r.user_id for r in no_show_regs}
+
+        result = generate_rotation_rounds(quiz_event)
+
+        # None of the no-show users appear anywhere in the rotation schedule
+        scheduled_user_ids = set(
+            QuizRotationSchedule.objects.filter(quiz=quiz_event).values_list(
+                "user_id", flat=True
+            )
+        )
+        assert scheduled_user_ids.isdisjoint(no_show_user_ids), (
+            "No-show users must not appear in the rotation schedule"
+        )
+
+        # 21 users rotated (remaining attended)
+        assert result["anchors"] + result["rotators"] == 21
+
+        # Confirmed rows are preserved (not auto-flipped) so late arrivals
+        # can still QR check-in through views_checkin.py
+        for r in no_show_regs:
+            r.refresh_from_db()
+            assert r.status == "confirmed", (
+                "rotation must not touch registration status; "
+                "late arrivals need status='confirmed' for QR check-in"
+            )
+
+        # Totals by status: 21 attended, 3 confirmed, 0 no_show
+        base_q = EventRegistration.objects.filter(event=quiz_event.event)
+        assert base_q.filter(status="attended").count() == 21
+        assert base_q.filter(status="confirmed").count() == 3
+        assert base_q.filter(status="no_show").count() == 0
+
+    def test_late_arrival_included_when_attended(self, quiz_event):
+        """A user who checks in after round 0 (status='attended') is
+        rotated; a still-'confirmed' straggler is excluded but NOT
+        auto-flipped — they must remain check-in-eligible."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+        from crush_lu.models.events import EventRegistration
+
+        # num_tables=3 avoids the num_tables==2 special case in
+        # generate_rotation_schedule which creates duplicate (round, user)
+        # entries when len(group_a) is odd.
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # 6M + 6F = 12, all starting as attended
+        regs = self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        # regs[0..5] = men m0..m5, regs[6..11] = women f0..f5
+        late_arrival_reg = regs[5]  # m5 — stays attended, joins after round 0
+        no_show_reg = regs[11]  # f5 — flipped to confirmed (never shows up)
+        no_show_reg.status = "confirmed"
+        no_show_reg.save()
+
+        # Seed round 0 with 10 attendees who were present at quiz start:
+        # m0..m4 and f0..f4. m5 and f5 missed round 0.
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=i + 1)
+            for i in range(3)
+        ]
+        seeded = [regs[0], regs[1], regs[2], regs[3], regs[4]] + [
+            regs[6], regs[7], regs[8], regs[9], regs[10]
+        ]
+        for idx, r in enumerate(seeded):
+            role = "anchor" if r.user.crushprofile.gender == "M" else "rotator"
+            rotation_group = ""
+            if role == "rotator":
+                # First 3 women go to group A, next to group B
+                rotation_group = "A" if idx < 8 else "B"
+            QuizRotationSchedule.objects.create(
+                quiz=quiz_event,
+                round_number=0,
+                table=tables[idx % 3],
+                user=r.user,
+                role=role,
+                rotation_group=rotation_group,
+            )
+
+        generate_rotation_rounds(quiz_event)
+
+        scheduled_user_ids = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gte=1
+            ).values_list("user_id", flat=True)
+        )
+        assert late_arrival_reg.user_id in scheduled_user_ids, (
+            "Late arrival with status='attended' must be rotated"
+        )
+        assert no_show_reg.user_id not in scheduled_user_ids, (
+            "Still-'confirmed' registration must be excluded from rotation"
+        )
+
+        # The no-show stays 'confirmed' so they can still be QR-checked in
+        no_show_reg.refresh_from_db()
+        assert no_show_reg.status == "confirmed"
+        assert (
+            EventRegistration.objects.filter(
+                event=quiz_event.event, status="no_show"
+            ).count()
+            == 0
+        )
+
+    def test_admin_action_marks_unattended_as_no_show(self, quiz_event):
+        """The admin action flips 'confirmed' to 'no_show' and leaves
+        'attended' rows alone."""
+        from unittest.mock import patch
+
+        from django.test import RequestFactory
+
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models.events import EventRegistration
+
+        # 2 attended + 2 confirmed on this event
+        for i in range(2):
+            u = self._make_user_with_profile(f"att{i}", "M")
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+        confirmed_ids = []
+        for i in range(2):
+            u = self._make_user_with_profile(f"conf{i}", "F")
+            reg = EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="confirmed"
+            )
+            confirmed_ids.append(reg.id)
+
+        request = RequestFactory().get("/admin/")
+
+        # Stub messages.success so we don't need the full messages middleware
+        # stack (FallbackStorage requires session + cookies) just to test
+        # the data mutation.
+        with patch("crush_lu.admin.quiz.messages.success"):
+            mark_unattended_as_no_show(
+                None, request, QuizEvent.objects.filter(pk=quiz_event.pk)
+            )
+
+        # Confirmed → no_show
+        for rid in confirmed_ids:
+            assert EventRegistration.objects.get(pk=rid).status == "no_show"
+        # Attended untouched
+        assert (
+            EventRegistration.objects.filter(
+                event=quiz_event.event, status="attended"
+            ).count()
+            == 2
+        )
+
+    def test_late_checkin_regenerates_rounds(self, quiz_event):
+        """When a late arrival checks in after rotation is already
+        generated, assign_table_on_checkin must rebuild rounds 1+ so the
+        new person is seated for the rest of the quiz."""
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # 6M + 5F all attended (so rotation is well-formed); plus one
+        # extra woman who arrives late (starts as confirmed, then
+        # transitions to attended when assign_table_on_checkin runs).
+        regs = self._make_attendees(quiz_event.event, men_count=6, women_count=5)
+        late_user = self._make_user_with_profile("late", "F")
+
+        # Generate the initial schedule — late_user is not yet in it.
+        generate_rotation_rounds(quiz_event)
+        # Quiz is running (assign_table_on_checkin only regenerates
+        # future rounds when status is active/paused).
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["status"])
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=late_user
+        ).exists() is False
+
+        # Late arrival checks in: assign_table_on_checkin should place
+        # them in round 0 AND regenerate rounds 1+ to include them.
+        assign_table_on_checkin(quiz_event, late_user)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=0, user=late_user
+        ).exists(), "late arrival must be placed in round 0"
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=late_user
+        ).exists(), (
+            "late arrival must be picked up by rotation regeneration "
+            "into rounds 1+"
+        )
+        # The original 11 attendees are still in the schedule too.
+        for r in regs:
+            assert QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gte=1, user=r.user
+            ).exists()
+
+    def test_mid_game_late_checkin_preserves_current_round(self, quiz_event):
+        """If a late arrival happens while the quiz is already in round 2,
+        round 1 (past) and round 2 (current) must be preserved byte-for-byte
+        so players don't get moved to different tables mid-game. Only
+        rounds 3+ should be rewritten to include the new user."""
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        rounds = []
+        for i in range(4):
+            rounds.append(
+                QuizRound.objects.create(
+                    quiz=quiz_event,
+                    title=f"R{i + 1}",
+                    sort_order=i,
+                    time_per_question=30,
+                )
+            )
+
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        generate_rotation_rounds(quiz_event)
+
+        # Quiz advances into the second playable round (round_number=1).
+        quiz_event.current_round = rounds[1]
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["current_round", "status"])
+        assert quiz_event.get_round_number() == 1
+
+        # Capture round 1 (current) as it stands before the late check-in.
+        def _snapshot(round_number):
+            return set(
+                QuizRotationSchedule.objects.filter(
+                    quiz=quiz_event, round_number=round_number
+                ).values_list("user_id", "table_id", "role", "rotation_group")
+            )
+
+        snap_r0 = _snapshot(0)
+        snap_r1 = _snapshot(1)
+        snap_r2 = _snapshot(2)
+        snap_r3 = _snapshot(3)
+
+        # Late arrival scans in during round 2.
+        late_user = self._make_user_with_profile("midgame_late", "F")
+        assign_table_on_checkin(quiz_event, late_user)
+
+        # Round 0 and round 1 (current) must be byte-identical except for
+        # late_user's fresh round-0 placement.
+        snap_r0_after = _snapshot(0)
+        assert snap_r0_after - snap_r0 == {
+            row for row in snap_r0_after if row[0] == late_user.id
+        }, "round 0 should only gain the late arrival's placement"
+        assert snap_r1 == _snapshot(1), (
+            "current round (round_number=1) must not be rewritten mid-game"
+        )
+
+        # Rounds 2+ should be rebuilt with the late user included.
+        assert _snapshot(2) != snap_r2 or _snapshot(3) != snap_r3, (
+            "future rounds should be regenerated to include the late arrival"
+        )
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=2, user=late_user
+        ).exists(), "late arrival must appear in future rounds"
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=1, user=late_user
+        ).exists(), "late arrival must NOT be injected into the current round"
+
+    def test_generate_rotation_rounds_from_round_preserves_lower(self, quiz_event):
+        """Calling generate_rotation_rounds(from_round=N) must leave rows
+        with round_number < N untouched and only rebuild N and above."""
+        from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 4)
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        generate_rotation_rounds(quiz_event)
+
+        before_r1 = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=1
+            ).values_list("user_id", "table_id")
+        )
+
+        generate_rotation_rounds(quiz_event, from_round=2)
+
+        after_r1 = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=1
+            ).values_list("user_id", "table_id")
+        )
+        assert before_r1 == after_r1, "round 1 must be preserved when from_round=2"
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=2
+        ).exists(), "rounds 2+ must still be populated"
+
+    def test_late_checkin_builds_rounds_when_initial_gen_failed(self, quiz_event):
+        """Edge case: the host starts the quiz before enough people have
+        checked in, so the initial auto-generation raised ValidationError
+        and no round 1+ rows exist. As late arrivals trickle in, each
+        subsequent check-in must eventually build the schedule — the
+        regeneration cannot be gated on 'rounds 1+ already exist'."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # Quiz is already active, but no rounds 1+ were ever generated
+        # (host started the quiz too early — initial gen raised).
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["status"])
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists()
+
+        # Enough attendees exist now (6M + 6F). A late check-in must
+        # trigger the rebuild even though rounds 1+ don't yet exist.
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        straggler = self._make_user_with_profile("straggler", "F")
+
+        assign_table_on_checkin(quiz_event, straggler)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists(), (
+            "late check-in must build rounds 1+ even when the initial "
+            "auto-generation never ran"
+        )
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1, user=straggler
+        ).exists(), "straggler must appear in the newly-built rounds"
+
+    def test_assign_table_on_checkin_skips_regen_when_draft(self, quiz_event):
+        """If the quiz is still 'draft' (not yet started), check-in only
+        lays down a round-0 placement and must not kick off rotation
+        generation. The initial build happens at start_quiz_from_first_round."""
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+        assert quiz_event.status == "draft"
+
+        self._make_attendees(quiz_event.event, men_count=6, women_count=6)
+        user = self._make_user_with_profile("early", "F")
+
+        assign_table_on_checkin(quiz_event, user)
+
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=0, user=user
+        ).exists()
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists(), "no rounds 1+ should be generated while quiz is draft"
+
+
+# ============================================================================
 # API TESTS
 # ============================================================================
 

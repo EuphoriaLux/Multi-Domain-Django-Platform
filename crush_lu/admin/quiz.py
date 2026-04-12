@@ -81,11 +81,10 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
     for quiz in queryset:
         event = quiz.event
 
-        # Get confirmed or attended registrations with profiles
+        # Only people who actually checked in via QR are rotated. No-shows
+        # (still sitting in "confirmed") must not leak into the schedule.
         registrations = (
-            EventRegistration.objects.filter(
-                event=event, status__in=["confirmed", "attended"]
-            )
+            EventRegistration.objects.filter(event=event, status="attended")
             .select_related("user__crushprofile")
             .order_by("registered_at")
         )
@@ -180,6 +179,27 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
 generate_quiz_night_tables.short_description = _("Generate Quiz Night table rotation")
 
 
+def mark_unattended_as_no_show(modeladmin, request, queryset):
+    """Admin action: flip still-'confirmed' registrations to 'no_show' for
+    the selected quiz events. Useful when the host forgot to scan someone
+    out and wants the attendance record to reflect reality."""
+    from crush_lu.models.events import EventRegistration
+
+    for quiz in queryset:
+        updated = EventRegistration.objects.filter(
+            event=quiz.event, status="confirmed"
+        ).update(status="no_show")
+        messages.success(
+            request,
+            f"'{quiz.event}': marked {updated} registration(s) as No Show.",
+        )
+
+
+mark_unattended_as_no_show.short_description = _(
+    "Mark unchecked-in registrations as No Show"
+)
+
+
 def populate_crush_quiz_questions(modeladmin, request, queryset):
     """Admin action: populate selected QuizEvents with Crush quiz rounds & questions."""
     from crush_lu.management.commands.generate_crush_quiz import populate_quiz
@@ -227,7 +247,11 @@ class QuizEventAdmin(admin.ModelAdmin):
         "tables_generated_at",
         "readiness_check_display",
     )
-    actions = [generate_quiz_night_tables, populate_crush_quiz_questions]
+    actions = [
+        generate_quiz_night_tables,
+        mark_unattended_as_no_show,
+        populate_crush_quiz_questions,
+    ]
 
     def readiness_check_display(self, obj):
         from django.utils.html import format_html, format_html_join
