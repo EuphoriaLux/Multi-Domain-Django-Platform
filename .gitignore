@@ -158,6 +158,13 @@ yarn-error.log*
 .azure
 .aider*
 .claude/
+# Track team-shared Claude Code on the web bootstrap (see .claude/hooks/session-start.sh)
+!.claude/
+/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
+/.claude/hooks/*
+!/.claude/hooks/session-start.sh
 .codex/
 
 # Apple Wallet test passes (generated locally)
