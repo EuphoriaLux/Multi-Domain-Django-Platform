@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.conf import settings
 import logging
@@ -951,10 +951,15 @@ def account_banned(request):
 
 
 # Onboarding
+@require_GET
 def referral_redirect(request, code):
     """
-    Referral landing route.
+    Referral landing route. GET-only.
+
     Stores referral attribution and redirects to signup with code preserved.
+    Restricted to GET so that messenger link-unfurlers and scanners sending POST
+    requests get an immediate 405 instead of tripping the CSRF middleware and
+    producing ERROR-level log noise.
     """
     referral = capture_referral(request, code, source="link")
     signup_url = reverse("crush_lu:signup")

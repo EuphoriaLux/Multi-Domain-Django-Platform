@@ -338,10 +338,9 @@ def connection_pair(db):
     # Create mutual connection
     connection = EventConnection.objects.create(
         event=event,
-        from_user=user1,
-        to_user=user2,
-        status='connected',
-        connected_at=timezone.now()
+        requester=user1,
+        recipient=user2,
+        status='accepted',
     )
 
     return user1, user2, connection, event
