@@ -212,16 +212,22 @@ def assign_table_on_checkin(quiz_event, user):
     if not quiz_event.num_tables:
         return None
 
-    tables = QuizTable.objects.filter(quiz=quiz_event)
-    if not tables.exists():
-        return None
-
     # Determine role based on gender (outside atomic — read-only)
     profile = getattr(user, "crushprofile", None)
     gender = profile.gender if profile else ""
 
     # Find table with fewest members of the same role, tie-break by table_number
     with transaction.atomic():
+        # Create QuizTable rows on demand if they don't exist yet. The
+        # initial batch generate_rotation_rounds normally creates them,
+        # but it can fail (e.g. host pressed Start before enough people
+        # arrived) or simply not have run yet (early check-ins while
+        # quiz is still draft). Either way, every check-in needs a
+        # table row to anchor a round-0 placement to. get_or_create is
+        # race-safe under the (quiz, table_number) unique_together.
+        for n in range(1, quiz_event.num_tables + 1):
+            QuizTable.objects.get_or_create(quiz=quiz_event, table_number=n)
+
         # Lock tables to prevent race conditions
         locked_tables = list(
             QuizTable.objects.filter(quiz=quiz_event)
