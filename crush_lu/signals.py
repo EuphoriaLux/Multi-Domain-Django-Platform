@@ -18,6 +18,8 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 
+from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
+
 from .utils.image_processing import process_uploaded_image
 
 from .models import (
@@ -264,12 +266,15 @@ def create_user_data_consent(sender, instance, created, **kwargs):
         logger.error(f"Error creating data consent for user {instance.id}: {str(e)}")
 
 
-# List of Crush.lu domains - profile should be created for logins on these domains
-CRUSH_LU_DOMAINS = ["crush.lu", "www.crush.lu", "localhost", "127.0.0.1"]
+# List of Crush.lu domains - profile should be created for logins on these domains.
+# Built from azureproject.domains so test.crush.lu and any future alias is picked
+# up automatically. Mirrors crush_lu/adapter.py:16-17.
+CRUSH_LU_DOMAINS = {"crush.lu", "localhost", "127.0.0.1"}
+CRUSH_LU_DOMAINS.update(_PLATFORM_DOMAINS["crush.lu"].get("aliases", []))
 
 
 def _is_crush_domain(request):
-    """Check if current request is from crush.lu domain"""
+    """Check if current request is from a crush.lu host (incl. staging aliases)."""
     if not request:
         return False
     try:
@@ -970,7 +975,7 @@ def check_special_user_experience(sender, request, user, **kwargs):
     except KeyError:
         # During tests, the request may not have SERVER_NAME set
         return
-    if host not in ["crush.lu", "www.crush.lu", "localhost", "127.0.0.1"]:
+    if host not in CRUSH_LU_DOMAINS:
         return
 
     try:
