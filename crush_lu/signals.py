@@ -1487,12 +1487,24 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     - given_name, family_name, email (mapped in adapter populate_user)
     - birthdate, gender, phone_number, locale (mapped here to CrushProfile)
     """
+    # Diagnostic — see what provider id allauth actually stores on the
+    # SocialAccount for this login. For generic OpenID Connect providers
+    # this is the SocialApp's provider_id (e.g. "luxid") but it can also
+    # be the bare "openid_connect" id, depending on admin configuration.
+    _prov = sociallogin.account.provider
+    logger.info("[LUXID-DIAG] pre_social_login entry provider=%r", _prov)
+
+    # Match LuxID in either spelling: the custom provider_id on the
+    # SocialApp ("luxid") OR the generic OIDC fallback ("openid_connect").
+    # Crush.lu only uses OIDC for LuxID, so both are safe to treat as LuxID.
+    _is_luxid = _prov in ("luxid", "openid_connect")
+
     # Reset the flag at the start (only for LuxID provider)
-    if sociallogin.account.provider == "luxid":
+    if _is_luxid:
         _thread_local.is_crush_luxid_login = False
 
     # Only process LuxID logins
-    if sociallogin.account.provider != "luxid":
+    if not _is_luxid:
         return
 
     # Only process for crush.lu domain
@@ -1619,7 +1631,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
     Create CrushProfile when a new LuxID SocialAccount is created.
     Populates profile fields from OIDC claims (birthdate, gender, phone, locale).
     """
-    if instance.provider != "luxid":
+    if instance.provider not in ("luxid", "openid_connect"):
         return
 
     if not created:
