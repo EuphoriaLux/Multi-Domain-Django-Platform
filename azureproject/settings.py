@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -1042,14 +1043,16 @@ COMPONENTS = {
 # =============================================================================
 # PRODUCTION SECURITY HEADERS (SEC-04)
 # =============================================================================
-# Only applied when DEBUG=False. Local HTTP dev would break under SSL redirect
-# and HSTS, so we gate on DEBUG rather than a separate env var. Production is
-# served exclusively over HTTPS via Azure Front Door, which terminates TLS and
-# forwards X-Forwarded-Proto so Django's SSL redirect logic works correctly.
+# Only applied when DEBUG=False AND not running under pytest. Local HTTP dev
+# and the test client both speak plain HTTP, so SSL redirect would break them
+# (301 instead of 200 on every request). Production is served exclusively over
+# HTTPS via Azure Front Door, which terminates TLS and forwards
+# X-Forwarded-Proto so Django's SSL redirect logic works correctly.
 #
 # HealthCheckMiddleware is first in MIDDLEWARE and short-circuits /healthz/
 # before SecurityMiddleware runs, so Azure health probes remain unaffected.
-if not DEBUG:
+_RUNNING_TESTS = "PYTEST_VERSION" in os.environ or "pytest" in sys.argv[0]
+if not DEBUG and not _RUNNING_TESTS:
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 31536000  # 1 year
