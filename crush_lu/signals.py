@@ -1548,21 +1548,87 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # production console handler's ERROR-only filter (production.py:475)
         # and lands in App Service Log stream. Revert to logger.info once
         # we've captured the LuxID claim payload for the empty-email bug.
+        #
         # Per Annex C6 of the CIAM Agreement, LuxID uses standard OIDC claim
-        # names (email, email_verified, given_name, family_name, ...). If
-        # `email` is missing here, the Attribute is not provisioned for this
-        # Client in POST's CIAM backend — escalate with POST/LuxID.
+        # names (email, email_verified, given_name, family_name, ...). Before
+        # escalating to POST Luxembourg we want to rule out our side:
+        #
+        #  1. userinfo vs id_token split — some IdPs only put `email` in one
+        #     of the two; log both dicts' keys separately.
+        #  2. `profile` scope sanity — if given_name/family_name ARE present
+        #     but `email` is NOT, we've isolated the issue to `email` scope.
+        #  3. SocialApp config — if someone overrode `scope` or set
+        #     `fetch_userinfo=False` in the admin, allauth would legitimately
+        #     skip the userinfo call and/or drop the email scope.
+        #  4. Token-level scope/auth — the granted scope on the token tells
+        #     us whether POST's authorization server actually granted email.
         try:
+            userinfo = extra_data.get("userinfo") or {}
+            id_token = extra_data.get("id_token") or {}
+            profile_sanity = {
+                k: _claims.get(k)
+                for k in ("name", "given_name", "family_name", "sub")
+            }
             email_like = {
                 k: _claims.get(k)
                 for k in ("email", "email_verified", "preferred_username")
             }
             logger.error(
-                "[LUXID-DIAG] envelope keys=%s claims keys=%s email_like=%s",
+                "[LUXID-DIAG] envelope=%s userinfo_keys=%s id_token_keys=%s "
+                "email_like=%s profile_sanity=%s",
                 sorted(extra_data.keys()),
-                sorted(_claims.keys()),
+                sorted(userinfo.keys()),
+                sorted(id_token.keys()),
                 email_like,
+                profile_sanity,
             )
+
+            # Also log the SocialApp settings so we can verify there's no
+            # admin-side override of `scope` / `fetch_userinfo` /
+            # `token_auth_method` on the `crush` UAT client.
+            try:
+                _app = sociallogin.account.get_provider(request).app
+                _settings = dict(_app.settings or {})
+                # Sanitize: never log client_secret, certs, or server_url
+                # auth. We only care about flags that affect claim delivery.
+                _safe = {
+                    k: _settings.get(k)
+                    for k in (
+                        "scope",
+                        "fetch_userinfo",
+                        "token_auth_method",
+                        "server_url",
+                    )
+                }
+                logger.error(
+                    "[LUXID-DIAG] SocialApp id=%s name=%r provider=%r "
+                    "provider_id=%r settings_subset=%s",
+                    _app.pk,
+                    _app.name,
+                    _app.provider,
+                    getattr(_app, "provider_id", None),
+                    _safe,
+                )
+            except Exception as _app_err:
+                logger.error(
+                    "[LUXID-DIAG] could not read SocialApp settings: %s",
+                    _app_err,
+                )
+
+            # Log the granted token scope if the OAuth response included one.
+            # Allauth stores the raw token dict under `token` on sociallogin,
+            # but its shape varies by version. We probe defensively.
+            try:
+                _tok = getattr(sociallogin, "token", None)
+                _granted_scope = None
+                if _tok is not None:
+                    # Newer allauth: SocialToken with .token / .token_secret
+                    _granted_scope = getattr(_tok, "scope", None)
+                logger.error(
+                    "[LUXID-DIAG] token_scope=%r", _granted_scope
+                )
+            except Exception:
+                pass
         except Exception:
             pass
 
