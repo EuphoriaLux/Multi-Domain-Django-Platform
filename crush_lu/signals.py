@@ -1482,6 +1482,19 @@ LUXID_GENDER_MAP = {
 }
 
 
+def _luxid_claims(extra_data):
+    """Flatten allauth's OIDC envelope to a single claims dict.
+
+    Allauth's OpenID Connect provider stores the raw response as
+    ``{"id_token": {...}, "userinfo": {...}}``. Prefer userinfo (matches
+    allauth's own ``_pick_data``) and fall back to id_token, so claims
+    like ``birthdate`` / ``phone_number`` are readable at one level.
+    """
+    if not isinstance(extra_data, dict):
+        return {}
+    return extra_data.get("userinfo") or extra_data.get("id_token") or extra_data
+
+
 @receiver(pre_social_login)
 def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     """
@@ -1585,7 +1598,7 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 updated_fields = []
 
                 # Map birthdate (OIDC format: YYYY-MM-DD)
-                birthdate = extra_data.get("birthdate")
+                birthdate = _claims.get("birthdate")
                 if birthdate and not profile.date_of_birth:
                     try:
                         profile.date_of_birth = datetime.strptime(
@@ -1596,21 +1609,30 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         logger.warning("Invalid birthdate format from LuxID")
 
                 # Map gender
-                gender = extra_data.get("gender", "").lower()
+                gender = (_claims.get("gender") or "").lower()
                 if gender and not profile.gender:
                     mapped = LUXID_GENDER_MAP.get(gender, "")
                     if mapped:
                         profile.gender = mapped
                         updated_fields.append("gender")
 
-                # Map phone_number
-                phone = extra_data.get("phone_number")
+                # Map phone_number. LuxID only releases verified numbers
+                # (POST Luxembourg confirmed `phone_number_verified` is
+                # always implicit), so trust it as the verification anchor
+                # and skip Crush.lu's Firebase OTP step for LuxID users.
+                phone = _claims.get("phone_number")
                 if phone and not profile.phone_number:
                     profile.phone_number = phone
                     updated_fields.append("phone_number")
+                    if not profile.phone_verified:
+                        profile.phone_verified = True
+                        profile.phone_verified_at = timezone.now()
+                        updated_fields.extend(
+                            ["phone_verified", "phone_verified_at"]
+                        )
 
                 # Map locale to preferred_language
-                locale = extra_data.get("locale", "")
+                locale = _claims.get("locale", "")
                 if locale and profile.preferred_language == "en":
                     lang_code = locale[:2].lower()
                     if lang_code in ("de", "fr"):
@@ -1660,11 +1682,11 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
         )
 
         if profile_created:
-            extra_data = instance.extra_data
+            claims = _luxid_claims(instance.extra_data)
             updated_fields = []
 
             # Map birthdate
-            birthdate = extra_data.get("birthdate")
+            birthdate = claims.get("birthdate")
             if birthdate:
                 try:
                     profile.date_of_birth = datetime.strptime(
@@ -1675,20 +1697,26 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
                     pass
 
             # Map gender
-            gender = extra_data.get("gender", "").lower()
+            gender = (claims.get("gender") or "").lower()
             mapped = LUXID_GENDER_MAP.get(gender, "")
             if mapped:
                 profile.gender = mapped
                 updated_fields.append("gender")
 
-            # Map phone_number
-            phone = extra_data.get("phone_number")
+            # Map phone_number. LuxID only releases verified numbers, so
+            # trust it as the verification anchor and skip Crush.lu's
+            # Firebase OTP step for LuxID users.
+            phone = claims.get("phone_number")
             if phone:
                 profile.phone_number = phone
-                updated_fields.append("phone_number")
+                profile.phone_verified = True
+                profile.phone_verified_at = timezone.now()
+                updated_fields.extend(
+                    ["phone_number", "phone_verified", "phone_verified_at"]
+                )
 
             # Map locale to preferred_language
-            locale = extra_data.get("locale", "")
+            locale = claims.get("locale", "")
             if locale:
                 lang_code = locale[:2].lower()
                 if lang_code in ("de", "fr"):
