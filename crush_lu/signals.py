@@ -1538,6 +1538,12 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     try:
         extra_data = sociallogin.account.extra_data
 
+        # Allauth's OpenID Connect provider stores the raw response envelope
+        # {"id_token": {...}, "userinfo": {...}} in SocialAccount.extra_data,
+        # so claims like `email` live one level down, not at the top. Flatten
+        # here (prefer userinfo per allauth's _pick_data) before inspecting.
+        _claims = extra_data.get("userinfo") or extra_data.get("id_token") or {}
+
         # TEMPORARY DIAGNOSTIC — logged at ERROR level so it bypasses the
         # production console handler's ERROR-only filter (production.py:475)
         # and lands in App Service Log stream. Revert to logger.info once
@@ -1548,27 +1554,29 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # Client in POST's CIAM backend — escalate with POST/LuxID.
         try:
             email_like = {
-                k: extra_data.get(k)
+                k: _claims.get(k)
                 for k in ("email", "email_verified", "preferred_username")
             }
             logger.error(
-                "[LUXID-DIAG] extra_data keys=%s email_like=%s",
+                "[LUXID-DIAG] envelope keys=%s claims keys=%s email_like=%s",
                 sorted(extra_data.keys()),
+                sorted(_claims.keys()),
                 email_like,
             )
         except Exception:
             pass
 
         # Belt-and-braces: if allauth's OIDC extractor didn't populate
-        # sociallogin.email_addresses but we do see an `email` claim in
-        # extra_data, push it in so SocialSignupForm prefills correctly.
-        if not sociallogin.email_addresses and extra_data.get("email"):
+        # sociallogin.email_addresses but we do see an `email` claim in the
+        # flattened OIDC payload, push it in so SocialSignupForm prefills
+        # correctly and allauth's auto-signup path can proceed.
+        if not sociallogin.email_addresses and _claims.get("email"):
             from allauth.account.models import EmailAddress as _EmailAddress
 
             sociallogin.email_addresses = [
                 _EmailAddress(
-                    email=extra_data["email"],
-                    verified=bool(extra_data.get("email_verified")),
+                    email=_claims["email"],
+                    verified=bool(_claims.get("email_verified")),
                     primary=True,
                 )
             ]
