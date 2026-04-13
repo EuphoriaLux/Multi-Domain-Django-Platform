@@ -1521,6 +1521,38 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     try:
         extra_data = sociallogin.account.extra_data
 
+        # Diagnostic: log which claim keys LuxID actually returned.
+        # Per Annex C6 of the CIAM Agreement, LuxID uses standard OIDC claim
+        # names (email, email_verified, given_name, family_name, ...). If
+        # `email` is missing here, the Attribute is not provisioned for this
+        # Client in POST's CIAM backend — escalate with POST/LuxID.
+        try:
+            email_like = {
+                k: extra_data.get(k)
+                for k in ("email", "email_verified", "preferred_username")
+            }
+            logger.info(
+                "LuxID extra_data keys=%s email_like=%s",
+                sorted(extra_data.keys()),
+                email_like,
+            )
+        except Exception:
+            pass
+
+        # Belt-and-braces: if allauth's OIDC extractor didn't populate
+        # sociallogin.email_addresses but we do see an `email` claim in
+        # extra_data, push it in so SocialSignupForm prefills correctly.
+        if not sociallogin.email_addresses and extra_data.get("email"):
+            from allauth.account.models import EmailAddress as _EmailAddress
+
+            sociallogin.email_addresses = [
+                _EmailAddress(
+                    email=extra_data["email"],
+                    verified=bool(extra_data.get("email_verified")),
+                    primary=True,
+                )
+            ]
+
         # Update CrushProfile for existing users
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
