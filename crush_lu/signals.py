@@ -1521,7 +1521,10 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     try:
         extra_data = sociallogin.account.extra_data
 
-        # Diagnostic: log which claim keys LuxID actually returned.
+        # TEMPORARY DIAGNOSTIC — logged at ERROR level so it bypasses the
+        # production console handler's ERROR-only filter (production.py:475)
+        # and lands in App Service Log stream. Revert to logger.info once
+        # we've captured the LuxID claim payload for the empty-email bug.
         # Per Annex C6 of the CIAM Agreement, LuxID uses standard OIDC claim
         # names (email, email_verified, given_name, family_name, ...). If
         # `email` is missing here, the Attribute is not provisioned for this
@@ -1531,8 +1534,8 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 k: extra_data.get(k)
                 for k in ("email", "email_verified", "preferred_username")
             }
-            logger.info(
-                "LuxID extra_data keys=%s email_like=%s",
+            logger.error(
+                "[LUXID-DIAG] extra_data keys=%s email_like=%s",
                 sorted(extra_data.keys()),
                 email_like,
             )
