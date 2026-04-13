@@ -160,9 +160,6 @@ urlpatterns = [
     # Phone verification API endpoints are in urls_crush.py (language-neutral)
     # to avoid i18n prefix issues with hardcoded JavaScript API paths
 
-    # Phone verification page (for existing users)
-    path('verify-phone/', views_phone_verification.verify_phone_page, name='verify_phone'),
-
     # User dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
     # Redirect /profile/ to /dashboard/ (LOGIN_REDIRECT_URL points to /profile/)

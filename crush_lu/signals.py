@@ -1495,6 +1495,17 @@ def _luxid_claims(extra_data):
     return extra_data.get("userinfo") or extra_data.get("id_token") or extra_data
 
 
+def _is_luxembourgish_phone(phone):
+    """Return True if ``phone`` is an E.164 Luxembourgish number (+352...).
+
+    The LuxID→phone_verified fallback on /create-profile/ is intentionally
+    limited to Luxembourgish numbers for the initial rollout: POST
+    Luxembourg's CIAM can technically return any country's number, but we
+    don't want to trust foreign numbers through a local-only flow yet.
+    """
+    return bool(phone) and phone.startswith("+352")
+
+
 def _luxid_phone_available(phone, profile):
     """Return True if ``phone`` can be written to ``profile`` without
     violating the ``unique_non_empty_phone_number`` constraint.
@@ -1648,20 +1659,50 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # (POST Luxembourg confirmed `phone_number_verified` is
                 # always implicit), so trust it as the verification anchor
                 # and skip Crush.lu's Firebase OTP step for LuxID users.
+                #
+                # We always overwrite with the LuxID number when it differs
+                # from what's stored — LuxID is a stronger trust anchor than
+                # whatever the user typed manually or verified via Firebase,
+                # and this is what powers the "Verify with LuxID" fallback
+                # on /create-profile/. Non-Luxembourgish numbers are skipped
+                # for now (see _is_luxembourgish_phone).
                 phone = _claims.get("phone_number")
-                if (
+                if phone and not _is_luxembourgish_phone(phone):
+                    logger.info(
+                        "LuxID returned non-Luxembourgish phone for user=%s; "
+                        "skipping phone prefill (feature limited to +352).",
+                        getattr(sociallogin.user, "email", None),
+                    )
+                elif (
                     phone
-                    and not profile.phone_number
+                    and phone != profile.phone_number
                     and _luxid_phone_available(phone, profile)
                 ):
+                    old_phone = profile.phone_number
                     profile.phone_number = phone
-                    updated_fields.append("phone_number")
-                    if not profile.phone_verified:
-                        profile.phone_verified = True
-                        profile.phone_verified_at = timezone.now()
-                        updated_fields.extend(
-                            ["phone_verified", "phone_verified_at"]
-                        )
+                    profile.phone_verified = True
+                    profile.phone_verified_at = timezone.now()
+                    updated_fields.extend(
+                        ["phone_number", "phone_verified", "phone_verified_at"]
+                    )
+                    if old_phone and old_phone != phone and request is not None:
+                        # User-facing notice: they came in via the "Verify
+                        # with LuxID" fallback and their stored number was
+                        # replaced with the one LuxID has on file.
+                        try:
+                            from django.contrib import messages as _messages
+                            from django.utils.translation import gettext as _
+
+                            _messages.info(
+                                request,
+                                _(
+                                    "Your phone number was updated to the one "
+                                    "on file with LuxID (%(new)s)."
+                                )
+                                % {"new": phone},
+                            )
+                        except Exception:
+                            pass
 
                 # Map locale to preferred_language
                 locale = _claims.get("locale", "")
@@ -1737,9 +1778,14 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
 
             # Map phone_number. LuxID only releases verified numbers, so
             # trust it as the verification anchor and skip Crush.lu's
-            # Firebase OTP step for LuxID users.
+            # Firebase OTP step for LuxID users. Non-Luxembourgish numbers
+            # are skipped for the initial rollout (see _is_luxembourgish_phone).
             phone = claims.get("phone_number")
-            if phone and _luxid_phone_available(phone, profile):
+            if (
+                phone
+                and _is_luxembourgish_phone(phone)
+                and _luxid_phone_available(phone, profile)
+            ):
                 profile.phone_number = phone
                 profile.phone_verified = True
                 profile.phone_verified_at = timezone.now()

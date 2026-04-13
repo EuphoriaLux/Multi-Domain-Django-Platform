@@ -273,6 +273,41 @@
                          class="mt-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm"
                          x-text="errorMessage"></div>
 
+                    {# LuxID fallback — users stuck on Firebase SMS can verify
+                       their phone instantly by linking their LuxID account.
+                       Only shown while the phone is not yet verified and the
+                       user doesn't already have a linked LuxID account (in
+                       which case the phone would already be verified via the
+                       signal). Luxembourgish numbers only for the initial
+                       rollout.
+
+                       `has_luxid_account` is injected by
+                       crush_lu.context_processors.create_profile_flags. #}
+                    {% if not has_luxid_account %}
+                    <div x-show="notVerified"
+                         class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <div class="flex items-start gap-3">
+                            <span class="text-2xl flex-shrink-0" aria-hidden="true">🇱🇺</span>
+                            <div class="flex-1">
+                                <h4 class="font-medium text-blue-900 dark:text-blue-100 text-sm">
+                                    {% trans "Trouble receiving the SMS code?" %}
+                                </h4>
+                                <p class="text-sm text-blue-800 dark:text-blue-200 mt-1">
+                                    {% blocktrans %}If you have a LuxID account (free via POST Luxembourg) and a Luxembourgish phone number, you can verify your phone instantly by linking your LuxID.{% endblocktrans %}
+                                </p>
+                                <p class="text-xs text-blue-700 dark:text-blue-300 mt-1 italic">
+                                    {% trans "Luxembourgish numbers (+352) only for now." %}
+                                </p>
+                                <a href="{% url 'luxid_login' %}?process=connect&next={{ request.path }}"
+                                   class="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+                                    {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
+                                    {% trans "Verify with LuxID" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <input type="hidden" name="phone_verified" x-bind:value="verifiedValue">
                 </div>
 

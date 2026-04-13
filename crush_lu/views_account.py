@@ -77,6 +77,11 @@ def oauth_complete(request):
     return render(request, "crush_lu/oauth_complete.html", context)
 
 
+# SEC-03: @csrf_exempt is intentional here. Authentication is provided by
+# Facebook's signed_request (HMAC-SHA256 with app_secret, verified below via
+# parse_facebook_signed_request). Facebook cannot fetch and return our CSRF
+# token, so standard Django CSRF protection is not applicable — the signed
+# request IS the CSRF-equivalent authenticity proof. Do not remove.
 @csrf_exempt
 @require_http_methods(["POST"])
 def facebook_data_deletion_callback(request):
@@ -526,13 +531,13 @@ def update_email_preferences(request):
     return redirect("crush_lu:account_settings")
 
 
-@csrf_exempt
 @login_required
 @require_http_methods(["POST"])
 def api_update_email_preference(request):
     """
     JSON API endpoint for updating a single email preference toggle.
-    Called from Alpine.js emailPreferences component via fetch().
+    Called from Alpine.js emailPreferences component via fetch(), which sends
+    the X-CSRFToken header — standard Django CSRF protection applies (SEC-10).
     """
     from .models import EmailPreference
 

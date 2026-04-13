@@ -207,7 +207,7 @@
                         </div>
                         <small class="text-yellow-600 dark:text-yellow-400 text-sm">
                             {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 inline" %}
-                            <a href="{% url 'crush_lu:verify_phone' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
+                            <a href="{% url 'crush_lu:create_profile' %}" class="underline hover:text-yellow-800">{% trans "Verify your phone number" %}</a> {% trans "to lock it." %}
                         </small>
                     {% endif %}
                     <div data-error-for="phone_number" class="{% if not form.phone_number.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.phone_number.errors %}{{ form.phone_number.errors.0 }}{% endif %}</div>
