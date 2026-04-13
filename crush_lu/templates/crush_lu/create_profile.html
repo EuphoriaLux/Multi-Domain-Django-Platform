@@ -288,6 +288,7 @@
 
                     <div x-data="dobPicker"
                          data-months='[{"num":1,"name":"{% trans "January" %}"},{"num":2,"name":"{% trans "February" %}"},{"num":3,"name":"{% trans "March" %}"},{"num":4,"name":"{% trans "April" %}"},{"num":5,"name":"{% trans "May" %}"},{"num":6,"name":"{% trans "June" %}"},{"num":7,"name":"{% trans "July" %}"},{"num":8,"name":"{% trans "August" %}"},{"num":9,"name":"{% trans "September" %}"},{"num":10,"name":"{% trans "October" %}"},{"num":11,"name":"{% trans "November" %}"},{"num":12,"name":"{% trans "December" %}"}]'
+                         data-initial-dob="{% if form.date_of_birth.value %}{{ form.date_of_birth.value|date:'Y-m-d' }}{% elif profile and profile.date_of_birth %}{{ profile.date_of_birth|date:'Y-m-d' }}{% endif %}"
                          class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
 
                         <!-- Progress Breadcrumb -->
