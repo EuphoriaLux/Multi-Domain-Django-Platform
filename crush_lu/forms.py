@@ -372,7 +372,7 @@ class CrushProfileForm(forms.ModelForm):
                 phone_verified = False
         else:
             # New profile: check if profile was created during phone verification
-            # The verify_phone_page and mark_phone_verified views create profiles
+            # The mark_phone_verified view creates profiles
             # with phone_verified=True before the form is submitted
             if hasattr(self, 'instance') and hasattr(self.instance, 'user') and self.instance.user:
                 from .models import CrushProfile

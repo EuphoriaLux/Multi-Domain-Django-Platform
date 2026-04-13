@@ -56,7 +56,7 @@
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
         <span class="text-sm sm:text-base"><strong>{% trans "Phone verification required!" %}</strong> <span class="hidden sm:inline">{% trans "Please verify your phone number to access all features." %}</span></span>
     </div>
-    <a href="{% url 'crush_lu:verify_phone' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors flex-shrink-0 text-sm sm:text-base">
+    <a href="{% url 'crush_lu:create_profile' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors flex-shrink-0 text-sm sm:text-base">
         {% include "shared/icons/phone.html" with class="w-4 h-4 sm:w-5 sm:h-5" %} {% trans "Verify Now" %}
     </a>
 </div>

@@ -16,15 +16,11 @@ from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
-from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.middleware.csrf import get_token
-from django.conf import settings
 
 from django.utils.translation import gettext as _
-from django.utils.http import url_has_allowed_host_and_scheme
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
 from .models import CrushProfile
 from .decorators import ratelimit
@@ -259,63 +255,3 @@ def phone_verification_status(request):
         })
 
 
-@login_required
-def verify_phone_page(request):
-    """
-    Standalone phone verification page for existing users.
-
-    Users who need to verify their phone (e.g., existing users before
-    phone verification was mandatory) can use this page.
-
-    Supports `next` query parameter for redirecting after successful verification.
-    """
-    try:
-        profile = request.user.crushprofile
-    except CrushProfile.DoesNotExist:
-        # Create profile if it doesn't exist (needed for new signups
-        # who are redirected here before completing profile creation)
-        # Set preferred language from current request
-        preferred_lang = validate_language(
-            getattr(request, 'LANGUAGE_CODE', 'en'), default='en'
-        )
-        profile = CrushProfile.objects.create(
-            user=request.user,
-            completion_status='not_started',
-            preferred_language=preferred_lang,
-        )
-        logger.info(f"Created CrushProfile for user {request.user.id} during phone verification")
-
-    # Get the redirect URL from query params (for returning to create_profile, etc.)
-    next_url = request.GET.get('next', '')
-
-    # Validate next_url to prevent open redirect vulnerabilities
-    # Use Django's built-in URL validation
-    allowed_hosts = [request.get_host()] if request else settings.ALLOWED_HOSTS
-    if next_url and not url_has_allowed_host_and_scheme(
-        url=next_url,
-        allowed_hosts=allowed_hosts,
-        require_https=request.is_secure() if request else False
-    ):
-        # Invalid redirect target - ignore it
-        next_url = ''
-
-    # If already verified, redirect to next or dashboard with message
-    if profile.phone_verified:
-        messages.info(request, _("Your phone number is already verified."))
-        if next_url:
-            return redirect(next_url)
-        return redirect('crush_lu:dashboard')
-
-    context = {
-        'profile': profile,
-        'current_phone': profile.phone_number or '',
-        'next_url': next_url,  # Pass to template for redirect after verification
-        # Firebase config from environment variables
-        'firebase_api_key': settings.FIREBASE_API_KEY,
-        'firebase_auth_domain': settings.FIREBASE_AUTH_DOMAIN,
-        'firebase_project_id': settings.FIREBASE_PROJECT_ID,
-        # User's preferred language for Firebase SMS localization
-        'firebase_language': profile.preferred_language or 'en',
-    }
-
-    return render(request, 'crush_lu/verify_phone.html', context)

@@ -60,7 +60,6 @@ class TailwindMigrationTests(TestCase):
         # Misc
         'oauth_popup_error.html',  # Standalone with inline CSS, doesn't need conversion
         'qr_scanner.html',  # In advent/ subdirectory
-        'verify_phone.html',  # Has form-control in intl-tel-input CSS override
         # Partials (in partials/ subdirectory)
         'edit_profile_form.html',  # partials/edit_profile_form.html - has Bootstrap forms
         # Advent calendar templates (in advent/ subdirectory)

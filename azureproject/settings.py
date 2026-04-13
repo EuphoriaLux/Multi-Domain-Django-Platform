@@ -136,6 +136,7 @@ INSTALLED_APPS = [
     "crispy_tailwind",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # SEC-02: required for refresh token rotation+blacklist
     "corsheaders",
     "django_htmx",  # HTMX server-side integration
     "azureproject",  # For custom analytics templatetags
@@ -313,8 +314,14 @@ SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
 # PWA will still work - 14-day timeout is sufficient without extending on every pageview
 SESSION_SAVE_EVERY_REQUEST = False  # Only save when session data changes
 SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
-SESSION_COOKIE_SECURE = False  # Set to True in production (HTTPS only)
+# SEC-01: secure in production (HTTPS via Azure Front Door), relaxed for local HTTP dev.
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection while allowing navigation
+# CSRF cookie matches session cookie for symmetry. Leave HTTPONLY=False so JS
+# can read the token and send it as X-CSRFToken in fetch() calls.
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = (
     False  # Keep session alive after browser close (critical for PWA)
 )
@@ -580,7 +587,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": False,
+    "ROTATE_REFRESH_TOKENS": True,  # SEC-02: rotate on each refresh; old token blacklisted
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
@@ -1031,3 +1038,23 @@ COMPONENTS = {
     ],
     "app_dirs": ["components"],
 }
+
+# =============================================================================
+# PRODUCTION SECURITY HEADERS (SEC-04)
+# =============================================================================
+# Only applied when DEBUG=False. Local HTTP dev would break under SSL redirect
+# and HSTS, so we gate on DEBUG rather than a separate env var. Production is
+# served exclusively over HTTPS via Azure Front Door, which terminates TLS and
+# forwards X-Forwarded-Proto so Django's SSL redirect logic works correctly.
+#
+# HealthCheckMiddleware is first in MIDDLEWARE and short-circuits /healthz/
+# before SecurityMiddleware runs, so Azure health probes remain unaffected.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    X_FRAME_OPTIONS = "DENY"
