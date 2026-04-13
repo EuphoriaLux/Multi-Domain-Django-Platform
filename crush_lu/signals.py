@@ -18,6 +18,8 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import pre_social_login, social_account_updated
 
+from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
+
 from .utils.image_processing import process_uploaded_image
 
 from .models import (
@@ -264,12 +266,15 @@ def create_user_data_consent(sender, instance, created, **kwargs):
         logger.error(f"Error creating data consent for user {instance.id}: {str(e)}")
 
 
-# List of Crush.lu domains - profile should be created for logins on these domains
-CRUSH_LU_DOMAINS = ["crush.lu", "www.crush.lu", "localhost", "127.0.0.1"]
+# List of Crush.lu domains - profile should be created for logins on these domains.
+# Built from azureproject.domains so test.crush.lu and any future alias is picked
+# up automatically. Mirrors crush_lu/adapter.py:16-17.
+CRUSH_LU_DOMAINS = {"crush.lu", "localhost", "127.0.0.1"}
+CRUSH_LU_DOMAINS.update(_PLATFORM_DOMAINS["crush.lu"].get("aliases", []))
 
 
 def _is_crush_domain(request):
-    """Check if current request is from crush.lu domain"""
+    """Check if current request is from a crush.lu host (incl. staging aliases)."""
     if not request:
         return False
     try:
@@ -970,7 +975,7 @@ def check_special_user_experience(sender, request, user, **kwargs):
     except KeyError:
         # During tests, the request may not have SERVER_NAME set
         return
-    if host not in ["crush.lu", "www.crush.lu", "localhost", "127.0.0.1"]:
+    if host not in CRUSH_LU_DOMAINS:
         return
 
     try:
@@ -1477,6 +1482,47 @@ LUXID_GENDER_MAP = {
 }
 
 
+def _luxid_claims(extra_data):
+    """Flatten allauth's OIDC envelope to a single claims dict.
+
+    Allauth's OpenID Connect provider stores the raw response as
+    ``{"id_token": {...}, "userinfo": {...}}``. Prefer userinfo (matches
+    allauth's own ``_pick_data``) and fall back to id_token, so claims
+    like ``birthdate`` / ``phone_number`` are readable at one level.
+    """
+    if not isinstance(extra_data, dict):
+        return {}
+    return extra_data.get("userinfo") or extra_data.get("id_token") or extra_data
+
+
+def _luxid_phone_available(phone, profile):
+    """Return True if ``phone`` can be written to ``profile`` without
+    violating the ``unique_non_empty_phone_number`` constraint.
+
+    CrushProfile has a partial-unique index on phone_number, so we must
+    not assign a number another profile already owns. If we hit that
+    case, log a warning (two accounts sharing the same LuxID-verified
+    number is a data-integrity signal worth investigating) and skip
+    the phone fields so the rest of the profile still saves.
+    """
+    if not phone:
+        return False
+    clash = (
+        CrushProfile.objects.filter(phone_number=phone)
+        .exclude(pk=profile.pk)
+        .exists()
+    )
+    if clash:
+        logger.warning(
+            "LuxID phone_number %s already owned by another CrushProfile; "
+            "skipping phone prefill for user=%s",
+            phone,
+            getattr(profile.user, "email", profile.user_id),
+        )
+        return False
+    return True
+
+
 @receiver(pre_social_login)
 def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     """
@@ -1487,12 +1533,24 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     - given_name, family_name, email (mapped in adapter populate_user)
     - birthdate, gender, phone_number, locale (mapped here to CrushProfile)
     """
+    # Diagnostic — see what provider id allauth actually stores on the
+    # SocialAccount for this login. For generic OpenID Connect providers
+    # this is the SocialApp's provider_id (e.g. "luxid") but it can also
+    # be the bare "openid_connect" id, depending on admin configuration.
+    _prov = sociallogin.account.provider
+    logger.info("[LUXID-DIAG] pre_social_login entry provider=%r", _prov)
+
+    # Match LuxID in either spelling: the custom provider_id on the
+    # SocialApp ("luxid") OR the generic OIDC fallback ("openid_connect").
+    # Crush.lu only uses OIDC for LuxID, so both are safe to treat as LuxID.
+    _is_luxid = _prov in ("luxid", "openid_connect")
+
     # Reset the flag at the start (only for LuxID provider)
-    if sociallogin.account.provider == "luxid":
+    if _is_luxid:
         _thread_local.is_crush_luxid_login = False
 
     # Only process LuxID logins
-    if sociallogin.account.provider != "luxid":
+    if not _is_luxid:
         return
 
     # Only process for crush.lu domain
@@ -1521,6 +1579,46 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     try:
         extra_data = sociallogin.account.extra_data
 
+        # Allauth's OpenID Connect provider stores the raw response envelope
+        # {"id_token": {...}, "userinfo": {...}} in SocialAccount.extra_data,
+        # so claims like `email` live one level down, not at the top. Flatten
+        # here (prefer userinfo per allauth's _pick_data) before inspecting.
+        _claims = extra_data.get("userinfo") or extra_data.get("id_token") or {}
+
+        # Lightweight diagnostic — POST Luxembourg's CIAM is now releasing
+        # the `email` claim (essential) on the `crush` UAT client, so we no
+        # longer need the expansive ERROR-level probe. Keep a single INFO
+        # line so we can still confirm the envelope shape at a glance.
+        try:
+            logger.info(
+                "[LUXID] envelope_keys=%s userinfo_has_email=%s",
+                sorted(extra_data.keys()),
+                bool(_claims.get("email")),
+            )
+        except Exception:
+            pass
+
+        # Belt-and-braces: if allauth's OIDC extractor didn't populate
+        # sociallogin.email_addresses but we do see an `email` claim in the
+        # flattened OIDC payload, push it in so SocialSignupForm prefills
+        # correctly and allauth's auto-signup path can proceed.
+        #
+        # LuxID is POST Luxembourg's government-grade CIAM — the provider
+        # itself is the trust anchor, so any email in the token is already
+        # verified on their side even when they don't release the
+        # `email_verified` claim. Hardcode verified=True to skip Crush.lu's
+        # own email-verification flow for LuxID users.
+        if not sociallogin.email_addresses and _claims.get("email"):
+            from allauth.account.models import EmailAddress as _EmailAddress
+
+            sociallogin.email_addresses = [
+                _EmailAddress(
+                    email=_claims["email"],
+                    verified=True,
+                    primary=True,
+                )
+            ]
+
         # Update CrushProfile for existing users
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
@@ -1528,7 +1626,7 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 updated_fields = []
 
                 # Map birthdate (OIDC format: YYYY-MM-DD)
-                birthdate = extra_data.get("birthdate")
+                birthdate = _claims.get("birthdate")
                 if birthdate and not profile.date_of_birth:
                     try:
                         profile.date_of_birth = datetime.strptime(
@@ -1539,21 +1637,34 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         logger.warning("Invalid birthdate format from LuxID")
 
                 # Map gender
-                gender = extra_data.get("gender", "").lower()
+                gender = (_claims.get("gender") or "").lower()
                 if gender and not profile.gender:
                     mapped = LUXID_GENDER_MAP.get(gender, "")
                     if mapped:
                         profile.gender = mapped
                         updated_fields.append("gender")
 
-                # Map phone_number
-                phone = extra_data.get("phone_number")
-                if phone and not profile.phone_number:
+                # Map phone_number. LuxID only releases verified numbers
+                # (POST Luxembourg confirmed `phone_number_verified` is
+                # always implicit), so trust it as the verification anchor
+                # and skip Crush.lu's Firebase OTP step for LuxID users.
+                phone = _claims.get("phone_number")
+                if (
+                    phone
+                    and not profile.phone_number
+                    and _luxid_phone_available(phone, profile)
+                ):
                     profile.phone_number = phone
                     updated_fields.append("phone_number")
+                    if not profile.phone_verified:
+                        profile.phone_verified = True
+                        profile.phone_verified_at = timezone.now()
+                        updated_fields.extend(
+                            ["phone_verified", "phone_verified_at"]
+                        )
 
                 # Map locale to preferred_language
-                locale = extra_data.get("locale", "")
+                locale = _claims.get("locale", "")
                 if locale and profile.preferred_language == "en":
                     lang_code = locale[:2].lower()
                     if lang_code in ("de", "fr"):
@@ -1584,7 +1695,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
     Create CrushProfile when a new LuxID SocialAccount is created.
     Populates profile fields from OIDC claims (birthdate, gender, phone, locale).
     """
-    if instance.provider != "luxid":
+    if instance.provider not in ("luxid", "openid_connect"):
         return
 
     if not created:
@@ -1603,11 +1714,11 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
         )
 
         if profile_created:
-            extra_data = instance.extra_data
+            claims = _luxid_claims(instance.extra_data)
             updated_fields = []
 
             # Map birthdate
-            birthdate = extra_data.get("birthdate")
+            birthdate = claims.get("birthdate")
             if birthdate:
                 try:
                     profile.date_of_birth = datetime.strptime(
@@ -1618,20 +1729,26 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
                     pass
 
             # Map gender
-            gender = extra_data.get("gender", "").lower()
+            gender = (claims.get("gender") or "").lower()
             mapped = LUXID_GENDER_MAP.get(gender, "")
             if mapped:
                 profile.gender = mapped
                 updated_fields.append("gender")
 
-            # Map phone_number
-            phone = extra_data.get("phone_number")
-            if phone:
+            # Map phone_number. LuxID only releases verified numbers, so
+            # trust it as the verification anchor and skip Crush.lu's
+            # Firebase OTP step for LuxID users.
+            phone = claims.get("phone_number")
+            if phone and _luxid_phone_available(phone, profile):
                 profile.phone_number = phone
-                updated_fields.append("phone_number")
+                profile.phone_verified = True
+                profile.phone_verified_at = timezone.now()
+                updated_fields.extend(
+                    ["phone_number", "phone_verified", "phone_verified_at"]
+                )
 
             # Map locale to preferred_language
-            locale = extra_data.get("locale", "")
+            locale = claims.get("locale", "")
             if locale:
                 lang_code = locale[:2].lower()
                 if lang_code in ("de", "fr"):

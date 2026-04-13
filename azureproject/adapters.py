@@ -258,7 +258,10 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                 user.email = extra_data['email']
         # Handle LuxID OIDC provider (POST Luxembourg CIAM)
         # OIDC standard claims: given_name, family_name, email
-        elif sociallogin.account.provider == 'luxid':
+        # NB: `provider` may be "luxid" (if the SocialApp row has a custom
+        # provider_id) or the bare "openid_connect" fallback. Crush.lu only
+        # uses OIDC for LuxID, so both spellings are treated as LuxID.
+        elif sociallogin.account.provider in ('luxid', 'openid_connect'):
             extra_data = sociallogin.account.extra_data
             user.first_name = extra_data.get('given_name', '') or data.get('first_name', '') or ''
             user.last_name = extra_data.get('family_name', '') or data.get('last_name', '') or ''

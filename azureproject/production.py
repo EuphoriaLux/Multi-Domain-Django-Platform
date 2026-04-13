@@ -488,13 +488,15 @@ LOGGING = {
         # =================================================================
         "django": {
             "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False,
+            "level": "WARNING",
+            # Propagate to root so App Insights captures Django warnings/errors
+            "propagate": True,
         },
         "django.request": {
             "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False,
+            "level": "WARNING",
+            # Propagate to root so 4xx/5xx and CSRF failures reach App Insights
+            "propagate": True,
         },
         "django.db.backends": {
             "handlers": ["console"],

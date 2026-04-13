@@ -5121,10 +5121,21 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
 
-                // Render initial age range buttons
+                // Restore state from data-initial-dob BEFORE the first render
+                // so x-show="isStepN" picks the right step on the first pass.
+                // This mutates `this.step` and the selected* fields, so when
+                // Alpine evaluates the getters right after init() returns,
+                // they already reflect the prefilled value.
+                this._parseInitialDate();
+
+                // Render the server-empty containers (age ranges, and if we
+                // prefilled, the year/month/day grids too). _parseInitialDate
+                // handled the renders for the prefilled path; this covers the
+                // blank-profile path where we still need the age chips.
                 this.$nextTick(function () {
-                    self._renderAgeRanges();
-                    self._parseInitialDate();
+                    if (!self.selectedAgeRange) {
+                        self._renderAgeRanges();
+                    }
                 });
 
                 // Listen for external resets if needed
@@ -5167,10 +5178,21 @@ document.addEventListener("alpine:init", function () {
             },
 
             _parseInitialDate: function () {
-                var hiddenInput = this.$el.querySelector('input[name="date_of_birth"]');
-                if (!hiddenInput || !hiddenInput.value) return;
+                // Prefer the data-initial-dob attribute on the component
+                // root (set by the server template) so we don't depend on
+                // when Alpine decides to scan the inner hidden input during
+                // $nextTick. Fall back to the hidden input for callers that
+                // run after the user picks a date.
+                var initialValue = this.$el.getAttribute("data-initial-dob") || "";
+                if (!initialValue) {
+                    var hiddenInput = this.$el.querySelector(
+                        'input[name="date_of_birth"]',
+                    );
+                    initialValue = (hiddenInput && hiddenInput.value) || "";
+                }
+                if (!initialValue) return;
 
-                var parts = hiddenInput.value.split("-");
+                var parts = initialValue.split("-");
                 if (parts.length !== 3) return;
 
                 var year = parseInt(parts[0], 10);
