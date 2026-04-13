@@ -1495,6 +1495,34 @@ def _luxid_claims(extra_data):
     return extra_data.get("userinfo") or extra_data.get("id_token") or extra_data
 
 
+def _luxid_phone_available(phone, profile):
+    """Return True if ``phone`` can be written to ``profile`` without
+    violating the ``unique_non_empty_phone_number`` constraint.
+
+    CrushProfile has a partial-unique index on phone_number, so we must
+    not assign a number another profile already owns. If we hit that
+    case, log a warning (two accounts sharing the same LuxID-verified
+    number is a data-integrity signal worth investigating) and skip
+    the phone fields so the rest of the profile still saves.
+    """
+    if not phone:
+        return False
+    clash = (
+        CrushProfile.objects.filter(phone_number=phone)
+        .exclude(pk=profile.pk)
+        .exists()
+    )
+    if clash:
+        logger.warning(
+            "LuxID phone_number %s already owned by another CrushProfile; "
+            "skipping phone prefill for user=%s",
+            phone,
+            getattr(profile.user, "email", profile.user_id),
+        )
+        return False
+    return True
+
+
 @receiver(pre_social_login)
 def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     """
@@ -1621,7 +1649,11 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # always implicit), so trust it as the verification anchor
                 # and skip Crush.lu's Firebase OTP step for LuxID users.
                 phone = _claims.get("phone_number")
-                if phone and not profile.phone_number:
+                if (
+                    phone
+                    and not profile.phone_number
+                    and _luxid_phone_available(phone, profile)
+                ):
                     profile.phone_number = phone
                     updated_fields.append("phone_number")
                     if not profile.phone_verified:
@@ -1707,7 +1739,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             # trust it as the verification anchor and skip Crush.lu's
             # Firebase OTP step for LuxID users.
             phone = claims.get("phone_number")
-            if phone:
+            if phone and _luxid_phone_available(phone, profile):
                 profile.phone_number = phone
                 profile.phone_verified = True
                 profile.phone_verified_at = timezone.now()
