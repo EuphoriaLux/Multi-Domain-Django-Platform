@@ -298,6 +298,68 @@ def configure_azure_monitor_telemetry(environment="production"):
         return False
 
 
+def attach_otel_logging_handler_to_root(level=logging.INFO):
+    """
+    Explicitly attach the OpenTelemetry LoggingHandler to the Python root logger.
+
+    WHY THIS EXISTS:
+    `azure.monitor.opentelemetry.configure_azure_monitor(logger_name="")` attaches
+    a LoggingHandler to the root logger at configure time. However, Django's
+    `logging.config.dictConfig(LOGGING)` runs AFTER settings import and can clear
+    or replace handlers on configured loggers depending on
+    `disable_existing_loggers` and handler wiring. The net effect observed in
+    production: `traces` and `exceptions` tables stayed empty for 7+ days while
+    `requests` kept flowing.
+
+    Calling this function AFTER Django has applied its LOGGING dictConfig
+    guarantees a live OTel handler on the root logger, so every Python log
+    record becomes an App Insights `traces` row, independent of any
+    trace-context sampling decision on spans.
+
+    Safe to call multiple times — it will only attach one OTel handler.
+
+    Returns True on success, False otherwise.
+    """
+    try:
+        from opentelemetry._logs import get_logger_provider
+        from opentelemetry.sdk._logs import LoggingHandler
+    except ImportError as e:
+        logger.warning(
+            f"Cannot attach OTel LoggingHandler to root: {e}. "
+            "Python log records will not reach Application Insights."
+        )
+        return False
+
+    logger_provider = get_logger_provider()
+    if logger_provider is None:
+        logger.warning(
+            "No OpenTelemetry LoggerProvider configured; "
+            "call configure_azure_monitor_telemetry() first."
+        )
+        return False
+
+    root_logger = logging.getLogger()
+
+    # Idempotency: don't attach a second OTel handler if one is already present
+    for existing in root_logger.handlers:
+        if isinstance(existing, LoggingHandler):
+            logger.debug("OTel LoggingHandler already attached to root logger")
+            return True
+
+    handler = LoggingHandler(level=level, logger_provider=logger_provider)
+    root_logger.addHandler(handler)
+    # Ensure root level is low enough to propagate records to the OTel handler
+    if root_logger.level > level or root_logger.level == logging.NOTSET:
+        root_logger.setLevel(level)
+
+    logger.info(
+        "OTel LoggingHandler attached to root logger at level %s — "
+        "Python log records will now be exported to Application Insights.",
+        logging.getLevelName(level),
+    )
+    return True
+
+
 # Legacy function for backward compatibility
 def configure_exception_filtering(environment="production"):
     """
