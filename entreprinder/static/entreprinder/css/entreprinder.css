@@ -12,8 +12,8 @@
  * Color Palette:
  * - Blue (#0066CC) - Primary brand color, trust & technology
  * - Orange (#FF6B00) - Accent, energy & action
- * - Green (#4CAF50) - Success, matches
- * - Red (#FF4D4D) - Pass/dislike
+ * - Green (#4CAF50) - Success
+ * - Red (#FF4D4D) - Error
  *
  * Typography:
  * - Poppins - Display/headings
@@ -28,11 +28,6 @@
    CORE - Design Tokens & Variables
    ========================================== */
 @import url("core/variables.css");
-
-/* ==========================================
-   COMPONENTS - Reusable UI elements
-   ========================================== */
-@import url("components/swipe.css");
 
 /* ==========================================
    BASE STYLES
@@ -204,60 +199,6 @@
 }
 
 /* ==========================================
-   MATCH DISPLAY
-   ========================================== */
-
-.matches-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--powerup-space-xl);
-}
-
-.match-card {
-    background: var(--powerup-white);
-    border-radius: var(--powerup-radius-xl);
-    box-shadow: var(--powerup-shadow-card);
-    overflow: hidden;
-    border-left: 4px solid var(--powerup-success);
-}
-
-.match-card .match-header {
-    display: flex;
-    align-items: center;
-    gap: var(--powerup-space-md);
-    padding: var(--powerup-space-lg);
-    background: var(--powerup-pearl);
-}
-
-.match-card .match-avatar {
-    width: 60px;
-    height: 60px;
-    border-radius: var(--powerup-radius-full);
-    object-fit: cover;
-    border: 3px solid var(--powerup-success);
-}
-
-.match-card .match-info {
-    flex: 1;
-}
-
-.match-card .match-name {
-    font-weight: var(--powerup-font-bold);
-    color: var(--powerup-text-primary);
-}
-
-.match-card .match-date {
-    font-size: var(--powerup-text-xs);
-    color: var(--powerup-text-muted);
-}
-
-.match-card .match-actions {
-    padding: var(--powerup-space-md);
-    display: flex;
-    gap: var(--powerup-space-sm);
-}
-
-/* ==========================================
    FORM STYLING
    ========================================== */
 
@@ -304,15 +245,8 @@
    ========================================== */
 
 @media print {
-    .swipe-container,
-    .swipe-buttons,
-    .match-popup {
-        display: none;
-    }
-
     .card-powerup,
-    .entrepreneur-card,
-    .match-card {
+    .entrepreneur-card {
         box-shadow: none;
         border: 1px solid var(--powerup-border);
     }

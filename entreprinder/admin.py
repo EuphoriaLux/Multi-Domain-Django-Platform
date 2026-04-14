@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import EntrepreneurProfile, Skill, Industry, Match, Like, Dislike
+from .models import EntrepreneurProfile, Skill, Industry
 
 # Import Vibe models and admin classes
 from .vibe.models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
@@ -31,16 +31,11 @@ class EntreprinderAdminSite(admin.AdminSite):
             # 1. Profiles
             'entrepreneurprofile': {'order': 1, 'icon': '👤', 'group': 'Profiles'},
 
-            # 2. Matching
-            'match': {'order': 10, 'icon': '🤝', 'group': 'Matching'},
-            'like': {'order': 11, 'icon': '💚', 'group': 'Matching'},
-            'dislike': {'order': 12, 'icon': '❌', 'group': 'Matching'},
-
-            # 3. Categories
+            # 2. Categories
             'industry': {'order': 20, 'icon': '🏭', 'group': 'Categories'},
             'skill': {'order': 21, 'icon': '⚡', 'group': 'Categories'},
 
-            # 4. Vibe Coding
+            # 3. Vibe Coding
             'pixelcanvas': {'order': 40, 'icon': '🎨', 'group': 'Vibe Coding'},
             'pixel': {'order': 41, 'icon': '🔲', 'group': 'Vibe Coding'},
             'pixelhistory': {'order': 42, 'icon': '📜', 'group': 'Vibe Coding'},
@@ -83,10 +78,9 @@ class EntreprinderAdminSite(admin.AdminSite):
                     groups[group_name].sort(key=lambda x: x.get('_order', 999))
 
                 # Create new apps for each group
-                group_order = ['Profiles', 'Matching', 'Categories', 'Vibe Coding', 'Other']
+                group_order = ['Profiles', 'Categories', 'Vibe Coding', 'Other']
                 group_icons = {
                     'Profiles': '👤',
-                    'Matching': '💼',
                     'Categories': '🏷️',
                     'Vibe Coding': '🎮',
                     'Other': '📋',
@@ -155,37 +149,6 @@ class SkillAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
-# =============================================================================
-# Matching Admin (merged from matching app)
-# =============================================================================
-
-class MatchAdmin(admin.ModelAdmin):
-    list_display = ('entrepreneur1', 'entrepreneur2', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('entrepreneur1__user__username', 'entrepreneur2__user__username')
-    date_hierarchy = 'created_at'
-
-
-class LikeAdmin(admin.ModelAdmin):
-    list_display = ('liker', 'liked', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('liker__user__username', 'liked__user__username')
-    date_hierarchy = 'created_at'
-
-
-class DislikeAdmin(admin.ModelAdmin):
-    list_display = ('disliker', 'disliked', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('disliker__user__username', 'disliked__user__username')
-    date_hierarchy = 'created_at'
-
-
-class MatchInline(admin.TabularInline):
-    model = Match
-    fk_name = 'entrepreneur1'
-    extra = 1
-
-
 # Customize the default admin site header and title
 admin.site.site_header = "Entreprinder Administration"
 admin.site.site_title = "Entreprinder Admin Portal"
@@ -198,11 +161,6 @@ admin.site.index_title = "Welcome to Entreprinder Admin"
 
 # Profiles
 entreprinder_admin_site.register(EntrepreneurProfile, EntrepreneurProfileAdmin)
-
-# Matching
-entreprinder_admin_site.register(Match, MatchAdmin)
-entreprinder_admin_site.register(Like, LikeAdmin)
-entreprinder_admin_site.register(Dislike, DislikeAdmin)
 
 # Categories
 entreprinder_admin_site.register(Industry, IndustryAdmin)
