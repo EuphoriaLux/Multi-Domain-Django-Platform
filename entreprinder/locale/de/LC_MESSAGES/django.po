@@ -434,23 +434,9 @@ msgstr "Industrie:"
 msgid "Company:"
 msgstr "Unternehmen:"
 
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:24
-msgid "Like"
-msgstr "Wie"
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:25
-#, fuzzy
-#| msgid "Loading activity..."
-msgid "Loading..."
-msgstr "Aktivität wird geladen..."
-
 #: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
 msgid "No more entrepreneurs to show at the moment."
 msgstr "Im Moment können keine weiteren Unternehmer angezeigt werden."
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:60
-msgid "It's a match!"
-msgstr "Es passt!"
 
 #: .\entreprinder\templates\entreprinder\error.html:4
 msgid "Error"
@@ -698,34 +684,6 @@ msgstr "Kompatibilitätsbewertung"
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:368
 msgid "Play Again"
 msgstr "Nochmal spielen"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:4
-msgid "No More Profiles - Entreprinder"
-msgstr "Keine weiteren Profile - Entreprinder"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:10
-msgid "No More Profiles Available"
-msgstr "Keine weiteren Profile verfügbar"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:11
-#, fuzzy
-#| msgid ""
-#| "You've viewed all available profiles for now. Check back later fornew "
-#| "entrepreneurs!"
-msgid ""
-"You've viewed all available profiles for now. Check back later for new "
-"entrepreneurs!"
-msgstr ""
-"Sie haben sich vorerst alle verfügbaren Profile angesehen. SchauenSie später "
-"noch einmal vorbei, um neue Unternehmer zu finden!"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:13
-msgid "Return Home"
-msgstr "Zur Startseite zurückkehren"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:14
-msgid "View Your Matches"
-msgstr "Ihre Matches ansehen"
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:5
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:13

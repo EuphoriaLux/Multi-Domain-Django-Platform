@@ -429,23 +429,9 @@ msgstr "Secteur :"
 msgid "Company:"
 msgstr "Entreprise"
 
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:24
-msgid "Like"
-msgstr "J'aime"
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:25
-#, fuzzy
-#| msgid "Loading activity..."
-msgid "Loading..."
-msgstr "Chargement de l'activité..."
-
 #: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
 msgid "No more entrepreneurs to show at the moment."
 msgstr "Plus d'entrepreneurs a afficher pour le moment."
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:60
-msgid "It's a match!"
-msgstr "C'est un match !"
 
 #: .\entreprinder\templates\entreprinder\error.html:4
 msgid "Error"
@@ -698,34 +684,6 @@ msgstr "Score de compatibilite"
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:368
 msgid "Play Again"
 msgstr "Rejouer"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:4
-msgid "No More Profiles - Entreprinder"
-msgstr "Plus de profils - Entreprinder"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:10
-msgid "No More Profiles Available"
-msgstr "Plus de profils disponibles"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:11
-#, fuzzy
-#| msgid ""
-#| "You've viewed all available profiles for now. Check back later fornew "
-#| "entrepreneurs!"
-msgid ""
-"You've viewed all available profiles for now. Check back later for new "
-"entrepreneurs!"
-msgstr ""
-"Tu as vu tous les profils disponibles pour le moment. Reviens plustard pour "
-"de nouveaux entrepreneurs !"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:13
-msgid "Return Home"
-msgstr "Retour à l'accueil"
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:14
-msgid "View Your Matches"
-msgstr "Voir vos correspondances"
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:5
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:13
