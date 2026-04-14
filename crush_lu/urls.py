@@ -144,11 +144,6 @@ urlpatterns = [
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
     path('profile/rejected/', views.profile_rejected, name='profile_rejected'),
 
-    # LuxID Integration Mockups (for demonstration/negotiation purposes only)
-    path('mockup/auth-luxid/', views.luxid_auth_mockup_view, name='luxid_auth_mockup'),
-    path('mockup/profile-luxid/', views.luxid_mockup_view, name='luxid_profile_mockup'),
-    path('mockup/meeting-luxid/', views.luxid_meeting_guide_view, name='luxid_meeting_guide'),
-
     # Profile step-by-step saving APIs - MOVED to urls_crush.py (language-neutral)
     # These APIs are called from alpine-components.js with hardcoded paths:
     # - api/profile/save-step1/, save-step2/, save-step3/

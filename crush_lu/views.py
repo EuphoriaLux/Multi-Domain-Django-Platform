@@ -21,8 +21,6 @@ from django.db.models import Q, Count
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.conf import settings
-from datetime import timedelta
 import logging
 import json
 
@@ -1942,113 +1940,6 @@ def profile_rejected(request):
         "submission": submission,
     }
     return render(request, "crush_lu/profile_rejected.html", context)
-
-
-def luxid_mockup_view(request):
-    """Mockup view for LuxID integration demonstration (NOT PRODUCTION)"""
-    from django.http import Http404
-
-    host = request.META.get("HTTP_HOST", "").split(":")[0].lower()
-    is_staging = host.startswith("test.")
-    is_development = settings.DEBUG or host in ["localhost", "127.0.0.1"]
-
-    if not is_development and not is_staging:
-        raise Http404(
-            "This mockup is only available on staging and development environments"
-        )
-
-    context = {
-        "submission": {
-            "status": "pending",
-            "submitted_at": timezone.now() - timedelta(hours=2),
-            "coach": None,
-            "get_status_display": lambda: _("Pending Review"),
-        }
-    }
-    return render(request, "crush_lu/profile_submitted_luxid_mockup.html", context)
-
-
-def luxid_auth_mockup_view(request):
-    """Mockup view for LuxID login/signup integration (NOT PRODUCTION)"""
-    from django.http import Http404
-    from allauth.account.forms import LoginForm
-
-    host = request.META.get("HTTP_HOST", "").split(":")[0].lower()
-    is_staging = host.startswith("test.")
-    is_development = settings.DEBUG or host in ["localhost", "127.0.0.1"]
-
-    if not is_development and not is_staging:
-        raise Http404(
-            "This mockup is only available on staging and development environments"
-        )
-
-    context = {
-        "signup_form": CrushSignupForm(),
-        "login_form": LoginForm(),
-        "mode": request.GET.get("mode", "login"),
-    }
-    return render(request, "crush_lu/auth_luxid_mockup.html", context)
-
-
-def luxid_meeting_guide_view(request):
-    """Meeting preparation guide for LuxID CIAM integration (NOT PRODUCTION)"""
-    from django.http import Http404
-
-    host = request.META.get("HTTP_HOST", "").split(":")[0].lower()
-    is_staging = host.startswith("test.")
-    is_development = settings.DEBUG or host in ["localhost", "127.0.0.1"]
-
-    if not is_development and not is_staging:
-        raise Http404(
-            "This page is only available on staging and development environments"
-        )
-
-    context = {
-        "callback_uat": "https://test.crush.lu/accounts/luxid/login/callback/",
-        "callback_prod": "https://crush.lu/accounts/luxid/login/callback/",
-        "privacy_urls": {
-            "en": "/en/privacy/",
-            "de": "/de/privacy/",
-            "fr": "/fr/privacy/",
-        },
-        "attributes_needed": [
-            {"name": "sub", "description": "Unique user identifier", "required": True},
-            {"name": "email", "description": "User email address", "required": True},
-            {
-                "name": "email_verified",
-                "description": "Email verification status",
-                "required": True,
-            },
-            {"name": "given_name", "description": "First name", "required": True},
-            {"name": "family_name", "description": "Last name", "required": True},
-            {"name": "birthdate", "description": "Date of birth", "required": True},
-            {"name": "gender", "description": "Gender", "required": True},
-            {
-                "name": "phone_number",
-                "description": "Phone number",
-                "required": False,
-            },
-            {"name": "locale", "description": "Preferred language", "required": False},
-            {"name": "picture", "description": "Profile photo URL", "required": False},
-        ],
-        "attributes_available": [
-            "sub",
-            "email",
-            "email_verified",
-            "given_name",
-            "family_name",
-            "name",
-            "birthdate",
-            "gender",
-            "phone_number",
-            "phone_number_verified",
-            "address",
-            "locale",
-            "picture",
-            "updated_at",
-        ],
-    }
-    return render(request, "crush_lu/luxid_meeting_guide.html", context)
 
 
 # Membership program page
