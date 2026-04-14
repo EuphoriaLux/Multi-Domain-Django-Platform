@@ -134,7 +134,7 @@ class PowerUpNoBleedTestCase(TestCase):
 
     def test_no_entreprinder_pages(self):
         """Entreprinder specific pages should not be available (404)."""
-        response = self.client.get("/en/matching/swipe/")
+        response = self.client.get("/en/entrepreneurs/")
         self.assertEqual(response.status_code, 404)
 
     def test_auth_endpoints_available(self):

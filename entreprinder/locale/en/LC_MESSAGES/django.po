@@ -367,20 +367,8 @@ msgstr ""
 msgid "Company:"
 msgstr ""
 
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:24
-msgid "Like"
-msgstr ""
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:25
-msgid "Loading..."
-msgstr ""
-
 #: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
 msgid "No more entrepreneurs to show at the moment."
-msgstr ""
-
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:60
-msgid "It's a match!"
 msgstr ""
 
 #: .\entreprinder\templates\entreprinder\error.html:4
@@ -597,28 +585,6 @@ msgstr ""
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:368
 msgid "Play Again"
-msgstr ""
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:4
-msgid "No More Profiles - Entreprinder"
-msgstr ""
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:10
-msgid "No More Profiles Available"
-msgstr ""
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:11
-msgid ""
-"You've viewed all available profiles for now. Check back later for new "
-"entrepreneurs!"
-msgstr ""
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:13
-msgid "Return Home"
-msgstr ""
-
-#: .\entreprinder\templates\matching\no_more_profiles.html:14
-msgid "View Your Matches"
 msgstr ""
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:5
