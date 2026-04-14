@@ -2,29 +2,7 @@
   "mcpServers": {
     "azure": {
       "command": "cmd",
-      "args": [
-        "/c",
-        "npx",
-        "-y",
-        "@azure/mcp@latest",
-        "server",
-        "start"
-      ]
-    },
-    "context7": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "npx",
-        "-y",
-        "@upstash/context7-mcp@latest"
-      ]
-    },
-    "playwright": {
-      "command": "node",
-      "args": [
-        "C:/Users/User/AppData/Roaming/npm/node_modules/@playwright/mcp/cli.js"
-      ]
+      "args": ["/c", "npx", "-y", "@azure/mcp@latest", "server", "start"]
     }
   }
 }

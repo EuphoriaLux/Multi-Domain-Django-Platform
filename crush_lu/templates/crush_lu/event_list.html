@@ -95,8 +95,9 @@
             <div class="col-span-full">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
                     <div class="text-center py-12 px-6">
-                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No events scheduled yet" %}</h4>
-                        <p class="text-gray-500 dark:text-gray-400">{% trans "Check back soon for upcoming meetups and speed dating events!" %}</p>
+                        <div class="mx-auto w-32 h-32 mb-4">{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}</div>
+                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "The ghosts are planning something" %}</h4>
+                        <p class="text-gray-500 dark:text-gray-400">{% trans "No upcoming events right now — check back soon for speed dating nights and social mixers." %}</p>
                     </div>
                 </div>
             </div>
@@ -113,8 +114,9 @@
             <div class="col-span-full">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
                     <div class="text-center py-12 px-6">
-                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No past events yet" %}</h4>
-                        <p class="text-gray-500 dark:text-gray-400">{% trans "Past events will appear here after they've taken place." %}</p>
+                        <div class="mx-auto w-32 h-32 mb-4">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
+                        <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "Nothing in the rear-view mirror yet" %}</h4>
+                        <p class="text-gray-500 dark:text-gray-400">{% trans "Past events will appear here once you've attended your first meetup." %}</p>
                     </div>
                 </div>
             </div>

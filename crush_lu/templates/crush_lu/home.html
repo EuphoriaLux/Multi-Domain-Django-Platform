@@ -74,10 +74,11 @@
 {% block content %}
 <div class="home-page">
 <!-- Hero Section -->
-<section class="hero-section" aria-labelledby="hero-heading">
+<section class="hero-section" aria-labelledby="hero-heading" x-data="ghostEyes">
     <div class="hero-content">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div class="lg:col-span-7 text-center lg:text-left mb-4 lg:mb-0">
+                <span class="hero-kicker">{% trans "— Privacy-first meetups in Luxembourg" %}</span>
                 <h1 id="hero-heading" class="hero-title">
                     {% trans "Meet New People." %}<br>
                     {% trans "Make Real Connections." %}
@@ -89,13 +90,13 @@
                     <a href="{% url 'crush_lu:signup' %}" class="btn-hero-primary">
                         {% trans "Get Started Free" %}
                     </a>
-                    <a href="{% url 'crush_lu:how_it_works' %}" class="btn-hero-secondary">
-                        {% trans "How It Works" %}
+                    <a href="{% url 'crush_lu:how_it_works' %}" class="hero-cta-link">
+                        {% trans "How It Works" %} →
                     </a>
                 </div>
             </div>
             <div class="lg:col-span-5 text-center" aria-hidden="true">
-                <div class="hero-emoji">{% include "crush_lu/includes/ghost-logo-animated.html" with class="hero-ghost-svg" %}</div>
+                <div class="hero-emoji">{% include "crush_lu/includes/ghost-logo-hero.html" with class="hero-ghost-svg" %}</div>
             </div>
         </div>
     </div>
@@ -137,7 +138,7 @@
 
 <!-- How It Works Section -->
 <section class="how-it-works-section animate-on-scroll" aria-labelledby="how-it-works-heading">
-    <h2 id="how-it-works-heading" class="text-center mb-12 text-4xl font-bold">
+    <h2 id="how-it-works-heading" class="text-center mb-12 text-4xl md:text-5xl font-display font-semibold tracking-tight">
         {% trans "How It Works" %}
     </h2>
     <div class="flex justify-center">
@@ -182,7 +183,7 @@
 <!-- Upcoming Events Section -->
 {% if upcoming_events %}
 <section class="events-section animate-on-scroll" aria-labelledby="events-heading">
-    <h2 id="events-heading" class="text-center mb-12 text-4xl font-bold">
+    <h2 id="events-heading" class="text-center mb-12 text-4xl md:text-5xl font-display font-semibold tracking-tight">
         {% trans "Upcoming Events" %}
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">

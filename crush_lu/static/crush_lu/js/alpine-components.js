@@ -984,6 +984,112 @@ document.addEventListener("alpine:init", function () {
     });
 
     // Event list tabs (upcoming / past)
+    // Hero ghost eye-tracker.
+    // Finds the two <g class="ghost-eye"> wrappers inside the hero ghost SVG
+    // and continuously eases their SVG `transform` attribute toward the cursor
+    // via a requestAnimationFrame lerp loop. mousemove only updates the target;
+    // a single rAF loop interpolates current → target each frame, which is much
+    // smoother than triggering a CSS transition on every mouse event.
+    // Disabled on `(any-pointer: coarse)` only setups and on prefers-reduced-motion.
+    Alpine.data("ghostEyes", function () {
+        return {
+            init: function () {
+                var fineCursor = window.matchMedia("(any-pointer: fine)").matches;
+                var reducedMotion = window.matchMedia(
+                    "(prefers-reduced-motion: reduce)"
+                ).matches;
+                if (!fineCursor || reducedMotion) return;
+
+                var hero = this.$el;
+                var eyes = hero.querySelectorAll(".ghost-eye");
+                var heart = hero.querySelector(".ghost-heart");
+                if (!eyes.length && !heart) return;
+
+                // Heart's resting position in the SVG (matches the original
+                // transform="translate(248,120)" on the .ghost-heart element).
+                // JS rewrites this transform every frame as base + offset; the
+                // heartbeat SMIL on the same element uses additive="sum" so
+                // its scale rides on top of our translate without clobbering it.
+                var heartBaseX = 248,
+                    heartBaseY = 120;
+
+                // Eyes drift subtly; heart drifts much more so it visibly
+                // follows the cursor and the eyes appear to chase it.
+                var eyeOffset = 11; // SVG user units (~16 CSS px)
+                var heartOffset = 130; // SVG user units — heart drifts well outside the ghost silhouette
+                var falloffRange = 320; // px from hero center → full deflection
+                var eyeEase = 0.22; // pupils react quickly
+                var heartEase = 0.08; // heart drifts lazily, like it's drawn along
+
+                var targetUx = 0,
+                    targetUy = 0; // unit vector × falloff (shared direction)
+                var eyeX = 0,
+                    eyeY = 0;
+                var heartX = 0,
+                    heartY = 0;
+                var self = this;
+
+                this._handler = function (event) {
+                    var rect = hero.getBoundingClientRect();
+                    var cx = rect.left + rect.width / 2;
+                    var cy = rect.top + rect.height / 2;
+                    var dx = event.clientX - cx;
+                    var dy = event.clientY - cy;
+                    var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    var falloff = Math.min(1, dist / falloffRange);
+                    targetUx = (dx / dist) * falloff;
+                    targetUy = (dy / dist) * falloff;
+                };
+
+                var tick = function () {
+                    var targetEyeX = targetUx * eyeOffset;
+                    var targetEyeY = targetUy * eyeOffset;
+                    var targetHeartX = targetUx * heartOffset;
+                    var targetHeartY = targetUy * heartOffset;
+
+                    eyeX += (targetEyeX - eyeX) * eyeEase;
+                    eyeY += (targetEyeY - eyeY) * eyeEase;
+                    heartX += (targetHeartX - heartX) * heartEase;
+                    heartY += (targetHeartY - heartY) * heartEase;
+
+                    var eyeT =
+                        "translate(" +
+                        eyeX.toFixed(2) +
+                        " " +
+                        eyeY.toFixed(2) +
+                        ")";
+                    for (var i = 0; i < eyes.length; i++) {
+                        eyes[i].setAttribute("transform", eyeT);
+                    }
+                    if (heart) {
+                        heart.setAttribute(
+                            "transform",
+                            "translate(" +
+                                (heartBaseX + heartX).toFixed(2) +
+                                " " +
+                                (heartBaseY + heartY).toFixed(2) +
+                                ")"
+                        );
+                    }
+                    self._raf = requestAnimationFrame(tick);
+                };
+
+                window.addEventListener("mousemove", this._handler, {
+                    passive: true,
+                });
+                this._raf = requestAnimationFrame(tick);
+            },
+            destroy: function () {
+                if (this._handler) {
+                    window.removeEventListener("mousemove", this._handler);
+                }
+                if (this._raf) {
+                    cancelAnimationFrame(this._raf);
+                }
+            },
+        };
+    });
+
     Alpine.data("eventTabs", function () {
         return {
             activeTab: "upcoming",

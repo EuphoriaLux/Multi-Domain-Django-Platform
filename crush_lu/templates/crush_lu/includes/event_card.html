@@ -52,7 +52,7 @@
         {# Simplified past event card body #}
         <div class="flex justify-between items-start mb-3">
             <h5 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h5>
-            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-crush-purple to-crush-pink text-white rounded-full">{{ event.get_event_type_display }}</span>
+            <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
         </div>
 
         <p class="text-gray-500 dark:text-gray-400 mb-3 text-sm inline-flex items-center gap-1">
@@ -61,7 +61,7 @@
 
         <div class="mt-auto flex flex-col gap-2">
             {% if user_attended %}
-            <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-primary w-full text-center block py-2">
+            <a href="{% url 'crush_lu:event_attendees' event.id %}" class="btn-crush-solid w-full text-center block py-2">
                 {% trans "My Connections" %}
             </a>
             {% endif %}
@@ -78,7 +78,7 @@
         {% endif %}
         <div class="flex justify-between items-start mb-3">
             <h5 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h5>
-            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-crush-purple to-crush-pink text-white rounded-full">{{ event.get_event_type_display }}</span>
+            <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
         </div>
 
         <div class="text-gray-500 dark:text-gray-400 mb-3 text-sm flex flex-col gap-1">
@@ -116,7 +116,7 @@
                 {% endif %}
             </div>
 
-            <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary w-full text-center block py-2">
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-solid w-full text-center block py-2">
                 {% trans "View Details" %}
             </a>
         </div>

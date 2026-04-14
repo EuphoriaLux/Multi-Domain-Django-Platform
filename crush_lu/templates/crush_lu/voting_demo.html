@@ -14,19 +14,19 @@
     </div>
 </div>
 
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="max-w-5xl mx-auto px-0 sm:px-6 lg:px-8">
     <!-- Hero Section -->
-    <div class="text-center mb-12 py-8">
-        <div class="inline-block mb-4">
-            <span class="text-5xl">🗳️</span>
+    <div class="text-center mb-8 py-4 px-3 md:mb-12 md:py-8 md:px-0">
+        <div class="inline-block mb-3 md:mb-4">
+            <span class="text-4xl md:text-5xl">🗳️</span>
         </div>
-        <h1 class="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-crush-purple to-crush-pink bg-clip-text text-transparent">
+        <h1 class="text-3xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-crush-purple to-crush-pink bg-clip-text text-transparent leading-tight pb-1">
             {% trans "How Event Voting Works" %}
         </h1>
-        <p class="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8">
+        <p class="text-base md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed mb-6 md:mb-8">
             {% trans "Your voice shapes the evening! Learn how you'll vote on TWO categories to customize your Crush.lu event experience." %}
         </p>
-        <button class="btn-crush-primary px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 inline-flex items-center gap-2" id="startTour">
+        <button class="btn-crush-primary px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 hidden md:inline-flex items-center gap-2" id="startTour">
             <span>{% trans "Start Interactive Tour" %}</span>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -35,25 +35,25 @@
     </div>
 
     <!-- Step 1: Three-Phase Event Overview -->
-    <div class="demo-section relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 dark:border-gray-700 transition-all duration-300" id="step-overview">
-        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+    <div class="demo-section relative mb-8 md:mb-10 md:bg-white md:dark:bg-gray-800 md:rounded-2xl md:shadow-lg md:overflow-hidden md:dark:border md:dark:border-gray-700 transition-all duration-300" id="step-overview">
+        <div class="hidden md:block absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
 
-        <div class="p-6 md:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+        <div class="px-3 py-6 md:p-8">
+            <div class="flex items-center gap-3 mb-4 md:mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center shrink-0">
                     <span class="text-white text-lg">🎯</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 1: Your Event Has 3 Phases" %}</h2>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 1: Your Event Has 3 Phases" %}</h2>
             </div>
 
-            <p class="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+            <p class="text-gray-600 dark:text-gray-400 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">
                 {% trans "Every Crush.lu event follows this structure. Your votes determine what happens in Phases 2 and 3!" %}
             </p>
 
-            <!-- Three Phase Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="timeline">
+            <!-- Three Phase Cards: horizontal snap carousel on mobile, grid on desktop -->
+            <div class="flex md:grid md:grid-cols-3 gap-3 md:gap-6 overflow-x-auto snap-x snap-mandatory -mx-3 px-3 pt-4 pb-2 md:mx-0 md:px-0 md:pt-0 md:pb-0 md:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" id="timeline">
                 <!-- Phase 1 -->
-                <div class="relative bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                <div class="relative snap-center shrink-0 w-[92%] md:w-auto bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-5 md:p-6 text-center hover:shadow-lg transition-all duration-300">
                     <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
                         {% trans "0-15 min" %}
                     </div>
@@ -63,7 +63,7 @@
                 </div>
 
                 <!-- Phase 2 -->
-                <div class="relative bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/40 dark:to-purple-900/30 border-2 border-purple-200 dark:border-purple-800 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                <div class="relative snap-center shrink-0 w-[92%] md:w-auto bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/40 dark:to-purple-900/30 border-2 border-purple-200 dark:border-purple-800 rounded-2xl p-5 md:p-6 text-center hover:shadow-lg transition-all duration-300">
                     <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-crush-purple text-white text-xs font-bold px-3 py-1 rounded-full">
                         {% trans "After voting" %}
                     </div>
@@ -73,7 +73,7 @@
                 </div>
 
                 <!-- Phase 3 -->
-                <div class="relative bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950/40 dark:to-pink-900/30 border-2 border-pink-200 dark:border-pink-800 rounded-2xl p-6 text-center hover:shadow-lg transition-all duration-300">
+                <div class="relative snap-center shrink-0 w-[92%] md:w-auto bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950/40 dark:to-pink-900/30 border-2 border-pink-200 dark:border-pink-800 rounded-2xl p-5 md:p-6 text-center hover:shadow-lg transition-all duration-300">
                     <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-crush-pink text-white text-xs font-bold px-3 py-1 rounded-full">
                         {% trans "Final phase" %}
                     </div>
@@ -84,50 +84,53 @@
             </div>
 
             <!-- Voting Window Info -->
-            <div class="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-l-4 border-amber-500 dark:border-amber-600 rounded-lg p-5">
+            <div class="mt-6 md:mt-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-l-4 border-amber-500 dark:border-amber-600 rounded-lg p-4 md:p-5">
                 <div class="flex items-start gap-3">
-                    <span class="text-2xl flex-shrink-0">⏱️</span>
+                    <span class="text-xl md:text-2xl flex-shrink-0">⏱️</span>
                     <div>
-                        <strong class="text-gray-900 dark:text-white block mb-1">{% trans "Voting Window: 30 Minutes" %}</strong>
-                        <p class="text-gray-700 dark:text-gray-300">{% trans "Voting opens 15 minutes after the event starts. You have 30 minutes to cast your votes. A live countdown shows exactly how much time remains!" %}</p>
+                        <strong class="text-gray-900 dark:text-white block mb-1 text-sm md:text-base">{% trans "Voting Window: 30 Minutes" %}</strong>
+                        <p class="text-gray-700 dark:text-gray-300 text-sm md:text-base">{% trans "Voting opens 15 minutes after the event starts. You have 30 minutes to cast your votes. A live countdown shows exactly how much time remains!" %}</p>
                     </div>
                 </div>
             </div>
 
             <!-- Rating & Pairing Info -->
-            <div class="mt-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-l-4 border-crush-purple dark:border-purple-600 rounded-lg p-5" id="rating-info">
+            <div class="mt-3 md:mt-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-l-4 border-crush-purple dark:border-purple-600 rounded-lg p-4 md:p-5" id="rating-info">
                 <div class="flex items-start gap-3">
-                    <span class="text-2xl flex-shrink-0">⭐</span>
+                    <span class="text-xl md:text-2xl flex-shrink-0">⭐</span>
                     <div>
-                        <strong class="text-gray-900 dark:text-white block mb-1">{% trans "Anonymous Ratings & Smart Pairing" %}</strong>
-                        <p class="text-gray-700 dark:text-gray-300 mb-0">{% trans "During presentations, you anonymously rate each person 1-5 stars. These ratings are used to create better speed dating pairings - people who rated each other highly are more likely to be matched! Your individual ratings are always private." %}</p>
+                        <strong class="text-gray-900 dark:text-white block mb-1 text-sm md:text-base">{% trans "Anonymous Ratings & Smart Pairing" %}</strong>
+                        <p class="text-gray-700 dark:text-gray-300 mb-0 text-sm md:text-base">{% trans "During presentations, you anonymously rate each person 1-5 stars. These ratings are used to create better speed dating pairings - people who rated each other highly are more likely to be matched! Your individual ratings are always private." %}</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Step 2: Two-Category Voting Explanation -->
-    <div class="demo-section relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 dark:border-gray-700 transition-all duration-300" id="step-categories">
-        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+    <!-- Mobile section divider -->
+    <div class="md:hidden h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent mx-3 mb-8"></div>
 
-        <div class="p-6 md:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+    <!-- Step 2: Two-Category Voting Explanation -->
+    <div class="demo-section relative mb-8 md:mb-10 md:bg-white md:dark:bg-gray-800 md:rounded-2xl md:shadow-lg md:overflow-hidden md:dark:border md:dark:border-gray-700 transition-all duration-300" id="step-categories">
+        <div class="hidden md:block absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="px-3 py-6 md:p-8">
+            <div class="flex items-center gap-3 mb-4 md:mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center shrink-0">
                     <span class="text-white text-lg">✌️</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 2: You Vote on TWO Categories" %}</h2>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 2: You Vote on TWO Categories" %}</h2>
             </div>
 
-            <div class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200 dark:border-purple-700 rounded-xl p-5 mb-8">
+            <div class="hidden md:block bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200 dark:border-purple-700 rounded-xl p-4 md:p-5 mb-6 md:mb-8">
                 <p class="text-gray-800 dark:text-gray-200 text-center font-medium">
                     {% trans "Unlike simple polls, you'll vote on TWO separate things. Each category affects a different phase of the event!" %}
                 </p>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="flex lg:grid lg:grid-cols-2 gap-3 lg:gap-8 overflow-x-auto snap-x snap-mandatory -mx-3 px-3 pt-2 pb-2 lg:mx-0 lg:px-0 lg:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <!-- Category A: Presentation Style -->
-                <div class="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-2 border-purple-200 dark:border-purple-700 rounded-2xl p-6" id="category-presentation">
+                <div class="snap-center shrink-0 w-[92%] lg:w-auto bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-2 border-purple-200 dark:border-purple-700 rounded-2xl p-4 md:p-6" id="category-presentation">
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-12 h-12 bg-gradient-to-br from-crush-purple to-purple-700 rounded-xl flex items-center justify-center shadow-md">
                             <span class="text-white text-2xl">🎤</span>
@@ -141,14 +144,11 @@
 
                     <div class="space-y-2">
                         {% for option in presentation_options %}
-                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 flex items-center gap-3">
-                            <span class="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-sm">{{ forloop.counter }}</span>
-                            <div>
-                                <strong class="text-gray-900 dark:text-white text-sm">{{ option.display_name }}</strong>
-                                {% if option.description %}
-                                <p class="text-gray-500 dark:text-gray-400 text-xs">{{ option.description|truncatewords:10 }}</p>
-                                {% endif %}
-                            </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2">
+                            <strong class="text-gray-900 dark:text-white text-sm block">{{ option.display_name }}</strong>
+                            {% if option.description %}
+                            <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{{ option.description|truncatewords:10 }}</p>
+                            {% endif %}
                         </div>
                         {% empty %}
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
@@ -163,7 +163,7 @@
                         {% endfor %}
                     </div>
 
-                    <div class="mt-4 text-center">
+                    <div class="mt-4 text-center hidden md:block">
                         <span class="inline-flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-medium text-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -174,7 +174,7 @@
                 </div>
 
                 <!-- Category B: Speed Dating Twist -->
-                <div class="bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-950/30 dark:to-purple-950/30 border-2 border-pink-200 dark:border-pink-700 rounded-2xl p-6" id="category-twist">
+                <div class="snap-center shrink-0 w-[92%] lg:w-auto bg-gradient-to-br from-pink-50 to-purple-50 dark:from-pink-950/30 dark:to-purple-950/30 border-2 border-pink-200 dark:border-pink-700 rounded-2xl p-4 md:p-6" id="category-twist">
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-12 h-12 bg-gradient-to-br from-crush-pink to-pink-600 rounded-xl flex items-center justify-center shadow-md">
                             <span class="text-white text-2xl">💕</span>
@@ -188,14 +188,11 @@
 
                     <div class="space-y-2">
                         {% for option in twist_options %}
-                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 flex items-center gap-3">
-                            <span class="w-8 h-8 bg-pink-100 dark:bg-pink-900/50 rounded-full flex items-center justify-center text-pink-600 dark:text-pink-400 font-bold text-sm">{{ forloop.counter }}</span>
-                            <div>
-                                <strong class="text-gray-900 dark:text-white text-sm">{{ option.display_name }}</strong>
-                                {% if option.description %}
-                                <p class="text-gray-500 dark:text-gray-400 text-xs">{{ option.description|truncatewords:10 }}</p>
-                                {% endif %}
-                            </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2">
+                            <strong class="text-gray-900 dark:text-white text-sm block">{{ option.display_name }}</strong>
+                            {% if option.description %}
+                            <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{{ option.description|truncatewords:10 }}</p>
+                            {% endif %}
                         </div>
                         {% empty %}
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
@@ -210,7 +207,7 @@
                         {% endfor %}
                     </div>
 
-                    <div class="mt-4 text-center">
+                    <div class="mt-4 text-center hidden md:block">
                         <span class="inline-flex items-center gap-1.5 text-pink-600 dark:text-pink-400 font-medium text-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -238,28 +235,31 @@
         </div>
     </div>
 
-    <!-- Step 3: Interactive Voting Demo -->
-    <div class="demo-section relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 dark:border-gray-700 transition-all duration-300" id="step-demo" x-data="votingDemoSuccess">
-        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+    <!-- Mobile section divider -->
+    <div class="md:hidden h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent mx-3 mb-8"></div>
 
-        <div class="p-6 md:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+    <!-- Step 3: Interactive Voting Demo -->
+    <div class="demo-section relative mb-8 md:mb-10 md:bg-white md:dark:bg-gray-800 md:rounded-2xl md:shadow-lg md:overflow-hidden md:dark:border md:dark:border-gray-700 transition-all duration-300" id="step-demo" x-data="votingDemoSuccess">
+        <div class="hidden md:block absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="px-3 py-6 md:p-8">
+            <div class="flex items-center gap-3 mb-4 md:mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center shrink-0">
                     <span class="text-white text-lg">🗳️</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 3: Try Voting Now!" %}</h2>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 3: Try Voting Now!" %}</h2>
             </div>
 
             <!-- Vote Form (hidden after submit) -->
             <div x-show="isNotSubmitted">
-                <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-6">
-                    <p class="text-gray-800 dark:text-gray-200 text-center font-medium">
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-700 rounded-xl p-3 md:p-4 mb-4 md:mb-6">
+                    <p class="text-gray-800 dark:text-gray-200 text-center font-medium text-sm md:text-base">
                         {% trans "Practice voting below! You must select ONE option from EACH category before you can submit." %}
                     </p>
                 </div>
 
                 <form id="demoVoteForm">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                         <!-- Category A: Presentation Style -->
                         <div id="group-presentations">
                             <div class="flex items-center gap-3 mb-4">
@@ -267,9 +267,9 @@
                                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">{% trans "Presentation Style" %}</h3>
                             </div>
 
-                            <div class="space-y-3">
+                            <div class="space-y-2 md:space-y-3">
                                 {% for option in presentation_options %}
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-gradient-to-r has-[:checked]:from-purple-50 has-[:checked]:to-pink-50 dark:has-[:checked]:from-purple-950/30 dark:has-[:checked]:to-pink-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-gradient-to-r has-[:checked]:from-purple-50 has-[:checked]:to-pink-50 dark:has-[:checked]:from-purple-950/30 dark:has-[:checked]:to-pink-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-{{ option.id }}">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple focus:ring-2 cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-{{ option.id }}" value="{{ option.activity_variant }}">
                                         <div class="flex-1">
@@ -279,7 +279,7 @@
                                     </label>
                                 </div>
                                 {% empty %}
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-music">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-music" value="music">
                                         <div class="flex-1">
@@ -288,7 +288,7 @@
                                         </div>
                                     </label>
                                 </div>
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-questions">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-questions" value="questions">
                                         <div class="flex-1">
@@ -297,7 +297,7 @@
                                         </div>
                                     </label>
                                 </div>
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-purple dark:hover:border-purple-500 transition-all duration-300 has-[:checked]:border-crush-purple dark:has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-pres-picture">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-purple focus:ring-crush-purple cursor-pointer" type="radio" name="demo_presentation" id="demo-pres-picture" value="picture">
                                         <div class="flex-1">
@@ -327,9 +327,9 @@
                                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">{% trans "Speed Dating Twist" %}</h3>
                             </div>
 
-                            <div class="space-y-3">
+                            <div class="space-y-2 md:space-y-3">
                                 {% for option in twist_options %}
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-gradient-to-r has-[:checked]:from-pink-50 has-[:checked]:to-purple-50 dark:has-[:checked]:from-pink-950/30 dark:has-[:checked]:to-purple-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-gradient-to-r has-[:checked]:from-pink-50 has-[:checked]:to-purple-50 dark:has-[:checked]:from-pink-950/30 dark:has-[:checked]:to-purple-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-{{ option.id }}">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink focus:ring-2 cursor-pointer" type="radio" name="demo_twist" id="demo-twist-{{ option.id }}" value="{{ option.activity_variant }}">
                                         <div class="flex-1">
@@ -339,7 +339,7 @@
                                     </label>
                                 </div>
                                 {% empty %}
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-spicy">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-spicy" value="spicy">
                                         <div class="flex-1">
@@ -348,7 +348,7 @@
                                         </div>
                                     </label>
                                 </div>
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-forbidden">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-forbidden" value="forbidden">
                                         <div class="flex-1">
@@ -357,7 +357,7 @@
                                         </div>
                                     </label>
                                 </div>
-                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
                                     <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-algorithm">
                                         <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-algorithm" value="algorithm">
                                         <div class="flex-1">
@@ -419,18 +419,21 @@
         </div>
     </div>
 
-    <!-- Step 4: Results Display -->
-    <div class="demo-section relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg mb-10 overflow-hidden border border-gray-100 dark:border-gray-700 transition-all duration-300" id="step-results">
-        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+    <!-- Mobile section divider -->
+    <div class="md:hidden h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent mx-3 mb-8"></div>
 
-        <div class="p-6 md:p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center">
+    <!-- Step 4: Results Display -->
+    <div class="demo-section relative mb-8 md:mb-10 md:bg-white md:dark:bg-gray-800 md:rounded-2xl md:shadow-lg md:overflow-hidden md:dark:border md:dark:border-gray-700 transition-all duration-300" id="step-results">
+        <div class="hidden md:block absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-crush-purple via-purple-500 to-crush-pink"></div>
+
+        <div class="px-3 py-6 md:p-8">
+            <div class="flex items-center gap-3 mb-4 md:mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-crush-purple to-crush-pink rounded-lg flex items-center justify-center shrink-0">
                     <span class="text-white text-lg">📊</span>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 4: See the Results" %}</h2>
+                <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Step 4: See the Results" %}</h2>
             </div>
-            <p class="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{% trans "After voting closes, you'll see the chosen options for BOTH categories - each one shapes a different part of your evening!" %}</p>
+            <p class="text-gray-600 dark:text-gray-400 mb-6 md:mb-8 leading-relaxed text-sm md:text-base">{% trans "After voting closes, you'll see the chosen options for BOTH categories - each one shapes a different part of your evening!" %}</p>
 
             <!-- Two Winner Banners -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -544,9 +547,9 @@
     </div>
 
     <!-- CTA Section -->
-    <div class="text-center mt-12 mb-8">
+    <div class="text-center mt-8 md:mt-12 mb-8 px-3 md:px-0">
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button class="group inline-flex items-center gap-3 px-8 py-4 text-lg font-semibold border-2 border-crush-purple text-crush-purple dark:text-purple-400 dark:border-purple-500 hover:bg-crush-purple hover:text-white dark:hover:bg-purple-600 dark:hover:text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105" id="restartTour">
+            <button class="group hidden md:inline-flex items-center gap-3 px-8 py-4 text-lg font-semibold border-2 border-crush-purple text-crush-purple dark:text-purple-400 dark:border-purple-500 hover:bg-crush-purple hover:text-white dark:hover:bg-purple-600 dark:hover:text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105" id="restartTour">
                 <svg class="w-5 h-5 transform group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 </svg>
