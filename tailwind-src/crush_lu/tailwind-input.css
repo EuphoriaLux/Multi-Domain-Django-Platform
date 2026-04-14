@@ -19,6 +19,11 @@
         "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         sans-serif;
 
+    /* Editorial display serif — used only for hero / large headlines.
+       Loaded via Google Fonts in base.html; degrades to Georgia on failure. */
+    --font-display:
+        "Fraunces", "Georgia", "Times New Roman", serif;
+
     /* Purple palette - Crush.lu brand */
     --color-purple-50: #f5ebf8;
     --color-purple-100: #ead6f0;
@@ -290,9 +295,24 @@ body.journey-bg {
         @apply inline-flex cursor-pointer items-center justify-center rounded-full font-medium transition-all duration-300 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
     }
 
-    /* Primary gradient button (Crush.lu brand) with dark mode brightness adjustment */
+    /* Primary gradient button (Crush.lu brand) with dark mode brightness adjustment.
+       Reserve this for ONE primary CTA per page (hero, key conversion moment).
+       For in-page / secondary CTAs, prefer .btn-crush-solid so the gradient
+       retains its hierarchical meaning. */
     .btn-crush-primary {
         @apply from-crush-purple to-crush-pink hover:shadow-crush-purple focus:ring-crush-purple bg-gradient-to-r px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:brightness-90;
+    }
+
+    /* Solid-purple sibling of btn-crush-primary. Same shape/size/motion, no
+       gradient — use for every CTA that isn't THE primary CTA of the page. */
+    .btn-crush-solid {
+        @apply bg-crush-purple hover:bg-crush-purple-dark focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
+    }
+
+    /* Soft tinted pill badge — replaces gradient badges so the gradient stays
+       reserved for primary actions. */
+    .badge-crush-soft {
+        @apply bg-crush-purple/10 text-crush-purple-dark inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold dark:bg-purple-400/15 dark:text-purple-200;
     }
 
     /* Standard primary button */
@@ -6498,6 +6518,58 @@ html.dark .section-card {
     margin: 0 auto;
 }
 
+.hero-section .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 6.5vw, 5rem);
+    font-weight: 600;
+    font-variation-settings: "opsz" 144;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+}
+
+/* Editorial top-kicker above the hero headline. */
+.hero-section .hero-kicker {
+    display: inline-block;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 1.25rem;
+}
+
+/* Text-link secondary CTA in the hero — replaces the bordered "ghost button"
+   which is the most generic SaaS-template tell. Underlines on hover. */
+.hero-section .hero-cta-link {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    padding-bottom: 2px;
+    transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.hero-section .hero-cta-link:hover {
+    border-bottom-color: #fff;
+    transform: translateX(3px);
+}
+
+/* Cursor-tracked ghost eyes — the Alpine ghostEyes component eases the SVG
+   `transform` attribute via a requestAnimationFrame lerp loop, so no CSS
+   transition is needed (and would actually fight the lerp). */
+.hero-section .ghost-eye {
+    will-change: transform;
+}
+
+/* Allow the hero ghost SVG to paint outside its viewBox so the cursor-tracked
+   heart can drift well outside the ghost silhouette without being clipped. */
+.hero-section .hero-emoji,
+.hero-section .hero-ghost-svg {
+    overflow: visible;
+}
+
 .gift-landing .hero-title {
     font-size: clamp(2.5rem, 6vw, 4.5rem);
     font-weight: 800;
@@ -7635,17 +7707,19 @@ html.dark .results-preview {
     );
 }
 
-.demo-section {
-    border: 2px solid #e9ecef;
-    border-radius: 15px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    background: var(--color-white);
-}
+@media (min-width: 768px) {
+    .demo-section {
+        border: 2px solid #e9ecef;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        background: var(--color-white);
+    }
 
-html.dark .demo-section {
-    border-color: #374151;
-    background: #1e293b;
+    html.dark .demo-section {
+        border-color: #374151;
+        background: #1e293b;
+    }
 }
 
 .demo-section.active {
