@@ -21,8 +21,6 @@
                         <p class="card-text"><strong>{% trans "Industry:" %}</strong> {{ profile.industry }}</p>
                         <p class="card-text"><strong>{% trans "Company:" %}</strong> {{ profile.company }}</p>
                         <p class="card-text">{{ profile.bio|truncatewords:20 }}</p>
-                        <button class="btn btn-primary like-button" data-profile-id="{{ profile.id }}">{% trans "Like" %}</button>
-                        <div class="loading-spinner" style="display: none;">{% trans "Loading..." %}</div>
                     </div>
                 </div>
             </div>
@@ -33,45 +31,4 @@
         {% endfor %}
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const likeButtons = document.querySelectorAll('.like-button');
-    likeButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const profileId = this.dataset.profileId;
-            fetch('{% url "entreprinder:swipe_action" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({
-                    profile_id: profileId,
-                    action: 'like'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                this.querySelector('.loading-spinner').style.display = 'none';
-                if (data.status === 'match') {
-                    alert("{% trans "It's a match!" %}");
-                }
-                if (data.status === 'no_more_profiles') {
-                    window.location.href = data.redirect_url;
-                } else {
-                    // Remove the liked profile from the list
-                    this.closest('.entrepreneur-card').remove();
-                }
-            })
-            .catch(error => {
-                this.querySelector('.loading-spinner').style.display = 'none';
-                console.error('Error:', error);
-            });
-        });
-    });
-});
-</script>
 {% endblock %}

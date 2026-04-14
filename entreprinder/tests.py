@@ -9,7 +9,7 @@ from django.contrib.sites.models import Site
 import requests
 from allauth.socialaccount.models import SocialAccount, SocialApp
 from django.conf import settings
-from .models import EntrepreneurProfile, Industry, Like, Match
+from .models import EntrepreneurProfile, Industry
 from .linkedin_adapter import LinkedInOAuth2Adapter
 
 class EntrepreneurProfileTestCase(TestCase):
@@ -95,101 +95,6 @@ class ViewsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         # Template is in entreprinder/ subdirectory
         self.assertTemplateUsed(response, 'entreprinder/profile.html')
-
-class MatchingTestCase(TestCase):
-    def setUp(self):
-        self.user1 = User.objects.create_user(username='user1', password='12345')
-        self.user2 = User.objects.create_user(username='user2', password='12345')
-        self.industry = Industry.objects.create(name='Tech')
-        self.profile1 = EntrepreneurProfile.objects.create(user=self.user1, industry=self.industry)
-        self.profile2 = EntrepreneurProfile.objects.create(user=self.user2, industry=self.industry)
-
-    def test_like_and_match(self):
-        # Create likes
-        Like.objects.create(liker=self.profile1, liked=self.profile2)
-        Like.objects.create(liker=self.profile2, liked=self.profile1)
-        
-        # Check if a match was created
-        match = Match.objects.filter(
-            entrepreneur1__in=[self.profile1, self.profile2],
-            entrepreneur2__in=[self.profile1, self.profile2]
-        ).first()
-        
-        # Debug print statements
-        print(f"Likes from profile1 to profile2: {Like.objects.filter(liker=self.profile1, liked=self.profile2).exists()}")
-        print(f"Likes from profile2 to profile1: {Like.objects.filter(liker=self.profile2, liked=self.profile1).exists()}")
-        print(f"All matches: {list(Match.objects.all())}")
-        
-        self.assertIsNotNone(match, "No match was created after mutual likes")
-
-    def test_match_creation_logic(self):
-        # This test checks if the match creation logic is working properly
-        Like.objects.create(liker=self.profile1, liked=self.profile2)
-        self.assertEqual(Match.objects.count(), 0, "Match shouldn't be created after only one like")
-        
-        Like.objects.create(liker=self.profile2, liked=self.profile1)
-        self.assertEqual(Match.objects.count(), 1, "Match should be created after mutual likes")
-
-
-class SwipeActionValidationTestCase(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        # Align the test site with the currently active settings module (local or production).
-        from django.conf import settings
-        from azureproject import domains
-
-        preferred_host = None
-        for host, config in domains.DOMAINS.items():
-            if config.get('app') == 'entreprinder':
-                preferred_host = host
-                break
-
-        preferred_host = preferred_host or domains.PRODUCTION_DEFAULT
-
-        cls.site, _ = Site.objects.update_or_create(
-            id=getattr(settings, 'SITE_ID', 1),
-            defaults={'domain': preferred_host, 'name': preferred_host}
-        )
-        cls.test_host = preferred_host
-
-    def setUp(self):
-        self.client = Client(HTTP_HOST=self.test_host)
-        self.user = User.objects.create_user(username='swipeuser', password='12345')
-        self.target_user = User.objects.create_user(username='targetuser', password='12345')
-        self.industry = Industry.objects.create(name='Tech')
-        self.user_profile = EntrepreneurProfile.objects.create(user=self.user, industry=self.industry)
-        self.target_profile = EntrepreneurProfile.objects.create(user=self.target_user, industry=self.industry)
-        self.client.login(username='swipeuser', password='12345')
-
-    def test_invalid_json_returns_error(self):
-        response = self.client.post(
-            '/matching/swipe/action/',
-            data='not-json',
-            content_type='application/json',
-        )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['message'], 'Invalid JSON payload')
-
-    def test_invalid_action_returns_error(self):
-        payload = {'profile_id': self.target_profile.id, 'action': 'maybe'}
-        response = self.client.post(
-            '/matching/swipe/action/',
-            data=json.dumps(payload),
-            content_type='application/json',
-        )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()['message'], 'Invalid action')
-
-    def test_missing_profile_returns_not_found(self):
-        payload = {'profile_id': 9999, 'action': 'like'}
-        response = self.client.post(
-            '/matching/swipe/action/',
-            data=json.dumps(payload),
-            content_type='application/json',
-        )
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()['message'], 'Profile not found')
-
 
 class LinkedInOAuthFlowTests(TestCase):
     """Exercise LinkedIn OAuth across all hosted domains."""

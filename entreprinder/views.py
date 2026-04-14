@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from .forms import EntrepreneurProfileForm
-from .models import EntrepreneurProfile, Like
+from .models import EntrepreneurProfile
 from django.conf import settings
 import logging
 from django.http import JsonResponse
@@ -87,10 +87,9 @@ def entrepreneur_list(request):
         current_user_profile, created = EntrepreneurProfile.objects.get_or_create(user=request.user)
         if created:
             return redirect('entreprinder:profile')
-        
-        liked_profiles = Like.objects.filter(liker=current_user_profile).values_list('liked_id', flat=True)
-        profiles = EntrepreneurProfile.objects.exclude(user=request.user).exclude(id__in=liked_profiles)
-        
+
+        profiles = EntrepreneurProfile.objects.exclude(user=request.user)
+
         context['profiles'] = profiles # Add profiles to context
         return render(request, 'entreprinder/entrepreneur_list.html', context)
     except Exception as e:
