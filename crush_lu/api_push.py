@@ -65,7 +65,6 @@ def get_vapid_public_key(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt  # Push subscriptions use their own authentication via login_required
 @require_http_methods(["POST"])
 def subscribe_push(request):
     """
@@ -170,7 +169,6 @@ def subscribe_push(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def refresh_subscription(request):
     """
@@ -285,7 +283,6 @@ def refresh_subscription(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def validate_subscription(request):
     """
@@ -367,7 +364,6 @@ def validate_subscription(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def unsubscribe_push(request):
     """
@@ -435,7 +431,6 @@ def unsubscribe_push(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def delete_push_subscription(request):
     """
@@ -513,7 +508,6 @@ def list_subscriptions(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def update_subscription_preferences(request):
     """
@@ -578,7 +572,6 @@ def update_subscription_preferences(request):
 
 @login_required
 @ratelimit(key='user', rate='5/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def send_test_push(request):
     """
@@ -602,7 +595,6 @@ def send_test_push(request):
 
 @login_required
 @ratelimit(key='user', rate='10/m', method='POST')
-@csrf_exempt
 @require_http_methods(["POST"])
 def mark_pwa_user(request):
     """

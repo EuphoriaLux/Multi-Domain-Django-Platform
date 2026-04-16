@@ -841,15 +841,13 @@ def upload_profile_photo(request, slot):
                     'error': 'Photo validation failed. Please try a different image.',
                 })
 
-        # Fallback - save without validation (shouldn't happen)
-        setattr(profile, photo_field_name, photo_file)
-        profile.save(update_fields=[photo_field_name])
-
+        # No valid form field found for this slot -- reject the upload
+        logger.error(f"No form field found for photo slot {slot}")
         return render(request, 'crush_lu/partials/photo_card.html', {
             'slot': slot,
             'photo': getattr(profile, photo_field_name),
             'is_main': slot == 1,
-            'just_uploaded': True,
+            'error': 'Unable to process photo upload. Please try again.',
         })
 
     except Exception as e:

@@ -2,7 +2,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from .models import (
@@ -103,12 +104,7 @@ def submit_vote_api(request, event_id):
             event=event,
             user=request.user
         )
-        if user_registration.status not in ['confirmed', 'attended']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Only confirmed attendees can vote'
-            }, status=403)
-        if user_registration.status == 'confirmed':
+        if user_registration.status != 'attended':
             return JsonResponse({
                 'success': False,
                 'error': 'You must check in at the event before you can vote'
@@ -160,32 +156,29 @@ def submit_vote_api(request, event_id):
             'error': 'Invalid activity option'
         }, status=400)
 
-    # Check for existing vote
-    existing_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user
-    ).first()
-
-    if existing_vote:
-        # Update existing vote
-        existing_vote.selected_option = selected_option
-        existing_vote.save()
-
-        action = 'updated'
-    else:
-        # Create new vote
-        EventActivityVote.objects.create(
+    # Atomic vote creation/update to prevent race conditions
+    with transaction.atomic():
+        existing_vote = EventActivityVote.objects.filter(
             event=event,
-            user=request.user,
-            selected_option=selected_option
-        )
+            user=request.user
+        ).select_for_update().first()
 
-        voting_session.total_votes += 1
-        voting_session.save()
+        if existing_vote:
+            existing_vote.selected_option = selected_option
+            existing_vote.save()
+            action = 'updated'
+        else:
+            EventActivityVote.objects.create(
+                event=event,
+                user=request.user,
+                selected_option=selected_option
+            )
+            EventVotingSession.objects.filter(
+                event=event
+            ).update(total_votes=F('total_votes') + 1)
+            voting_session.refresh_from_db()
+            action = 'created'
 
-        action = 'created'
-
-    # Get current vote count from actual votes
     vote_count = EventActivityVote.objects.filter(
         event=event, selected_option=selected_option
     ).count()

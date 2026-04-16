@@ -113,9 +113,17 @@
     }
 
     /**
-     * Get cookie value by name
+     * Get CSRF token from hidden input (works with CSRF_COOKIE_HTTPONLY=True)
      */
     function getCookie(name) {
+        var input = document.getElementById("csrf-token-input");
+        if (input && input.value) {
+            return input.value;
+        }
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            return meta.getAttribute("content");
+        }
         let cookieValue = null;
         if (document.cookie && document.cookie !== "") {
             const cookies = document.cookie.split(";");

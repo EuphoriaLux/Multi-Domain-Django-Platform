@@ -299,7 +299,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # In settings.py
 
 # These settings optimize the login experience
-SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_LOGIN_ON_GET = False
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
@@ -411,8 +411,6 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = "/profile/"
-
-SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # Don't send email verification for social account signups (email already verified by provider)
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
