@@ -165,6 +165,7 @@ jobs:
             --slot staging \
             --src-path deploy.zip \
             --type zip \
+            --clean true \
             --restart true
 
       - name: Verify Deployment
