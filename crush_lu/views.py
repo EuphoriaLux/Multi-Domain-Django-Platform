@@ -81,8 +81,6 @@ from .utils.i18n import is_valid_language
 # Static pages
 from .views_static import (  # noqa: F401
     home,
-    test_ghost_story,
-    test_upstair,
     about,
     how_it_works,
     privacy_policy,

@@ -105,8 +105,6 @@ urlpatterns = [
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
-    path('test-ghost-story/', views.test_ghost_story, name='test_ghost_story'),
-    path('test-upstair/', views.test_upstair, name='test_upstair'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),

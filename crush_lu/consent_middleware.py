@@ -51,8 +51,6 @@ class CrushConsentMiddleware:
         "/privacy-policy/",
         "/terms-of-service/",
         "/data-deletion/",
-        "/test-ghost-story/",
-        "/test-upstair/",
         # Public landing pages
         "/r/",  # Referral redirect
         "/invite/",  # Invitation landing
