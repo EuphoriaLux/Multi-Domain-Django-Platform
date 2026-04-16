@@ -33,17 +33,19 @@ urlpatterns = [
     # Add direct access to road trip music game
     path('road-trip-music/', vibe_views.road_trip_music_game, name='road_trip_music_game_direct'),
     path('crush/', include('crush_lu.urls')),  # Ensure crush URLs are included
-]
-
-urlpatterns += i18n_patterns(
-    path('admin/', admin.site.urls),
-    path('', entreprinder_views.home, name='home'),
-    path('', include('entreprinder.urls', namespace='entreprinder')), # Entreprinder URLs
-    # Vibe Coding URLs - included directly for top-level namespace access
-    path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
+    # API endpoints outside i18n_patterns — JS uses hardcoded /api/ paths
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/protected/', entreprinder_views.protected_api, name='protected_api'),
+    # Admin outside i18n_patterns — accessible at /admin/ without language prefix
+    path('admin/', admin.site.urls),
+]
+
+urlpatterns += i18n_patterns(
+    path('', entreprinder_views.home, name='home'),
+    path('', include('entreprinder.urls', namespace='entreprinder')),
+    # Vibe Coding URLs - included directly for top-level namespace access
+    path('vibe-coding/', include(('entreprinder.vibe.urls', 'vibe_coding'))),
 )
 
 if settings.DEBUG:
