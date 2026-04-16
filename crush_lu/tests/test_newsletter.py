@@ -603,42 +603,44 @@ class NewsletterLanguageFilterTests(TestCase):
 class NewsletterAdminFormTests(TestCase):
     """Test the NewsletterAdminForm validation."""
 
+    def _form_data(self, **overrides):
+        """Build valid form data dict, including modeltranslation fields."""
+        data = {
+            'newsletter_type': 'standard',
+            'subject': 'Test',
+            'subject_en': 'Test',
+            'body_html': '<p>Hi</p>',
+            'body_html_en': '<p>Hi</p>',
+            'audience': 'all_users',
+            'segment_key': '',
+            'language': 'all',
+        }
+        data.update(overrides)
+        return data
+
     def test_segment_audience_requires_segment_key(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'segment',
-            'segment_key': '',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data(
+            audience='segment',
+            segment_key='',
+        ))
         self.assertFalse(form.is_valid())
         self.assertIn('segment_key', form.errors)
 
     def test_non_segment_audience_clears_segment_key(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'all_users',
-            'segment_key': 'some_key',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data(
+            segment_key='some_key',
+        ))
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data['segment_key'], '')
 
     def test_valid_form_with_all_users(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'all_users',
-            'segment_key': '',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data())
         self.assertTrue(form.is_valid())
 
 
