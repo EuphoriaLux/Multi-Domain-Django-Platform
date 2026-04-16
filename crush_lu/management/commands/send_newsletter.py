@@ -73,6 +73,13 @@ class Command(BaseCommand):
             help='Maximum number of emails to send',
         )
         parser.add_argument(
+            '--type',
+            type=str,
+            choices=['standard', 'patch_notes'],
+            default='standard',
+            help='Newsletter type/template (default: standard)',
+        )
+        parser.add_argument(
             '--list-segments',
             action='store_true',
             help='Show available segments with user counts',
@@ -124,6 +131,7 @@ class Command(BaseCommand):
                 body_html=body_html,
                 audience=options['audience'],
                 segment_key=options['segment'],
+                newsletter_type=options['type'],
                 status='draft',
             )
             self.stdout.write(

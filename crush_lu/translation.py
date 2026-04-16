@@ -7,6 +7,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 
 from modeltranslation.translator import translator, TranslationOptions
 
+from .models.newsletter import Newsletter
 from .models.profiles import CrushCoach, SpecialUserExperience
 from .models.matching import Trait
 from .models.site_config import CrushSiteConfig
@@ -112,7 +113,14 @@ class QuizQuestionTranslationOptions(TranslationOptions):
     fields = ('text', 'choices', 'correct_answer')
 
 
+class NewsletterTranslationOptions(TranslationOptions):
+    """Translatable fields for newsletters (subject, body content)."""
+
+    fields = ('subject', 'body_html', 'body_text')
+
+
 # Register models with translation options
+translator.register(Newsletter, NewsletterTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
 translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
 translator.register(CrushCoach, CrushCoachTranslationOptions)
