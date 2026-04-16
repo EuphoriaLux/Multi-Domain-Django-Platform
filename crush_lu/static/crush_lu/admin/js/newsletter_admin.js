@@ -82,6 +82,28 @@
             });
     }
 
+    function toggleTypeHint() {
+        var typeSelect = document.getElementById("id_newsletter_type");
+        if (!typeSelect) return;
+
+        // Remove existing hint if any
+        var existingHint = document.getElementById("patch-notes-hint");
+        if (existingHint) existingHint.remove();
+
+        if (typeSelect.value === "patch_notes") {
+            var hint = document.createElement("div");
+            hint.id = "patch-notes-hint";
+            hint.style.cssText =
+                "background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px; " +
+                "border-radius:6px; margin-top:8px; font-size:12px; color:#1e40af;";
+            hint.innerHTML =
+                "<strong>Patch Notes format tip:</strong> Use &lt;h3&gt; headers " +
+                "for sections like <em>New Features</em>, <em>Improvements</em>, " +
+                "and <em>Bug Fixes</em>. Use &lt;ul&gt; lists for items.";
+            typeSelect.parentNode.appendChild(hint);
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         var audienceSelect = document.getElementById("id_audience");
         if (audienceSelect) {
@@ -105,6 +127,12 @@
         var languageSelect = document.getElementById("id_language");
         if (languageSelect) {
             languageSelect.addEventListener("change", updateEstimatedRecipients);
+        }
+
+        var typeSelect = document.getElementById("id_newsletter_type");
+        if (typeSelect) {
+            typeSelect.addEventListener("change", toggleTypeHint);
+            toggleTypeHint();
         }
     });
 })();

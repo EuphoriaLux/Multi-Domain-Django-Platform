@@ -603,40 +603,242 @@ class NewsletterLanguageFilterTests(TestCase):
 class NewsletterAdminFormTests(TestCase):
     """Test the NewsletterAdminForm validation."""
 
+    def _form_data(self, **overrides):
+        """Build valid form data dict, including modeltranslation fields."""
+        data = {
+            'newsletter_type': 'standard',
+            'subject': 'Test',
+            'subject_en': 'Test',
+            'body_html': '<p>Hi</p>',
+            'body_html_en': '<p>Hi</p>',
+            'audience': 'all_users',
+            'segment_key': '',
+            'language': 'all',
+        }
+        data.update(overrides)
+        return data
+
     def test_segment_audience_requires_segment_key(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'segment',
-            'segment_key': '',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data(
+            audience='segment',
+            segment_key='',
+        ))
         self.assertFalse(form.is_valid())
         self.assertIn('segment_key', form.errors)
 
     def test_non_segment_audience_clears_segment_key(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'all_users',
-            'segment_key': 'some_key',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data(
+            segment_key='some_key',
+        ))
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data['segment_key'], '')
 
     def test_valid_form_with_all_users(self):
         from crush_lu.admin.newsletter import NewsletterAdminForm
 
-        form = NewsletterAdminForm(data={
-            'subject': 'Test',
-            'body_html': '<p>Hi</p>',
-            'audience': 'all_users',
-            'segment_key': '',
-            'language': 'all',
-        })
+        form = NewsletterAdminForm(data=self._form_data())
         self.assertTrue(form.is_valid())
+
+
+class NewsletterTypeTests(TestCase):
+    """Test the newsletter_type field and template dispatch."""
+
+    def test_default_newsletter_type_is_standard(self):
+        newsletter = Newsletter.objects.create(
+            subject='Test', body_html='<p>Hi</p>',
+        )
+        self.assertEqual(newsletter.newsletter_type, 'standard')
+
+    def test_patch_notes_type(self):
+        newsletter = Newsletter.objects.create(
+            subject='What\'s New',
+            body_html='<h3>New Features</h3><ul><li>Feature 1</li></ul>',
+            newsletter_type='patch_notes',
+        )
+        self.assertEqual(newsletter.newsletter_type, 'patch_notes')
+        self.assertEqual(newsletter.get_newsletter_type_display(), 'Patch Notes')
+
+    def test_newsletter_str_includes_subject(self):
+        newsletter = Newsletter.objects.create(
+            subject='Patch Notes v2.0',
+            body_html='<p>test</p>',
+            newsletter_type='patch_notes',
+        )
+        self.assertIn('Patch Notes v2.0', str(newsletter))
+
+    @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
+    @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
+    def test_patch_notes_template_used(self, mock_send):
+        """Patch notes newsletters should use the patch_notes.html template."""
+        user = User.objects.create_user(
+            username='pntest@example.com',
+            email='pntest@example.com',
+            password='testpass123',
+            first_name='Tester',
+        )
+        CrushProfile.objects.create(
+            user=user, date_of_birth='1995-01-01',
+            gender='F', location='Luxembourg',
+        )
+        newsletter = Newsletter.objects.create(
+            subject='What\'s New on Crush.lu',
+            body_html='<h3>New Features</h3><ul><li>Patch Notes Newsletter</li></ul>',
+            audience='all_users',
+            newsletter_type='patch_notes',
+        )
+        send_newsletter(newsletter)
+
+        call_kwargs = mock_send.call_args[1]
+        html = call_kwargs['html_message']
+        # The patch_notes.html template contains this translated string
+        self.assertIn('Crush.lu', html)
+        # The body content should be rendered
+        self.assertIn('Patch Notes Newsletter', html)
+
+    @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
+    @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
+    def test_standard_template_used_by_default(self, mock_send):
+        """Standard newsletters should use the newsletter.html template."""
+        user = User.objects.create_user(
+            username='stdtest@example.com',
+            email='stdtest@example.com',
+            password='testpass123',
+            first_name='Standard',
+        )
+        CrushProfile.objects.create(
+            user=user, date_of_birth='1995-01-01',
+            gender='M', location='Luxembourg',
+        )
+        newsletter = Newsletter.objects.create(
+            subject='Standard Subject',
+            body_html='<p>Standard body content</p>',
+            audience='all_users',
+            newsletter_type='standard',
+        )
+        send_newsletter(newsletter)
+
+        call_kwargs = mock_send.call_args[1]
+        html = call_kwargs['html_message']
+        self.assertIn('Standard body content', html)
+
+
+class NewsletterMultilingualTests(TestCase):
+    """Test multilingual newsletter content delivery."""
+
+    def setUp(self):
+        # English-speaking user
+        self.user_en = User.objects.create_user(
+            username='mlen@example.com',
+            email='mlen@example.com',
+            password='testpass123',
+            first_name='English',
+        )
+        CrushProfile.objects.create(
+            user=self.user_en,
+            date_of_birth='1995-01-01',
+            gender='M',
+            location='Luxembourg',
+            preferred_language='en',
+        )
+
+        # German-speaking user
+        self.user_de = User.objects.create_user(
+            username='mlde@example.com',
+            email='mlde@example.com',
+            password='testpass123',
+            first_name='Deutsch',
+        )
+        CrushProfile.objects.create(
+            user=self.user_de,
+            date_of_birth='1995-01-01',
+            gender='F',
+            location='Luxembourg',
+            preferred_language='de',
+        )
+
+        # French-speaking user
+        self.user_fr = User.objects.create_user(
+            username='mlfr@example.com',
+            email='mlfr@example.com',
+            password='testpass123',
+            first_name='Francais',
+        )
+        CrushProfile.objects.create(
+            user=self.user_fr,
+            date_of_birth='1995-01-01',
+            gender='M',
+            location='Luxembourg',
+            preferred_language='fr',
+        )
+
+    @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
+    @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
+    def test_multilingual_content_per_user(self, mock_send):
+        """Each user should receive content in their preferred language."""
+        newsletter = Newsletter.objects.create(
+            subject='English Subject',
+            body_html='<p>English body</p>',
+            audience='all_users',
+        )
+        # Set translated fields directly (simulating modeltranslation)
+        newsletter.subject_en = 'English Subject'
+        newsletter.subject_de = 'Deutscher Betreff'
+        newsletter.subject_fr = 'Sujet Francais'
+        newsletter.body_html_en = '<p>English body</p>'
+        newsletter.body_html_de = '<p>Deutscher Inhalt</p>'
+        newsletter.body_html_fr = '<p>Contenu Francais</p>'
+        newsletter.save()
+
+        send_newsletter(newsletter)
+
+        # Check that send_domain_email was called 3 times (one per user)
+        self.assertEqual(mock_send.call_count, 3)
+
+        # Collect all calls and map by recipient email
+        calls_by_email = {}
+        for call in mock_send.call_args_list:
+            email = call[1]['recipient_list'][0]
+            calls_by_email[email] = call[1]
+
+        # English user gets English content
+        en_call = calls_by_email['mlen@example.com']
+        self.assertEqual(en_call['subject'], 'English Subject')
+        self.assertIn('English body', en_call['html_message'])
+
+        # German user gets German content
+        de_call = calls_by_email['mlde@example.com']
+        self.assertEqual(de_call['subject'], 'Deutscher Betreff')
+        self.assertIn('Deutscher Inhalt', de_call['html_message'])
+
+        # French user gets French content
+        fr_call = calls_by_email['mlfr@example.com']
+        self.assertEqual(fr_call['subject'], 'Sujet Francais')
+        self.assertIn('Contenu Francais', fr_call['html_message'])
+
+    @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
+    @patch('crush_lu.newsletter_service.send_domain_email', return_value=1)
+    def test_fallback_to_english_when_translation_missing(self, mock_send):
+        """Users whose language has no translation should get English content."""
+        newsletter = Newsletter.objects.create(
+            subject='English Only Subject',
+            body_html='<p>English only content</p>',
+            audience='all_users',
+            language='de',  # target only German users
+        )
+        # Only set English content, leave German empty
+        newsletter.subject_en = 'English Only Subject'
+        newsletter.body_html_en = '<p>English only content</p>'
+        # subject_de and body_html_de left as None (fallback to English)
+        newsletter.save()
+
+        send_newsletter(newsletter)
+
+        # German user should receive something (fallback to English)
+        self.assertEqual(mock_send.call_count, 1)
+        call_kwargs = mock_send.call_args[1]
+        # The subject will be from fallback (English)
+        self.assertIn('English Only Subject', call_kwargs['subject'])

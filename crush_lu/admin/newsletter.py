@@ -19,13 +19,16 @@ from django.urls import path, reverse
 from django.utils import translation
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from modeltranslation.admin import TranslationAdmin
 
+from azureproject.admin_translation_mixin import AutoTranslateMixin
 from crush_lu.models.events import MeetupEvent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import (
     get_newsletter_recipients,
     render_event_announcement,
     send_newsletter,
+    NEWSLETTER_TEMPLATE_MAP,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,8 +97,10 @@ class NewsletterAdminForm(forms.ModelForm):
             event_field.help_text = 'Auto-generates content. Registered users excluded.'
 
         # Make body_html not required (auto-generated for event newsletters)
-        if 'body_html' in self.fields:
-            self.fields['body_html'].required = False
+        # With modeltranslation, fields may appear as body_html_en, body_html_de, etc.
+        for field_name in list(self.fields.keys()):
+            if field_name.startswith('body_html'):
+                self.fields[field_name].required = False
 
     def clean(self):
         cleaned_data = super().clean()
@@ -114,13 +119,17 @@ class NewsletterAdminForm(forms.ModelForm):
             cleaned_data['segment_key'] = ''
 
         # When event is selected, auto-populate subject if empty
-        if event and not cleaned_data.get('subject'):
-            cleaned_data['subject'] = f"New Event: {event.title}"
+        # With modeltranslation, check the default language field (subject_en)
+        subject_field = 'subject_en' if 'subject_en' in cleaned_data else 'subject'
+        if event and not cleaned_data.get(subject_field):
+            cleaned_data[subject_field] = f"New Event: {event.title}"
 
         # body_html is required only for non-event newsletters
-        if not event and not cleaned_data.get('body_html'):
+        # With modeltranslation, check the default language field (body_html_en)
+        body_field = 'body_html_en' if 'body_html_en' in cleaned_data else 'body_html'
+        if not event and not cleaned_data.get(body_field):
             self.add_error(
-                'body_html',
+                body_field,
                 'Body HTML is required for standard newsletters '
                 '(without an event selected).',
             )
@@ -151,20 +160,21 @@ class NewsletterRecipientInline(admin.TabularInline):
         return False
 
 
-class NewsletterAdmin(admin.ModelAdmin):
+class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
     """
     Newsletter management for Crush.lu with live email preview.
+    Uses TranslationAdmin for tabbed en/de/fr editing of subject and body fields.
     """
 
     form = NewsletterAdminForm
     change_form_template = 'admin/crush_lu/newsletter/change_form.html'
 
     list_display = (
-        'subject', 'get_status_badge', 'get_event_badge', 'audience',
+        'subject', 'get_status_badge', 'get_type_badge', 'audience',
         'language', 'total_sent', 'total_failed', 'total_skipped',
         'created_at', 'sent_at',
     )
-    list_filter = ('status', 'audience', 'language', 'created_at')
+    list_filter = ('status', 'newsletter_type', 'audience', 'language', 'created_at')
     search_fields = ('subject',)
     readonly_fields = (
         'email_preview', 'estimated_recipients',
@@ -179,8 +189,8 @@ class NewsletterAdmin(admin.ModelAdmin):
         js = ('crush_lu/admin/js/newsletter_admin.js',)
 
     fieldsets = (
-        ('Event', {
-            'fields': ('event',),
+        ('Type & Event', {
+            'fields': ('newsletter_type', 'event'),
         }),
         ('Content', {
             'fields': ('subject', 'body_html', 'body_text'),
@@ -318,18 +328,25 @@ class NewsletterAdmin(admin.ModelAdmin):
         if newsletter.event_id:
             return self._render_event_preview(newsletter, first_name, lang)
 
-        context = {
-            'first_name': first_name,
-            'body_html': newsletter.body_html,
-            'unsubscribe_url': '#unsubscribe',
-            'home_url': 'https://crush.lu',
-            'about_url': 'https://crush.lu/about/',
-            'events_url': 'https://crush.lu/events/',
-            'settings_url': 'https://crush.lu/account/settings/',
-            'LANGUAGE_CODE': lang,
-        }
+        # Select template based on newsletter type
+        template_name = NEWSLETTER_TEMPLATE_MAP.get(
+            newsletter.newsletter_type, 'crush_lu/emails/newsletter.html'
+        )
+
+        # Read body_html inside translation.override so modeltranslation
+        # returns the correct language variant for the preview
         with translation.override(lang):
-            return render_to_string('crush_lu/emails/newsletter.html', context)
+            context = {
+                'first_name': first_name,
+                'body_html': newsletter.body_html,
+                'unsubscribe_url': '#unsubscribe',
+                'home_url': 'https://crush.lu',
+                'about_url': 'https://crush.lu/about/',
+                'events_url': 'https://crush.lu/events/',
+                'settings_url': 'https://crush.lu/account/settings/',
+                'LANGUAGE_CODE': lang,
+            }
+            return render_to_string(template_name, context)
 
     def _render_event_preview(self, newsletter, first_name='Preview', lang='en'):
         """Render the event announcement template for admin preview."""
@@ -510,15 +527,25 @@ class NewsletterAdmin(admin.ModelAdmin):
     get_status_badge.short_description = 'Status'
     get_status_badge.admin_order_field = 'status'
 
-    def get_event_badge(self, obj):
+    def get_type_badge(self, obj):
         if obj.event_id:
             return format_html(
                 '<span style="background:#9B59B6; color:white; padding:2px 8px; '
                 'border-radius:10px; font-size:11px;">{}</span>',
                 'Event',
             )
-        return ''
-    get_event_badge.short_description = 'Type'
+        elif obj.newsletter_type == 'patch_notes':
+            return format_html(
+                '<span style="background:#3b82f6; color:white; padding:2px 8px; '
+                'border-radius:10px; font-size:11px;">{}</span>',
+                'Patch Notes',
+            )
+        return format_html(
+            '<span style="background:#6b7280; color:white; padding:2px 8px; '
+            'border-radius:10px; font-size:11px;">{}</span>',
+            'Standard',
+        )
+    get_type_badge.short_description = 'Type'
 
     def save_model(self, request, obj, form, change):
         if not change:

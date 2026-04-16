@@ -1,0 +1,60 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "What's New on Crush.lu" %}{% endblock %}
+
+{% block header_title %}{% trans "What's New" %} &#x1f680;{% endblock %}
+
+{% block content %}
+<h2 style="color: #9B59B6; font-size: 22px; margin-top: 0;">
+    {% if first_name %}{% blocktrans with name=first_name %}Hey {{ name }}!{% endblocktrans %}{% else %}{% trans "Hey there!" %}{% endif %}
+</h2>
+
+<p style="color: #555;">
+    {% trans "We've been working hard to make Crush.lu even better for you. Here's what's new:" %}
+</p>
+
+{# body_html is admin-only content from Newsletter model - safe filter is intentional #}
+{# Use h3 headers for section titles: New Features, Improvements, Bug Fixes #}
+<div style="margin: 20px 0;">
+    <style>
+        .patch-notes h3 {
+            font-size: 17px;
+            margin: 20px 0 10px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .patch-notes ul {
+            padding-left: 20px;
+            margin: 8px 0;
+        }
+        .patch-notes li {
+            margin: 6px 0;
+            color: #555;
+            line-height: 1.5;
+        }
+    </style>
+    <div class="patch-notes">
+        {{ body_html|safe }}
+    </div>
+</div>
+
+<div style="background: #f8f9fa; border-left: 4px solid #9B59B6; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+    <p style="margin: 0; color: #555; font-size: 14px;">
+        {% trans "Have feedback or ideas? We'd love to hear from you at" %} <a href="mailto:support@crush.lu" style="color: #9B59B6;">support@crush.lu</a>
+    </p>
+</div>
+
+<p style="text-align: center; margin: 25px 0;">
+    <a href="{{ home_url }}" class="button" style="display: inline-block; padding: 12px 30px; background-color: #9B59B6; background: linear-gradient(135deg, #9B59B6, #FF6B9D); color: white !important; text-decoration: none; border-radius: 5px; font-weight: 600;">{% trans "Explore Crush.lu" %}</a>
+</p>
+
+<p style="color: #555;">
+    {% trans "Thanks for being part of the Crush.lu community!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because you're a member of Crush.lu." %}<br>
+{% endblock %}

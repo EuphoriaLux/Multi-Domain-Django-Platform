@@ -17,12 +17,25 @@ class Newsletter(models.Model):
         ('segment', _('Specific user segment')),
     ]
 
+    NEWSLETTER_TYPE_CHOICES = [
+        ('standard', _('Standard Newsletter')),
+        ('patch_notes', _('Patch Notes')),
+    ]
+
     STATUS_CHOICES = [
         ('draft', _('Draft')),
         ('sending', _('Sending')),
         ('sent', _('Sent')),
         ('failed', _('Failed')),
     ]
+
+    # Type
+    newsletter_type = models.CharField(
+        max_length=20,
+        choices=NEWSLETTER_TYPE_CHOICES,
+        default='standard',
+        help_text=_("Template style for the newsletter email"),
+    )
 
     # Event (optional - auto-generates content per-user in their language)
     event = models.ForeignKey(
