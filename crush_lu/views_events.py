@@ -112,21 +112,33 @@ def _promote_from_waitlist(event, cancelled_user=None):
 
 def _filter_private_events(events, user):
     """Filter out private invitation events unless user is invited."""
-    visible = []
-    for event in events:
-        if event.is_private_invitation:
-            if user.is_authenticated and (
-                event.invited_users.filter(id=user.id).exists()
-                or EventInvitation.objects.filter(
-                    event=event,
-                    created_user=user,
-                    approval_status="approved",
-                ).exists()
-            ):
-                visible.append(event)
-        else:
-            visible.append(event)
-    return visible
+    if not user.is_authenticated:
+        return [e for e in events if not e.is_private_invitation]
+
+    # Batch-fetch invitation data to avoid N+1 queries
+    private_events = [e for e in events if e.is_private_invitation]
+    if private_events:
+        private_ids = [e.id for e in private_events]
+        invited_event_ids = set(
+            MeetupEvent.objects.filter(
+                id__in=private_ids, invited_users=user
+            ).values_list('id', flat=True)
+        )
+        approved_event_ids = set(
+            EventInvitation.objects.filter(
+                event_id__in=private_ids,
+                created_user=user,
+                approval_status="approved",
+            ).values_list('event_id', flat=True)
+        )
+        allowed_ids = invited_event_ids | approved_event_ids
+    else:
+        allowed_ids = set()
+
+    return [
+        e for e in events
+        if not e.is_private_invitation or e.id in allowed_ids
+    ]
 
 
 def event_list(request):
