@@ -1,8 +1,6 @@
 {% load i18n %}
 {% load static %}
-{% load socialaccount %}
 {% load analytics %}
-{# Removed account load - now in settings builtins #}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
@@ -20,31 +18,9 @@
     <link rel="stylesheet" href="{% static 'core/css/bootstrap-overrides.css' %}">
     <!-- VinsDelux Design System -->
     <link rel="stylesheet" href="{% static 'vinsdelux/css/vinsdelux.css' %}">
-    {% block extra_css %}
-    <style>
-      /* LinkedIn Login Button Styling */
-      .linkedin-login-button {
-          display: inline-block;
-          width: 250px;  /* Adjust width if necessary */
-          height: 60px;  /* Adjust height if necessary */
-          background: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Default.png' %}") no-repeat center center;
-          background-size: contain;
-          border: none;
-          text-indent: -9999px; /* Hides text but remains accessible */
-          cursor: pointer;
-      }
-      .linkedin-login-button:hover {
-          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Hover.png' %}");
-      }
-      .linkedin-login-button:active {
-          background-image: url("{% static 'core/vendor/linkedin/Retina/Sign-In-Small---Active.png' %}");
-      }
-    </style>
-    {% endblock %}
+    {% block extra_css %}{% endblock %}
 </head>
-<body class="vinsdelux-page"
-      data-vineyard-defaults-url="{{ VINSDELUX_VINEYARD_DEFAULTS_URL }}"
-      data-journey-base-url="{{ VINSDELUX_JOURNEY_BASE_URL }}">
+<body class="vinsdelux-page">
     {% include "includes/staging_banner.html" %}
     {% analytics_body %}
     <header>
@@ -91,29 +67,19 @@
                 <div class="col-lg-8">
                     <h5 class="text-uppercase fw-bold mb-3">VinsDelux</h5>
                     <p class="text-muted">
-                        {% trans "A portfolio demonstration of a wine vineyard adoption platform." %}<br>
-                        {% trans "This project showcases the concept of connecting wine enthusiasts with vineyard plots." %}
+                        {% trans "A concept demonstration of a wine vineyard adoption platform." %}<br>
+                        {% trans "This project showcases the idea of connecting wine enthusiasts with vineyard plots in Luxembourg's Moselle region." %}
                     </p>
-                    <div class="mt-4">
-                        <span class="badge bg-secondary me-2">Django</span>
-                        <span class="badge bg-secondary me-2">Bootstrap 5</span>
-                        <span class="badge bg-secondary me-2">PostgreSQL</span>
-                        <span class="badge bg-secondary">Azure</span>
-                    </div>
                 </div>
             </div>
         </div>
         <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
-            © 2025 VinsDelux Portfolio Project
+            &copy; 2025 VinsDelux
         </div>
     </footer>
 
-    <!-- Bootstrap JS (required for responsive navigation) -->
     <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-
-    <!-- Simple smooth scroll behavior -->
     <script>
-        // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');
@@ -121,16 +87,13 @@
                     e.preventDefault();
                     const target = document.querySelector(href);
                     if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                 }
             });
         });
     </script>
-    
+
     {% block extra_js %}{% endblock %}
 
     {% include "includes/cookie_banner.html" %}
