@@ -20,16 +20,6 @@ def home(request):
     return render(request, "crush_lu/home.html", context)
 
 
-def test_ghost_story(request):
-    """Test page for ghost story component - remove after verification"""
-    return render(request, "crush_lu/test_ghost_story.html")
-
-
-def test_upstair(request):
-    """Test page for upstair event poster - remove after verification"""
-    return render(request, "crush_lu/test_upstair.html")
-
-
 def about(request):
     """About page"""
     return render(request, "crush_lu/about.html")
