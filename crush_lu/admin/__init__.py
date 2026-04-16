@@ -171,8 +171,6 @@ from .event_polls import (
     EventPollVoteAdmin,
 )
 
-from .crush_connect import CrushConnectWaitlistAdmin
-
 from .matching import TraitAdmin, MatchScoreAdmin
 
 from .quiz import (
@@ -238,7 +236,6 @@ from crush_lu.models import (
     EventPoll,
     EventPollOption,
     EventPollVote,
-    CrushConnectWaitlist,
     Trait,
     MatchScore,
     QuizEvent,
@@ -348,8 +345,7 @@ crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
 
-# Crush Connect Waitlist
-crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
+
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)
@@ -510,8 +506,6 @@ __all__ = [
     'EventPollAdmin',
     'EventPollVoteAdmin',
 
-    # Crush Connect
-    'CrushConnectWaitlistAdmin',
 
     # Matching
     'TraitAdmin',

@@ -34,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, views_coach, api_quiz, views_quiz
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -135,8 +135,6 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/sparks/<int:spark_id>/status/', views_crush_spark.api_spark_status, name='api_spark_status'),
 
     # Crush Connect Waitlist API (language-neutral for JS calls)
-    path('api/crush-connect/join/', api_crush_connect.join_waitlist, name='crush_connect_join'),
-    path('api/crush-connect/status/', api_crush_connect.waitlist_status, name='crush_connect_status'),
 
     # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
     path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),

@@ -57,7 +57,6 @@ from .models import (
     EventConnection,
     CoachPushSubscription,
 )
-from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
     CrushSignupForm,
     CrushProfileForm,
@@ -87,7 +86,6 @@ from .views_static import (  # noqa: F401
     terms_of_service,
     data_deletion_request,
     crush_coach,
-    crush_connect_teaser,
 )
 
 # Account & auth
@@ -245,17 +243,6 @@ def dashboard(request):
             or bool(profile.first_step_preference)
         )
 
-        # Crush Connect waitlist status
-        on_crush_connect_waitlist = False
-        crush_connect_position = None
-        crush_connect_total = CrushConnectWaitlist.objects.count()
-        try:
-            cc_entry = CrushConnectWaitlist.objects.get(user=request.user)
-            on_crush_connect_waitlist = True
-            crush_connect_position = cc_entry.waitlist_position
-        except CrushConnectWaitlist.DoesNotExist:
-            pass
-
         # Time-based greeting (use localtime for correct Luxembourg timezone)
         hour = timezone.localtime().hour
         name = profile.display_name
@@ -276,9 +263,6 @@ def dashboard(request):
             "connection_count": connection_count,
             "referral_url": referral_url,
             "has_crush_preferences": has_crush_preferences,
-            "on_crush_connect_waitlist": on_crush_connect_waitlist,
-            "crush_connect_position": crush_connect_position,
-            "crush_connect_total": crush_connect_total,
             "greeting": greeting,
             "apple_wallet_enabled": _is_apple_wallet_configured(),
         }
