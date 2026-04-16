@@ -61,14 +61,6 @@ ADMIN_PLATFORMS = [
         'description': 'Business networking admin',
     },
     {
-        'name': 'VinsDelux',
-        'icon': '',
-        'domain': 'vinsdelux.com',
-        'path': '/vinsdelux-admin/',
-        'key': 'vinsdelux',
-        'description': 'Wine e-commerce admin',
-    },
-    {
         'name': 'Power-Up',
         'icon': '',
         'domain': 'power-up.lu',
@@ -90,7 +82,6 @@ ADMIN_PLATFORMS = [
 DEV_DOMAIN_PATHS = {
     'crush.lu': '/crush-admin/',
     'entreprinder.lu': '/entreprinder-admin/',
-    'vinsdelux.com': '/vinsdelux-admin/',
     'power-up.lu': '/power-admin/',
     'delegations.lu': '/delegation-admin/',
 }
@@ -112,8 +103,6 @@ def _get_current_platform_key(request):
         return 'crush'
     if '/entreprinder-admin/' in path:
         return 'entreprinder'
-    if '/vinsdelux-admin/' in path:
-        return 'vinsdelux'
     if '/power-admin/' in path:
         return 'power_up'
     if '/delegation-admin/' in path:

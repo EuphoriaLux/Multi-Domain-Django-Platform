@@ -20,7 +20,6 @@
    ========================================== */
 @import url("core/variables.css");
 @import url("layout/base.css");
-@import url("components/buttons.css");
 
 /* ==========================================
    SIMPLE JOURNEY CARDS
@@ -85,16 +84,3 @@
     }
 }
 
-/* ==========================================
-   ARCHIVED STYLES
-   Complex page styles removed for simplicity.
-   Original CSS preserved in git history.
-
-   Removed imports:
-   - components/cards.css (using inline styles)
-   - components/forms.css (no forms)
-   - components/map.css (no maps)
-   - pages/plot-selection.css (no plot selector)
-   - pages/journey.css (simplified inline)
-   - pages/adoption-plans.css (no adoption plans)
-   ========================================== */

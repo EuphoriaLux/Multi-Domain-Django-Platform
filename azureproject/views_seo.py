@@ -15,10 +15,7 @@ from django.views.decorators.http import require_GET
 @cache_page(60 * 60 * 24)  # Cache for 24 hours
 def robots_txt_vinsdelux(request):
     """
-    Generate robots.txt for VinsDelux wine e-commerce platform.
-
-    Allows crawling of public wine catalog and vineyard information
-    while blocking admin, checkout, and user account areas.
+    Generate robots.txt for VinsDelux concept-explainer site.
     """
     lines = [
         "# Robots.txt for VinsDelux",
@@ -28,46 +25,13 @@ def robots_txt_vinsdelux(request):
         "",
         "# Allow public pages",
         "Allow: /",
-        "Allow: /wines/",
-        "Allow: /vineyards/",
-        "Allow: /producers/",
-        "Allow: /journey/",
-        "Allow: /about/",
-        "Allow: /contact/",
         "",
         "# Block admin and private areas",
         "Disallow: /admin/",
-        "Disallow: /vinsdelux-admin/",
         "Disallow: /accounts/",
-        "Disallow: /api/",
-        "Disallow: /cart/",
-        "Disallow: /checkout/",
-        "Disallow: /order/",
-        "Disallow: /profile/",
-        "Disallow: /media/",
-        "",
-        "# Block language-prefixed private areas",
-        "Disallow: /en/admin/",
-        "Disallow: /en/accounts/",
-        "Disallow: /en/api/",
-        "Disallow: /en/cart/",
-        "Disallow: /en/checkout/",
-        "Disallow: /de/admin/",
-        "Disallow: /de/accounts/",
-        "Disallow: /de/api/",
-        "Disallow: /de/cart/",
-        "Disallow: /de/checkout/",
-        "Disallow: /fr/admin/",
-        "Disallow: /fr/accounts/",
-        "Disallow: /fr/api/",
-        "Disallow: /fr/cart/",
-        "Disallow: /fr/checkout/",
         "",
         "# Crawl delay (be nice to our server)",
         "Crawl-delay: 1",
-        "",
-        "# Sitemap location",
-        "Sitemap: https://vinsdelux.com/sitemap.xml",
         "",
     ]
 
