@@ -12,7 +12,7 @@ Multi-domain Django application serving 6 distinct platforms from a single codeb
 | Domain | Description | Type |
 |--------|-------------|------|
 | [crush.lu](https://crush.lu) | Privacy-first event-based dating for Luxembourg | Full-featured |
-| [vinsdelux.com](https://vinsdelux.com) | Premium wine e-commerce with vineyard plot adoption | Full-featured |
+| [vinsdelux.com](https://vinsdelux.com) | Wine vineyard adoption concept explainer | Static |
 | [entreprinder.lu](https://entreprinder.lu) | Entrepreneur networking with Tinder-style matching | Full-featured |
 | [power-up.lu](https://power-up.lu) | Corporate/investor information site | Static |
 | [tableau.lu](https://tableau.lu) | AI Art e-commerce platform | Static |
@@ -134,17 +134,6 @@ python manage.py create_wonderland_journey \
     --location-met "Luxembourg City"
 ```
 
-### VinsDelux Platform
-
-| Command | Description |
-|---------|-------------|
-| `create_sample_plots` | Creates 15+ sample vineyard plots with coordinates, soil types, grape varieties |
-| `update_plot_descriptions` | Updates plot descriptions based on famous producers |
-
-```bash
-python manage.py create_sample_plots --count 20 --clear  # Clear existing and create 20 plots
-```
-
 ### Entreprinder Platform
 
 | Command | Description |
@@ -174,7 +163,6 @@ pytest -m "not playwright"
 
 # Run specific app tests
 pytest crush_lu/tests/
-pytest vinsdelux/tests/
 
 # Run single test
 pytest crush_lu/tests/test_models.py::TestCrushProfile::test_age_calculation
@@ -243,7 +231,7 @@ entreprinder/
 │   ├── management/        # Management commands
 │   ├── templates/         # Django templates
 │   └── tests/             # pytest tests
-├── vinsdelux/             # Wine e-commerce platform
+├── vinsdelux/             # Wine adoption concept explainer (static)
 ├── entreprinder/          # Entrepreneur networking
 ├── power_up/              # Corporate site (static)
 ├── tableau/               # AI Art shop (static)

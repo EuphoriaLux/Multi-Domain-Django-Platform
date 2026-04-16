@@ -1,1 +1,0 @@
-# VinsDelux management module

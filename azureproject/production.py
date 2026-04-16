@@ -184,12 +184,6 @@ STORAGES = {
     "crush_private": {
         "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
     },
-    "vinsdelux_media": {
-        "BACKEND": "vinsdelux.storage.VdlMediaStorage",
-    },
-    "vinsdelux_private": {
-        "BACKEND": "vinsdelux.storage.VdlPrivateStorage",
-    },
     "entreprinder_media": {
         "BACKEND": "entreprinder.storage.EntreprinderMediaStorage",
     },
@@ -249,16 +243,6 @@ SOCIAL_PREVIEW_IMAGE_URL = os.getenv(
 CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
     "CRUSH_SOCIAL_PREVIEW_URL",
     f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg",
-)
-
-# VinsDelux images (in vinsdelux-media container)
-VINSDELUX_MEDIA_BASE_URL = f"{_MEDIA_ORIGIN}/vinsdelux-media"
-VINSDELUX_JOURNEY_BASE_URL = os.getenv(
-    "VINSDELUX_JOURNEY_BASE_URL", f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
-)
-VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
-    "VINSDELUX_VINEYARD_DEFAULTS_URL",
-    f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/",
 )
 
 # PowerUP/Entreprinder images (in powerup-media container)

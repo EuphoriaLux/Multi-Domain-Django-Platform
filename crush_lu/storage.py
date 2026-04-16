@@ -516,14 +516,7 @@ def list_user_storage_folders():
 # Blob Structure in 'media' container (public):
 #     crush-lu/           -> Crush.lu public assets
 #     powerup/            -> PowerUP public assets
-#     vinsdelux/          -> VinsDelux public assets
 #     shared/             -> Cross-domain assets
-#
-# Usage:
-#     from crush_lu.storage import vinsdelux_upload_path
-#
-#     class VdlProducer(models.Model):
-#         logo = models.ImageField(upload_to=vinsdelux_upload_path('producers/logos'))
 # =============================================================================
 
 import uuid
