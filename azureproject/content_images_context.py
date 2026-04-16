@@ -2,7 +2,7 @@
 Context processor for content image URLs.
 
 Provides stable Azure Blob URLs in production, static URLs in development.
-This allows content images (social previews, journey steps, default profiles)
+This allows content images (social previews, default profiles)
 to have stable URLs that don't change between deployments.
 
 WhiteNoise hashes static files for cache busting, which causes issues with:
@@ -34,39 +34,16 @@ def content_images_context(request):
     )
 
     # =========================================================================
-    # VINSDELUX IMAGES
-    # =========================================================================
-    vinsdelux_journey_base = getattr(
-        settings, 'VINSDELUX_JOURNEY_BASE_URL',
-        '/static/vinsdelux/images/journey/'
-    )
-
-    vinsdelux_vineyard_defaults = getattr(
-        settings, 'VINSDELUX_VINEYARD_DEFAULTS_URL',
-        '/static/vinsdelux/images/vineyard-defaults/'
-    )
-
-    # =========================================================================
     # POWERUP/ENTREPRINDER IMAGES
     # =========================================================================
     powerup_default_profile = getattr(
         settings, 'POWERUP_DEFAULT_PROFILE_URL',
-        '/static/vinsdelux/images/default-profile.png'
+        '/static/core/images/default-profile.png'
     )
 
     return {
         # Crush.lu
         'CRUSH_SOCIAL_PREVIEW_URL': crush_social_preview,
-
-        # VinsDelux
-        'VINSDELUX_JOURNEY_BASE_URL': vinsdelux_journey_base,
-        'VINSDELUX_VINEYARD_DEFAULTS_URL': vinsdelux_vineyard_defaults,
-        # Individual journey step URLs for convenience
-        'VINSDELUX_JOURNEY_STEP_1': f'{vinsdelux_journey_base}step_01.png',
-        'VINSDELUX_JOURNEY_STEP_2': f'{vinsdelux_journey_base}step_02.png',
-        'VINSDELUX_JOURNEY_STEP_3': f'{vinsdelux_journey_base}step_03.png',
-        'VINSDELUX_JOURNEY_STEP_4': f'{vinsdelux_journey_base}step_04.png',
-        'VINSDELUX_JOURNEY_STEP_5': f'{vinsdelux_journey_base}step_05.png',
 
         # PowerUP/Entreprinder
         'POWERUP_DEFAULT_PROFILE_URL': powerup_default_profile,

@@ -366,12 +366,20 @@ def render_event_announcement(event, user, lang):
     return subject, html_message
 
 
+NEWSLETTER_TEMPLATE_MAP = {
+    'standard': 'crush_lu/emails/newsletter.html',
+    'patch_notes': 'crush_lu/emails/patch_notes.html',
+}
+
+
 def _send_newsletter_to_user(newsletter, user):
     """
     Render and send a newsletter email to a single user.
 
     Uses the user's preferred language for template rendering and URL generation.
     For event announcements, renders event_announcement.html with translated content.
+    For standard/patch_notes newsletters, selects the template based on newsletter_type
+    and reads translated fields inside translation.override() for correct language.
     Sends from love@crush.lu via Graph API.
     """
     from .models import EmailPreference
@@ -385,7 +393,6 @@ def _send_newsletter_to_user(newsletter, user):
         )
         plain_message = strip_tags(html_message)
     else:
-        # Standard newsletter: use static body_html
         email_prefs = EmailPreference.get_or_create_for_user(user)
         unsubscribe_url = build_absolute_url(
             'crush_lu:email_unsubscribe',
@@ -393,29 +400,39 @@ def _send_newsletter_to_user(newsletter, user):
             kwargs={'token': email_prefs.unsubscribe_token},
         )
 
-        context = {
-            'user': user,
-            'first_name': user.first_name,
-            'body_html': newsletter.body_html,
-            'unsubscribe_url': unsubscribe_url,
-            'home_url': build_absolute_url('crush_lu:home', lang=lang),
-            'about_url': build_absolute_url('crush_lu:about', lang=lang),
-            'events_url': build_absolute_url('crush_lu:event_list', lang=lang),
-            'settings_url': build_absolute_url(
-                'crush_lu:account_settings', lang=lang
-            ),
-            'social_links': get_social_links(),
-            'LANGUAGE_CODE': lang,
-        }
+        # Select template based on newsletter type
+        template_name = NEWSLETTER_TEMPLATE_MAP.get(
+            newsletter.newsletter_type, 'crush_lu/emails/newsletter.html'
+        )
 
+        # Read translated fields and render template inside translation.override()
+        # so that modeltranslation returns the correct language variant
         with translation.override(lang):
-            html_message = render_to_string(
-                'crush_lu/emails/newsletter.html', context
-            )
+            subject = newsletter.subject
+            body_html = newsletter.body_html
+            body_text = newsletter.body_text
 
-        subject = newsletter.subject
-        if newsletter.body_text:
-            plain_message = newsletter.body_text
+            context = {
+                'user': user,
+                'first_name': user.first_name,
+                'body_html': body_html,
+                'unsubscribe_url': unsubscribe_url,
+                'home_url': build_absolute_url('crush_lu:home', lang=lang),
+                'about_url': build_absolute_url('crush_lu:about', lang=lang),
+                'events_url': build_absolute_url(
+                    'crush_lu:event_list', lang=lang
+                ),
+                'settings_url': build_absolute_url(
+                    'crush_lu:account_settings', lang=lang
+                ),
+                'social_links': get_social_links(),
+                'LANGUAGE_CODE': lang,
+            }
+
+            html_message = render_to_string(template_name, context)
+
+        if body_text:
+            plain_message = body_text
         else:
             plain_message = strip_tags(html_message)
 

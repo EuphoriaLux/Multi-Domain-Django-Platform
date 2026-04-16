@@ -1,20 +1,19 @@
 {% extends 'vinsdelux/base.html' %}
-{% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "VinsDelux - Wine Adoption Portfolio" %}{% endblock %}
+{% block title %}{% trans "VinsDelux - Wine Adoption Concept" %}{% endblock %}
 
 {% block content %}
 <!-- Hero Section -->
-<section class="hero-section bg-light text-center py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+<section class="hero-section text-center py-5" style="background: linear-gradient(135deg, #722F37 0%, #8B4513 100%); color: white;">
     <div class="container py-5">
         <h1 class="display-3 fw-bold mb-3">{% trans "VinsDelux Wine Adoption" %}</h1>
-        <p class="lead mb-4">{% trans "Portfolio demonstration of a wine vineyard adoption platform concept" %}</p>
-        <div class="badge bg-white text-dark px-4 py-2 fs-6">{% trans "Portfolio Project" %}</div>
+        <p class="lead mb-4">{% trans "Adopt a vineyard plot in Luxembourg's Moselle region and receive wines from your personal vines." %}</p>
+        <div class="badge bg-white text-dark px-4 py-2 fs-6">{% trans "Concept Showcase" %}</div>
     </div>
 </section>
 
-<!-- Journey Section - Simple Cards -->
+<!-- Journey Section -->
 <section id="journey-section" class="journey-section py-5">
     <div class="container">
         <div class="text-center mb-5">
@@ -23,44 +22,62 @@
         </div>
 
         <div class="row g-4">
-            {% for step in client_journey_steps %}
             <div class="col-md-6 col-lg-4">
-                <div class="card journey-card h-100 border-0 shadow-sm">
-                    <div class="card-img-wrapper" style="height: 250px; overflow: hidden;">
-                        <picture>
-                            <source srcset="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.webp' %}" type="image/webp">
-                            <img src="{% static 'vinsdelux/images/journey/step_'|add:step.step|add:'.png' %}"
-                                 alt="{{ step.title }}"
-                                 class="card-img-top w-100 h-100"
-                                 style="object-fit: cover;"
-                                 loading="lazy">
-                        </picture>
-                    </div>
-                    <div class="card-body">
-                        <div class="badge bg-primary mb-2">{% trans "Step" %} {{ step.step }}</div>
-                        <h5 class="card-title fw-bold">{{ step.title }}</h5>
-                        <p class="card-text text-muted">{{ step.description }}</p>
-                    </div>
+                <div class="card journey-card h-100 border-0 shadow-sm text-center p-4">
+                    <div class="display-4 mb-3"><i class="fas fa-map-marked-alt" style="color: #722F37;"></i></div>
+                    <div class="badge bg-primary mb-2">{% trans "Step" %} 01</div>
+                    <h5 class="card-title fw-bold">{% trans "Plot Selection" %}</h5>
+                    <p class="card-text text-muted">{% trans "Choose the vineyard plot that matches your preferences and vision. Each plot offers a unique terroir and a story to tell." %}</p>
                 </div>
             </div>
-            {% endfor %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card journey-card h-100 border-0 shadow-sm text-center p-4">
+                    <div class="display-4 mb-3"><i class="fas fa-wine-bottle" style="color: #722F37;"></i></div>
+                    <div class="badge bg-primary mb-2">{% trans "Step" %} 02</div>
+                    <h5 class="card-title fw-bold">{% trans "Personalize Your Wine" %}</h5>
+                    <p class="card-text text-muted">{% trans "Collaborate with our expert winemakers to personalize every aspect of your wine, from the grape variety to the winemaking techniques." %}</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card journey-card h-100 border-0 shadow-sm text-center p-4">
+                    <div class="display-4 mb-3"><i class="fas fa-seedling" style="color: #722F37;"></i></div>
+                    <div class="badge bg-primary mb-2">{% trans "Step" %} 03</div>
+                    <h5 class="card-title fw-bold">{% trans "Follow the Production" %}</h5>
+                    <p class="card-text text-muted">{% trans "Receive regular updates on the growth of your vine and the winemaking process, complete with detailed photos and reports." %}</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card journey-card h-100 border-0 shadow-sm text-center p-4">
+                    <div class="display-4 mb-3"><i class="fas fa-glass-cheers" style="color: #722F37;"></i></div>
+                    <div class="badge bg-primary mb-2">{% trans "Step" %} 04</div>
+                    <h5 class="card-title fw-bold">{% trans "Receive and Taste" %}</h5>
+                    <p class="card-text text-muted">{% trans "Your personalized bottles are delivered directly to your home, ready to be tasted and shared with loved ones." %}</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card journey-card h-100 border-0 shadow-sm text-center p-4">
+                    <div class="display-4 mb-3"><i class="fas fa-award" style="color: #722F37;"></i></div>
+                    <div class="badge bg-primary mb-2">{% trans "Step" %} 05</div>
+                    <h5 class="card-title fw-bold">{% trans "Create Your Legacy" %}</h5>
+                    <p class="card-text text-muted">{% trans "Your wine becomes a family legacy, a unique expression of your passion for wine, and an investment in the future." %}</p>
+                </div>
+            </div>
         </div>
     </div>
 </section>
 
-<!-- Call to Action -->
+<!-- Concept Section -->
 <section class="cta-section bg-light text-center py-5">
     <div class="container">
-        <h2 class="display-6 fw-bold mb-3">{% trans "Concept Demonstration" %}</h2>
+        <h2 class="display-6 fw-bold mb-3">{% trans "About This Concept" %}</h2>
         <p class="lead mb-4">
-            {% trans "This is a portfolio project showcasing a wine vineyard adoption platform." %}<br>
-            {% trans "Original functionality included interactive plot selection, adoption plans, and producer catalogs." %}
+            {% trans "VinsDelux is a concept for a premium wine e-commerce platform connecting wine enthusiasts with vineyard plots in Luxembourg's Moselle region." %}
         </p>
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle me-2"></i>
-                    {% trans "This simplified version demonstrates the concept without the full e-commerce implementation." %}
+                    {% trans "This page presents the vineyard adoption concept — adopt a plot, follow the winemaking journey, and receive wines crafted from your personal vines." %}
                 </div>
             </div>
         </div>

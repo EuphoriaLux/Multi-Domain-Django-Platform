@@ -658,17 +658,9 @@ CRUSH_SOCIAL_PREVIEW_URL = os.getenv(
     "https://crush.lu/static/crush_lu/crush_social_preview.jpg",
 )
 
-# VinsDelux images
-VINSDELUX_JOURNEY_BASE_URL = os.getenv(
-    "VINSDELUX_JOURNEY_BASE_URL", "/static/vinsdelux/images/journey/"
-)
-VINSDELUX_VINEYARD_DEFAULTS_URL = os.getenv(
-    "VINSDELUX_VINEYARD_DEFAULTS_URL", "/static/vinsdelux/images/vineyard-defaults/"
-)
-
 # PowerUP/Entreprinder images
 POWERUP_DEFAULT_PROFILE_URL = os.getenv(
-    "POWERUP_DEFAULT_PROFILE_URL", "/static/vinsdelux/images/default-profile.png"
+    "POWERUP_DEFAULT_PROFILE_URL", "/static/core/images/default-profile.png"
 )
 
 # =============================================================================
@@ -714,12 +706,6 @@ if AZURITE_MODE:
         "crush_private": {
             "BACKEND": "crush_lu.storage.CrushProfilePhotoStorage",
         },
-        "vinsdelux_media": {
-            "BACKEND": "vinsdelux.storage.VdlMediaStorage",
-        },
-        "vinsdelux_private": {
-            "BACKEND": "vinsdelux.storage.VdlPrivateStorage",
-        },
         "entreprinder_media": {
             "BACKEND": "entreprinder.storage.EntreprinderMediaStorage",
         },
@@ -752,7 +738,6 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
 
     # Platform-specific base URLs (using dedicated containers)
     CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
-    VINSDELUX_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/vinsdelux-media"
     POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
 
     # Override content image URLs with platform-specific paths (if not explicitly set in env)
@@ -760,10 +745,6 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
         SOCIAL_PREVIEW_IMAGE_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
     if "CRUSH_SOCIAL_PREVIEW_URL" not in os.environ:
         CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
-    if "VINSDELUX_JOURNEY_BASE_URL" not in os.environ:
-        VINSDELUX_JOURNEY_BASE_URL = f"{VINSDELUX_MEDIA_BASE_URL}/journey/"
-    if "VINSDELUX_VINEYARD_DEFAULTS_URL" not in os.environ:
-        VINSDELUX_VINEYARD_DEFAULTS_URL = f"{VINSDELUX_MEDIA_BASE_URL}/vineyard-defaults/"
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
         POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png"
 
@@ -794,12 +775,6 @@ else:
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "crush_private": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "vinsdelux_media": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "vinsdelux_private": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "entreprinder_media": {
