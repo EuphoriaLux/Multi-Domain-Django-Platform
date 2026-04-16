@@ -6,6 +6,13 @@ echo "🚀 Starting deployment..."
 echo "📍 Working directory: $(pwd)"
 echo "🐍 System Python: $(python --version) at $(which python)"
 
+# Clean stale Python bytecode from previous deployments
+# Even with --clean deploys, Python regenerates .pyc at runtime;
+# leftover bytecode from deleted modules can cause phantom ImportErrors
+echo "🧹 Cleaning stale bytecode..."
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find . -name "*.pyc" -delete 2>/dev/null || true
+
 # Extract pre-built virtual environment if not already present
 if [ ! -d "/antenv" ] && [ -f "antenv.tar.gz" ]; then
     echo "📦 Extracting pre-built virtual environment..."
