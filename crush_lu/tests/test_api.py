@@ -399,6 +399,37 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.voting_session.refresh_from_db()
         self.assertEqual(self.voting_session.total_votes, 1)
 
+    def test_voting_status_user_votes_returns_newest_per_category(self):
+        """If legacy duplicate same-category rows exist (possible under the
+        old race), user_votes must report the newest, not the oldest."""
+        from crush_lu.models import EventActivityVote
+
+        # Simulate a legacy duplicate: older vote for option1, newer for option1b
+        # (both in speed_dating_twist).
+        older = EventActivityVote.objects.create(
+            event=self.event, user=self.user, selected_option=self.option1,
+        )
+        newer = EventActivityVote.objects.create(
+            event=self.event, user=self.user, selected_option=self.option1b,
+        )
+        # voted_at is auto_now_add, but with get_or_create/create ordering the
+        # actual DB ordering by -voted_at may be identical-timestamped; force
+        # the "older" one to have an earlier timestamp.
+        EventActivityVote.objects.filter(pk=older.pk).update(
+            voted_at=older.voted_at - timedelta(seconds=30)
+        )
+
+        self.client.login(username='voter@example.com', password='testpass123')
+        response = self.client.get(
+            reverse('voting_status_api', args=[self.event.id])
+        )
+        data = response.json()['data']
+        self.assertEqual(
+            data['user_votes'].get('speed_dating_twist'),
+            newer.selected_option.id,
+            "user_votes must reflect the newest vote per category, not a stale row",
+        )
+
     def test_voting_status_returns_per_category_votes(self):
         """voting_status_api must expose per-category vote state so clients
         can tell which categories the user has completed."""

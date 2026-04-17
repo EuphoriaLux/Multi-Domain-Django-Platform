@@ -57,11 +57,13 @@ def voting_status_api(request, event_id):
         user=request.user,
     ).select_related('selected_option')
 
-    # Map activity_type -> selected_option_id for clients that need per-category state
-    user_votes = {
-        v.selected_option.activity_type: v.selected_option.id
-        for v in user_votes_qs
-    }
+    # Map activity_type -> selected_option_id for clients that need per-category state.
+    # EventActivityVote.Meta.ordering = ["-voted_at"], so iteration yields newest first.
+    # setdefault keeps the FIRST value seen per key, i.e. the newest vote, so legacy
+    # duplicate rows from earlier races don't cause stale state to shadow the latest.
+    user_votes = {}
+    for v in user_votes_qs:
+        user_votes.setdefault(v.selected_option.activity_type, v.selected_option.id)
 
     # Determine voting phase
     now = timezone.now()
