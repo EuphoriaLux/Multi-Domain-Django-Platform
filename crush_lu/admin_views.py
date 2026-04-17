@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from datetime import timedelta
 import logging
 import traceback
@@ -2015,7 +2016,7 @@ def merge_accounts_confirm(request):
 
         except Exception as e:
             logger.error(f"[ACCOUNT-MERGE] Error: {e}", exc_info=True)
-            django_messages.error(request, f"Merge failed: {e}")
+            django_messages.error(request, _("Merge failed: %(error)s") % {"error": e})
             return redirect('/crush-admin/merge-accounts/')
 
     return render(request, 'admin/crush_lu/crushprofile/merge_confirmation.html', {

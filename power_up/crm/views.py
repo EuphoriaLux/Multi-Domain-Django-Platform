@@ -4,6 +4,7 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from .forms import TicketCommentForm, TicketCreateForm, TicketUpdateForm
 from .models import (
@@ -424,7 +425,7 @@ def ticket_update(request, pk):
                 ticket.closed_at = now
 
             ticket.save()
-            messages.success(request, f"Ticket {ticket.reference_number} updated.")
+            messages.success(request, _("Ticket %(ref)s updated.") % {"ref": ticket.reference_number})
             return redirect("crm:ticket_detail", pk=ticket.pk)
 
     return redirect("crm:ticket_detail", pk=ticket.pk)
@@ -445,6 +446,6 @@ def ticket_comment_add(request, pk):
                 message=form.cleaned_data["message"],
                 is_internal=form.cleaned_data["is_internal"],
             )
-            messages.success(request, "Comment added.")
+            messages.success(request, _("Comment added."))
 
     return redirect("crm:ticket_detail", pk=ticket.pk)
