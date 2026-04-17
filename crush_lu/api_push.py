@@ -169,6 +169,11 @@ def subscribe_push(request):
 
 @login_required
 @ratelimit(key='user', rate='20/m', method='POST')
+# CSRF-exempt: invoked from the service worker pushsubscriptionchange handler,
+# which has no DOM access (cannot read #csrf-token-input) and cannot read the
+# CSRF cookie under CSRF_COOKIE_HTTPONLY=True. Still protected by @login_required
+# (session cookie) and @ratelimit.
+@csrf_exempt
 @require_http_methods(["POST"])
 def refresh_subscription(request):
     """
