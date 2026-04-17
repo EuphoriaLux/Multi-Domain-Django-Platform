@@ -51,10 +51,10 @@ def _get_or_create_profile(user):
                 ).first()
             # Then email domain
             if not company:
-                for c in Company.objects.filter(is_active=True):
-                    if c.email_domains and email_domain in [d.lower() for d in c.email_domains]:
-                        company = c
-                        break
+                company = Company.objects.filter(
+                    is_active=True,
+                    email_domains__icontains=email_domain
+                ).first()
 
     # Determine status
     management_keywords = ['ceo', 'cto', 'cfo', 'director', 'owner', 'founder', 'president', 'chief']
