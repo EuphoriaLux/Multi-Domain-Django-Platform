@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.utils.translation import gettext as _
 from .forms import EntrepreneurProfileForm
 from .models import EntrepreneurProfile
 from django.conf import settings
@@ -61,10 +62,10 @@ def profile(request):
         if form.is_valid():
             profile = form.save(commit=False)
             profile.save()
-            messages.success(request, 'Profile updated successfully.')
+            messages.success(request, _('Profile updated successfully.'))
             return redirect('entreprinder:profile')
         else:
-            messages.error(request, 'Error updating profile. Please check the form.')
+            messages.error(request, _('Error updating profile. Please check the form.'))
     else:
         form = EntrepreneurProfileForm(instance=profile)
 
