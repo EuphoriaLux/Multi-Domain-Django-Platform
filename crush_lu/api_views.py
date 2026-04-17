@@ -158,10 +158,18 @@ def submit_vote_api(request, event_id):
 
     # Atomic vote creation/update to prevent race conditions
     with transaction.atomic():
+        # Lock the registration row (unique per event+user) to serialize
+        # concurrent submissions from the same user. Locking EventActivityVote
+        # itself is insufficient: on the first vote no row exists, so nothing
+        # is locked and two concurrent creates can both succeed with different
+        # selected_options (unique_together includes selected_option).
+        EventRegistration.objects.select_for_update().get(pk=user_registration.pk)
+
         existing_vote = EventActivityVote.objects.filter(
             event=event,
-            user=request.user
-        ).select_for_update().first()
+            user=request.user,
+            selected_option__activity_type=selected_option.activity_type,
+        ).first()
 
         if existing_vote:
             existing_vote.selected_option = selected_option
