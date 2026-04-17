@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Count, Q
 from django.utils import timezone
 
 from .models import (
@@ -241,30 +241,35 @@ def voting_results_api(request, event_id):
             'error': 'No voting session found'
         }, status=404)
 
-    # Get all global activity options with vote counts for this event
-    results = []
-    for option in GlobalActivityOption.objects.filter(is_active=True).order_by('activity_type', 'sort_order'):
-        vote_count = EventActivityVote.objects.filter(
-            event=event, selected_option=option
-        ).count()
+    # Get all options with vote counts in a single query (avoids N+1)
+    options = GlobalActivityOption.objects.filter(
+        is_active=True
+    ).annotate(
+        vote_count=Count(
+            'eventactivityvote',
+            filter=Q(eventactivityvote__event=event)
+        )
+    ).order_by('activity_type', 'sort_order')
 
+    winner_ids = {
+        voting_session.winning_presentation_style_id,
+        voting_session.winning_speed_dating_twist_id,
+    }
+
+    results = []
+    for option in options:
         percentage = 0
         if voting_session.total_votes > 0:
-            percentage = (vote_count / voting_session.total_votes) * 100
-
-        is_winner = (
-            option == voting_session.winning_presentation_style
-            or option == voting_session.winning_speed_dating_twist
-        )
+            percentage = (option.vote_count / voting_session.total_votes) * 100
 
         results.append({
             'id': option.id,
             'display_name': option.display_name,
             'activity_type': option.activity_type,
             'activity_variant': option.activity_variant,
-            'vote_count': vote_count,
+            'vote_count': option.vote_count,
             'percentage': round(percentage, 1),
-            'is_winner': is_winner,
+            'is_winner': option.id in winner_ids,
         })
 
     return JsonResponse({
