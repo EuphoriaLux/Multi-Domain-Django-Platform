@@ -530,7 +530,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
         total_events = queryset.count()
         django_messages.success(
-            request, f"Exported attendees from {total_events} event(s) to CSV."
+            request,
+            _("Exported attendees from %(count)d event(s) to CSV.")
+            % {"count": total_events},
         )
         return response
 

@@ -105,7 +105,7 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
                 men, women, num_rounds, num_tables=quiz.num_tables
             )
         except Exception as e:
-            messages.error(request, f"'{event}': {e}")
+            messages.error(request, _("'%(event)s': %(error)s") % {"event": event, "error": e})
             continue
 
         schedule = result["schedule"]
@@ -113,7 +113,7 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
 
         # Display any warnings from the algorithm
         for warning in result["warnings"]:
-            messages.warning(request, f"'{event}': {warning}")
+            messages.warning(request, _("'%(event)s': %(warning)s") % {"event": event, "warning": warning})
 
         # Clear existing rotation data and memberships (but preserve tables
         # to avoid cascade-deleting TableRoundScore records)
