@@ -380,6 +380,50 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(r2.json()['data']['action'], 'created')
 
+    def test_total_votes_counts_unique_voters_not_categories(self):
+        """total_votes is the unique-voter count (percentage denominator);
+        a single user voting in both categories must only bump it by 1."""
+        self.client.login(username='voter@example.com', password='testpass123')
+
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + '}',
+            content_type='application/json',
+        )
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option2.id) + '}',
+            content_type='application/json',
+        )
+
+        self.voting_session.refresh_from_db()
+        self.assertEqual(self.voting_session.total_votes, 1)
+
+    def test_voting_status_returns_per_category_votes(self):
+        """voting_status_api must expose per-category vote state so clients
+        can tell which categories the user has completed."""
+        self.client.login(username='voter@example.com', password='testpass123')
+
+        # Vote in speed_dating_twist only
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + '}',
+            content_type='application/json',
+        )
+
+        response = self.client.get(
+            reverse('voting_status_api', args=[self.event.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        self.assertTrue(data['has_voted'])
+        self.assertTrue(data['has_voted_speed_dating_twist'])
+        self.assertFalse(data['has_voted_presentation_style'])
+        self.assertEqual(
+            data['user_votes'].get('speed_dating_twist'), self.option1.id
+        )
+        self.assertNotIn('presentation_style', data['user_votes'])
+
     def test_voting_results_api(self):
         """Test getting voting results."""
         self.client.login(username='voter@example.com', password='testpass123')

@@ -51,11 +51,17 @@ def voting_status_api(request, event_id):
             'error': 'No voting session found for this event'
         }, status=404)
 
-    # Check if user has voted
-    user_vote = EventActivityVote.objects.filter(
+    # Check if user has voted (a user may vote once per activity_type/category)
+    user_votes_qs = EventActivityVote.objects.filter(
         event=event,
-        user=request.user
-    ).first()
+        user=request.user,
+    ).select_related('selected_option')
+
+    # Map activity_type -> selected_option_id for clients that need per-category state
+    user_votes = {
+        v.selected_option.activity_type: v.selected_option.id
+        for v in user_votes_qs
+    }
 
     # Determine voting phase
     now = timezone.now()
@@ -69,6 +75,9 @@ def voting_status_api(request, event_id):
         phase = 'active'
         time_value = voting_session.time_remaining
 
+    # Preserve backward-compatible single-option field (first vote encountered)
+    first_vote = user_votes_qs.first()
+
     return JsonResponse({
         'success': True,
         'data': {
@@ -80,8 +89,11 @@ def voting_status_api(request, event_id):
             'time_until_start': voting_session.time_until_start,
             'time_remaining': time_value,
             'total_votes': voting_session.total_votes,
-            'has_voted': user_vote is not None,
-            'user_vote_option_id': user_vote.selected_option.id if user_vote else None,
+            'has_voted': bool(user_votes),
+            'has_voted_presentation_style': 'presentation_style' in user_votes,
+            'has_voted_speed_dating_twist': 'speed_dating_twist' in user_votes,
+            'user_votes': user_votes,
+            'user_vote_option_id': first_vote.selected_option.id if first_vote else None,
         }
     })
 
@@ -176,15 +188,24 @@ def submit_vote_api(request, event_id):
             existing_vote.save()
             action = 'updated'
         else:
+            # total_votes counts unique voters (the percentage denominator in
+            # voting_results_api). Only bump it on the user's first vote across
+            # ANY category for this event -- otherwise a single attendee voting
+            # in both categories would double-count.
+            is_first_vote_for_event = not EventActivityVote.objects.filter(
+                event=event, user=request.user,
+            ).exists()
+
             EventActivityVote.objects.create(
                 event=event,
                 user=request.user,
                 selected_option=selected_option
             )
-            EventVotingSession.objects.filter(
-                event=event
-            ).update(total_votes=F('total_votes') + 1)
-            voting_session.refresh_from_db()
+            if is_first_vote_for_event:
+                EventVotingSession.objects.filter(
+                    event=event
+                ).update(total_votes=F('total_votes') + 1)
+                voting_session.refresh_from_db()
             action = 'created'
 
     vote_count = EventActivityVote.objects.filter(
