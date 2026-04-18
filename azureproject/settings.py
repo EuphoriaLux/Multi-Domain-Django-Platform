@@ -1018,24 +1018,7 @@ COMPONENTS = {
     "app_dirs": ["components"],
 }
 
-# =============================================================================
-# PRODUCTION SECURITY HEADERS (SEC-04)
-# =============================================================================
-# Only applied when DEBUG=False AND not running under pytest. Local HTTP dev
-# and the test client both speak plain HTTP, so SSL redirect would break them
-# (301 instead of 200 on every request). Production is served exclusively over
-# HTTPS via Azure Front Door, which terminates TLS and forwards
-# X-Forwarded-Proto so Django's SSL redirect logic works correctly.
-#
-# HealthCheckMiddleware is first in MIDDLEWARE and short-circuits /healthz/
-# before SecurityMiddleware runs, so Azure health probes remain unaffected.
-_RUNNING_TESTS = "PYTEST_VERSION" in os.environ or "pytest" in sys.argv[0]
-if not DEBUG and not _RUNNING_TESTS:
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-    X_FRAME_OPTIONS = "DENY"
+# Production-only security headers (SSL redirect, HSTS, nosniff, referrer,
+# X-Frame-Options) live in azureproject/production.py. settings.py is used by
+# local dev and pytest, both of which speak plain HTTP and would break under
+# SSL redirect.
