@@ -602,6 +602,41 @@ if not telemetry_ok:
 # then switch to CONTENT_SECURITY_POLICY (enforcing) when ready.
 
 # =============================================================================
+# SECURITY HEADERS (SEC-04)
+# =============================================================================
+# Production is served exclusively over HTTPS via Azure Front Door, which
+# terminates TLS and forwards X-Forwarded-Proto so Django's SSL redirect logic
+# works correctly. HealthCheckMiddleware is first in MIDDLEWARE and short-
+# circuits /healthz/ before SecurityMiddleware runs, so Azure health probes
+# remain unaffected.
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# HSTS ramp: start at 1 hour so any cert / mixed-content / subdomain issue
+# clears from browser caches quickly. Step up only after a week of clean
+# observation across all 7 apex domains:
+#   1h -> 1d -> 1w -> 30d -> 1y (+ includeSubDomains -> + preload + submit
+#   to hstspreload.org). includeSubDomains is off until every subdomain
+#   (staging.*, test.*, api.*, admin.*, mail.*, cdn.*) is confirmed HTTPS.
+SECURE_HSTS_SECONDS = 3600  # 1 hour
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+
+# `manage.py check --deploy` warns on anything weaker than the preload-ready
+# end state. The ramp above is intentional, so silence just those two checks
+# and remove each entry as the corresponding setting reaches target:
+#   W005 -> remove when SECURE_HSTS_INCLUDE_SUBDOMAINS flips to True
+#   W021 -> remove when SECURE_HSTS_PRELOAD flips to True
+# Keeping this list tight means any NEW security warning (e.g. someone
+# dropping SESSION_COOKIE_SECURE) will still fail CI.
+SILENCED_SYSTEM_CHECKS = [
+    "security.W005",  # SECURE_HSTS_INCLUDE_SUBDOMAINS not True during ramp
+    "security.W021",  # SECURE_HSTS_PRELOAD not True during ramp
+]
+
+# =============================================================================
 # DJANGO 6.0 BACKGROUND TASKS
 # =============================================================================
 # Inherits ImmediateBackend from settings.py (tasks run synchronously).

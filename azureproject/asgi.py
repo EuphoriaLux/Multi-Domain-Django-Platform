@@ -17,7 +17,16 @@ import sys
 
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "azureproject.settings")
+# Mirror wsgi.py: pick production.py on Azure (WEBSITE_HOSTNAME is set by
+# App Service), settings.py otherwise (local dev, pytest). Must match
+# wsgi.py exactly — divergence here silently loads the wrong settings
+# module at runtime (e.g. SEC-04 headers missing from production traffic).
+_settings_module = (
+    "azureproject.production"
+    if "WEBSITE_HOSTNAME" in os.environ
+    else "azureproject.settings"
+)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", _settings_module)
 django.setup()
 
 from channels.auth import AuthMiddlewareStack  # noqa: E402
