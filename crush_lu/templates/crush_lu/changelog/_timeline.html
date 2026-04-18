@@ -1,0 +1,21 @@
+{% load i18n %}
+<section id="changelog-timeline"
+         aria-live="polite"
+         class="changelog-timeline space-y-12 sm:space-y-16">
+    {% for release in releases %}
+        {% include "crush_lu/changelog/_release_card.html" with release=release %}
+    {% empty %}
+        <div class="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-8 sm:p-12 text-center">
+            <p class="text-lg text-crush-dark dark:text-white font-medium mb-2">
+                {% trans "Nothing here yet." %}
+            </p>
+            <p class="text-gray-600 dark:text-gray-400">
+                {% if q or category %}
+                    {% trans "No updates match your search. Try a different keyword or clear the filter." %}
+                {% else %}
+                    {% trans "The first update will appear here soon." %}
+                {% endif %}
+            </p>
+        </div>
+    {% endfor %}
+</section>

@@ -175,6 +175,8 @@ from .crush_connect import CrushConnectWaitlistAdmin
 
 from .matching import TraitAdmin, MatchScoreAdmin
 
+from .changelog import PatchReleaseAdmin, PatchNoteAdmin, PatchNoteInline
+
 from .quiz import (
     QuizRoundInline,
     QuizQuestionInline,
@@ -190,6 +192,8 @@ from .quiz import (
 
 # Import all models for registration
 from crush_lu.models import (
+    PatchRelease,
+    PatchNote,
     SpecialUserExperience,
     CrushCoach,
     CrushProfile,
@@ -363,6 +367,10 @@ crush_admin_site.register(QuizTable, QuizTableAdmin)
 crush_admin_site.register(IndividualScore, IndividualScoreAdmin)
 crush_admin_site.register(TableRoundScore, TableRoundScoreAdmin)
 
+# Changelog / Patch Notes
+crush_admin_site.register(PatchRelease, PatchReleaseAdmin)
+crush_admin_site.register(PatchNote, PatchNoteAdmin)
+
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
 from django.contrib.auth.models import User
@@ -516,6 +524,11 @@ __all__ = [
     # Matching
     'TraitAdmin',
     'MatchScoreAdmin',
+
+    # Changelog / Patch Notes
+    'PatchReleaseAdmin',
+    'PatchNoteAdmin',
+    'PatchNoteInline',
 
     # Live Quiz
     'QuizRoundInline',
