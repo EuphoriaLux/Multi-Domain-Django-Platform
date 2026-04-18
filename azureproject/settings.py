@@ -298,7 +298,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # In settings.py
 
-# These settings optimize the login experience
+# These settings optimize the login experience.
+# SOCIALACCOUNT_LOGIN_ON_GET stays True until all templates that still use
+# `<a href="{% provider_login_url %}">` are migrated to POST forms with CSRF.
+# Flipping this to False without that migration breaks every OAuth entry point
+# (login_crush.html, auth.html, signup.html, account_settings.html,
+# entreprinder/base.html, admin login, …).
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -411,8 +416,6 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = "/profile/"
-
-SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # Don't send email verification for social account signups (email already verified by provider)
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
