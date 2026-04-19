@@ -581,6 +581,20 @@ class EventRegistration(models.Model):
             models.Index(
                 fields=["event", "status"], name="eventregistration_event_status"
             ),
+            # Covers filter(event=..., user=..., status=...) used by per-user
+            # status checks and check-in flows. Supersedes the unique_together
+            # index for (event, user) lookups.
+            models.Index(
+                fields=["event", "user", "status"],
+                name="eventreg_event_user_status",
+            ),
+            # Covers filter(user=..., status=...) for user-centric dashboards
+            # ("my upcoming events", "my attended events"). The unique_together
+            # index leads with event, so user-first queries aren't served.
+            models.Index(
+                fields=["user", "status"],
+                name="eventreg_user_status",
+            ),
         ]
 
     def __str__(self):
