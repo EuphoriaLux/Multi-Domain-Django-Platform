@@ -726,14 +726,30 @@ def event_register(request, event_id):
             except CrushProfile.DoesNotExist:
                 profile = None
 
-    if profile is None and (event.min_age > 18 or event.max_age < 99):
-        messages.error(
-            request,
-            _(
-                "This event has age restrictions. Please create a profile to verify your age."
-            ),
-        )
-        return redirect("crush_lu:create_profile")
+    # Age verification — enforce event.min_age / event.max_age against the
+    # user's date_of_birth on the profile. A checkbox self-attestation is NOT
+    # sufficient for age-restricted events: we require a profile with a DOB.
+    event_has_age_restriction = event.min_age > 18 or event.max_age < 99
+    if event_has_age_restriction:
+        if profile is None or profile.age is None:
+            messages.error(
+                request,
+                _(
+                    "This event has age restrictions. Please complete your "
+                    "profile with your date of birth to verify your age."
+                ),
+            )
+            return redirect("crush_lu:create_profile")
+        if not (event.min_age <= profile.age <= event.max_age):
+            messages.error(
+                request,
+                _(
+                    "This event is restricted to ages %(min)d–%(max)d. "
+                    "Your profile does not meet these age requirements."
+                )
+                % {"min": event.min_age, "max": event.max_age},
+            )
+            return redirect("crush_lu:event_detail", event_id=event_id)
 
     # Language requirement check
     if event.languages:
@@ -754,8 +770,12 @@ def event_register(request, event_id):
         messages.error(request, _("Registration is not available for this event."))
         return redirect("crush_lu:event_detail", event_id=event_id)
 
-    # Age confirmation needed when user has no profile (age unverified)
-    requires_age_confirmation = profile is None
+    # Self-attestation checkbox only appears for events with NO age restriction
+    # AND no profile on file. Age-restricted events have already forced profile
+    # creation above (see event_has_age_restriction), so the checkbox is never
+    # the primary age signal for those. It remains as a legal safeguard for
+    # open events where a profile isn't required.
+    requires_age_confirmation = profile is None and not event_has_age_restriction
 
     # Gender selection needed when event uses per-gender caps and user has no gender
     requires_gender_selection = event.gender_limits_active and (
@@ -783,6 +803,42 @@ def event_register(request, event_id):
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)
 
+                # Defense-in-depth: re-verify age under lock against the freshly
+                # locked event, in case event.min_age / max_age or the user's
+                # DOB changed concurrently. Derive the restriction flag from
+                # the *locked* event — the pre-lock flag may be stale if an
+                # admin tightened the age bounds after the initial read.
+                locked_has_age_restriction = (
+                    locked_event.min_age > 18 or locked_event.max_age < 99
+                )
+                if locked_has_age_restriction:
+                    locked_profile = CrushProfile.objects.filter(
+                        user=request.user
+                    ).first()
+                    if (
+                        locked_profile is None
+                        or locked_profile.age is None
+                        or not (
+                            locked_event.min_age
+                            <= locked_profile.age
+                            <= locked_event.max_age
+                        )
+                    ):
+                        messages.error(
+                            request,
+                            _(
+                                "This event is restricted to ages "
+                                "%(min)d–%(max)d."
+                            )
+                            % {
+                                "min": locked_event.min_age,
+                                "max": locked_event.max_age,
+                            },
+                        )
+                        return redirect(
+                            "crush_lu:event_detail", event_id=event_id
+                        )
+
                 # If the user submitted a gender, persist it to their profile
                 submitted_gender = form.cleaned_data.get("gender")
                 if requires_gender_selection and submitted_gender:
@@ -807,7 +863,11 @@ def event_register(request, event_id):
                         "bringing_guest", False
                     )
                     registration.guest_name = form.cleaned_data.get("guest_name", "")
-                    # Reset timestamp so re-registration gets a fair waitlist position
+                    # Policy: a user who cancelled and re-registers is treated
+                    # like a new registration — their original `registered_at`
+                    # is discarded and they go to the back of the waitlist (if
+                    # the event is full). This prevents queue-jumping via
+                    # cancel-then-re-register while the event is at capacity.
                     registration.registered_at = timezone.now()
                 else:
                     registration = form.save(commit=False)
