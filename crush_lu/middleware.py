@@ -4,6 +4,7 @@ Handles user activity tracking and PWA detection.
 """
 
 import logging
+from django.core.cache import cache
 from django.utils import timezone
 from django.db.models import F
 
@@ -24,6 +25,28 @@ SKIP_PATHS = (
 
 # Minimum seconds between activity updates (to avoid DB write on every request)
 ACTIVITY_UPDATE_INTERVAL = 300  # 5 minutes
+
+
+def _cache_get_safe(key):
+    """Cache read that treats any backend error as a miss.
+
+    django_redis already swallows exceptions via IGNORE_EXCEPTIONS on
+    production, but this keeps the middleware resilient against any
+    backend that doesn't — a cache outage must never silently stop
+    activity tracking; worst case we fall through to the DB path.
+    """
+    try:
+        return cache.get(key)
+    except Exception as e:  # noqa: BLE001 — defensive breadth
+        logger.debug("activity cache read failed (%s); falling back to DB path", e)
+        return None
+
+
+def _cache_set_safe(key, value, ttl):
+    try:
+        cache.set(key, value, ttl)
+    except Exception as e:  # noqa: BLE001
+        logger.debug("activity cache write failed (%s); ignoring", e)
 
 
 class UserActivityMiddleware:
@@ -78,10 +101,16 @@ class UserActivityMiddleware:
         from .models import UserActivity
 
         try:
-            now = timezone.now()
             user = request.user
+            # Cache-gated throttle: if we updated this user within the interval,
+            # skip the DB roundtrip entirely. Previously get_or_create() ran on
+            # every request even when no write was needed.
+            cache_key = f"user_activity:last_seen:{user.pk}"
+            if _cache_get_safe(cache_key):
+                return
 
-            # Get or create activity record
+            now = timezone.now()
+
             activity, created = UserActivity.objects.get_or_create(
                 user=user,
                 defaults={
@@ -91,12 +120,19 @@ class UserActivityMiddleware:
             )
 
             if created:
+                _cache_set_safe(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
                 logger.debug(f"Created UserActivity for {user.username}")
                 return
 
-            # Check if we should update (throttle to every 5 minutes)
+            # Double-check against the DB timestamp in case cache was cold but
+            # another worker updated recently.
             time_since_last = (now - activity.last_seen).total_seconds()
             if time_since_last < ACTIVITY_UPDATE_INTERVAL:
+                _cache_set_safe(
+                    cache_key,
+                    1,
+                    ACTIVITY_UPDATE_INTERVAL - int(time_since_last),
+                )
                 return
 
             # Detect PWA usage
@@ -118,6 +154,8 @@ class UserActivityMiddleware:
                     is_pwa_user=True, last_pwa_visit=now
                 )
                 logger.debug(f"PWA visit recorded for {user.username}")
+
+            _cache_set_safe(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
 
         except Exception as e:
             # Don't let activity tracking break the request

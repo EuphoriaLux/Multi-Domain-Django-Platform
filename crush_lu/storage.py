@@ -26,10 +26,12 @@ Storage folders are created implicitly on first upload — Azure Blob
 has no real folders, so there is no up-front initialization step.
 """
 
+import hashlib
 import os
 import logging
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,36 @@ class PrivateAzureStorage(AzureStorage):
         self.overwrite_files = False
         self.cache_control = "private, max-age=3600"  # 1 hour, matches SAS expiry
 
+    # Safety margin: serve cached SAS URLs only while at least this many
+    # seconds of the original validity window remain. Keeps cached URLs from
+    # being handed out right before they expire.
+    SAS_CACHE_SAFETY_MARGIN_SECS = 300
+
+    def _build_sas_url(self, name, expire):
+        sas_token = generate_blob_sas(
+            account_name=self.account_name,
+            account_key=self.account_key,
+            container_name=self.azure_container,
+            blob_name=name,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+        )
+
+        if self._is_azurite:
+            return (
+                f"http://{self._azurite_host}/{self.account_name}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
+        if self._cdn_domain:
+            return (
+                f"https://{self._cdn_domain}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
+        return (
+            f"https://{self.account_name}.blob.core.windows.net/"
+            f"{self.azure_container}/{name}?{sas_token}"
+        )
+
     def url(self, name, expire=None):
         """
         Generate a time-limited SAS URL for accessing the blob.
@@ -114,36 +146,37 @@ class PrivateAzureStorage(AzureStorage):
         if not expire:
             expire = self.expiration_secs
 
-        # Generate SAS token with read permissions
-        sas_token = generate_blob_sas(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            container_name=self.azure_container,
-            blob_name=name,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+        # Cache the full URL (not just the token) because CDN/Azurite routing
+        # is part of the output. SAS tokens for the same blob are identical
+        # regardless of requester, so a single shared key is correct.
+        #
+        # The signing-key fingerprint is part of the cache key so rotating
+        # AZURE_ACCOUNT_KEY immediately invalidates cached URLs signed by
+        # the old key (otherwise revoked SAS tokens would keep serving
+        # 403s until TTL expiry).
+        key_fingerprint = hashlib.sha256(
+            (self.account_key or "").encode("utf-8")
+        ).hexdigest()[:16]
+        cache_key = (
+            f"sas_url:v2:{self.account_name}:{self.azure_container}:"
+            f"{name}:{expire}:{self._cdn_domain or ''}:"
+            f"{'azurite' if self._is_azurite else 'az'}:"
+            f"{key_fingerprint}"
         )
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
 
-        # Build URL based on environment
-        if self._is_azurite:
-            # Azurite URL format: http://host:port/account/container/blob?sas
-            return (
-                f"http://{self._azurite_host}/{self.account_name}/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
-        elif self._cdn_domain:
-            # CDN/Front Door URL: https://cdn-domain/container/blob?sas
-            # Front Door forwards query strings (including SAS token) to blob storage origin
-            return (
-                f"https://{self._cdn_domain}/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
-        else:
-            # Direct Azure URL: https://account.blob.core.windows.net/container/blob?sas
-            return (
-                f"https://{self.account_name}.blob.core.windows.net/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
+        url = self._build_sas_url(name, expire)
+        # TTL must never exceed the SAS lifetime itself, otherwise a cached
+        # URL could be handed out after the token has already expired.
+        # Below the safety margin (e.g. very short custom `expire`), skip
+        # caching entirely — the crypto cost of a fresh token is cheaper
+        # than serving a dead one.
+        ttl = expire - self.SAS_CACHE_SAFETY_MARGIN_SECS
+        if ttl >= 60:
+            cache.set(cache_key, url, ttl)
+        return url
 
 
 class CrushMediaStorage(AzureStorage):
