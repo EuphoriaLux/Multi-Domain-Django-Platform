@@ -158,8 +158,14 @@ class PrivateAzureStorage(AzureStorage):
             return cached
 
         url = self._build_sas_url(name, expire)
-        ttl = max(60, expire - self.SAS_CACHE_SAFETY_MARGIN_SECS)
-        cache.set(cache_key, url, ttl)
+        # TTL must never exceed the SAS lifetime itself, otherwise a cached
+        # URL could be handed out after the token has already expired.
+        # Below the safety margin (e.g. very short custom `expire`), skip
+        # caching entirely — the crypto cost of a fresh token is cheaper
+        # than serving a dead one.
+        ttl = expire - self.SAS_CACHE_SAFETY_MARGIN_SECS
+        if ttl >= 60:
+            cache.set(cache_key, url, ttl)
         return url
 
 

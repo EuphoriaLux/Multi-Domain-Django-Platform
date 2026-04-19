@@ -71,3 +71,20 @@ def test_cdn_and_direct_url_formats_are_distinct(mock_gen):
     assert direct.startswith("https://testacct.blob.core.windows.net/")
     assert cdn.startswith("https://cdn.example.com/")
     assert direct != cdn
+
+
+@patch("crush_lu.storage.generate_blob_sas", return_value="sv=fake&sig=abc")
+def test_short_expiry_skips_cache_entirely(mock_gen):
+    """Expire windows that would yield a TTL shorter than the safety
+    margin must not be cached — the cache would outlive the token."""
+    storage = _make_storage()
+
+    storage.url("users/1/photos/a.jpg", expire=30)
+    storage.url("users/1/photos/a.jpg", expire=30)
+
+    assert mock_gen.call_count == 2  # no cache hit on the second call
+    cache_key = (
+        "sas_url:v1:testacct:crush-lu-private:"
+        "users/1/photos/a.jpg:30::az"
+    )
+    assert cache.get(cache_key) is None
