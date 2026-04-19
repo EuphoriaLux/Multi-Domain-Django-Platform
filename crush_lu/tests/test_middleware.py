@@ -94,3 +94,19 @@ def test_request_after_throttle_window_updates_db_and_primes_cache(user):
     assert activity.total_visits == 6
     assert (timezone.now() - activity.last_seen).total_seconds() < 5
     assert cache.get(f"user_activity:last_seen:{user.pk}") is not None
+
+
+def test_cache_backend_failure_does_not_stop_activity_tracking(user):
+    """If the cache backend raises, we must still hit the DB throttle
+    path rather than silently no-op'ing for the entire outage window."""
+    with patch(
+        "crush_lu.middleware.cache.get",
+        side_effect=ConnectionError("redis down"),
+    ), patch(
+        "crush_lu.middleware.cache.set",
+        side_effect=ConnectionError("redis down"),
+    ):
+        _run(_make_request(user))
+
+    # DB path still ran, so the UserActivity row exists.
+    assert UserActivity.objects.filter(user=user).exists()

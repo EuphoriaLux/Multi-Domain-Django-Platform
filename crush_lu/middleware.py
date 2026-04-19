@@ -27,6 +27,28 @@ SKIP_PATHS = (
 ACTIVITY_UPDATE_INTERVAL = 300  # 5 minutes
 
 
+def _cache_get_safe(key):
+    """Cache read that treats any backend error as a miss.
+
+    django_redis already swallows exceptions via IGNORE_EXCEPTIONS on
+    production, but this keeps the middleware resilient against any
+    backend that doesn't — a cache outage must never silently stop
+    activity tracking; worst case we fall through to the DB path.
+    """
+    try:
+        return cache.get(key)
+    except Exception as e:  # noqa: BLE001 — defensive breadth
+        logger.debug("activity cache read failed (%s); falling back to DB path", e)
+        return None
+
+
+def _cache_set_safe(key, value, ttl):
+    try:
+        cache.set(key, value, ttl)
+    except Exception as e:  # noqa: BLE001
+        logger.debug("activity cache write failed (%s); ignoring", e)
+
+
 class UserActivityMiddleware:
     """
     Middleware to track user activity for Crush.lu.
@@ -84,7 +106,7 @@ class UserActivityMiddleware:
             # skip the DB roundtrip entirely. Previously get_or_create() ran on
             # every request even when no write was needed.
             cache_key = f"user_activity:last_seen:{user.pk}"
-            if cache.get(cache_key):
+            if _cache_get_safe(cache_key):
                 return
 
             now = timezone.now()
@@ -98,7 +120,7 @@ class UserActivityMiddleware:
             )
 
             if created:
-                cache.set(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
+                _cache_set_safe(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
                 logger.debug(f"Created UserActivity for {user.username}")
                 return
 
@@ -106,7 +128,7 @@ class UserActivityMiddleware:
             # another worker updated recently.
             time_since_last = (now - activity.last_seen).total_seconds()
             if time_since_last < ACTIVITY_UPDATE_INTERVAL:
-                cache.set(
+                _cache_set_safe(
                     cache_key,
                     1,
                     ACTIVITY_UPDATE_INTERVAL - int(time_since_last),
@@ -133,7 +155,7 @@ class UserActivityMiddleware:
                 )
                 logger.debug(f"PWA visit recorded for {user.username}")
 
-            cache.set(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
+            _cache_set_safe(cache_key, 1, ACTIVITY_UPDATE_INTERVAL)
 
         except Exception as e:
             # Don't let activity tracking break the request
