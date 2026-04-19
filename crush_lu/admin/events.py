@@ -40,12 +40,27 @@ class EventRegistrationAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
+        # Fall back to the bound instance for fields that aren't in the
+        # submitted form. Matters for:
+        #   - EventRegistrationInline (event is implicit from the parent admin)
+        #   - changelist list_editable updates (only status / payment_confirmed
+        #     are submitted; event and user come from the row being edited)
         event = cleaned_data.get("event")
+        if not event and getattr(self.instance, "event_id", None):
+            event = self.instance.event
         user = cleaned_data.get("user")
-        status = cleaned_data.get("status")
+        if not user and getattr(self.instance, "user_id", None):
+            user = self.instance.user
+        status = cleaned_data.get("status") or getattr(self.instance, "status", None)
+
+        # Truly-missing data (new row with nothing posted): let Django's own
+        # required-field errors surface rather than masking them here.
+        if not event or not user:
+            return cleaned_data
 
         # Cancelled registrations don't need to pass the age gate.
-        if not event or not user or status == "cancelled":
+        if status == "cancelled":
             return cleaned_data
 
         event_has_age_restriction = event.min_age > 18 or event.max_age < 99

@@ -1047,3 +1047,44 @@ class EventRegistrationAdminFormAgeTests(TestCase):
             data={'event': self.event.pk, 'user': user.pk, 'status': 'cancelled'}
         )
         self.assertTrue(form.is_valid(), form.errors)
+
+    def test_admin_inline_form_cannot_bypass_via_implicit_event(self):
+        """
+        Regression for Codex P1: in EventRegistrationInline the `event` field
+        isn't part of the posted data (it's implicit from the parent admin).
+        Cleaning must fall back to self.instance.event and still reject
+        ineligible users — otherwise staff could confirm underage registrations
+        via the inline form.
+        """
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('inline-young@example.com', 22)
+        instance = EventRegistration.objects.create(
+            event=self.event, user=user, status='waitlist'
+        )
+        # Simulate inline: event and user are NOT in POST data; only status is.
+        form = EventRegistrationAdminForm(
+            data={'status': 'confirmed'}, instance=instance
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_admin_changelist_inline_edit_cannot_bypass(self):
+        """
+        Regression for Codex P1: on the changelist, list_editable posts only
+        the editable columns (status, payment_confirmed). Without falling back
+        to self.instance, the clean() short-circuit would silently let staff
+        flip an underage waitlist row to 'confirmed'.
+        """
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('changelist-young@example.com', 22)
+        instance = EventRegistration.objects.create(
+            event=self.event, user=user, status='waitlist'
+        )
+        form = EventRegistrationAdminForm(
+            data={'status': 'confirmed', 'payment_confirmed': False},
+            instance=instance,
+        )
+        self.assertFalse(form.is_valid())

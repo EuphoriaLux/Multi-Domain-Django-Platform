@@ -805,8 +805,13 @@ def event_register(request, event_id):
 
                 # Defense-in-depth: re-verify age under lock against the freshly
                 # locked event, in case event.min_age / max_age or the user's
-                # DOB changed concurrently.
-                if event_has_age_restriction:
+                # DOB changed concurrently. Derive the restriction flag from
+                # the *locked* event — the pre-lock flag may be stale if an
+                # admin tightened the age bounds after the initial read.
+                locked_has_age_restriction = (
+                    locked_event.min_age > 18 or locked_event.max_age < 99
+                )
+                if locked_has_age_restriction:
                     locked_profile = CrushProfile.objects.filter(
                         user=request.user
                     ).first()
