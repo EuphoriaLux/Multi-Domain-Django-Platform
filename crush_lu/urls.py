@@ -259,6 +259,19 @@ urlpatterns = [
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
     path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),
 
+    # Hybrid Coach Review System — coach preferences (Phase 2)
+    path('coach/settings/', views.coach_settings, name='coach_settings'),
+    path(
+        'coach/settings/availability/add/',
+        views.coach_settings_availability_add,
+        name='coach_settings_availability_add',
+    ),
+    path(
+        'coach/settings/availability/<int:index>/remove/',
+        views.coach_settings_availability_remove,
+        name='coach_settings_availability_remove',
+    ),
+
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
 

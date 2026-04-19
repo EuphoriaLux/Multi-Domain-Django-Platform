@@ -48,6 +48,9 @@ from .matching import (
 from .forms import (
     CrushCoachForm,
     ProfileReviewForm,
+    CoachSettingsForm,
+    _validate_availability_window,
+    _windows_overlap,
 )
 from .decorators import coach_required
 from .notification_service import (
@@ -383,6 +386,99 @@ def coach_dashboard(request):
         "age_lang_col_totals": age_lang_col_totals,
     }
     return render(request, "crush_lu/coach_dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Hybrid Coach Review System — Coach Settings UI (Phase 2)
+# ---------------------------------------------------------------------------
+
+DAY_CHOICES = [
+    ("monday", _("Monday")),
+    ("tuesday", _("Tuesday")),
+    ("wednesday", _("Wednesday")),
+    ("thursday", _("Thursday")),
+    ("friday", _("Friday")),
+    ("saturday", _("Saturday")),
+    ("sunday", _("Sunday")),
+]
+
+
+@coach_required
+def coach_settings(request):
+    """Render and update the coach's hybrid-review preferences."""
+    coach = request.coach
+
+    if request.method == "POST":
+        form = CoachSettingsForm(request.POST, instance=coach)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Settings updated."))
+            return redirect("crush_lu:coach_settings")
+    else:
+        form = CoachSettingsForm(instance=coach)
+
+    context = {
+        "coach": coach,
+        "form": form,
+        "availability_windows": coach.availability_windows or [],
+        "day_choices": DAY_CHOICES,
+    }
+    return render(request, "crush_lu/coach_settings.html", context)
+
+
+def _availability_partial(request, coach):
+    """Shared renderer for HTMX partial responses."""
+    return render(
+        request,
+        "crush_lu/partials/_availability_window_list.html",
+        {
+            "availability_windows": coach.availability_windows or [],
+            "day_choices": DAY_CHOICES,
+        },
+    )
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_settings_availability_add(request):
+    """HTMX: append a new availability window."""
+    coach = request.coach
+    windows = list(coach.availability_windows or [])
+
+    try:
+        cleaned = _validate_availability_window(request.POST)
+    except ValueError as exc:
+        return HttpResponse(
+            _("Invalid window: %(reason)s") % {"reason": str(exc)},
+            status=400,
+        )
+
+    if _windows_overlap(windows, cleaned):
+        return HttpResponse(
+            _("This window overlaps an existing one on the same day."),
+            status=400,
+        )
+
+    windows.append(cleaned)
+    # Keep stable ordering: by weekday, then start time.
+    day_order = {d: i for i, (d, _label) in enumerate(DAY_CHOICES)}
+    windows.sort(key=lambda w: (day_order.get(w.get("day"), 99), w.get("start", "")))
+    coach.availability_windows = windows
+    coach.save(update_fields=["availability_windows"])
+    return _availability_partial(request, coach)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_settings_availability_remove(request, index):
+    """HTMX: remove availability window at the given index."""
+    coach = request.coach
+    windows = list(coach.availability_windows or [])
+    if 0 <= index < len(windows):
+        windows.pop(index)
+        coach.availability_windows = windows
+        coach.save(update_fields=["availability_windows"])
+    return _availability_partial(request, coach)
 
 
 @coach_required

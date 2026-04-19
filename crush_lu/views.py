@@ -161,6 +161,10 @@ from .views_coach import (  # noqa: F401
     coach_members,
     coach_member_matches,
     coach_match_pairs,
+    # Hybrid Coach Review System (Phase 2)
+    coach_settings,
+    coach_settings_availability_add,
+    coach_settings_availability_remove,
 )
 
 # Voting & presentations
