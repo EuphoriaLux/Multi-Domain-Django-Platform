@@ -190,7 +190,12 @@ class AzureCostBlobReader:
 
     def download_and_decompress(self, blob_path):
         """
-        Download and decompress a gzipped CSV file from blob storage
+        Download and decompress a gzipped CSV file from blob storage.
+
+        Streams end-to-end: Azure → gzip → text. Memory usage stays
+        roughly constant regardless of file size, so large cost exports
+        (100MB+ compressed, ~500MB decompressed) no longer risk OOM on
+        resource-constrained containers.
 
         Args:
             blob_path: Full blob path
@@ -199,30 +204,23 @@ class AzureCostBlobReader:
                 - 'Pay as you go - Tom Privat/CostFocus-PayasyouGo/20251001-20251031/.../part_1_0001.csv.gz'
 
         Returns:
-            io.StringIO: Decompressed CSV content as a text stream
+            io.TextIOWrapper: Decompressed CSV content as a text stream.
+            The caller should iterate it rather than calling .read(),
+            so the file stays streamed.
         """
-        # Get blob client
         blob_client = self.blob_service_client.get_blob_client(
             container=self.container_name,
             blob=blob_path
         )
 
-        # Download blob content as bytes (Azure SDK 12.x compatible)
+        # StorageStreamDownloader.read(size) is file-like since
+        # azure-storage-blob 12.x, so GzipFile can pull bytes on demand.
         stream_downloader = blob_client.download_blob()
+        gz_file = gzip.GzipFile(fileobj=stream_downloader, mode='rb')
 
-        # Read all bytes from the stream using BytesIO for memory efficiency
-        buffer = io.BytesIO()
-        for chunk in stream_downloader.chunks():
-            buffer.write(chunk)
-        compressed_data = buffer.getvalue()
-
-        # Decompress gzip data
-        with gzip.GzipFile(fileobj=io.BytesIO(compressed_data)) as gz_file:
-            decompressed_data = gz_file.read()
-
-        # Convert bytes to string and create StringIO object
-        text_data = decompressed_data.decode('utf-8-sig')  # utf-8-sig handles BOM
-        return io.StringIO(text_data)
+        # utf-8-sig handles the UTF-8 BOM that Cost Management exports
+        # place at the start of the first CSV row.
+        return io.TextIOWrapper(gz_file, encoding='utf-8-sig', newline='')
 
     def stream_csv_records(self, blob_path, batch_size=1000):
         """
