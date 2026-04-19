@@ -28,12 +28,22 @@ from crush_lu.models.quiz import (
 
 
 def _is_quiz_host(quiz, user):
-    """Check if user can host/score this quiz (Issue #6: include coaches)."""
-    if quiz.created_by == user or user.is_staff:
+    """Check if user can host/score this quiz.
+
+    Authorized: (a) the quiz creator, or (b) an active CrushCoach explicitly
+    assigned to this event via ``MeetupEvent.coaches``. The blanket
+    ``is_staff`` and "any active coach" bypasses were removed so that
+    random staff or unrelated coaches cannot mutate quiz state.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    if quiz.created_by_id == user.id:
         return True
     from crush_lu.models import CrushCoach
 
-    return CrushCoach.objects.filter(user=user, is_active=True).exists()
+    return CrushCoach.objects.filter(
+        user=user, is_active=True, assigned_events=quiz.event_id
+    ).exists()
 
 
 @api_view(["GET"])
@@ -306,8 +316,10 @@ def score_table(request, quiz_id):
         if is_correct and question.round.is_bonus:
             points *= 2
 
-        # Issue #3: Use round index, not sort_order
-        round_number = quiz.get_round_number()
+        # Attribute scores to the round this question belongs to, not the
+        # quiz's current round. Prevents a rotate between "question asked"
+        # and "late score arrives" from crediting the new round's seatmates.
+        round_number = quiz.get_round_number(question.round)
 
         rotation_users = list(
             QuizRotationSchedule.objects.filter(

@@ -499,6 +499,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def handle_rotate(self):
+        # Server-side defense-in-depth: even though the UI only exposes
+        # the rotate button after round_complete, a host with stale JS
+        # state or an extra tab can still fire the action. Reject the
+        # rotate unless (a) every question in the current round has been
+        # shown and (b) every table has been scored on the last shown
+        # question. Without this guard, rotating mid-round would skip
+        # unasked questions and orphan any partial scoring.
+        guard = await self.check_can_rotate()
+        if guard.get("error"):
+            await self.send_error(guard["error"])
+            return
+
         rotation_data = await self.advance_round_and_rotate()
         if rotation_data.get("finished"):
             # No more rounds — broadcast finished status with leaderboard
@@ -722,19 +734,25 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models.quiz import QuizEvent
 
         try:
-            quiz = QuizEvent.objects.select_related("event").get(id=self.quiz_id)
-            if quiz.created_by_id == user.id or user.is_staff:
-                self._is_host_cache = True
-                return True
-            # Active coaches can also host
-            from crush_lu.models import CrushCoach
-
-            result = CrushCoach.objects.filter(user=user, is_active=True).exists()
-            self._is_host_cache = result
-            return result
+            quiz = QuizEvent.objects.only("created_by_id", "event_id").get(
+                id=self.quiz_id
+            )
         except QuizEvent.DoesNotExist:
             self._is_host_cache = False
             return False
+
+        if quiz.created_by_id == user.id:
+            self._is_host_cache = True
+            return True
+        # Only coaches explicitly assigned to this event can host —
+        # blanket is_staff and "any active coach" bypasses removed.
+        from crush_lu.models import CrushCoach
+
+        result = CrushCoach.objects.filter(
+            user=user, is_active=True, assigned_events=quiz.event_id
+        ).exists()
+        self._is_host_cache = result
+        return result
 
     # Backward compat alias
     is_coach = is_host
@@ -1127,8 +1145,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if is_correct and question.round.is_bonus:
             points *= 2
 
-        # Get users at this table for the current round
-        round_number = quiz.get_round_number()
+        # Attribute scores to the round this question belongs to, not the
+        # quiz's current round. Prevents a rotate between "question asked"
+        # and "late score arrives" from crediting the new round's seatmates.
+        round_number = quiz.get_round_number(question.round)
 
         # Try rotation schedule first
         rotation_users = list(
@@ -1198,6 +1218,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             result["reveal_results"] = reveal_results
 
         return result
+
+    @database_sync_to_async
+    def check_can_rotate(self):
+        """Async wrapper for ``check_can_rotate`` used by the consumer.
+
+        Delegates to the sync helper in services.quiz_rotation so tests
+        can exercise the same logic synchronously without a channel
+        layer or thread-scoped DB connection.
+        """
+        from crush_lu.services.quiz_rotation import check_can_rotate
+
+        return check_can_rotate(self.quiz_id)
 
     @database_sync_to_async
     def advance_round_and_rotate(self):
