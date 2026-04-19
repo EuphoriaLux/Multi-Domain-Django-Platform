@@ -10,7 +10,7 @@ Comprehensive tests for event functionality including:
 Run with: pytest crush_lu/tests/test_events.py -v
 """
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -784,6 +784,10 @@ class WaitlistPromotionTests(TestCase):
         self.assertEqual(reg_ng.status, 'waitlist')  # Still waitlisted
 
 
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush",
+    RATELIMIT_ENABLE=False,
+)
 class EventAgeEnforcementOnRegisterTests(TestCase):
     """
     Regression coverage for the age-verification bypass in event_register.
@@ -794,8 +798,10 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
     """
 
     def setUp(self):
+        from django.core.cache import cache
         from crush_lu.models import MeetupEvent
 
+        cache.clear()  # reset per-user ratelimit counters between tests
         self.client = Client()
         self.today = date.today()
 
@@ -815,7 +821,7 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
 
         self.open_event = MeetupEvent.objects.create(
             title='Open Mixer',
-            description='No age limits',
+            description='No age limits, no profile required',
             event_type='mixer',
             date_time=timezone.now() + timedelta(days=7),
             location='Luxembourg',
@@ -823,17 +829,20 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
             max_participants=20,
             min_age=18,
             max_age=99,
+            profile_requirement='none',
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
         )
 
     def _make_user(self, email, age):
         from crush_lu.models import CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
             username=email, email=email, password='testpass123',
             first_name='Test', last_name='User',
         )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(self.today.year - age, 1, 1),
@@ -895,12 +904,14 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
     def test_profileless_user_blocked_from_age_restricted_event(self):
         """A user without a profile is redirected to create_profile, not registered."""
         from crush_lu.models import EventRegistration
+        from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
             username='noprofile@example.com',
             email='noprofile@example.com',
             password='testpass123',
         )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         self.client.force_login(user)
 
         response = self._post_register(self.event)
@@ -939,11 +950,14 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
 
     def test_open_event_doesnt_require_profile(self):
         """Events with default (18-99) age range don't force the profile gate."""
+        from crush_lu.models.profiles import UserDataConsent
+
         user = User.objects.create_user(
             username='openuser@example.com',
             email='openuser@example.com',
             password='testpass123',
         )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         self.client.force_login(user)
 
         # Profile-less user can reach the form for an open event (gets
