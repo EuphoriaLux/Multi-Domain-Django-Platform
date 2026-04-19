@@ -65,6 +65,9 @@ def test_cdn_and_direct_url_formats_are_distinct(mock_gen):
     storage._cdn_domain = "cdn.example.com"
     cdn = storage.url("users/1/photos/a.jpg")
 
-    assert "blob.core.windows.net" in direct
-    assert "cdn.example.com" in cdn
+    # Match on explicit prefixes so we verify the full host, not a
+    # substring anywhere in the URL (also satisfies CodeQL's
+    # py/incomplete-url-substring-sanitization rule on test assertions).
+    assert direct.startswith("https://testacct.blob.core.windows.net/")
+    assert cdn.startswith("https://cdn.example.com/")
     assert direct != cdn
