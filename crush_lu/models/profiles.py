@@ -287,6 +287,44 @@ class CrushCoach(models.Model):
         default=10,
         help_text=_("Maximum number of profiles this coach can review simultaneously")
     )
+
+    # Hybrid Coach Review System (see plan: crush-lu-hybrid-cached-catmull.md)
+    WORKING_MODE_CHOICES = [
+        ('spontaneous', _('Spontaneous — I call users on my own schedule')),
+        ('hybrid', _('Hybrid — I call users but also accept bookings')),
+        ('booking', _('Booking-first — users pick a slot from my calendar')),
+    ]
+    working_mode = models.CharField(
+        max_length=20,
+        choices=WORKING_MODE_CHOICES,
+        default='spontaneous',
+        help_text=_("How this coach prefers to conduct screening calls")
+    )
+    availability_windows = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "List of weekly availability windows, each {'day': 'tuesday', "
+            "'start': '18:00', 'end': '21:00', 'label': 'Tuesday evenings'}"
+        ),
+    )
+    is_away = models.BooleanField(
+        default=False,
+        help_text=_("Temporarily exclude this coach from new assignments")
+    )
+    away_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Optional end date for the away period. NULL = indefinite")
+    )
+    hybrid_features_enabled = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Per-coach opt-in flag for the Hybrid Coach Review System. "
+            "Gated in addition to settings.HYBRID_COACH_SYSTEM_ENABLED."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     LANGUAGE_DISPLAY = {
@@ -804,6 +842,67 @@ class ProfileSubmission(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # --- Hybrid Coach Review System fields (see plan) ---
+    assigned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When a coach was assigned. Used as the SLA anchor."),
+    )
+    sla_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When this submission must be reviewed by (assigned_at + 48h)."),
+    )
+    fallback_offered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the user was shown the self-booking fallback."),
+    )
+    escalated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When this submission was auto-reassigned after SLA breach."),
+    )
+    recontact_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When status became 'recontact_coach' (used for 14-day expiry)."),
+    )
+    nudge_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the 36h coach nudge was sent (sentinel to prevent repeats)."),
+    )
+
+    # Paused state — orthogonal to `status` so we preserve recontact history.
+    is_paused = models.BooleanField(
+        default=False,
+        help_text=_("User action required before the submission can proceed."),
+    )
+    paused_at = models.DateTimeField(null=True, blank=True)
+    paused_reason = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text=_("Short machine-readable reason, e.g. 'recontact_timeout'."),
+    )
+
+    # Audit log for automated actions (task runs, nudges, escalations, …).
+    # Schema: [{'type': str, 'at': iso, 'actor': 'system|coach:<id>|user:<id>',
+    # 'details': {...}}, ...].
+    system_actions = models.JSONField(default=list, blank=True)
+
+    # User-facing self-booking link (issued when fallback_offered_at is set).
+    booking_token = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text=_("Opaque token used in booking URLs; 30-day expiry."),
+    )
+    booking_token_expires_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['-submitted_at']
         indexes = [
@@ -931,6 +1030,88 @@ class CallAttempt(models.Model):
     @property
     def is_failed(self):
         return self.result == 'failed'
+
+
+class ScreeningSlot(models.Model):
+    """A screening-call time slot offered by a coach (Hybrid Review System).
+
+    Slots can be pre-created by booking-first coaches or materialised on the
+    fly from a hybrid coach's availability_windows when a user books. The
+    user-facing booking token lives on ProfileSubmission; slots are addressed
+    by PK once the user is authenticated via that token.
+    """
+
+    STATUS_CHOICES = [
+        ('available', _('Available')),
+        ('booked', _('Booked')),
+        ('completed', _('Completed')),
+        ('cancelled', _('Cancelled')),
+        ('no_show', _('No-show')),
+    ]
+
+    MIN_DURATION = timedelta(minutes=10)
+    MAX_DURATION = timedelta(minutes=60)
+
+    coach = models.ForeignKey(
+        'CrushCoach',
+        on_delete=models.CASCADE,
+        related_name='screening_slots',
+    )
+    submission = models.ForeignKey(
+        'ProfileSubmission',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='booked_slots',
+    )
+    start_at = models.DateTimeField(db_index=True)
+    end_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='available',
+        db_index=True,
+    )
+    cancelled_reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['start_at']
+        indexes = [
+            models.Index(fields=['coach', 'status', 'start_at']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_at__gt=models.F('start_at')),
+                name='screening_slot_end_after_start',
+            ),
+        ]
+
+    def __str__(self):
+        return f"ScreeningSlot({self.coach_id}, {self.start_at:%Y-%m-%d %H:%M}, {self.status})"
+
+    def clean(self):
+        """Enforce duration bounds and no overlap with sibling slots."""
+        from django.core.exceptions import ValidationError
+
+        if self.start_at and self.end_at:
+            duration = self.end_at - self.start_at
+            if duration < self.MIN_DURATION:
+                raise ValidationError(_("Slot must be at least 10 minutes long."))
+            if duration > self.MAX_DURATION:
+                raise ValidationError(_("Slot must be at most 60 minutes long."))
+
+        if self.coach_id and self.start_at and self.end_at:
+            overlap = ScreeningSlot.objects.filter(
+                coach_id=self.coach_id,
+                start_at__lt=self.end_at,
+                end_at__gt=self.start_at,
+            ).exclude(status__in=('cancelled', 'no_show'))
+            if self.pk:
+                overlap = overlap.exclude(pk=self.pk)
+            if overlap.exists():
+                raise ValidationError(_("This slot overlaps another for the same coach."))
 
 
 class CoachSession(models.Model):
