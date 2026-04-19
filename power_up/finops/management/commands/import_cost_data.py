@@ -370,7 +370,11 @@ class Command(BaseCommand):
             }
 
         except Exception as e:
-            # Mark as failed
+            # Streaming the gzip means decompression/network errors can
+            # now surface mid-iteration, after earlier batches have
+            # already been committed. Roll the partial import back so
+            # dashboards and totals don't see half an export.
+            CostRecord.objects.filter(cost_export=cost_export).delete()
             cost_export.mark_failed(e)
             raise
 
