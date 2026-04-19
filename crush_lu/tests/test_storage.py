@@ -83,8 +83,16 @@ def test_short_expiry_skips_cache_entirely(mock_gen):
     storage.url("users/1/photos/a.jpg", expire=30)
 
     assert mock_gen.call_count == 2  # no cache hit on the second call
-    cache_key = (
-        "sas_url:v1:testacct:crush-lu-private:"
-        "users/1/photos/a.jpg:30::az"
-    )
-    assert cache.get(cache_key) is None
+
+
+@patch("crush_lu.storage.generate_blob_sas", return_value="sv=fake&sig=abc")
+def test_cache_invalidates_on_signing_key_rotation(mock_gen):
+    """Rotating AZURE_ACCOUNT_KEY must force fresh SAS generation;
+    otherwise revoked tokens would keep serving 403s until TTL expiry."""
+    storage = _make_storage()
+
+    storage.url("users/1/photos/a.jpg")
+    storage.account_key = "rotated-key=="  # simulate prod key rotation
+    storage.url("users/1/photos/a.jpg")
+
+    assert mock_gen.call_count == 2

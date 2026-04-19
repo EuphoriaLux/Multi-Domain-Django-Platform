@@ -24,6 +24,7 @@ User Storage Structure:
     users/{user_id}/exports/         # GDPR exports
 """
 
+import hashlib
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -148,10 +149,19 @@ class PrivateAzureStorage(AzureStorage):
         # Cache the full URL (not just the token) because CDN/Azurite routing
         # is part of the output. SAS tokens for the same blob are identical
         # regardless of requester, so a single shared key is correct.
+        #
+        # The signing-key fingerprint is part of the cache key so rotating
+        # AZURE_ACCOUNT_KEY immediately invalidates cached URLs signed by
+        # the old key (otherwise revoked SAS tokens would keep serving
+        # 403s until TTL expiry).
+        key_fingerprint = hashlib.sha256(
+            (self.account_key or "").encode("utf-8")
+        ).hexdigest()[:16]
         cache_key = (
-            f"sas_url:v1:{self.account_name}:{self.azure_container}:"
+            f"sas_url:v2:{self.account_name}:{self.azure_container}:"
             f"{name}:{expire}:{self._cdn_domain or ''}:"
-            f"{'azurite' if self._is_azurite else 'az'}"
+            f"{'azurite' if self._is_azurite else 'az'}:"
+            f"{key_fingerprint}"
         )
         cached = cache.get(cache_key)
         if cached:
