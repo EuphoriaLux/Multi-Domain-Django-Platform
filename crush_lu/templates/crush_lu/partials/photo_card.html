@@ -1,5 +1,10 @@
-{% load i18n %}
-<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}" role="group" aria-labelledby="photo-label-{{ slot }}">
+{% load i18n socialaccount %}
+<div class="photo-upload-card {% if is_main %}photo-upload-card--main{% endif %}"
+     x-data="photoPicker"
+     data-slot="{{ slot }}"
+     @click.away="close"
+     role="group"
+     aria-labelledby="photo-label-{{ slot }}">
     <div class="photo-label" id="photo-label-{{ slot }}">
         {% if is_main %}<span aria-hidden="true">{% include "shared/icons/star.html" with class="w-5 h-5" %}</span> {% trans "Main Photo" %}{% else %}{% blocktrans with slot=slot %}Add Photo {{ slot }}{% endblocktrans %}{% endif %}
     </div>
@@ -22,20 +27,89 @@
         {% endif %}
     </div>
     <div class="photo-upload-wrapper">
-        <input type="file"
-               name="photo_{{ slot }}"
-               id="id_photo_{{ slot }}"
-               accept="image/jpeg,image/png,image/webp"
-               hx-post="{% url 'api_upload_profile_photo' slot %}"
-               hx-target="#photo-card-{{ slot }}"
-               hx-swap="innerHTML"
-               hx-encoding="multipart/form-data"
-               hx-indicator="#photo-indicator-{{ slot }}"
-               aria-label="{% if is_main %}{% trans "Upload main profile photo" %}{% else %}{% blocktrans with slot=slot %}Upload profile photo {{ slot }}{% endblocktrans %}{% endif %}"
-               aria-describedby="photo-help-{{ slot }}">
-        <div class="photo-upload-btn" aria-hidden="true">
+        <button type="button"
+                class="photo-upload-btn"
+                @click="toggle"
+                x-bind:disabled="triggerDisabled"
+                x-bind:aria-expanded="ariaExpanded"
+                aria-haspopup="true"
+                aria-controls="photo-picker-{{ slot }}">
             {% include "shared/icons/camera.html" with class="w-4 h-4" %}
             <span>{% if photo %}{% trans "Change Photo" %}{% else %}{% trans "Upload Photo" %}{% endif %}</span>
+            {% include "shared/icons/chevron-down.html" with class="w-3 h-3 photo-upload-btn__chevron" %}
+        </button>
+
+        <div class="photo-picker-popover"
+             id="photo-picker-{{ slot }}"
+             x-show="isOpen"
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             x-cloak
+             style="display:none;"
+             role="menu">
+            <label class="photo-picker-option">
+                <input type="file"
+                       name="photo_{{ slot }}"
+                       id="id_photo_{{ slot }}"
+                       accept="image/jpeg,image/png,image/webp"
+                       hx-post="{% url 'api_upload_profile_photo' slot %}"
+                       hx-target="#photo-card-{{ slot }}"
+                       hx-swap="innerHTML"
+                       hx-encoding="multipart/form-data"
+                       hx-indicator="#photo-indicator-{{ slot }}"
+                       class="photo-picker-option__input"
+                       aria-label="{% if is_main %}{% trans "Upload main profile photo" %}{% else %}{% blocktrans with slot=slot %}Upload profile photo {{ slot }}{% endblocktrans %}{% endif %}"
+                       aria-describedby="photo-help-{{ slot }}">
+                {% include "shared/icons/arrow-up-on-square.html" with class="w-4 h-4" %}
+                <span>{% trans "Upload from device" %}</span>
+            </label>
+
+            {% if social_photos %}
+            <div class="photo-picker-divider"></div>
+            <div class="photo-picker-section-label">{% trans "Or import from your accounts" %}</div>
+            <div class="photo-picker-chip-row">
+                {% for sp in social_photos %}
+                    {% if sp.available %}
+                        <div class="photo-picker-chip-group">
+                            <button type="button"
+                                    class="photo-picker-chip photo-picker-chip--{{ sp.provider }}"
+                                    x-bind:disabled="pending"
+                                    data-account-id="{{ sp.account_id }}"
+                                    @click="importFromProvider">
+                                <i class="fab fa-{{ sp.provider }} photo-picker-chip__icon" aria-hidden="true"></i>
+                                <span>{{ sp.provider_display }}</span>
+                                {% if sp.is_cached %}
+                                    <span class="photo-picker-chip__badge" title="{% trans "Showing a saved copy — reconnect to refresh" %}">{% trans "saved" %}</span>
+                                {% endif %}
+                            </button>
+                            {% if sp.token_expired %}
+                            <a href="{% provider_login_url sp.provider process='connect' %}"
+                               class="photo-picker-refresh"
+                               title="{% blocktrans with provider=sp.provider_display %}Reconnect {{ provider }} to fetch the latest photo{% endblocktrans %}">
+                                {% trans "Refresh" %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% elif sp.token_expired %}
+                        <a href="{% provider_login_url sp.provider process='connect' %}"
+                           class="photo-picker-chip photo-picker-chip--warn">
+                            <i class="fab fa-{{ sp.provider }} photo-picker-chip__icon" aria-hidden="true"></i>
+                            <span>{% blocktrans with provider=sp.provider_display %}Reconnect {{ provider }}{% endblocktrans %}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div x-show="hasError" x-text="errorMessage" x-cloak class="photo-picker-error" role="alert" style="display:none;"></div>
+            <div x-show="pending" x-cloak class="photo-picker-pending" style="display:none;">
+                {% include "shared/icons/arrow-path.html" with class="w-4 h-4 tw-animate-spin" %}
+                <span>{% trans "Importing…" %}</span>
+            </div>
         </div>
     </div>
     <div id="photo-indicator-{{ slot }}" class="htmx-indicator tw-mt-2 tw-text-center">

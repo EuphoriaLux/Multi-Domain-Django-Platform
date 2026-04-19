@@ -996,7 +996,7 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 var fineCursor = window.matchMedia("(any-pointer: fine)").matches;
                 var reducedMotion = window.matchMedia(
-                    "(prefers-reduced-motion: reduce)"
+                    "(prefers-reduced-motion: reduce)",
                 ).matches;
                 if (!fineCursor || reducedMotion) return;
 
@@ -1053,11 +1053,7 @@ document.addEventListener("alpine:init", function () {
                     heartY += (targetHeartY - heartY) * heartEase;
 
                     var eyeT =
-                        "translate(" +
-                        eyeX.toFixed(2) +
-                        " " +
-                        eyeY.toFixed(2) +
-                        ")";
+                        "translate(" + eyeX.toFixed(2) + " " + eyeY.toFixed(2) + ")";
                     for (var i = 0; i < eyes.length; i++) {
                         eyes[i].setAttribute("transform", eyeT);
                     }
@@ -1068,7 +1064,7 @@ document.addEventListener("alpine:init", function () {
                                 (heartBaseX + heartX).toFixed(2) +
                                 " " +
                                 (heartBaseY + heartY).toFixed(2) +
-                                ")"
+                                ")",
                         );
                     }
                     self._raf = requestAnimationFrame(tick);
@@ -12329,6 +12325,100 @@ document.addEventListener("alpine:init", function () {
 
             destroy: function () {
                 if (this.pollInterval) clearInterval(this.pollInterval);
+            },
+        };
+    });
+
+    // Photo slot picker popover (profile edit "Photos" section)
+    // Reads slot number from data-slot on the root element.
+    // Imports a social photo via POST /api/profile/import-social-photo/ and
+    // swaps the returned HTML into #photo-card-{slot}.
+    Alpine.data("photoPicker", function () {
+        return {
+            slot: 0,
+            isOpen: false,
+            pending: false,
+            error: "",
+
+            get isClosed() {
+                return !this.isOpen;
+            },
+            get hasError() {
+                return this.error.length > 0;
+            },
+            get errorMessage() {
+                return this.error;
+            },
+            get triggerDisabled() {
+                return this.pending;
+            },
+            get ariaExpanded() {
+                return this.isOpen ? "true" : "false";
+            },
+
+            init: function () {
+                this.slot = parseInt(this.$el.getAttribute("data-slot")) || 0;
+            },
+
+            toggle: function () {
+                if (this.pending) return;
+                this.isOpen = !this.isOpen;
+                if (!this.isOpen) this.error = "";
+            },
+
+            close: function () {
+                this.isOpen = false;
+                this.error = "";
+            },
+
+            importFromProvider: function (event) {
+                var self = this;
+                var btn = event.currentTarget;
+                var accountId = parseInt(btn.getAttribute("data-account-id"));
+                if (!accountId || !this.slot) return;
+
+                self.pending = true;
+                self.error = "";
+
+                var csrfEl = document.querySelector("[name=csrfmiddlewaretoken]");
+                var csrfToken = csrfEl ? csrfEl.value : "";
+                var importUrl = "/api/profile/import-social-photo/";
+
+                fetch(importUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken,
+                    },
+                    body: JSON.stringify({
+                        social_account_id: accountId,
+                        photo_slot: self.slot,
+                    }),
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            var targetSlot = data.photo_slot || self.slot;
+                            var card = document.getElementById(
+                                "photo-card-" + targetSlot,
+                            );
+                            if (card && data.html) {
+                                card.innerHTML = data.html;
+                                if (window.htmx) window.htmx.process(card);
+                            }
+                            self.close();
+                        } else {
+                            self.error = data.error || "Import failed.";
+                        }
+                    })
+                    .catch(function () {
+                        self.error = "Network error. Please try again.";
+                    })
+                    .finally(function () {
+                        self.pending = false;
+                    });
             },
         };
     });
