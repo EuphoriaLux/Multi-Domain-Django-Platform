@@ -19,17 +19,17 @@ Environment Variables:
                                    Example for staging: 'crush-lu-private-staging'
 
 User Storage Structure:
-    users/{user_id}/.user_created    # Marker file
     users/{user_id}/photos/          # Profile photos
     users/{user_id}/exports/         # GDPR exports
+
+Storage folders are created implicitly on first upload — Azure Blob
+has no real folders, so there is no up-front initialization step.
 """
 
 import os
 import logging
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 
 logger = logging.getLogger(__name__)
 
@@ -227,88 +227,6 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
 
         # Reconstruct path
         return os.path.join(dir_name, unique_filename)
-
-
-def initialize_user_storage(user_id):
-    """
-    Create user storage folder structure with a marker file.
-
-    This function creates the folder structure for a user in Azure Blob Storage
-    (Azurite in development, Azure in production) or local filesystem as fallback.
-    Azure Blob Storage doesn't have true folders, but creating a file at a path
-    implicitly creates the "folder" structure.
-
-    Structure created:
-        users/{user_id}/.user_created    # Empty marker file
-
-    The photos/ and exports/ subfolders are created implicitly when files
-    are uploaded to them.
-
-    Args:
-        user_id: The Django User ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    marker_path = f"users/{user_id}/.user_created"
-
-    try:
-        # Check storage mode: Azurite, Production Azure, or Local filesystem
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
-            # Use CrushProfilePhotoStorage for both Azurite and production Azure
-            storage = CrushProfilePhotoStorage()
-
-            # Check if marker already exists
-            if storage.exists(marker_path):
-                logger.debug(f"User storage already initialized for user {user_id}")
-                return True
-
-            # Create empty marker file
-            storage.save(marker_path, ContentFile(b''))
-            mode = "Azurite" if is_azurite_mode() else "Azure"
-            logger.info(f"Initialized {mode} storage for user {user_id}")
-        else:
-            # Fallback: Use default storage (local filesystem)
-            if default_storage.exists(marker_path):
-                logger.debug(f"User storage already initialized for user {user_id}")
-                return True
-
-            # Ensure directory exists for local filesystem
-            full_path = os.path.join(settings.MEDIA_ROOT, f"users/{user_id}")
-            os.makedirs(full_path, exist_ok=True)
-
-            # Create empty marker file
-            default_storage.save(marker_path, ContentFile(b''))
-            logger.info(f"Initialized local storage for user {user_id}")
-
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to initialize storage for user {user_id}: {str(e)}")
-        return False
-
-
-def user_storage_exists(user_id):
-    """
-    Check if user storage folder has been initialized.
-
-    Args:
-        user_id: The Django User ID
-
-    Returns:
-        bool: True if user storage exists, False otherwise
-    """
-    marker_path = f"users/{user_id}/.user_created"
-
-    try:
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
-            storage = CrushProfilePhotoStorage()
-            return storage.exists(marker_path)
-        else:
-            return default_storage.exists(marker_path)
-    except Exception as e:
-        logger.error(f"Error checking storage for user {user_id}: {str(e)}")
-        return False
 
 
 def delete_user_storage(user_id):
