@@ -258,6 +258,18 @@ class Command(BaseCommand):
         # Track subscription ID (will be extracted from first valid record)
         subscription_id_found = None
 
+        # Snapshot the highest existing CostRecord PK for this cost_export
+        # BEFORE we start inserting. On streaming failure we only roll back
+        # records added in this run (pk > snapshot), preserving any records
+        # that were already there — e.g. when get_or_create returned an
+        # existing completed CostExport on `--force` retry.
+        from django.db.models import Max
+        pre_existing_max_pk = (
+            CostRecord.objects.filter(cost_export=cost_export)
+            .aggregate(m=Max("pk"))["m"]
+            or 0
+        )
+
         try:
             # Stream and parse CSV records in batches
             records_imported = 0
@@ -370,7 +382,14 @@ class Command(BaseCommand):
             }
 
         except Exception as e:
-            # Mark as failed
+            # Streaming the gzip means decompression/network errors can
+            # now surface mid-iteration, after earlier batches have
+            # already been committed. Roll back just this run's inserts
+            # (pk > snapshot) — records from a prior successful import
+            # of the same cost_export stay intact.
+            CostRecord.objects.filter(
+                cost_export=cost_export, pk__gt=pre_existing_max_pk
+            ).delete()
             cost_export.mark_failed(e)
             raise
 
