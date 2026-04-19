@@ -73,6 +73,8 @@ def apple_wallet_pass(request):
         pkpass_data = build_apple_pass(profile, request=request)
         response = HttpResponse(pkpass_data, content_type="application/vnd.apple.pkpass")
         response["Content-Disposition"] = "attachment; filename=crushlu.pkpass"
+        # pkpass is already a ZIP; gzipping breaks iOS Wallet validation.
+        response["Content-Encoding"] = "identity"
         return response
     except ImproperlyConfigured as e:
         logger.error("Apple Wallet configuration error: %s", e)
@@ -213,6 +215,8 @@ def apple_event_ticket_pass(request, registration_id):
         response["Content-Disposition"] = (
             f'attachment; filename=crush-event-{registration.event_id}.pkpass'
         )
+        # pkpass is already a ZIP; gzipping breaks iOS Wallet validation.
+        response["Content-Encoding"] = "identity"
         return response
     except ImproperlyConfigured as e:
         logger.error("Apple Wallet event ticket config error: %s", e)
