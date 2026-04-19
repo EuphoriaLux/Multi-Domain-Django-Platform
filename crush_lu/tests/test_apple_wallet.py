@@ -273,6 +273,8 @@ class TestAppleWalletPassView:
         assert response.status_code == 200
         assert response["Content-Type"] == "application/vnd.apple.pkpass"
         assert "crushlu.pkpass" in response["Content-Disposition"]
+        # pkpass must not be gzipped — iOS Wallet rejects compressed passes
+        assert response.get("Content-Encoding") == "identity"
 
     def test_requires_authentication(self):
         from django.test import Client
@@ -314,6 +316,8 @@ class TestAppleEventTicketView:
 
         assert response.status_code == 200
         assert response["Content-Type"] == "application/vnd.apple.pkpass"
+        # pkpass must not be gzipped — iOS Wallet rejects compressed passes
+        assert response.get("Content-Encoding") == "identity"
 
     def test_rejects_other_users_registration(self, event_with_registrations, db):
         from django.contrib.auth.models import User
