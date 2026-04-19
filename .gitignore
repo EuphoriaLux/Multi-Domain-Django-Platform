@@ -184,6 +184,9 @@ crush_lu/tests/screenshots/
 # VSCode settings (environment-specific)
 .vscode/
 
+# EditorConfig (personal — kept out of VCS per local preference)
+.editorconfig
+
 # Source SVG files (large, used for generation)
 Cantons_du_Luxembourg.svg
 CLAUDE.md
