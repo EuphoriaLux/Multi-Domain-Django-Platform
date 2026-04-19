@@ -918,6 +918,85 @@ class ProfileSubmission(models.Model):
     def __str__(self):
         return f"{self.profile.user.username} - {self.get_status_display()}"
 
+    @property
+    def sla_state(self):
+        """Current SLA bucket: ok / warning / urgent / breach / escalated.
+
+        Drives coach-side urgency coloring. Users see `hybrid_user_state`.
+        Returns 'ok' when no SLA deadline is set yet.
+        """
+        if self.escalated_at:
+            return "escalated"
+        if not self.sla_deadline:
+            return "ok"
+        now = timezone.now()
+        if now >= self.sla_deadline:
+            return "breach"
+        remaining_hours = (self.sla_deadline - now).total_seconds() / 3600
+        if remaining_hours <= 12:
+            return "urgent"
+        if remaining_hours <= 24:
+            return "warning"
+        return "ok"
+
+    @property
+    def hybrid_user_state(self):
+        """User-facing hybrid-review state bucket.
+
+        One of: just_submitted, coach_working, fallback_offered,
+        escalated, in_recontact, paused. Used by profile_submitted.html
+        to render a reassuring, actionable status banner. Does not
+        replace the existing pending timeline — it augments it.
+        """
+        if self.is_paused:
+            return "paused"
+        if self.status == "recontact_coach":
+            return "in_recontact"
+        if self.escalated_at:
+            return "escalated"
+        if self.fallback_offered_at:
+            return "fallback_offered"
+        # Default pending branch: has a coach done anything yet?
+        try:
+            has_activity = self.call_attempts.exists()
+        except Exception:
+            has_activity = False
+        hours_since = (timezone.now() - self.submitted_at).total_seconds() / 3600
+        if has_activity or hours_since >= 24:
+            return "coach_working"
+        return "just_submitted"
+
+    @property
+    def recontact_days_remaining(self):
+        """Days left before auto-pause when status is recontact_coach.
+
+        Returns None if not in recontact, negative/zero if already past
+        the 14-day window (Phase 6 will auto-pause on the next run).
+        """
+        if self.status != "recontact_coach" or not self.recontact_started_at:
+            return None
+        elapsed = (timezone.now() - self.recontact_started_at).days
+        return 14 - elapsed
+
+    def log_system_action(self, type_: str, actor: str = "system", **details):
+        """Append an audit entry to system_actions.
+
+        Uses a write-back pattern because JSONField mutations in place
+        aren't persisted by Django. Caller is responsible for saving
+        the parent with update_fields=['system_actions'] when batching.
+        """
+        entry = {
+            "type": type_,
+            "at": timezone.now().isoformat(),
+            "actor": actor,
+        }
+        if details:
+            entry["details"] = details
+        actions = list(self.system_actions or [])
+        actions.append(entry)
+        self.system_actions = actions
+        return entry
+
     def assign_coach(self):
         """Auto-assign to an available coach, preferring language matches"""
         available_coaches = CrushCoach.objects.filter(

@@ -1817,6 +1817,11 @@ def profile_submitted(request):
         "progress_percent": progress_percent,
         "next_event": next_event,
         "has_candidate_note": bool(submission.candidate_note),
+        # Hybrid Coach Review System (Phase 4) — drives the adaptive banner.
+        # Always populated; template chooses whether to render based on state.
+        "hybrid_user_state": submission.hybrid_user_state,
+        "recontact_days_remaining": submission.recontact_days_remaining,
+        "has_booking_token": bool(submission.booking_token),
     }
     return render(request, "crush_lu/profile_submitted.html", context)
 

@@ -12,9 +12,81 @@
     <div class="w-full max-w-3xl px-4">
         <div>
             <div class="text-center">
+                {% if submission.status == 'pending' or submission.status == 'under_review' or submission.status == 'recontact_coach' or submission.is_paused %}
+                {# ═══════════════════════════════════════════════════════ #}
+                {# HYBRID STATUS BANNER (Phase 4) — shows when the new      #}
+                {# pipeline has produced actionable state. Non-invasive:    #}
+                {# falls through to the existing pending UI below when      #}
+                {# nothing to surface.                                      #}
+                {# ═══════════════════════════════════════════════════════ #}
+                {% if hybrid_user_state == 'fallback_offered' %}
+                <div class="mb-6 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-left overflow-hidden">
+                    <div class="px-5 py-4 flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+                            {% include "shared/icons/envelope.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-amber-900 dark:text-amber-100 mb-1">{% trans "Book your screening call" %}</h3>
+                            <p class="text-sm text-amber-800 dark:text-amber-200 mb-0">
+                                {% trans "We've sent you an email with a direct booking link so you can pick a slot that suits you." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% elif hybrid_user_state == 'escalated' %}
+                <div class="mb-6 rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-left overflow-hidden">
+                    <div class="px-5 py-4 flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                            {% include "shared/icons/arrow-path.html" with class="w-5 h-5 text-blue-600 dark:text-blue-400" %}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-1">{% trans "Reassigned for a faster review" %}</h3>
+                            <p class="text-sm text-blue-800 dark:text-blue-200 mb-0">
+                                {% trans "Your profile is now with a different coach who can get back to you sooner. Thanks for your patience." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% elif hybrid_user_state == 'in_recontact' %}
+                <div class="mb-6 rounded-xl border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-left overflow-hidden">
+                    <div class="px-5 py-4 flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+                            {% include "shared/icons/phone.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-purple-900 dark:text-purple-100 mb-1">{% trans "Your coach is waiting to hear from you" %}</h3>
+                            <p class="text-sm text-purple-800 dark:text-purple-200 mb-0">
+                                {% if recontact_days_remaining is not None and recontact_days_remaining > 0 %}
+                                    {% blocktrans count days=recontact_days_remaining %}You have {{ days }} day left to get in touch before your profile is paused.{% plural %}You have {{ days }} days left to get in touch before your profile is paused.{% endblocktrans %}
+                                {% else %}
+                                    {% trans "Reply to the email from your coach or book a new slot to continue." %}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% elif hybrid_user_state == 'paused' %}
+                <div class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-left overflow-hidden">
+                    <div class="px-5 py-4 flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            {% include "shared/icons/x-circle.html" with class="w-5 h-5 text-gray-600 dark:text-gray-300" %}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-1">{% trans "Profile paused" %}</h3>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-0">
+                                {% trans "Your review is on hold. Check your inbox for a reactivation link — you can resume any time." %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+
                 {% if submission.status == 'pending' or submission.status == 'under_review' %}
+                {% if not submission.is_paused %}
                 {# ═══════════════════════════════════════════════════════ #}
                 {# PENDING STATE — Enhanced with real stats & proactive features #}
+                {# Hidden when is_paused=True: the banner above is enough. #}
                 {# ═══════════════════════════════════════════════════════ #}
                 {% csrf_token %}
                 <div x-data="submissionStatus"
@@ -371,6 +443,7 @@
                     </div>
 
                 </div>{# end x-data #}
+                {% endif %}{# end: not submission.is_paused #}
 
                 {% elif submission.status == 'revision' %}
                     <div class="flex justify-center mb-4">
