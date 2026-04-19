@@ -124,6 +124,36 @@
 
 </div>
 
+{# ======== Hybrid Review: Upcoming Screening Calls ======== #}
+{% if upcoming_screening_slots %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+    <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+        {% include "shared/icons/calendar-check.html" with class="w-4 h-4 text-crush-purple" %}
+        <h5 class="font-semibold mb-0 dark:text-white">{% trans "Upcoming screening calls" %}</h5>
+    </div>
+    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for slot in upcoming_screening_slots %}
+        <li class="px-5 py-3 flex items-center gap-3">
+            <div class="text-center flex-shrink-0 w-16">
+                <div class="text-[10px] uppercase text-gray-400 dark:text-gray-500">{{ slot.start_at|date:"D" }}</div>
+                <div class="text-xl font-bold text-crush-purple">{{ slot.start_at|date:"j" }}</div>
+                <div class="text-[10px] uppercase text-gray-400 dark:text-gray-500">{{ slot.start_at|date:"M" }}</div>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0">
+                    {{ slot.start_at|time:"H:i" }}–{{ slot.end_at|time:"H:i" }}
+                    {% if slot.submission %}
+                        · <a href="{% url 'crush_lu:coach_review_profile' submission_id=slot.submission_id %}" class="text-crush-purple hover:underline">{{ slot.submission.profile.user.get_full_name|default:slot.submission.profile.user.username }}</a>
+                    {% endif %}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ slot.start_at|timeuntil }} {% trans "from now" %}</p>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 {# ======== Row 2: Demographics ======== #}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
     {# Gender Breakdown #}

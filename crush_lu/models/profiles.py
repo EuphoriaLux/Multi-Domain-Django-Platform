@@ -1192,6 +1192,74 @@ class ScreeningSlot(models.Model):
             if overlap.exists():
                 raise ValidationError(_("This slot overlaps another for the same coach."))
 
+    @classmethod
+    def claim_for_submission(cls, *, coach_id, start_at, end_at, submission_token):
+        """Atomically bind a slot (real or virtual) to a submission.
+
+        Race-safe: takes the submission row lock first, then either locks
+        the pre-existing slot or creates a fresh one. If the submission's
+        currently-assigned coach differs from the booked coach, reassigns
+        and logs the reassignment in system_actions.
+
+        Returns (slot, submission). Raises ProfileSubmission.DoesNotExist
+        on bad token, ValidationError on overlap or expiry issues.
+        """
+        from django.core.exceptions import ValidationError
+        from django.db import transaction
+
+        with transaction.atomic():
+            submission = ProfileSubmission.objects.select_for_update().get(
+                booking_token=submission_token
+            )
+            if (
+                submission.booking_token_expires_at
+                and submission.booking_token_expires_at < timezone.now()
+            ):
+                raise ValidationError(_("This booking link has expired."))
+
+            # Try to lock an existing 'available' slot at this exact time.
+            existing = (
+                cls.objects.select_for_update()
+                .filter(
+                    coach_id=coach_id,
+                    start_at=start_at,
+                    end_at=end_at,
+                    status="available",
+                )
+                .first()
+            )
+            if existing:
+                slot = existing
+                slot.status = "booked"
+                slot.submission = submission
+                slot.save(update_fields=["status", "submission", "updated_at"])
+            else:
+                # Virtual slot — create a fresh booked row. clean() will
+                # enforce per-coach overlap safety against other bookings.
+                slot = cls(
+                    coach_id=coach_id,
+                    submission=submission,
+                    start_at=start_at,
+                    end_at=end_at,
+                    status="booked",
+                )
+                slot.full_clean()
+                slot.save()
+
+            # Reassign on-the-fly if user booked with a different coach.
+            if submission.coach_id != coach_id:
+                prev_coach = submission.coach_id
+                submission.coach_id = coach_id
+                submission.log_system_action(
+                    "reassigned_via_booking",
+                    actor=f"user:{submission.profile.user_id}",
+                    from_coach=prev_coach,
+                    to_coach=coach_id,
+                )
+                submission.save(update_fields=["coach", "system_actions"])
+
+            return slot, submission
+
 
 class CoachSession(models.Model):
     """Track interactions between coaches and users"""

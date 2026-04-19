@@ -167,6 +167,13 @@ from .views_coach import (  # noqa: F401
     coach_settings_availability_remove,
 )
 
+# Hybrid Coach Review System — Phase 5 (self-booking flow)
+from .views_booking import (  # noqa: F401
+    book_screening,
+    confirm_booking,
+    cancel_booking,
+)
+
 # Voting & presentations
 from .views_voting import (  # noqa: F401
     event_voting_lobby,

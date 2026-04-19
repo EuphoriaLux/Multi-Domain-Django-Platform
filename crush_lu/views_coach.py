@@ -385,6 +385,18 @@ def coach_dashboard(request):
         "age_lang_matrix": age_lang_matrix,
         "age_lang_col_totals": age_lang_col_totals,
     }
+    # Hybrid Review: upcoming booked screening calls for this coach.
+    from .models import ScreeningSlot
+
+    upcoming_screening_slots = (
+        ScreeningSlot.objects.filter(
+            coach=coach, status="booked", start_at__gte=now
+        )
+        .select_related("submission__profile__user")
+        .order_by("start_at")[:5]
+    )
+    context["upcoming_screening_slots"] = upcoming_screening_slots
+
     return render(request, "crush_lu/coach_dashboard.html", context)
 
 
