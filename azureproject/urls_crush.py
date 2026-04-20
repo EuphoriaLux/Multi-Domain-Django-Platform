@@ -34,7 +34,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -216,6 +216,11 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/admin/sync-contacts/', api_admin_sync.sync_contacts_endpoint, name='api_admin_sync_contacts'),
     path('api/admin/sync-contacts/delete-all/', api_admin_sync.delete_all_contacts_endpoint, name='api_admin_delete_all_contacts'),
     path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
+
+    # Hybrid Coach Review System + pre-screening cron (Azure Functions call these)
+    # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+    path('api/admin/hybrid-coach-sla-sweep/', api_admin_hybrid.sla_sweep, name='api_admin_sla_sweep'),
+    path('api/admin/pre-screening-invites/', api_admin_hybrid.pre_screening_invites, name='api_admin_pre_screening_invites'),
 
 
     # Live Quiz API (called from quiz-live.js WebSocket fallback)

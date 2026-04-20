@@ -223,3 +223,98 @@ def send_pre_screening_user_push_task(submission_id):
         logger.error(
             f"[TASK] Failed to send pre-screening user push for {submission_id}: {e}"
         )
+
+
+@task(priority=5)
+def send_sla_fallback_email_task(submission_id, host, is_secure=True):
+    """Email the user their self-booking link after SLA breach (Phase 3).
+
+    Enqueued by the hybrid-coach SLA sweep admin endpoint once
+    fallback_offered_at + booking_token have been persisted. Idempotent:
+    unsubscribe check + the caller's own "offered once" guard both prevent
+    duplicate sends. Failures log but don't raise — the system_actions
+    audit log already records the offer independent of delivery.
+    """
+    from django.template.loader import render_to_string
+    from django.urls import reverse
+    from django.utils import translation
+    from django.utils.html import strip_tags
+    from django.utils.translation import gettext as _
+
+    from .models import ProfileSubmission
+    from .email_helpers import (
+        can_send_email,
+        get_email_context_with_unsubscribe,
+        get_user_preferred_language,
+        send_domain_email,
+    )
+
+    try:
+        submission = ProfileSubmission.objects.select_related(
+            "coach__user", "profile__user"
+        ).get(pk=submission_id)
+    except ProfileSubmission.DoesNotExist:
+        logger.warning(
+            f"[TASK] Submission {submission_id} not found for SLA fallback email"
+        )
+        return
+
+    user = submission.profile.user
+    if not can_send_email(user, "profile_updates"):
+        logger.info(
+            f"[TASK] Skipping SLA fallback email to {user.email} (unsubscribed)"
+        )
+        return
+
+    if not submission.booking_token:
+        logger.warning(
+            f"[TASK] Submission {submission_id} has no booking_token; skipping email"
+        )
+        return
+
+    fake_request = _build_fake_request(host, is_secure)
+    lang = get_user_preferred_language(user=user, request=fake_request, default="en")
+
+    with translation.override(lang):
+        booking_path = reverse(
+            "crush_lu:book_screening",
+            kwargs={"booking_token": submission.booking_token},
+        )
+    scheme = "https" if is_secure else "http"
+    booking_url = f"{scheme}://{host}{booking_path}"
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        fake_request,
+        booking_url=booking_url,
+        coach=submission.coach,
+        submission=submission,
+    )
+
+    with translation.override(lang):
+        subject = _("Book your Crush.lu screening call")
+        html_message = render_to_string(
+            "crush_lu/emails/screening_fallback_offered.html", context
+        )
+        plain_message = strip_tags(
+            render_to_string(
+                "crush_lu/emails/screening_fallback_offered.txt", context
+            )
+        )
+
+    try:
+        send_domain_email(
+            subject=subject,
+            message=plain_message,
+            html_message=html_message,
+            recipient_list=[user.email],
+            request=fake_request,
+            fail_silently=True,
+        )
+        logger.info(
+            f"[TASK] SLA fallback email sent for submission {submission_id}"
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error(
+            f"[TASK] Failed SLA fallback email for submission {submission_id}: {e}"
+        )

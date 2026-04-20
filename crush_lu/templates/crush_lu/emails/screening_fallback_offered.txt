@@ -1,0 +1,12 @@
+{% load i18n %}{% trans "Pick a time for your Crush.lu screening call." %}
+
+{% trans "Thanks for your patience. Rather than keep you waiting, we'd like you to pick a time for your screening call directly." %}
+{% if coach %}
+{% blocktrans with name=coach.user.get_full_name|default:coach.user.username %}{{ name }} is still your assigned coach - you can pick a slot on their calendar, or choose a different coach if that's faster for you.{% endblocktrans %}
+{% endif %}
+{% trans "Pick a time:" %}
+{{ booking_url }}
+
+{% trans "The link is personal to you and stays valid for 30 days." %}
+
+{% trans "The Crush.lu team" %}

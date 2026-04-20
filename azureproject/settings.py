@@ -148,7 +148,6 @@ INSTALLED_APPS = [
     "azureproject",  # For custom analytics templatetags
     "cookie_consent",  # GDPR cookie consent banner
     "channels",  # Django Channels for WebSocket support
-    "django_celery_beat",  # DB-backed periodic task scheduler for Celery
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -258,25 +257,6 @@ if os.environ.get("REDIS_URL"):
             },
         }
     }
-
-
-# Celery — broker/result backend share REDIS_URL with Channels + the cache.
-# In local dev without Redis, fall back to an in-memory broker; tests force
-# eager execution via conftest.py so the broker is never actually needed.
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get(
-    "REDIS_URL", "memory://"
-)
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND") or os.environ.get(
-    "REDIS_URL"
-) or None
-CELERY_TIMEZONE = "Europe/Luxembourg"
-CELERY_ENABLE_UTC = True
-CELERY_TASK_ACKS_LATE = True
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-# Eager is toggled ON in tests via conftest.py; leave OFF here so dev runs
-# against a real worker when one is configured.
-CELERY_TASK_ALWAYS_EAGER = _env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
 
 # Database
@@ -1026,13 +1006,18 @@ PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in 
 # DJANGO 6.0 BACKGROUND TASKS FRAMEWORK
 # =============================================================================
 # Native task system for running code outside the HTTP request/response cycle.
-# ImmediateBackend runs tasks synchronously (suitable for dev/testing).
-# For production, switch to django_tasks.backends.database.DatabaseBackend
-# and run: python manage.py db_worker
+# Default is ImmediateBackend (runs inline) — safe for dev without a worker.
+# Production should install the `django-tasks` PyPI package, add `django_tasks`
+# to INSTALLED_APPS, run `manage.py db_worker` alongside gunicorn, and set
+#   DJANGO_TASKS_BACKEND=django_tasks.backends.database.DatabaseBackend
+# Tests override to ImmediateBackend in conftest.py regardless of env.
 # See: https://docs.djangoproject.com/en/6.0/topics/tasks/
 TASKS = {
     "default": {
-        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+        "BACKEND": os.environ.get(
+            "DJANGO_TASKS_BACKEND",
+            "django.tasks.backends.immediate.ImmediateBackend",
+        ),
     }
 }
 

@@ -60,9 +60,10 @@ def pytest_configure(config):
     os.environ.setdefault('VAPID_PRIVATE_KEY', 'test-vapid-private-key')
     os.environ.setdefault('VAPID_ADMIN_EMAIL', 'test@example.com')
 
-    # Force Celery eager mode so tests never hit a broker. Setting it here
-    # (not only in settings.py) blocks a production env var from leaking in.
-    os.environ['CELERY_TASK_ALWAYS_EAGER'] = '1'
+    # Force django.tasks to run inline so tests never hit the DB-backed queue
+    # (no `manage.py db_worker` in test harness). Setting it here — not only in
+    # settings — blocks a production env var from leaking in.
+    os.environ['DJANGO_TASKS_BACKEND'] = 'django.tasks.backends.immediate.ImmediateBackend'
 
     # Patch staticfiles storage BEFORE Django fully initializes
     # This is needed because ManifestStaticFilesStorage fails without collectstatic
