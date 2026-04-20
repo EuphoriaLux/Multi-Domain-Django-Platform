@@ -1164,6 +1164,24 @@ def coach_send_pre_screening_reminder(request, submission_id):
     )
     profile = submission.profile
 
+    # Mirror the eligibility checks in the automated invite/reminder path
+    # (pre_screening_notifications.send_pre_screening_invite_email) so a
+    # direct POST can't send stale reminders or log misleading
+    # `sms_sent` audit rows for closed flows.
+    closed = (
+        submission.pre_screening_submitted_at is not None
+        or submission.status != "pending"
+        or submission.review_call_completed
+        or submission.is_paused
+    )
+    if closed:
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Pre-screening is no longer active for this submission."))
+            + "</p>",
+            status=400,
+        )
+
     if not (profile.phone_number and profile.phone_verified):
         return HttpResponse(
             '<p class="text-xs text-red-600 dark:text-red-400">'

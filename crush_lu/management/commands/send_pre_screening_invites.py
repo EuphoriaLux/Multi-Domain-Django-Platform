@@ -61,35 +61,43 @@ class Command(BaseCommand):
         totals = {"invite": 0, "reminder": 0, "push": 0}
         skipped = {"invite": 0, "reminder": 0, "push": 0}
 
-        if only in (None, "invite"):
-            for sub in candidates_for_invite()[:limit]:
+        # Iterate until `limit` SUCCESSFUL sends per flow instead of
+        # slicing first. The send helpers dedupe via cache keys (a
+        # submission already invited on a prior run returns False),
+        # so `[:limit]` applied before the sender would starve
+        # submissions outside the first window indefinitely in any
+        # backlog larger than `limit`.
+        def _run_flow(candidates, sender):
+            sent, skip = 0, 0
+            for sub in candidates:
+                if sent >= limit:
+                    break
                 if dry:
-                    totals["invite"] += 1
+                    sent += 1
                     continue
-                if send_pre_screening_invite_email(sub, reminder=False):
-                    totals["invite"] += 1
+                if sender(sub):
+                    sent += 1
                 else:
-                    skipped["invite"] += 1
+                    skip += 1
+            return sent, skip
+
+        if only in (None, "invite"):
+            totals["invite"], skipped["invite"] = _run_flow(
+                candidates_for_invite(),
+                lambda s: send_pre_screening_invite_email(s, reminder=False),
+            )
 
         if only in (None, "reminder"):
-            for sub in candidates_for_reminder()[:limit]:
-                if dry:
-                    totals["reminder"] += 1
-                    continue
-                if send_pre_screening_invite_email(sub, reminder=True):
-                    totals["reminder"] += 1
-                else:
-                    skipped["reminder"] += 1
+            totals["reminder"], skipped["reminder"] = _run_flow(
+                candidates_for_reminder(),
+                lambda s: send_pre_screening_invite_email(s, reminder=True),
+            )
 
         if only in (None, "push"):
-            for sub in candidates_for_push()[:limit]:
-                if dry:
-                    totals["push"] += 1
-                    continue
-                if send_pre_screening_user_push(sub):
-                    totals["push"] += 1
-                else:
-                    skipped["push"] += 1
+            totals["push"], skipped["push"] = _run_flow(
+                candidates_for_push(),
+                send_pre_screening_user_push,
+            )
 
         self.stdout.write(
             self.style.SUCCESS(
