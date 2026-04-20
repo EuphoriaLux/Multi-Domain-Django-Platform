@@ -252,6 +252,7 @@ urlpatterns = base_patterns + api_patterns + [
     # Dedicated Crush.lu Admin Panel (Coach Panel)
     # Note: Dashboard must come BEFORE admin site to avoid path matching issues
     path('crush-admin/dashboard/', admin_views.crush_admin_dashboard, name='crush_admin_dashboard'),
+    path('crush-admin/pre-screening/export.csv', admin_views.export_pre_screening_csv, name='crush_admin_pre_screening_csv'),
     path('crush-admin/api/signup-trend/', signup_trend_api, name='crush_admin_signup_trend'),
     path('crush-admin/api/verification-trend/', verification_trend_api, name='crush_admin_verification_trend'),
     path('crush-admin/api/cumulative-growth/', cumulative_growth_api, name='crush_admin_cumulative_growth'),
