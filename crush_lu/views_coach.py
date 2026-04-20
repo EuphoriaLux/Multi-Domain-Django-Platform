@@ -549,6 +549,8 @@ def coach_profiles(request):
         profile.upcoming_events = incomplete_upcoming_regs.get(profile.user_id, [])
         profile.past_event_count = incomplete_past_counts.get(profile.user_id, 0)
 
+    from django.conf import settings as _settings
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -558,6 +560,7 @@ def coach_profiles(request):
         "recontact_submissions": recontact_submissions,
         "revision_profiles": revision_profiles,
         "all_incomplete": all_incomplete,
+        "pre_screening_enabled": getattr(_settings, "PRE_SCREENING_ENABLED", False),
     }
     return render(request, "crush_lu/coach_profiles.html", context)
 
@@ -947,14 +950,91 @@ def coach_review_profile(request, submission_id):
         sms_body = template.format(first_name=first_name, coach_name=coach_name)
         sms_template_encoded = quote(sms_body, safe="")
 
+    from django.conf import settings as _settings
+
+    pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
+    can_send_prescreening_sms = bool(
+        profile.phone_number and profile.phone_verified
+    )
+
     context = {
         "submission": submission,
         "profile": profile,
         "form": form,
         "social_account": social_account,
         "sms_template_encoded": sms_template_encoded,
+        "pre_screening_enabled": pre_screening_enabled,
+        "can_send_prescreening_sms": can_send_prescreening_sms,
     }
     return render(request, "crush_lu/coach_review_profile.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_send_pre_screening_reminder(request, submission_id):
+    """HTMX: log that the Coach opened an SMS reminder for pre-screening.
+
+    Returns a small HTML fragment containing the tel: SMS link the Coach's
+    device can open, and records a CallAttempt so the outreach is auditable.
+    """
+    from django.conf import settings as _settings
+    from urllib.parse import quote
+    from .models import CallAttempt
+    from .models.site_config import CrushSiteConfig
+
+    if not getattr(_settings, "PRE_SCREENING_ENABLED", False):
+        return HttpResponse(status=410)
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+    profile = submission.profile
+
+    if not (profile.phone_number and profile.phone_verified):
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("No verified phone number on file."))
+            + "</p>",
+            status=400,
+        )
+
+    config = CrushSiteConfig.get_config()
+    lang = getattr(profile, "preferred_language", "en") or "en"
+    template_field = f"pre_screening_reminder_sms_{lang}"
+    template = (
+        getattr(config, template_field, config.pre_screening_reminder_sms_en)
+        or config.pre_screening_reminder_sms_en
+    )
+    coach_name = coach.user.first_name or "Your coach"
+    first_name = profile.user.first_name or ""
+    link = request.build_absolute_uri("/pre-screening/")
+    sms_body = template.format(
+        first_name=first_name, coach_name=coach_name, link=link
+    )
+    sms_href = f"sms:{profile.phone_number}?&body={quote(sms_body)}"
+
+    CallAttempt.objects.create(
+        submission=submission,
+        profile=profile,
+        result="sms_sent",
+        coach=coach,
+        notes=_("Pre-screening reminder SMS drafted"),
+    )
+
+    html = (
+        '<a href="' + sms_href + '" '
+        'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold '
+        'bg-green-600 text-white hover:bg-green-700">'
+        + str(_("Open SMS app →"))
+        + "</a>"
+        '<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">'
+        + str(_("Attempt logged."))
+        + "</p>"
+    )
+    return HttpResponse(html)
 
 
 @coach_required

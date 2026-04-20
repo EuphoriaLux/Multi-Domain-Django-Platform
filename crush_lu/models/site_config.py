@@ -99,6 +99,29 @@ class CrushSiteConfig(models.Model):
         help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
     )
 
+    # SMS templates for pre-screening reminders (coach -> candidate, while profile pending)
+    pre_screening_reminder_sms_en = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}, {coach_name} from Crush.lu here. Before we talk, please answer a few quick questions at {link}. It takes 3 minutes and helps me help you. Thanks!",
+        verbose_name=_("Pre-screening reminder SMS (English)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {link}"),
+    )
+    pre_screening_reminder_sms_de = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hallo {first_name}, hier ist {coach_name} von Crush.lu. Vor unserem Gespraech beantworte bitte ein paar kurze Fragen unter {link}. Es dauert 3 Minuten und hilft mir, dir zu helfen. Danke!",
+        verbose_name=_("Pre-screening reminder SMS (German)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {link}"),
+    )
+    pre_screening_reminder_sms_fr = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Bonjour {first_name}, c'est {coach_name} de Crush.lu. Avant notre appel, merci de repondre a quelques questions rapides sur {link}. 3 minutes et ca m'aide a t'aider. Merci !",
+        verbose_name=_("Pre-screening reminder SMS (French)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {link}"),
+    )
+
     # Status banner
     banner_enabled = models.BooleanField(
         default=False,

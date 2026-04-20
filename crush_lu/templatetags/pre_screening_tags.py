@@ -100,3 +100,14 @@ def prescreening_score_label(score: int | None):
 @register.simple_tag
 def prescreening_schema():
     return PRE_SCREENING_SCHEMA
+
+
+@register.filter
+def get_item(mapping, key):
+    """Index a dict by key inside a template. Returns '' if missing."""
+    if not mapping:
+        return ""
+    try:
+        return mapping.get(key, "")
+    except AttributeError:
+        return ""
