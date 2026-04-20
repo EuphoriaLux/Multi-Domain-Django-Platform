@@ -1,0 +1,70 @@
+name: Deploy Hybrid Maintenance Function
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'azure-functions/hybrid-maintenance/**'
+      - '.github/workflows/deploy-hybrid-maintenance-function.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Azure Functions Core Tools
+        run: |
+          wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y azure-functions-core-tools-4
+
+      - name: Install dependencies
+        run: |
+          cd azure-functions/hybrid-maintenance
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --target .python_packages/lib/site-packages
+
+      - name: Verify function app structure
+        run: |
+          cd azure-functions/hybrid-maintenance
+          echo "Checking function app files..."
+          ls -la
+          test -f function_app.py && echo "function_app.py found" || exit 1
+          test -f host.json && echo "host.json found" || exit 1
+          test -f requirements.txt && echo "requirements.txt found" || exit 1
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Functions
+        run: |
+          cd azure-functions/hybrid-maintenance
+          func azure functionapp publish crush-hybrid-maintenance --python --build local
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function App**: crush-hybrid-maintenance" >> $GITHUB_STEP_SUMMARY
+          echo "**Resource Group**: django-app-rg" >> $GITHUB_STEP_SUMMARY
+          echo "**Region**: West Europe" >> $GITHUB_STEP_SUMMARY
+          echo "**Timers**:" >> $GITHUB_STEP_SUMMARY
+          echo "- PreScreeningInvites — every 10 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "- HybridSLASweep — hourly at :15" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Monitor logs with:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "az functionapp log tail --name crush-hybrid-maintenance --resource-group django-app-rg" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
