@@ -63,14 +63,20 @@ class PreScreeningFormTests(TestCase):
         UserDataConsent.objects.filter(user=self.user).update(
             crushlu_consent_given=True
         )
+        # Schema v2: residence, languages, and age_confirm are readonly_confirm
+        # questions derived from the CrushProfile. Fixture values here are chosen
+        # so the derivation yields the assertions below:
+        #   location="canton-luxembourg" → residence="lu_city"
+        #   event_languages=["en","fr"]  → languages=["en","fr"]
+        #   date_of_birth=1995-01-01     → age_confirm=True
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 1, 1),
             gender="M",
-            location="Luxembourg City",
+            location="canton-luxembourg",
             bio="Test bio",
             phone_number="+352661234567",
-            event_languages=["en"],
+            event_languages=["en", "fr"],
             is_approved=False,
         )
         self.submission = ProfileSubmission.objects.create(
@@ -84,7 +90,8 @@ class PreScreeningFormTests(TestCase):
         resp = self.client.get(reverse("crush_lu:pre_screening"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Help your Coach prepare")
-        self.assertContains(resp, "Quick logistics")
+        # Schema v2 renamed Section A to "Confirm your details".
+        self.assertContains(resp, "Confirm your details")
         self.assertContains(resp, "0 of 4 sections complete")
         self.assertContains(resp, 'id="prescreening-progress"')
         self.assertContains(resp, 'id="prescreening-finalize"')
