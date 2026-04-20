@@ -52,18 +52,22 @@ if ($LASTEXITCODE -eq 0 -and $existing) {
 }
 
 Write-Host "==> Pulling ADMIN_API_KEY from $SIBLING_FUNC to keep both functions aligned"
+# Single-quoted outer literal with doubled '' to escape inner quotes —
+# avoids PowerShell mis-parsing the JMESPath's [0] as a type literal.
+$queryAdmin = '[?name==''ADMIN_API_KEY''].value | [0]'
 $ADMIN_API_KEY = az functionapp config appsettings list `
     -n $SIBLING_FUNC -g $RG `
-    --query "[?name=='ADMIN_API_KEY'].value | [0]" -o tsv
+    --query $queryAdmin -o tsv
 if ([string]::IsNullOrWhiteSpace($ADMIN_API_KEY)) {
     Write-Error "ADMIN_API_KEY not found on $SIBLING_FUNC"
     exit 1
 }
 
 Write-Host "==> Pulling APPLICATIONINSIGHTS_CONNECTION_STRING from $APP_SERVICE"
+$queryAppInsights = '[?name==''APPLICATIONINSIGHTS_CONNECTION_STRING''].value | [0]'
 $APPINSIGHTS_CONN = az webapp config appsettings list `
     -n $APP_SERVICE -g $RG `
-    --query "[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING'].value | [0]" -o tsv
+    --query $queryAppInsights -o tsv
 if ([string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
     Write-Warning "APPLICATIONINSIGHTS_CONNECTION_STRING not set on $APP_SERVICE — timer logs will still appear in Function App telemetry, but won't correlate with Django traces"
 }
