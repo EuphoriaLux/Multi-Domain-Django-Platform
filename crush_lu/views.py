@@ -1800,6 +1800,16 @@ def profile_submitted(request):
         .first()
     )
 
+    from django.conf import settings as _settings
+
+    pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
+    pre_screening_submitted = submission.pre_screening_submitted_at is not None
+    pre_screening_visible = (
+        pre_screening_enabled
+        and submission.status == "pending"
+        and not submission.review_call_completed
+    )
+
     context = {
         "submission": submission,
         "coach_contact_phone": coach_contact_phone,
@@ -1813,6 +1823,8 @@ def profile_submitted(request):
         "progress_percent": progress_percent,
         "next_event": next_event,
         "has_candidate_note": bool(submission.candidate_note),
+        "pre_screening_visible": pre_screening_visible,
+        "pre_screening_submitted": pre_screening_submitted,
     }
     return render(request, "crush_lu/profile_submitted.html", context)
 

@@ -245,6 +245,46 @@
                     {# ── Section 5: Proactive Actions ── #}
                     <div class="space-y-3 mb-6 text-left">
 
+                        {# 5-pre: Pre-screening questionnaire CTA #}
+                        {% if pre_screening_visible %}
+                          {% if pre_screening_submitted %}
+                            <a href="{% url 'crush_lu:pre_screening' %}"
+                               class="block rounded-xl border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-900/20 shadow-sm px-5 py-3.5 hover:bg-green-100/70 dark:hover:bg-green-900/30 transition-colors">
+                              <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+                                  {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-700 dark:text-green-300" %}
+                                </div>
+                                <div class="flex-1">
+                                  <p class="text-sm font-semibold text-green-800 dark:text-green-200 mb-0">
+                                    {% trans "Pre-screening submitted ✓" %}
+                                  </p>
+                                  <p class="text-xs text-green-700/80 dark:text-green-300/80 mb-0">
+                                    {% trans "Your Coach has your answers. Tap to view or edit until the call." %}
+                                  </p>
+                                </div>
+                              </div>
+                            </a>
+                          {% else %}
+                            <a href="{% url 'crush_lu:pre_screening' %}"
+                               class="block rounded-xl border-2 border-crush-purple/30 dark:border-purple-500/40 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 shadow-sm px-5 py-4 hover:shadow-md transition-shadow">
+                              <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center flex-shrink-0">
+                                  {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5 text-white" %}
+                                </div>
+                                <div class="flex-1">
+                                  <p class="text-sm font-bold text-gray-900 dark:text-white mb-0.5">
+                                    {% trans "Help your Coach prepare" %}
+                                  </p>
+                                  <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
+                                    {% trans "Answer a few quick questions (3 min) so the call is about you, not paperwork." %}
+                                  </p>
+                                </div>
+                                {% include "shared/icons/arrow-right.html" with class="w-4 h-4 text-crush-purple dark:text-purple-300 flex-shrink-0" %}
+                              </div>
+                            </a>
+                          {% endif %}
+                        {% endif %}
+
                         {# 5a: Add a note for your coach #}
                         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
                             {# Header row — toggles form or shows sent confirmation #}

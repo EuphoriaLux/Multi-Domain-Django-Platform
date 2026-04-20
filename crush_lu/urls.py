@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
+from . import views_pre_screening
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -141,6 +142,15 @@ urlpatterns = [
     path('create-profile/', views.create_profile, name='create_profile'),
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
     path('profile/rejected/', views.profile_rejected, name='profile_rejected'),
+
+    # Pre-screening questionnaire (feature-flagged via PRE_SCREENING_ENABLED)
+    path('pre-screening/', views_pre_screening.pre_screening_form, name='pre_screening'),
+    path('pre-screening/section/<slug:section_id>/',
+         views_pre_screening.pre_screening_save_section,
+         name='pre_screening_save_section'),
+    path('pre-screening/finalize/',
+         views_pre_screening.pre_screening_finalize,
+         name='pre_screening_finalize'),
 
     # Profile step-by-step saving APIs - MOVED to urls_crush.py (language-neutral)
     # These APIs are called from alpine-components.js with hardcoded paths:

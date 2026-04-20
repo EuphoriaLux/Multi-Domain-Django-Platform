@@ -369,6 +369,10 @@ WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
 WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool("WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True)
 
+# Pre-screening questionnaire (Crush.lu). Off by default; enable in production
+# after all Phases have shipped and the Coach-facing rollout is ready.
+PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

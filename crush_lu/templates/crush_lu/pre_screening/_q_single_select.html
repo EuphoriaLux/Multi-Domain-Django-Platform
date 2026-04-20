@@ -1,0 +1,25 @@
+{% load i18n %}
+<fieldset class="space-y-2">
+  <legend class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+    {{ q.label }}{% if q.required %} <span class="text-red-500" aria-hidden="true">*</span>{% endif %}
+  </legend>
+  <div class="grid gap-2" role="radiogroup" aria-labelledby="label-{{ q.id }}" {% if errors %}aria-invalid="true" aria-describedby="err-{{ q.id }}"{% endif %}>
+    {% for c in q.choices %}
+      <label class="flex items-start gap-3 p-3 min-h-[44px] rounded-lg border cursor-pointer transition-colors
+                    {% if value == c.value %}border-crush-purple bg-purple-50 dark:bg-purple-900/20{% else %}border-gray-200 dark:border-gray-700 hover:border-crush-purple/50 hover:bg-gray-50 dark:hover:bg-slate-800{% endif %}">
+        <input type="radio"
+               name="{{ q.id }}"
+               value="{{ c.value }}"
+               class="mt-0.5 text-crush-purple focus:ring-crush-purple"
+               {% if value == c.value %}checked{% endif %}
+               {% if q.required %}required{% endif %}>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{ c.label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {% if errors %}
+    <p id="err-{{ q.id }}" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="polite">
+      {% trans "Please choose one option." %}
+    </p>
+  {% endif %}
+</fieldset>
