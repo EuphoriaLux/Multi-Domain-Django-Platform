@@ -1289,6 +1289,39 @@ class ScreeningSlot(models.Model):
                     )
                 )
 
+            # (coach_id, start_at, end_at) arrives from a hidden form field,
+            # so re-validate against the live offered set before we trust it.
+            # `bookable_slots()` re-applies the coach `is_active` +
+            # `hybrid_features_enabled` gates, the away window, the 14-day
+            # horizon, and the past-time filter. Applying this to BOTH the
+            # existing-available-slot path and the virtual-slot path closes
+            # the case where a coach was toggled away / opted out after a
+            # pre-created available row was written — the stale row would
+            # otherwise still be claimable via a tampered POST.
+            coach = CrushCoach.objects.filter(
+                pk=coach_id, is_active=True
+            ).first()
+            if coach is None:
+                raise ValidationError(
+                    _("That coach is not available for booking.")
+                )
+
+            from crush_lu.services.slot_generator import bookable_slots
+
+            offered = any(
+                candidate["coach_id"] == coach_id
+                and candidate["start_at"] == start_at
+                and candidate["end_at"] == end_at
+                for candidate in bookable_slots(coach)
+            )
+            if not offered:
+                raise ValidationError(
+                    _(
+                        "That time is no longer available. "
+                        "Please pick another slot."
+                    )
+                )
+
             # Try to lock an existing 'available' slot at this exact time.
             existing = (
                 cls.objects.select_for_update()
@@ -1306,35 +1339,6 @@ class ScreeningSlot(models.Model):
                 slot.submission = submission
                 slot.save(update_fields=["status", "submission", "updated_at"])
             else:
-                # Virtual slot — the (coach_id, start_at, end_at) tuple comes
-                # from a hidden form field so we MUST re-verify it was actually
-                # offered by `bookable_slots()`. Otherwise a tampered POST can
-                # book any time on any coach, bypassing opt-in, availability
-                # windows, past-time filter, and the 14-day horizon.
-                coach = CrushCoach.objects.filter(
-                    pk=coach_id, is_active=True
-                ).first()
-                if coach is None:
-                    raise ValidationError(
-                        _("That coach is not available for booking.")
-                    )
-
-                from crush_lu.services.slot_generator import bookable_slots
-
-                offered = any(
-                    candidate["coach_id"] == coach_id
-                    and candidate["start_at"] == start_at
-                    and candidate["end_at"] == end_at
-                    for candidate in bookable_slots(coach)
-                )
-                if not offered:
-                    raise ValidationError(
-                        _(
-                            "That time is no longer available. "
-                            "Please pick another slot."
-                        )
-                    )
-
                 slot = cls(
                     coach_id=coach_id,
                     submission=submission,

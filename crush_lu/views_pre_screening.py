@@ -57,6 +57,8 @@ def _can_edit(submission: ProfileSubmission | None) -> bool:
         return False
     if submission.review_call_completed:
         return False
+    if submission.is_paused:
+        return False
     return True
 
 
