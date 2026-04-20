@@ -1201,6 +1201,17 @@ class ScreeningSlot(models.Model):
                 condition=models.Q(end_at__gt=models.F('start_at')),
                 name='screening_slot_end_after_start',
             ),
+            # Partial unique index: at most one booked slot per
+            # (coach, start_at, end_at). Prevents the virtual-slot race
+            # where two submissions pass `bookable_slots()` concurrently
+            # and both insert the same time — application-level checks
+            # (clean(), bookable_slots re-check) can't serialize across
+            # transactions, so this DB guardrail is the authoritative stop.
+            models.UniqueConstraint(
+                fields=['coach', 'start_at', 'end_at'],
+                condition=models.Q(status='booked'),
+                name='screening_slot_unique_booked_per_coach_time',
+            ),
         ]
 
     def __str__(self):
@@ -1241,7 +1252,7 @@ class ScreeningSlot(models.Model):
         on bad token, ValidationError on overlap or expiry issues.
         """
         from django.core.exceptions import ValidationError
-        from django.db import transaction
+        from django.db import IntegrityError, transaction
 
         with transaction.atomic():
             submission = ProfileSubmission.objects.select_for_update().get(
@@ -1332,7 +1343,20 @@ class ScreeningSlot(models.Model):
                     status="booked",
                 )
                 slot.full_clean()
-                slot.save()
+                # Partial unique constraint on (coach, start_at, end_at)
+                # filtered to status='booked' is the authoritative race stop:
+                # two concurrent virtual-slot claims from different submissions
+                # can both pass the application-level checks above, and only
+                # the DB insert order decides the winner.
+                try:
+                    slot.save()
+                except IntegrityError:
+                    raise ValidationError(
+                        _(
+                            "That time was just booked by someone else. "
+                            "Please pick another slot."
+                        )
+                    )
 
             # Reassign on-the-fly if user booked with a different coach.
             if submission.coach_id != coach_id:

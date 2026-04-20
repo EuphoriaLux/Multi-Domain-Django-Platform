@@ -1147,6 +1147,8 @@ def coach_send_pre_screening_reminder(request, submission_id):
     device can open, and records a CallAttempt so the outreach is auditable.
     """
     from django.conf import settings as _settings
+    from django.urls import reverse
+    from django.utils import translation
     from urllib.parse import quote
     from .models import CallAttempt
     from .models.site_config import CrushSiteConfig
@@ -1179,7 +1181,8 @@ def coach_send_pre_screening_reminder(request, submission_id):
     )
     coach_name = coach.user.first_name or "Your coach"
     first_name = profile.user.first_name or ""
-    link = request.build_absolute_uri("/pre-screening/")
+    with translation.override(lang):
+        link = request.build_absolute_uri(reverse("crush_lu:pre_screening"))
     sms_body = template.format(
         first_name=first_name, coach_name=coach_name, link=link
     )

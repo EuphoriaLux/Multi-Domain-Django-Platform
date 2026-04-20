@@ -77,12 +77,12 @@ def test_get_question_and_section():
 # --------------------------------------------------------------------------
 
 def test_valid_response_passes():
-    validate_pre_screening_responses(_valid_responses(), version=1)
+    validate_pre_screening_responses(_valid_responses(), version=2)
 
 
 def test_valid_response_with_optional_note():
     validate_pre_screening_responses(
-        _valid_responses(note_to_coach="I'm a bit shy."), version=1
+        _valid_responses(note_to_coach="I'm a bit shy."), version=2
     )
 
 
@@ -109,7 +109,7 @@ def test_required_missing():
     resp = _valid_responses()
     resp.pop("residence")
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "required_missing" in [
         e.code for e in excinfo.value.error_dict.get("residence", [])
     ]
@@ -118,7 +118,7 @@ def test_required_missing():
 def test_invalid_choice_single_select():
     resp = _valid_responses(residence="atlantis")
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "invalid_choice" in [
         e.code for e in excinfo.value.error_dict.get("residence", [])
     ]
@@ -127,7 +127,7 @@ def test_invalid_choice_single_select():
 def test_invalid_choice_multi_select():
     resp = _valid_responses(languages=["en", "klingon"])
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "invalid_choice" in [
         e.code for e in excinfo.value.error_dict.get("languages", [])
     ]
@@ -136,7 +136,7 @@ def test_invalid_choice_multi_select():
 def test_min_choices_languages_empty():
     resp = _valid_responses(languages=[])
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     # Empty list is treated as "not present" -> required_missing
     assert "required_missing" in [
         e.code for e in excinfo.value.error_dict.get("languages", [])
@@ -147,7 +147,7 @@ def test_min_choices_not_met_for_looking_forward_to_never_triggers_for_empty():
     # Empty list short-circuits to required_missing, which is correct.
     resp = _valid_responses(looking_forward_to=[])
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     codes = [e.code for e in excinfo.value.error_dict.get("looking_forward_to", [])]
     assert "required_missing" in codes
 
@@ -157,7 +157,7 @@ def test_max_choices_exceeded():
         looking_forward_to=["events", "discovery", "coach_match", "offline_quickly"]
     )
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "max_choices_exceeded" in [
         e.code for e in excinfo.value.error_dict.get("looking_forward_to", [])
     ]
@@ -166,7 +166,7 @@ def test_max_choices_exceeded():
 def test_text_too_long():
     resp = _valid_responses(hoping_to_meet="x" * 201)
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "text_too_long" in [
         e.code for e in excinfo.value.error_dict.get("hoping_to_meet", [])
     ]
@@ -175,7 +175,7 @@ def test_text_too_long():
 def test_checkbox_unchecked_fails():
     resp = _valid_responses(consent_events=False)
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "required_missing" in [
         e.code for e in excinfo.value.error_dict.get("consent_events", [])
     ]
@@ -184,7 +184,7 @@ def test_checkbox_unchecked_fails():
 def test_unknown_question_rejected():
     resp = _valid_responses(bogus_question="yes")
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "unknown_question" in [
         e.code for e in excinfo.value.error_dict.get("bogus_question", [])
     ]
@@ -193,7 +193,7 @@ def test_unknown_question_rejected():
 def test_multi_select_wrong_type():
     resp = _valid_responses(languages="en")
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses(resp, version=1)
+        validate_pre_screening_responses(resp, version=2)
     assert "invalid_type" in [
         e.code for e in excinfo.value.error_dict.get("languages", [])
     ]
@@ -212,7 +212,7 @@ def test_partial_mode_skips_required_missing():
         "source": "friend",
     }
     # partial=True must not raise for unanswered required questions.
-    validate_pre_screening_responses(resp, version=1, partial=True)
+    validate_pre_screening_responses(resp, version=2, partial=True)
 
 
 def test_section_scoped_validation():
@@ -223,20 +223,20 @@ def test_section_scoped_validation():
         "age_confirm": True,
         "source": "friend",
     }
-    validate_pre_screening_responses(resp, version=1, section_id="logistics")
+    validate_pre_screening_responses(resp, version=2, section_id="logistics")
 
 
 def test_section_scoped_still_catches_bad_choice():
     resp = {"residence": "atlantis"}
     with pytest.raises(ValidationError):
         validate_pre_screening_responses(
-            resp, version=1, partial=True, section_id="logistics"
+            resp, version=2, partial=True, section_id="logistics"
         )
 
 
 def test_non_dict_response_rejected():
     with pytest.raises(ValidationError) as excinfo:
-        validate_pre_screening_responses([], version=1)  # type: ignore[arg-type]
+        validate_pre_screening_responses([], version=2)  # type: ignore[arg-type]
     assert excinfo.value.error_list[0].code == "invalid_type"
 
 

@@ -154,6 +154,7 @@ def bookable_slots(coach, days: int = 14):
             start_at__gte=now,
             start_at__lt=horizon_end,
         ).order_by("start_at")
+        if not _is_coach_away(coach, s.start_at)
     ]
 
     virtual = virtual_slots_for(coach, days=days)

@@ -99,6 +99,8 @@ def send_pre_screening_invite_email(submission: ProfileSubmission,
         return False
     if submission.status != "pending":
         return False
+    if submission.review_call_completed or submission.is_paused:
+        return False
     user = submission.profile.user
     if not can_send_email(user, "profile_updates"):
         return False
@@ -161,12 +163,15 @@ def send_pre_screening_user_push(submission: ProfileSubmission) -> bool:
         return False
     if submission.status != "pending":
         return False
+    if submission.review_call_completed or submission.is_paused:
+        return False
 
     cache_key = _PUSH_SENT_KEY.format(submission_id=submission.id)
     if _already_sent(cache_key):
         return False
 
     try:
+        from django.urls import reverse
         from . import push_notifications
 
         user = submission.profile.user
@@ -174,7 +179,7 @@ def send_pre_screening_user_push(submission: ProfileSubmission) -> bool:
         with override(lang):
             title = str(_("Meet your Coach better"))
             body = str(_("Answer 13 quick questions before your call"))
-        url = "/pre-screening/"
+            url = reverse("crush_lu:pre_screening")
         result = push_notifications.send_push_notification(
             user=user, title=title, body=body, url=url,
             tag=f"pre-screening-invite-{submission.id}",
