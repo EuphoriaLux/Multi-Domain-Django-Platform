@@ -15,10 +15,16 @@
     {% endif %}
   </header>
 
+  {# Auto-save: `change` fires when a radio/checkbox/select is toggled and    #}
+  {# when a text input or textarea loses focus (blur). That's the safest      #}
+  {# auto-save boundary — firing on keystrokes would re-render the textarea  #}
+  {# mid-typing and lose the user's cursor. `submit` keeps the fallback path #}
+  {# for users who hit Enter in a text input.                                 #}
   <form method="post"
         hx-post="{% url 'crush_lu:pre_screening_save_section' section.id %}"
         hx-target="#prescreening-section-{{ section.id }}"
         hx-swap="outerHTML"
+        hx-trigger="change, submit"
         hx-indicator="#indicator-{{ section.id }}"
         class="px-5 py-4 space-y-5">
     {% csrf_token %}
@@ -26,21 +32,16 @@
       {% render_prescreening_question question responses errors %}
     {% endfor %}
 
-    <div class="flex items-center justify-between gap-3 pt-2">
+    <div class="flex items-center justify-between gap-3 pt-2 min-h-[2rem]">
       <span id="indicator-{{ section.id }}" class="htmx-indicator text-xs text-gray-500 dark:text-gray-400">
         {% trans "Saving…" %}
       </span>
-      <button type="submit"
-              class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-crush-purple text-white hover:bg-purple-700 transition-colors">
-        {% trans "Save this section" %}
-      </button>
+      {% if section_flash %}
+        <span class="text-xs text-green-700 dark:text-green-300" role="status" aria-live="polite">
+          {% trans "Saved" %} ✓
+        </span>
+      {% endif %}
     </div>
-
-    {% if section_flash %}
-      <div class="text-xs text-green-700 dark:text-green-300 mt-2" role="status" aria-live="polite">
-        {{ section_flash }}
-      </div>
-    {% endif %}
   </form>
 </section>
 

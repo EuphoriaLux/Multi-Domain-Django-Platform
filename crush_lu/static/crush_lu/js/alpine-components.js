@@ -9997,6 +9997,23 @@ document.addEventListener("alpine:init", function () {
                     this.conceptAnswer = conceptEl.dataset.conceptAnswer || "";
                 }
             },
+            // CSP-safe input handlers: Alpine's @alpinejs/csp build can't evaluate
+            // the assignment expression x-model generates, so we wire each field
+            // with :checked / :value + @change / @input + a method that pulls the
+            // value off $event.target (same pattern as elsewhere in this file).
+            toggleWarmIntro(e) {
+                this.warmIntroComplete = !!e.target.checked;
+            },
+            toggleConceptCalibration(e) {
+                this.conceptCalibrationComplete = !!e.target.checked;
+            },
+            updateConceptNotes(e) {
+                this.conceptNotes = e.target.value;
+            },
+            updateDiscretionNotes(e) {
+                this.discretionNotes = e.target.value;
+            },
+
             get completedCount() {
                 let n = 0;
                 if (this.warmIntroComplete) n++;

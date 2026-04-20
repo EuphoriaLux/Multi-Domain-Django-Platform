@@ -23,6 +23,7 @@ _INPUT_TEMPLATES: dict[str, str] = {
     "text": "crush_lu/pre_screening/_q_text.html",
     "checkbox": "crush_lu/pre_screening/_q_checkbox.html",
     "yes_no": "crush_lu/pre_screening/_q_yes_no.html",
+    "readonly_confirm": "crush_lu/pre_screening/_q_readonly_confirm.html",
 }
 
 

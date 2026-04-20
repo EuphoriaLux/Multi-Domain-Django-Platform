@@ -20,20 +20,32 @@ from django.utils.translation import gettext_lazy as _
 
 
 PRE_SCREENING_SCHEMA: dict[str, Any] = {
-    "version": 1,
+    # Version 2: Section A rebuilt as "Confirm your details" — residence,
+    # languages, and age_confirm switched to `readonly_confirm` questions that
+    # mirror the user's existing CrushProfile instead of re-asking. Only
+    # `source` survives as an actual question.
+    "version": 2,
     "sections": [
         # ------------------------------------------------------------------
-        # Section A — Logistics
+        # Section A — Confirm your details
+        # Three of the four questions here are `readonly_confirm`: they're
+        # auto-populated from CrushProfile (see `derive_readonly_value` below)
+        # and render as non-editable cards with a link back to the profile
+        # edit page. The value still lands in pre_screening_responses on
+        # finalize so the Coach sees a consistent snapshot.
         # ------------------------------------------------------------------
         {
             "id": "logistics",
-            "title": _("Quick logistics"),
+            "title": _("Confirm your details"),
             "questions": [
                 {
                     "id": "residence",
-                    "type": "single_select",
+                    "type": "readonly_confirm",
+                    "shape": "single_select",
                     "required": True,
                     "label": _("Where do you live?"),
+                    "profile_field": "location",
+                    "edit_section": "account",
                     "choices": [
                         {"value": "lu_city", "label": _("Luxembourg – Luxembourg City")},
                         {"value": "lu_esch", "label": _("Luxembourg – Esch-sur-Alzette")},
@@ -46,10 +58,13 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                 },
                 {
                     "id": "languages",
-                    "type": "multi_select",
+                    "type": "readonly_confirm",
+                    "shape": "multi_select",
                     "required": True,
                     "min_choices": 1,
-                    "label": _("Which languages can you comfortably speak at a social event?"),
+                    "label": _("Languages you can comfortably speak at a social event"),
+                    "profile_field": "event_languages",
+                    "edit_section": "preferences",
                     "choices": [
                         {"value": "en", "label": _("English")},
                         {"value": "fr", "label": _("French")},
@@ -60,9 +75,12 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                 },
                 {
                     "id": "age_confirm",
-                    "type": "yes_no",
+                    "type": "readonly_confirm",
+                    "shape": "yes_no",
                     "required": True,
-                    "label": _("Are you 18 or older and legally able to date?"),
+                    "label": _("You are 18 or older"),
+                    "profile_field": "date_of_birth",
+                    "edit_section": "account",
                 },
                 {
                     "id": "source",
@@ -263,6 +281,100 @@ def _allowed_values(question: dict[str, Any]) -> set[str]:
 
 
 # --------------------------------------------------------------------------
+# Readonly-confirm: derive answers from the user's CrushProfile instead of
+# re-asking questions the signup form already covered.
+# --------------------------------------------------------------------------
+
+# CrushProfile.location (finer canton choices) → pre-screening residence bucket.
+_CANTON_TO_RESIDENCE_BUCKET: dict[str, str] = {
+    "canton-luxembourg": "lu_city",
+    "canton-esch": "lu_esch",
+    "canton-capellen": "lu_other",
+    "canton-clervaux": "lu_other",
+    "canton-diekirch": "lu_other",
+    "canton-echternach": "lu_other",
+    "canton-grevenmacher": "lu_other",
+    "canton-mersch": "lu_other",
+    "canton-redange": "lu_other",
+    "canton-remich": "lu_other",
+    "canton-vianden": "lu_other",
+    "canton-wiltz": "lu_other",
+    "border-belgium": "be_border",
+    "border-germany": "de_border",
+    "border-france": "fr_border",
+}
+
+
+def derive_readonly_value(question: dict[str, Any], profile) -> object:
+    """Compute the answer for a readonly_confirm question from CrushProfile.
+
+    Returns the schema-native value (string bucket, list of codes, bool).
+    Returns None when the source field isn't populated yet — callers should
+    treat that as "no answer" and leave pre_screening_responses untouched.
+    """
+    qid = question["id"]
+    if qid == "residence":
+        location = getattr(profile, "location", None)
+        if not location:
+            return None
+        return _CANTON_TO_RESIDENCE_BUCKET.get(location, "other")
+    if qid == "languages":
+        langs = list(getattr(profile, "event_languages", None) or [])
+        if not langs:
+            return None
+        allowed = _allowed_values(question)
+        bucketed = [code if code in allowed else "other" for code in langs]
+        # De-dupe while preserving order.
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for code in bucketed:
+            if code in seen:
+                continue
+            seen.add(code)
+            deduped.append(code)
+        return deduped
+    if qid == "age_confirm":
+        dob = getattr(profile, "date_of_birth", None)
+        if not dob:
+            return None
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        age = today.year - dob.year - (
+            (today.month, today.day) < (dob.month, dob.day)
+        )
+        return age >= 18
+    return None
+
+
+def merge_readonly_from_profile(
+    responses: dict[str, Any],
+    profile,
+    schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a new dict with readonly_confirm values re-derived from the profile.
+
+    Existing non-readonly keys are preserved verbatim. Readonly keys are
+    overwritten with the current derived value — we never trust client input
+    for them, and a profile edit mid-flow should propagate immediately.
+    """
+    schema = schema or PRE_SCREENING_SCHEMA
+    merged = dict(responses or {})
+    for _section, question in iter_questions(schema):
+        if question.get("type") != "readonly_confirm":
+            continue
+        value = derive_readonly_value(question, profile)
+        qid = question["id"]
+        if value is None:
+            # Don't fabricate answers if the profile field is empty; leave the
+            # key unset so the UI can prompt the user to fill it in.
+            merged.pop(qid, None)
+        else:
+            merged[qid] = value
+    return merged
+
+
+# --------------------------------------------------------------------------
 # Validation
 # --------------------------------------------------------------------------
 
@@ -330,6 +442,11 @@ def validate_pre_screening_responses(
                     ValidationError(_("This question is required."), code="required_missing")
                 )
             continue
+
+        if qtype == "readonly_confirm":
+            # Validate against the underlying shape so readonly answers can't
+            # carry garbage into the DB if the derivation helper is misconfigured.
+            qtype = question.get("shape", "single_select")
 
         if qtype == "single_select":
             if value not in _allowed_values(question):

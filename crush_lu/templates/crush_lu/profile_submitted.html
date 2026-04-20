@@ -27,9 +27,15 @@
                         </div>
                         <div class="flex-1">
                             <h3 class="font-semibold text-amber-900 dark:text-amber-100 mb-1">{% trans "Book your screening call" %}</h3>
-                            <p class="text-sm text-amber-800 dark:text-amber-200 mb-0">
-                                {% trans "We've sent you an email with a direct booking link so you can pick a slot that suits you." %}
+                            <p class="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                                {% trans "We've sent you an email with a direct booking link — or pick a slot right now from here." %}
                             </p>
+                            {% if has_booking_token %}
+                            <a href="{% url 'crush_lu:book_screening' booking_token=submission.booking_token %}"
+                               class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition">
+                                {% trans "Pick a time" %}
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

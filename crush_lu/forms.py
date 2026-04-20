@@ -973,12 +973,15 @@ class CoachSettingsForm(forms.ModelForm):
 
     class Meta:
         model = CrushCoach
+        # hybrid_features_enabled is derived from working_mode in save(); exposing
+        # it in the coach-facing form duplicates the choice the working_mode radio
+        # already captures. The field stays editable in Django admin so ops can
+        # force-disable a coach during an incident without a code deploy.
         fields = [
             "working_mode",
             "is_away",
             "away_until",
             "max_active_reviews",
-            "hybrid_features_enabled",
         ]
         widgets = {
             "working_mode": forms.RadioSelect(),
@@ -1000,7 +1003,6 @@ class CoachSettingsForm(forms.ModelForm):
             "is_away": _("I'm currently away"),
             "away_until": _("Away until"),
             "max_active_reviews": _("Max concurrent reviews"),
-            "hybrid_features_enabled": _("Opt in to the Hybrid Coach Review System"),
         }
         help_texts = {
             "is_away": _(
@@ -1008,9 +1010,6 @@ class CoachSettingsForm(forms.ModelForm):
             ),
             "max_active_reviews": _(
                 "Upper limit on your pending review queue. Assignments are skipped once you hit this."
-            ),
-            "hybrid_features_enabled": _(
-                "Required for SLA tracking, availability windows, and self-booking to route users to you."
             ),
         }
 
@@ -1026,6 +1025,18 @@ class CoachSettingsForm(forms.ModelForm):
                 )
             )
         return cleaned
+
+    def save(self, commit=True):
+        # Mirror working_mode into hybrid_features_enabled: any non-spontaneous
+        # mode implies opting into the hybrid pipeline (SLA, self-booking, etc.).
+        # Coaches who switch back to spontaneous are taken out of the pipeline.
+        instance = super().save(commit=False)
+        instance.hybrid_features_enabled = (
+            instance.working_mode != "spontaneous"
+        )
+        if commit:
+            instance.save()
+        return instance
 
 
 def _validate_availability_window(payload):

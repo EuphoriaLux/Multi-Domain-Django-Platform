@@ -26,6 +26,7 @@ from .pre_screening_schema import (
     compute_readiness_score,
     get_section,
     iter_questions,
+    merge_readonly_from_profile,
     validate_pre_screening_responses,
 )
 
@@ -234,7 +235,11 @@ def pre_screening_form(request):
             )
         return redirect("crush_lu:profile_submitted")
 
-    responses = dict(submission.pre_screening_responses or {})
+    # Mirror readonly_confirm fields from the profile on every render so the
+    # user sees live values and a mid-flow profile edit propagates here.
+    responses = merge_readonly_from_profile(
+        submission.pre_screening_responses or {}, submission.profile
+    )
     sections_context = _build_sections_context(responses)
     completed_count = sum(1 for s in sections_context if s["complete"])
     total = len(sections_context)
@@ -280,6 +285,9 @@ def pre_screening_save_section(request, section_id: str):
     for q in section["questions"]:
         responses.pop(q["id"], None)
     responses.update(parsed)
+    # readonly_confirm questions aren't in POST (they're not editable here).
+    # Re-derive them from the profile so the DB snapshot stays current.
+    responses = merge_readonly_from_profile(responses, submission.profile)
 
     errors_by_qid: dict = {}
     try:
@@ -351,7 +359,11 @@ def pre_screening_finalize(request):
 
     # Parse every section from POST (top-level finalize form has its own
     # inputs, but we mostly rely on what's already saved by per-section HTMX).
-    responses = dict(submission.pre_screening_responses or {})
+    # Re-derive readonly_confirm answers from the profile right before validation
+    # so the finalize snapshot reflects any late profile edits.
+    responses = merge_readonly_from_profile(
+        submission.pre_screening_responses or {}, submission.profile
+    )
 
     is_edit = submission.pre_screening_submitted_at is not None
 
