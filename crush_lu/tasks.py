@@ -174,3 +174,52 @@ def send_coach_push_notification_task(coach_user_id, title, body, url=None):
         logger.error(
             f"[TASK] Failed to send push to coach {coach_user_id}: {e}"
         )
+
+
+# --------------------------------------------------------------------------
+# Pre-screening questionnaire tasks (Phase 5)
+# --------------------------------------------------------------------------
+
+@task(priority=5)
+def send_pre_screening_invite_task(submission_id, host, is_secure=True, reminder=False):
+    """Send the pre-screening invite or reminder email for one submission."""
+    from .models import ProfileSubmission
+    from .pre_screening_notifications import send_pre_screening_invite_email
+
+    try:
+        submission = ProfileSubmission.objects.select_related(
+            "profile__user"
+        ).get(pk=submission_id)
+    except ProfileSubmission.DoesNotExist:
+        logger.warning(
+            f"[TASK] ProfileSubmission {submission_id} not found for pre-screening invite"
+        )
+        return
+    request = _build_fake_request(host, is_secure)
+    try:
+        send_pre_screening_invite_email(submission, reminder=reminder, request=request)
+    except Exception as e:
+        logger.error(
+            f"[TASK] Failed to send pre-screening {'reminder' if reminder else 'invite'} "
+            f"for submission {submission_id}: {e}"
+        )
+
+
+@task(priority=7)
+def send_pre_screening_user_push_task(submission_id):
+    """Push nudge to the user to fill in pre-screening."""
+    from .models import ProfileSubmission
+    from .pre_screening_notifications import send_pre_screening_user_push
+
+    try:
+        submission = ProfileSubmission.objects.select_related(
+            "profile__user"
+        ).get(pk=submission_id)
+    except ProfileSubmission.DoesNotExist:
+        return
+    try:
+        send_pre_screening_user_push(submission)
+    except Exception as e:
+        logger.error(
+            f"[TASK] Failed to send pre-screening user push for {submission_id}: {e}"
+        )
