@@ -47,8 +47,17 @@ def _mark_sent(cache_key: str, ttl_seconds: int = 60 * 60 * 24 * 30) -> None:
 
 
 def _pre_screening_url(request=None) -> str:
-    """Build the absolute URL for the pre-screening form."""
-    path = "/pre-screening/"
+    """Build the absolute URL for the pre-screening form.
+
+    Uses ``reverse()`` so the language prefix from the current translation
+    context is baked into the path — urls_crush serves user pages under
+    ``i18n_patterns(..., prefix_default_language=True)``, so the unprefixed
+    ``/pre-screening/`` would 404 in the browser. Callers typically wrap this
+    in ``translation.override(lang)`` to match the user's preferred language.
+    """
+    from django.urls import reverse
+
+    path = reverse("crush_lu:pre_screening")
     if request is not None:
         return request.build_absolute_uri(path)
     return "https://crush.lu" + path

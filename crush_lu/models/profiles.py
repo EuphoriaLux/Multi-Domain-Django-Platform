@@ -1253,6 +1253,16 @@ class ScreeningSlot(models.Model):
             ):
                 raise ValidationError(_("This booking link has expired."))
 
+            # Defense in depth against tokens used after the submission moved
+            # on (approved / rejected / call completed / paused). The view-level
+            # `_resolve_token` already rejects the same states, but a
+            # concurrent admin action between resolve and claim could flip them
+            # — only this post-lock check sees the final state.
+            if submission.status != "pending":
+                raise ValidationError(_("This booking link is no longer valid."))
+            if submission.review_call_completed or submission.is_paused:
+                raise ValidationError(_("This booking link is no longer valid."))
+
             # One active booking per submission. Without this, a valid token
             # can claim multiple different slots and `book_screening` /
             # `cancel_booking` — which both read the first booked row — end up

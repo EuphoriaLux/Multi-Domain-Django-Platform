@@ -128,31 +128,39 @@ def sla_sweep(request):
             .select_related("coach__user", "profile__user")
         )
         for sub in submissions:
+            # Nested atomic = savepoint. We persist fallback_offered_at +
+            # booking_token AND enqueue the email together — if enqueue raises,
+            # the savepoint rolls back, so the submission stays eligible for
+            # the next sweep instead of being permanently excluded by the
+            # `fallback_offered_at__isnull=True` filter with no email sent.
             try:
-                sub.fallback_offered_at = now
-                sub.booking_token = uuid.uuid4()
-                sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
-                sub.log_system_action(
-                    "fallback_offered",
-                    actor="system",
-                    reason="sla_breach",
-                    sla_deadline=(
-                        sub.sla_deadline.isoformat() if sub.sla_deadline else None
-                    ),
-                )
-                sub.save(
-                    update_fields=[
-                        "fallback_offered_at",
-                        "booking_token",
-                        "booking_token_expires_at",
-                        "system_actions",
-                    ]
-                )
-                send_sla_fallback_email_task.enqueue(
-                    submission_id=sub.pk,
-                    host=host,
-                    is_secure=request.is_secure(),
-                )
+                with transaction.atomic():
+                    sub.fallback_offered_at = now
+                    sub.booking_token = uuid.uuid4()
+                    sub.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
+                    sub.log_system_action(
+                        "fallback_offered",
+                        actor="system",
+                        reason="sla_breach",
+                        sla_deadline=(
+                            sub.sla_deadline.isoformat()
+                            if sub.sla_deadline
+                            else None
+                        ),
+                    )
+                    sub.save(
+                        update_fields=[
+                            "fallback_offered_at",
+                            "booking_token",
+                            "booking_token_expires_at",
+                            "system_actions",
+                        ]
+                    )
+                    send_sla_fallback_email_task.enqueue(
+                        submission_id=sub.pk,
+                        host=host,
+                        is_secure=request.is_secure(),
+                    )
                 processed += 1
             except Exception:  # noqa: BLE001
                 logger.exception("[sla_sweep] Failed on submission %s", sub.pk)

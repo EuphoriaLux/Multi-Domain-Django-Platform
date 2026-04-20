@@ -47,6 +47,17 @@ def _resolve_token(booking_token):
     ):
         raise Http404("Booking link expired")
 
+    # Refuse tokens once the submission is no longer in the bookable state.
+    # Tokens are only ever minted while status='pending' and the call hasn't
+    # happened yet, so anything else means the submission moved on (approved,
+    # rejected, review_call_completed, or is_paused). Without this guard, a
+    # stale emailed link could still reach claim_for_submission and spawn a
+    # booked slot / coach reassignment against a closed submission.
+    if submission.status != "pending":
+        raise Http404("Booking link no longer valid")
+    if submission.review_call_completed or submission.is_paused:
+        raise Http404("Booking link no longer valid")
+
     return submission
 
 
