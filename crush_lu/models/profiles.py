@@ -789,6 +789,33 @@ class ProfileSubmission(models.Model):
         help_text=_("Structured checklist data from screening call")
     )
 
+    # Pre-screening questionnaire (user-submitted, optional, fills in before call)
+    pre_screening_responses = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("User-submitted answers to pre-screening questionnaire"),
+    )
+    pre_screening_submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When the user finalized their pre-screening answers"),
+    )
+    pre_screening_version = models.PositiveIntegerField(
+        default=0,
+        help_text=_("Schema version the user answered (0 = not offered yet)"),
+    )
+    pre_screening_readiness_score = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text=_("Rule-based 0–10 readiness score, null if no pre-screening"),
+    )
+    pre_screening_flags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Flag identifiers surfaced to the Coach for attention"),
+    )
+
     # Candidate-to-coach note (write-once, submitted during review wait)
     candidate_note = models.TextField(
         blank=True,
