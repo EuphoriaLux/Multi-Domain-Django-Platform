@@ -271,6 +271,37 @@ urlpatterns = [
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
     path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),
 
+    # Hybrid Coach Review System — coach preferences (Phase 2)
+    path('coach/settings/', views.coach_settings, name='coach_settings'),
+    path(
+        'coach/settings/availability/add/',
+        views.coach_settings_availability_add,
+        name='coach_settings_availability_add',
+    ),
+    path(
+        'coach/settings/availability/<int:index>/remove/',
+        views.coach_settings_availability_remove,
+        name='coach_settings_availability_remove',
+    ),
+
+    # Hybrid Coach Review System — self-booking (Phase 5)
+    # Token is the credential; views are unauthenticated.
+    path(
+        'book/<uuid:booking_token>/',
+        views.book_screening,
+        name='book_screening',
+    ),
+    path(
+        'book/<uuid:booking_token>/confirm/',
+        views.confirm_booking,
+        name='confirm_booking',
+    ),
+    path(
+        'book/<uuid:booking_token>/cancel/',
+        views.cancel_booking,
+        name='cancel_booking',
+    ),
+
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),
 

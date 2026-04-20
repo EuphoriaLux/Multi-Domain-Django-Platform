@@ -51,6 +51,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
+# Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
+# the new pipeline is dormant until explicitly enabled per environment. Works
+# with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
+HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
@@ -143,6 +148,7 @@ INSTALLED_APPS = [
     "azureproject",  # For custom analytics templatetags
     "cookie_consent",  # GDPR cookie consent banner
     "channels",  # Django Channels for WebSocket support
+    "django_celery_beat",  # DB-backed periodic task scheduler for Celery
 ]
 
 # SITE_ID must NOT be set - CurrentSiteMiddleware determines site dynamically per request
@@ -252,6 +258,25 @@ if os.environ.get("REDIS_URL"):
             },
         }
     }
+
+
+# Celery — broker/result backend share REDIS_URL with Channels + the cache.
+# In local dev without Redis, fall back to an in-memory broker; tests force
+# eager execution via conftest.py so the broker is never actually needed.
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") or os.environ.get(
+    "REDIS_URL", "memory://"
+)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND") or os.environ.get(
+    "REDIS_URL"
+) or None
+CELERY_TIMEZONE = "Europe/Luxembourg"
+CELERY_ENABLE_UTC = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+# Eager is toggled ON in tests via conftest.py; leave OFF here so dev runs
+# against a real worker when one is configured.
+CELERY_TASK_ALWAYS_EAGER = _env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
 
 # Database

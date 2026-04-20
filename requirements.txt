@@ -45,6 +45,11 @@ channels-redis==4.3.0
 django-redis==6.0.0  # Redis cache backend for Django 6.0
 uvicorn[standard]==0.44.0
 
+# Task queue (Hybrid Coach Review SLA scheduler)
+celery==5.4.0
+django-celery-beat==2.9.0  # 2.9.0+ required for Django 6.0 compatibility
+redis>=5.0,<6.0  # explicit pin for Celery broker (already transitively via django-redis)
+
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1
 whitenoise==6.12.0  # Updated from 6.7.0 (security fix for autorefresh mode)

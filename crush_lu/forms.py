@@ -962,6 +962,116 @@ class CrushCoachForm(forms.ModelForm):
         return [lang for lang in languages if lang in valid_codes]
 
 
+class CoachSettingsForm(forms.ModelForm):
+    """Hybrid Coach Review System — coach-facing settings form.
+
+    Scope: working mode, away toggle, max concurrent reviews, and the
+    per-coach opt-in flag for the new pipeline. Availability windows are
+    managed separately through HTMX endpoints because each window is a
+    dict inside a JSONField and we want inline add/remove UX.
+    """
+
+    class Meta:
+        model = CrushCoach
+        fields = [
+            "working_mode",
+            "is_away",
+            "away_until",
+            "max_active_reviews",
+            "hybrid_features_enabled",
+        ]
+        widgets = {
+            "working_mode": forms.RadioSelect(),
+            "away_until": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": TAILWIND_INPUT}
+            ),
+            "max_active_reviews": forms.NumberInput(
+                attrs={
+                    "type": "range",
+                    "min": 5,
+                    "max": 30,
+                    "step": 1,
+                    "class": "w-full accent-crush-purple",
+                }
+            ),
+        }
+        labels = {
+            "working_mode": _("How do you prefer to schedule screening calls?"),
+            "is_away": _("I'm currently away"),
+            "away_until": _("Away until"),
+            "max_active_reviews": _("Max concurrent reviews"),
+            "hybrid_features_enabled": _("Opt in to the Hybrid Coach Review System"),
+        }
+        help_texts = {
+            "is_away": _(
+                "Temporarily stop receiving new assignments. Leave 'Away until' empty for indefinite."
+            ),
+            "max_active_reviews": _(
+                "Upper limit on your pending review queue. Assignments are skipped once you hit this."
+            ),
+            "hybrid_features_enabled": _(
+                "Required for SLA tracking, availability windows, and self-booking to route users to you."
+            ),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        mode = cleaned.get("working_mode")
+        instance_windows = getattr(self.instance, "availability_windows", None) or []
+        if mode == "booking" and not instance_windows:
+            raise forms.ValidationError(
+                _(
+                    "Booking-first mode requires at least one availability window. "
+                    "Add one below before saving."
+                )
+            )
+        return cleaned
+
+
+def _validate_availability_window(payload):
+    """Validate and normalise one availability window dict.
+
+    Returns a cleaned dict `{day, start, end, label}` or raises ValueError.
+    Used by the HTMX add endpoint.
+    """
+    valid_days = {
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    }
+    day = (payload.get("day") or "").strip().lower()
+    start = (payload.get("start") or "").strip()
+    end = (payload.get("end") or "").strip()
+    label = (payload.get("label") or "").strip()[:60]
+
+    if day not in valid_days:
+        raise ValueError("invalid_day")
+
+    import re
+
+    time_re = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+    if not time_re.match(start) or not time_re.match(end):
+        raise ValueError("invalid_time")
+    if start >= end:
+        raise ValueError("start_not_before_end")
+
+    return {"day": day, "start": start, "end": end, "label": label}
+
+
+def _windows_overlap(existing, new_window):
+    """Detect overlap with an existing window on the same weekday."""
+    for w in existing:
+        if w.get("day") != new_window["day"]:
+            continue
+        if w.get("start") < new_window["end"] and w.get("end") > new_window["start"]:
+            return True
+    return False
+
+
 class CrushSetPasswordForm(forms.Form):
     """
     Form for Facebook-registered users to set a password for email/password login.
