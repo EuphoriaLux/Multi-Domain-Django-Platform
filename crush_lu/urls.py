@@ -266,6 +266,7 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
     path('coach/review/<int:submission_id>/sms-sent/', views.coach_log_sms_sent, name='coach_log_sms_sent'),
     path('coach/review/<int:submission_id>/pre-screening-reminder/', views.coach_send_pre_screening_reminder, name='coach_send_pre_screening_reminder'),
+    path('coach/review/<int:submission_id>/screening-mode/', views.coach_set_screening_mode, name='coach_set_screening_mode'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
     path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),

@@ -372,12 +372,18 @@ def pre_screening_finalize(request):
     submission.pre_screening_version = PRE_SCREENING_SCHEMA["version"]
     submission.pre_screening_readiness_score = score
     submission.pre_screening_flags = flags
+    # Completing pre-screening automatically opts the Coach into the shorter
+    # 3-section calibration call. Coaches can manually revert to legacy via
+    # the screening tab if they prefer the full 5-section flow.
+    if submission.screening_call_mode == "legacy":
+        submission.screening_call_mode = "calibration"
     submission.save(update_fields=[
         "pre_screening_responses",
         "pre_screening_submitted_at",
         "pre_screening_version",
         "pre_screening_readiness_score",
         "pre_screening_flags",
+        "screening_call_mode",
     ])
 
     logger.info(

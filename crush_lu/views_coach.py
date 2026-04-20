@@ -971,6 +971,58 @@ def coach_review_profile(request, submission_id):
 
 @coach_required
 @require_http_methods(["POST"])
+def coach_set_screening_mode(request, submission_id):
+    """Let a Coach switch between legacy (5-section) and calibration (3-section).
+
+    Called from both tab templates. Re-renders the tab via HTMX so the coach
+    can toggle mid-flow without losing the page.
+    """
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+    if submission.review_call_completed:
+        return HttpResponse(status=410)
+    mode = request.POST.get("mode")
+    if mode not in ("legacy", "calibration"):
+        return HttpResponse(status=400)
+    # Legacy-only path: only allow calibration if pre-screening was submitted.
+    if mode == "calibration" and not submission.pre_screening_submitted_at:
+        return HttpResponse(status=400)
+    submission.screening_call_mode = mode
+    submission.save(update_fields=["screening_call_mode"])
+
+    # Re-render the tab in place.
+    from urllib.parse import quote
+    from .models.site_config import CrushSiteConfig
+
+    profile = submission.profile
+    sms_template_encoded = ""
+    if profile.phone_number and profile.phone_verified:
+        config = CrushSiteConfig.get_config()
+        lang = getattr(profile, "preferred_language", "en") or "en"
+        template_field = f"sms_template_{lang}"
+        template = (
+            getattr(config, template_field, config.sms_template_en)
+            or config.sms_template_en
+        )
+        coach_name = coach.user.first_name or "Your coach"
+        first_name = profile.user.first_name or ""
+        sms_body = template.format(first_name=first_name, coach_name=coach_name)
+        sms_template_encoded = quote(sms_body, safe="")
+
+    context = {
+        "submission": submission,
+        "profile": profile,
+        "sms_template_encoded": sms_template_encoded,
+    }
+    return render(request, "crush_lu/_screening_tab.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
 def coach_send_pre_screening_reminder(request, submission_id):
     """HTMX: log that the Coach opened an SMS reminder for pre-screening.
 

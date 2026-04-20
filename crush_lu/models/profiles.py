@@ -788,6 +788,15 @@ class ProfileSubmission(models.Model):
         blank=True,
         help_text=_("Structured checklist data from screening call")
     )
+    screening_call_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('legacy', _('Legacy 5-section')),
+            ('calibration', _('Calibration 3-section')),
+        ],
+        default='legacy',
+        help_text=_("Which call-checklist shape applies to this submission"),
+    )
 
     # Pre-screening questionnaire (user-submitted, optional, fills in before call)
     pre_screening_responses = models.JSONField(
