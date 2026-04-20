@@ -460,8 +460,17 @@ def coach_settings_availability_add(request):
     try:
         cleaned = _validate_availability_window(request.POST)
     except ValueError as exc:
+        # CodeQL: don't echo the raw exception string into the response — in
+        # practice `str(exc)` is always a safe short code, but we still map it
+        # to a stable user-facing message so no internal detail leaks if the
+        # validator ever gets extended with richer error text.
+        messages_by_code = {
+            "invalid_day": _("Please pick a valid day of the week."),
+            "invalid_time": _("Please enter valid start and end times (HH:MM)."),
+            "start_not_before_end": _("Start time must be before end time."),
+        }
         return HttpResponse(
-            _("Invalid window: %(reason)s") % {"reason": str(exc)},
+            messages_by_code.get(str(exc), _("Invalid window.")),
             status=400,
         )
 

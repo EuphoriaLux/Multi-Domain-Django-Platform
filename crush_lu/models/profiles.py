@@ -1253,6 +1253,21 @@ class ScreeningSlot(models.Model):
             ):
                 raise ValidationError(_("This booking link has expired."))
 
+            # One active booking per submission. Without this, a valid token
+            # can claim multiple different slots and `book_screening` /
+            # `cancel_booking` — which both read the first booked row — end up
+            # with orphans. Users who want to change their slot must cancel
+            # first via `cancel_booking`.
+            if cls.objects.filter(
+                submission=submission, status="booked"
+            ).exists():
+                raise ValidationError(
+                    _(
+                        "You already have a booked slot for this submission. "
+                        "Please cancel it before picking a new time."
+                    )
+                )
+
             # Try to lock an existing 'available' slot at this exact time.
             existing = (
                 cls.objects.select_for_update()
@@ -1270,8 +1285,35 @@ class ScreeningSlot(models.Model):
                 slot.submission = submission
                 slot.save(update_fields=["status", "submission", "updated_at"])
             else:
-                # Virtual slot — create a fresh booked row. clean() will
-                # enforce per-coach overlap safety against other bookings.
+                # Virtual slot — the (coach_id, start_at, end_at) tuple comes
+                # from a hidden form field so we MUST re-verify it was actually
+                # offered by `bookable_slots()`. Otherwise a tampered POST can
+                # book any time on any coach, bypassing opt-in, availability
+                # windows, past-time filter, and the 14-day horizon.
+                coach = CrushCoach.objects.filter(
+                    pk=coach_id, is_active=True
+                ).first()
+                if coach is None:
+                    raise ValidationError(
+                        _("That coach is not available for booking.")
+                    )
+
+                from crush_lu.services.slot_generator import bookable_slots
+
+                offered = any(
+                    candidate["coach_id"] == coach_id
+                    and candidate["start_at"] == start_at
+                    and candidate["end_at"] == end_at
+                    for candidate in bookable_slots(coach)
+                )
+                if not offered:
+                    raise ValidationError(
+                        _(
+                            "That time is no longer available. "
+                            "Please pick another slot."
+                        )
+                    )
+
                 slot = cls(
                     coach_id=coach_id,
                     submission=submission,

@@ -209,11 +209,12 @@ def pre_screening_invites(request):
     buffer = StringIO()
     try:
         call_command("send_pre_screening_invites", stdout=buffer, stderr=buffer)
-    except CommandError as e:
-        logger.error("[pre_screening_invites] Command error: %s", e)
-        return JsonResponse(
-            {"error": "command_error", "detail": str(e)}, status=500
-        )
+    except CommandError:
+        # CodeQL: don't echo the raw exception message to the caller — leaks
+        # stack traces / internal paths. The failure is fully captured in logs
+        # with stack via logger.exception; callers only need the error code.
+        logger.exception("[pre_screening_invites] Command error")
+        return JsonResponse({"error": "command_error"}, status=500)
     except Exception:  # noqa: BLE001
         logger.exception("[pre_screening_invites] Unhandled error")
         return JsonResponse({"error": "internal_error"}, status=500)
@@ -221,6 +222,5 @@ def pre_screening_invites(request):
     took_ms = int((timezone.now() - started).total_seconds() * 1000)
     logger.info("[pre_screening_invites] took_ms=%d", took_ms)
     return JsonResponse(
-        {"ok": True, "took_ms": took_ms, "output": buffer.getvalue()[-2000:]},
-        status=202,
+        {"ok": True, "took_ms": took_ms}, status=202
     )
