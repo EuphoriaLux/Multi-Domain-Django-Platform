@@ -1141,7 +1141,7 @@ def meet_coach_step(request):
     if profile is None or profile.completion_status != "submitted":
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.submissions.order_by("-submitted_at").first()
+    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
     if submission is None or submission.coach is None:
         return redirect("crush_lu:profile_submitted")
 
@@ -1167,7 +1167,7 @@ def screening_call_step(request):
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.submissions.order_by("-submitted_at").first()
+    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
     approved = submission is not None and submission.status == "approved"
 
     context = {

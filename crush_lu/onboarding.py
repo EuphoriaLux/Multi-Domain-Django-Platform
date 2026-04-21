@@ -80,7 +80,7 @@ def get_current_step(profile) -> int:
     if profile.completion_status != "submitted":
         return 4
 
-    submission = getattr(profile, "submissions", None)
+    submission = getattr(profile, "profilesubmission_set", None)
     latest = submission.order_by("-submitted_at").first() if submission else None
     if latest is None:
         return 4
