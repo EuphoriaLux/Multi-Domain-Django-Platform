@@ -1,12 +1,12 @@
 # Translations for power_up app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: power_up 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-07 13:06+0100\n"
+"POT-Creation-Date: 2026-04-21 14:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -15,6 +15,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: .\power_up\crm\views.py:428
+#, python-format
+msgid "Ticket %(ref)s updated."
+msgstr ""
+
+#: .\power_up\crm\views.py:449
+msgid "Comment added."
+msgstr ""
 
 #: .\power_up\finops\views.py:224
 msgid "FinOps Hub - Cost Dashboard"
