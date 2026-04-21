@@ -111,18 +111,21 @@
       <div id="recaptcha-container" class="mt-4"></div>
     </section>
 
-    {# Continue button — enabled once phone_verified flips. The
-       phoneVerificationComponent dispatches the window `phone-verified` event
-       on success; we listen for it and flip the form state accordingly. #}
-    <section x-data="{ isVerified: {% if profile.phone_verified %}true{% else %}false{% endif %} }"
-             x-on:phone-verified.window="isVerified = true">
+    {# Continue button — revealed once phone_verified flips. The
+       phoneVerificationComponent dispatches the window `phone-verified`
+       event on success; onboardingPhoneContinue (registered in
+       alpine-components.js) listens for it and exposes isVerified /
+       isNotVerified getters so this stays CSP-friendly (no inline
+       object literals or ! operators). #}
+    <section x-data="onboardingPhoneContinue"
+             data-initial-verified="{% if profile.phone_verified %}true{% else %}false{% endif %}">
       <a href="{% url 'crush_lu:onboarding_entry' %}"
          x-show="isVerified"
          x-cloak
          class="block w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-xl">
         {% trans "Continue" %} →
       </a>
-      <p x-show="!isVerified"
+      <p x-show="isNotVerified"
          class="text-center text-xs text-gray-400 dark:text-gray-500">
         {% trans "Verify your number above to continue." %}
       </p>

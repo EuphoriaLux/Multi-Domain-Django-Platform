@@ -12239,4 +12239,32 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
+    // Onboarding step-2 "Continue" gate.
+    // Shows the Continue button once the phone-verified window event fires
+    // (dispatched by phoneVerificationComponent on successful SMS verify).
+    // Reads initial state from the element's data-initial-verified attribute
+    // so a user who already has phone_verified=True sees the button right
+    // away without having to re-verify.
+    Alpine.data("onboardingPhoneContinue", function () {
+        return {
+            verified: false,
+
+            get isVerified() {
+                return this.verified;
+            },
+            get isNotVerified() {
+                return !this.verified;
+            },
+
+            init: function () {
+                var self = this;
+                var initial = this.$el.getAttribute("data-initial-verified");
+                this.verified = initial === "true";
+                window.addEventListener("phone-verified", function () {
+                    self.verified = true;
+                });
+            },
+        };
+    });
 });
