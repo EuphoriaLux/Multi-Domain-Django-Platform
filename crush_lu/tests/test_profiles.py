@@ -106,13 +106,17 @@ class RegistrationFlowTests(TestCase):
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
         user = User.objects.get(email="newuser@example.com")
         self.assertGreater(len(response.redirect_chain), 0)
-        self.assertEqual(response.redirect_chain[-1][0], reverse("crush_lu:create_profile"))
+        # Signup now routes through /onboarding/ (smart-resume) which lands
+        # a fresh user on /welcome/ (step 1 of the onboarding journey).
+        self.assertEqual(response.redirect_chain[-1][0], reverse("crush_lu:welcome"))
 
-        # Get or create the profile and mark phone as verified (required for submission)
+        # Get or create the profile and mark phone + coach_intro as done so
+        # the submission gate (phone_verified + coach_intro_seen_at) passes.
         profile, _ = CrushProfile.objects.get_or_create(user=user)
         profile.phone_number = "+35212345678"
         profile.phone_verified = True
         profile.phone_verified_at = timezone.now()
+        profile.coach_intro_seen_at = timezone.now()
         profile.save()
 
         profile_data = {

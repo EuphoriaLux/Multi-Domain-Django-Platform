@@ -13,6 +13,7 @@ from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.urls import reverse
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -71,6 +72,11 @@ class VerificationChannelFlowTests(SiteTestMixin, TestCase):
             is_approved=False,
             phone_number="+352123456789",
             phone_verified=True,
+            # Mark step-3 coach intro as acked — otherwise the submission
+            # journey guard (views_profile.complete_profile_submission) would
+            # redirect these fixtures to /onboarding/coach-intro/ before
+            # creating the submission.
+            coach_intro_seen_at=timezone.now(),
             event_languages=["en"],
         )
         self.ProfileSubmission = ProfileSubmission
