@@ -12,7 +12,6 @@ token guessing.
 from datetime import datetime
 from uuid import UUID
 
-from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import Http404
@@ -142,6 +141,15 @@ def confirm_booking(request, booking_token):
     except ProfileSubmission.DoesNotExist:
         raise Http404("Invalid booking token")
 
+    submission.log_system_action(
+        "booking_confirmed",
+        actor=f"user:{submission.profile.user_id}",
+        slot_id=slot.id,
+        coach_id=slot.coach_id,
+        start_at=slot.start_at.isoformat(),
+    )
+    submission.save(update_fields=["system_actions"])
+
     _send_confirmation_email(submission, slot, request)
 
     messages.success(request, _("Your screening call is booked. Check your email for the calendar invite."))
@@ -183,8 +191,9 @@ def _send_confirmation_email(submission, slot, request):
     """
     import logging
 
-    from django.core.mail import EmailMultiAlternatives
     from django.template.loader import render_to_string
+
+    from azureproject.email_utils import send_domain_email
 
     from .services.ics_helper import generate_screening_ics
 
@@ -214,19 +223,21 @@ def _send_confirmation_email(submission, slot, request):
         body_txt = render_to_string("crush_lu/emails/screening_confirmed.txt", context)
         body_html = render_to_string("crush_lu/emails/screening_confirmed.html", context)
 
-        msg = EmailMultiAlternatives(
+        send_domain_email(
             subject=str(_("Your Crush.lu screening call is booked")),
-            body=body_txt,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-            to=[user_email],
+            message=body_txt,
+            recipient_list=[user_email],
+            request=request,
+            html_message=body_html,
+            fail_silently=True,
+            attachments=[
+                (
+                    "screening-call.ics",
+                    generate_screening_ics(submission, slot, booking_url),
+                    "text/calendar; method=REQUEST",
+                ),
+            ],
         )
-        msg.attach_alternative(body_html, "text/html")
-        msg.attach(
-            "screening-call.ics",
-            generate_screening_ics(submission, slot, booking_url),
-            "text/calendar; method=REQUEST",
-        )
-        msg.send(fail_silently=True)
         logger.info(
             "hybrid_coach.booking_confirmed",
             extra={
