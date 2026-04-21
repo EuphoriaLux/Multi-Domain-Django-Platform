@@ -358,10 +358,11 @@ def create_profile(request):
             profile = form.save(commit=False)
             profile.user = request.user
 
-            # Enforce phone verification before allowing submission
-            # The AJAX step-by-step flow checks this in save_profile_step2(),
-            # but the form POST path must also enforce it to prevent bypass.
-            # Check existing_profile first (has DB state), fall back to new profile object.
+            # Enforce phone verification before allowing submission. Phone
+            # verification lives at step 2 of the onboarding journey, so a
+            # form POST without phone_verified is an edge case (JS disabled,
+            # direct URL, stale session). Send them to the step-2 page
+            # rather than re-rendering the create_profile fallback widget.
             phone_check_profile = existing_profile or profile
             if not phone_check_profile.phone_verified:
                 messages.error(
@@ -370,15 +371,7 @@ def create_profile(request):
                         "Please verify your phone number before submitting your profile."
                     ),
                 )
-                from .social_photos import get_all_social_photos
-
-                context = {
-                    "form": form,
-                    "profile": phone_check_profile,
-                    "current_step": "step1",
-                    "social_photos": get_all_social_photos(request.user),
-                }
-                return _render_create_profile(request, context)
+                return redirect("crush_lu:onboarding_phone")
 
             # Journey guard: mirrors the AJAX submit path at
             # views_profile.complete_profile_submission. The JS-disabled form
