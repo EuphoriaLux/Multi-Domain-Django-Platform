@@ -1,12 +1,12 @@
 # Translations for entreprinder app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-11 10:16+0100\n"
+"POT-Creation-Date: 2026-04-21 14:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -110,7 +110,7 @@ msgstr "Se connecter"
 
 #: .\entreprinder\templates\account\login.html:36
 #: .\entreprinder\templates\account\login_powerup.html:36
-#: .\entreprinder\templates\base.html:128
+#: .\entreprinder\templates\base.html:118
 msgid "Sign in with LinkedIn"
 msgstr "Se connecter avec LinkedIn"
 
@@ -220,30 +220,30 @@ msgstr ""
 msgid "Find Entrepreneurs"
 msgstr "Trouver des entrepreneurs"
 
-#: .\entreprinder\templates\base.html:116
+#: .\entreprinder\templates\base.html:106
 msgid "Logout"
 msgstr ""
 
-#: .\entreprinder\templates\base.html:136
+#: .\entreprinder\templates\base.html:126
 msgid "Login"
 msgstr "Se connecter"
 
-#: .\entreprinder\templates\base.html:167
+#: .\entreprinder\templates\base.html:157
 #, python-format
 msgid "Your email address (%(email)s) is not verified."
 msgstr "Votre adresse e-mail (%(email)s) n'est pas vérifiée."
 
-#: .\entreprinder\templates\base.html:168
+#: .\entreprinder\templates\base.html:158
 msgid "Please verify your email address to access all features."
 msgstr ""
 "Veuillez vérifier votre adresse e-mail pour accéder à toutes "
 "lesfonctionnalités."
 
-#: .\entreprinder\templates\base.html:169
+#: .\entreprinder\templates\base.html:159
 msgid "Need a new verification email?"
 msgstr "Besoin d'un nouvel e-mail de vérification ?"
 
-#: .\entreprinder\templates\base.html:169
+#: .\entreprinder\templates\base.html:159
 msgid "Resend verification"
 msgstr "Renvoyer la vérification"
 
@@ -429,7 +429,7 @@ msgstr "Secteur :"
 msgid "Company:"
 msgstr "Entreprise"
 
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:29
 msgid "No more entrepreneurs to show at the moment."
 msgstr "Plus d'entrepreneurs a afficher pour le moment."
 
@@ -942,3 +942,11 @@ msgstr "Démo Pixel Wars React"
 #: .\entreprinder\vibe\views.py:421
 msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
 msgstr "Découverte en Road Trip avec Musique - 90 Minutes vers la Connexion"
+
+#: .\entreprinder\views.py:65
+msgid "Profile updated successfully."
+msgstr ""
+
+#: .\entreprinder\views.py:68
+msgid "Error updating profile. Please check the form."
+msgstr ""
