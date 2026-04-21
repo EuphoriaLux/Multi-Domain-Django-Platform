@@ -68,10 +68,18 @@ def _pre_screening_url(request=None) -> str:
     ``i18n_patterns(..., prefix_default_language=True)``, so the unprefixed
     ``/pre-screening/`` would 404 in the browser. Callers typically wrap this
     in ``translation.override(lang)`` to match the user's preferred language.
+
+    The explicit ``urlconf`` argument makes the reverse work from both the
+    HTTP path (where ``DomainURLRoutingMiddleware`` has already pointed the
+    thread-local urlconf at ``urls_crush``) and the CLI path (where no
+    middleware has run, so ``reverse()`` would otherwise fall back to
+    ``settings.ROOT_URLCONF = "azureproject.urls"`` — the portal urlconf,
+    which does not export the ``crush_lu:`` namespace and raises
+    ``NoReverseMatch``).
     """
     from django.urls import reverse
 
-    path = reverse("crush_lu:pre_screening")
+    path = reverse("crush_lu:pre_screening", urlconf="azureproject.urls_crush")
     if request is not None:
         return request.build_absolute_uri(path)
     return f"https://{_default_email_host()}{path}"
