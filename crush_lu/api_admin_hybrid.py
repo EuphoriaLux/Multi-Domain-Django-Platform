@@ -176,16 +176,19 @@ def sla_sweep(request):
 def _resolve_email_host(request) -> str:
     """Pick the host for links in system-generated emails.
 
-    Prefers an explicit setting, then the incoming request host if it looks
-    like a real domain (not a local Function App URL). Falls back to the first
-    ALLOWED_HOSTS entry containing 'crush.lu'.
+    Prefers the incoming request host when it looks like a real domain (so
+    Function→``test.crush.lu`` produces links back to staging naturally).
+    Falls back to ``STAGING_MODE`` — same slot-sticky env var the rest of the
+    codebase uses — then to the first ``ALLOWED_HOSTS`` entry containing
+    ``crush.lu``.
     """
-    explicit = getattr(settings, "CRUSH_LU_EMAIL_HOST", None)
-    if explicit:
-        return explicit
+    import os
+
     req_host = request.get_host()
     if req_host and "azurewebsites" not in req_host and "localhost" not in req_host:
         return req_host
+    if os.environ.get("STAGING_MODE", "").lower() in ("true", "1", "yes"):
+        return "test.crush.lu"
     for allowed in getattr(settings, "ALLOWED_HOSTS", []) or []:
         if allowed and "crush.lu" in allowed:
             return allowed.lstrip(".")

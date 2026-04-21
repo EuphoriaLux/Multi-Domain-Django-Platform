@@ -36,10 +36,6 @@ import requests
 
 app = func.FunctionApp()
 
-# `Host` header routes the request through DomainURLRoutingMiddleware to the
-# Crush.lu url-conf — admin endpoints live under urls_crush.py.
-_CRUSH_HOST = "crush.lu"
-
 
 def _call_admin_endpoint(name: str, url_env_var: str) -> None:
     """Shared body: POST to a Django admin endpoint with bearer auth.
@@ -47,6 +43,14 @@ def _call_admin_endpoint(name: str, url_env_var: str) -> None:
     Raises so Azure Functions marks the invocation as Failed on any
     network / auth / server error — missing config just early-returns
     (logged as an error) since it isn't a retryable runtime fault.
+
+    The URL's own host is sent in the Host header (requests' default).
+    DomainURLRoutingMiddleware treats `test.crush.lu` as an alias of
+    `crush.lu` (see `azureproject/domains.py`), so both production and
+    staging targets route through `urls_crush.py` correctly. Forcing a
+    literal `Host: crush.lu` would break staging because `crush.lu` is
+    not bound to the staging slot — Azure App Service returns 404
+    before Django sees the request.
     """
     url = os.environ.get(url_env_var)
     api_key = os.environ.get("ADMIN_API_KEY")
@@ -69,7 +73,6 @@ def _call_admin_endpoint(name: str, url_env_var: str) -> None:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "Host": _CRUSH_HOST,
             },
             timeout=60,
         )

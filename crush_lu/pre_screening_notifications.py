@@ -46,6 +46,20 @@ def _mark_sent(cache_key: str, ttl_seconds: int = 60 * 60 * 24 * 30) -> None:
     cache.set(cache_key, 1, ttl_seconds)
 
 
+def _default_email_host() -> str:
+    """Pick ``test.crush.lu`` on staging, ``crush.lu`` in prod.
+
+    Mirrors the ``STAGING_MODE`` convention used in ``azureproject.email_utils``
+    so the same slot-sticky env var controls both the email backend (console vs
+    Graph API) and the host baked into email URLs.
+    """
+    import os
+
+    if os.environ.get("STAGING_MODE", "").lower() in ("true", "1", "yes"):
+        return "test.crush.lu"
+    return "crush.lu"
+
+
 def _pre_screening_url(request=None) -> str:
     """Build the absolute URL for the pre-screening form.
 
@@ -60,7 +74,7 @@ def _pre_screening_url(request=None) -> str:
     path = reverse("crush_lu:pre_screening")
     if request is not None:
         return request.build_absolute_uri(path)
-    return "https://crush.lu" + path
+    return f"https://{_default_email_host()}{path}"
 
 
 class _FakeRequest:
@@ -68,7 +82,9 @@ class _FakeRequest:
     (management command / background task). Mirrors the ``FakeRequest``
     pattern in ``crush_lu.tasks``.
     """
-    def __init__(self, host="crush.lu", secure=True):
+    def __init__(self, host=None, secure=True):
+        if host is None:
+            host = _default_email_host()
         self._host = host
         self._secure = secure
         self.META = {"HTTP_HOST": host, "SERVER_PORT": "443" if secure else "80"}
