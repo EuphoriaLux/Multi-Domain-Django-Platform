@@ -383,7 +383,11 @@ class CrushProfile(models.Model):
         ('step1', _('Step 1: Basic Info Saved')),
         ('step2', _('Step 2: About You Saved')),
         ('step3', _('Step 3: Photos Saved')),
-        ('step4', _('Step 4: Coach Selected')),
+        # Historical value — the 4-step wizard used to have a "Coach Selected"
+        # sub-step before coach selection moved out to step 3 of the outer
+        # onboarding journey. Kept as a legacy choice so migrations don't break,
+        # but renamed to "Review" to match the current wizard's fourth sub-step.
+        ('step4', _('Step 4: Review')),
         ('submitted', _('Submitted for Review')),
     ]
 
