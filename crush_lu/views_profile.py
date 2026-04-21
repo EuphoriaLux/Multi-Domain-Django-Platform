@@ -1010,6 +1010,10 @@ def welcome_view(request):
     context = {
         "first_name": request.user.first_name or request.user.username,
         "intent_options": onboarding.INTENT_PROBE_CHOICES,
+        # Pass the already-selected intent so the radio and the response
+        # card can be pre-populated when the user navigates back from a
+        # later step via the completed step-1 dot in the stepper.
+        "current_intent": profile.intent_probe,
         "chapters": [
             {
                 "chapter": onboarding.JOURNEY_CHAPTERS[ch],
