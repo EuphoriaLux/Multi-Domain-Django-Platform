@@ -235,6 +235,9 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_referral_count',
         'get_journey_progress',
         'outlook_contact_id',
+        # Onboarding-journey timestamps — set by the views, not by humans.
+        'welcome_seen_at',
+        'coach_intro_seen_at',
     )
     actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
     inlines = [ProfileSubmissionProfileInline]
@@ -274,9 +277,19 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'description': _('View which coach is assigned to review this profile.'),
         }),
         ('Profile Completion', {
-            'fields': ('completion_status',),
+            'fields': (
+                'completion_status',
+                'welcome_seen_at',
+                'intent_probe',
+                'coach_intro_seen_at',
+            ),
             'classes': ('collapse',),
-            'description': _('Track which step of profile creation user completed'),
+            'description': _(
+                'Track where the user is in the 7-step onboarding journey. '
+                'welcome_seen_at / coach_intro_seen_at are set by the views '
+                'when the user advances past those steps; intent_probe stores '
+                'the answer they chose on /welcome/.'
+            ),
         }),
         ('Status', {
             'fields': ('is_approved', 'is_active', 'approved_at'),
