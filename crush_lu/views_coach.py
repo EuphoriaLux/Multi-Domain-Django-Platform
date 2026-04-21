@@ -389,9 +389,7 @@ def coach_dashboard(request):
     from .models import ScreeningSlot
 
     upcoming_screening_slots = (
-        ScreeningSlot.objects.filter(
-            coach=coach, status="booked", start_at__gte=now
-        )
+        ScreeningSlot.objects.filter(coach=coach, status="booked", start_at__gte=now)
         .select_related("submission__profile__user")
         .order_by("start_at")[:5]
     )
@@ -1004,6 +1002,12 @@ def coach_review_profile(request, submission_id):
             elif submission.status == "revision":
                 messages.info(request, _("Revision requested."))
 
+                # Release the submission back to the verification channel so any
+                # coach can pick it up again once the user resubmits. The user's
+                # resubmission flow also clears coach=None, but setting it here
+                # keeps state consistent between request and resubmit.
+                submission.coach = None
+
                 # Send revision request to user (push first, email fallback)
                 try:
                     result = notify_profile_revision(
@@ -1070,9 +1074,7 @@ def coach_review_profile(request, submission_id):
     from django.conf import settings as _settings
 
     pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
-    can_send_prescreening_sms = bool(
-        profile.phone_number and profile.phone_verified
-    )
+    can_send_prescreening_sms = bool(profile.phone_number and profile.phone_verified)
 
     context = {
         "submission": submission,
@@ -1201,9 +1203,7 @@ def coach_send_pre_screening_reminder(request, submission_id):
     first_name = profile.user.first_name or ""
     with translation.override(lang):
         link = request.build_absolute_uri(reverse("crush_lu:pre_screening"))
-    sms_body = template.format(
-        first_name=first_name, coach_name=coach_name, link=link
-    )
+    sms_body = template.format(first_name=first_name, coach_name=coach_name, link=link)
     sms_href = f"sms:{profile.phone_number}?&body={quote(sms_body)}"
 
     CallAttempt.objects.create(
@@ -3331,6 +3331,42 @@ def coach_team_stats(request):
 
 
 @coach_required
+def coach_verification_channel(request):
+    """Coach-facing channel: every active coach sees all pending, unclaimed profiles
+    and claims the ones they want. Race-safe claim logic lives in api_coach_claim_submission.
+    """
+    coach = request.coach
+    now = timezone.now()
+
+    channel = list(
+        ProfileSubmission.objects.filter(status="pending", coach__isnull=True)
+        .select_related("profile__user")
+        .order_by("submitted_at")
+    )
+
+    coach_langs = set(coach.spoken_languages or [])
+    for s in channel:
+        hours = (now - s.submitted_at).total_seconds() / 3600
+        s.is_urgent = hours > 48
+        s.is_warning = 24 < hours <= 48
+        s.hours_waiting = hours
+        profile_langs = set(s.profile.event_languages or [])
+        s.matched_languages = sorted(coach_langs & profile_langs)
+        s.language_match = bool(s.matched_languages)
+
+    my_pending = ProfileSubmission.objects.filter(coach=coach, status="pending").count()
+
+    context = {
+        "coach": coach,
+        "channel": channel,
+        "channel_count": len(channel),
+        "my_pending": my_pending,
+        "at_capacity": not coach.can_accept_reviews(),
+    }
+    return render(request, "crush_lu/coach_verification_channel.html", context)
+
+
+@coach_required
 @require_http_methods(["POST"])
 def api_coach_claim_submission(request):
     """API: Coach claims a pending submission for themselves."""
@@ -3385,6 +3421,15 @@ def api_coach_claim_submission(request):
     logger.info(
         "Coach %s claimed submission #%d (was: %s)", coach, submission.id, old_coach
     )
+
+    # Follow-up broadcast: replace the "new in channel" banner on other coaches.
+    try:
+        from .coach_notifications import broadcast_submission_claimed
+
+        broadcast_submission_claimed(submission, claimed_by=coach)
+    except Exception as e:
+        logger.warning(f"Failed to broadcast submission claim: {e}")
+
     return JsonResponse(
         {
             "success": True,

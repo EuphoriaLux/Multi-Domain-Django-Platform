@@ -270,6 +270,7 @@ urlpatterns = [
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
     path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),
+    path('coach/channel/', views.coach_verification_channel, name='coach_verification_channel'),
 
     # Hybrid Coach Review System — coach preferences (Phase 2)
     path('coach/settings/', views.coach_settings, name='coach_settings'),

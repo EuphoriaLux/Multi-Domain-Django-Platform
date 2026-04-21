@@ -17,7 +17,6 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-from django.db.models import Q, Count
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -50,7 +49,6 @@ AUTOSAVE_PRIVACY_FIELDS = {
 
 from .models import (
     CrushProfile,
-    CrushCoach,
     ProfileSubmission,
     MeetupEvent,
     EventRegistration,
@@ -59,7 +57,6 @@ from .models import (
 )
 from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
-    CrushSignupForm,
     CrushProfileForm,
     IdealCrushPreferencesForm,
 )
@@ -68,8 +65,7 @@ from .email_helpers import (
     send_profile_submission_notifications,
 )
 from .coach_notifications import (
-    notify_coach_new_submission,
-    notify_coach_user_revision,
+    broadcast_new_submission_to_channel,
 )
 from .utils.i18n import is_valid_language
 
@@ -159,6 +155,7 @@ from .views_coach import (  # noqa: F401
     coach_connection_review,
     coach_profiles,
     coach_team_stats,
+    coach_verification_channel,
     api_coach_claim_submission,
     coach_members,
     coach_member_matches,
@@ -302,33 +299,6 @@ def dashboard(request):
     return render(request, "crush_lu/dashboard.html", context)
 
 
-def _get_coaches_for_selection(user_language=None):
-    """Return active coaches with pending review counts for coach selection step."""
-    coaches = (
-        CrushCoach.objects.filter(is_active=True)
-        .annotate(
-            pending_count=Count(
-                "profilesubmission",
-                filter=Q(profilesubmission__status="pending"),
-            )
-        )
-        .select_related("user")
-    )
-    return [
-        {
-            "coach": coach,
-            "pending_count": coach.pending_count,
-            "available": coach.pending_count < coach.max_active_reviews,
-            "language_match": (
-                user_language in (coach.spoken_languages or [])
-                if user_language
-                else False
-            ),
-        }
-        for coach in coaches
-    ]
-
-
 @crush_login_required
 @ratelimit(key="user", rate="10/15m", method="POST", block=True)
 def create_profile(request):
@@ -382,9 +352,6 @@ def create_profile(request):
                     "profile": phone_check_profile,
                     "current_step": "step1",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -453,16 +420,19 @@ def create_profile(request):
                     elif revision_submission:
                         submission = revision_submission
                         submission.status = "pending"
+                        submission.coach = None  # back to the channel
                         submission.submitted_at = timezone.now()
                         submission.save()
                         created = False
                         is_revision = True
                         logger.info(
-                            f"✅ Revision submission updated to pending for {request.user.email}"
+                            f"Revision submission updated to pending for {request.user.email}"
                         )
                     else:
                         submission = ProfileSubmission.objects.create(
-                            profile=profile, status="pending"
+                            profile=profile,
+                            status="pending",
+                            coach=None,
                         )
                         created = True
 
@@ -484,110 +454,30 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
-            # Assign selected coach (mandatory user selection)
-            selected_coach_id = request.POST.get("selected_coach")
-            if selected_coach_id:
+            # Broadcast to the verification channel (all eligible coaches).
+            # Coach is never assigned here — the channel view + claim endpoint owns that.
+            if created or is_revision:
                 try:
-                    selected_coach = CrushCoach.objects.get(
-                        id=selected_coach_id, is_active=True
+                    broadcast_new_submission_to_channel(submission)
+                    logger.info(
+                        f"Channel broadcast sent for submission {submission.id}"
                     )
-                    # Allow re-selecting the same coach even if at capacity
-                    # (the existing submission already counts in their pending count)
-                    is_same_coach = submission.coach_id == selected_coach.id
-                    if not is_same_coach and not selected_coach.can_accept_reviews():
-                        messages.warning(
-                            request,
-                            _(
-                                "The coach you selected is no longer available. Please choose another coach."
-                            ),
-                        )
-                        from .social_photos import get_all_social_photos
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast channel notification: {e}")
 
-                        context = {
-                            "form": form,
-                            "profile": profile,
-                            "current_step": "step3",
-                            "social_photos": get_all_social_photos(request.user),
-                            "coaches": _get_coaches_for_selection(
-                                user_language=getattr(request, "LANGUAGE_CODE", None)
-                            ),
-                        }
-                        return render(request, "crush_lu/create_profile.html", context)
-                    submission.coach = selected_coach
-                    submission.save()
-                except CrushCoach.DoesNotExist:
-                    messages.error(
-                        request,
-                        _(
-                            "The coach you selected is no longer available. Please choose another coach."
-                        ),
-                    )
-                    from .social_photos import get_all_social_photos
-
-                    context = {
-                        "form": form,
-                        "profile": profile,
-                        "current_step": "step3",
-                        "social_photos": get_all_social_photos(request.user),
-                        "coaches": _get_coaches_for_selection(
-                            user_language=getattr(request, "LANGUAGE_CODE", None)
-                        ),
-                    }
-                    return render(request, "crush_lu/create_profile.html", context)
-            else:
-                # No coach selected — edge case / tampering
-                messages.error(request, _("Please select a coach before submitting."))
-                from .social_photos import get_all_social_photos
-
-                context = {
-                    "form": form,
-                    "profile": profile,
-                    "current_step": "step3",
-                    "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
-                }
-                return render(request, "crush_lu/create_profile.html", context)
-
-            # Only send emails for NEW submissions
             if created:
                 logger.info(f"NEW profile submission created for {request.user.email}")
-
-                if submission.coach:
-                    try:
-                        notify_coach_new_submission(submission.coach, submission)
-                        logger.info(
-                            f"Coach push notification sent for submission {submission.id}"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to send coach push notification: {e}")
-
                 send_profile_submission_notifications(
                     submission,
                     request,
                     add_message_func=lambda msg: messages.warning(request, msg),
                 )
-            elif is_revision:
-                if submission.coach:
-                    try:
-                        notify_coach_user_revision(submission.coach, submission)
-                        logger.info(
-                            f"Coach revision notification sent for submission {submission.id}"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to send coach revision notification: {e}"
-                        )
-            else:
+            elif not is_revision:
                 logger.warning(
-                    f"⚠️ Duplicate submission attempt prevented for {request.user.email}"
+                    f"Duplicate submission attempt prevented for {request.user.email}"
                 )
 
             messages.success(request, _("Profile submitted for review!"))
@@ -620,9 +510,6 @@ def create_profile(request):
                 "form": form,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(
-                    user_language=getattr(request, "LANGUAGE_CODE", None)
-                ),
             }
             return render(request, "crush_lu/create_profile.html", context)
 
@@ -654,12 +541,6 @@ def create_profile(request):
                     "social_photos": get_all_social_photos(request.user),
                     "submission": latest_submission,
                     "is_revision": True,
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
-                    "selected_coach_id": (
-                        latest_submission.coach_id if latest_submission.coach else None
-                    ),
                 }
                 return render(request, "crush_lu/create_profile.html", context)
 
@@ -678,9 +559,6 @@ def create_profile(request):
                     "form": form,
                     "profile": profile,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
                 },
             )
         elif profile.completion_status in ["step1", "step2", "step3", "step4"]:
@@ -695,9 +573,6 @@ def create_profile(request):
                     "profile": profile,
                     "current_step": profile.completion_status,
                     "social_photos": get_all_social_photos(request.user),
-                    "coaches": _get_coaches_for_selection(
-                        user_language=getattr(request, "LANGUAGE_CODE", None)
-                    ),
                 },
             )
         else:
@@ -713,9 +588,6 @@ def create_profile(request):
                 "form": form,
                 "profile": None,
                 "social_photos": get_all_social_photos(request.user),
-                "coaches": _get_coaches_for_selection(
-                    user_language=getattr(request, "LANGUAGE_CODE", None)
-                ),
             },
         )
 
@@ -740,7 +612,14 @@ def _render_edit_profile_form(request):
         return redirect("crush_lu:create_profile")
 
     section = request.GET.get("section", "")
-    valid_sections = ("photos", "about", "preferences", "privacy", "account", "about_crushlu")
+    valid_sections = (
+        "photos",
+        "about",
+        "preferences",
+        "privacy",
+        "account",
+        "about_crushlu",
+    )
 
     # --- Section: Photos ---
     if section == "photos":
@@ -1450,19 +1329,16 @@ def edit_profile(request):
             profile.save()
 
             submission, created = ProfileSubmission.objects.get_or_create(
-                profile=profile, defaults={"status": "pending"}
+                profile=profile, defaults={"status": "pending", "coach": None}
             )
             if created:
-                submission.assign_coach()
-
-                if submission.coach:
-                    try:
-                        notify_coach_new_submission(submission.coach, submission)
-                        logger.info(
-                            f"Coach push notification sent for submission {submission.id}"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to send coach push notification: {e}")
+                try:
+                    broadcast_new_submission_to_channel(submission)
+                    logger.info(
+                        f"Channel broadcast sent for submission {submission.id}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast channel notification: {e}")
 
                 send_profile_submission_notifications(
                     submission,
@@ -1773,6 +1649,7 @@ def profile_submitted(request):
     # Queue position
     queue_position = 0
     total_coach_pending = 0
+    total_channel = 0
     if submission.coach:
         queue_position = ProfileSubmission.objects.filter(
             status="pending",
@@ -1785,6 +1662,9 @@ def profile_submitted(request):
             status="pending",
             coach__isnull=True,
             submitted_at__lt=submission.submitted_at,
+        ).count()
+        total_channel = ProfileSubmission.objects.filter(
+            status="pending", coach__isnull=True
         ).count()
 
     # Wait time and status
@@ -1831,6 +1711,7 @@ def profile_submitted(request):
         "is_coach_specific_estimate": is_coach_specific_estimate,
         "queue_position": queue_position,
         "total_coach_pending": total_coach_pending,
+        "total_channel": total_channel,
         "hours_waiting": round(hours_waiting, 1),
         "wait_status": wait_status,
         "progress_percent": progress_percent,

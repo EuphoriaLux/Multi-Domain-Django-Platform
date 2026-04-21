@@ -3200,9 +3200,7 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("profileWizard", function () {
         return {
             currentStep: 1,
-            totalSteps: 5,
-            selectedCoachId: "",
-            selectedCoachName: "",
+            totalSteps: 4,
             isSubmitting: false,
             phoneVerified: false,
             showErrors: false,
@@ -3242,22 +3240,13 @@ document.addEventListener("alpine:init", function () {
             get step4Completed() {
                 return this.currentStep > 4;
             },
-            get step5Completed() {
-                return this.currentStep > 5;
-            },
             // Progress bar for mobile wizard
             get progressBarStyle() {
                 var pct = (this.currentStep / this.totalSteps) * 100;
                 return "width:" + pct + "%";
             },
             get stepLabel() {
-                var names = [
-                    "Basic Info",
-                    "About You",
-                    "Photos",
-                    "Your Coach",
-                    "Review",
-                ];
+                var names = ["Basic Info", "About You", "Photos", "Review"];
                 var name = names[this.currentStep - 1] || "";
                 return (
                     "Step " + this.currentStep + " of " + this.totalSteps + " — " + name
@@ -3275,9 +3264,6 @@ document.addEventListener("alpine:init", function () {
             },
             get isStep4() {
                 return this.currentStep === 4;
-            },
-            get isStep5() {
-                return this.currentStep === 5;
             },
             get step1NotCompleted() {
                 return !this.step1Completed;
@@ -3334,12 +3320,6 @@ document.addEventListener("alpine:init", function () {
             get cannotContinueStep2() {
                 return this.isSaving;
             },
-            get hasCoachSelected() {
-                return this.selectedCoachId !== "";
-            },
-            get cannotContinueStep4() {
-                return this.selectedCoachId === "";
-            },
             get hasGenderError() {
                 return this.fieldErrors.gender !== undefined;
             },
@@ -3394,16 +3374,6 @@ document.addEventListener("alpine:init", function () {
                     ? "text-purple-600 font-medium"
                     : "text-gray-400";
             },
-            get step5CircleClass() {
-                return this.currentStep >= 5
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500"
-                    : "bg-gray-300";
-            },
-            get step5TextClass() {
-                return this.currentStep >= 5
-                    ? "text-purple-600 font-medium"
-                    : "text-gray-400";
-            },
             get step1ConnectorClass() {
                 return this.step1Completed
                     ? "bg-gradient-to-r from-purple-500 to-pink-500"
@@ -3446,11 +3416,6 @@ document.addEventListener("alpine:init", function () {
                     ? "bg-purple-100 text-purple-700 font-medium"
                     : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
             },
-            get step5ButtonClass() {
-                return this.isStep5
-                    ? "bg-purple-100 text-purple-700 font-medium"
-                    : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
-            },
 
             init: function () {
                 // Read initial values from data attributes
@@ -3459,14 +3424,15 @@ document.addEventListener("alpine:init", function () {
                 var phoneVerified = el.getAttribute("data-phone-verified");
                 var isEditing = el.getAttribute("data-is-editing");
 
-                // Map step names to numbers
+                // Map step names to numbers. step4 is a legacy DB value from
+                // the old coach-picker wizard; it now maps to the Review step.
                 var stepMap = {
                     not_started: 1,
                     step1: 2,
                     step2: 3,
                     step3: 4,
-                    step4: 5,
-                    submitted: 5,
+                    step4: 4,
+                    submitted: 4,
                 };
 
                 if (initialStep && stepMap[initialStep]) {
@@ -3544,43 +3510,6 @@ document.addEventListener("alpine:init", function () {
 
                 // Warn before leaving with unsaved changes
                 self.setupUnloadWarning();
-
-                // Pre-select coach for revision flow
-                var selectedCoach = el.getAttribute("data-selected-coach");
-                if (selectedCoach) {
-                    self.selectedCoachId = selectedCoach;
-                    // Update hidden input
-                    var coachInput = document.getElementById("id_selected_coach");
-                    if (coachInput) {
-                        coachInput.value = selectedCoach;
-                    }
-                    // Capture coach name and visually highlight after DOM is ready
-                    setTimeout(function () {
-                        var card = document.querySelector(
-                            '[data-coach-card="' + selectedCoach + '"]',
-                        );
-                        if (card) {
-                            var nameEl = card.querySelector("h4");
-                            self.selectedCoachName = nameEl
-                                ? nameEl.textContent.trim()
-                                : "";
-                            var nameInput = document.getElementById(
-                                "id_selected_coach_name",
-                            );
-                            if (nameInput) {
-                                nameInput.value = self.selectedCoachName;
-                            }
-                        }
-                        self._highlightCoachCard(selectedCoach);
-                    }, 100);
-                }
-
-                // Init coach bio "Read more" buttons when starting on step 4
-                if (this.currentStep === 4) {
-                    setTimeout(function () {
-                        self.initCoachBioButtons();
-                    }, 150);
-                }
             },
 
             // Initialize field tracking from DOM values
@@ -3717,12 +3646,6 @@ document.addEventListener("alpine:init", function () {
                 if (reviewLocation) {
                     reviewLocation.textContent = this.locationName || "Not selected";
                 }
-
-                // Coach name from stored state
-                var reviewCoach = this.$refs.reviewCoach;
-                if (reviewCoach) {
-                    reviewCoach.textContent = this.selectedCoachName || "Not selected";
-                }
             },
 
             setSubmitting: function () {
@@ -3746,11 +3669,11 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
-            // Handle form submission - only allow on final step (Step 5: Review)
-            // This prevents Enter key in text inputs from submitting the form prematurely
+            // Handle form submission - only allow on the final step (Review).
+            // This prevents Enter key in text inputs from submitting the form prematurely.
             handleFormSubmit: function (e) {
-                // Only allow submission when on the final step
-                if (this.currentStep !== 5) {
+                // Only allow submission when on the final (Review) step.
+                if (this.currentStep !== this.totalSteps) {
                     // Prevent form submission on non-final steps
                     return;
                 }
@@ -4053,7 +3976,9 @@ document.addEventListener("alpine:init", function () {
                 });
             },
 
-            // Save Step 3 and advance if successful
+            // Save Step 3 (Photos) and advance to the Review step.
+            // Coach is never assigned by the user — submissions land in the
+            // verification channel; any coach can claim them.
             saveAndNextStep3: function () {
                 var self = this;
 
@@ -4061,191 +3986,6 @@ document.addEventListener("alpine:init", function () {
                     if (result.success) {
                         self.saveError = "";
                         self.currentStep = 4;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                        setTimeout(function () {
-                            self.initCoachBioButtons();
-                        }, 100);
-                    }
-                });
-            },
-
-            // Coach bio expand/collapse (Step 4)
-            toggleCoachBio: function (e) {
-                e.stopPropagation();
-                var btn = e.currentTarget;
-                var coachId = btn.getAttribute("data-toggle-bio");
-                var textEl = document.querySelector(
-                    '[data-coach-bio-text="' + coachId + '"]',
-                );
-                if (!textEl) return;
-                var isExpanded = textEl.classList.contains("line-clamp-none");
-                if (isExpanded) {
-                    textEl.classList.remove("line-clamp-none");
-                    textEl.classList.add("line-clamp-2");
-                    btn.textContent = btn.getAttribute("data-read-more");
-                } else {
-                    textEl.classList.remove("line-clamp-2");
-                    textEl.classList.add("line-clamp-none");
-                    btn.textContent = btn.getAttribute("data-read-less");
-                }
-            },
-
-            initCoachBioButtons: function () {
-                // Show "Read more" buttons only for bios that are actually truncated
-                var bioTexts = document.querySelectorAll("[data-coach-bio-text]");
-                for (var i = 0; i < bioTexts.length; i++) {
-                    var el = bioTexts[i];
-                    if (el.scrollHeight > el.clientHeight) {
-                        var coachId = el.getAttribute("data-coach-bio-text");
-                        var btn = document.querySelector(
-                            '[data-toggle-bio="' + coachId + '"]',
-                        );
-                        if (btn) btn.classList.remove("hidden");
-                    }
-                }
-            },
-
-            // Coach selection methods (Step 4)
-            handleCoachClick: function (e) {
-                // Read coach ID from closest data-coach-id attribute (CSP-safe, no inline args)
-                var card = e.currentTarget;
-                var coachId = card.getAttribute("data-coach-id");
-                if (coachId) {
-                    this.selectCoach(coachId);
-                }
-            },
-
-            selectCoach: function (coachId) {
-                this.selectedCoachId = String(coachId);
-                var input = document.getElementById("id_selected_coach");
-                if (input) {
-                    input.value = coachId;
-                }
-                // Capture coach name from the card
-                var card = document.querySelector(
-                    '[data-coach-card="' + coachId + '"]',
-                );
-                if (card) {
-                    var nameEl = card.querySelector("h4");
-                    this.selectedCoachName = nameEl ? nameEl.textContent.trim() : "";
-                }
-                var nameInput = document.getElementById("id_selected_coach_name");
-                if (nameInput) {
-                    nameInput.value = this.selectedCoachName;
-                }
-                // Remove selection styling from all coach cards
-                var allCards = document.querySelectorAll("[data-coach-card]");
-                for (var i = 0; i < allCards.length; i++) {
-                    allCards[i].classList.remove(
-                        "ring-2",
-                        "ring-purple-500",
-                        "border-purple-500",
-                    );
-                    allCards[i].classList.add(
-                        "border-gray-200",
-                        "dark:border-gray-700",
-                    );
-                }
-                // Add selection styling to chosen card
-                this._highlightCoachCard(coachId);
-                // Persist coach selection to draft directly
-                // (don't use saveDraft/gatherCurrentStepData which may fail on step 4)
-                this.saveCoachDraft();
-            },
-
-            saveCoachDraft: function () {
-                var self = this;
-                var payload = JSON.stringify({
-                    step: 4,
-                    data: {
-                        selected_coach: self.selectedCoachId,
-                        selected_coach_name: self.selectedCoachName,
-                    },
-                });
-
-                fetch("/api/profile/draft/save/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": self.getCsrfToken(),
-                    },
-                    body: payload,
-                })
-                    .then(function (response) {
-                        return response.json();
-                    })
-                    .then(function (result) {
-                        if (!result.success) {
-                            console.error("[COACH DRAFT] Save failed:", result.error);
-                        }
-                    })
-                    .catch(function (err) {
-                        console.error("[COACH DRAFT] Network error:", err);
-                    });
-            },
-
-            _highlightCoachCard: function (coachId) {
-                var card = document.querySelector(
-                    '[data-coach-card="' + coachId + '"]',
-                );
-                if (card) {
-                    card.classList.remove("border-gray-200", "dark:border-gray-700");
-                    card.classList.add(
-                        "ring-2",
-                        "ring-purple-500",
-                        "border-purple-500",
-                    );
-                }
-            },
-
-            saveStep4: function () {
-                var self = this;
-                self.isSaving = true;
-                self.saveError = "";
-
-                return fetch("/api/profile/save-step4/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": self.getCsrfToken(),
-                    },
-                    body: JSON.stringify({ selected_coach: self.selectedCoachId }),
-                })
-                    .then(function (response) {
-                        return response.json().then(function (d) {
-                            return { ok: response.ok, data: d };
-                        });
-                    })
-                    .then(function (result) {
-                        self.isSaving = false;
-                        if (result.ok && result.data.success) {
-                            if (result.data.csrfToken) {
-                                self.updateAllCsrfTokens(result.data.csrfToken);
-                            }
-                            return { success: true };
-                        } else {
-                            self.saveError =
-                                result.data.error || "Failed to save coach selection";
-                            return { success: false };
-                        }
-                    })
-                    .catch(function (err) {
-                        self.isSaving = false;
-                        self.saveError = "Network error. Please try again.";
-                        return { success: false };
-                    });
-            },
-
-            saveAndNextStep4: function () {
-                if (this.selectedCoachId === "") {
-                    return;
-                }
-                var self = this;
-
-                self.saveStep4().then(function (result) {
-                    if (result.success) {
-                        self.saveError = "";
-                        self.currentStep = 5;
                         self.updateReview();
                         window.scrollTo({ top: 0, behavior: "smooth" });
                     }
@@ -4435,29 +4175,11 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
 
-                // Restore selected coach from draft
-                if (this.draftData.selected_coach && !this.selectedCoachId) {
-                    this.selectedCoachId = String(this.draftData.selected_coach);
-                    this.selectedCoachName = this.draftData.selected_coach_name || "";
-                    var coachInput = document.getElementById("id_selected_coach");
-                    if (coachInput) {
-                        coachInput.value = this.draftData.selected_coach;
-                    }
-                    var nameInput = document.getElementById("id_selected_coach_name");
-                    if (nameInput) {
-                        nameInput.value = this.selectedCoachName;
-                    }
-                    var coachId = this.draftData.selected_coach;
-                    setTimeout(function () {
-                        self._highlightCoachCard(coachId);
-                    }, 100);
-                }
-
-                // CRITICAL FIX: Update the review display after populating fields
-                // This ensures Step 5 review shows the correct data when page is refreshed
+                // Update the review display after populating fields so Step 4 (Review)
+                // shows the correct data when the page is refreshed mid-wizard.
                 setTimeout(function () {
                     self.updateReview();
-                }, 100); // Small delay to ensure DOM is ready
+                }, 100);
             },
 
             // Setup auto-save event listeners
@@ -9985,7 +9707,8 @@ document.addEventListener("alpine:init", function () {
                     try {
                         const prior = JSON.parse(initialEl.dataset.checklistInitial);
                         this.warmIntroComplete = !!prior.warm_intro_complete;
-                        this.conceptCalibrationComplete = !!prior.concept_calibration_complete;
+                        this.conceptCalibrationComplete =
+                            !!prior.concept_calibration_complete;
                         this.conceptNotes = prior.concept_notes || "";
                         this.discretionNotes = prior.discretion_notes || "";
                     } catch (e) {
@@ -10021,7 +9744,7 @@ document.addEventListener("alpine:init", function () {
                 return n;
             },
             get progressWidth() {
-                return "width: " + (this.completedCount / 2 * 100) + "%";
+                return "width: " + (this.completedCount / 2) * 100 + "%";
             },
             get submitDisabled() {
                 return !(this.warmIntroComplete && this.conceptCalibrationComplete);

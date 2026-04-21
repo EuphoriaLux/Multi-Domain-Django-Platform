@@ -10,6 +10,8 @@ crush-pass.csr
 # C extensions
 *.so
 
+crush-lu-design-system/*
+
 # Distribution / packaging
 .Python
 build/
