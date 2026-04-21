@@ -332,6 +332,16 @@ def create_profile(request):
         )
         return redirect("crush_lu:account_settings")
 
+    # Journey guard on GET: a user arriving at /create-profile/ without
+    # having finished steps 1–3 (direct URL, stale bookmark, old email link)
+    # gets bounced into the smart-resume entry so they land on their actual
+    # current step. POSTs are left alone — the form-submit path already
+    # short-circuits on phone_verified / coach_intro_seen_at further down.
+    if request.method == "GET":
+        _existing = CrushProfile.objects.filter(user=request.user).first()
+        if _existing and onboarding.get_current_step(_existing) < 4:
+            return redirect("crush_lu:onboarding_entry")
+
     # If it's a POST request, process the form submission first
     if request.method == "POST":
         # Get existing profile if it exists (from Steps 1-2 AJAX saves)

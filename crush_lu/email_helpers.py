@@ -181,9 +181,11 @@ def send_welcome_email(user, request):
     # Get user's preferred language
     lang = get_user_preferred_language(user=user, request=request, default='en')
 
-    # Build profile URL with language prefix
-    # Note: create_profile is inside i18n_patterns
-    profile_url = get_user_language_url(user, 'crush_lu:create_profile', request)
+    # Build journey entry URL with language prefix. Points at /onboarding/
+    # (smart-resume) so the CTA lands users on their current step — a fresh
+    # user on /welcome/, a returning user further along. Linking directly to
+    # /create-profile/ would skip the journey entirely.
+    profile_url = get_user_language_url(user, 'crush_lu:onboarding_entry', request)
 
     # Build how it works URL with language prefix
     how_it_works_url = get_user_language_url(user, 'crush_lu:how_it_works', request)
