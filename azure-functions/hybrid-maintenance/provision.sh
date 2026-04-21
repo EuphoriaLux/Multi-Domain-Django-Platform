@@ -30,6 +30,9 @@ FUNC_APP="crush-hybrid-maintenance"
 STORAGE_ACCOUNT="mediabjnukuybtvjdy"
 APP_SERVICE="django-app-ajfffwjb5ie3s-app-service"
 SIBLING_FUNC="crush-contact-sync"
+# Shared Premium v3 plan used by Django + both sibling function apps.
+# Linux Consumption dynamic workers are not available in this RG.
+APP_SERVICE_PLAN="django-app-ajfffwjb5ie3s-service-plan"
 
 echo "==> Verifying az context"
 az account show --query "{name:name, id:id}" -o table
@@ -38,11 +41,11 @@ echo "==> Checking whether $FUNC_APP already exists"
 if az functionapp show -n "$FUNC_APP" -g "$RG" --query "name" -o tsv 2>/dev/null; then
   echo "Function App $FUNC_APP already exists — skipping create"
 else
-  echo "==> Creating Function App $FUNC_APP (Consumption / Linux / Python 3.12)"
+  echo "==> Creating Function App $FUNC_APP (shared plan $APP_SERVICE_PLAN / Linux / Python 3.12)"
   az functionapp create \
     --resource-group "$RG" \
     --name "$FUNC_APP" \
-    --consumption-plan-location "$LOCATION" \
+    --plan "$APP_SERVICE_PLAN" \
     --runtime python \
     --runtime-version 3.12 \
     --functions-version 4 \
