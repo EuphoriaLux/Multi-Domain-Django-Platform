@@ -28,6 +28,69 @@ from .models import (
 )
 
 
+def export_pre_screening_csv(request):
+    """CSV export of per-question answer distributions (Phase 6).
+
+    Each row is (section_id, question_id, answer_value, count). Useful for
+    spotting concept-misalignment clusters and free-text themes.
+    """
+    import csv
+    from collections import Counter
+    from django.conf import settings
+    from django.contrib.admin.views.decorators import staff_member_required  # noqa
+    from django.http import HttpResponse, HttpResponseForbidden
+
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return HttpResponseForbidden("Staff only.")
+    if not getattr(settings, "PRE_SCREENING_ENABLED", False):
+        return HttpResponseForbidden("Feature disabled.")
+
+    from .pre_screening_schema import PRE_SCREENING_SCHEMA
+
+    submitted = ProfileSubmission.objects.filter(
+        pre_screening_submitted_at__isnull=False
+    ).values_list("pre_screening_responses", flat=True)
+
+    distribution: Counter = Counter()
+    text_lengths: list[int] = []
+    for responses in submitted:
+        for section in PRE_SCREENING_SCHEMA["sections"]:
+            for question in section["questions"]:
+                qid = question["id"]
+                val = (responses or {}).get(qid)
+                if val in (None, "", []):
+                    continue
+                if question["type"] == "multi_select":
+                    for v in val:
+                        distribution[(section["id"], qid, v)] += 1
+                elif question["type"] == "text":
+                    if isinstance(val, str):
+                        text_lengths.append(len(val))
+                else:
+                    distribution[(section["id"], qid, str(val))] += 1
+
+    resp = HttpResponse(content_type="text/csv")
+    resp["Content-Disposition"] = (
+        'attachment; filename="pre_screening_answer_distribution.csv"'
+    )
+    writer = csv.writer(resp)
+    writer.writerow(["section", "question", "answer", "count"])
+    for (section_id, qid, val), n in sorted(
+        distribution.items(), key=lambda kv: (kv[0][0], kv[0][1], -kv[1])
+    ):
+        writer.writerow([section_id, qid, val, n])
+    # Trailer rows with summary stats on free-text answers.
+    if text_lengths:
+        avg_len = sum(text_lengths) / len(text_lengths)
+        writer.writerow([])
+        writer.writerow(["# free-text answer stats"])
+        writer.writerow(["count", len(text_lengths)])
+        writer.writerow(["avg_length_chars", round(avg_len, 1)])
+        writer.writerow(["max_length_chars", max(text_lengths)])
+        writer.writerow(["min_length_chars", min(text_lengths)])
+    return resp
+
+
 def _get_date_range(request):
     """
     Parse date range from request GET parameter.
@@ -700,6 +763,80 @@ def crush_admin_dashboard(request):
     # PREPARE CONTEXT
     # ============================================================================
 
+    # ------------------------------------------------------------------
+    # Pre-screening analytics (Phase 6). Disabled when feature flag is off.
+    # ------------------------------------------------------------------
+    pre_screening_metrics: dict = {}
+    try:
+        from django.conf import settings as _settings
+
+        if getattr(_settings, "PRE_SCREENING_ENABLED", False):
+            pending_qs = ProfileSubmission.objects.filter(status="pending")
+            pending_count = pending_qs.count()
+            pending_submitted = pending_qs.filter(
+                pre_screening_submitted_at__isnull=False
+            ).count()
+            completion_rate = _safe_pct(pending_submitted, pending_count)
+
+            submitted_qs = ProfileSubmission.objects.filter(
+                pre_screening_submitted_at__isnull=False
+            )
+            avg_score = submitted_qs.aggregate(
+                avg=Avg("pre_screening_readiness_score")
+            )["avg"]
+
+            # Flag distribution (flatten JSONField list across rows)
+            flag_counts: dict[str, int] = {}
+            for flags in submitted_qs.values_list("pre_screening_flags", flat=True):
+                for flag in flags or []:
+                    flag_counts[flag] = flag_counts.get(flag, 0) + 1
+
+            # Simple score histogram (0-10 inclusive)
+            score_histogram = {str(i): 0 for i in range(11)}
+            for score in submitted_qs.values_list(
+                "pre_screening_readiness_score", flat=True
+            ):
+                if score is not None and 0 <= score <= 10:
+                    score_histogram[str(score)] += 1
+
+            # Event no-show rate for users who submitted pre-screening.
+            # Kept deliberately simple — a richer breakdown with a control
+            # group belongs in a dedicated analytics report.
+            ps_noshow = 0
+            ps_total = 0
+            try:
+                profile_ids = list(
+                    CrushProfile.objects
+                    .filter(user__profilesubmission__pre_screening_submitted_at__isnull=False)
+                    .values_list("id", flat=True)
+                )
+                if profile_ids:
+                    reg_rollup = (
+                        EventRegistration.objects.filter(profile_id__in=profile_ids)
+                        .values("status")
+                        .annotate(n=Count("id"))
+                    )
+                    for row in reg_rollup:
+                        ps_total += row["n"]
+                        if row["status"] == "no_show":
+                            ps_noshow += row["n"]
+            except Exception as sub_exc:
+                logger.warning("no-show rollup failed: %s", sub_exc)
+            noshow_with = _safe_pct(ps_noshow, ps_total)
+
+            pre_screening_metrics = {
+                "pending_count": pending_count,
+                "pending_submitted": pending_submitted,
+                "completion_rate": completion_rate,
+                "avg_score": round(avg_score, 1) if avg_score is not None else None,
+                "flag_counts": dict(sorted(flag_counts.items(), key=lambda kv: -kv[1])),
+                "score_histogram": score_histogram,
+                "noshow_rate_submitted_users": noshow_with,
+                "submitted_registrations_total": ps_total,
+            }
+    except Exception as exc:  # Never break the dashboard on metrics issues.
+        logger.warning("pre_screening metrics unavailable: %s", exc)
+
     context = {
         # Date filter info
         'date_range': date_range,
@@ -831,6 +968,9 @@ def crush_admin_dashboard(request):
         # Page metadata
         'title': 'Crush.lu Analytics Dashboard',
         'site_header': '💕 Crush.lu Administration',
+
+        # Pre-screening analytics (Phase 6)
+        'pre_screening_metrics': pre_screening_metrics,
     }
 
     return render(request, 'admin/crush_lu/dashboard.html', context)

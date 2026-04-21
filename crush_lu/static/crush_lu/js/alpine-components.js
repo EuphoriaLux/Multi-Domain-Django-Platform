@@ -9968,6 +9968,100 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Screening Call Calibration Component (Phase 4)
+    // 3-section, minimal-state flow for Coaches who have the pre-screening data.
+    // Section 2 auto-populates a suggested script from the user's what_is_crush answer.
+    Alpine.data("screeningCallCalibration", function () {
+        return {
+            warmIntroComplete: false,
+            conceptCalibrationComplete: false,
+            conceptNotes: "",
+            discretionNotes: "",
+            conceptAnswer: "",
+            init() {
+                // Pre-populate from prior checklist_data if the Coach saved partial state.
+                const initialEl = this.$root.querySelector("[data-checklist-initial]");
+                if (initialEl && initialEl.dataset.checklistInitial) {
+                    try {
+                        const prior = JSON.parse(initialEl.dataset.checklistInitial);
+                        this.warmIntroComplete = !!prior.warm_intro_complete;
+                        this.conceptCalibrationComplete = !!prior.concept_calibration_complete;
+                        this.conceptNotes = prior.concept_notes || "";
+                        this.discretionNotes = prior.discretion_notes || "";
+                    } catch (e) {
+                        // Malformed JSON — ignore, start empty.
+                    }
+                }
+                const conceptEl = this.$root.querySelector("[data-concept-answer]");
+                if (conceptEl) {
+                    this.conceptAnswer = conceptEl.dataset.conceptAnswer || "";
+                }
+            },
+            // CSP-safe input handlers: Alpine's @alpinejs/csp build can't evaluate
+            // the assignment expression x-model generates, so we wire each field
+            // with :checked / :value + @change / @input + a method that pulls the
+            // value off $event.target (same pattern as elsewhere in this file).
+            toggleWarmIntro(e) {
+                this.warmIntroComplete = !!e.target.checked;
+            },
+            toggleConceptCalibration(e) {
+                this.conceptCalibrationComplete = !!e.target.checked;
+            },
+            updateConceptNotes(e) {
+                this.conceptNotes = e.target.value;
+            },
+            updateDiscretionNotes(e) {
+                this.discretionNotes = e.target.value;
+            },
+
+            get completedCount() {
+                let n = 0;
+                if (this.warmIntroComplete) n++;
+                if (this.conceptCalibrationComplete) n++;
+                return n;
+            },
+            get progressWidth() {
+                return "width: " + (this.completedCount / 2 * 100) + "%";
+            },
+            get submitDisabled() {
+                return !(this.warmIntroComplete && this.conceptCalibrationComplete);
+            },
+            get submitButtonClass() {
+                return this.submitDisabled
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    : "bg-crush-purple text-white hover:bg-purple-700";
+            },
+            get conceptScript() {
+                // Auto-populate a gentle calibration script based on the user's
+                // pre-screening answer. Strings are English-first; the Coach adapts live.
+                switch (this.conceptAnswer) {
+                    case "tinder":
+                        return "I saw you described Crush.lu as similar to Tinder. Let me share how we're different — we're events-first, and our Coaches introduce people one-on-one. Does that change how you'd like to use the platform?";
+                    case "matchmaking":
+                        return "You described us as a matchmaking service. We do introduce people, but events are where the magic happens — tell me, how open are you to attending an in-person event in the next month?";
+                    case "unsure":
+                        return "You mentioned you're still figuring it out — that's perfect, most of our members start there. Let me walk you through how a typical first month looks at Crush.lu, and you can tell me what resonates.";
+                    case "events":
+                        return "You described us well — events-first is exactly right. Tell me, which event format sounds most exciting to you, and what would make the perfect first event for you?";
+                    default:
+                        return "Let me explain how Crush.lu works in one minute, then I'll ask you how that lands. We're events-first, Coach-supported, and the online piece is opt-in.";
+                }
+            },
+            get checklistDataJson() {
+                // Flat keys compatible with the JSONField — legacy and calibration
+                // coexist inside the same column.
+                return JSON.stringify({
+                    mode: "calibration",
+                    warm_intro_complete: this.warmIntroComplete,
+                    concept_calibration_complete: this.conceptCalibrationComplete,
+                    concept_notes: this.conceptNotes,
+                    discretion_notes: this.discretionNotes,
+                    concept_answer: this.conceptAnswer,
+                });
+            },
+        };
+    });
+
     // Screening Call Guideline Component for Coach Review
     // 7-step accordion with checklist items and notes
     Alpine.data("screeningCallGuideline", function () {

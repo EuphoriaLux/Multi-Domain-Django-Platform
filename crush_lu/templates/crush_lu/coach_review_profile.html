@@ -244,6 +244,9 @@
         </div>
     </div>
 
+    {# ── Pre-Screening answers (Phase 3 — always visible when feature flag on) ── #}
+    {% include "crush_lu/_pre_screening_display.html" %}
+
     {# ── Candidate Note (if submitted during review wait) ── #}
     {% if submission.candidate_note %}
     <div class="mb-6 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 overflow-hidden">

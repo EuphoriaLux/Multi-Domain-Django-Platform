@@ -33,6 +33,7 @@ from .models import (
     EventRegistration,
     CrushCoach,
     CrushSpark,
+    ProfileSubmission,
 )
 from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
@@ -2260,4 +2261,32 @@ def reveal_spark_sender_on_journey_completion(sender, instance, **kwargs):
     logger.info(
         f"Crush Spark {spark.pk}: Sender revealed to recipient "
         f"(sender={spark.sender_id}, recipient={spark.recipient_id})"
+    )
+
+
+# =============================================================================
+# HYBRID COACH REVIEW — SLA TIMER (Phase 3)
+# =============================================================================
+
+@receiver(post_save, sender=ProfileSubmission)
+def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
+    """Stamp assigned_at and sla_deadline when a submission first gets a coach.
+
+    Uses an idempotent UPDATE with an assigned_at__isnull=True guard so re-saves
+    (e.g. admin edits, status transitions) never reset the clock. Values are set
+    unconditionally — the fields drive the coach-side sla_state bucket and are
+    informational; the Phase 3 SLA task gates its own actions on
+    coach.hybrid_features_enabled.
+    """
+    from datetime import timedelta
+
+    if instance.coach_id is None or instance.assigned_at is not None:
+        return
+
+    now = timezone.now()
+    ProfileSubmission.objects.filter(
+        pk=instance.pk, assigned_at__isnull=True
+    ).update(
+        assigned_at=now,
+        sla_deadline=now + timedelta(hours=48),
     )

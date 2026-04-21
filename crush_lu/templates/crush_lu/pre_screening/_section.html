@@ -1,0 +1,52 @@
+{% load i18n pre_screening_tags %}
+<section id="prescreening-section-{{ section.id }}"
+         class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+  <header class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
+                   {% if section_complete %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300
+                   {% else %}bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300{% endif %}">
+        {% if section_complete %}✓{% else %}{{ section_number }}{% endif %}
+      </span>
+      <h3 class="text-base font-bold text-gray-900 dark:text-white mb-0">{{ section.title }}</h3>
+    </div>
+    {% if section_complete %}
+      <span class="text-xs font-semibold text-green-700 dark:text-green-300">{% trans "Saved" %}</span>
+    {% endif %}
+  </header>
+
+  {# Auto-save: `change` fires when a radio/checkbox/select is toggled and    #}
+  {# when a text input or textarea loses focus (blur). That's the safest      #}
+  {# auto-save boundary — firing on keystrokes would re-render the textarea  #}
+  {# mid-typing and lose the user's cursor. `submit` keeps the fallback path #}
+  {# for users who hit Enter in a text input.                                 #}
+  <form method="post"
+        hx-post="{% url 'crush_lu:pre_screening_save_section' section.id %}"
+        hx-target="#prescreening-section-{{ section.id }}"
+        hx-swap="outerHTML"
+        hx-trigger="change, submit"
+        hx-indicator="#indicator-{{ section.id }}"
+        class="px-5 py-4 space-y-5">
+    {% csrf_token %}
+    {% for question in section.questions %}
+      {% render_prescreening_question question responses errors %}
+    {% endfor %}
+
+    <div class="flex items-center justify-between gap-3 pt-2 min-h-[2rem]">
+      <span id="indicator-{{ section.id }}" class="htmx-indicator text-xs text-gray-500 dark:text-gray-400">
+        {% trans "Saving…" %}
+      </span>
+      {% if section_flash %}
+        <span class="text-xs text-green-700 dark:text-green-300" role="status" aria-live="polite">
+          {% trans "Saved" %} ✓
+        </span>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+{# HTMX out-of-band swaps: refresh progress + finalize state after a section save. #}
+{% if oob_updates %}
+  {% include "crush_lu/pre_screening/_progress.html" with oob=True %}
+  {% include "crush_lu/pre_screening/_finalize.html" with oob=True %}
+{% endif %}

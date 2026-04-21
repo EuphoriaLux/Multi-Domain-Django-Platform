@@ -1,4 +1,4 @@
-{% load i18n crush_media %}
+{% load i18n crush_media pre_screening_tags %}
 {# Reusable card for pending profile submissions on coach dashboard #}
 {# Expected context: submission (ProfileSubmission object with is_urgent, is_warning attributes) #}
 
@@ -56,6 +56,24 @@
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full" title="{% trans 'SMS sent' %}">
                         💬 {{ submission.sms_attempt_count }}
                     </span>
+                {% endif %}
+                {% if pre_screening_enabled %}
+                    {% if submission.pre_screening_submitted_at %}
+                        {% with ps_label=submission.pre_screening_readiness_score|prescreening_score_label %}
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full
+                                     {% if ps_label == 'high' %}bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300
+                                     {% elif ps_label == 'medium' %}bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300
+                                     {% else %}bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300{% endif %}"
+                              title="{% trans 'Pre-screening readiness' %}">
+                            📋 {{ submission.pre_screening_readiness_score }}/10
+                        </span>
+                        {% endwith %}
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full"
+                              title="{% trans 'Pre-screening not yet submitted' %}">
+                            📋 —
+                        </span>
+                    {% endif %}
                 {% endif %}
             </p>
 

@@ -1,0 +1,41 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Crush.lu screening call is booked" %}{% endblock %}
+{% block header_title %}{% trans "You're booked" %}{% endblock %}
+
+{% block content %}
+<h2 style="margin-top: 0; color: #333;">{% trans "Your screening call is confirmed" %}</h2>
+
+<p>{% trans "Here are the details — we've also attached a calendar invite." %}</p>
+
+<table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+  <tr>
+    <td style="padding: 10px; background: #f8f8f8; border-radius: 6px;">
+      <p style="margin: 0; font-size: 14px; color: #666;"><strong>{% trans "When" %}</strong></p>
+      <p style="margin: 4px 0 0; font-size: 16px; color: #333;">
+        {{ slot.start_at|date:"l, F j Y" }}<br>
+        {{ slot.start_at|time:"H:i" }} – {{ slot.end_at|time:"H:i" }} ({% trans "Europe/Luxembourg" %})
+      </p>
+    </td>
+  </tr>
+  {% if coach %}
+  <tr>
+    <td style="padding: 10px;">
+      <p style="margin: 0; font-size: 14px; color: #666;"><strong>{% trans "Coach" %}</strong></p>
+      <p style="margin: 4px 0 0; font-size: 16px; color: #333;">{{ coach.user.get_full_name|default:coach.user.username }}</p>
+    </td>
+  </tr>
+  {% endif %}
+</table>
+
+<p style="text-align: center; margin: 30px 0;">
+  <a href="{{ booking_url }}" style="display: inline-block; background: #9B59B6; color: #ffffff; padding: 12px 28px; border-radius: 6px; font-weight: 600; text-decoration: none;">
+    {% trans "Manage your booking" %}
+  </a>
+</p>
+
+<p style="font-size: 13px; color: #888;">
+  {% trans "Need to reschedule? Just open the link above — you can cancel and pick a different slot." %}
+</p>
+{% endblock %}

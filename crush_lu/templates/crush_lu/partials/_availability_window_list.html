@@ -1,0 +1,28 @@
+{% load i18n %}
+{# HTMX target: renders the list of availability windows. Swapped in after
+   add/remove POSTs from coach_settings.html. #}
+<ul id="availability-list" class="space-y-2">
+    {% for window in availability_windows %}
+    <li class="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 capitalize">{{ window.day }}</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">{{ window.start }}&nbsp;–&nbsp;{{ window.end }}</span>
+        {% if window.label %}
+            <span class="text-xs text-gray-400 dark:text-gray-500 italic">{{ window.label }}</span>
+        {% endif %}
+        <button
+            type="button"
+            class="ml-auto text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
+            hx-post="{% url 'crush_lu:coach_settings_availability_remove' forloop.counter0 %}"
+            hx-target="#availability-list"
+            hx-swap="outerHTML"
+            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+        >
+            {% trans "Remove" %}
+        </button>
+    </li>
+    {% empty %}
+    <li class="px-3 py-4 text-center text-sm text-gray-400 dark:text-gray-500 italic border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+        {% trans "No availability windows yet." %}
+    </li>
+    {% endfor %}
+</ul>

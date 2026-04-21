@@ -51,6 +51,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
+# Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
+# the new pipeline is dormant until explicitly enabled per environment. Works
+# with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
+HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
@@ -368,6 +373,10 @@ WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
 WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
 WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool("WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True)
+
+# Pre-screening questionnaire (Crush.lu). Off by default; enable in production
+# after all Phases have shipped and the Coach-facing rollout is ready.
+PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
 
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
@@ -997,13 +1006,18 @@ PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in 
 # DJANGO 6.0 BACKGROUND TASKS FRAMEWORK
 # =============================================================================
 # Native task system for running code outside the HTTP request/response cycle.
-# ImmediateBackend runs tasks synchronously (suitable for dev/testing).
-# For production, switch to django_tasks.backends.database.DatabaseBackend
-# and run: python manage.py db_worker
+# Default is ImmediateBackend (runs inline) — safe for dev without a worker.
+# Production should install the `django-tasks` PyPI package, add `django_tasks`
+# to INSTALLED_APPS, run `manage.py db_worker` alongside gunicorn, and set
+#   DJANGO_TASKS_BACKEND=django_tasks.backends.database.DatabaseBackend
+# Tests override to ImmediateBackend in conftest.py regardless of env.
 # See: https://docs.djangoproject.com/en/6.0/topics/tasks/
 TASKS = {
     "default": {
-        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+        "BACKEND": os.environ.get(
+            "DJANGO_TASKS_BACKEND",
+            "django.tasks.backends.immediate.ImmediateBackend",
+        ),
     }
 }
 

@@ -1,0 +1,140 @@
+{% load i18n pre_screening_tags %}
+{# Coach-facing display of a user's pre-screening answers. Always visible on
+   coach_review_profile.html; three states: submitted / not submitted / flag off. #}
+{% prescreening_schema as ps_schema %}
+
+{% if not pre_screening_enabled %}
+  {# feature flag off — render nothing at all #}
+{% elif submission.pre_screening_submitted_at %}
+  {% with score=submission.pre_screening_readiness_score flags=submission.pre_screening_flags|default:'' score_label=submission.pre_screening_readiness_score|prescreening_score_label %}
+  <section class="mb-6 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20 overflow-hidden">
+    <header class="px-5 py-4 flex items-start gap-3">
+      <div class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+        {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-blue-700 dark:text-blue-300" %}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center flex-wrap gap-2 mb-1">
+          <p class="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-0">
+            {% trans "Pre-Screening Answers" %}
+          </p>
+          <span class="normal-case font-normal text-xs text-blue-600/80 dark:text-blue-400/80">
+            &middot; {{ submission.pre_screening_submitted_at|timesince }} {% trans "ago" %}
+          </span>
+        </div>
+        <div class="flex items-center flex-wrap gap-2 mt-1">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold
+                       {% if score_label == 'high' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200
+                       {% elif score_label == 'medium' %}bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200
+                       {% else %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200{% endif %}">
+            {% trans "Readiness" %} {{ score }}/10
+          </span>
+          {% for f in flags %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                  title="{{ f|prescreening_flag_description }}">
+              ⚑ {{ f }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </header>
+
+    <div class="border-t border-blue-100 dark:border-blue-800/30">
+      {% for section in ps_schema.sections %}
+        {% if section.id != 'consents' %}
+        <details class="group border-b border-blue-100/60 dark:border-blue-800/30 last:border-0" {% if forloop.first %}open{% endif %}>
+          <summary class="px-5 py-3 cursor-pointer text-sm font-semibold text-blue-800 dark:text-blue-200 flex items-center justify-between hover:bg-blue-100/40 dark:hover:bg-blue-900/30">
+            <span>{{ section.title }}</span>
+            <span class="text-xs text-blue-600/70 dark:text-blue-400/70 group-open:hidden">{% trans "show" %}</span>
+            <span class="text-xs text-blue-600/70 dark:text-blue-400/70 hidden group-open:inline">{% trans "hide" %}</span>
+          </summary>
+          <dl class="px-5 py-3 space-y-3 bg-white/40 dark:bg-slate-900/10">
+            {% for q in section.questions %}
+              {% with answer=submission.pre_screening_responses|get_item:q.id %}
+              <div>
+                <dt class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">{{ q.label }}</dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100 mb-0">
+                  {% if q.type == 'text' %}
+                    {% if answer %}
+                      <blockquote class="border-l-2 border-blue-300 dark:border-blue-700 pl-3 italic">{{ answer }}</blockquote>
+                    {% else %}
+                      <span class="text-gray-400 dark:text-gray-500 italic">{% trans "— not answered —" %}</span>
+                    {% endif %}
+                  {% elif q.type == 'multi_select' %}
+                    {% if answer %}
+                      <span class="flex flex-wrap gap-1.5">
+                        {% for v in answer %}
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">
+                            {{ q|prescreening_choice_label:v }}
+                          </span>
+                        {% endfor %}
+                      </span>
+                    {% else %}
+                      <span class="text-gray-400 dark:text-gray-500 italic">{% trans "— not answered —" %}</span>
+                    {% endif %}
+                  {% elif q.type == 'yes_no' %}
+                    {% if answer == True or answer == 'yes' %}<span class="font-semibold text-green-700 dark:text-green-300">{% trans "Yes" %}</span>
+                    {% elif answer == False or answer == 'no' %}<span class="font-semibold text-red-700 dark:text-red-300">{% trans "No" %}</span>
+                    {% else %}<span class="text-gray-400 italic">{% trans "— not answered —" %}</span>{% endif %}
+                  {% else %}
+                    {{ q|prescreening_choice_label:answer }}
+                  {% endif %}
+                </dd>
+              </div>
+              {% endwith %}
+            {% endfor %}
+          </dl>
+        </details>
+        {% endif %}
+      {% endfor %}
+      {# Consents: compact checklist #}
+      {% for section in ps_schema.sections %}{% if section.id == 'consents' %}
+      <details class="group border-t border-blue-100/60 dark:border-blue-800/30">
+        <summary class="px-5 py-3 cursor-pointer text-sm font-semibold text-blue-800 dark:text-blue-200 flex items-center justify-between hover:bg-blue-100/40 dark:hover:bg-blue-900/30">
+          <span>{% trans "Consents" %}</span>
+          <span class="text-xs text-green-700 dark:text-green-300">✓ {% trans "all accepted" %}</span>
+        </summary>
+        <ul class="px-5 py-3 space-y-1.5 bg-white/40 dark:bg-slate-900/10">
+          {% for q in section.questions %}
+            <li class="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+              <span class="text-green-600 dark:text-green-400">✓</span>
+              <span>{{ q.label }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}{% endfor %}
+    </div>
+  </section>
+  {% endwith %}
+{% else %}
+  <section class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-800/50 px-5 py-4">
+    <div class="flex items-start gap-3">
+      <div class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+        {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5 text-gray-500 dark:text-gray-400" %}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+          {% trans "Pre-screening not yet submitted" %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          {% trans "You can send a quick SMS reminder asking them to fill it out before you call." %}
+        </p>
+        {% if can_send_prescreening_sms %}
+          <button type="button"
+                  hx-post="{% url 'crush_lu:coach_send_pre_screening_reminder' submission.id %}"
+                  hx-target="#prescreening-sms-result"
+                  hx-swap="innerHTML"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-crush-purple text-white hover:bg-purple-700 transition-colors">
+            {% include "shared/icons/paper-airplane.html" with class="w-3.5 h-3.5" %}
+            {% trans "Send SMS reminder" %}
+          </button>
+        {% else %}
+          <p class="text-xs italic text-gray-400 dark:text-gray-500">
+            {% trans "Candidate has no verified phone number — cannot send SMS." %}
+          </p>
+        {% endif %}
+        <div id="prescreening-sms-result" class="mt-2"></div>
+      </div>
+    </div>
+  </section>
+{% endif %}

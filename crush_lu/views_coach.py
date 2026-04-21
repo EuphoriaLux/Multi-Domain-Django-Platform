@@ -48,6 +48,9 @@ from .matching import (
 from .forms import (
     CrushCoachForm,
     ProfileReviewForm,
+    CoachSettingsForm,
+    _validate_availability_window,
+    _windows_overlap,
 )
 from .decorators import coach_required
 from .notification_service import (
@@ -382,7 +385,121 @@ def coach_dashboard(request):
         "age_lang_matrix": age_lang_matrix,
         "age_lang_col_totals": age_lang_col_totals,
     }
+    # Hybrid Review: upcoming booked screening calls for this coach.
+    from .models import ScreeningSlot
+
+    upcoming_screening_slots = (
+        ScreeningSlot.objects.filter(
+            coach=coach, status="booked", start_at__gte=now
+        )
+        .select_related("submission__profile__user")
+        .order_by("start_at")[:5]
+    )
+    context["upcoming_screening_slots"] = upcoming_screening_slots
+
     return render(request, "crush_lu/coach_dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Hybrid Coach Review System — Coach Settings UI (Phase 2)
+# ---------------------------------------------------------------------------
+
+DAY_CHOICES = [
+    ("monday", _("Monday")),
+    ("tuesday", _("Tuesday")),
+    ("wednesday", _("Wednesday")),
+    ("thursday", _("Thursday")),
+    ("friday", _("Friday")),
+    ("saturday", _("Saturday")),
+    ("sunday", _("Sunday")),
+]
+
+
+@coach_required
+def coach_settings(request):
+    """Render and update the coach's hybrid-review preferences."""
+    coach = request.coach
+
+    if request.method == "POST":
+        form = CoachSettingsForm(request.POST, instance=coach)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Settings updated."))
+            return redirect("crush_lu:coach_settings")
+    else:
+        form = CoachSettingsForm(instance=coach)
+
+    context = {
+        "coach": coach,
+        "form": form,
+        "availability_windows": coach.availability_windows or [],
+        "day_choices": DAY_CHOICES,
+    }
+    return render(request, "crush_lu/coach_settings.html", context)
+
+
+def _availability_partial(request, coach):
+    """Shared renderer for HTMX partial responses."""
+    return render(
+        request,
+        "crush_lu/partials/_availability_window_list.html",
+        {
+            "availability_windows": coach.availability_windows or [],
+            "day_choices": DAY_CHOICES,
+        },
+    )
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_settings_availability_add(request):
+    """HTMX: append a new availability window."""
+    coach = request.coach
+    windows = list(coach.availability_windows or [])
+
+    try:
+        cleaned = _validate_availability_window(request.POST)
+    except ValueError as exc:
+        # CodeQL: don't echo the raw exception string into the response — in
+        # practice `str(exc)` is always a safe short code, but we still map it
+        # to a stable user-facing message so no internal detail leaks if the
+        # validator ever gets extended with richer error text.
+        messages_by_code = {
+            "invalid_day": _("Please pick a valid day of the week."),
+            "invalid_time": _("Please enter valid start and end times (HH:MM)."),
+            "start_not_before_end": _("Start time must be before end time."),
+        }
+        return HttpResponse(
+            messages_by_code.get(str(exc), _("Invalid window.")),
+            status=400,
+        )
+
+    if _windows_overlap(windows, cleaned):
+        return HttpResponse(
+            _("This window overlaps an existing one on the same day."),
+            status=400,
+        )
+
+    windows.append(cleaned)
+    # Keep stable ordering: by weekday, then start time.
+    day_order = {d: i for i, (d, _label) in enumerate(DAY_CHOICES)}
+    windows.sort(key=lambda w: (day_order.get(w.get("day"), 99), w.get("start", "")))
+    coach.availability_windows = windows
+    coach.save(update_fields=["availability_windows"])
+    return _availability_partial(request, coach)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_settings_availability_remove(request, index):
+    """HTMX: remove availability window at the given index."""
+    coach = request.coach
+    windows = list(coach.availability_windows or [])
+    if 0 <= index < len(windows):
+        windows.pop(index)
+        coach.availability_windows = windows
+        coach.save(update_fields=["availability_windows"])
+    return _availability_partial(request, coach)
 
 
 @coach_required
@@ -549,6 +666,8 @@ def coach_profiles(request):
         profile.upcoming_events = incomplete_upcoming_regs.get(profile.user_id, [])
         profile.past_event_count = incomplete_past_counts.get(profile.user_id, 0)
 
+    from django.conf import settings as _settings
+
     context = {
         "coach": coach,
         "pending_submissions": pending_submissions,
@@ -558,6 +677,7 @@ def coach_profiles(request):
         "recontact_submissions": recontact_submissions,
         "revision_profiles": revision_profiles,
         "all_incomplete": all_incomplete,
+        "pre_screening_enabled": getattr(_settings, "PRE_SCREENING_ENABLED", False),
     }
     return render(request, "crush_lu/coach_profiles.html", context)
 
@@ -947,14 +1067,164 @@ def coach_review_profile(request, submission_id):
         sms_body = template.format(first_name=first_name, coach_name=coach_name)
         sms_template_encoded = quote(sms_body, safe="")
 
+    from django.conf import settings as _settings
+
+    pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
+    can_send_prescreening_sms = bool(
+        profile.phone_number and profile.phone_verified
+    )
+
     context = {
         "submission": submission,
         "profile": profile,
         "form": form,
         "social_account": social_account,
         "sms_template_encoded": sms_template_encoded,
+        "pre_screening_enabled": pre_screening_enabled,
+        "can_send_prescreening_sms": can_send_prescreening_sms,
     }
     return render(request, "crush_lu/coach_review_profile.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_set_screening_mode(request, submission_id):
+    """Let a Coach switch between legacy (5-section) and calibration (3-section).
+
+    Called from both tab templates. Re-renders the tab via HTMX so the coach
+    can toggle mid-flow without losing the page.
+    """
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+    if submission.review_call_completed:
+        return HttpResponse(status=410)
+    mode = request.POST.get("mode")
+    if mode not in ("legacy", "calibration"):
+        return HttpResponse(status=400)
+    # Legacy-only path: only allow calibration if pre-screening was submitted.
+    if mode == "calibration" and not submission.pre_screening_submitted_at:
+        return HttpResponse(status=400)
+    submission.screening_call_mode = mode
+    submission.save(update_fields=["screening_call_mode"])
+
+    # Re-render the tab in place.
+    from urllib.parse import quote
+    from .models.site_config import CrushSiteConfig
+
+    profile = submission.profile
+    sms_template_encoded = ""
+    if profile.phone_number and profile.phone_verified:
+        config = CrushSiteConfig.get_config()
+        lang = getattr(profile, "preferred_language", "en") or "en"
+        template_field = f"sms_template_{lang}"
+        template = (
+            getattr(config, template_field, config.sms_template_en)
+            or config.sms_template_en
+        )
+        coach_name = coach.user.first_name or "Your coach"
+        first_name = profile.user.first_name or ""
+        sms_body = template.format(first_name=first_name, coach_name=coach_name)
+        sms_template_encoded = quote(sms_body, safe="")
+
+    context = {
+        "submission": submission,
+        "profile": profile,
+        "sms_template_encoded": sms_template_encoded,
+    }
+    return render(request, "crush_lu/_screening_tab.html", context)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_send_pre_screening_reminder(request, submission_id):
+    """HTMX: log that the Coach opened an SMS reminder for pre-screening.
+
+    Returns a small HTML fragment containing the tel: SMS link the Coach's
+    device can open, and records a CallAttempt so the outreach is auditable.
+    """
+    from django.conf import settings as _settings
+    from django.urls import reverse
+    from django.utils import translation
+    from urllib.parse import quote
+    from .models import CallAttempt
+    from .models.site_config import CrushSiteConfig
+
+    if not getattr(_settings, "PRE_SCREENING_ENABLED", False):
+        return HttpResponse(status=410)
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+    profile = submission.profile
+
+    # Mirror the eligibility checks in the automated invite/reminder path
+    # (pre_screening_notifications.send_pre_screening_invite_email) so a
+    # direct POST can't send stale reminders or log misleading
+    # `sms_sent` audit rows for closed flows.
+    closed = (
+        submission.pre_screening_submitted_at is not None
+        or submission.status != "pending"
+        or submission.review_call_completed
+        or submission.is_paused
+    )
+    if closed:
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Pre-screening is no longer active for this submission."))
+            + "</p>",
+            status=400,
+        )
+
+    if not (profile.phone_number and profile.phone_verified):
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("No verified phone number on file."))
+            + "</p>",
+            status=400,
+        )
+
+    config = CrushSiteConfig.get_config()
+    lang = getattr(profile, "preferred_language", "en") or "en"
+    template_field = f"pre_screening_reminder_sms_{lang}"
+    template = (
+        getattr(config, template_field, config.pre_screening_reminder_sms_en)
+        or config.pre_screening_reminder_sms_en
+    )
+    coach_name = coach.user.first_name or "Your coach"
+    first_name = profile.user.first_name or ""
+    with translation.override(lang):
+        link = request.build_absolute_uri(reverse("crush_lu:pre_screening"))
+    sms_body = template.format(
+        first_name=first_name, coach_name=coach_name, link=link
+    )
+    sms_href = f"sms:{profile.phone_number}?&body={quote(sms_body)}"
+
+    CallAttempt.objects.create(
+        submission=submission,
+        profile=profile,
+        result="sms_sent",
+        coach=coach,
+        notes=_("Pre-screening reminder SMS drafted"),
+    )
+
+    html = (
+        '<a href="' + sms_href + '" '
+        'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold '
+        'bg-green-600 text-white hover:bg-green-700">'
+        + str(_("Open SMS app →"))
+        + "</a>"
+        '<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">'
+        + str(_("Attempt logged."))
+        + "</p>"
+    )
+    return HttpResponse(html)
 
 
 @coach_required

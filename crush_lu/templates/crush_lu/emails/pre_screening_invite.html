@@ -1,0 +1,36 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Help your Coach prepare — 3 minutes, 13 questions" %}{% endblock %}
+{% block header_title %}{% trans "Help your Coach prepare" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}</h2>
+
+{% if reminder %}
+  <p>{% trans "A quick nudge — your Coach is getting ready to call you about your profile." %}</p>
+  <p>{% trans "Before they do, please take 3 minutes to answer a few questions. It makes the call much smoother and means we can focus on you, not paperwork." %}</p>
+{% else %}
+  <p>{% trans "Thank you for submitting your profile! While your Coach gets ready to reach out, we have a small favour to ask." %}</p>
+  <p>{% trans "Could you answer 13 quick questions about yourself and what you're looking for? It takes about 3 minutes and really helps your Coach prepare for the call." %}</p>
+{% endif %}
+
+<p style="text-align: center; margin: 30px 0;">
+  <a class="button" href="{{ pre_screening_url }}">
+    {% trans "Answer the pre-screening questions" %}
+  </a>
+</p>
+
+<div class="info-box">
+  <p style="margin: 0;"><strong>{% trans "Why we ask:" %}</strong></p>
+  <ul style="margin: 10px 0 0 0;">
+    <li>{% trans "Your Coach won't waste time on basics during the call" %}</li>
+    <li>{% trans "We calibrate what Crush.lu actually is — events, not swiping" %}</li>
+    <li>{% trans "You stay in control of what you share" %}</li>
+  </ul>
+</div>
+
+<p style="font-size: 14px; color: #888;">
+  {% trans "It's entirely optional — if you'd rather just wait for the call, that's fine too." %}
+</p>
+{% endblock %}
