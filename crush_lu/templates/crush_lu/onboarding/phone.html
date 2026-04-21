@@ -1,0 +1,40 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Verify your phone number" %}{% endblock %}
+
+{% block content %}
+<main class="min-h-screen bg-crush-light dark:bg-gray-900">
+
+  {% include "crush_lu/includes/journey_stepper.html" %}
+
+  <div class="mx-auto max-w-md px-4 pb-16 pt-6 sm:px-6">
+
+    <section class="mb-6">
+      <h1 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">
+        {% trans "Let's verify your phone number." %}
+      </h1>
+      <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">
+        {% trans "A quick SMS code keeps Crush.lu real and spam-free. Your number stays private." %}
+      </p>
+    </section>
+
+    <section class="mb-6 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+      <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+        {% trans "Phone verification happens inside the profile builder. We'll take you there now — once you've verified your number, you'll come back to the journey." %}
+      </p>
+      <a href="{% url 'crush_lu:create_profile' %}"
+         class="block w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]">
+        {% trans "Verify my phone number" %}
+      </a>
+    </section>
+
+    <section class="text-center">
+      <p class="text-xs text-gray-400 dark:text-gray-500">
+        {% blocktrans %}We only send a single SMS code. Standard carrier rates apply.{% endblocktrans %}
+      </p>
+    </section>
+
+  </div>
+</main>
+{% endblock %}

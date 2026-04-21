@@ -61,6 +61,7 @@ from .forms import (
     IdealCrushPreferencesForm,
 )
 from .decorators import crush_login_required, ratelimit
+from . import onboarding
 from .email_helpers import (
     send_profile_submission_notifications,
 )
@@ -299,6 +300,20 @@ def dashboard(request):
     return render(request, "crush_lu/dashboard.html", context)
 
 
+def _render_create_profile(request, context):
+    """Render create_profile.html with the 7-step journey stepper injected.
+
+    The current step is derived from the user's actual profile state so the
+    outer rail stays honest. A user landing here without a verified phone
+    sees the stepper on step 2, not step 4.
+    """
+    context.setdefault("profile", None)
+    profile = context.get("profile")
+    current = onboarding.get_current_step(profile)
+    context.update(onboarding.stepper_context(current=current))
+    return render(request, "crush_lu/create_profile.html", context)
+
+
 @crush_login_required
 @ratelimit(key="user", rate="10/15m", method="POST", block=True)
 def create_profile(request):
@@ -353,7 +368,16 @@ def create_profile(request):
                     "current_step": "step1",
                     "social_photos": get_all_social_photos(request.user),
                 }
-                return render(request, "crush_lu/create_profile.html", context)
+                return _render_create_profile(request, context)
+
+            # Journey guard: mirrors the AJAX submit path at
+            # views_profile.complete_profile_submission. The JS-disabled form
+            # POST must not bypass the step-3 coach-intro acknowledgement.
+            if existing_profile and not existing_profile.coach_intro_seen_at:
+                logger.info(
+                    f"Form-POST submission blocked without coach intro ack: {request.user.email}"
+                )
+                return redirect("crush_lu:onboarding_coach_intro")
 
             # Check if this is first submission or resubmission
             is_first_submission = profile.completion_status != "submitted"
@@ -455,7 +479,7 @@ def create_profile(request):
                     "current_step": "step3",
                     "social_photos": get_all_social_photos(request.user),
                 }
-                return render(request, "crush_lu/create_profile.html", context)
+                return _render_create_profile(request, context)
 
             # Broadcast to the verification channel (all eligible coaches).
             # Coach is never assigned here — the channel view + claim endpoint owns that.
@@ -511,7 +535,7 @@ def create_profile(request):
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
             }
-            return render(request, "crush_lu/create_profile.html", context)
+            return _render_create_profile(request, context)
 
     # GET request - check if profile already exists and redirect accordingly
     try:
@@ -542,7 +566,7 @@ def create_profile(request):
                     "submission": latest_submission,
                     "is_revision": True,
                 }
-                return render(request, "crush_lu/create_profile.html", context)
+                return _render_create_profile(request, context)
 
             messages.info(
                 request, _("Your profile has been submitted. Check the status below.")
@@ -552,9 +576,8 @@ def create_profile(request):
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
-            return render(
+            return _render_create_profile(
                 request,
-                "crush_lu/create_profile.html",
                 {
                     "form": form,
                     "profile": profile,
@@ -565,9 +588,8 @@ def create_profile(request):
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
-            return render(
+            return _render_create_profile(
                 request,
-                "crush_lu/create_profile.html",
                 {
                     "form": form,
                     "profile": profile,
@@ -581,9 +603,8 @@ def create_profile(request):
         from .social_photos import get_all_social_photos
 
         form = CrushProfileForm()
-        return render(
+        return _render_create_profile(
             request,
-            "crush_lu/create_profile.html",
             {
                 "form": form,
                 "profile": None,
@@ -1725,6 +1746,10 @@ def profile_submitted(request):
         "recontact_days_remaining": submission.recontact_days_remaining,
         "has_booking_token": bool(submission.booking_token),
     }
+    # Journey stepper context — step derived from current profile state so the
+    # outer rail highlights the right dot (5 if a coach has claimed, 7 if
+    # approved, otherwise 6 "Under review").
+    context.update(onboarding.stepper_context(current=onboarding.get_current_step(profile)))
     return render(request, "crush_lu/profile_submitted.html", context)
 
 

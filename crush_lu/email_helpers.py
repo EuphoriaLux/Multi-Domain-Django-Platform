@@ -236,10 +236,20 @@ def send_profile_submission_confirmation(user, request):
     events_url = get_user_language_url(user, 'crush_lu:event_list', request)
     how_it_works_url = get_user_language_url(user, 'crush_lu:how_it_works', request)
 
+    # Intent probe: captured on /welcome/ (step 1 of the onboarding journey).
+    # Templates branch on this to match the tone the user chose at the outset —
+    # an "events-first" user gets a different teaser than a "curious" one.
+    intent_probe = ""
+    try:
+        intent_probe = user.crushprofile.intent_probe or ""
+    except Exception:
+        pass
+
     context = get_email_context_with_unsubscribe(user, request,
         first_name=user.first_name,
         events_url=events_url,
         how_it_works_url=how_it_works_url,
+        intent_probe=intent_probe,
     )
 
     # Render email in user's preferred language

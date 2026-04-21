@@ -137,10 +137,16 @@ urlpatterns = [
     path('oauth/landing/', views_oauth_popup.oauth_landing, name='oauth_landing'),
     # Note: api/auth/status/ moved to urls_crush.py (language-neutral) for hardcoded JS paths
 
-    # Onboarding flow
+    # Onboarding flow (7-step journey — see crush_lu/onboarding.py)
     path('signup/', views.signup, name='signup'),
+    path('onboarding/', views_profile.onboarding_entry, name='onboarding_entry'),
+    path('welcome/', views_profile.welcome_view, name='welcome'),
+    path('onboarding/phone/', views_profile.phone_step, name='onboarding_phone'),
+    path('onboarding/coach-intro/', views_profile.coach_intro_step, name='onboarding_coach_intro'),
     path('create-profile/', views.create_profile, name='create_profile'),
+    path('onboarding/meet-coach/', views_profile.meet_coach_step, name='onboarding_meet_coach'),
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
+    path('onboarding/screening-call/', views_profile.screening_call_step, name='onboarding_screening_call'),
     path('profile/rejected/', views.profile_rejected, name='profile_rejected'),
 
     # Pre-screening questionnaire (feature-flagged via PRE_SCREENING_ENABLED)

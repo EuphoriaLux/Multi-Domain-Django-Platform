@@ -399,6 +399,30 @@ class CrushProfile(models.Model):
     # Note: Screening call tracking has been consolidated into ProfileSubmission.review_call_completed
     # The Step 1 screening system was redundant and has been removed
 
+    # Onboarding Journey (Step 1 of 7: /welcome/)
+    INTENT_PROBE_CHOICES = [
+        ('events',  _("I want to meet people at real events")),
+        ('curious', _("I'm curious but still exploring")),
+        ('online',  _("I want online dating, events are a bonus")),
+        ('friend',  _("A friend recommended it")),
+    ]
+    welcome_seen_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("First time the user saw the /welcome/ page. Gates re-entry."),
+    )
+    intent_probe = models.CharField(
+        max_length=16,
+        blank=True,
+        choices=INTENT_PROBE_CHOICES,
+        help_text=_("Which of the 4 intent options the user picked on /welcome/."),
+    )
+    coach_intro_seen_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("First time the user saw the step-3 coach intro page. Advances the journey past step 3."),
+    )
+
     # Draft storage for profile creation
     draft_data = models.JSONField(
         default=dict,

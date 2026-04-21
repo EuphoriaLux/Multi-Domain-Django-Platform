@@ -4,7 +4,7 @@ Profile creation views with step-by-step saving
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -21,6 +21,7 @@ from .decorators import crush_login_required
 from .coach_notifications import broadcast_new_submission_to_channel
 from .email_helpers import send_profile_submission_notifications
 from .utils.image_processing import process_uploaded_image
+from . import onboarding
 
 logger = logging.getLogger(__name__)
 
@@ -464,6 +465,22 @@ def complete_profile_submission(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
+        # Journey guard: the 7-step onboarding flow requires the user to have
+        # passed steps 1-3 (welcome, phone verify, coach intro) before the
+        # submission gate can be cleared. This hardens against direct POSTs
+        # that bypass the UI flow.
+        if not profile.phone_verified:
+            logger.warning(
+                f"Submission attempted without verified phone: {request.user.email}"
+            )
+            messages.error(request, _("Please verify your phone number first."))
+            return redirect("crush_lu:onboarding_phone")
+        if not profile.coach_intro_seen_at:
+            logger.info(
+                f"Submission attempted without coach intro ack: {request.user.email}"
+            )
+            return redirect("crush_lu:onboarding_coach_intro")
+
         # Validate profile is complete before allowing submission
         missing_fields = profile.get_missing_fields()
         if missing_fields:
@@ -561,6 +578,10 @@ def complete_profile_submission(request):
 
         if created:
             logger.info(f"NEW profile submission created for {request.user.email}")
+            logger.info(
+                f"journey_completed user={request.user.email} "
+                f"intent_probe={profile.intent_probe or 'unset'}"
+            )
             send_profile_submission_notifications(
                 submission,
                 request,
@@ -961,3 +982,195 @@ def get_csrf_token(request):
         samesite=settings.CSRF_COOKIE_SAMESITE,
     )
     return response
+
+
+# ─── Onboarding /welcome/ (Step 1 of 7) ────────────────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET"])
+def welcome_view(request):
+    """
+    Post-signup welcome page. Shown once per user; gated by
+    CrushProfile.welcome_seen_at.
+
+    Sits at the top of the 7-step onboarding journey: intent probe, chapter
+    preview of the 15-minute flow, and 'what makes us different' tiles.
+    """
+    profile, _created = CrushProfile.objects.get_or_create(user=request.user)
+
+    # One-shot: the welcome page has been seen → send through the smart-resume
+    # entry, which lands them on their current step (phone / coach intro /
+    # profile / submitted / call).
+    if profile.welcome_seen_at:
+        return redirect("crush_lu:onboarding_entry")
+
+    # Mark as seen on first render. Intent-probe answers are still POSTed
+    # separately after the user interacts; this just prevents the page from
+    # showing a second time if they navigate away and back.
+    profile.welcome_seen_at = timezone.now()
+    profile.save(update_fields=["welcome_seen_at"])
+
+    context = {
+        "first_name": request.user.first_name or request.user.username,
+        "intent_options": onboarding.INTENT_PROBE_CHOICES,
+        "chapters": [
+            {
+                "chapter": onboarding.JOURNEY_CHAPTERS[ch],
+                "steps": [s for s in onboarding.JOURNEY_STEPS if s.chapter == ch],
+                "total_min": sum(s.min_duration for s in onboarding.JOURNEY_STEPS if s.chapter == ch),
+            }
+            for ch in onboarding.JOURNEY_CHAPTERS
+        ],
+    }
+    context.update(onboarding.stepper_context(current=1))
+    return render(request, "crush_lu/welcome.html", context)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def welcome_intent_api(request):
+    """
+    Persist the user's intent-probe answer and return a contextual response
+    card as an HTML fragment that HTMX can swap into the page.
+
+    Called by `welcome.html` via hx-post from the 4 intent-radio buttons.
+    Keeps the page from reloading.
+    """
+    intent = request.POST.get("intent", "").strip()
+    valid = {choice for choice, _label in onboarding.INTENT_PROBE_CHOICES}
+    if intent not in valid:
+        return HttpResponseBadRequest("invalid intent")
+
+    profile, _created = CrushProfile.objects.get_or_create(user=request.user)
+    profile.intent_probe = intent
+    profile.save(update_fields=["intent_probe"])
+
+    # Render the response card as plain HTML. Four distinct tones
+    # (success / neutral / warn / neutral) drive copy variations; the
+    # template carries all four and picks one by `{{ intent }}`.
+    return render(
+        request,
+        "crush_lu/partials/welcome_intent_response.html",
+        {"intent": intent, "first_name": request.user.first_name or request.user.username},
+    )
+
+
+# ─── Onboarding /onboarding/ (smart-resume entry) ──────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET"])
+def onboarding_entry(request):
+    """
+    Single entry point into the onboarding journey. Reads the user's state
+    via `onboarding.get_current_step` and redirects to the correct step URL.
+
+    Wired from signup and OAuth complete so users resume on the right step if
+    they leave mid-flow.
+    """
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    step = onboarding.get_current_step(profile)
+    return redirect(onboarding.url_name_for_step(step))
+
+
+# ─── Onboarding Step 2: Phone verification ─────────────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET"])
+def phone_step(request):
+    """
+    Step 2 of the journey. Wraps the existing phone-verify flow in the
+    journey stepper. Bounces forward if phone is already verified.
+    """
+    profile, _created = CrushProfile.objects.get_or_create(user=request.user)
+    if profile.phone_verified:
+        return redirect("crush_lu:onboarding_entry")
+    if not profile.welcome_seen_at:
+        return redirect("crush_lu:welcome")
+
+    context = {"profile": profile}
+    context.update(onboarding.stepper_context(current=2))
+    return render(request, "crush_lu/onboarding/phone.html", context)
+
+
+# ─── Onboarding Step 3: Coach intro ────────────────────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET", "POST"])
+def coach_intro_step(request):
+    """
+    Step 3 of the journey — informational page about the coach role and
+    bios. Does NOT assign a coach (coaches claim from the channel post-submit).
+
+    POST marks `coach_intro_seen_at` and advances to step 4.
+    """
+    profile, _created = CrushProfile.objects.get_or_create(user=request.user)
+    if not profile.phone_verified:
+        return redirect("crush_lu:onboarding_phone")
+
+    if request.method == "POST":
+        if not profile.coach_intro_seen_at:
+            profile.coach_intro_seen_at = timezone.now()
+            profile.save(update_fields=["coach_intro_seen_at"])
+        return redirect("crush_lu:create_profile")
+
+    coaches = (
+        CrushCoach.objects.filter(is_active=True)
+        .select_related("user")
+        .order_by("user__first_name", "user__username")[:6]
+    )
+    context = {"coaches": coaches}
+    context.update(onboarding.stepper_context(current=3))
+    return render(request, "crush_lu/onboarding/coach_intro.html", context)
+
+
+# ─── Onboarding Step 5: Meet your coach ────────────────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET"])
+def meet_coach_step(request):
+    """
+    Step 5 of the journey. Shown when the user's latest submission has been
+    claimed by a coach (assigned_at set) but the screening call has not
+    happened yet. Shows the coach bio so the user knows who is reviewing.
+    """
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is None or profile.completion_status != "submitted":
+        return redirect("crush_lu:onboarding_entry")
+
+    submission = profile.submissions.order_by("-submitted_at").first()
+    if submission is None or submission.coach is None:
+        return redirect("crush_lu:profile_submitted")
+
+    context = {
+        "profile": profile,
+        "submission": submission,
+        "coach": submission.coach,
+    }
+    context.update(onboarding.stepper_context(current=5))
+    return render(request, "crush_lu/onboarding/meet_coach.html", context)
+
+
+# ─── Onboarding Step 7: Screening call ─────────────────────────────────────
+
+@crush_login_required
+@require_http_methods(["GET"])
+def screening_call_step(request):
+    """
+    Step 7 of the journey. Locked until the submission is approved. Points
+    the user at the booking flow for the screening call.
+    """
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        return redirect("crush_lu:onboarding_entry")
+
+    submission = profile.submissions.order_by("-submitted_at").first()
+    approved = submission is not None and submission.status == "approved"
+
+    context = {
+        "profile": profile,
+        "submission": submission,
+        "approved": approved,
+        "call_completed": approved and submission.review_call_completed,
+    }
+    context.update(onboarding.stepper_context(current=7))
+    return render(request, "crush_lu/onboarding/screening_call.html", context)

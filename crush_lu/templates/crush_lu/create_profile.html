@@ -14,6 +14,14 @@
 
 {% block content %}
 {% ga4_event "tutorial_begin" %}
+
+{# Outer 7-step onboarding journey stepper. Suppressed when editing an
+   already-submitted profile. Context (`journey_*`) is injected by the
+   `_render_create_profile` helper in views.py. #}
+{% if not is_editing and journey_steps %}
+  {% include "crush_lu/includes/journey_stepper.html" %}
+{% endif %}
+
 {# Main Alpine.js component for wizard state management #}
 <div x-data="profileWizard"
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"

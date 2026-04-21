@@ -64,11 +64,16 @@ def oauth_complete(request):
     # Get the intended destination from session, or default to dashboard
     final_destination = request.session.pop("oauth_final_destination", "/dashboard/")
 
-    # Check if user has a profile
+    # Route users who haven't finished onboarding through the smart-resume
+    # entry, which lands them on the correct step (welcome / phone / coach
+    # intro / build profile / …) based on CrushProfile state.
     try:
         profile = request.user.crushprofile
+        from . import onboarding
+        if onboarding.get_current_step(profile) < 6:
+            final_destination = "/onboarding/"
     except CrushProfile.DoesNotExist:
-        final_destination = "/create-profile/"
+        final_destination = "/onboarding/"
 
     context = {
         "final_destination": final_destination,
@@ -1019,7 +1024,11 @@ def signup(request):
                 if pending_gift_code:
                     return redirect("crush_lu:gift_claim", gift_code=pending_gift_code)
 
-                return redirect("crush_lu:create_profile")
+                # New signups land on /onboarding/, the smart-resume entry.
+                # On a fresh signup it forwards to /welcome/ (step 1);
+                # returning users resume on the step they left off at. See
+                # crush_lu/onboarding.py:get_current_step.
+                return redirect("crush_lu:onboarding_entry")
 
             except Exception as e:
                 # Handle duplicate email/username errors

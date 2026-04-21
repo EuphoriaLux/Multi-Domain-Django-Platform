@@ -8,6 +8,13 @@
 {% appinsights_event "profile_submission_viewed" status=submission.status %}
 {% ga4_event "tutorial_complete" %}
 {% fb_event "Lead" %}
+
+{# Outer 7-step onboarding journey stepper. Current step is computed by the
+   view based on submission state (5 meet-coach / 6 under-review / 7 call). #}
+{% if journey_steps %}
+  {% include "crush_lu/includes/journey_stepper.html" %}
+{% endif %}
+
 <div class="flex justify-center py-6 md:py-8">
     <div class="w-full max-w-3xl px-4">
         <div>

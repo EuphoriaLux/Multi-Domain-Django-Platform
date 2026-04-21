@@ -10,6 +10,17 @@
 
 <p>{% trans "Thanks for submitting your Crush.lu profile! We're excited to have you join our community." %}</p>
 
+{# Intent-aware line, set on /welcome/ (step 1 of the onboarding journey). #}
+{% if intent_probe == "events" %}
+<p>{% trans "You told us you want to meet people at real events — so do we. Your coach will make sure your first event is a good fit." %}</p>
+{% elif intent_probe == "online" %}
+<p>{% trans "You mentioned online dating is your priority. Heads up: Crush.lu is event-first — your coach will walk you through how that shapes what to expect." %}</p>
+{% elif intent_probe == "curious" %}
+<p>{% trans "Curiosity is a great starting point. Your coach will help you feel out whether Crush.lu is a fit before you commit to anything." %}</p>
+{% elif intent_probe == "friend" %}
+<p>{% trans "Glad a friend pointed you our way — tell them thanks from us. Your coach will help you get set up just like they did." %}</p>
+{% endif %}
+
 <div class="info-box">
     <strong>{% trans "What happens next?" %}</strong>
     <ul>
