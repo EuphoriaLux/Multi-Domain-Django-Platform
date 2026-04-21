@@ -42,6 +42,14 @@
         {% endif %}
         <!-- Progress Header -->
         <div class="text-center mb-8">
+            {# When the outer 7-step journey stepper is already rendered
+               (new-profile flow), we suppress this template's own 4-step
+               wizard header + circles — they nest the same visual idea
+               twice and make step 4 of the journey look like a whole new
+               onboarding. A compact sub-step label ("About you · 2 of 4")
+               stays visible on both modes so the user still knows where
+               they are inside the form. #}
+            {% if is_editing or not journey_steps %}
             <template x-if="isEditing">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-3">{% trans "Edit Your Profile" %}</h1>
@@ -119,6 +127,18 @@
                     <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step4TextClass">{% trans "Review" %}</span>
                 </div>
             </div>
+            {% else %}
+            {# New-profile journey flow: the outer 7-step rail already tells
+               the user where they are. Just a tiny "Build profile · n of 4"
+               caption so the inner multi-step wizard reveals itself without
+               competing with the journey rail above. #}
+            <div class="mt-4 flex items-baseline justify-between gap-3">
+                <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+                    {% trans "Build your profile" %}
+                </span>
+                <span class="text-xs font-medium tabular-nums text-crush-purple dark:text-purple-300" x-text="stepLabel"></span>
+            </div>
+            {% endif %}
         </div>
 
         <form method="post" enctype="multipart/form-data" id="profileForm" novalidate
