@@ -197,7 +197,31 @@
                     <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Let's start with the essentials" %}</p>
                 </div>
 
-                <!-- Phone Number with Verification -->
+                {# Phone verification now happens at step 2 of the onboarding
+                   journey (/onboarding/phone/). By the time the user reaches
+                   step 4 (profile build) the number is verified, so we show
+                   a compact confirmation line instead of the full widget.
+                   The full widget still renders when phone_verified is False
+                   — revisions and edge cases where step 2 was skipped. #}
+                {% if profile and profile.phone_verified %}
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        {% include "shared/icons/phone.html" with class="w-5 h-5" %} {% trans "Phone Number" %}
+                    </label>
+                    <div class="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-700 dark:bg-green-900/20">
+                        <svg class="h-4 w-4 text-green-700 dark:text-green-300" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-mono text-sm text-green-900 dark:text-green-100">{{ profile.phone_number }}</span>
+                        <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-300">{% trans "Verified" %}</span>
+                    </div>
+                    {# Hidden inputs so the form POST carries the verified
+                       phone + flag without the user having to re-enter it. #}
+                    <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
+                    <input type="hidden" name="phone_verified" value="true">
+                </div>
+                {% else %}
+                <!-- Phone Number with Verification (fallback — step 2 bypassed) -->
                 <div class="mb-6" id="phone-verification-container"
                      x-data="phoneVerificationComponent"
                      data-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
@@ -303,6 +327,7 @@
 
                     <input type="hidden" name="phone_verified" x-bind:value="verifiedValue">
                 </div>
+                {% endif %}
 
                 <!-- reCAPTCHA container -->
                 <div id="recaptcha-container"></div>
