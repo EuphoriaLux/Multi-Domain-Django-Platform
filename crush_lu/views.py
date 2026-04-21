@@ -1756,10 +1756,13 @@ def profile_submitted(request):
         "recontact_days_remaining": submission.recontact_days_remaining,
         "has_booking_token": bool(submission.booking_token),
     }
-    # Journey stepper context — step derived from current profile state so the
-    # outer rail highlights the right dot (5 if a coach has claimed, 7 if
-    # approved, otherwise 6 "Under review").
-    context.update(onboarding.stepper_context(current=onboarding.get_current_step(profile)))
+    # Journey stepper context — this page IS step 6 "Under review" (queue
+    # status, review time estimates, hybrid-coach banners). Hardcoding
+    # current=6 keeps the stepper label aligned with the page content even
+    # when a coach has already claimed (state-step 5) or approved (state-
+    # step 7) — those users are routed to meet_coach.html / screening_call.html
+    # via onboarding_entry, not here.
+    context.update(onboarding.stepper_context(current=6))
     return render(request, "crush_lu/profile_submitted.html", context)
 
 
