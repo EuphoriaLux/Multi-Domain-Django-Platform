@@ -30,6 +30,20 @@
 
       {% for step in journey_steps %}
       <li class="relative z-[1] flex flex-col items-center gap-1" {% if step.state == 'active' %}aria-current="step"{% endif %}>
+        {# Completed dots link back to the corresponding step URL so users
+           can revisit earlier steps (re-read the welcome intro, change
+           their intent answer, review the coach intro page, etc.). The
+           `step` key maps to a named URL that mirrors onboarding.STEP_URL_NAMES. #}
+        {% if step.state == 'completed' %}
+          {% if step.key == 'welcome' %}{% url 'crush_lu:welcome' as step_url %}
+          {% elif step.key == 'phone' %}{% url 'crush_lu:onboarding_phone' as step_url %}
+          {% elif step.key == 'select' %}{% url 'crush_lu:onboarding_coach_intro' as step_url %}
+          {% elif step.key == 'profile' %}{% url 'crush_lu:create_profile' as step_url %}
+          {% elif step.key == 'coach' %}{% url 'crush_lu:onboarding_meet_coach' as step_url %}
+          {% elif step.key == 'submitted' %}{% url 'crush_lu:profile_submitted' as step_url %}
+          {% else %}{% url 'crush_lu:onboarding_entry' as step_url %}{% endif %}
+          <a href="{{ step_url }}" class="group contents">
+        {% endif %}
         <span class="sr-only">
           {% blocktrans with n=step.n total=journey_total title=step.title %}Step {{ n }} of {{ total }}: {{ title }}{% endblocktrans %}
           {% if step.state == 'completed' %}{% trans '(completed)' %}{% endif %}
@@ -39,7 +53,7 @@
         <span
           aria-hidden="true"
           class="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums transition-all duration-200
-            {% if step.state == 'completed' %}bg-crush-success text-white
+            {% if step.state == 'completed' %}bg-crush-success text-white group-hover:scale-110 group-hover:shadow-md cursor-pointer
             {% elif step.state == 'active' %}border-2 border-crush-purple bg-crush-purple text-white shadow-[0_0_0_5px_rgba(155,89,182,0.12)] dark:shadow-[0_0_0_5px_rgba(197,156,216,0.18)]
             {% elif step.locked %}bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500
             {% else %}bg-white border border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-500
@@ -52,6 +66,7 @@
             {{ step.n }}
           {% endif %}
         </span>
+        {% if step.state == 'completed' %}</a>{% endif %}
       </li>
       {% endfor %}
     </ol>

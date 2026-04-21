@@ -61,16 +61,21 @@ class WelcomeViewTests(_SiteMixin, TestCase):
         profile = CrushProfile.objects.get(user=self.user)
         self.assertIsNotNone(profile.welcome_seen_at)
 
-    def test_second_visit_redirects_to_onboarding_entry(self):
+    def test_second_visit_renders_and_keeps_original_timestamp(self):
         CrushProfile.objects.create(user=self.user)
         self.client.login(username="alex@example.com", password="pass-pass-pass")
-        # First visit
+        # First visit — stamps welcome_seen_at
         self.client.get(reverse("crush_lu:welcome"))
-        # Second visit — should redirect into the smart-resume entry so the
-        # user lands on their actual current step.
+        first_ts = CrushProfile.objects.get(user=self.user).welcome_seen_at
+        self.assertIsNotNone(first_ts)
+        # Second visit — renders again (users can backtrack from the
+        # completed step-1 dot in the journey stepper), and the original
+        # first-seen timestamp is preserved (analytics stay honest).
         response = self.client.get(reverse("crush_lu:welcome"))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/onboarding/", response["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            CrushProfile.objects.get(user=self.user).welcome_seen_at, first_ts
+        )
 
     def test_stepper_renders_with_step_1_active(self):
         self.client.login(username="alex@example.com", password="pass-pass-pass")

@@ -998,17 +998,14 @@ def welcome_view(request):
     """
     profile, _created = CrushProfile.objects.get_or_create(user=request.user)
 
-    # One-shot: the welcome page has been seen → send through the smart-resume
-    # entry, which lands them on their current step (phone / coach intro /
-    # profile / submitted / call).
-    if profile.welcome_seen_at:
-        return redirect("crush_lu:onboarding_entry")
-
-    # Mark as seen on first render. Intent-probe answers are still POSTed
-    # separately after the user interacts; this just prevents the page from
-    # showing a second time if they navigate away and back.
-    profile.welcome_seen_at = timezone.now()
-    profile.save(update_fields=["welcome_seen_at"])
+    # Stamp welcome_seen_at on first view so the journey knows the user is
+    # past step 1. Re-renders on subsequent visits are allowed — letting
+    # users click the completed "Welcome" dot in the stepper to re-read the
+    # intro or change their intent answer. We keep the original first-seen
+    # timestamp so analytics on "time to first welcome" stay accurate.
+    if not profile.welcome_seen_at:
+        profile.welcome_seen_at = timezone.now()
+        profile.save(update_fields=["welcome_seen_at"])
 
     context = {
         "first_name": request.user.first_name or request.user.username,
