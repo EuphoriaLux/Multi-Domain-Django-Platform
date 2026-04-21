@@ -1079,12 +1079,15 @@ def onboarding_entry(request):
 @require_http_methods(["GET"])
 def phone_step(request):
     """
-    Step 2 of the journey. Wraps the existing phone-verify flow in the
-    journey stepper. Bounces forward if phone is already verified.
+    Step 2 of the journey. Wraps the phone-verify flow in the journey
+    stepper. Rendered on every visit so users who backtrack from a later
+    step (via the completed step-2 dot) see their verified number and
+    the Continue button instead of being bounced forward.
+
+    We only enforce ordering in one direction — if welcome hasn't been
+    seen yet, send the user back to step 1.
     """
     profile, _created = CrushProfile.objects.get_or_create(user=request.user)
-    if profile.phone_verified:
-        return redirect("crush_lu:onboarding_entry")
     if not profile.welcome_seen_at:
         return redirect("crush_lu:welcome")
 

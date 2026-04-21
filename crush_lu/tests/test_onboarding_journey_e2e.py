@@ -117,14 +117,21 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         CrushProfile.objects.create(user=self.user)
         self.assertIn("/welcome/", self._final_path("/onboarding/phone/"))
 
-    def test_bounces_forward_if_phone_already_verified(self):
+    def test_renders_when_phone_already_verified(self):
+        """Re-enterable: users backtracking from a later step (via the
+        completed step-2 dot in the journey stepper) should see their
+        verified number, not get bounced forward."""
         CrushProfile.objects.create(
             user=self.user,
             welcome_seen_at=timezone.now(),
             phone_verified=True,
+            phone_number="+352621000000",
         )
-        # Should land past step 2 (on coach-intro since phone is verified).
-        self.assertIn("/onboarding/coach-intro/", self._final_path("/onboarding/phone/"))
+        response = self.client.get("/onboarding/phone/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        # Verified state is rendered (the template shows the verified chip
+        # instead of the Verify button).
+        self.assertContains(response, "+352621000000")
 
     def test_renders_with_step_2_active(self):
         CrushProfile.objects.create(
