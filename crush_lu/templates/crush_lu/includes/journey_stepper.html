@@ -30,10 +30,12 @@
 
       {% for step in journey_steps %}
       <li class="relative z-[1] flex flex-col items-center gap-1" {% if step.state == 'active' %}aria-current="step"{% endif %}>
-        {# Completed dots link back to the corresponding step URL so users
-           can revisit earlier steps (re-read the welcome intro, change
-           their intent answer, review the coach intro page, etc.). The
-           `step` key maps to a named URL that mirrors onboarding.STEP_URL_NAMES. #}
+        {% comment %}
+          Completed dots link back to the corresponding step URL so users
+          can revisit earlier steps (re-read the welcome intro, change
+          their intent answer, review the coach intro page, etc.). The
+          `step` key maps to a named URL that mirrors onboarding.STEP_URL_NAMES.
+        {% endcomment %}
         {% if step.state == 'completed' %}
           {% if step.key == 'welcome' %}{% url 'crush_lu:welcome' as step_url %}
           {% elif step.key == 'phone' %}{% url 'crush_lu:onboarding_phone' as step_url %}

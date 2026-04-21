@@ -15,9 +15,11 @@
 {% block content %}
 {% ga4_event "tutorial_begin" %}
 
-{# Outer 7-step onboarding journey stepper. Suppressed when editing an
-   already-submitted profile. Context (`journey_*`) is injected by the
-   `_render_create_profile` helper in views.py. #}
+{% comment %}
+  Outer 7-step onboarding journey stepper. Suppressed when editing an
+  already-submitted profile. Context (`journey_*`) is injected by the
+  `_render_create_profile` helper in views.py.
+{% endcomment %}
 {% if not is_editing and journey_steps %}
   {% include "crush_lu/includes/journey_stepper.html" %}
 {% endif %}
@@ -42,13 +44,15 @@
         {% endif %}
         <!-- Progress Header -->
         <div class="text-center mb-8">
-            {# When the outer 7-step journey stepper is already rendered
-               (new-profile flow), we suppress this template's own 4-step
-               wizard header + circles — they nest the same visual idea
-               twice and make step 4 of the journey look like a whole new
-               onboarding. A compact sub-step label ("About you · 2 of 4")
-               stays visible on both modes so the user still knows where
-               they are inside the form. #}
+            {% comment %}
+              When the outer 7-step journey stepper is already rendered
+              (new-profile flow), we suppress this template's own 4-step
+              wizard header + circles — they nest the same visual idea
+              twice and make step 4 of the journey look like a whole new
+              onboarding. A compact sub-step label ("About you · 2 of 4")
+              stays visible on both modes so the user still knows where
+              they are inside the form.
+            {% endcomment %}
             {% if is_editing or not journey_steps %}
             <template x-if="isEditing">
                 <div>
@@ -128,10 +132,12 @@
                 </div>
             </div>
             {% else %}
-            {# New-profile journey flow: the outer 7-step rail already tells
-               the user where they are. Just a tiny "Build profile · n of 4"
-               caption so the inner multi-step wizard reveals itself without
-               competing with the journey rail above. #}
+            {% comment %}
+              New-profile journey flow: the outer 7-step rail already tells
+              the user where they are. Just a tiny "Build profile · n of 4"
+              caption so the inner multi-step wizard reveals itself without
+              competing with the journey rail above.
+            {% endcomment %}
             <div class="mt-4 flex items-baseline justify-between gap-3">
                 <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
                     {% trans "Build your profile" %}
@@ -217,12 +223,14 @@
                     <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Let's start with the essentials" %}</p>
                 </div>
 
-                {# Phone verification now happens at step 2 of the onboarding
-                   journey (/onboarding/phone/). By the time the user reaches
-                   step 4 (profile build) the number is verified, so we show
-                   a compact confirmation line instead of the full widget.
-                   The full widget still renders when phone_verified is False
-                   — revisions and edge cases where step 2 was skipped. #}
+                {% comment %}
+                  Phone verification now happens at step 2 of the onboarding
+                  journey (/onboarding/phone/). By the time the user reaches
+                  step 4 (profile build) the number is verified, so we show
+                  a compact confirmation line instead of the full widget.
+                  The full widget still renders when phone_verified is False
+                  — revisions and edge cases where step 2 was skipped.
+                {% endcomment %}
                 {% if profile and profile.phone_verified %}
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
@@ -235,8 +243,10 @@
                         <span class="font-mono text-sm text-green-900 dark:text-green-100">{{ profile.phone_number }}</span>
                         <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-300">{% trans "Verified" %}</span>
                     </div>
-                    {# Hidden inputs so the form POST carries the verified
-                       phone + flag without the user having to re-enter it. #}
+                    {% comment %}
+                      Hidden inputs so the form POST carries the verified
+                      phone + flag without the user having to re-enter it.
+                    {% endcomment %}
                     <input type="hidden" name="phone_number" value="{{ profile.phone_number }}">
                     <input type="hidden" name="phone_verified" value="true">
                 </div>

@@ -9,8 +9,10 @@
 {% ga4_event "tutorial_complete" %}
 {% fb_event "Lead" %}
 
-{# Outer 7-step onboarding journey stepper. Current step is computed by the
-   view based on submission state (5 meet-coach / 6 under-review / 7 call). #}
+{% comment %}
+  Outer 7-step onboarding journey stepper. Current step is computed by the
+  view based on submission state (5 meet-coach / 6 under-review / 7 call).
+{% endcomment %}
 {% if journey_steps %}
   {% include "crush_lu/includes/journey_stepper.html" %}
 {% endif %}
