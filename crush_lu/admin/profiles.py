@@ -239,7 +239,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'welcome_seen_at',
         'coach_intro_seen_at',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'reset_onboarding_journey', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -997,6 +997,29 @@ class CrushProfileAdmin(admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, "No profiles had phone verification to reset.")
+
+    @admin.action(description=_('Reset onboarding journey (send back to /welcome/)'))
+    def reset_onboarding_journey(self, request, queryset):
+        """Clear the journey timestamps so selected users land on step 1 /welcome/ again.
+
+        Does NOT touch phone_verified or profile content — this only rewinds
+        the journey progression (welcome_seen_at, intent_probe, coach_intro_seen_at).
+        Use in combination with reset_phone_verification if you need a full rewind
+        to step 2.
+        """
+        count = queryset.update(
+            welcome_seen_at=None,
+            intent_probe='',
+            coach_intro_seen_at=None,
+        )
+        if count:
+            django_messages.success(
+                request,
+                _("Reset onboarding journey for %(count)s profile(s). "
+                  "They'll land on /welcome/ on their next visit.") % {"count": count},
+            )
+        else:
+            django_messages.warning(request, _("No profiles selected."))
 
     @admin.action(description=_('Sync selected profiles to Outlook contacts'))
     def sync_to_outlook(self, request, queryset):
