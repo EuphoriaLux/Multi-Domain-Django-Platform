@@ -3249,11 +3249,22 @@ document.addEventListener("alpine:init", function () {
                 var pct = (this.currentStep / this.totalSteps) * 100;
                 return "width:" + pct + "%";
             },
+            // Step labels and the "Step X of Y — " prefix arrive from the
+            // template as data attributes so Django's {% trans %} can
+            // translate them (DE/FR). The JS itself never hard-codes copy.
+            stepLabels: [],
+            stepLabelPrefix: "Step ",
+            stepLabelOf: " of ",
+            stepLabelSep: " — ",
             get stepLabel() {
-                var names = ["Basic Info", "About You", "Photos", "Preferences", "Review"];
-                var name = names[this.currentStep - 1] || "";
+                var name = this.stepLabels[this.currentStep - 1] || "";
                 return (
-                    "Step " + this.currentStep + " of " + this.totalSteps + " — " + name
+                    this.stepLabelPrefix +
+                    this.currentStep +
+                    this.stepLabelOf +
+                    this.totalSteps +
+                    this.stepLabelSep +
+                    name
                 );
             },
 
@@ -3448,6 +3459,19 @@ document.addEventListener("alpine:init", function () {
                 var initialStep = el.getAttribute("data-initial-step");
                 var phoneVerified = el.getAttribute("data-phone-verified");
                 var isEditing = el.getAttribute("data-is-editing");
+
+                // Translated step labels are injected by the template as a
+                // pipe-separated list so the JS stays copy-free.
+                var labelsAttr = el.getAttribute("data-step-labels");
+                if (labelsAttr) {
+                    this.stepLabels = labelsAttr.split("|");
+                }
+                var prefix = el.getAttribute("data-step-label-prefix");
+                if (prefix) this.stepLabelPrefix = prefix;
+                var ofWord = el.getAttribute("data-step-label-of");
+                if (ofWord) this.stepLabelOf = ofWord;
+                var sep = el.getAttribute("data-step-label-sep");
+                if (sep) this.stepLabelSep = sep;
 
                 // Map DB completion_status values → wizard sub-step numbers.
                 // Wizard has 5 sub-steps: 1 Basic Info · 2 About You · 3 Photos

@@ -39,10 +39,10 @@
         {% if step.state == 'completed' %}
           {% if step.key == 'welcome' %}{% url 'crush_lu:welcome' as step_url %}
           {% elif step.key == 'phone' %}{% url 'crush_lu:onboarding_phone' as step_url %}
-          {% elif step.key == 'select' %}{% url 'crush_lu:onboarding_coach_intro' as step_url %}
+          {% elif step.key == 'coach_intro' %}{% url 'crush_lu:onboarding_coach_intro' as step_url %}
           {% elif step.key == 'profile' %}{% url 'crush_lu:create_profile' as step_url %}
-          {% elif step.key == 'coach' %}{% url 'crush_lu:onboarding_meet_coach' as step_url %}
           {% elif step.key == 'submitted' %}{% url 'crush_lu:profile_submitted' as step_url %}
+          {% elif step.key == 'coach' %}{% url 'crush_lu:onboarding_meet_coach' as step_url %}
           {% else %}{% url 'crush_lu:onboarding_entry' as step_url %}{% endif %}
           <a href="{{ step_url }}" class="group contents">
         {% endif %}

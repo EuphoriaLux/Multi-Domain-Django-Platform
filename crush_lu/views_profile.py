@@ -623,6 +623,16 @@ def complete_profile_submission(request):
                     submission.status = "pending"
                     submission.coach = None  # back to the channel
                     submission.submitted_at = timezone.now()
+                    # Reset SLA cycle — the next coach claim must restamp
+                    # assigned_at/sla_deadline (the post-save signal only fires
+                    # when assigned_at is null). Leaving a stale deadline would
+                    # flag the fresh claim as already in breach and keep the
+                    # onboarding stepper on "coach claimed".
+                    submission.assigned_at = None
+                    submission.sla_deadline = None
+                    submission.escalated_at = None
+                    submission.nudge_sent_at = None
+                    submission.fallback_offered_at = None
                     submission.save()
                     created = False
                     is_revision = True
@@ -1170,7 +1180,18 @@ def phone_step(request):
     if not profile.welcome_seen_at:
         return redirect("crush_lu:welcome")
 
-    context = {"profile": profile}
+    # The template hides the LuxID fallback card when the user already has a
+    # linked LuxID SocialAccount — for those users the post-login signal has
+    # already flipped phone_verified, so they won't see this page. We still
+    # compute the flag defensively because the page can be re-entered by
+    # backtracking from step 3.
+    from allauth.socialaccount.models import SocialAccount
+    has_luxid_account = SocialAccount.objects.filter(
+        user=request.user,
+        provider__in=("luxid", "openid_connect"),
+    ).exists()
+
+    context = {"profile": profile, "has_luxid_account": has_luxid_account}
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)
 
@@ -1206,13 +1227,13 @@ def coach_intro_step(request):
     return render(request, "crush_lu/onboarding/coach_intro.html", context)
 
 
-# ─── Onboarding Step 5: Meet your coach ────────────────────────────────────
+# ─── Onboarding Step 6: Meet your coach ────────────────────────────────────
 
 @crush_login_required
 @require_http_methods(["GET"])
 def meet_coach_step(request):
     """
-    Step 5 of the journey. Shown when the user's latest submission has been
+    Step 6 of the journey. Shown when the user's latest submission has been
     claimed by a coach (assigned_at set) but the screening call has not
     happened yet. Shows the coach bio so the user knows who is reviewing.
     """
@@ -1229,7 +1250,7 @@ def meet_coach_step(request):
         "submission": submission,
         "coach": submission.coach,
     }
-    context.update(onboarding.stepper_context(current=5))
+    context.update(onboarding.stepper_context(current=6))
     return render(request, "crush_lu/onboarding/meet_coach.html", context)
 
 

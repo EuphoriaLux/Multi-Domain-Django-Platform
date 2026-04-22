@@ -25,10 +25,16 @@
 {% endif %}
 
 {# Main Alpine.js component for wizard state management #}
+{# Step labels are translated server-side so the JS stays copy-free. Passed as #}
+{# a pipe-separated list to avoid JSON-escaping pitfalls with localized copy.  #}
 <div x-data="profileWizard"
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"
      data-phone-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
      data-is-editing="{{ is_editing|lower|default:'false' }}"
+     data-step-labels="{% trans 'Basic Info' %}|{% trans 'About You' %}|{% trans 'Photos' %}|{% trans 'Preferences' %}|{% trans 'Review' %}"
+     data-step-label-prefix="{% trans 'Step ' %}"
+     data-step-label-of="{% trans ' of ' %}"
+     data-step-label-sep="{% trans ' — ' %}"
      class="profile-creation-wrapper">
     <div class="container py-4 max-w-3xl mx-auto px-4">
         {% if submission and submission.feedback_to_user %}
