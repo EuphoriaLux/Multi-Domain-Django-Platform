@@ -18,4 +18,43 @@
             </p>
         </div>
     {% endfor %}
+
+    {% if is_paginated %}
+        <nav class="changelog-pagination flex items-center justify-between gap-4 pt-4"
+             aria-label="{% trans 'Changelog pagination' %}">
+            {% if page_obj.has_previous %}
+                <a href="?{% if category %}category={{ category|urlencode }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                   hx-get="?{% if category %}category={{ category|urlencode }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                   hx-target="#changelog-timeline"
+                   hx-select="#changelog-timeline"
+                   hx-swap="outerHTML"
+                   hx-push-url="true"
+                   rel="prev"
+                   class="text-sm text-crush-purple hover:text-crush-purple-dark transition focus:outline-none focus:ring-2 focus:ring-crush-purple rounded px-3 py-2">
+                    {% trans "← Newer" %}
+                </a>
+            {% else %}
+                <span aria-hidden="true"></span>
+            {% endif %}
+
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+                {% blocktrans with current=page_obj.number total=paginator.num_pages %}Page {{ current }} of {{ total }}{% endblocktrans %}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?{% if category %}category={{ category|urlencode }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                   hx-get="?{% if category %}category={{ category|urlencode }}&amp;{% endif %}{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                   hx-target="#changelog-timeline"
+                   hx-select="#changelog-timeline"
+                   hx-swap="outerHTML"
+                   hx-push-url="true"
+                   rel="next"
+                   class="text-sm text-crush-purple hover:text-crush-purple-dark transition focus:outline-none focus:ring-2 focus:ring-crush-purple rounded px-3 py-2">
+                    {% trans "Older →" %}
+                </a>
+            {% else %}
+                <span aria-hidden="true"></span>
+            {% endif %}
+        </nav>
+    {% endif %}
 </section>

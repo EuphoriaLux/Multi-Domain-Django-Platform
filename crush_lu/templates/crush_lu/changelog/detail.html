@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<style>
+<style nonce="{{ csp_nonce }}">
     .changelog-note-body { white-space: pre-line; }
 </style>
 {% endblock %}

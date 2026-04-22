@@ -43,7 +43,7 @@
                        type="search"
                        name="q"
                        x-model="q"
-                       value="{{ q }}"
+                       value="{{ q|escape }}"
                        placeholder="{% trans 'Search updates…' %}"
                        autocomplete="off"
                        class="w-full rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-3 pr-10 text-base text-crush-dark dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-crush-purple focus:border-transparent transition">
@@ -90,7 +90,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<style>
+<style nonce="{{ csp_nonce }}">
     /* Respect prefers-reduced-motion globally */
     @media (prefers-reduced-motion: reduce) {
         .changelog-release { transition: none !important; animation: none !important; }
