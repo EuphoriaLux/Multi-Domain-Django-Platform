@@ -16,7 +16,7 @@
         <h2 class="font-display text-2xl sm:text-3xl leading-tight text-crush-dark dark:text-white">
             <a href="{{ release.get_absolute_url }}"
                class="hover:text-crush-purple transition focus:outline-none focus:ring-2 focus:ring-crush-purple rounded">
-                {{ release.title|default:"TODO: translate" }}
+                {{ release.title|default:_("Coming soon") }}
             </a>
         </h2>
         {% if release.hero_summary %}

@@ -190,7 +190,18 @@ def git_log(since: str, until: str | None = None):
     cmd = ["git", "log", f"--since={since}", f"--pretty=format:{fmt}", "--date=short", "--name-only"]
     if until:
         cmd.append(f"--until={until}")
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except FileNotFoundError as exc:
+        raise CommandError(
+            "git executable not found. Ensure Git is installed and on PATH."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip() or "no stderr"
+        raise CommandError(
+            f"git log failed (exit {exc.returncode}): {stderr}. "
+            "Run the command from inside the project repository."
+        ) from exc
     out = result.stdout
     entries = []
     for block in out.split("\n\n"):
@@ -253,6 +264,15 @@ class Command(BaseCommand):
         buckets = self._bucket_commits(relevant, milestones, opts["milestones_only"])
 
         if opts["dry_run"]:
+            # Exercise the real write path inside a rolled-back transaction so
+            # schema or constraint regressions surface during planning too.
+            try:
+                with transaction.atomic():
+                    for meta, commits_ in buckets:
+                        self._write_release(meta, commits_, quiet=True)
+                    transaction.set_rollback(True)
+            except Exception as exc:
+                raise CommandError(f"Dry run failed during write simulation: {exc}") from exc
             self._print_plan(buckets)
             return
 
@@ -356,24 +376,28 @@ class Command(BaseCommand):
                 order += 1
         return notes
 
-    def _write_release(self, meta, commits):
-        release, _ = PatchRelease.objects.update_or_create(
+    def _write_release(self, meta, commits, quiet=False):
+        # is_published goes through create_defaults only so re-running the
+        # command never silently unpublishes an already-live release.
+        release, _created = PatchRelease.objects.update_or_create(
             slug=meta["slug"],
             defaults={
                 "version": meta["version"],
                 "title": meta["title"],
                 "hero_summary": meta.get("hero_summary", ""),
                 "released_on": meta["released_on"],
-                "is_published": False,
                 "commit_range_start": commits[-1][0] if commits else "",
                 "commit_range_end": commits[0][0] if commits else "",
             },
+            create_defaults={"is_published": False},
         )
-        # Reset notes on regenerate so edits stay idempotent
-        release.notes.all().delete()
+        # Only wipe auto-generated notes so curator-edited rows
+        # (auto_generated=False) survive regeneration, translations and all.
+        release.notes.filter(auto_generated=True).delete()
         for note_data in self._aggregate_into_notes(commits):
-            PatchNote.objects.create(release=release, **note_data)
-        self.stdout.write(f"  {release.version} \u2014 {release.title} "
+            PatchNote.objects.create(release=release, auto_generated=True, **note_data)
+        if not quiet:
+            self.stdout.write(f"  {release.version} \u2014 {release.title} "
                           f"({release.notes.count()} notes, {len(commits)} commits)")
 
     def _print_plan(self, buckets):

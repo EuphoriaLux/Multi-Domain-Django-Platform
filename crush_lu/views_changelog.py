@@ -4,13 +4,19 @@ Public-facing changelog views for crush.lu.
 URL surface:
 - /changelog/            timeline of published releases with filter + search
 - /changelog/<slug>/     permalink for a single release (sharable)
+
+The list view supports HTMX partial rendering: when the request carries
+``HX-Request``, only the ``_timeline.html`` fragment is returned so the
+filter bar can swap results in-place.
 """
 
+from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
-from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 
 from crush_lu.models import PatchNote, PatchNoteCategory, PatchRelease
+
+DEFAULT_PAGE_SIZE = 12
 
 
 def _filtered_notes_prefetch(category=None, q=None):
@@ -37,16 +43,22 @@ def changelog_list(request):
     category = raw_category if raw_category in PatchNoteCategory.values else ""
     q = (request.GET.get("q") or "").strip()[:120]
 
-    releases = (
+    base_qs = (
         PatchRelease.objects.filter(is_published=True)
         .prefetch_related(_filtered_notes_prefetch(category or None, q or None))
         .order_by("-released_on", "-version")
     )
 
     if category or q:
-        releases = [r for r in releases if getattr(r, "filtered_notes", [])]
+        # When filtering, drop releases where no note matched so the user
+        # never sees an empty card.
+        releases_all = [r for r in base_qs if getattr(r, "filtered_notes", [])]
     else:
-        releases = list(releases)
+        releases_all = list(base_qs)
+
+    paginator = Paginator(releases_all, DEFAULT_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    releases = list(page_obj.object_list)
 
     template = (
         "crush_lu/changelog/_timeline.html"
@@ -59,10 +71,14 @@ def changelog_list(request):
         template,
         {
             "releases": releases,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "is_paginated": page_obj.has_other_pages(),
             "category": category,
             "q": q,
             "category_choices": _category_choices(),
-            "total_published": PatchRelease.objects.filter(is_published=True).count(),
+            # Matches the already-loaded list; no extra DB round trip.
+            "total_published": len(releases_all),
         },
     )
 
