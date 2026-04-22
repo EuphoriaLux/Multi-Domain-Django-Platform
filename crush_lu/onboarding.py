@@ -35,12 +35,16 @@ class Chapter:
 JOURNEY_STEPS = (
     Step(1, "welcome",   _("Welcome"),           chapter=1, min_duration=1),
     Step(2, "phone",     _("Verify number"),     chapter=1, min_duration=1),
-    Step(3, "select",    _("Select your Coach"), chapter=2, min_duration=2),
+    Step(3, "coach_intro", _("Meet the Coaches"), chapter=2, min_duration=2),
     Step(4, "profile",   _("Build profile"),     chapter=2, min_duration=8),
-    Step(5, "coach",     _("Meet your Coach"),   chapter=2, min_duration=1),
-    Step(6, "submitted", _("Under review"),      chapter=3, min_duration=0),
+    Step(5, "submitted", _("Under review"),      chapter=3, min_duration=0),
+    Step(6, "coach",     _("Meet your Coach"),   chapter=3, min_duration=1),
     Step(7, "call",      _("Screening call"),    chapter=3, min_duration=20, locked=True),
 )
+
+# Sentinel returned by get_current_step when the user's submission is permanently
+# rejected. Callers translate this to `profile_rejected` rather than a journey step.
+STEP_REJECTED = -1
 
 JOURNEY_CHAPTERS = {
     1: Chapter(1, _("Chapter 1"), _("Get set up"),        "#9b59b6"),
@@ -53,20 +57,26 @@ def get_current_step(profile) -> int:
     """
     Derive the user's current journey step (1-7) from their CrushProfile state.
 
-    Ordering — first gate that fails is the current step:
+    Ordering — first gate that fails is the current step. Step numbers follow
+    temporal order so the stepper never moves backwards as the user progresses:
+
       1. welcome          — welcome_seen_at is null
       2. phone verify     — phone_verified is False
-      3. coach intro      — coach_intro_seen_at is null (user hasn't acked the coach-intro page)
+      3. coach intro      — coach_intro_seen_at is null
       4. build profile    — completion_status != 'submitted'
-      5. meet coach       — submission exists, coach reviewing
-      6. under review     — submission queued
+      5. under review     — submission queued, no coach assigned yet
+      6. meet coach       — coach has claimed; user sees coach bio
       7. screening call   — submission approved + call pending
 
-    Step 3 is an informational page: users don't pick a coach here — coaches
-    claim submissions from a broadcast channel post-submit. The timestamp
-    `coach_intro_seen_at` just marks that the user has seen the intro.
+    Step 3 is informational: users don't pick a coach here — coaches claim
+    submissions from a broadcast channel post-submit. `coach_intro_seen_at`
+    marks that the user has seen the intro.
 
     `profile` may be None (user has no CrushProfile yet) — treat as step 1.
+
+    Returns STEP_REJECTED (a sentinel outside 1-7) for submissions that have
+    been permanently rejected. Callers should translate that to the
+    `profile_rejected` URL instead of a journey step.
     """
     if profile is None:
         return 1
@@ -84,13 +94,19 @@ def get_current_step(profile) -> int:
     latest = submission.order_by("-submitted_at").first() if submission else None
     if latest is None:
         return 4
-    if latest.status == "pending" and not latest.assigned_at:
-        return 6  # still in queue, no coach yet
-    if latest.status == "pending" and latest.assigned_at:
-        return 5  # coach reviewing
-    if latest.status == "approved" and not latest.review_call_completed:
-        return 7  # screening call pending
-    return 7
+
+    if latest.status == "rejected":
+        return STEP_REJECTED
+    if latest.status == "revision":
+        # Coach asked for edits — send user back to the wizard to resubmit.
+        return 4
+    if latest.status == "approved":
+        return 7
+    # 'pending' and 'recontact_coach' both keep the user in the review phase;
+    # stepper position depends on whether a coach has claimed.
+    if latest.assigned_at:
+        return 6  # coach claimed → meet your coach
+    return 5  # still in the channel, no coach yet
 
 
 def annotate_steps(current: int):
@@ -170,12 +186,17 @@ STEP_URL_NAMES = {
     2: "crush_lu:onboarding_phone",
     3: "crush_lu:onboarding_coach_intro",
     4: "crush_lu:create_profile",
-    5: "crush_lu:onboarding_meet_coach",
-    6: "crush_lu:profile_submitted",
+    5: "crush_lu:profile_submitted",
+    6: "crush_lu:onboarding_meet_coach",
     7: "crush_lu:onboarding_screening_call",
 }
 
 
 def url_name_for_step(step: int) -> str:
-    """Return the named URL for the given journey step (1-7)."""
+    """Return the named URL for the given journey step.
+
+    Handles the STEP_REJECTED sentinel by returning the profile_rejected URL.
+    """
+    if step == STEP_REJECTED:
+        return "crush_lu:profile_rejected"
     return STEP_URL_NAMES[max(1, min(step, len(JOURNEY_STEPS)))]

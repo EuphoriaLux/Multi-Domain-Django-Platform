@@ -456,6 +456,17 @@ def create_profile(request):
                         submission.status = "pending"
                         submission.coach = None  # back to the channel
                         submission.submitted_at = timezone.now()
+                        # Reset SLA cycle — the next coach claim must restamp
+                        # assigned_at/sla_deadline (the post-save signal only
+                        # fires when assigned_at is null). Leaving a stale
+                        # deadline would flag the fresh claim as already in
+                        # breach and keep the onboarding stepper on "coach
+                        # claimed".
+                        submission.assigned_at = None
+                        submission.sla_deadline = None
+                        submission.escalated_at = None
+                        submission.nudge_sent_at = None
+                        submission.fallback_offered_at = None
                         submission.save()
                         created = False
                         is_revision = True
@@ -1756,13 +1767,13 @@ def profile_submitted(request):
         "recontact_days_remaining": submission.recontact_days_remaining,
         "has_booking_token": bool(submission.booking_token),
     }
-    # Journey stepper context — this page IS step 6 "Under review" (queue
+    # Journey stepper context — this page IS step 5 "Under review" (queue
     # status, review time estimates, hybrid-coach banners). Hardcoding
-    # current=6 keeps the stepper label aligned with the page content even
-    # when a coach has already claimed (state-step 5) or approved (state-
+    # current=5 keeps the stepper label aligned with the page content even
+    # when a coach has already claimed (state-step 6) or approved (state-
     # step 7) — those users are routed to meet_coach.html / screening_call.html
     # via onboarding_entry, not here.
-    context.update(onboarding.stepper_context(current=6))
+    context.update(onboarding.stepper_context(current=5))
     return render(request, "crush_lu/profile_submitted.html", context)
 
 
