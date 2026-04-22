@@ -743,11 +743,13 @@ def import_social_photo(request):
 
         if result['success']:
             # Render the updated photo card partial for seamless DOM replacement
+            from .social_photos import get_all_social_photos
             profile = CrushProfile.objects.get(user=request.user)
             html = render_to_string('crush_lu/partials/photo_card.html', {
                 'slot': photo_slot,
                 'photo': getattr(profile, f'photo_{photo_slot}'),
                 'is_main': photo_slot == 1,
+                'social_photos': get_all_social_photos(request.user),
             }, request=request)
             return JsonResponse({
                 'success': True,
@@ -782,6 +784,9 @@ def upload_profile_photo(request, slot):
     Files: photo_<slot>
     """
     from .forms import CrushProfileForm
+    from .social_photos import get_all_social_photos
+
+    social_photos = get_all_social_photos(request.user)
 
     # Validate slot
     if slot not in [1, 2, 3]:
@@ -790,6 +795,7 @@ def upload_profile_photo(request, slot):
             'photo': None,
             'is_main': slot == 1,
             'error': 'Invalid photo slot',
+            'social_photos': social_photos,
         })
 
     try:
@@ -807,6 +813,7 @@ def upload_profile_photo(request, slot):
                 'photo': getattr(profile, f'photo_{slot}'),
                 'is_main': slot == 1,
                 'error': 'No file provided',
+                'social_photos': social_photos,
             })
 
         # Validate photo using form validation
@@ -831,6 +838,7 @@ def upload_profile_photo(request, slot):
                     'photo': getattr(profile, photo_field_name),
                     'is_main': slot == 1,
                     'just_uploaded': True,
+                    'social_photos': social_photos,
                 })
             except Exception as e:
                 logger.warning(f"Photo validation failed: {e}", exc_info=True)
@@ -839,17 +847,17 @@ def upload_profile_photo(request, slot):
                     'photo': getattr(profile, photo_field_name),
                     'is_main': slot == 1,
                     'error': 'Photo validation failed. Please try a different image.',
+                    'social_photos': social_photos,
                 })
 
-        # Fallback - save without validation (shouldn't happen)
-        setattr(profile, photo_field_name, photo_file)
-        profile.save(update_fields=[photo_field_name])
-
+        # No valid form field found for this slot -- reject the upload
+        logger.error(f"No form field found for photo slot {slot}")
         return render(request, 'crush_lu/partials/photo_card.html', {
             'slot': slot,
             'photo': getattr(profile, photo_field_name),
             'is_main': slot == 1,
-            'just_uploaded': True,
+            'error': 'Unable to process photo upload. Please try again.',
+            'social_photos': social_photos,
         })
 
     except Exception as e:
@@ -859,6 +867,7 @@ def upload_profile_photo(request, slot):
             'photo': None,
             'is_main': slot == 1,
             'error': 'Upload failed. Please try again.',
+            'social_photos': social_photos,
         })
 
 
@@ -871,6 +880,10 @@ def delete_profile_photo(request, slot):
 
     DELETE /api/profile/delete-photo/<slot>/
     """
+    from .social_photos import get_all_social_photos
+
+    social_photos = get_all_social_photos(request.user)
+
     # Validate slot
     if slot not in [1, 2, 3]:
         return render(request, 'crush_lu/partials/photo_card.html', {
@@ -878,6 +891,7 @@ def delete_profile_photo(request, slot):
             'photo': None,
             'is_main': slot == 1,
             'error': 'Invalid photo slot',
+            'social_photos': social_photos,
         })
 
     try:
@@ -897,6 +911,7 @@ def delete_profile_photo(request, slot):
             'slot': slot,
             'photo': None,
             'is_main': slot == 1,
+            'social_photos': social_photos,
         })
 
     except CrushProfile.DoesNotExist:
@@ -904,6 +919,7 @@ def delete_profile_photo(request, slot):
             'slot': slot,
             'photo': None,
             'is_main': slot == 1,
+            'social_photos': social_photos,
         })
     except Exception as e:
         logger.error(f"Error deleting photo {slot}: {str(e)}", exc_info=True)
@@ -912,6 +928,7 @@ def delete_profile_photo(request, slot):
             'photo': None,
             'is_main': slot == 1,
             'error': 'Delete failed. Please try again.',
+            'social_photos': social_photos,
         })
 
 

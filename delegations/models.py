@@ -46,7 +46,7 @@ class Company(models.Model):
         null=True
     )
     description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     auto_approve_workers = models.BooleanField(
         default=False,
         help_text="Automatically approve users from this company's domain"

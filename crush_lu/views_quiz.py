@@ -208,10 +208,18 @@ def quiz_coach_view(request, event_id):
         QuizEvent.objects.select_related("event", "current_round"),
         event_id=event_id,
     )
-    # Quiz creator, staff, or assigned coaches can access host view
-    is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
-    if quiz.created_by != request.user and not request.user.is_staff and not is_coach:
-        raise Http404
+    # Only the quiz creator or a CrushCoach explicitly assigned to this
+    # event can access the host view. Blanket is_staff and "any active
+    # coach" bypasses removed so unrelated staff/coaches cannot control
+    # the live quiz.
+    if quiz.created_by_id != request.user.id:
+        is_assigned_coach = CrushCoach.objects.filter(
+            user=request.user,
+            is_active=True,
+            assigned_events=quiz.event_id,
+        ).exists()
+        if not is_assigned_coach:
+            raise Http404
 
     rounds = quiz.rounds.prefetch_related("questions").order_by("sort_order")
     tables = QuizTable.objects.filter(quiz=quiz).order_by("table_number")

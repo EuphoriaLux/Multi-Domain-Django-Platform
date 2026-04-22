@@ -48,6 +48,7 @@ from .profiles import (
     CrushProfileAdmin,
     ProfileSubmissionAdmin,
     CoachSessionAdmin,
+    ScreeningSlotAdmin,
     ApprovedProfile,
     ApprovedProfileAdmin,
     AwaitingReviewProfile,
@@ -200,6 +201,7 @@ from crush_lu.models import (
     CrushSpark,
     ProfileSubmission,
     CoachSession,
+    ScreeningSlot,
     MeetupEvent,
     EventRegistration,
     EventInvitation,
@@ -275,6 +277,7 @@ crush_admin_site.register(ProfileSubmission, ProfileSubmissionAdmin)
 crush_admin_site.register(CompletedSubmission, CompletedSubmissionAdmin)
 crush_admin_site.register(InProcessSubmission, InProcessSubmissionAdmin)
 crush_admin_site.register(CoachSession, CoachSessionAdmin)
+crush_admin_site.register(ScreeningSlot, ScreeningSlotAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
@@ -403,6 +406,7 @@ __all__ = [
     'CrushProfileAdmin',
     'ProfileSubmissionAdmin',
     'CoachSessionAdmin',
+    'ScreeningSlotAdmin',
     'ApprovedProfile',
     'ApprovedProfileAdmin',
     'AwaitingReviewProfile',

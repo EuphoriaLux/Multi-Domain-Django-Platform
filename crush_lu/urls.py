@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
+from . import views_pre_screening
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -145,6 +146,15 @@ urlpatterns = [
     path('profile-submitted/', views.profile_submitted, name='profile_submitted'),
     path('profile/rejected/', views.profile_rejected, name='profile_rejected'),
 
+    # Pre-screening questionnaire (feature-flagged via PRE_SCREENING_ENABLED)
+    path('pre-screening/', views_pre_screening.pre_screening_form, name='pre_screening'),
+    path('pre-screening/section/<slug:section_id>/',
+         views_pre_screening.pre_screening_save_section,
+         name='pre_screening_save_section'),
+    path('pre-screening/finalize/',
+         views_pre_screening.pre_screening_finalize,
+         name='pre_screening_finalize'),
+
     # Profile step-by-step saving APIs - MOVED to urls_crush.py (language-neutral)
     # These APIs are called from alpine-components.js with hardcoded paths:
     # - api/profile/save-step1/, save-step2/, save-step3/
@@ -258,9 +268,42 @@ urlpatterns = [
     path('coach/review/<int:submission_id>/call-complete/', views.coach_mark_review_call_complete, name='coach_mark_review_call_complete'),
     path('coach/review/<int:submission_id>/call-attempt/', views.coach_log_failed_call, name='coach_log_failed_call'),
     path('coach/review/<int:submission_id>/sms-sent/', views.coach_log_sms_sent, name='coach_log_sms_sent'),
+    path('coach/review/<int:submission_id>/pre-screening-reminder/', views.coach_send_pre_screening_reminder, name='coach_send_pre_screening_reminder'),
+    path('coach/review/<int:submission_id>/screening-mode/', views.coach_set_screening_mode, name='coach_set_screening_mode'),
     path('coach/sessions/', views.coach_sessions, name='coach_sessions'),
     path('coach/verifications/', views.coach_verification_history, name='coach_verification_history'),
     path('coach/team-stats/', views.coach_team_stats, name='coach_team_stats'),
+
+    # Hybrid Coach Review System — coach preferences (Phase 2)
+    path('coach/settings/', views.coach_settings, name='coach_settings'),
+    path(
+        'coach/settings/availability/add/',
+        views.coach_settings_availability_add,
+        name='coach_settings_availability_add',
+    ),
+    path(
+        'coach/settings/availability/<int:index>/remove/',
+        views.coach_settings_availability_remove,
+        name='coach_settings_availability_remove',
+    ),
+
+    # Hybrid Coach Review System — self-booking (Phase 5)
+    # Token is the credential; views are unauthenticated.
+    path(
+        'book/<uuid:booking_token>/',
+        views.book_screening,
+        name='book_screening',
+    ),
+    path(
+        'book/<uuid:booking_token>/confirm/',
+        views.confirm_booking,
+        name='confirm_booking',
+    ),
+    path(
+        'book/<uuid:booking_token>/cancel/',
+        views.cancel_booking,
+        name='cancel_booking',
+    ),
 
     # Coach invitation management
     path('coach/event/<int:event_id>/invitations/', views.coach_manage_invitations, name='coach_manage_invitations'),

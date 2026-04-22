@@ -581,6 +581,13 @@ class EventRegistration(models.Model):
             models.Index(
                 fields=["event", "status"], name="eventregistration_event_status"
             ),
+            # Covers filter(user=..., status=...) for user-centric dashboards
+            # ("my upcoming events", "my attended events"). The unique_together
+            # index leads with event, so user-first queries aren't served.
+            models.Index(
+                fields=["user", "status"],
+                name="eventreg_user_status",
+            ),
         ]
 
     def __str__(self):

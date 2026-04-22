@@ -996,7 +996,7 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 var fineCursor = window.matchMedia("(any-pointer: fine)").matches;
                 var reducedMotion = window.matchMedia(
-                    "(prefers-reduced-motion: reduce)"
+                    "(prefers-reduced-motion: reduce)",
                 ).matches;
                 if (!fineCursor || reducedMotion) return;
 
@@ -1053,11 +1053,7 @@ document.addEventListener("alpine:init", function () {
                     heartY += (targetHeartY - heartY) * heartEase;
 
                     var eyeT =
-                        "translate(" +
-                        eyeX.toFixed(2) +
-                        " " +
-                        eyeY.toFixed(2) +
-                        ")";
+                        "translate(" + eyeX.toFixed(2) + " " + eyeY.toFixed(2) + ")";
                     for (var i = 0; i < eyes.length; i++) {
                         eyes[i].setAttribute("transform", eyeT);
                     }
@@ -1068,7 +1064,7 @@ document.addEventListener("alpine:init", function () {
                                 (heartBaseX + heartX).toFixed(2) +
                                 " " +
                                 (heartBaseY + heartY).toFixed(2) +
-                                ")"
+                                ")",
                         );
                     }
                     self._raf = requestAnimationFrame(tick);
@@ -9972,6 +9968,100 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Screening Call Calibration Component (Phase 4)
+    // 3-section, minimal-state flow for Coaches who have the pre-screening data.
+    // Section 2 auto-populates a suggested script from the user's what_is_crush answer.
+    Alpine.data("screeningCallCalibration", function () {
+        return {
+            warmIntroComplete: false,
+            conceptCalibrationComplete: false,
+            conceptNotes: "",
+            discretionNotes: "",
+            conceptAnswer: "",
+            init() {
+                // Pre-populate from prior checklist_data if the Coach saved partial state.
+                const initialEl = this.$root.querySelector("[data-checklist-initial]");
+                if (initialEl && initialEl.dataset.checklistInitial) {
+                    try {
+                        const prior = JSON.parse(initialEl.dataset.checklistInitial);
+                        this.warmIntroComplete = !!prior.warm_intro_complete;
+                        this.conceptCalibrationComplete = !!prior.concept_calibration_complete;
+                        this.conceptNotes = prior.concept_notes || "";
+                        this.discretionNotes = prior.discretion_notes || "";
+                    } catch (e) {
+                        // Malformed JSON — ignore, start empty.
+                    }
+                }
+                const conceptEl = this.$root.querySelector("[data-concept-answer]");
+                if (conceptEl) {
+                    this.conceptAnswer = conceptEl.dataset.conceptAnswer || "";
+                }
+            },
+            // CSP-safe input handlers: Alpine's @alpinejs/csp build can't evaluate
+            // the assignment expression x-model generates, so we wire each field
+            // with :checked / :value + @change / @input + a method that pulls the
+            // value off $event.target (same pattern as elsewhere in this file).
+            toggleWarmIntro(e) {
+                this.warmIntroComplete = !!e.target.checked;
+            },
+            toggleConceptCalibration(e) {
+                this.conceptCalibrationComplete = !!e.target.checked;
+            },
+            updateConceptNotes(e) {
+                this.conceptNotes = e.target.value;
+            },
+            updateDiscretionNotes(e) {
+                this.discretionNotes = e.target.value;
+            },
+
+            get completedCount() {
+                let n = 0;
+                if (this.warmIntroComplete) n++;
+                if (this.conceptCalibrationComplete) n++;
+                return n;
+            },
+            get progressWidth() {
+                return "width: " + (this.completedCount / 2 * 100) + "%";
+            },
+            get submitDisabled() {
+                return !(this.warmIntroComplete && this.conceptCalibrationComplete);
+            },
+            get submitButtonClass() {
+                return this.submitDisabled
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    : "bg-crush-purple text-white hover:bg-purple-700";
+            },
+            get conceptScript() {
+                // Auto-populate a gentle calibration script based on the user's
+                // pre-screening answer. Strings are English-first; the Coach adapts live.
+                switch (this.conceptAnswer) {
+                    case "tinder":
+                        return "I saw you described Crush.lu as similar to Tinder. Let me share how we're different — we're events-first, and our Coaches introduce people one-on-one. Does that change how you'd like to use the platform?";
+                    case "matchmaking":
+                        return "You described us as a matchmaking service. We do introduce people, but events are where the magic happens — tell me, how open are you to attending an in-person event in the next month?";
+                    case "unsure":
+                        return "You mentioned you're still figuring it out — that's perfect, most of our members start there. Let me walk you through how a typical first month looks at Crush.lu, and you can tell me what resonates.";
+                    case "events":
+                        return "You described us well — events-first is exactly right. Tell me, which event format sounds most exciting to you, and what would make the perfect first event for you?";
+                    default:
+                        return "Let me explain how Crush.lu works in one minute, then I'll ask you how that lands. We're events-first, Coach-supported, and the online piece is opt-in.";
+                }
+            },
+            get checklistDataJson() {
+                // Flat keys compatible with the JSONField — legacy and calibration
+                // coexist inside the same column.
+                return JSON.stringify({
+                    mode: "calibration",
+                    warm_intro_complete: this.warmIntroComplete,
+                    concept_calibration_complete: this.conceptCalibrationComplete,
+                    concept_notes: this.conceptNotes,
+                    discretion_notes: this.discretionNotes,
+                    concept_answer: this.conceptAnswer,
+                });
+            },
+        };
+    });
+
     // Screening Call Guideline Component for Coach Review
     // 7-step accordion with checklist items and notes
     Alpine.data("screeningCallGuideline", function () {
@@ -12329,6 +12419,100 @@ document.addEventListener("alpine:init", function () {
 
             destroy: function () {
                 if (this.pollInterval) clearInterval(this.pollInterval);
+            },
+        };
+    });
+
+    // Photo slot picker popover (profile edit "Photos" section)
+    // Reads slot number from data-slot on the root element.
+    // Imports a social photo via POST /api/profile/import-social-photo/ and
+    // swaps the returned HTML into #photo-card-{slot}.
+    Alpine.data("photoPicker", function () {
+        return {
+            slot: 0,
+            isOpen: false,
+            pending: false,
+            error: "",
+
+            get isClosed() {
+                return !this.isOpen;
+            },
+            get hasError() {
+                return this.error.length > 0;
+            },
+            get errorMessage() {
+                return this.error;
+            },
+            get triggerDisabled() {
+                return this.pending;
+            },
+            get ariaExpanded() {
+                return this.isOpen ? "true" : "false";
+            },
+
+            init: function () {
+                this.slot = parseInt(this.$el.getAttribute("data-slot")) || 0;
+            },
+
+            toggle: function () {
+                if (this.pending) return;
+                this.isOpen = !this.isOpen;
+                if (!this.isOpen) this.error = "";
+            },
+
+            close: function () {
+                this.isOpen = false;
+                this.error = "";
+            },
+
+            importFromProvider: function (event) {
+                var self = this;
+                var btn = event.currentTarget;
+                var accountId = parseInt(btn.getAttribute("data-account-id"));
+                if (!accountId || !this.slot) return;
+
+                self.pending = true;
+                self.error = "";
+
+                var csrfEl = document.querySelector("[name=csrfmiddlewaretoken]");
+                var csrfToken = csrfEl ? csrfEl.value : "";
+                var importUrl = "/api/profile/import-social-photo/";
+
+                fetch(importUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken,
+                    },
+                    body: JSON.stringify({
+                        social_account_id: accountId,
+                        photo_slot: self.slot,
+                    }),
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            var targetSlot = data.photo_slot || self.slot;
+                            var card = document.getElementById(
+                                "photo-card-" + targetSlot,
+                            );
+                            if (card && data.html) {
+                                card.innerHTML = data.html;
+                                if (window.htmx) window.htmx.process(card);
+                            }
+                            self.close();
+                        } else {
+                            self.error = data.error || "Import failed.";
+                        }
+                    })
+                    .catch(function () {
+                        self.error = "Network error. Please try again.";
+                    })
+                    .finally(function () {
+                        self.pending = false;
+                    });
             },
         };
     });

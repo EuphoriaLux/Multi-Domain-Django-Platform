@@ -1,0 +1,44 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n pre_screening_tags %}
+
+{% block title %}{% trans "Pre-Screening – Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "Answer a few quick questions so your Crush Coach can prepare for your review call." %}{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-6 md:py-8">
+  <div class="w-full max-w-2xl px-4">
+    {# ── Gradient header ── #}
+    <div class="text-center mb-6">
+      <div class="inline-flex w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink items-center justify-center mb-3 shadow-lg">
+        {% include "shared/icons/chat-bubble-left.html" with class="w-7 h-7 text-white" %}
+      </div>
+      <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+        {% trans "Help your Coach prepare" %}
+      </h1>
+      <p class="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+        {% trans "A few quick questions about you and what you're looking for. Your Coach will see your answers before the call so you don't have to cover the basics twice." %}
+      </p>
+    </div>
+
+    {# ── Progress indicator ── #}
+    {% include "crush_lu/pre_screening/_progress.html" with oob=False %}
+
+    {# ── Sections ── #}
+    <div class="space-y-4">
+      {% for section_ctx in sections_context %}
+        {% include "crush_lu/pre_screening/_section.html" with section=section_ctx.section section_number=section_ctx.number section_complete=section_ctx.complete section_flash=section_ctx.flash responses=responses errors=section_ctx.errors %}
+      {% endfor %}
+    </div>
+
+    {# ── Finalize ── #}
+    {% include "crush_lu/pre_screening/_finalize.html" with oob=False %}
+
+    <div class="text-center mt-6">
+      <a href="{% url 'crush_lu:profile_submitted' %}"
+         class="text-xs text-gray-500 dark:text-gray-400 hover:underline">
+        {% trans "Back to review status" %}
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

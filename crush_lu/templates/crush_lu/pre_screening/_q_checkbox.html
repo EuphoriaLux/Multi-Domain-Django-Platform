@@ -1,0 +1,30 @@
+{% load i18n %}
+<div class="flex items-start gap-3 p-3 rounded-lg border
+            {% if errors %}border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/10
+            {% elif value %}border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10
+            {% else %}border-gray-200 dark:border-gray-700{% endif %}">
+  <input type="checkbox"
+         id="q-{{ q.id }}"
+         name="{{ q.id }}"
+         value="1"
+         class="mt-1 rounded text-crush-purple focus:ring-crush-purple"
+         {% if value %}checked{% endif %}
+         {% if q.required %}required{% endif %}
+         {% if errors %}aria-invalid="true" aria-describedby="err-{{ q.id }}"{% endif %}>
+  <label for="q-{{ q.id }}" class="text-sm text-gray-900 dark:text-gray-100 flex-1 cursor-pointer">
+    {# Render the label with [Code of Conduct] and [Privacy Policy] expanded into links. #}
+    {% if q.id == "consent_terms" %}
+      {% url 'crush_lu:terms_of_service' as terms_url %}
+      {% url 'crush_lu:privacy_policy' as privacy_url %}
+      {% blocktrans with terms_url=terms_url privacy_url=privacy_url %}I accept the <a href="{{ terms_url }}" target="_blank" class="text-crush-purple underline">Code of Conduct</a> and <a href="{{ privacy_url }}" target="_blank" class="text-crush-purple underline">Privacy Policy</a>.{% endblocktrans %}
+    {% else %}
+      {{ q.label }}
+    {% endif %}
+    {% if q.required %} <span class="text-red-500" aria-hidden="true">*</span>{% endif %}
+  </label>
+</div>
+{% if errors %}
+  <p id="err-{{ q.id }}" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="polite">
+    {% trans "This is required." %}
+  </p>
+{% endif %}

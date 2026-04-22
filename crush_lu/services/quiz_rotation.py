@@ -521,6 +521,75 @@ def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
     }
 
 
+def check_can_rotate(quiz_id):
+    """Return ``{}`` if the quiz's current round is complete and fully
+    scored, or ``{"error": "..."}`` otherwise.
+
+    Server-side defense-in-depth for the WS ``rotate`` action: even if
+    the host UI hides the button until ``round_complete`` is broadcast,
+    a second tab or a direct WS payload could still fire the action.
+    This guard blocks rotating when:
+
+    - the current round still has unshown questions, or
+    - the last shown question has not been scored by every table.
+
+    Only enforced for ``quiz_night`` events — legacy quizzes do not use
+    table-level scoring.
+    """
+    from crush_lu.models.quiz import (
+        QuizEvent,
+        QuizRound,
+        QuizTable,
+        TableRoundScore,
+    )
+
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return {}
+
+    if quiz.event.event_type != "quiz_night":
+        return {}
+
+    if not quiz.current_round_id:
+        return {}
+
+    current_round = QuizRound.objects.get(pk=quiz.current_round_id)
+    questions = list(current_round.questions.order_by("sort_order"))
+    total_questions = len(questions)
+    if total_questions == 0:
+        return {}
+
+    # (a) Every question in the round must have been shown. Index is
+    # 0-based; -1 means "not started". Round is exhausted only when the
+    # last question has been shown.
+    if quiz.current_question_index < total_questions - 1:
+        remaining = total_questions - 1 - quiz.current_question_index
+        return {
+            "error": (
+                f"Cannot rotate: {remaining} question(s) remain in this "
+                f"round. Finish the round first."
+            )
+        }
+
+    # (b) Every table must have been scored on the last shown question.
+    last_question = questions[quiz.current_question_index]
+    total_tables = QuizTable.objects.filter(quiz=quiz).count()
+    if total_tables > 0:
+        scored = TableRoundScore.objects.filter(
+            quiz=quiz, question=last_question
+        ).count()
+        if scored < total_tables:
+            return {
+                "error": (
+                    f"Cannot rotate: only {scored}/{total_tables} tables "
+                    f"scored for the last question."
+                )
+            }
+
+    return {}
+
+
 def split_participants_by_gender(registrations_with_profiles):
     """
     Split confirmed registrations into men and women lists.

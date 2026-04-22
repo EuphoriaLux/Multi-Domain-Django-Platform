@@ -1,0 +1,107 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n tz %}
+
+{% block title %}{% trans "Book your screening call" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-4 md:py-8">
+    <div class="w-full max-w-2xl px-3">
+
+        <div class="mb-6 text-center">
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                {% trans "Book your screening call" %}
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Pick any slot below. Times shown in Europe/Luxembourg." %}
+            </p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 rounded-lg border px-4 py-3 text-sm {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-200{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-200{% else %}bg-gray-50 border-gray-200 text-gray-800 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if existing_booking %}
+            <div class="rounded-xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-5 mb-6">
+                <h3 class="font-semibold text-green-900 dark:text-green-100 mb-2">
+                    {% trans "You're booked" %}
+                </h3>
+                <p class="text-sm text-green-800 dark:text-green-200 mb-3">
+                    {% blocktrans with coach=existing_booking.coach.user.get_full_name|default:existing_booking.coach.user.username %}Your screening call with Coach {{ coach }} is confirmed.{% endblocktrans %}
+                </p>
+                <p class="text-sm text-green-800 dark:text-green-200 mb-4">
+                    <strong>{{ existing_booking.start_at|date:"l, F j" }}</strong>
+                    · {{ existing_booking.start_at|time:"H:i" }}–{{ existing_booking.end_at|time:"H:i" }} ({% trans "Europe/Luxembourg" %})
+                </p>
+                <form method="post" action="{% url 'crush_lu:cancel_booking' booking_token=submission.booking_token %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
+                        {% trans "Cancel booking" %}
+                    </button>
+                </form>
+            </div>
+        {% elif coach_blocks %}
+            {% for block in coach_blocks %}
+                <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-4 overflow-hidden">
+                    <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                        {% if block.coach.photo %}
+                            <img src="{{ block.coach.photo.url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+                        {% else %}
+                            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center text-crush-purple font-semibold">
+                                {{ block.coach.user.get_full_name|default:block.coach.user.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-900 dark:text-white truncate">
+                                {% trans "Coach" %} {{ block.coach.user.get_full_name|default:block.coach.user.username }}
+                                {% if block.is_assigned %}
+                                    <span class="ml-1 px-2 py-0.5 text-[10px] rounded-full bg-purple-100 dark:bg-purple-900/30 text-crush-purple dark:text-purple-200 font-medium uppercase tracking-wide">{% trans "Your coach" %}</span>
+                                {% endif %}
+                            </h3>
+                            {% if block.coach.specializations %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ block.coach.specializations }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {% for slot in block.slots|slice:":10" %}
+                            <form method="post" action="{% url 'crush_lu:confirm_booking' booking_token=submission.booking_token %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="coach_id" value="{{ block.coach.id }}">
+                                <input type="hidden" name="start_at" value="{{ slot.start_at|date:'c' }}">
+                                <input type="hidden" name="end_at" value="{{ slot.end_at|date:'c' }}">
+                                <button type="submit"
+                                        class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-crush-purple dark:hover:border-crush-purple hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors">
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ slot.start_at|date:"D, M j" }}</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ slot.start_at|time:"H:i" }}–{{ slot.end_at|time:"H:i" }}</div>
+                                    {% if slot.label %}
+                                        <div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{{ slot.label }}</div>
+                                    {% endif %}
+                                </button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                    {% if block.slots|length > 10 %}
+                        <div class="px-4 pb-3 text-xs text-gray-400 dark:text-gray-500">
+                            {% blocktrans count more=block.slots|length|add:"-10" %}+ {{ more }} more slot available{% plural %}+ {{ more }} more slots available{% endblocktrans %}
+                        </div>
+                    {% endif %}
+                </section>
+            {% endfor %}
+        {% else %}
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 text-center">
+                <p class="text-sm text-gray-700 dark:text-gray-300 mb-0">
+                    {% trans "No coaches are accepting bookings right now. Your assigned coach will reach out directly." %}
+                </p>
+            </div>
+        {% endif %}
+
+        <p class="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
+            {% blocktrans %}If you no longer have access to this email address, reply to your coach's last message and we'll reschedule manually.{% endblocktrans %}
+        </p>
+    </div>
+</div>
+{% endblock %}

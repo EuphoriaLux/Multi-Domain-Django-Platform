@@ -2,7 +2,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
+from django.db import transaction
+from django.db.models import F, Count, Q
 from django.utils import timezone
 
 from .models import (
@@ -50,11 +51,19 @@ def voting_status_api(request, event_id):
             'error': 'No voting session found for this event'
         }, status=404)
 
-    # Check if user has voted
-    user_vote = EventActivityVote.objects.filter(
+    # Check if user has voted (a user may vote once per activity_type/category)
+    user_votes_qs = EventActivityVote.objects.filter(
         event=event,
-        user=request.user
-    ).first()
+        user=request.user,
+    ).select_related('selected_option')
+
+    # Map activity_type -> selected_option_id for clients that need per-category state.
+    # EventActivityVote.Meta.ordering = ["-voted_at"], so iteration yields newest first.
+    # setdefault keeps the FIRST value seen per key, i.e. the newest vote, so legacy
+    # duplicate rows from earlier races don't cause stale state to shadow the latest.
+    user_votes = {}
+    for v in user_votes_qs:
+        user_votes.setdefault(v.selected_option.activity_type, v.selected_option.id)
 
     # Determine voting phase
     now = timezone.now()
@@ -68,6 +77,9 @@ def voting_status_api(request, event_id):
         phase = 'active'
         time_value = voting_session.time_remaining
 
+    # Preserve backward-compatible single-option field (first vote encountered)
+    first_vote = user_votes_qs.first()
+
     return JsonResponse({
         'success': True,
         'data': {
@@ -79,8 +91,11 @@ def voting_status_api(request, event_id):
             'time_until_start': voting_session.time_until_start,
             'time_remaining': time_value,
             'total_votes': voting_session.total_votes,
-            'has_voted': user_vote is not None,
-            'user_vote_option_id': user_vote.selected_option.id if user_vote else None,
+            'has_voted': bool(user_votes),
+            'has_voted_presentation_style': 'presentation_style' in user_votes,
+            'has_voted_speed_dating_twist': 'speed_dating_twist' in user_votes,
+            'user_votes': user_votes,
+            'user_vote_option_id': first_vote.selected_option.id if first_vote else None,
         }
     })
 
@@ -103,12 +118,7 @@ def submit_vote_api(request, event_id):
             event=event,
             user=request.user
         )
-        if user_registration.status not in ['confirmed', 'attended']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Only confirmed attendees can vote'
-            }, status=403)
-        if user_registration.status == 'confirmed':
+        if user_registration.status != 'attended':
             return JsonResponse({
                 'success': False,
                 'error': 'You must check in at the event before you can vote'
@@ -160,32 +170,46 @@ def submit_vote_api(request, event_id):
             'error': 'Invalid activity option'
         }, status=400)
 
-    # Check for existing vote
-    existing_vote = EventActivityVote.objects.filter(
-        event=event,
-        user=request.user
-    ).first()
+    # Atomic vote creation/update to prevent race conditions
+    with transaction.atomic():
+        # Lock the registration row (unique per event+user) to serialize
+        # concurrent submissions from the same user. Locking EventActivityVote
+        # itself is insufficient: on the first vote no row exists, so nothing
+        # is locked and two concurrent creates can both succeed with different
+        # selected_options (unique_together includes selected_option).
+        EventRegistration.objects.select_for_update().get(pk=user_registration.pk)
 
-    if existing_vote:
-        # Update existing vote
-        existing_vote.selected_option = selected_option
-        existing_vote.save()
-
-        action = 'updated'
-    else:
-        # Create new vote
-        EventActivityVote.objects.create(
+        existing_vote = EventActivityVote.objects.filter(
             event=event,
             user=request.user,
-            selected_option=selected_option
-        )
+            selected_option__activity_type=selected_option.activity_type,
+        ).first()
 
-        voting_session.total_votes += 1
-        voting_session.save()
+        if existing_vote:
+            existing_vote.selected_option = selected_option
+            existing_vote.save()
+            action = 'updated'
+        else:
+            # total_votes counts unique voters (the percentage denominator in
+            # voting_results_api). Only bump it on the user's first vote across
+            # ANY category for this event -- otherwise a single attendee voting
+            # in both categories would double-count.
+            is_first_vote_for_event = not EventActivityVote.objects.filter(
+                event=event, user=request.user,
+            ).exists()
 
-        action = 'created'
+            EventActivityVote.objects.create(
+                event=event,
+                user=request.user,
+                selected_option=selected_option
+            )
+            if is_first_vote_for_event:
+                EventVotingSession.objects.filter(
+                    event=event
+                ).update(total_votes=F('total_votes') + 1)
+                voting_session.refresh_from_db()
+            action = 'created'
 
-    # Get current vote count from actual votes
     vote_count = EventActivityVote.objects.filter(
         event=event, selected_option=selected_option
     ).count()
@@ -240,30 +264,35 @@ def voting_results_api(request, event_id):
             'error': 'No voting session found'
         }, status=404)
 
-    # Get all global activity options with vote counts for this event
-    results = []
-    for option in GlobalActivityOption.objects.filter(is_active=True).order_by('activity_type', 'sort_order'):
-        vote_count = EventActivityVote.objects.filter(
-            event=event, selected_option=option
-        ).count()
+    # Get all options with vote counts in a single query (avoids N+1)
+    options = GlobalActivityOption.objects.filter(
+        is_active=True
+    ).annotate(
+        vote_count=Count(
+            'eventactivityvote',
+            filter=Q(eventactivityvote__event=event)
+        )
+    ).order_by('activity_type', 'sort_order')
 
+    winner_ids = {
+        voting_session.winning_presentation_style_id,
+        voting_session.winning_speed_dating_twist_id,
+    }
+
+    results = []
+    for option in options:
         percentage = 0
         if voting_session.total_votes > 0:
-            percentage = (vote_count / voting_session.total_votes) * 100
-
-        is_winner = (
-            option == voting_session.winning_presentation_style
-            or option == voting_session.winning_speed_dating_twist
-        )
+            percentage = (option.vote_count / voting_session.total_votes) * 100
 
         results.append({
             'id': option.id,
             'display_name': option.display_name,
             'activity_type': option.activity_type,
             'activity_variant': option.activity_variant,
-            'vote_count': vote_count,
+            'vote_count': option.vote_count,
             'percentage': round(percentage, 1),
-            'is_winner': is_winner,
+            'is_winner': option.id in winner_ids,
         })
 
     return JsonResponse({

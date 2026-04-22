@@ -62,6 +62,22 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
         ('Settings', {
             'fields': ('is_active', 'max_active_reviews')
         }),
+        ('Hybrid Review System', {
+            'fields': (
+                'hybrid_features_enabled',
+                'working_mode',
+                'availability_windows',
+                'is_away',
+                'away_until',
+            ),
+            'classes': ('collapse',),
+            'description': _(
+                "Per-coach settings for the Hybrid Coach Review System. "
+                "hybrid_features_enabled must be on AND "
+                "settings.HYBRID_COACH_SYSTEM_ENABLED must be true for the "
+                "new pipeline to route submissions here."
+            ),
+        }),
         ('Metadata', {
             'fields': ('created_at',),
             'classes': ('collapse',)
@@ -1496,6 +1512,24 @@ class CoachSessionAdmin(admin.ModelAdmin):
         """Optimize queries with select_related for coach and user FKs"""
         qs = super().get_queryset(request)
         return qs.select_related('coach__user', 'user')
+
+
+class ScreeningSlotAdmin(admin.ModelAdmin):
+    """Admin for hybrid-coach screening-call slots."""
+    list_display = ('coach', 'start_at', 'end_at', 'status', 'submission', 'created_at')
+    list_filter = ('status', 'coach', 'start_at')
+    search_fields = (
+        'coach__user__username',
+        'coach__user__email',
+        'submission__profile__user__username',
+    )
+    autocomplete_fields = ['coach', 'submission']
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'start_at'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('coach__user', 'submission__profile__user')
 
 
 # ============================================================================

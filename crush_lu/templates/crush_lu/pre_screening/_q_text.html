@@ -1,0 +1,22 @@
+{% load i18n %}
+<div class="space-y-2">
+  <label for="q-{{ q.id }}" class="block text-sm font-semibold text-gray-900 dark:text-white">
+    {{ q.label }}{% if q.required %} <span class="text-red-500" aria-hidden="true">*</span>{% endif %}
+  </label>
+  <textarea id="q-{{ q.id }}"
+            name="{{ q.id }}"
+            rows="3"
+            maxlength="{{ q.max_length|default:500 }}"
+            {% if q.required %}required{% endif %}
+            {% if errors %}aria-invalid="true" aria-describedby="err-{{ q.id }}"{% endif %}
+            placeholder="{{ q.placeholder|default:'' }}"
+            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white p-3 resize-none focus:ring-2 focus:ring-crush-purple focus:border-crush-purple">{{ value|default:'' }}</textarea>
+  <p class="text-xs text-gray-500 dark:text-gray-400">
+    {% if q.max_length %}{% blocktrans with n=q.max_length %}Up to {{ n }} characters.{% endblocktrans %}{% endif %}
+  </p>
+  {% if errors %}
+    <p id="err-{{ q.id }}" class="text-xs text-red-600 dark:text-red-400" role="alert" aria-live="polite">
+      {% trans "Please check this answer." %}
+    </p>
+  {% endif %}
+</div>

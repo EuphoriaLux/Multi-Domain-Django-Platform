@@ -51,6 +51,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
+# Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
+# the new pipeline is dormant until explicitly enabled per environment. Works
+# with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
+HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
@@ -298,7 +303,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # In settings.py
 
-# These settings optimize the login experience
+# These settings optimize the login experience.
+# SOCIALACCOUNT_LOGIN_ON_GET stays True until all templates that still use
+# `<a href="{% provider_login_url %}">` are migrated to POST forms with CSRF.
+# Flipping this to False without that migration breaks every OAuth entry point
+# (login_crush.html, auth.html, signup.html, account_settings.html,
+# entreprinder/base.html, admin login, …).
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -364,6 +374,10 @@ WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
 WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool("WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True)
 
+# Pre-screening questionnaire (Crush.lu). Off by default; enable in production
+# after all Phases have shipped and the Coach-facing rollout is ready.
+PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 
@@ -411,8 +425,6 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_SESSION_REMEMBER = True
 
 LOGIN_REDIRECT_URL = "/profile/"
-
-SOCIALACCOUNT_LOGIN_ON_GET = True
 
 # Don't send email verification for social account signups (email already verified by provider)
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
@@ -994,13 +1006,18 @@ PASSKIT_APNS_USE_SANDBOX = os.getenv("PASSKIT_APNS_USE_SANDBOX", "").lower() in 
 # DJANGO 6.0 BACKGROUND TASKS FRAMEWORK
 # =============================================================================
 # Native task system for running code outside the HTTP request/response cycle.
-# ImmediateBackend runs tasks synchronously (suitable for dev/testing).
-# For production, switch to django_tasks.backends.database.DatabaseBackend
-# and run: python manage.py db_worker
+# Default is ImmediateBackend (runs inline) — safe for dev without a worker.
+# Production should install the `django-tasks` PyPI package, add `django_tasks`
+# to INSTALLED_APPS, run `manage.py db_worker` alongside gunicorn, and set
+#   DJANGO_TASKS_BACKEND=django_tasks.backends.database.DatabaseBackend
+# Tests override to ImmediateBackend in conftest.py regardless of env.
 # See: https://docs.djangoproject.com/en/6.0/topics/tasks/
 TASKS = {
     "default": {
-        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
+        "BACKEND": os.environ.get(
+            "DJANGO_TASKS_BACKEND",
+            "django.tasks.backends.immediate.ImmediateBackend",
+        ),
     }
 }
 
@@ -1015,24 +1032,7 @@ COMPONENTS = {
     "app_dirs": ["components"],
 }
 
-# =============================================================================
-# PRODUCTION SECURITY HEADERS (SEC-04)
-# =============================================================================
-# Only applied when DEBUG=False AND not running under pytest. Local HTTP dev
-# and the test client both speak plain HTTP, so SSL redirect would break them
-# (301 instead of 200 on every request). Production is served exclusively over
-# HTTPS via Azure Front Door, which terminates TLS and forwards
-# X-Forwarded-Proto so Django's SSL redirect logic works correctly.
-#
-# HealthCheckMiddleware is first in MIDDLEWARE and short-circuits /healthz/
-# before SecurityMiddleware runs, so Azure health probes remain unaffected.
-_RUNNING_TESTS = "PYTEST_VERSION" in os.environ or "pytest" in sys.argv[0]
-if not DEBUG and not _RUNNING_TESTS:
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-    X_FRAME_OPTIONS = "DENY"
+# Production-only security headers (SSL redirect, HSTS, nosniff, referrer,
+# X-Frame-Options) live in azureproject/production.py. settings.py is used by
+# local dev and pytest, both of which speak plain HTTP and would break under
+# SSL redirect.

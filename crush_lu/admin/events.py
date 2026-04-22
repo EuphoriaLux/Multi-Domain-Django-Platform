@@ -8,6 +8,7 @@ Includes:
 - Event inlines (registrations, invitations, voting, presentations, speed dating)
 """
 
+from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.urls import reverse
@@ -30,9 +31,79 @@ from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
 
 
+class EventRegistrationAdminForm(forms.ModelForm):
+    """Admin form for EventRegistration that enforces event age restrictions."""
+
+    class Meta:
+        model = EventRegistration
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Fall back to the bound instance for fields that aren't in the
+        # submitted form. Matters for:
+        #   - EventRegistrationInline (event is implicit from the parent admin)
+        #   - changelist list_editable updates (only status / payment_confirmed
+        #     are submitted; event and user come from the row being edited)
+        event = cleaned_data.get("event")
+        if not event and getattr(self.instance, "event_id", None):
+            event = self.instance.event
+        user = cleaned_data.get("user")
+        if not user and getattr(self.instance, "user_id", None):
+            user = self.instance.user
+        status = cleaned_data.get("status") or getattr(self.instance, "status", None)
+
+        # Truly-missing data (new row with nothing posted): let Django's own
+        # required-field errors surface rather than masking them here.
+        if not event or not user:
+            return cleaned_data
+
+        # Cancelled registrations don't need to pass the age gate.
+        if status == "cancelled":
+            return cleaned_data
+
+        event_has_age_restriction = event.min_age > 18 or event.max_age < 99
+        if not event_has_age_restriction:
+            return cleaned_data
+
+        profile = getattr(user, "crushprofile", None)
+        user_age = profile.age if profile else None
+
+        if user_age is None:
+            raise forms.ValidationError(
+                _(
+                    "Cannot register %(user)s: this event has age restrictions "
+                    "(%(min)d–%(max)d) and the user has no date of birth on file."
+                )
+                % {
+                    "user": user.get_full_name() or user.username,
+                    "min": event.min_age,
+                    "max": event.max_age,
+                }
+            )
+
+        if not (event.min_age <= user_age <= event.max_age):
+            raise forms.ValidationError(
+                _(
+                    "Cannot register %(user)s (age %(age)d): this event is "
+                    "restricted to ages %(min)d–%(max)d."
+                )
+                % {
+                    "user": user.get_full_name() or user.username,
+                    "age": user_age,
+                    "min": event.min_age,
+                    "max": event.max_age,
+                }
+            )
+
+        return cleaned_data
+
+
 # Inline admin for Event Registrations
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
+    form = EventRegistrationAdminForm
     extra = 0
     autocomplete_fields = ['user']
     fields = ("user", "status", "payment_confirmed", "registered_at")
@@ -578,6 +649,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):
+    form = EventRegistrationAdminForm
     list_display = ("get_user_display", "event", "status", "payment_confirmed", "registered_at")
     list_filter = ("status", "payment_confirmed", "registered_at")
     search_fields = ("user__username", "user__first_name", "user__last_name", "user__email", "event__title")
@@ -677,9 +749,26 @@ class EventRegistrationAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("✅ Confirm selected registrations"))
     def confirm_registrations(self, request, queryset):
-        """Confirm selected registrations"""
-        updated = queryset.update(status="confirmed")
+        """Confirm selected registrations, skipping anyone who doesn't meet age limits."""
+        eligible_ids = []
+        skipped = 0
+        for reg in queryset.select_related("event", "user__crushprofile"):
+            event = reg.event
+            if event.min_age > 18 or event.max_age < 99:
+                profile = getattr(reg.user, "crushprofile", None)
+                age = profile.age if profile else None
+                if age is None or not (event.min_age <= age <= event.max_age):
+                    skipped += 1
+                    continue
+            eligible_ids.append(reg.pk)
+        updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(status="confirmed")
         django_messages.success(request, _("Confirmed %(count)s registration(s).") % {"count": updated})
+        if skipped:
+            django_messages.warning(
+                request,
+                _("Skipped %(count)s registration(s) that do not meet the event's age requirements.")
+                % {"count": skipped},
+            )
 
     @admin.action(description=_("⏳ Move to waitlist"))
     def move_to_waitlist(self, request, queryset):

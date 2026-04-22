@@ -79,6 +79,58 @@
     </div>
 
         <div class="tab-panel" :class="overviewTabClass" x-show="isOverview">
+        {# Pre-screening analytics (Phase 6) — shown only when feature flag is on #}
+        {% if pre_screening_metrics %}
+        <div class="metric-card" style="background: linear-gradient(135deg, #fef3c7, #fce7f3); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 12px 0; color: #111;">📋 {% trans "Pre-Screening Analytics" %}</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                <div>
+                    <div style="font-size: 12px; color: #555; text-transform: uppercase;">{% trans "Completion rate" %}</div>
+                    <div style="font-size: 24px; font-weight: 700;">{{ pre_screening_metrics.completion_rate }}%</div>
+                    <div style="font-size: 11px; color: #666;">{{ pre_screening_metrics.pending_submitted }} / {{ pre_screening_metrics.pending_count }} {% trans "of pending" %}</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; color: #555; text-transform: uppercase;">{% trans "Avg readiness" %}</div>
+                    <div style="font-size: 24px; font-weight: 700;">{{ pre_screening_metrics.avg_score|default:"—" }}{% if pre_screening_metrics.avg_score %}<span style="font-size: 14px;">/10</span>{% endif %}</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; color: #555; text-transform: uppercase;">{% trans "No-show rate" %}</div>
+                    <div style="font-size: 24px; font-weight: 700;">{{ pre_screening_metrics.noshow_rate_submitted_users }}%</div>
+                    <div style="font-size: 11px; color: #666;">{% trans "for users who answered" %}</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; color: #555; text-transform: uppercase;">{% trans "Top flags this week" %}</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                        {% for flag, count in pre_screening_metrics.flag_counts.items|slice:":3" %}
+                        <span style="font-size: 11px; padding: 2px 6px; background: rgba(0,0,0,0.08); border-radius: 10px;">{{ flag }} · {{ count }}</span>
+                        {% empty %}
+                        <span style="font-size: 11px; color: #666;">{% trans "no flags" %}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% if pre_screening_metrics.score_histogram %}
+            <div style="margin-top: 16px;">
+                <div style="font-size: 12px; color: #555; text-transform: uppercase; margin-bottom: 6px;">{% trans "Readiness score distribution" %}</div>
+                <div style="display: flex; gap: 2px; align-items: flex-end; height: 48px;">
+                    {% for score, count in pre_screening_metrics.score_histogram.items %}
+                    <div style="flex: 1; background: #9B59B6; min-height: 2px; height: {% widthratio count 1 8 %}%; max-height: 48px;" title="{{ score }}: {{ count }}"></div>
+                    {% endfor %}
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 2px;">
+                    <span>0</span><span>5</span><span>10</span>
+                </div>
+            </div>
+            {% endif %}
+            <div style="margin-top: 12px;">
+                <a href="{% url 'crush_admin_pre_screening_csv' %}"
+                   style="font-size: 12px; color: #7c3aed; text-decoration: underline;">
+                   {% trans "Download per-question CSV" %} ↓
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
         {# Key Metrics #}
         <div class="metric-grid">
             <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="metric-card purple">

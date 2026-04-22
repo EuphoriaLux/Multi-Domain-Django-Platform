@@ -1,0 +1,18 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% if reminder %}{% trans "A quick nudge — your Coach is getting ready to call you about your profile." %}
+
+{% trans "Before they do, please take 3 minutes to answer a few questions. It makes the call much smoother and means we can focus on you, not paperwork." %}{% else %}{% trans "Thank you for submitting your profile! While your Coach gets ready to reach out, we have a small favour to ask." %}
+
+{% trans "Could you answer 13 quick questions about yourself and what you're looking for? It takes about 3 minutes and really helps your Coach prepare for the call." %}{% endif %}
+
+{% trans "Link:" %} {{ pre_screening_url }}
+
+{% trans "Why we ask:" %}
+- {% trans "Your Coach won't waste time on basics during the call" %}
+- {% trans "We calibrate what Crush.lu actually is — events, not swiping" %}
+- {% trans "You stay in control of what you share" %}
+
+{% trans "It's entirely optional — if you'd rather just wait for the call, that's fine too." %}
+
+— {% trans "The Crush.lu team" %}

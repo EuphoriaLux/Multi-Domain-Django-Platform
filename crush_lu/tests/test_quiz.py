@@ -1830,3 +1830,594 @@ class TestQuizTableDisplay:
         )
         assert response.status_code == 200
         assert response.json()["valid"] is True
+
+
+# ============================================================================
+# SCORING ROUND ATTRIBUTION (P0 REGRESSION)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestScoringRoundAttribution:
+    """When a score arrives for a question after the quiz has rotated to
+    the next round, points must credit the users who were seated at that
+    table *when the question was asked*, not whoever rotated in later."""
+
+    def test_late_score_attributes_to_questions_own_round(
+        self, quiz_event, coach_user
+    ):
+        from crush_lu.models import CrushProfile
+        from datetime import date as _date
+
+        # Two distinct rounds with one question each.
+        r0 = QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r1 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=1)
+        q0 = QuizQuestion.objects.create(
+            round=r0,
+            text="Q in round 0",
+            question_type="multiple_choice",
+            choices=[{"text": "A", "is_correct": True}],
+            sort_order=0,
+            points=10,
+        )
+
+        table = QuizTable.objects.create(quiz=quiz_event, table_number=1)
+
+        # User A sits at the table in round 0; user B sits at the same
+        # table in round 1. If the scoring path uses the *current* round,
+        # a late score for q0 will credit user B instead of user A.
+        def _mk(name):
+            u = User.objects.create_user(
+                username=f"{name}@test.com",
+                email=f"{name}@test.com",
+                password="test",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.get_or_create(
+                user=u, defaults={"gender": "M", "date_of_birth": _date(1990, 1, 1)}
+            )
+            return u
+
+        user_r0 = _mk("r0user")
+        user_r1 = _mk("r1user")
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=table,
+            user=user_r0,
+            role="anchor",
+        )
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=table,
+            user=user_r1,
+            role="anchor",
+        )
+
+        # Quiz has already rotated — current round is r1.
+        quiz_event.current_round = r1
+        quiz_event.current_question_index = -1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        client = APIClient()
+        client.force_login(coach_user)  # coach_user is quiz.created_by
+        response = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            {"table_id": table.id, "question_id": q0.id, "is_correct": True},
+            format="json",
+        )
+        assert response.status_code == 200
+
+        # The score must be credited to user_r0 (seated in round 0 when q0
+        # was asked), NOT user_r1 (seated in round 1 after the rotate).
+        assert IndividualScore.objects.filter(
+            quiz=quiz_event, user=user_r0, question=q0
+        ).exists(), "round-0 user must be credited for a round-0 question"
+        assert not IndividualScore.objects.filter(
+            quiz=quiz_event, user=user_r1, question=q0
+        ).exists(), (
+            "round-1 user must NOT be credited for a round-0 question "
+            "even when the quiz has since rotated"
+        )
+
+
+# ============================================================================
+# ROTATE GUARD (P1)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestRotateGuard:
+    """The server must reject 'rotate' when the current round still has
+    unasked questions or unscored tables — defense-in-depth against a
+    stale host UI or a second host tab."""
+
+    async def _make_consumer(self, quiz, user):
+        from channels.testing import WebsocketCommunicator
+        from crush_lu.consumers import QuizConsumer
+
+        communicator = WebsocketCommunicator(
+            QuizConsumer.as_asgi(), f"/ws/quiz/{quiz.id}/"
+        )
+        communicator.scope["user"] = user
+        communicator.scope["url_route"] = {"kwargs": {"quiz_id": quiz.id}}
+        return communicator
+
+    def _setup_running_quiz(self, quiz_event, coach_user):
+        """Create 2 rounds × 2 questions, 2 tables, 4 attendees, round 0
+        rotation. Quiz starts on round 0."""
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.events import EventRegistration
+        from datetime import date as _date
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+
+        rounds = []
+        questions = []
+        for i in range(2):
+            r = QuizRound.objects.create(
+                quiz=quiz_event, title=f"R{i + 1}", sort_order=i
+            )
+            rounds.append(r)
+            for j in range(2):
+                q = QuizQuestion.objects.create(
+                    round=r,
+                    text=f"Q{j} of R{i}",
+                    question_type="multiple_choice",
+                    choices=[{"text": "A", "is_correct": True}],
+                    sort_order=j,
+                    points=10,
+                )
+                questions.append(q)
+
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+            for n in (1, 2)
+        ]
+        for i in range(4):
+            u = User.objects.create_user(
+                username=f"guard{i}@test.com",
+                email=f"guard{i}@test.com",
+                password="test",
+            )
+            _grant_consent(u)
+            CrushProfile.objects.get_or_create(
+                user=u,
+                defaults={"gender": "M", "date_of_birth": _date(1990, 1, 1)},
+            )
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+            for rn in range(2):
+                QuizRotationSchedule.objects.create(
+                    quiz=quiz_event,
+                    round_number=rn,
+                    table=tables[i % 2],
+                    user=u,
+                    role="anchor",
+                )
+
+        quiz_event.current_round = rounds[0]
+        quiz_event.current_question_index = 0  # first question shown
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        return rounds, questions, tables
+
+    def test_rotate_blocked_when_questions_remain(self, quiz_event, coach_user):
+        """Host has only shown q0 of a 2-question round — rotate must fail."""
+        from crush_lu.services.quiz_rotation import check_can_rotate
+
+        self._setup_running_quiz(quiz_event, coach_user)
+        guard = check_can_rotate(quiz_event.id)
+        assert "error" in guard
+        assert "question(s) remain" in guard["error"]
+
+    def test_rotate_blocked_when_tables_unscored(
+        self, quiz_event, coach_user
+    ):
+        """All questions asked but only 1/2 tables scored the last one."""
+        from crush_lu.services.quiz_rotation import check_can_rotate
+
+        _rounds, questions, tables = self._setup_running_quiz(
+            quiz_event, coach_user
+        )
+        # Advance to last question of round 0; only score one table.
+        quiz_event.current_question_index = 1
+        quiz_event.save()
+        TableRoundScore.objects.create(
+            quiz=quiz_event,
+            table=tables[0],
+            question=questions[1],
+            is_correct=True,
+        )
+
+        guard = check_can_rotate(quiz_event.id)
+        assert "error" in guard
+        assert "tables scored" in guard["error"]
+
+    def test_rotate_allowed_when_round_complete_and_scored(
+        self, quiz_event, coach_user
+    ):
+        """All questions asked and all tables scored — rotate may proceed."""
+        from crush_lu.services.quiz_rotation import check_can_rotate
+
+        _rounds, questions, tables = self._setup_running_quiz(
+            quiz_event, coach_user
+        )
+        quiz_event.current_question_index = 1
+        quiz_event.save()
+        for t in tables:
+            TableRoundScore.objects.create(
+                quiz=quiz_event,
+                table=t,
+                question=questions[1],
+                is_correct=True,
+            )
+
+        guard = check_can_rotate(quiz_event.id)
+        assert guard == {}
+
+    def test_rotate_skipped_for_non_quiz_night(self, quiz_event, coach_user):
+        """Legacy (non-quiz-night) events don't use table scoring — guard
+        must not block them."""
+        from crush_lu.services.quiz_rotation import check_can_rotate
+
+        quiz_event.event.event_type = "mixer"
+        quiz_event.event.save()
+        self._setup_running_quiz(quiz_event, coach_user)
+        guard = check_can_rotate(quiz_event.id)
+        assert guard == {}
+
+
+# ============================================================================
+# HOST AUTHORITY TIGHTENING
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestHostAuthority:
+    """Only quiz.created_by and CrushCoach objects assigned to the event
+    via MeetupEvent.coaches may host/score. Unrelated staff or unassigned
+    active coaches must be rejected."""
+
+    def _make_coach(self, username, assigned_to_event=None):
+        from crush_lu.models import CrushCoach
+
+        user = User.objects.create_user(
+            username=f"{username}@test.com",
+            email=f"{username}@test.com",
+            password="test",
+        )
+        _grant_consent(user)
+        coach = CrushCoach.objects.create(user=user, is_active=True)
+        if assigned_to_event is not None:
+            assigned_to_event.coaches.add(coach)
+        return user, coach
+
+    def test_unassigned_active_coach_cannot_score(
+        self, quiz_event, quiz_table, quiz_questions
+    ):
+        """An active CrushCoach not listed in event.coaches must get 403."""
+        unassigned_user, _coach = self._make_coach("unassigned")
+
+        client = APIClient()
+        client.force_login(unassigned_user)
+        response = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            {
+                "table_id": quiz_table.id,
+                "question_id": quiz_questions[0].id,
+                "is_correct": True,
+            },
+            format="json",
+        )
+        assert response.status_code == 403
+
+    def test_assigned_coach_can_score(
+        self, quiz_event, quiz_table, quiz_questions, quiz_user
+    ):
+        """A CrushCoach listed in event.coaches must be authorized to score."""
+        assigned_user, _coach = self._make_coach(
+            "assigned", assigned_to_event=quiz_event.event
+        )
+        quiz_event.current_round = quiz_questions[0].round
+        quiz_event.save()
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=quiz_table,
+            user=quiz_user,
+            role="anchor",
+        )
+
+        client = APIClient()
+        client.force_login(assigned_user)
+        response = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            {
+                "table_id": quiz_table.id,
+                "question_id": quiz_questions[0].id,
+                "is_correct": True,
+            },
+            format="json",
+        )
+        assert response.status_code == 200
+
+    def test_staff_without_coach_cannot_score(
+        self, quiz_event, quiz_table, quiz_questions
+    ):
+        """is_staff alone no longer grants host privilege."""
+        rando_staff = User.objects.create_user(
+            username="rando_staff@test.com",
+            email="rando_staff@test.com",
+            password="test",
+            is_staff=True,
+        )
+        _grant_consent(rando_staff)
+
+        client = APIClient()
+        client.force_login(rando_staff)
+        response = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            {
+                "table_id": quiz_table.id,
+                "question_id": quiz_questions[0].id,
+                "is_correct": True,
+            },
+            format="json",
+        )
+        assert response.status_code == 403
+
+    def test_coach_view_rejects_unassigned_coach(self, client, quiz_event):
+        """Coach view returns 404 for a CrushCoach not assigned to the event."""
+        unassigned_user, _coach = self._make_coach("viewcoach")
+        client.force_login(unassigned_user)
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        assert response.status_code == 404
+
+    def test_coach_view_allows_assigned_coach(self, client, quiz_event):
+        """Coach view renders for a CrushCoach listed in event.coaches."""
+        assigned_user, _coach = self._make_coach(
+            "viewassigned", assigned_to_event=quiz_event.event
+        )
+        client.force_login(assigned_user)
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        assert response.status_code == 200
+
+
+# ============================================================================
+# ROTATION INVARIANTS (P3 — property-based)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestRotationInvariants:
+    """Property-based invariants the rotation algorithm MUST satisfy across
+    a wide range of (men, women, tables, rounds) configurations. These
+    close the 'no workaround possible' gap: any future regression that
+    lets two rotators collide or double-seats an anchor is detected here.
+    """
+
+    @staticmethod
+    def _mk_users(prefix, count):
+        users = []
+        for i in range(count):
+            u = User.objects.create_user(
+                username=f"{prefix}{i}@test.com",
+                email=f"{prefix}{i}@test.com",
+                password="t",
+            )
+            _grant_consent(u)
+            users.append(u)
+        return users
+
+    # Representative configs: small + large, balanced + unbalanced, edge +
+    # spillover. (men, women, num_tables, num_rounds).
+    CONFIGS = [
+        (4, 4, 2, 2),
+        (6, 6, 3, 3),
+        (8, 8, 4, 4),
+        (12, 12, 6, 3),
+        (16, 16, 8, 4),
+        (7, 7, 3, 3),   # odd counts
+        (6, 9, 3, 3),   # women > 2× tables → spillover group C
+        (10, 4, 5, 3),  # more anchors than rotators
+        (4, 6, 2, 2),   # 2-table special case
+    ]
+
+    def test_anchor_invariance(self):
+        """Every anchor stays at exactly one table across all rounds."""
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
+            men = self._mk_users(f"ai_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"ai_w_c{cfg_idx}_", women_n)
+
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+            schedule = result["schedule"]
+
+            anchor_tables = {}
+            for e in schedule:
+                if e["role"] == "anchor":
+                    seen = anchor_tables.setdefault(e["user"].id, set())
+                    seen.add(e["table_number"])
+
+            for user_id, tables in anchor_tables.items():
+                assert len(tables) == 1, (
+                    f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                    f"anchor user {user_id} seen at tables {tables}"
+                )
+
+    def test_no_group_ab_collisions(self):
+        """At most one user per (round, table, rotation_group) for groups
+        A and B. Group C is spillover and may double up.
+
+        Skips ``num_tables == 2`` because the algorithm deliberately seats
+        two group-A rotators per table in the 2-table special case (there
+        is no group B; all women are in a single rotating group).
+        """
+        from collections import defaultdict
+
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
+            if tables_n == 2:
+                continue  # 2-table case intentionally groups 2 women per A-slot
+            men = self._mk_users(f"cc_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"cc_w_c{cfg_idx}_", women_n)
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+
+            buckets = defaultdict(list)
+            for e in result["schedule"]:
+                if e["role"] != "rotator":
+                    continue
+                if e["rotation_group"] in ("A", "B"):
+                    key = (e["round_number"], e["table_number"], e["rotation_group"])
+                    buckets[key].append(e["user"].id)
+
+            for key, users in buckets.items():
+                assert len(users) == 1, (
+                    f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                    f"{key} has {len(users)} rotators: {users}"
+                )
+
+    def test_group_a_visits_every_table(self):
+        """Over N rounds (N = num_tables), every Group-A rotator visits
+        every table exactly once."""
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        # Use configs where num_rounds == num_tables so the property is
+        # well-formed (after N rounds, every table must have been visited).
+        visit_configs = [(6, 6, 3, 3), (8, 8, 4, 4), (12, 12, 6, 6)]
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(visit_configs):
+            men = self._mk_users(f"v_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"v_w_c{cfg_idx}_", women_n)
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+
+            visits = {}
+            for e in result["schedule"]:
+                if e["role"] == "rotator" and e["rotation_group"] == "A":
+                    visits.setdefault(e["user"].id, set()).add(
+                        e["table_number"]
+                    )
+
+            for user_id, tables in visits.items():
+                assert tables == set(range(1, tables_n + 1)), (
+                    f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                    f"group-A user {user_id} visited {tables}"
+                )
+
+    def test_every_user_seated_every_round(self):
+        """Every participant appears exactly once in every round."""
+        from collections import Counter
+
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
+            men = self._mk_users(f"s_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"s_w_c{cfg_idx}_", women_n)
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+            schedule = result["schedule"]
+            total_users = men_n + women_n
+
+            for rn in range(rounds_n):
+                per_user = Counter(
+                    e["user"].id
+                    for e in schedule
+                    if e["round_number"] == rn
+                )
+                assert len(per_user) == total_users, (
+                    f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                    f"round {rn}: {len(per_user)}/{total_users} users seated"
+                )
+                # Each user appears exactly once per round (the unique_together
+                # DB constraint enforces this on persisted data, but the
+                # algorithm's output dicts must also respect it).
+                dupes = {u: c for u, c in per_user.items() if c > 1}
+                assert not dupes, (
+                    f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                    f"round {rn} duplicates: {dupes}"
+                )
+
+    def test_round0_check_in_placement_matches_batch_layout(self):
+        """When users check in incrementally via assign_table_on_checkin,
+        their round-0 placement must match what a batch
+        generate_rotation_schedule call would have produced — otherwise
+        the regenerated rounds 1+ would be inconsistent with round 0."""
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_schedule,
+        )
+
+        # Use a balanced config for deterministic comparison.
+        men_n, women_n, tables_n = 6, 6, 3
+        men = self._mk_users(f"r0_m_{tables_n}_", men_n)
+        women = self._mk_users(f"r0_w_{tables_n}_", women_n)
+
+        # Give each user a matching profile so the check-in path picks
+        # anchor/rotator based on gender.
+        from crush_lu.models import CrushProfile
+        from datetime import date as _date
+
+        for u in men:
+            CrushProfile.objects.create(
+                user=u, gender="M", date_of_birth=_date(1990, 1, 1)
+            )
+        for u in women:
+            CrushProfile.objects.create(
+                user=u, gender="F", date_of_birth=_date(1990, 1, 1)
+            )
+
+        from crush_lu.models import MeetupEvent
+
+        event = MeetupEvent.objects.create(
+            title="R0 test",
+            event_type="quiz_night",
+            date_time=timezone.now() + timedelta(days=1),
+            location="t",
+            address="t",
+            max_participants=30,
+            registration_deadline=timezone.now() + timedelta(hours=12),
+            is_published=True,
+        )
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=men[0], num_tables=tables_n
+        )
+
+        # Incremental check-in.
+        for u in men + women:
+            assign_table_on_checkin(quiz, u)
+
+        incremental = {
+            (r.user_id, r.role): r.table.table_number
+            for r in QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=0
+            ).select_related("table")
+        }
+
+        # Compare with a one-shot batch placement using the same user
+        # ordering (men then women) and num_tables.
+        batch_result = generate_rotation_schedule(
+            men, women, num_rounds=1, num_tables=tables_n
+        )
+        batch = {
+            (e["user"].id, e["role"]): e["table_number"]
+            for e in batch_result["schedule"]
+            if e["round_number"] == 0
+        }
+
+        assert incremental == batch, (
+            "incremental check-in placement diverged from batch layout"
+        )

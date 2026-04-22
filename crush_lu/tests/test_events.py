@@ -10,7 +10,7 @@ Comprehensive tests for event functionality including:
 Run with: pytest crush_lu/tests/test_events.py -v
 """
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -782,3 +782,309 @@ class WaitlistPromotionTests(TestCase):
         self.assertIsNone(promoted)
         reg_ng.refresh_from_db()
         self.assertEqual(reg_ng.status, 'waitlist')  # Still waitlisted
+
+
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush",
+    RATELIMIT_ENABLE=False,
+)
+class EventAgeEnforcementOnRegisterTests(TestCase):
+    """
+    Regression coverage for the age-verification bypass in event_register.
+
+    Before the fix, a user with a profile could register for an event outside
+    their age range because the view never compared profile.age against
+    event.min_age / event.max_age. These tests lock that enforcement in.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        from crush_lu.models import MeetupEvent
+
+        cache.clear()  # reset per-user ratelimit counters between tests
+        self.client = Client()
+        self.today = date.today()
+
+        self.event = MeetupEvent.objects.create(
+            title='30-40 Mixer',
+            description='For 30-40 only',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=20,
+            min_age=30,
+            max_age=40,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+        self.open_event = MeetupEvent.objects.create(
+            title='Open Mixer',
+            description='No age limits, no profile required',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=20,
+            min_age=18,
+            max_age=99,
+            profile_requirement='none',
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+    def _make_user(self, email, age):
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username=email, email=email, password='testpass123',
+            first_name='Test', last_name='User',
+        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(self.today.year - age, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            is_active=True,
+        )
+        return user
+
+    def _post_register(self, event):
+        from django.urls import reverse
+        url = reverse('crush_lu:event_register', kwargs={'event_id': event.id})
+        return self.client.post(url, {}, follow=False)
+
+    def test_user_below_min_age_is_rejected(self):
+        """A 25-year-old cannot register for a min_age=30 event (BYPASS FIX)."""
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('young@example.com', 25)
+        self.client.force_login(user)
+
+        response = self._post_register(self.event)
+
+        # User is redirected to event detail (not registered)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.event, user=user).exists()
+        )
+
+    def test_user_above_max_age_is_rejected(self):
+        """A 45-year-old cannot register for a max_age=40 event (BYPASS FIX)."""
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('old@example.com', 45)
+        self.client.force_login(user)
+
+        response = self._post_register(self.event)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.event, user=user).exists()
+        )
+
+    def test_user_within_range_can_register(self):
+        """A 35-year-old CAN register for a 30-40 event."""
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('fit@example.com', 35)
+        self.client.force_login(user)
+
+        response = self._post_register(self.event)
+
+        self.assertEqual(response.status_code, 302)
+        reg = EventRegistration.objects.filter(event=self.event, user=user).first()
+        self.assertIsNotNone(reg)
+        self.assertEqual(reg.status, 'confirmed')
+
+    def test_profileless_user_blocked_from_age_restricted_event(self):
+        """A user without a profile is redirected to create_profile, not registered."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username='noprofile@example.com',
+            email='noprofile@example.com',
+            password='testpass123',
+        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+        self.client.force_login(user)
+
+        response = self._post_register(self.event)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('profile', response.url)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.event, user=user).exists()
+        )
+
+    def test_boundary_min_age_accepted(self):
+        """A user exactly at min_age is allowed."""
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('boundary-min@example.com', 30)
+        self.client.force_login(user)
+        self._post_register(self.event)
+        self.assertTrue(
+            EventRegistration.objects.filter(
+                event=self.event, user=user, status='confirmed'
+            ).exists()
+        )
+
+    def test_boundary_max_age_accepted(self):
+        """A user exactly at max_age is allowed."""
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('boundary-max@example.com', 40)
+        self.client.force_login(user)
+        self._post_register(self.event)
+        self.assertTrue(
+            EventRegistration.objects.filter(
+                event=self.event, user=user, status='confirmed'
+            ).exists()
+        )
+
+    def test_open_event_doesnt_require_profile(self):
+        """Events with default (18-99) age range don't force the profile gate."""
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username='openuser@example.com',
+            email='openuser@example.com',
+            password='testpass123',
+        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+        self.client.force_login(user)
+
+        # Profile-less user can reach the form for an open event (gets
+        # age_confirmation checkbox as legal safeguard). They fail validation
+        # only because they didn't tick the checkbox.
+        response = self._post_register(self.open_event)
+        # Should NOT be redirected to create_profile — open event is reachable.
+        self.assertNotIn('create-profile', response.url if response.status_code == 302 else '')
+
+
+class EventRegistrationAdminFormAgeTests(TestCase):
+    """Admin-side age enforcement for EventRegistration."""
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+
+        self.today = date.today()
+        self.event = MeetupEvent.objects.create(
+            title='Admin Age Event',
+            description='30-40',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=10,
+            min_age=30,
+            max_age=40,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+    def _make_user(self, email, age):
+        from crush_lu.models import CrushProfile
+
+        user = User.objects.create_user(
+            username=email, email=email, password='testpass123',
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(self.today.year - age, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+        )
+        return user
+
+    def test_admin_form_rejects_underage_user(self):
+        from crush_lu.admin.events import EventRegistrationAdminForm
+
+        user = self._make_user('admin-young@example.com', 22)
+        form = EventRegistrationAdminForm(
+            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn('__all__', form.errors)
+
+    def test_admin_form_rejects_user_without_dob(self):
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import CrushProfile
+
+        user = User.objects.create_user(
+            username='admin-nodob@example.com',
+            email='admin-nodob@example.com',
+            password='testpass123',
+        )
+        CrushProfile.objects.create(user=user, location='Luxembourg')  # no DOB
+        form = EventRegistrationAdminForm(
+            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_admin_form_accepts_eligible_user(self):
+        from crush_lu.admin.events import EventRegistrationAdminForm
+
+        user = self._make_user('admin-ok@example.com', 35)
+        form = EventRegistrationAdminForm(
+            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_admin_form_allows_cancelled_status_regardless_of_age(self):
+        """Cancelled rows bypass the gate (historical / cleanup use-case)."""
+        from crush_lu.admin.events import EventRegistrationAdminForm
+
+        user = self._make_user('admin-cancelled@example.com', 22)
+        form = EventRegistrationAdminForm(
+            data={'event': self.event.pk, 'user': user.pk, 'status': 'cancelled'}
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_admin_inline_form_cannot_bypass_via_implicit_event(self):
+        """
+        Regression for Codex P1: in EventRegistrationInline the `event` field
+        isn't part of the posted data (it's implicit from the parent admin).
+        Cleaning must fall back to self.instance.event and still reject
+        ineligible users — otherwise staff could confirm underage registrations
+        via the inline form.
+        """
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('inline-young@example.com', 22)
+        instance = EventRegistration.objects.create(
+            event=self.event, user=user, status='waitlist'
+        )
+        # Simulate inline: event and user are NOT in POST data; only status is.
+        form = EventRegistrationAdminForm(
+            data={'status': 'confirmed'}, instance=instance
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_admin_changelist_inline_edit_cannot_bypass(self):
+        """
+        Regression for Codex P1: on the changelist, list_editable posts only
+        the editable columns (status, payment_confirmed). Without falling back
+        to self.instance, the clean() short-circuit would silently let staff
+        flip an underage waitlist row to 'confirmed'.
+        """
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user('changelist-young@example.com', 22)
+        instance = EventRegistration.objects.create(
+            event=self.event, user=user, status='waitlist'
+        )
+        form = EventRegistrationAdminForm(
+            data={'status': 'confirmed', 'payment_confirmed': False},
+            instance=instance,
+        )
+        self.assertFalse(form.is_valid())

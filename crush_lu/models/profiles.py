@@ -287,6 +287,44 @@ class CrushCoach(models.Model):
         default=10,
         help_text=_("Maximum number of profiles this coach can review simultaneously")
     )
+
+    # Hybrid Coach Review System (see plan: crush-lu-hybrid-cached-catmull.md)
+    WORKING_MODE_CHOICES = [
+        ('spontaneous', _('Spontaneous — I call users on my own schedule')),
+        ('hybrid', _('Hybrid — I call users but also accept bookings')),
+        ('booking', _('Booking-first — users pick a slot from my calendar')),
+    ]
+    working_mode = models.CharField(
+        max_length=20,
+        choices=WORKING_MODE_CHOICES,
+        default='spontaneous',
+        help_text=_("How this coach prefers to conduct screening calls")
+    )
+    availability_windows = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "List of weekly availability windows, each {'day': 'tuesday', "
+            "'start': '18:00', 'end': '21:00', 'label': 'Tuesday evenings'}"
+        ),
+    )
+    is_away = models.BooleanField(
+        default=False,
+        help_text=_("Temporarily exclude this coach from new assignments")
+    )
+    away_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Optional end date for the away period. NULL = indefinite")
+    )
+    hybrid_features_enabled = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Per-coach opt-in flag for the Hybrid Coach Review System. "
+            "Gated in addition to settings.HYBRID_COACH_SYSTEM_ENABLED."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     LANGUAGE_DISPLAY = {
@@ -788,6 +826,42 @@ class ProfileSubmission(models.Model):
         blank=True,
         help_text=_("Structured checklist data from screening call")
     )
+    screening_call_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('legacy', _('Legacy 5-section')),
+            ('calibration', _('Calibration 3-section')),
+        ],
+        default='legacy',
+        help_text=_("Which call-checklist shape applies to this submission"),
+    )
+
+    # Pre-screening questionnaire (user-submitted, optional, fills in before call)
+    pre_screening_responses = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_("User-submitted answers to pre-screening questionnaire"),
+    )
+    pre_screening_submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When the user finalized their pre-screening answers"),
+    )
+    pre_screening_version = models.PositiveIntegerField(
+        default=0,
+        help_text=_("Schema version the user answered (0 = not offered yet)"),
+    )
+    pre_screening_readiness_score = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text=_("Rule-based 0–10 readiness score, null if no pre-screening"),
+    )
+    pre_screening_flags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Flag identifiers surfaced to the Coach for attention"),
+    )
 
     # Candidate-to-coach note (write-once, submitted during review wait)
     candidate_note = models.TextField(
@@ -804,6 +878,67 @@ class ProfileSubmission(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # --- Hybrid Coach Review System fields (see plan) ---
+    assigned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When a coach was assigned. Used as the SLA anchor."),
+    )
+    sla_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When this submission must be reviewed by (assigned_at + 48h)."),
+    )
+    fallback_offered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the user was shown the self-booking fallback."),
+    )
+    escalated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When this submission was auto-reassigned after SLA breach."),
+    )
+    recontact_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When status became 'recontact_coach' (used for 14-day expiry)."),
+    )
+    nudge_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When the 36h coach nudge was sent (sentinel to prevent repeats)."),
+    )
+
+    # Paused state — orthogonal to `status` so we preserve recontact history.
+    is_paused = models.BooleanField(
+        default=False,
+        help_text=_("User action required before the submission can proceed."),
+    )
+    paused_at = models.DateTimeField(null=True, blank=True)
+    paused_reason = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text=_("Short machine-readable reason, e.g. 'recontact_timeout'."),
+    )
+
+    # Audit log for automated actions (task runs, nudges, escalations, …).
+    # Schema: [{'type': str, 'at': iso, 'actor': 'system|coach:<id>|user:<id>',
+    # 'details': {...}}, ...].
+    system_actions = models.JSONField(default=list, blank=True)
+
+    # User-facing self-booking link (issued when fallback_offered_at is set).
+    booking_token = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        help_text=_("Opaque token used in booking URLs; 30-day expiry."),
+    )
+    booking_token_expires_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['-submitted_at']
         indexes = [
@@ -818,6 +953,85 @@ class ProfileSubmission(models.Model):
 
     def __str__(self):
         return f"{self.profile.user.username} - {self.get_status_display()}"
+
+    @property
+    def sla_state(self):
+        """Current SLA bucket: ok / warning / urgent / breach / escalated.
+
+        Drives coach-side urgency coloring. Users see `hybrid_user_state`.
+        Returns 'ok' when no SLA deadline is set yet.
+        """
+        if self.escalated_at:
+            return "escalated"
+        if not self.sla_deadline:
+            return "ok"
+        now = timezone.now()
+        if now >= self.sla_deadline:
+            return "breach"
+        remaining_hours = (self.sla_deadline - now).total_seconds() / 3600
+        if remaining_hours <= 12:
+            return "urgent"
+        if remaining_hours <= 24:
+            return "warning"
+        return "ok"
+
+    @property
+    def hybrid_user_state(self):
+        """User-facing hybrid-review state bucket.
+
+        One of: just_submitted, coach_working, fallback_offered,
+        escalated, in_recontact, paused. Used by profile_submitted.html
+        to render a reassuring, actionable status banner. Does not
+        replace the existing pending timeline — it augments it.
+        """
+        if self.is_paused:
+            return "paused"
+        if self.status == "recontact_coach":
+            return "in_recontact"
+        if self.escalated_at:
+            return "escalated"
+        if self.fallback_offered_at:
+            return "fallback_offered"
+        # Default pending branch: has a coach done anything yet?
+        try:
+            has_activity = self.call_attempts.exists()
+        except Exception:
+            has_activity = False
+        hours_since = (timezone.now() - self.submitted_at).total_seconds() / 3600
+        if has_activity or hours_since >= 24:
+            return "coach_working"
+        return "just_submitted"
+
+    @property
+    def recontact_days_remaining(self):
+        """Days left before auto-pause when status is recontact_coach.
+
+        Returns None if not in recontact, negative/zero if already past
+        the 14-day window (Phase 6 will auto-pause on the next run).
+        """
+        if self.status != "recontact_coach" or not self.recontact_started_at:
+            return None
+        elapsed = (timezone.now() - self.recontact_started_at).days
+        return 14 - elapsed
+
+    def log_system_action(self, type_: str, actor: str = "system", **details):
+        """Append an audit entry to system_actions.
+
+        Uses a write-back pattern because JSONField mutations in place
+        aren't persisted by Django. Caller is responsible for saving
+        the parent with update_fields=['system_actions'] when batching.
+        """
+        entry = {
+            "type": type_,
+            "at": timezone.now().isoformat(),
+            "actor": actor,
+        }
+        if details:
+            entry["details"] = details
+        actions = list(self.system_actions or [])
+        actions.append(entry)
+        self.system_actions = actions
+        return entry
 
     def assign_coach(self):
         """Auto-assign to an available coach, preferring language matches"""
@@ -931,6 +1145,236 @@ class CallAttempt(models.Model):
     @property
     def is_failed(self):
         return self.result == 'failed'
+
+
+class ScreeningSlot(models.Model):
+    """A screening-call time slot offered by a coach (Hybrid Review System).
+
+    Slots can be pre-created by booking-first coaches or materialised on the
+    fly from a hybrid coach's availability_windows when a user books. The
+    user-facing booking token lives on ProfileSubmission; slots are addressed
+    by PK once the user is authenticated via that token.
+    """
+
+    STATUS_CHOICES = [
+        ('available', _('Available')),
+        ('booked', _('Booked')),
+        ('completed', _('Completed')),
+        ('cancelled', _('Cancelled')),
+        ('no_show', _('No-show')),
+    ]
+
+    MIN_DURATION = timedelta(minutes=10)
+    MAX_DURATION = timedelta(minutes=60)
+
+    coach = models.ForeignKey(
+        'CrushCoach',
+        on_delete=models.CASCADE,
+        related_name='screening_slots',
+    )
+    submission = models.ForeignKey(
+        'ProfileSubmission',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='booked_slots',
+    )
+    start_at = models.DateTimeField(db_index=True)
+    end_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='available',
+        db_index=True,
+    )
+    cancelled_reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['start_at']
+        indexes = [
+            models.Index(fields=['coach', 'status', 'start_at']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_at__gt=models.F('start_at')),
+                name='screening_slot_end_after_start',
+            ),
+            # Partial unique index: at most one booked slot per
+            # (coach, start_at, end_at). Prevents the virtual-slot race
+            # where two submissions pass `bookable_slots()` concurrently
+            # and both insert the same time — application-level checks
+            # (clean(), bookable_slots re-check) can't serialize across
+            # transactions, so this DB guardrail is the authoritative stop.
+            models.UniqueConstraint(
+                fields=['coach', 'start_at', 'end_at'],
+                condition=models.Q(status='booked'),
+                name='screening_slot_unique_booked_per_coach_time',
+            ),
+        ]
+
+    def __str__(self):
+        return f"ScreeningSlot({self.coach_id}, {self.start_at:%Y-%m-%d %H:%M}, {self.status})"
+
+    def clean(self):
+        """Enforce duration bounds and no overlap with sibling slots."""
+        from django.core.exceptions import ValidationError
+
+        if self.start_at and self.end_at:
+            duration = self.end_at - self.start_at
+            if duration < self.MIN_DURATION:
+                raise ValidationError(_("Slot must be at least 10 minutes long."))
+            if duration > self.MAX_DURATION:
+                raise ValidationError(_("Slot must be at most 60 minutes long."))
+
+        if self.coach_id and self.start_at and self.end_at:
+            overlap = ScreeningSlot.objects.filter(
+                coach_id=self.coach_id,
+                start_at__lt=self.end_at,
+                end_at__gt=self.start_at,
+            ).exclude(status__in=('cancelled', 'no_show'))
+            if self.pk:
+                overlap = overlap.exclude(pk=self.pk)
+            if overlap.exists():
+                raise ValidationError(_("This slot overlaps another for the same coach."))
+
+    @classmethod
+    def claim_for_submission(cls, *, coach_id, start_at, end_at, submission_token):
+        """Atomically bind a slot (real or virtual) to a submission.
+
+        Race-safe: takes the submission row lock first, then either locks
+        the pre-existing slot or creates a fresh one. If the submission's
+        currently-assigned coach differs from the booked coach, reassigns
+        and logs the reassignment in system_actions.
+
+        Returns (slot, submission). Raises ProfileSubmission.DoesNotExist
+        on bad token, ValidationError on overlap or expiry issues.
+        """
+        from django.core.exceptions import ValidationError
+        from django.db import IntegrityError, transaction
+
+        with transaction.atomic():
+            submission = ProfileSubmission.objects.select_for_update().get(
+                booking_token=submission_token
+            )
+            if (
+                submission.booking_token_expires_at
+                and submission.booking_token_expires_at < timezone.now()
+            ):
+                raise ValidationError(_("This booking link has expired."))
+
+            # Defense in depth against tokens used after the submission moved
+            # on (approved / rejected / call completed / paused). The view-level
+            # `_resolve_token` already rejects the same states, but a
+            # concurrent admin action between resolve and claim could flip them
+            # — only this post-lock check sees the final state.
+            if submission.status != "pending":
+                raise ValidationError(_("This booking link is no longer valid."))
+            if submission.review_call_completed or submission.is_paused:
+                raise ValidationError(_("This booking link is no longer valid."))
+
+            # One active booking per submission. Without this, a valid token
+            # can claim multiple different slots and `book_screening` /
+            # `cancel_booking` — which both read the first booked row — end up
+            # with orphans. Users who want to change their slot must cancel
+            # first via `cancel_booking`.
+            if cls.objects.filter(
+                submission=submission, status="booked"
+            ).exists():
+                raise ValidationError(
+                    _(
+                        "You already have a booked slot for this submission. "
+                        "Please cancel it before picking a new time."
+                    )
+                )
+
+            # (coach_id, start_at, end_at) arrives from a hidden form field,
+            # so re-validate against the live offered set before we trust it.
+            # `bookable_slots()` re-applies the coach `is_active` +
+            # `hybrid_features_enabled` gates, the away window, the 14-day
+            # horizon, and the past-time filter. Applying this to BOTH the
+            # existing-available-slot path and the virtual-slot path closes
+            # the case where a coach was toggled away / opted out after a
+            # pre-created available row was written — the stale row would
+            # otherwise still be claimable via a tampered POST.
+            coach = CrushCoach.objects.filter(
+                pk=coach_id, is_active=True
+            ).first()
+            if coach is None:
+                raise ValidationError(
+                    _("That coach is not available for booking.")
+                )
+
+            from crush_lu.services.slot_generator import bookable_slots
+
+            offered = any(
+                candidate["coach_id"] == coach_id
+                and candidate["start_at"] == start_at
+                and candidate["end_at"] == end_at
+                for candidate in bookable_slots(coach)
+            )
+            if not offered:
+                raise ValidationError(
+                    _(
+                        "That time is no longer available. "
+                        "Please pick another slot."
+                    )
+                )
+
+            # Try to lock an existing 'available' slot at this exact time.
+            existing = (
+                cls.objects.select_for_update()
+                .filter(
+                    coach_id=coach_id,
+                    start_at=start_at,
+                    end_at=end_at,
+                    status="available",
+                )
+                .first()
+            )
+            if existing:
+                slot = existing
+                slot.status = "booked"
+                slot.submission = submission
+                slot.save(update_fields=["status", "submission", "updated_at"])
+            else:
+                slot = cls(
+                    coach_id=coach_id,
+                    submission=submission,
+                    start_at=start_at,
+                    end_at=end_at,
+                    status="booked",
+                )
+                slot.full_clean()
+                # Partial unique constraint on (coach, start_at, end_at)
+                # filtered to status='booked' is the authoritative race stop:
+                # two concurrent virtual-slot claims from different submissions
+                # can both pass the application-level checks above, and only
+                # the DB insert order decides the winner.
+                try:
+                    slot.save()
+                except IntegrityError:
+                    raise ValidationError(
+                        _(
+                            "That time was just booked by someone else. "
+                            "Please pick another slot."
+                        )
+                    )
+
+            # Reassign on-the-fly if user booked with a different coach.
+            if submission.coach_id != coach_id:
+                prev_coach = submission.coach_id
+                submission.coach_id = coach_id
+                submission.log_system_action(
+                    "reassigned_via_booking",
+                    actor=f"user:{submission.profile.user_id}",
+                    from_coach=prev_coach,
+                    to_coach=coach_id,
+                )
+                submission.save(update_fields=["coach", "system_actions"])
+
+            return slot, submission
 
 
 class CoachSession(models.Model):

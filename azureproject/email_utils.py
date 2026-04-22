@@ -115,7 +115,8 @@ def _is_test_environment():
 
 
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
-                     html_message=None, from_email=None, cc=None, fail_silently=False):
+                     html_message=None, from_email=None, cc=None, fail_silently=False,
+                     attachments=None):
     """
     Send email using domain-specific configuration (Graph API, SMTP, or Console in DEBUG).
 
@@ -131,6 +132,8 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         from_email: Override from email (optional)
         cc: List of CC email addresses (optional)
         fail_silently: Whether to suppress exceptions (default: False)
+        attachments: Optional iterable of (filename, content, mimetype) tuples
+            to attach to the message (e.g. a calendar .ics file).
 
     Returns:
         int: Number of successfully sent emails
@@ -227,6 +230,11 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     # Set content type to HTML if html_message provided
     if html_message:
         email.content_subtype = 'html'
+
+    # Attach any extra files (e.g. .ics calendar invites)
+    if attachments:
+        for filename, content, mimetype in attachments:
+            email.attach(filename, content, mimetype)
 
     # Send email
     return email.send(fail_silently=fail_silently)

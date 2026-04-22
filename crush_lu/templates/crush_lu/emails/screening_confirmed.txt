@@ -1,0 +1,12 @@
+{% load i18n %}{% trans "Your Crush.lu screening call is booked." %}
+
+{% trans "When" %}: {{ slot.start_at|date:"l, F j Y" }} · {{ slot.start_at|time:"H:i" }}–{{ slot.end_at|time:"H:i" }} ({% trans "Europe/Luxembourg" %})
+{% if coach %}{% trans "Coach" %}: {{ coach.user.get_full_name|default:coach.user.username }}{% endif %}
+
+{% trans "Add it to your calendar using the attached invite." %}
+
+{% trans "Need to change the slot?" %}
+{{ booking_url }}
+
+{% trans "Talk soon," %}
+{% trans "The Crush.lu team" %}

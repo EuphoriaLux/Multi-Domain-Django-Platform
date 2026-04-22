@@ -13,20 +13,17 @@
         return;
     }
 
-    // CSRF token helper
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== "") {
-            const cookies = document.cookie.split(";");
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === name + "=") {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
+    // CSRF token helper — reads from hidden input (works with CSRF_COOKIE_HTTPONLY=True)
+    function getCSRFToken() {
+        var input = document.getElementById("csrf-token-input");
+        if (input && input.value) {
+            return input.value;
         }
-        return cookieValue;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            return meta.getAttribute("content");
+        }
+        return null;
     }
 
     // Convert base64 VAPID key to Uint8Array
@@ -168,7 +165,7 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken"),
+                    "X-CSRFToken": getCSRFToken(),
                 },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
@@ -248,7 +245,7 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken"),
+                    "X-CSRFToken": getCSRFToken(),
                 },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
@@ -300,7 +297,7 @@
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken"),
+                    "X-CSRFToken": getCSRFToken(),
                 },
                 body: JSON.stringify({
                     endpoint: subscription.endpoint,
@@ -383,7 +380,7 @@
             const response = await fetch("/api/push/test/", {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": getCookie("csrftoken"),
+                    "X-CSRFToken": getCSRFToken(),
                 },
             });
 

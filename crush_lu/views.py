@@ -141,6 +141,8 @@ from .views_coach import (  # noqa: F401
     coach_log_failed_call,
     coach_log_sms_sent,
     coach_review_profile,
+    coach_send_pre_screening_reminder,
+    coach_set_screening_mode,
     coach_preview_email,
     coach_sessions,
     coach_edit_profile,
@@ -161,6 +163,17 @@ from .views_coach import (  # noqa: F401
     coach_members,
     coach_member_matches,
     coach_match_pairs,
+    # Hybrid Coach Review System (Phase 2)
+    coach_settings,
+    coach_settings_availability_add,
+    coach_settings_availability_remove,
+)
+
+# Hybrid Coach Review System — Phase 5 (self-booking flow)
+from .views_booking import (  # noqa: F401
+    book_screening,
+    confirm_booking,
+    cancel_booking,
 )
 
 # Voting & presentations
@@ -1800,6 +1813,16 @@ def profile_submitted(request):
         .first()
     )
 
+    from django.conf import settings as _settings
+
+    pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
+    pre_screening_submitted = submission.pre_screening_submitted_at is not None
+    pre_screening_visible = (
+        pre_screening_enabled
+        and submission.status == "pending"
+        and not submission.review_call_completed
+    )
+
     context = {
         "submission": submission,
         "coach_contact_phone": coach_contact_phone,
@@ -1813,6 +1836,13 @@ def profile_submitted(request):
         "progress_percent": progress_percent,
         "next_event": next_event,
         "has_candidate_note": bool(submission.candidate_note),
+        "pre_screening_visible": pre_screening_visible,
+        "pre_screening_submitted": pre_screening_submitted,
+        # Hybrid Coach Review System (Phase 4) — drives the adaptive banner.
+        # Always populated; template chooses whether to render based on state.
+        "hybrid_user_state": submission.hybrid_user_state,
+        "recontact_days_remaining": submission.recontact_days_remaining,
+        "has_booking_token": bool(submission.booking_token),
     }
     return render(request, "crush_lu/profile_submitted.html", context)
 

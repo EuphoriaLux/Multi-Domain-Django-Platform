@@ -295,6 +295,16 @@ class VotingAPITests(SiteTestMixin, TestCase):
             }
         )
 
+        # Same-category alternative for testing within-category vote changes
+        self.option1b, _ = GlobalActivityOption.objects.get_or_create(
+            activity_variant='deep_questions',
+            defaults={
+                'activity_type': 'speed_dating_twist',
+                'display_name': 'Deep Questions',
+                'description': 'Skip small talk and go straight to meaningful topics',
+            }
+        )
+
     def test_voting_status_api(self):
         """Test getting voting status."""
         self.client.login(username='voter@example.com', password='testpass123')
@@ -327,20 +337,20 @@ class VotingAPITests(SiteTestMixin, TestCase):
         self.assertEqual(data['data']['action'], 'created')
 
     def test_submit_vote_change(self):
-        """Test changing a vote."""
+        """Test changing a vote within the same activity_type updates the existing row."""
         self.client.login(username='voter@example.com', password='testpass123')
 
-        # Submit initial vote
+        # Submit initial vote (speed_dating_twist category)
         self.client.post(
             reverse('submit_vote_api', args=[self.event.id]),
             data='{"option_id": ' + str(self.option1.id) + '}',
             content_type='application/json',
         )
 
-        # Change vote
+        # Change vote within the same category
         response = self.client.post(
             reverse('submit_vote_api', args=[self.event.id]),
-            data='{"option_id": ' + str(self.option2.id) + '}',
+            data='{"option_id": ' + str(self.option1b.id) + '}',
             content_type='application/json',
         )
 
@@ -348,6 +358,102 @@ class VotingAPITests(SiteTestMixin, TestCase):
         data = response.json()
         self.assertTrue(data['success'])
         self.assertEqual(data['data']['action'], 'updated')
+
+    def test_submit_vote_separate_categories(self):
+        """A user can hold one vote per activity_type; voting in a second category creates."""
+        self.client.login(username='voter@example.com', password='testpass123')
+
+        # Vote in speed_dating_twist
+        r1 = self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + '}',
+            content_type='application/json',
+        )
+        self.assertEqual(r1.json()['data']['action'], 'created')
+
+        # Vote in presentation_style (different category) -- should also create
+        r2 = self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option2.id) + '}',
+            content_type='application/json',
+        )
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r2.json()['data']['action'], 'created')
+
+    def test_total_votes_counts_unique_voters_not_categories(self):
+        """total_votes is the unique-voter count (percentage denominator);
+        a single user voting in both categories must only bump it by 1."""
+        self.client.login(username='voter@example.com', password='testpass123')
+
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + '}',
+            content_type='application/json',
+        )
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option2.id) + '}',
+            content_type='application/json',
+        )
+
+        self.voting_session.refresh_from_db()
+        self.assertEqual(self.voting_session.total_votes, 1)
+
+    def test_voting_status_user_votes_returns_newest_per_category(self):
+        """If legacy duplicate same-category rows exist (possible under the
+        old race), user_votes must report the newest, not the oldest."""
+        from crush_lu.models import EventActivityVote
+
+        # Simulate a legacy duplicate: older vote for option1, newer for option1b
+        # (both in speed_dating_twist).
+        older = EventActivityVote.objects.create(
+            event=self.event, user=self.user, selected_option=self.option1,
+        )
+        newer = EventActivityVote.objects.create(
+            event=self.event, user=self.user, selected_option=self.option1b,
+        )
+        # voted_at is auto_now_add, but with get_or_create/create ordering the
+        # actual DB ordering by -voted_at may be identical-timestamped; force
+        # the "older" one to have an earlier timestamp.
+        EventActivityVote.objects.filter(pk=older.pk).update(
+            voted_at=older.voted_at - timedelta(seconds=30)
+        )
+
+        self.client.login(username='voter@example.com', password='testpass123')
+        response = self.client.get(
+            reverse('voting_status_api', args=[self.event.id])
+        )
+        data = response.json()['data']
+        self.assertEqual(
+            data['user_votes'].get('speed_dating_twist'),
+            newer.selected_option.id,
+            "user_votes must reflect the newest vote per category, not a stale row",
+        )
+
+    def test_voting_status_returns_per_category_votes(self):
+        """voting_status_api must expose per-category vote state so clients
+        can tell which categories the user has completed."""
+        self.client.login(username='voter@example.com', password='testpass123')
+
+        # Vote in speed_dating_twist only
+        self.client.post(
+            reverse('submit_vote_api', args=[self.event.id]),
+            data='{"option_id": ' + str(self.option1.id) + '}',
+            content_type='application/json',
+        )
+
+        response = self.client.get(
+            reverse('voting_status_api', args=[self.event.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        self.assertTrue(data['has_voted'])
+        self.assertTrue(data['has_voted_speed_dating_twist'])
+        self.assertFalse(data['has_voted_presentation_style'])
+        self.assertEqual(
+            data['user_votes'].get('speed_dating_twist'), self.option1.id
+        )
+        self.assertNotIn('presentation_style', data['user_votes'])
 
     def test_voting_results_api(self):
         """Test getting voting results."""

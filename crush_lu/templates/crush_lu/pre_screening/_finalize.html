@@ -1,0 +1,25 @@
+{% load i18n %}
+<form id="prescreening-finalize"
+      {% if oob %}hx-swap-oob="outerHTML:#prescreening-finalize"{% endif %}
+      method="post"
+      action="{% url 'crush_lu:pre_screening_finalize' %}"
+      class="mt-6">
+  {% csrf_token %}
+  <button type="submit"
+          {% if not can_finalize %}disabled{% endif %}
+          class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-semibold transition-colors
+                 {% if can_finalize %}bg-crush-purple text-white hover:bg-purple-700
+                 {% else %}bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed{% endif %}">
+    {% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
+    {% if already_submitted %}
+      {% trans "Update answers for Coach" %}
+    {% else %}
+      {% trans "Submit to Coach" %}
+    {% endif %}
+  </button>
+  {% if not can_finalize %}
+    <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+      {% trans "Complete all required questions to submit." %}
+    </p>
+  {% endif %}
+</form>

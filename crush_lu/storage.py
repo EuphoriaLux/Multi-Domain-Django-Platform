@@ -19,17 +19,19 @@ Environment Variables:
                                    Example for staging: 'crush-lu-private-staging'
 
 User Storage Structure:
-    users/{user_id}/.user_created    # Marker file
     users/{user_id}/photos/          # Profile photos
     users/{user_id}/exports/         # GDPR exports
+
+Storage folders are created implicitly on first upload — Azure Blob
+has no real folders, so there is no up-front initialization step.
 """
 
+import hashlib
 import os
 import logging
 from datetime import datetime, timedelta, timezone
 from django.conf import settings
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,36 @@ class PrivateAzureStorage(AzureStorage):
         self.overwrite_files = False
         self.cache_control = "private, max-age=3600"  # 1 hour, matches SAS expiry
 
+    # Safety margin: serve cached SAS URLs only while at least this many
+    # seconds of the original validity window remain. Keeps cached URLs from
+    # being handed out right before they expire.
+    SAS_CACHE_SAFETY_MARGIN_SECS = 300
+
+    def _build_sas_url(self, name, expire):
+        sas_token = generate_blob_sas(
+            account_name=self.account_name,
+            account_key=self.account_key,
+            container_name=self.azure_container,
+            blob_name=name,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+        )
+
+        if self._is_azurite:
+            return (
+                f"http://{self._azurite_host}/{self.account_name}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
+        if self._cdn_domain:
+            return (
+                f"https://{self._cdn_domain}/"
+                f"{self.azure_container}/{name}?{sas_token}"
+            )
+        return (
+            f"https://{self.account_name}.blob.core.windows.net/"
+            f"{self.azure_container}/{name}?{sas_token}"
+        )
+
     def url(self, name, expire=None):
         """
         Generate a time-limited SAS URL for accessing the blob.
@@ -114,36 +146,37 @@ class PrivateAzureStorage(AzureStorage):
         if not expire:
             expire = self.expiration_secs
 
-        # Generate SAS token with read permissions
-        sas_token = generate_blob_sas(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            container_name=self.azure_container,
-            blob_name=name,
-            permission=BlobSasPermissions(read=True),
-            expiry=datetime.now(timezone.utc) + timedelta(seconds=expire)
+        # Cache the full URL (not just the token) because CDN/Azurite routing
+        # is part of the output. SAS tokens for the same blob are identical
+        # regardless of requester, so a single shared key is correct.
+        #
+        # The signing-key fingerprint is part of the cache key so rotating
+        # AZURE_ACCOUNT_KEY immediately invalidates cached URLs signed by
+        # the old key (otherwise revoked SAS tokens would keep serving
+        # 403s until TTL expiry).
+        key_fingerprint = hashlib.sha256(
+            (self.account_key or "").encode("utf-8")
+        ).hexdigest()[:16]
+        cache_key = (
+            f"sas_url:v2:{self.account_name}:{self.azure_container}:"
+            f"{name}:{expire}:{self._cdn_domain or ''}:"
+            f"{'azurite' if self._is_azurite else 'az'}:"
+            f"{key_fingerprint}"
         )
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
 
-        # Build URL based on environment
-        if self._is_azurite:
-            # Azurite URL format: http://host:port/account/container/blob?sas
-            return (
-                f"http://{self._azurite_host}/{self.account_name}/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
-        elif self._cdn_domain:
-            # CDN/Front Door URL: https://cdn-domain/container/blob?sas
-            # Front Door forwards query strings (including SAS token) to blob storage origin
-            return (
-                f"https://{self._cdn_domain}/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
-        else:
-            # Direct Azure URL: https://account.blob.core.windows.net/container/blob?sas
-            return (
-                f"https://{self.account_name}.blob.core.windows.net/"
-                f"{self.azure_container}/{name}?{sas_token}"
-            )
+        url = self._build_sas_url(name, expire)
+        # TTL must never exceed the SAS lifetime itself, otherwise a cached
+        # URL could be handed out after the token has already expired.
+        # Below the safety margin (e.g. very short custom `expire`), skip
+        # caching entirely — the crypto cost of a fresh token is cheaper
+        # than serving a dead one.
+        ttl = expire - self.SAS_CACHE_SAFETY_MARGIN_SECS
+        if ttl >= 60:
+            cache.set(cache_key, url, ttl)
+        return url
 
 
 class CrushMediaStorage(AzureStorage):
@@ -227,88 +260,6 @@ class CrushProfilePhotoStorage(PrivateAzureStorage):
 
         # Reconstruct path
         return os.path.join(dir_name, unique_filename)
-
-
-def initialize_user_storage(user_id):
-    """
-    Create user storage folder structure with a marker file.
-
-    This function creates the folder structure for a user in Azure Blob Storage
-    (Azurite in development, Azure in production) or local filesystem as fallback.
-    Azure Blob Storage doesn't have true folders, but creating a file at a path
-    implicitly creates the "folder" structure.
-
-    Structure created:
-        users/{user_id}/.user_created    # Empty marker file
-
-    The photos/ and exports/ subfolders are created implicitly when files
-    are uploaded to them.
-
-    Args:
-        user_id: The Django User ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    marker_path = f"users/{user_id}/.user_created"
-
-    try:
-        # Check storage mode: Azurite, Production Azure, or Local filesystem
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
-            # Use CrushProfilePhotoStorage for both Azurite and production Azure
-            storage = CrushProfilePhotoStorage()
-
-            # Check if marker already exists
-            if storage.exists(marker_path):
-                logger.debug(f"User storage already initialized for user {user_id}")
-                return True
-
-            # Create empty marker file
-            storage.save(marker_path, ContentFile(b''))
-            mode = "Azurite" if is_azurite_mode() else "Azure"
-            logger.info(f"Initialized {mode} storage for user {user_id}")
-        else:
-            # Fallback: Use default storage (local filesystem)
-            if default_storage.exists(marker_path):
-                logger.debug(f"User storage already initialized for user {user_id}")
-                return True
-
-            # Ensure directory exists for local filesystem
-            full_path = os.path.join(settings.MEDIA_ROOT, f"users/{user_id}")
-            os.makedirs(full_path, exist_ok=True)
-
-            # Create empty marker file
-            default_storage.save(marker_path, ContentFile(b''))
-            logger.info(f"Initialized local storage for user {user_id}")
-
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to initialize storage for user {user_id}: {str(e)}")
-        return False
-
-
-def user_storage_exists(user_id):
-    """
-    Check if user storage folder has been initialized.
-
-    Args:
-        user_id: The Django User ID
-
-    Returns:
-        bool: True if user storage exists, False otherwise
-    """
-    marker_path = f"users/{user_id}/.user_created"
-
-    try:
-        if is_azurite_mode() or os.getenv('AZURE_ACCOUNT_NAME'):
-            storage = CrushProfilePhotoStorage()
-            return storage.exists(marker_path)
-        else:
-            return default_storage.exists(marker_path)
-    except Exception as e:
-        logger.error(f"Error checking storage for user {user_id}: {str(e)}")
-        return False
 
 
 def delete_user_storage(user_id):

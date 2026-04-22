@@ -1,0 +1,29 @@
+{% load i18n %}
+<fieldset class="space-y-2">
+  <legend class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+    {{ q.label }}{% if q.required %} <span class="text-red-500" aria-hidden="true">*</span>{% endif %}
+  </legend>
+  <div class="grid gap-2" role="group" {% if errors %}aria-describedby="err-{{ q.id }}"{% endif %}>
+    {% for c in q.choices %}
+      <label class="flex items-start gap-3 p-3 min-h-[44px] rounded-lg border cursor-pointer transition-colors
+                    {% if c.value in value %}border-crush-purple bg-purple-50 dark:bg-purple-900/20{% else %}border-gray-200 dark:border-gray-700 hover:border-crush-purple/50 hover:bg-gray-50 dark:hover:bg-slate-800{% endif %}">
+        <input type="checkbox"
+               name="{{ q.id }}"
+               value="{{ c.value }}"
+               class="mt-0.5 rounded text-crush-purple focus:ring-crush-purple"
+               {% if c.value in value %}checked{% endif %}>
+        <span class="text-sm text-gray-900 dark:text-gray-100">{{ c.label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {% if q.max_choices %}
+    <p class="text-xs text-gray-500 dark:text-gray-400">
+      {% blocktrans with n=q.max_choices %}Pick up to {{ n }}.{% endblocktrans %}
+    </p>
+  {% endif %}
+  {% if errors %}
+    <p id="err-{{ q.id }}" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="polite">
+      {% trans "Please adjust your selection." %}
+    </p>
+  {% endif %}
+</fieldset>
