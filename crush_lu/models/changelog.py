@@ -69,6 +69,13 @@ class PatchRelease(models.Model):
         ordering = ["-released_on", "-version"]
         verbose_name = _("Patch Release")
         verbose_name_plural = _("Patch Releases")
+        indexes = [
+            # Hot path: public list filters by is_published and orders by -released_on.
+            models.Index(
+                fields=["is_published", "-released_on"],
+                name="patchrel_pub_date_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.version} \u2014 {self.title}"
@@ -104,6 +111,17 @@ class PatchNote(models.Model):
         help_text=_("List of commit SHAs that back this note."),
     )
     order = models.PositiveIntegerField(default=0)
+    # Cleared when a curator edits the row in admin so the generator never
+    # overwrites hand-polished copy on a re-run.
+    auto_generated = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text=_(
+            "Internal: True for notes produced by generate_patch_notes, "
+            "False once a human has edited them. The generator only "
+            "replaces rows where this is True."
+        ),
+    )
 
     class Meta:
         ordering = ["release", "category", "order", "id"]

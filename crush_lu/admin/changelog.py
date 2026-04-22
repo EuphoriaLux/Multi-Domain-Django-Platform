@@ -1,7 +1,7 @@
 """Admin configuration for the changelog / patch notes system."""
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.db.models import Count
 from modeltranslation.admin import TranslationAdmin, TranslationStackedInline
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
@@ -27,7 +27,7 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
         "note_count",
         "updated_at",
     )
-    list_filter = ("is_published", "released_on")
+    list_filter = ("is_published", "released_on", "notes__category")
     search_fields = ("version", "slug", "title", "hero_summary")
     list_editable = ("is_published",)
     prepopulated_fields = {"slug": ("version",)}
@@ -44,23 +44,43 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
     )
     inlines = []  # populated below
 
+    def get_queryset(self, request):
+        # Annotate note count so the list page doesn't fire one COUNT per row.
+        qs = super().get_queryset(request)
+        return qs.annotate(_note_count=Count("notes", distinct=True))
+
     def note_count(self, obj):
-        count = obj.notes.count()
-        if not count:
-            return format_html('<span style="color:#999;">0</span>')
-        return count
+        return obj._note_count
     note_count.short_description = "Notes"
+    note_count.admin_order_field = "_note_count"
+
+    def save_formset(self, request, form, formset, change):
+        # When a curator touches a note inline, flag it so the generator
+        # won't overwrite it on the next run.
+        instances = formset.save(commit=False)
+        for obj in instances:
+            obj.auto_generated = False
+            obj.save()
+        for obj in formset.deleted_objects:
+            obj.delete()
+        formset.save_m2m()
 
 
 class PatchNoteAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for individual patch notes (usually edited inline via release)."""
 
-    list_display = ("release", "category", "title", "order")
-    list_filter = ("category", "release__is_published", "release")
+    list_display = ("release", "category", "title", "order", "auto_generated")
+    list_filter = ("category", "auto_generated", "release__is_published", "release")
     list_editable = ("order",)
     search_fields = ("title", "body", "release__version", "release__title")
     ordering = ("release", "category", "order")
     autocomplete_fields = ("release",)
+    readonly_fields = ("auto_generated",)
+
+    def save_model(self, request, obj, form, change):
+        # Any direct admin edit counts as curator-owned.
+        obj.auto_generated = False
+        super().save_model(request, obj, form, change)
 
 
 # Wire inline: import the model only here to sidestep load-order issues.
