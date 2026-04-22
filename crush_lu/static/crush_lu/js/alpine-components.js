@@ -3200,7 +3200,7 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("profileWizard", function () {
         return {
             currentStep: 1,
-            totalSteps: 4,
+            totalSteps: 5,
             isSubmitting: false,
             phoneVerified: false,
             showErrors: false,
@@ -3208,6 +3208,7 @@ document.addEventListener("alpine:init", function () {
             isEditing: false,
             step1Valid: false,
             step2Valid: true,
+            step4Valid: true,  // Preferences always has defaults; validated server-side
 
             // Step 1 required fields tracking
             gender: "",
@@ -3240,13 +3241,16 @@ document.addEventListener("alpine:init", function () {
             get step4Completed() {
                 return this.currentStep > 4;
             },
+            get step5Completed() {
+                return this.currentStep > 5;
+            },
             // Progress bar for mobile wizard
             get progressBarStyle() {
                 var pct = (this.currentStep / this.totalSteps) * 100;
                 return "width:" + pct + "%";
             },
             get stepLabel() {
-                var names = ["Basic Info", "About You", "Photos", "Review"];
+                var names = ["Basic Info", "About You", "Photos", "Preferences", "Review"];
                 var name = names[this.currentStep - 1] || "";
                 return (
                     "Step " + this.currentStep + " of " + this.totalSteps + " — " + name
@@ -3265,6 +3269,9 @@ document.addEventListener("alpine:init", function () {
             get isStep4() {
                 return this.currentStep === 4;
             },
+            get isStep5() {
+                return this.currentStep === 5;
+            },
             get step1NotCompleted() {
                 return !this.step1Completed;
             },
@@ -3276,6 +3283,9 @@ document.addEventListener("alpine:init", function () {
             },
             get step4NotCompleted() {
                 return !this.step4Completed;
+            },
+            get step5NotCompleted() {
+                return !this.step5Completed;
             },
             get notPhoneVerified() {
                 return !this.phoneVerified;
@@ -3374,6 +3384,16 @@ document.addEventListener("alpine:init", function () {
                     ? "text-purple-600 font-medium"
                     : "text-gray-400";
             },
+            get step5CircleClass() {
+                return this.currentStep >= 5
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500"
+                    : "bg-gray-300";
+            },
+            get step5TextClass() {
+                return this.currentStep >= 5
+                    ? "text-purple-600 font-medium"
+                    : "text-gray-400";
+            },
             get step1ConnectorClass() {
                 return this.step1Completed
                     ? "bg-gradient-to-r from-purple-500 to-pink-500"
@@ -3416,6 +3436,11 @@ document.addEventListener("alpine:init", function () {
                     ? "bg-purple-100 text-purple-700 font-medium"
                     : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
             },
+            get step5ButtonClass() {
+                return this.isStep5
+                    ? "bg-purple-100 text-purple-700 font-medium"
+                    : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
+            },
 
             init: function () {
                 // Read initial values from data attributes
@@ -3424,15 +3449,17 @@ document.addEventListener("alpine:init", function () {
                 var phoneVerified = el.getAttribute("data-phone-verified");
                 var isEditing = el.getAttribute("data-is-editing");
 
-                // Map step names to numbers. step4 is a legacy DB value from
-                // the old coach-picker wizard; it now maps to the Review step.
+                // Map DB completion_status values → wizard sub-step numbers.
+                // Wizard has 5 sub-steps: 1 Basic Info · 2 About You · 3 Photos
+                // · 4 Preferences · 5 Review. step4 is a legacy DB value from
+                // the old coach-picker wizard and now lands users on Review.
                 var stepMap = {
                     not_started: 1,
                     step1: 2,
                     step2: 3,
                     step3: 4,
-                    step4: 4,
-                    submitted: 4,
+                    step4: 5,
+                    submitted: 5,
                 };
 
                 if (initialStep && stepMap[initialStep]) {
@@ -3976,7 +4003,7 @@ document.addEventListener("alpine:init", function () {
                 });
             },
 
-            // Save Step 3 (Photos) and advance to the Review step.
+            // Save Step 3 (Photos) and advance to the Preferences step.
             // Coach is never assigned by the user — submissions land in the
             // verification channel; any coach can claim them.
             saveAndNextStep3: function () {
@@ -3986,6 +4013,86 @@ document.addEventListener("alpine:init", function () {
                     if (result.success) {
                         self.saveError = "";
                         self.currentStep = 4;
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                });
+            },
+
+            // Collect the Preferences step fields from the DOM.
+            collectStep4Data: function () {
+                var genderNodes = document.querySelectorAll(
+                    "input[name=preferred_genders]:checked",
+                );
+                var genders = [];
+                for (var i = 0; i < genderNodes.length; i++) {
+                    genders.push(genderNodes[i].value);
+                }
+                var minInput = document.querySelector("[name=preferred_age_min]");
+                var maxInput = document.querySelector("[name=preferred_age_max]");
+                return {
+                    preferred_genders: genders,
+                    preferred_age_min: minInput ? parseInt(minInput.value, 10) : null,
+                    preferred_age_max: maxInput ? parseInt(maxInput.value, 10) : null,
+                };
+            },
+
+            // Save Step 4 (Preferences) to the backend.
+            savePreferences: function () {
+                var self = this;
+                self.isSaving = true;
+                self.saveError = "";
+                self.fieldErrors = {};
+
+                var data = self.collectStep4Data();
+
+                return fetch("/api/profile/save-preferences/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": self.getCsrfToken(),
+                    },
+                    body: JSON.stringify(data),
+                })
+                    .then(function (response) {
+                        return response.json().then(function (d) {
+                            return { ok: response.ok, data: d };
+                        });
+                    })
+                    .then(function (result) {
+                        self.isSaving = false;
+                        if (result.ok && result.data.success) {
+                            self.fieldErrors = {};
+                            if (result.data.csrfToken) {
+                                self.updateAllCsrfTokens(result.data.csrfToken);
+                            }
+                            return { success: true };
+                        }
+                        self.saveError =
+                            (result.data && result.data.error) ||
+                            "Failed to save preferences. Please try again.";
+                        if (result.data && result.data.errors) {
+                            self.fieldErrors = result.data.errors;
+                        }
+                        return {
+                            success: false,
+                            error: self.saveError,
+                            errors: result.data && result.data.errors,
+                        };
+                    })
+                    .catch(function () {
+                        self.isSaving = false;
+                        self.saveError = "Network error. Please check your connection.";
+                        return { success: false, error: self.saveError };
+                    });
+            },
+
+            // Save Preferences and advance to the Review step.
+            saveAndNextStep4: function () {
+                var self = this;
+                self.savePreferences().then(function (result) {
+                    if (result.success) {
+                        self.saveError = "";
+                        self.currentStep = 5;
                         self.updateReview();
                         window.scrollTo({ top: 0, behavior: "smooth" });
                     }

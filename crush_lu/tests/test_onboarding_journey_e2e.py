@@ -314,3 +314,74 @@ class JourneyWalkE2ETests(_SiteMixin, TestCase):
         self.assertFalse(ProfileSubmission.objects.filter(
             profile__user=self.user
         ).exists())
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class SaveProfilePreferencesTests(_SiteMixin, TestCase):
+    """POST /api/profile/save-preferences/ — step 4 of the inner wizard."""
+
+    def setUp(self):
+        import json
+        self.json = json
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="alex@example.com",
+            email="alex@example.com",
+            password="pass-pass-pass",
+        )
+        _grant_consent(self.user)
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            phone_verified=True,
+            phone_number="+352621000000",
+        )
+        self.client.login(username="alex@example.com", password="pass-pass-pass")
+        self.url = "/api/profile/save-preferences/"
+
+    def _post(self, payload):
+        return self.client.post(
+            self.url,
+            data=self.json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_persists_valid_payload(self):
+        resp = self._post({
+            "preferred_genders": ["F", "NB"],
+            "preferred_age_min": 27,
+            "preferred_age_max": 36,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_genders, ["F", "NB"])
+        self.assertEqual(self.profile.preferred_age_min, 27)
+        self.assertEqual(self.profile.preferred_age_max, 36)
+
+    def test_rejects_inverted_age_range(self):
+        resp = self._post({
+            "preferred_genders": ["F"],
+            "preferred_age_min": 40,
+            "preferred_age_max": 30,
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.profile.refresh_from_db()
+        self.assertNotEqual(self.profile.preferred_age_min, 40)
+
+    def test_drops_unknown_gender_codes(self):
+        resp = self._post({
+            "preferred_genders": ["F", "BOGUS", "M"],
+            "preferred_age_min": 25,
+            "preferred_age_max": 40,
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_genders, ["F", "M"])
+
+    def test_requires_login(self):
+        self.client.logout()
+        resp = self._post({
+            "preferred_genders": ["F"],
+            "preferred_age_min": 25,
+            "preferred_age_max": 40,
+        })
+        self.assertEqual(resp.status_code, 302)

@@ -302,6 +302,85 @@ def save_profile_step2(request):
 
 @crush_login_required
 @require_http_methods(["POST"])
+def save_profile_preferences(request):
+    """Save Step 4 (Ideal Crush Preferences) via AJAX.
+
+    Captures preferred_genders (list of gender codes) + preferred_age_min /
+    preferred_age_max. These also live on the /crush-preferences/ post-
+    approval page; this endpoint just brings them forward so they're set
+    before the coach reviews the profile.
+    """
+    try:
+        data = json.loads(request.body)
+
+        profile = CrushProfile.objects.get(user=request.user)
+
+        # Validate age range bounds.
+        try:
+            age_min = int(data.get("preferred_age_min") or 18)
+            age_max = int(data.get("preferred_age_max") or 99)
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"success": False, "error": "Age range must be numbers."},
+                status=400,
+            )
+        if age_min < 18 or age_max > 99 or age_min > age_max:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Age range must be between 18 and 99, with min ≤ max.",
+                    "errors": {
+                        "preferred_age_min": "Invalid age range",
+                        "preferred_age_max": "Invalid age range",
+                    },
+                },
+                status=400,
+            )
+
+        genders = data.get("preferred_genders") or []
+        if not isinstance(genders, list):
+            genders = []
+        # Keep only values that map to a real gender choice on the model.
+        valid_codes = {code for code, _label in CrushProfile.GENDER_CHOICES}
+        genders = [g for g in genders if g in valid_codes]
+
+        profile.preferred_genders = genders
+        profile.preferred_age_min = age_min
+        profile.preferred_age_max = age_max
+        profile.save(
+            update_fields=[
+                "preferred_genders",
+                "preferred_age_min",
+                "preferred_age_max",
+            ]
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Preferences saved!",
+                "csrfToken": get_token(request),
+            }
+        )
+
+    except CrushProfile.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Please complete earlier steps first"},
+            status=400,
+        )
+    except Exception as e:
+        logger.error("Error saving profile preferences: %s", type(e).__name__)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "An error occurred while saving your preferences.",
+            },
+            status=500,
+        )
+
+
+@crush_login_required
+@require_http_methods(["POST"])
 def upload_photo_draft(request):
     """
     Upload a single photo immediately (auto-save).

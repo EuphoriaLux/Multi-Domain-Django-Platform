@@ -311,6 +311,13 @@ def _render_create_profile(request, context):
     profile = context.get("profile")
     current = onboarding.get_current_step(profile)
     context.update(onboarding.stepper_context(current=current))
+    # Gender choices powering the Preferences sub-step (step 4 of the inner
+    # wizard). Passed through so the checkbox list can render labels server-
+    # side without hard-coding them in the template.
+    context.setdefault(
+        "profile_gender_choices",
+        CrushProfile.GENDER_CHOICES,
+    )
     return render(request, "crush_lu/create_profile.html", context)
 
 
