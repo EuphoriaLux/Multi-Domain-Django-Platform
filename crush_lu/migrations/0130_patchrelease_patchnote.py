@@ -10,14 +10,14 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0123_migrate_newsletter_content_to_en'),
+        ('crush_lu', '0129_add_unique_booked_slot_constraint'),
     ]
 
     operations = [
         migrations.CreateModel(
             name='PatchRelease',
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('version', models.CharField(help_text="Semantic version string, e.g. 'v1.1'.", max_length=20)),
                 ('slug', models.SlugField(help_text="URL slug, e.g. 'v1-1-quiz-night'.", max_length=80, unique=True)),
                 ('title', models.CharField(help_text="Headline for the release, e.g. 'Quiz Night goes live'.", max_length=140)),
@@ -44,7 +44,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='PatchNote',
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('category', models.CharField(choices=[('feature', 'New Features'), ('improvement', 'Improvements'), ('fix', 'Fixes'), ('under_hood', 'Under the Hood')], db_index=True, max_length=20)),
                 ('title', models.CharField(help_text='Short, warm, user-facing headline.', max_length=160)),
                 ('title_en', models.CharField(help_text='Short, warm, user-facing headline.', max_length=160, null=True)),

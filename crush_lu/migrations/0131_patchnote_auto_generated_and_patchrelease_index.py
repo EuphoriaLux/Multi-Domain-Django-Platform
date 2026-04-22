@@ -14,7 +14,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crush_lu', '0124_patchrelease_patchnote'),
+        ('crush_lu', '0130_patchrelease_patchnote'),
     ]
 
     operations = [

@@ -377,24 +377,35 @@ class Command(BaseCommand):
         return notes
 
     def _write_release(self, meta, commits, quiet=False):
-        # is_published goes through create_defaults only so re-running the
-        # command never silently unpublishes an already-live release.
+        # Django uses create_defaults *exclusively* during creation (not
+        # defaults), so the create payload must carry every NOT NULL field.
+        # is_published lives in create_defaults *only* — that's how rerunning
+        # the command never silently unpublishes an already-live release.
+        shared = {
+            "version": meta["version"],
+            "title": meta["title"],
+            "hero_summary": meta.get("hero_summary", ""),
+            "released_on": meta["released_on"],
+            "commit_range_start": commits[-1][0] if commits else "",
+            "commit_range_end": commits[0][0] if commits else "",
+        }
         release, _created = PatchRelease.objects.update_or_create(
             slug=meta["slug"],
-            defaults={
-                "version": meta["version"],
-                "title": meta["title"],
-                "hero_summary": meta.get("hero_summary", ""),
-                "released_on": meta["released_on"],
-                "commit_range_start": commits[-1][0] if commits else "",
-                "commit_range_end": commits[0][0] if commits else "",
-            },
-            create_defaults={"is_published": False},
+            defaults=shared,
+            create_defaults={**shared, "is_published": False},
         )
         # Only wipe auto-generated notes so curator-edited rows
         # (auto_generated=False) survive regeneration, translations and all.
         release.notes.filter(auto_generated=True).delete()
+        # A curator-kept note (auto_generated=False) claims its (category, title)
+        # bucket: skip re-emitting an auto note for that key so reruns don't
+        # accumulate curated + auto duplicates for the same bucket.
+        curated_keys = set(
+            release.notes.filter(auto_generated=False).values_list("category", "title")
+        )
         for note_data in self._aggregate_into_notes(commits):
+            if (note_data["category"], note_data["title"]) in curated_keys:
+                continue
             PatchNote.objects.create(release=release, auto_generated=True, **note_data)
         if not quiet:
             self.stdout.write(f"  {release.version} \u2014 {release.title} "

@@ -15,7 +15,6 @@ from datetime import date
 from unittest.mock import patch
 
 from django.test import Client, TestCase
-from django.urls import reverse
 
 from crush_lu.management.commands.generate_patch_notes import (
     classify_commit,
@@ -139,6 +138,37 @@ class WriteReleaseIdempotencyTests(TestCase):
         self.assertEqual(surviving.title, "Hand-polished headline")
         self.assertFalse(surviving.auto_generated)
 
+    def test_rerun_does_not_duplicate_curated_buckets(self):
+        """P1 #3: re-running must not add an auto note alongside a curated one."""
+        self._run_write()
+        release = PatchRelease.objects.get(slug="v1-0-launch")
+        # Curator keeps one bucket's note as-is (no title change): its
+        # (category, title) key should survive and block auto-regen for that key.
+        curated = release.notes.first()
+        bucket_title = curated.title
+        bucket_category = curated.category
+        curated.auto_generated = False
+        curated.save()
+
+        notes_before = release.notes.count()
+        self._run_write()
+        notes_after = PatchRelease.objects.get(slug="v1-0-launch").notes.count()
+
+        self.assertEqual(
+            notes_before,
+            notes_after,
+            "Regenerating duplicated notes for a bucket the curator already kept.",
+        )
+        same_bucket = PatchNote.objects.filter(
+            release=release, category=bucket_category, title=bucket_title,
+        )
+        self.assertEqual(
+            same_bucket.count(),
+            1,
+            "Bucket should hold the curator's note only — not curator + auto duplicate.",
+        )
+        self.assertFalse(same_bucket.get().auto_generated)
+
 
 class ChangelogViewTests(TestCase):
     """Public /changelog/ list + detail view behaviour."""
@@ -167,17 +197,21 @@ class ChangelogViewTests(TestCase):
             is_published=False,
         )
 
+    # Use literal /en/ URLs: testserver routes via DomainURLRoutingMiddleware
+    # to azureproject.urls_crush (DEV_DEFAULT='crush.lu'), and that urlconf
+    # mounts crush_lu under i18n_patterns. reverse() falls back to ROOT_URLCONF
+    # at test-collection time and would emit /crush/changelog/ instead.
+    LIST_URL = "/en/changelog/"
+    DETAIL_URL = "/en/changelog/{slug}/"
+
     def test_list_renders_published(self):
-        resp = self.client.get(reverse("crush_lu:changelog_list"))
+        resp = self.client.get(self.LIST_URL)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Launch day")
         self.assertNotContains(resp, "v1-1-draft")
 
     def test_list_htmx_returns_fragment_only(self):
-        resp = self.client.get(
-            reverse("crush_lu:changelog_list"),
-            HTTP_HX_REQUEST="true",
-        )
+        resp = self.client.get(self.LIST_URL, HTTP_HX_REQUEST="true")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'id="changelog-timeline"')
         # The base template's site chrome (nav header) must not appear in
@@ -185,30 +219,22 @@ class ChangelogViewTests(TestCase):
         self.assertNotContains(resp, "<!DOCTYPE html>")
 
     def test_list_filters_by_category(self):
-        resp = self.client.get(
-            reverse("crush_lu:changelog_list") + "?category=fix"
-        )
+        resp = self.client.get(self.LIST_URL + "?category=fix")
         self.assertEqual(resp.status_code, 200)
         # The only note is a FEATURE, so filtering by FIX drops the release.
         self.assertNotContains(resp, "Launch day")
 
     def test_list_ignores_bogus_category(self):
-        resp = self.client.get(
-            reverse("crush_lu:changelog_list") + "?category=../../etc/passwd"
-        )
+        resp = self.client.get(self.LIST_URL + "?category=../../etc/passwd")
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Launch day")
 
     def test_detail_404s_for_draft(self):
-        resp = self.client.get(
-            reverse("crush_lu:changelog_detail", args=["v1-1-draft"])
-        )
+        resp = self.client.get(self.DETAIL_URL.format(slug="v1-1-draft"))
         self.assertEqual(resp.status_code, 404)
 
     def test_detail_renders_published(self):
-        resp = self.client.get(
-            reverse("crush_lu:changelog_detail", args=["v1-0-launch"])
-        )
+        resp = self.client.get(self.DETAIL_URL.format(slug="v1-0-launch"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Launch day")
         self.assertContains(resp, "New quiz mode")
