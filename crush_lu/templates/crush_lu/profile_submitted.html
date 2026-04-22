@@ -8,6 +8,15 @@
 {% appinsights_event "profile_submission_viewed" status=submission.status %}
 {% ga4_event "tutorial_complete" %}
 {% fb_event "Lead" %}
+
+{% comment %}
+  Outer 7-step onboarding journey stepper. Current step is computed by the
+  view based on submission state (5 meet-coach / 6 under-review / 7 call).
+{% endcomment %}
+{% if journey_steps %}
+  {% include "crush_lu/includes/journey_stepper.html" %}
+{% endif %}
+
 <div class="flex justify-center py-6 md:py-8">
     <div class="w-full max-w-3xl px-4">
         <div>
@@ -220,8 +229,12 @@
                                         </p>
                                         {% elif submission.coach %}
                                         <p class="text-xs text-green-600 dark:text-green-400 mb-0">{% trans "Next in queue" %}</p>
+                                        {% elif total_channel > 0 %}
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                                            {% blocktrans with pos=queue_position|add:1 total=total_channel %}Position #{{ pos }} of {{ total }} in the verification channel{% endblocktrans %}
+                                        </p>
                                         {% else %}
-                                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "Waiting for coach assignment" %}</p>
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "Waiting for a coach to pick up your profile" %}</p>
                                         {% endif %}
                                     </div>
                                 </div>

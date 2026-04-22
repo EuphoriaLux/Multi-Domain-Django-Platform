@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-07 22:54+0100\n"
+"POT-Creation-Date: 2026-04-21 16:36+0200\n"
 "PO-Revision-Date: 2026-01-16 20:00+0100\n"
 "Last-Translator: Claude Code\n"
 "Language-Team: English\n"
@@ -16,15 +16,42 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: .\azureproject\settings.py:554
+#: .\azureproject\admin_translation_mixin.py:74
+msgid "🌐 Auto-translate empty fields"
+msgstr ""
+
+#: .\azureproject\admin_translation_mixin.py:83
+msgid ""
+"Azure Translator is not configured. Set AZURE_TRANSLATOR_KEY in environment "
+"variables."
+msgstr ""
+
+#: .\azureproject\admin_translation_mixin.py:94
+msgid "No translatable fields found for this model."
+msgstr ""
+
+#: .\azureproject\admin_translation_mixin.py:175
+#, python-format
+msgid "Translated %(fields)d field(s) across %(objects)d object(s)."
+msgstr ""
+
+#: .\azureproject\admin_translation_mixin.py:184
+msgid "Translation failed. Check server logs for details."
+msgstr ""
+
+#: .\azureproject\admin_translation_mixin.py:190
+msgid "No empty translation fields found. All languages are already filled."
+msgstr ""
+
+#: .\azureproject\settings.py:629
 msgid "English"
 msgstr "English"
 
-#: .\azureproject\settings.py:555
+#: .\azureproject\settings.py:630
 msgid "German"
 msgstr "German"
 
-#: .\azureproject\settings.py:556
+#: .\azureproject\settings.py:631
 msgid "French"
 msgstr "French"
 
@@ -136,6 +163,132 @@ msgstr ""
 
 #: .\core\templates\includes\cookie_banner.html:84
 msgid "Save Preferences"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:40
+msgid "Home"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:45
+msgid "The Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:50
+msgid "About"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:70
+msgid "A concept demonstration of a wine vineyard adoption platform."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\base.html:71
+msgid ""
+"This project showcases the idea of connecting wine enthusiasts with vineyard "
+"plots in Luxembourg's Moselle region."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:4
+msgid "VinsDelux - Wine Adoption Concept"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:10
+msgid "VinsDelux Wine Adoption"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:11
+msgid ""
+"Adopt a vineyard plot in Luxembourg's Moselle region and receive wines from "
+"your personal vines."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:12
+msgid "Concept Showcase"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:20
+msgid "The Adoption Journey"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:21
+msgid "Five steps from vineyard plot selection to creating your wine legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:28
+#: .\vinsdelux\templates\vinsdelux\index.html:36
+#: .\vinsdelux\templates\vinsdelux\index.html:44
+#: .\vinsdelux\templates\vinsdelux\index.html:52
+#: .\vinsdelux\templates\vinsdelux\index.html:60
+msgid "Step"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:29
+#, fuzzy
+#| msgid "Species selection"
+msgid "Plot Selection"
+msgstr "Species selection"
+
+#: .\vinsdelux\templates\vinsdelux\index.html:30
+msgid ""
+"Choose the vineyard plot that matches your preferences and vision. Each plot "
+"offers a unique terroir and a story to tell."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:37
+#, fuzzy
+#| msgid "Persönlicher Service"
+msgid "Personalize Your Wine"
+msgstr "Personal Service"
+
+#: .\vinsdelux\templates\vinsdelux\index.html:38
+msgid ""
+"Collaborate with our expert winemakers to personalize every aspect of your "
+"wine, from the grape variety to the winemaking techniques."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:45
+msgid "Follow the Production"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:46
+msgid ""
+"Receive regular updates on the growth of your vine and the winemaking "
+"process, complete with detailed photos and reports."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:53
+msgid "Receive and Taste"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:54
+msgid ""
+"Your personalized bottles are delivered directly to your home, ready to be "
+"tasted and shared with loved ones."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:61
+msgid "Create Your Legacy"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:62
+msgid ""
+"Your wine becomes a family legacy, a unique expression of your passion for "
+"wine, and an investment in the future."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:72
+msgid "About This Concept"
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:74
+msgid ""
+"VinsDelux is a concept for a premium wine e-commerce platform connecting "
+"wine enthusiasts with vineyard plots in Luxembourg's Moselle region."
+msgstr ""
+
+#: .\vinsdelux\templates\vinsdelux\index.html:80
+msgid ""
+"This page presents the vineyard adoption concept — adopt a plot, follow the "
+"winemaking journey, and receive wines crafted from your personal vines."
 msgstr ""
 
 #, fuzzy
@@ -310,11 +463,6 @@ msgstr ""
 #~| msgid "Lokale Expertise"
 #~ msgid "Local Expertise"
 #~ msgstr "Local Expertise"
-
-#, fuzzy
-#~| msgid "Persönlicher Service"
-#~ msgid "Personal Service"
-#~ msgstr "Personal Service"
 
 #, fuzzy
 #~| msgid "Luxemburg"
@@ -899,11 +1047,6 @@ msgstr ""
 #, fuzzy
 #~| msgid "Species selection"
 #~ msgid "Interactive Plot Selection"
-#~ msgstr "Species selection"
-
-#, fuzzy
-#~| msgid "Species selection"
-#~ msgid "Clear Selection"
 #~ msgstr "Species selection"
 
 #, fuzzy

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-07 22:54+0100\n"
+"POT-Creation-Date: 2026-04-21 16:36+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,53 +17,9 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
 #: .\entreprinder\templates\account\base_account.html:55
 msgid "All rights reserved."
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:4
-#: .\entreprinder\templates\account\email.html:22
-msgid "Manage E-mail Addresses"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:26
-msgid "The following e-mail addresses are associated with your account:"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:43
-msgid "Verified"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:45
-msgid "Unverified"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:48
-msgid "Primary"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:57
-msgid "Make Primary"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:58
-msgid "Re-send Verification"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:59
-msgid "Remove"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:76
-msgid "Add E-mail Address"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:83
-msgid "Add E-mail"
-msgstr ""
-
-#: .\entreprinder\templates\account\email.html:97
-msgid "Do you really want to remove the selected email address?"
 msgstr ""
 
 #: .\entreprinder\templates\account\email_confirm.html:5
@@ -89,6 +45,51 @@ msgid ""
 "\"%(email_url)s\">issue a new e-mail confirmation request</a>."
 msgstr ""
 
+#: .\entreprinder\templates\account\email_entreprinder.html:4
+#: .\entreprinder\templates\account\email_entreprinder.html:22
+msgid "Manage E-mail Addresses"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:26
+msgid "The following e-mail addresses are associated with your account:"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:43
+msgid "Verified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:45
+msgid "Unverified"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:48
+msgid "Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:57
+msgid "Make Primary"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:58
+msgid "Re-send Verification"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:59
+msgid "Remove"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:76
+msgid "Add E-mail Address"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:83
+msgid "Add E-mail"
+msgstr ""
+
+#: .\entreprinder\templates\account\email_entreprinder.html:97
+msgid "Do you really want to remove the selected email address?"
+msgstr ""
+
 #: .\entreprinder\templates\account\login.html:6
 #: .\entreprinder\templates\account\login.html:34
 #: .\entreprinder\templates\account\login_powerup.html:6
@@ -98,7 +99,7 @@ msgstr ""
 
 #: .\entreprinder\templates\account\login.html:36
 #: .\entreprinder\templates\account\login_powerup.html:36
-#: .\entreprinder\templates\base.html:128
+#: .\entreprinder\templates\base.html:118
 msgid "Sign in with LinkedIn"
 msgstr ""
 
@@ -191,28 +192,28 @@ msgstr ""
 msgid "Find Entrepreneurs"
 msgstr ""
 
-#: .\entreprinder\templates\base.html:116
+#: .\entreprinder\templates\base.html:106
 msgid "Logout"
 msgstr ""
 
-#: .\entreprinder\templates\base.html:136
+#: .\entreprinder\templates\base.html:126
 msgid "Login"
 msgstr ""
 
-#: .\entreprinder\templates\base.html:167
+#: .\entreprinder\templates\base.html:157
 #, python-format
 msgid "Your email address (%(email)s) is not verified."
 msgstr ""
 
-#: .\entreprinder\templates\base.html:168
+#: .\entreprinder\templates\base.html:158
 msgid "Please verify your email address to access all features."
 msgstr ""
 
-#: .\entreprinder\templates\base.html:169
+#: .\entreprinder\templates\base.html:159
 msgid "Need a new verification email?"
 msgstr ""
 
-#: .\entreprinder\templates\base.html:169
+#: .\entreprinder\templates\base.html:159
 msgid "Resend verification"
 msgstr ""
 
@@ -367,7 +368,7 @@ msgstr ""
 msgid "Company:"
 msgstr ""
 
-#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:31
+#: .\entreprinder\templates\entreprinder\entrepreneur_list.html:29
 msgid "No more entrepreneurs to show at the moment."
 msgstr ""
 
@@ -816,4 +817,12 @@ msgstr ""
 
 #: .\entreprinder\vibe\views.py:421
 msgid "Road Trip Discovery with Music - 90 Minutes to Connection"
+msgstr ""
+
+#: .\entreprinder\views.py:65
+msgid "Profile updated successfully."
+msgstr ""
+
+#: .\entreprinder\views.py:68
+msgid "Error updating profile. Please check the form."
 msgstr ""

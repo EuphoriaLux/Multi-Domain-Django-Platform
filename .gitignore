@@ -10,6 +10,8 @@ crush-pass.csr
 # C extensions
 *.so
 
+crush-lu-design-system/*
+
 # Distribution / packaging
 .Python
 build/
@@ -226,3 +228,6 @@ scripts/ga4_token.json
 scripts/gsc_report.json
 scripts/gsc_deep_dive.json
 scripts/exports/
+
+# Ad-hoc developer one-liner scratch files
+profile_submissions_status.txt

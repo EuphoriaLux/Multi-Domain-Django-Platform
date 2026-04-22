@@ -167,11 +167,14 @@ urlpatterns = base_patterns + api_patterns + [
     # CSRF Token Refresh (called from alpine-components.js before final form submit)
     path('api/csrf-token/', views_profile.get_csrf_token, name='csrf_token_refresh'),
 
+    # Onboarding /welcome/ intent probe (called from welcome.html via hx-post)
+    path('api/welcome/intent/', views_profile.welcome_intent_api, name='api_welcome_intent'),
+
     # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
     path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),
     path('api/profile/save-step3/', views_profile.save_profile_step3, name='api_save_profile_step3'),
-    path('api/profile/save-step4/', views_profile.save_profile_step4, name='api_save_profile_step4'),
+    path('api/profile/save-preferences/', views_profile.save_profile_preferences, name='api_save_profile_preferences'),
     path('api/profile/progress/', views_profile.get_profile_progress, name='api_get_profile_progress'),
 
     # Profile Draft APIs (auto-save and draft recovery)

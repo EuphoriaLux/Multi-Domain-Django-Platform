@@ -235,8 +235,15 @@ class CrushProfileAdmin(admin.ModelAdmin):
         'get_referral_count',
         'get_journey_progress',
         'outlook_contact_id',
+        # Onboarding-journey timestamps — set by the views, not by humans.
+        'welcome_seen_at',
+        'coach_intro_seen_at',
+        # Wizard draft state — set by the profileWizard Alpine component.
+        'get_draft_data_pretty',
+        'last_draft_saved',
+        'draft_expires_at',
     )
-    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
+    actions = ['promote_to_coach', 'approve_profiles', 'deactivate_profiles', 'ban_users', 'unban_users', 'reset_phone_verification', 'reset_onboarding_journey', 'sync_to_outlook', 'export_profiles_csv', 'send_bulk_email', 'merge_accounts']
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = 'admin/crush_lu/crushprofile/change_list.html'
     fieldsets = (
@@ -274,9 +281,31 @@ class CrushProfileAdmin(admin.ModelAdmin):
             'description': _('View which coach is assigned to review this profile.'),
         }),
         ('Profile Completion', {
-            'fields': ('completion_status',),
+            'fields': (
+                'completion_status',
+                'welcome_seen_at',
+                'intent_probe',
+                'coach_intro_seen_at',
+            ),
             'classes': ('collapse',),
-            'description': _('Track which step of profile creation user completed'),
+            'description': _(
+                'Track where the user is in the 7-step onboarding journey. '
+                'welcome_seen_at / coach_intro_seen_at are set by the views '
+                'when the user advances past those steps; intent_probe stores '
+                'the answer they chose on /welcome/.'
+            ),
+        }),
+        ('Draft Data', {
+            'fields': (
+                'get_draft_data_pretty',
+                'last_draft_saved',
+                'draft_expires_at',
+            ),
+            'classes': ('collapse',),
+            'description': _(
+                'Auto-saved form state from the profile-build wizard. Cleared '
+                'on successful submission. Useful for debugging stuck users.'
+            ),
         }),
         ('Status', {
             'fields': ('is_approved', 'is_active', 'approved_at'),
@@ -629,6 +658,26 @@ class CrushProfileAdmin(admin.ModelAdmin):
         ).count()
         return f"{converted} converted / {pending} pending"
     get_referral_count.short_description = _('Referrals')
+
+    def get_draft_data_pretty(self, obj):
+        """Render the JSON draft_data as a readable code block."""
+        import json as _json
+        from django.utils.html import format_html
+        if not obj.draft_data:
+            return format_html('<em style="color:#888">No draft saved.</em>')
+        try:
+            pretty = _json.dumps(
+                obj.draft_data, indent=2, ensure_ascii=False, default=str
+            )
+        except (TypeError, ValueError):
+            pretty = str(obj.draft_data)
+        return format_html(
+            '<pre style="background:#1e1e1e;color:#eee;padding:10px;'
+            'border-radius:6px;max-height:400px;overflow:auto;'
+            'font-size:12px;line-height:1.4;white-space:pre-wrap;">{}</pre>',
+            pretty,
+        )
+    get_draft_data_pretty.short_description = _('Draft data (JSON)')
 
     def get_user_account_info(self, obj):
         """Display comprehensive User account information as HTML block"""
@@ -984,6 +1033,29 @@ class CrushProfileAdmin(admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, "No profiles had phone verification to reset.")
+
+    @admin.action(description=_('Reset onboarding journey (send back to /welcome/)'))
+    def reset_onboarding_journey(self, request, queryset):
+        """Clear the journey timestamps so selected users land on step 1 /welcome/ again.
+
+        Does NOT touch phone_verified or profile content — this only rewinds
+        the journey progression (welcome_seen_at, intent_probe, coach_intro_seen_at).
+        Use in combination with reset_phone_verification if you need a full rewind
+        to step 2.
+        """
+        count = queryset.update(
+            welcome_seen_at=None,
+            intent_probe='',
+            coach_intro_seen_at=None,
+        )
+        if count:
+            django_messages.success(
+                request,
+                _("Reset onboarding journey for %(count)s profile(s). "
+                  "They'll land on /welcome/ on their next visit.") % {"count": count},
+            )
+        else:
+            django_messages.warning(request, _("No profiles selected."))
 
     @admin.action(description=_('Sync selected profiles to Outlook contacts'))
     def sync_to_outlook(self, request, queryset):

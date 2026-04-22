@@ -3201,8 +3201,6 @@ document.addEventListener("alpine:init", function () {
         return {
             currentStep: 1,
             totalSteps: 5,
-            selectedCoachId: "",
-            selectedCoachName: "",
             isSubmitting: false,
             phoneVerified: false,
             showErrors: false,
@@ -3210,6 +3208,7 @@ document.addEventListener("alpine:init", function () {
             isEditing: false,
             step1Valid: false,
             step2Valid: true,
+            step4Valid: true,  // Preferences always has defaults; validated server-side
 
             // Step 1 required fields tracking
             gender: "",
@@ -3251,13 +3250,7 @@ document.addEventListener("alpine:init", function () {
                 return "width:" + pct + "%";
             },
             get stepLabel() {
-                var names = [
-                    "Basic Info",
-                    "About You",
-                    "Photos",
-                    "Your Coach",
-                    "Review",
-                ];
+                var names = ["Basic Info", "About You", "Photos", "Preferences", "Review"];
                 var name = names[this.currentStep - 1] || "";
                 return (
                     "Step " + this.currentStep + " of " + this.totalSteps + " — " + name
@@ -3290,6 +3283,9 @@ document.addEventListener("alpine:init", function () {
             },
             get step4NotCompleted() {
                 return !this.step4Completed;
+            },
+            get step5NotCompleted() {
+                return !this.step5Completed;
             },
             get notPhoneVerified() {
                 return !this.phoneVerified;
@@ -3333,12 +3329,6 @@ document.addEventListener("alpine:init", function () {
             },
             get cannotContinueStep2() {
                 return this.isSaving;
-            },
-            get hasCoachSelected() {
-                return this.selectedCoachId !== "";
-            },
-            get cannotContinueStep4() {
-                return this.selectedCoachId === "";
             },
             get hasGenderError() {
                 return this.fieldErrors.gender !== undefined;
@@ -3459,7 +3449,10 @@ document.addEventListener("alpine:init", function () {
                 var phoneVerified = el.getAttribute("data-phone-verified");
                 var isEditing = el.getAttribute("data-is-editing");
 
-                // Map step names to numbers
+                // Map DB completion_status values → wizard sub-step numbers.
+                // Wizard has 5 sub-steps: 1 Basic Info · 2 About You · 3 Photos
+                // · 4 Preferences · 5 Review. step4 is a legacy DB value from
+                // the old coach-picker wizard and now lands users on Review.
                 var stepMap = {
                     not_started: 1,
                     step1: 2,
@@ -3544,43 +3537,6 @@ document.addEventListener("alpine:init", function () {
 
                 // Warn before leaving with unsaved changes
                 self.setupUnloadWarning();
-
-                // Pre-select coach for revision flow
-                var selectedCoach = el.getAttribute("data-selected-coach");
-                if (selectedCoach) {
-                    self.selectedCoachId = selectedCoach;
-                    // Update hidden input
-                    var coachInput = document.getElementById("id_selected_coach");
-                    if (coachInput) {
-                        coachInput.value = selectedCoach;
-                    }
-                    // Capture coach name and visually highlight after DOM is ready
-                    setTimeout(function () {
-                        var card = document.querySelector(
-                            '[data-coach-card="' + selectedCoach + '"]',
-                        );
-                        if (card) {
-                            var nameEl = card.querySelector("h4");
-                            self.selectedCoachName = nameEl
-                                ? nameEl.textContent.trim()
-                                : "";
-                            var nameInput = document.getElementById(
-                                "id_selected_coach_name",
-                            );
-                            if (nameInput) {
-                                nameInput.value = self.selectedCoachName;
-                            }
-                        }
-                        self._highlightCoachCard(selectedCoach);
-                    }, 100);
-                }
-
-                // Init coach bio "Read more" buttons when starting on step 4
-                if (this.currentStep === 4) {
-                    setTimeout(function () {
-                        self.initCoachBioButtons();
-                    }, 150);
-                }
             },
 
             // Initialize field tracking from DOM values
@@ -3717,12 +3673,6 @@ document.addEventListener("alpine:init", function () {
                 if (reviewLocation) {
                     reviewLocation.textContent = this.locationName || "Not selected";
                 }
-
-                // Coach name from stored state
-                var reviewCoach = this.$refs.reviewCoach;
-                if (reviewCoach) {
-                    reviewCoach.textContent = this.selectedCoachName || "Not selected";
-                }
             },
 
             setSubmitting: function () {
@@ -3746,11 +3696,11 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
-            // Handle form submission - only allow on final step (Step 5: Review)
-            // This prevents Enter key in text inputs from submitting the form prematurely
+            // Handle form submission - only allow on the final step (Review).
+            // This prevents Enter key in text inputs from submitting the form prematurely.
             handleFormSubmit: function (e) {
-                // Only allow submission when on the final step
-                if (this.currentStep !== 5) {
+                // Only allow submission when on the final (Review) step.
+                if (this.currentStep !== this.totalSteps) {
                     // Prevent form submission on non-final steps
                     return;
                 }
@@ -4053,7 +4003,9 @@ document.addEventListener("alpine:init", function () {
                 });
             },
 
-            // Save Step 3 and advance if successful
+            // Save Step 3 (Photos) and advance to the Preferences step.
+            // Coach is never assigned by the user — submissions land in the
+            // verification channel; any coach can claim them.
             saveAndNextStep3: function () {
                 var self = this;
 
@@ -4062,154 +4014,44 @@ document.addEventListener("alpine:init", function () {
                         self.saveError = "";
                         self.currentStep = 4;
                         window.scrollTo({ top: 0, behavior: "smooth" });
-                        setTimeout(function () {
-                            self.initCoachBioButtons();
-                        }, 100);
                     }
                 });
             },
 
-            // Coach bio expand/collapse (Step 4)
-            toggleCoachBio: function (e) {
-                e.stopPropagation();
-                var btn = e.currentTarget;
-                var coachId = btn.getAttribute("data-toggle-bio");
-                var textEl = document.querySelector(
-                    '[data-coach-bio-text="' + coachId + '"]',
+            // Collect the Preferences step fields from the DOM.
+            collectStep4Data: function () {
+                var genderNodes = document.querySelectorAll(
+                    "input[name=preferred_genders]:checked",
                 );
-                if (!textEl) return;
-                var isExpanded = textEl.classList.contains("line-clamp-none");
-                if (isExpanded) {
-                    textEl.classList.remove("line-clamp-none");
-                    textEl.classList.add("line-clamp-2");
-                    btn.textContent = btn.getAttribute("data-read-more");
-                } else {
-                    textEl.classList.remove("line-clamp-2");
-                    textEl.classList.add("line-clamp-none");
-                    btn.textContent = btn.getAttribute("data-read-less");
+                var genders = [];
+                for (var i = 0; i < genderNodes.length; i++) {
+                    genders.push(genderNodes[i].value);
                 }
+                var minInput = document.querySelector("[name=preferred_age_min]");
+                var maxInput = document.querySelector("[name=preferred_age_max]");
+                return {
+                    preferred_genders: genders,
+                    preferred_age_min: minInput ? parseInt(minInput.value, 10) : null,
+                    preferred_age_max: maxInput ? parseInt(maxInput.value, 10) : null,
+                };
             },
 
-            initCoachBioButtons: function () {
-                // Show "Read more" buttons only for bios that are actually truncated
-                var bioTexts = document.querySelectorAll("[data-coach-bio-text]");
-                for (var i = 0; i < bioTexts.length; i++) {
-                    var el = bioTexts[i];
-                    if (el.scrollHeight > el.clientHeight) {
-                        var coachId = el.getAttribute("data-coach-bio-text");
-                        var btn = document.querySelector(
-                            '[data-toggle-bio="' + coachId + '"]',
-                        );
-                        if (btn) btn.classList.remove("hidden");
-                    }
-                }
-            },
-
-            // Coach selection methods (Step 4)
-            handleCoachClick: function (e) {
-                // Read coach ID from closest data-coach-id attribute (CSP-safe, no inline args)
-                var card = e.currentTarget;
-                var coachId = card.getAttribute("data-coach-id");
-                if (coachId) {
-                    this.selectCoach(coachId);
-                }
-            },
-
-            selectCoach: function (coachId) {
-                this.selectedCoachId = String(coachId);
-                var input = document.getElementById("id_selected_coach");
-                if (input) {
-                    input.value = coachId;
-                }
-                // Capture coach name from the card
-                var card = document.querySelector(
-                    '[data-coach-card="' + coachId + '"]',
-                );
-                if (card) {
-                    var nameEl = card.querySelector("h4");
-                    this.selectedCoachName = nameEl ? nameEl.textContent.trim() : "";
-                }
-                var nameInput = document.getElementById("id_selected_coach_name");
-                if (nameInput) {
-                    nameInput.value = this.selectedCoachName;
-                }
-                // Remove selection styling from all coach cards
-                var allCards = document.querySelectorAll("[data-coach-card]");
-                for (var i = 0; i < allCards.length; i++) {
-                    allCards[i].classList.remove(
-                        "ring-2",
-                        "ring-purple-500",
-                        "border-purple-500",
-                    );
-                    allCards[i].classList.add(
-                        "border-gray-200",
-                        "dark:border-gray-700",
-                    );
-                }
-                // Add selection styling to chosen card
-                this._highlightCoachCard(coachId);
-                // Persist coach selection to draft directly
-                // (don't use saveDraft/gatherCurrentStepData which may fail on step 4)
-                this.saveCoachDraft();
-            },
-
-            saveCoachDraft: function () {
-                var self = this;
-                var payload = JSON.stringify({
-                    step: 4,
-                    data: {
-                        selected_coach: self.selectedCoachId,
-                        selected_coach_name: self.selectedCoachName,
-                    },
-                });
-
-                fetch("/api/profile/draft/save/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": self.getCsrfToken(),
-                    },
-                    body: payload,
-                })
-                    .then(function (response) {
-                        return response.json();
-                    })
-                    .then(function (result) {
-                        if (!result.success) {
-                            console.error("[COACH DRAFT] Save failed:", result.error);
-                        }
-                    })
-                    .catch(function (err) {
-                        console.error("[COACH DRAFT] Network error:", err);
-                    });
-            },
-
-            _highlightCoachCard: function (coachId) {
-                var card = document.querySelector(
-                    '[data-coach-card="' + coachId + '"]',
-                );
-                if (card) {
-                    card.classList.remove("border-gray-200", "dark:border-gray-700");
-                    card.classList.add(
-                        "ring-2",
-                        "ring-purple-500",
-                        "border-purple-500",
-                    );
-                }
-            },
-
-            saveStep4: function () {
+            // Save Step 4 (Preferences) to the backend.
+            savePreferences: function () {
                 var self = this;
                 self.isSaving = true;
                 self.saveError = "";
+                self.fieldErrors = {};
 
-                return fetch("/api/profile/save-step4/", {
+                var data = self.collectStep4Data();
+
+                return fetch("/api/profile/save-preferences/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": self.getCsrfToken(),
                     },
-                    body: JSON.stringify({ selected_coach: self.selectedCoachId }),
+                    body: JSON.stringify(data),
                 })
                     .then(function (response) {
                         return response.json().then(function (d) {
@@ -4219,30 +4061,35 @@ document.addEventListener("alpine:init", function () {
                     .then(function (result) {
                         self.isSaving = false;
                         if (result.ok && result.data.success) {
+                            self.fieldErrors = {};
                             if (result.data.csrfToken) {
                                 self.updateAllCsrfTokens(result.data.csrfToken);
                             }
                             return { success: true };
-                        } else {
-                            self.saveError =
-                                result.data.error || "Failed to save coach selection";
-                            return { success: false };
                         }
+                        self.saveError =
+                            (result.data && result.data.error) ||
+                            "Failed to save preferences. Please try again.";
+                        if (result.data && result.data.errors) {
+                            self.fieldErrors = result.data.errors;
+                        }
+                        return {
+                            success: false,
+                            error: self.saveError,
+                            errors: result.data && result.data.errors,
+                        };
                     })
-                    .catch(function (err) {
+                    .catch(function () {
                         self.isSaving = false;
-                        self.saveError = "Network error. Please try again.";
-                        return { success: false };
+                        self.saveError = "Network error. Please check your connection.";
+                        return { success: false, error: self.saveError };
                     });
             },
 
+            // Save Preferences and advance to the Review step.
             saveAndNextStep4: function () {
-                if (this.selectedCoachId === "") {
-                    return;
-                }
                 var self = this;
-
-                self.saveStep4().then(function (result) {
+                self.savePreferences().then(function (result) {
                     if (result.success) {
                         self.saveError = "";
                         self.currentStep = 5;
@@ -4435,29 +4282,11 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
 
-                // Restore selected coach from draft
-                if (this.draftData.selected_coach && !this.selectedCoachId) {
-                    this.selectedCoachId = String(this.draftData.selected_coach);
-                    this.selectedCoachName = this.draftData.selected_coach_name || "";
-                    var coachInput = document.getElementById("id_selected_coach");
-                    if (coachInput) {
-                        coachInput.value = this.draftData.selected_coach;
-                    }
-                    var nameInput = document.getElementById("id_selected_coach_name");
-                    if (nameInput) {
-                        nameInput.value = this.selectedCoachName;
-                    }
-                    var coachId = this.draftData.selected_coach;
-                    setTimeout(function () {
-                        self._highlightCoachCard(coachId);
-                    }, 100);
-                }
-
-                // CRITICAL FIX: Update the review display after populating fields
-                // This ensures Step 5 review shows the correct data when page is refreshed
+                // Update the review display after populating fields so Step 4 (Review)
+                // shows the correct data when the page is refreshed mid-wizard.
                 setTimeout(function () {
                     self.updateReview();
-                }, 100); // Small delay to ensure DOM is ready
+                }, 100);
             },
 
             // Setup auto-save event listeners
@@ -9985,7 +9814,8 @@ document.addEventListener("alpine:init", function () {
                     try {
                         const prior = JSON.parse(initialEl.dataset.checklistInitial);
                         this.warmIntroComplete = !!prior.warm_intro_complete;
-                        this.conceptCalibrationComplete = !!prior.concept_calibration_complete;
+                        this.conceptCalibrationComplete =
+                            !!prior.concept_calibration_complete;
                         this.conceptNotes = prior.concept_notes || "";
                         this.discretionNotes = prior.discretion_notes || "";
                     } catch (e) {
@@ -10021,7 +9851,7 @@ document.addEventListener("alpine:init", function () {
                 return n;
             },
             get progressWidth() {
-                return "width: " + (this.completedCount / 2 * 100) + "%";
+                return "width: " + (this.completedCount / 2) * 100 + "%";
             },
             get submitDisabled() {
                 return !(this.warmIntroComplete && this.conceptCalibrationComplete);
@@ -12513,6 +12343,34 @@ document.addEventListener("alpine:init", function () {
                     .finally(function () {
                         self.pending = false;
                     });
+            },
+        };
+    });
+
+    // Onboarding step-2 "Continue" gate.
+    // Shows the Continue button once the phone-verified window event fires
+    // (dispatched by phoneVerificationComponent on successful SMS verify).
+    // Reads initial state from the element's data-initial-verified attribute
+    // so a user who already has phone_verified=True sees the button right
+    // away without having to re-verify.
+    Alpine.data("onboardingPhoneContinue", function () {
+        return {
+            verified: false,
+
+            get isVerified() {
+                return this.verified;
+            },
+            get isNotVerified() {
+                return !this.verified;
+            },
+
+            init: function () {
+                var self = this;
+                var initial = this.$el.getAttribute("data-initial-verified");
+                this.verified = initial === "true";
+                window.addEventListener("phone-verified", function () {
+                    self.verified = true;
+                });
             },
         };
     });

@@ -1,0 +1,149 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n static %}
+
+{% block title %}{% trans "Verification Channel" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="hover:text-crush-purple transition-colors">{% trans "Coach Dashboard" %}</a>
+        <span>/</span>
+        <span>{% trans "Verification Channel" %}</span>
+    </div>
+    <h2 class="text-2xl font-bold dark:text-white">{% trans "Verification Channel" %}</h2>
+    <p class="text-gray-500 dark:text-gray-400">{% trans "Every active coach sees every pending profile. Claim the ones that fit you." %}</p>
+</div>
+
+<div x-data="coachTeamStats">
+    {% csrf_token %}
+
+    {# Feedback messages — reused from coachTeamStats #}
+    <div x-show="hasClaimSuccess" class="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-300 text-sm" x-text="claimSuccess"></div>
+    <div x-show="hasClaimError" class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm" x-text="claimError"></div>
+
+    {# Header strip #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-6">
+            <div>
+                <div class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{% trans "Profiles waiting" %}</div>
+                <div class="text-2xl font-bold text-crush-purple">{{ channel_count }}</div>
+            </div>
+            <div class="w-px h-10 bg-gray-200 dark:bg-gray-700"></div>
+            <div>
+                <div class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{% trans "In your queue" %}</div>
+                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ my_pending }}</div>
+            </div>
+        </div>
+        {% if at_capacity %}
+        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4 text-amber-500" %}
+            <span class="text-sm font-medium text-amber-700 dark:text-amber-300">{% trans "At capacity — finish one before claiming another" %}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if channel %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for sub in channel %}
+            {% with p=sub.profile %}
+            <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 {% if sub.language_match %}bg-purple-50/40 dark:bg-purple-900/10{% endif %}">
+                <div class="flex items-start gap-4 flex-1 min-w-0">
+                    {# Avatar disk — initial on gradient #}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-lg">
+                        {{ p.display_name|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        {# Name row #}
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <p class="font-semibold text-gray-900 dark:text-white">{{ p.display_name }}</p>
+                            {% if p.age_display %}
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{{ p.age_display }}</span>
+                            {% endif %}
+                            {% if sub.language_match %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-crush-purple/10 text-crush-purple rounded-full">{% trans "Matches your languages" %}</span>
+                            {% endif %}
+                        </div>
+                        {# Demographics row #}
+                        <div class="flex items-center gap-3 flex-wrap text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            {% if p.gender %}
+                            <span class="inline-flex items-center gap-1">
+                                {% include "shared/icons/user.html" with class="w-3.5 h-3.5" %}
+                                {{ p.get_gender_display }}
+                            </span>
+                            {% endif %}
+                            {% if p.location %}
+                            <span class="inline-flex items-center gap-1">
+                                {% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5" %}
+                                {{ p.location }}
+                            </span>
+                            {% endif %}
+                            {% if p.preferred_age_min or p.preferred_age_max %}
+                            <span class="inline-flex items-center gap-1">
+                                {% include "shared/icons/heart.html" with class="w-3.5 h-3.5" %}
+                                {% blocktrans with lo=p.preferred_age_min|default:"18" hi=p.preferred_age_max|default:"99" %}Looking for {{ lo }}–{{ hi }}{% endblocktrans %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {# Bio snippet #}
+                        {% if p.bio %}
+                        <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2 italic">“{{ p.bio|truncatechars:180 }}”</p>
+                        {% else %}
+                        <p class="text-xs text-gray-400 dark:text-gray-500 italic mb-2">{% trans "No bio provided" %}</p>
+                        {% endif %}
+                        {# Meta chips row — waiting + languages #}
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {% if sub.is_urgent %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full">
+                                {% include "shared/icons/exclamation-triangle.html" with class="w-3 h-3" %}
+                                {% blocktrans with hours=sub.hours_waiting|floatformat:0 %}Waiting {{ hours }}h{% endblocktrans %}
+                            </span>
+                            {% elif sub.is_warning %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 rounded-full">
+                                {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                                {% blocktrans with hours=sub.hours_waiting|floatformat:0 %}Waiting {{ hours }}h{% endblocktrans %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                                {% blocktrans with delta=sub.submitted_at|timesince %}{{ delta }} ago{% endblocktrans %}
+                            </span>
+                            {% endif %}
+                            {% for lang in p.event_languages %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-xs rounded-full {% if lang in sub.matched_languages %}bg-crush-purple/15 text-crush-purple font-semibold{% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300{% endif %}">
+                                {{ lang|upper }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {# Claim CTA #}
+                <div class="flex-shrink-0 sm:ml-4">
+                    {% if not at_capacity %}
+                    <button
+                        @click="claimFromButton"
+                        data-submission-id="{{ sub.id }}"
+                        class="btn-crush-primary text-sm px-4 py-2 whitespace-nowrap w-full sm:w-auto">
+                        {% trans "Claim" %}
+                    </button>
+                    {% else %}
+                    <span class="text-xs text-gray-400 dark:text-gray-500 italic whitespace-nowrap">{% trans "At capacity" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    {# Empty state #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-8 text-center">
+        <div class="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-3">
+            {% include "shared/icons/check-circle.html" with class="w-8 h-8 text-green-500" %}
+        </div>
+        <h3 class="font-semibold text-lg dark:text-white mb-1">{% trans "Channel is empty" %}</h3>
+        <p class="text-gray-500 dark:text-gray-400">{% trans "No profiles are waiting for a coach right now. New submissions will appear here." %}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

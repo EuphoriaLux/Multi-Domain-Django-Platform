@@ -1,0 +1,76 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Meet the coach team" %}{% endblock %}
+
+{% block content %}
+<main class="min-h-screen bg-crush-light dark:bg-gray-900">
+
+  {% include "crush_lu/includes/journey_stepper.html" %}
+
+  <div class="mx-auto max-w-md px-4 pb-16 pt-6 sm:px-6">
+
+    <section class="mb-6">
+      <h1 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">
+        {% trans "Your coach has your back." %}
+      </h1>
+      <p class="mt-2 text-[13px] leading-normal text-gray-500 dark:text-gray-400">
+        {% blocktrans %}Every Crush.lu profile is reviewed by a human coach — no bots, no algorithms deciding who belongs. Coaches help you craft a profile that actually reflects you, and they stay in touch through your first event.{% endblocktrans %}
+      </p>
+    </section>
+
+    <section class="mb-6">
+      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        {% trans "What a coach does" %}
+      </label>
+      <ul class="flex flex-col gap-2">
+        <li class="rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] text-crush-dark dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+          {% trans "Reviews your photos and bio for honesty and clarity" %}
+        </li>
+        <li class="rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] text-crush-dark dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+          {% trans "Runs a short screening call before your first event" %}
+        </li>
+        <li class="rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] text-crush-dark dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+          {% trans "Is your first point of contact if anything feels off" %}
+        </li>
+      </ul>
+    </section>
+
+    {% if coaches %}
+    <section class="mb-6">
+      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        {% trans "A few of our coaches" %}
+      </label>
+      <div class="grid grid-cols-3 gap-2">
+        {% for coach in coaches %}
+        <div class="flex flex-col items-center gap-1 rounded-xl border border-gray-100 bg-white p-2 text-center dark:border-gray-700 dark:bg-gray-800">
+          {% if coach.photo %}
+            <img src="{{ coach.photo.url }}" alt="" class="h-12 w-12 rounded-full object-cover">
+          {% else %}
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-crush-purple/10 text-sm font-semibold text-crush-purple">
+              {{ coach.user.first_name|slice:":1"|default:"?" }}
+            </div>
+          {% endif %}
+          <div class="text-[11px] font-semibold text-crush-dark dark:text-white">
+            {{ coach.user.first_name|default:coach.user.username }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+        {% trans "A coach will be assigned after you submit your profile." %}
+      </p>
+    </section>
+    {% endif %}
+
+    <form method="post" action="{% url 'crush_lu:onboarding_coach_intro' %}">
+      {% csrf_token %}
+      <button type="submit"
+              class="w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]">
+        {% trans "Got it — let's build my profile" %}
+      </button>
+    </form>
+
+  </div>
+</main>
+{% endblock %}

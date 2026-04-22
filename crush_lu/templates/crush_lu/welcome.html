@@ -1,0 +1,108 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Welcome to Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "One quick question to help us guide you, and a preview of the road ahead." %}{% endblock %}
+
+{% block content %}
+<main class="min-h-screen bg-crush-light dark:bg-gray-900">
+
+  {% include "crush_lu/includes/journey_stepper.html" %}
+
+  <div class="mx-auto max-w-md px-4 pb-16 pt-6 sm:px-6">
+
+    <section class="mb-6 flex items-center gap-4">
+      <div class="w-[72px] flex-shrink-0">
+        {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-[72px] h-[72px]" %}
+      </div>
+      <div>
+        <h1 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">
+          {% blocktrans with name=first_name %}Hi {{ name }},<br>welcome to Crush.lu.{% endblocktrans %}
+        </h1>
+        <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">
+          {% trans "Before we start, one quick question to help us guide you." %}
+        </p>
+      </div>
+    </section>
+
+    <section class="mb-6">
+      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        {% trans "What brings you here?" %}
+      </label>
+
+      <form id="welcome-intent-form"
+            hx-post="/api/welcome/intent/"
+            hx-target="#intent-response"
+            hx-swap="innerHTML"
+            hx-trigger="change from:input[name=intent]"
+            class="flex flex-col gap-2">
+        {% csrf_token %}
+        {% for value, label in intent_options %}
+          <label class="group relative flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 bg-white px-3.5 py-2.5 text-[13px] font-medium text-crush-dark transition-all duration-150 has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/5 has-[:checked]:shadow-[0_0_0_3px_rgba(155,89,182,0.12)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:has-[:checked]:border-purple-400 dark:has-[:checked]:bg-purple-500/10">
+            <input type="radio" name="intent" value="{{ value }}" class="peer sr-only"{% if current_intent == value %} checked{% endif %}>
+            <span aria-hidden="true"
+                  class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-300 bg-transparent peer-checked:border-crush-purple peer-checked:bg-crush-purple dark:border-gray-500 dark:peer-checked:border-purple-400 dark:peer-checked:bg-purple-400">
+              <span class="h-[6px] w-[6px] rounded-full bg-white opacity-0 peer-checked:opacity-100"></span>
+            </span>
+            {{ label }}
+          </label>
+        {% endfor %}
+      </form>
+
+      <div id="intent-response" class="mt-2.5">
+        {% if current_intent %}
+          {% include "crush_lu/partials/welcome_intent_response.html" with intent=current_intent first_name=first_name %}
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="mb-6">
+      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        {% trans "The road ahead · ≈ 15 min to get started" %}
+      </label>
+      <div class="flex flex-col gap-2">
+        {% for ch in chapters %}
+        <div class="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
+          <div class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold text-white"
+               style="background-image: linear-gradient(135deg, {{ ch.chapter.color }}, #ff6b9d);">
+            {{ ch.chapter.n }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[13px] font-semibold text-crush-dark dark:text-white">{{ ch.chapter.name }}</div>
+            <div class="truncate text-[10.5px] text-gray-400 dark:text-gray-500">
+              {% for step in ch.steps %}{{ step.title }}{% if not forloop.last %} · {% endif %}{% endfor %}
+            </div>
+          </div>
+          <div class="flex-shrink-0 text-[10.5px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+            {% if ch.total_min %}{{ ch.total_min }}m{% else %}—{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <label class="mb-2 block text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        {% trans "What makes us different" %}
+      </label>
+      <div class="flex flex-col gap-2">
+        {% include "crush_lu/partials/welcome_differentiator.html" with icon="calendar" title=_("Events first") body=_("Mixers, hikes, speed dating — real rooms.") %}
+        {% include "crush_lu/partials/welcome_differentiator.html" with icon="shield-check" title=_("Coach-supported") body=_("A human reviews every profile. Within 48h.") %}
+        {% include "crush_lu/partials/welcome_differentiator.html" with icon="lock-closed" title=_("Privacy-first") body=_("No public browsing. No swiping feed. Ever.") %}
+      </div>
+    </section>
+
+    <a href="{% url 'crush_lu:create_profile' %}"
+       class="block w-full rounded-full bg-gradient-to-br from-crush-purple to-crush-pink px-4 py-3 text-center text-[15px] font-semibold text-white shadow-crush-purple transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
+      {% trans "Start building my profile" %} →
+    </a>
+    <div class="mt-2 text-center">
+      <a href="{% url 'crush_lu:dashboard' %}"
+         class="text-[11px] text-gray-400 underline hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+        {% trans "I'll do this later" %}
+      </a>
+    </div>
+
+  </div>
+</main>
+{% endblock %}
