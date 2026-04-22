@@ -96,6 +96,7 @@ from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_quiz_config
+from . import views_changelog
 
 app_name = 'crush_lu'
 
@@ -106,6 +107,8 @@ urlpatterns = [
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
+    path('changelog/', views_changelog.changelog_list, name='changelog_list'),
+    path('changelog/<slug:slug>/', views_changelog.changelog_detail, name='changelog_detail'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),

@@ -1,0 +1,32 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{{ release.version }} — {{ release.title }} | crush.lu{% endblock %}
+
+{% block og_title %}{{ release.version }} — {{ release.title }}{% endblock %}
+{% block og_description %}{{ release.hero_summary|default:release.title }}{% endblock %}
+{% block meta_description %}{{ release.hero_summary|default:release.title }}{% endblock %}
+
+{% block body_class %}page-changelog page-changelog-detail{% endblock %}
+
+{% block content %}
+<div class="changelog-detail-page mx-auto max-w-3xl px-4 sm:px-6 py-10 sm:py-14">
+
+    <nav class="mb-8 text-sm">
+        <a href="{% url 'crush_lu:changelog_list' %}"
+           class="text-crush-purple hover:text-crush-purple-dark transition inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-crush-purple rounded">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+            {% trans "All updates" %}
+        </a>
+    </nav>
+
+    {% include "crush_lu/changelog/_release_card.html" with release=release %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+    .changelog-note-body { white-space: pre-line; }
+</style>
+{% endblock %}
