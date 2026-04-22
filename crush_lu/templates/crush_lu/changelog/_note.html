@@ -1,0 +1,9 @@
+{% load i18n %}
+<li class="changelog-note">
+    <p class="text-crush-dark dark:text-white font-medium leading-snug">
+        {{ note.title|default:_("Coming soon") }}
+    </p>
+    {% if note.body %}
+        <p class="changelog-note-body mt-1 text-gray-700 dark:text-gray-300 leading-relaxed">{{ note.body }}</p>
+    {% endif %}
+</li>

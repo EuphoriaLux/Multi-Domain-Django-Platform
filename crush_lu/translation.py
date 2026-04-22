@@ -14,6 +14,7 @@ from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
+from .models.changelog import PatchRelease, PatchNote
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -119,6 +120,18 @@ class NewsletterTranslationOptions(TranslationOptions):
     fields = ('subject', 'body_html', 'body_text')
 
 
+class PatchReleaseTranslationOptions(TranslationOptions):
+    """Translatable fields for changelog releases."""
+
+    fields = ('title', 'hero_summary')
+
+
+class PatchNoteTranslationOptions(TranslationOptions):
+    """Translatable fields for individual changelog notes."""
+
+    fields = ('title', 'body')
+
+
 # Register models with translation options
 translator.register(Newsletter, NewsletterTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
@@ -134,3 +147,5 @@ translator.register(EventPoll, EventPollTranslationOptions)
 translator.register(EventPollOption, EventPollOptionTranslationOptions)
 translator.register(QuizRound, QuizRoundTranslationOptions)
 translator.register(QuizQuestion, QuizQuestionTranslationOptions)
+translator.register(PatchRelease, PatchReleaseTranslationOptions)
+translator.register(PatchNote, PatchNoteTranslationOptions)
