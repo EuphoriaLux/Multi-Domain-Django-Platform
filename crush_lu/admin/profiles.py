@@ -662,9 +662,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
     def get_draft_data_pretty(self, obj):
         """Render the JSON draft_data as a readable code block."""
         import json as _json
-        from django.utils.html import format_html
         if not obj.draft_data:
-            return format_html('<em style="color:#888">No draft saved.</em>')
+            return mark_safe('<em style="color:#888">No draft saved.</em>')
         try:
             pretty = _json.dumps(
                 obj.draft_data, indent=2, ensure_ascii=False, default=str
