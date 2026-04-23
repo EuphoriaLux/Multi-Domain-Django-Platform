@@ -210,7 +210,7 @@
             {% endif %}
 
             <!-- Auto-save Indicators (Fixed Position) -->
-            <div class="fixed bottom-4 right-4 z-50 space-y-2">
+            <div class="onboarding-autosave-toast fixed bottom-4 right-4 z-50 space-y-2">
                 <!-- Saving Indicator -->
                 <div x-show="showAutoSaving" x-transition
                      class="bg-white rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
@@ -364,7 +364,7 @@
                         <div x-show="isStep2" x-transition:enter="transition ease-out duration-200"
                              x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-cloak>
                             <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Select your birth year" %}</p>
-                            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1" data-dob-years>
+                            <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto pr-1" data-dob-years>
                                 <!-- Buttons rendered by JavaScript -->
                             </div>
                         </div>
@@ -629,7 +629,7 @@
                     </label>
                     <textarea name="bio"
                               id="{{ form.bio.id_for_label }}"
-                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
@@ -707,7 +707,7 @@
                     </label>
                     <textarea name="interests"
                               id="{{ form.interests.id_for_label }}"
-                              class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
+                              class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
                               rows="2"
                               maxlength="300"
                               @input="updateCount"
@@ -1074,7 +1074,7 @@
                                    name="preferred_age_min"
                                    min="18" max="99"
                                    value="{{ profile.preferred_age_min|default:25 }}"
-                                   class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                   class="rounded-lg border border-gray-300 px-3 py-2 text-base dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         </label>
                         <label class="flex flex-col">
                             <span class="text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Max age" %}</span>
@@ -1082,7 +1082,7 @@
                                    name="preferred_age_max"
                                    min="18" max="99"
                                    value="{{ profile.preferred_age_max|default:45 }}"
-                                   class="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                   class="rounded-lg border border-gray-300 px-3 py-2 text-base dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         </label>
                     </div>
                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">

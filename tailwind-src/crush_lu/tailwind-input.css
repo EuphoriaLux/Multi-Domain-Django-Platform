@@ -6333,6 +6333,15 @@ html.dark .section-card {
         display: flex;
         align-items: center;
     }
+
+    /* Hide the auto-save toast while any form input is focused on mobile.
+       On iOS the soft keyboard pushes fixed elements above the keyboard,
+       which can overlap the sticky action buttons. */
+    #profileForm:focus-within .onboarding-autosave-toast {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 150ms ease-out;
+    }
 }
 
 /* ===================
