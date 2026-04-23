@@ -794,11 +794,19 @@ def coach_mark_review_call_complete(request, submission_id):
         ]
     )
 
-    # Return HTMX partial or redirect
+    # Return HTMX partial or redirect. The calibration flow's wrapping div id
+    # is `#screening-call-section-content`; the legacy flow swaps the nested
+    # `#screening-call-section` partial. Pick the template the submitting form
+    # is actually targeting.
     if is_htmx:
+        template_name = (
+            "crush_lu/_screening_tab_calibration.html"
+            if submission.screening_call_mode == "calibration"
+            else "crush_lu/_screening_call_section.html"
+        )
         return render(
             request,
-            "crush_lu/_screening_call_section.html",
+            template_name,
             {
                 "submission": submission,
                 "profile": submission.profile,

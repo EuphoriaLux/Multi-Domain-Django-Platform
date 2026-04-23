@@ -1073,45 +1073,6 @@
         {% include "crush_lu/partials/_push_activation_prompt.html" %}
     {% endif %}
 
-    <!-- Global Profile Status Banners -->
-    {% if user.is_authenticated and profile_completion_status and profile_completion_status != 'submitted' and not profile_is_approved %}
-    <!-- Profile Incomplete Banner -->
-    <div class="bg-amber-500 text-white px-4 py-3 text-center" role="alert">
-        <div class="flex items-center justify-center gap-2 flex-wrap">
-            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
-            <span class="font-medium">{% trans "Your profile is incomplete" %}</span>
-            <a href="{% url 'crush_lu:create_profile' %}"
-               class="underline font-semibold hover:no-underline">
-                {% trans "Complete your profile" %} →
-            </a>
-        </div>
-    </div>
-    {% elif user.is_authenticated and profile_status == 'recontact_coach' and not profile_is_approved %}
-    <!-- Recontact Coach Banner -->
-    <div class="bg-orange-500 text-white px-4 py-3 text-center" role="alert">
-        <div class="flex items-center justify-center gap-2 flex-wrap">
-            {% include "shared/icons/phone.html" with class="w-5 h-5" %}
-            <span class="font-medium">{% trans "Your coach needs to speak with you" %}</span>
-            <a href="{% url 'crush_lu:profile_submitted' %}"
-               class="underline font-semibold hover:no-underline">
-                {% trans "Contact your coach" %} →
-            </a>
-        </div>
-    </div>
-    {% elif user.is_authenticated and profile_status == 'pending' and not profile_is_approved or user.is_authenticated and profile_status == 'under_review' and not profile_is_approved %}
-    <!-- Pending Review Banner -->
-    <div class="bg-purple-600 text-white px-4 py-3 text-center" role="alert">
-        <div class="flex items-center justify-center gap-2 flex-wrap">
-            {% include "shared/icons/clock.html" with class="w-5 h-5" %}
-            <span class="font-medium">{% trans "Your profile is under review by our Crush Coach" %}</span>
-            <a href="{% url 'crush_lu:profile_submitted' %}"
-               class="underline font-semibold hover:no-underline">
-                {% trans "Check status" %} →
-            </a>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Admin-configurable status banner -->
     {% if user.is_authenticated and banner_enabled and banner_message %}
         {% if not banner_target_statuses or profile_status in banner_target_statuses %}
