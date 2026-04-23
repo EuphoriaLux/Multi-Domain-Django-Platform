@@ -13,7 +13,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, ProfileSubmission
+from datetime import timedelta
+
+from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
 
 
@@ -385,3 +387,156 @@ class SaveProfilePreferencesTests(_SiteMixin, TestCase):
             "preferred_age_max": 40,
         })
         self.assertEqual(resp.status_code, 302)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class SubmissionStateRoutingTests(_SiteMixin, TestCase):
+    """
+    Routing tests for the three submission states PR #376 cleaned up:
+      - revision   → user goes back to step 4 and a resubmit flips the row
+                     back to 'pending' with a fresh SLA window.
+      - rejected   → /onboarding/ routes to /profile/rejected/, not a step.
+      - coach-claimed pending (assigned_at set) → step 6, meet-coach page.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="walker@example.com",
+            email="walker@example.com",
+            password="pass-pass-pass",
+            first_name="Walker",
+        )
+        _grant_consent(self.user)
+        self.client.login(username="walker@example.com", password="pass-pass-pass")
+
+    def _final_path(self, start_path, method="get", **kwargs):
+        fn = getattr(self.client, method)
+        if (
+            method == "post"
+            and not start_path.startswith("/en/")
+            and not start_path.startswith("/api/")
+        ):
+            start_path = "/en" + start_path
+        response = fn(start_path, follow=True, **kwargs)
+        if response.redirect_chain:
+            return response.redirect_chain[-1][0]
+        return start_path
+
+    def _make_complete_profile(self):
+        """Profile state that satisfies journey gates AND get_missing_fields()."""
+        now = timezone.now()
+        return CrushProfile.objects.create(
+            user=self.user,
+            welcome_seen_at=now,
+            phone_verified=True,
+            phone_number="+352621000000",
+            coach_intro_seen_at=now,
+            completion_status="submitted",
+            date_of_birth=now.date().replace(year=now.year - 30),
+            gender="F",
+            location="Luxembourg",
+            photo_1="onboarding-tests/photo_1.jpg",
+            event_languages=["en"],
+        )
+
+    def _make_coach(self, username="coach@example.com", first_name="Nora"):
+        coach_user = User.objects.create_user(
+            username=username,
+            email=username,
+            password="pass-pass-pass",
+            first_name=first_name,
+        )
+        return CrushCoach.objects.create(user=coach_user, bio="Coach bio for tests")
+
+    # ── revision ────────────────────────────────────────────────────────────
+
+    def test_revision_submission_routes_to_step_4(self):
+        profile = self._make_complete_profile()
+        coach = self._make_coach()
+        now = timezone.now()
+        ProfileSubmission.objects.create(
+            profile=profile,
+            coach=coach,
+            status="revision",
+            assigned_at=now,
+            sla_deadline=now + timedelta(hours=48),
+            feedback_to_user="Add a brighter photo, please.",
+        )
+        self.assertIn("/create-profile/", self._final_path("/onboarding/"))
+
+    def test_revision_resubmit_flips_to_pending_and_clears_sla(self):
+        profile = self._make_complete_profile()
+        coach = self._make_coach()
+        now = timezone.now()
+        submission = ProfileSubmission.objects.create(
+            profile=profile,
+            coach=coach,
+            status="revision",
+            assigned_at=now,
+            sla_deadline=now + timedelta(hours=48),
+        )
+
+        self._final_path("/api/profile/complete/", method="post")
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "pending")
+        self.assertIsNone(submission.coach)
+        self.assertIsNone(submission.assigned_at)
+        self.assertIsNone(submission.sla_deadline)
+        # The existing row is re-used — no duplicate submission is created.
+        self.assertEqual(
+            ProfileSubmission.objects.filter(profile=profile).count(), 1
+        )
+
+    # ── rejected ────────────────────────────────────────────────────────────
+
+    def test_rejected_submission_routes_to_profile_rejected(self):
+        profile = self._make_complete_profile()
+        ProfileSubmission.objects.create(profile=profile, status="rejected")
+        self.assertIn("/profile/rejected/", self._final_path("/onboarding/"))
+
+    def test_rejected_resubmit_does_not_create_a_new_submission(self):
+        """Second visit to /onboarding/ must not spawn a pending row."""
+        profile = self._make_complete_profile()
+        ProfileSubmission.objects.create(profile=profile, status="rejected")
+        self._final_path("/onboarding/")
+        self._final_path("/onboarding/")
+        self.assertEqual(
+            ProfileSubmission.objects.filter(profile=profile).count(), 1
+        )
+        self.assertFalse(
+            ProfileSubmission.objects.filter(
+                profile=profile, status="pending"
+            ).exists()
+        )
+
+    # ── coach-claimed pending → step 6 ──────────────────────────────────────
+
+    def test_coach_claim_routes_to_meet_coach_step(self):
+        profile = self._make_complete_profile()
+        coach = self._make_coach(first_name="Nora")
+        ProfileSubmission.objects.create(
+            profile=profile,
+            coach=coach,
+            status="pending",
+            assigned_at=timezone.now(),
+        )
+        self.assertIn(
+            "/onboarding/meet-coach/", self._final_path("/onboarding/")
+        )
+
+    def test_meet_coach_step_renders_coach_bio(self):
+        profile = self._make_complete_profile()
+        coach = self._make_coach(first_name="Nora")
+        ProfileSubmission.objects.create(
+            profile=profile,
+            coach=coach,
+            status="pending",
+            assigned_at=timezone.now(),
+        )
+        response = self.client.get("/onboarding/meet-coach/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        # Coach name surfaces on the page, confirming the meet-coach template
+        # is rendering with the claimed coach attached.
+        self.assertContains(response, "Nora")

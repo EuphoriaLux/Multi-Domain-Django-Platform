@@ -126,6 +126,7 @@ INSTALLED_APPS = [
     "power_up.onboarding",  # Onboarding - Customer onboarding email builder (submodule)
     "tableau",  # AI Art e-commerce site for tableau.lu
     "arborist",  # Tree care informational site for arborist.lu
+    "hub",  # JSON API for hub.crush.lu SPA (served on api.crush.lu)
     # Allauth apps
     "allauth",
     "allauth.account",
@@ -155,6 +156,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "azureproject.middleware.HealthCheckMiddleware",  # MUST be first - bypasses all other middleware for /healthz/
+    "corsheaders.middleware.CorsMiddleware",  # MUST be before CommonMiddleware; adds CORS headers for api.crush.lu
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.0 native CSP
     "azureproject.csp_middleware.PermissionsPolicyMiddleware",  # Browser feature restrictions
@@ -570,7 +572,22 @@ FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "")
 FIREBASE_AUTH_DOMAIN = os.environ.get("FIREBASE_AUTH_DOMAIN", "")
 
-CORS_ALLOWED_ORIGINS = []
+# CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
+# JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
+# cross-origin). Leave it False so a compromised origin can't replay sessions.
+CORS_ALLOWED_ORIGINS = [
+    "https://hub.crush.lu",
+    "https://delightful-water-07d8c6e10.7.azurestaticapps.net",
+]
+if DEBUG:
+    CORS_ALLOWED_ORIGINS += [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+CORS_ALLOW_CREDENTIALS = False
+# Only apply CORS to the API surface; everything else on crush.lu / other
+# domains is server-rendered HTML and should not advertise CORS.
+CORS_URLS_REGEX = r"^/(hub|api)/.*$"
 
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"

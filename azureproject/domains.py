@@ -30,6 +30,12 @@ DOMAINS = {
         'app': 'crush_lu',
         'aliases': ['www.crush.lu', 'test.crush.lu'],
     },
+    'api.crush.lu': {
+        'urlconf': 'azureproject.urls_api',
+        'name': 'Crush.lu API',
+        'app': 'hub',
+        'aliases': ['test.api.crush.lu'],
+    },
     'vinsdelux.com': {
         'urlconf': 'azureproject.urls_vinsdelux',
         'name': 'VinsDelux',
@@ -78,6 +84,7 @@ DEV_DOMAIN_MAPPINGS = {
     'tableau.localhost': 'tableau.lu',
     'delegation.localhost': 'delegations.lu',
     'portal.localhost': 'portal.powerup.lu',
+    'api.localhost': 'api.crush.lu',
 }
 
 # Production fallback (used for unknown domains and Azure hostnames)
