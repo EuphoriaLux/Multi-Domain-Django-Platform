@@ -16,7 +16,7 @@ def bucket_of(refs):
     for r in refs:
         p = r.replace('\\', '/').lower()
         if 'templates/' in p:
-            if 'admin' in p or 'coach' in p or 'review' in p or 'dashboard' in p:
+            if 'admin' in p or 'coach' in p or 'review' in p:
                 has_coach_tpl = True
             else:
                 has_user_tpl = True

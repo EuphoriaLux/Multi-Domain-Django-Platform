@@ -671,16 +671,27 @@ def apply_file(path, lang):
         prev_msgid_idx = None
         msgid_start = None
         msgstr_start = None
+        is_plural = False
         for j, ln in enumerate(block):
             if ln.startswith('#,') and 'fuzzy' in ln:
                 flag_line_idx = j
             elif ln.startswith('#| '):
                 if prev_msgid_idx is None:
                     prev_msgid_idx = j
+            elif ln.startswith('msgid_plural "') or ln.startswith('msgstr['):
+                is_plural = True
             elif ln.startswith('msgid "'):
                 msgid_start = j
             elif ln.startswith('msgstr "'):
                 msgstr_start = j
+
+        if is_plural:
+            # Plural fuzzies (msgstr[0]/[1]) aren't supported — T can't model them.
+            if msgid_start is not None:
+                msgid_val, _ = collect_string(block, msgid_start)
+                if msgid_val in T:
+                    print(f'  WARNING: skipped plural fuzzy (not supported): {msgid_val[:80]!r}')
+            continue
 
         if msgid_start is None or msgstr_start is None or flag_line_idx is None:
             continue
