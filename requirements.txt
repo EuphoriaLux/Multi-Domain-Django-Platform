@@ -1,7 +1,7 @@
 # Build dependencies (security-critical)
-pip>=26.0  # CVE-2025-8869 fix
+pip>=26.1  # CVE-2025-8869 fix
 setuptools>=80.10.2  # CVE-2024-6345, PYSEC-2025-49 fixes
-wheel>=0.46.0
+wheel>=0.47.0
 
 # Core Django
 Django==6.0.4  # Major upgrade from 5.1.15 — requires Python 3.12+
@@ -13,12 +13,12 @@ django-cors-headers==4.9.0
 django-htmx==1.27.0  # HTMX server-side integration
 
 # Database
-psycopg2-binary==2.9.11  # Updated from 2.9.10 (security & bug fixes)
+psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
 django-allauth==65.16.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.12.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
-cryptography>=44.0.1  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
+cryptography>=47.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.49.2  # Required for Google Wallet API authentication
 
 # Storage
@@ -43,7 +43,7 @@ gunicorn==25.3.0
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==6.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.44.0
+uvicorn[standard]==0.46.0
 
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1
