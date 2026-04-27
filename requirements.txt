@@ -66,6 +66,7 @@ django-cookie-consent==1.0.0
 
 # Internationalization - Model Field Translations
 django-modeltranslation==0.20.3
+polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n/ tooling
 
 # Testing
 pytest==9.0.3
