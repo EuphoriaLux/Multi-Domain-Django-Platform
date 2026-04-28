@@ -518,7 +518,7 @@ def account_settings(request):
         available_providers = set()
 
     oidc_app = None
-    if "openid_connect" in available_providers and "luxid" not in available_providers:
+    if "openid_connect" in available_providers:
         try:
             oidc_app = SocialApp.objects.filter(
                 provider="openid_connect", provider_id="luxid", sites=current_site
@@ -537,6 +537,16 @@ def account_settings(request):
         except Exception:
             pass
     luxid_connected = "luxid" in connected_providers or _luxid_oidc_connected
+
+    # Annotate is_luxid on each account so templates can brand correctly without
+    # treating every openid_connect account as LuxID.
+    _luxid_oidc_app_pk = oidc_app.pk if oidc_app is not None else None
+    for account in crush_social_accounts:
+        account.is_luxid = account.provider == "luxid" or (
+            account.provider == "openid_connect"
+            and _luxid_oidc_app_pk is not None
+            and getattr(account, "app_id", None) == _luxid_oidc_app_pk
+        )
 
     return render(
         request,
