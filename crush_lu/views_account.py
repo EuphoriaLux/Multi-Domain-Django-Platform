@@ -526,27 +526,27 @@ def account_settings(request):
         except Exception:
             pass
 
-    # Scope the openid_connect connected check to the LuxID-specific OIDC app so
-    # that accounts from other OIDC IdPs on the same site are not misclassified.
-    _luxid_oidc_connected = False
+    # Scope the openid_connect connected check to the LuxID-specific OIDC app.
+    # SocialAccount has no app FK in allauth 65.x; route through SocialToken which does.
+    _luxid_oidc_acct_ids: set = set()
     if oidc_app is not None and "openid_connect" in connected_providers:
         try:
-            _luxid_oidc_connected = request.user.socialaccount_set.filter(
-                provider="openid_connect", app=oidc_app
-            ).exists()
+            from allauth.socialaccount.models import SocialToken
+            _luxid_oidc_acct_ids = set(
+                SocialToken.objects.filter(
+                    account__user=request.user,
+                    account__provider="openid_connect",
+                    app=oidc_app,
+                ).values_list("account_id", flat=True)
+            )
         except Exception:
             pass
-    luxid_connected = "luxid" in connected_providers or _luxid_oidc_connected
+    luxid_connected = "luxid" in connected_providers or bool(_luxid_oidc_acct_ids)
 
     # Annotate is_luxid on each account so templates can brand correctly without
     # treating every openid_connect account as LuxID.
-    _luxid_oidc_app_pk = oidc_app.pk if oidc_app is not None else None
     for account in crush_social_accounts:
-        account.is_luxid = account.provider == "luxid" or (
-            account.provider == "openid_connect"
-            and _luxid_oidc_app_pk is not None
-            and getattr(account, "app_id", None) == _luxid_oidc_app_pk
-        )
+        account.is_luxid = account.provider == "luxid" or account.pk in _luxid_oidc_acct_ids
 
     return render(
         request,
