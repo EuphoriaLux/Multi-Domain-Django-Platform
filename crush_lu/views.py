@@ -109,6 +109,7 @@ from .views_account import (  # noqa: F401
     signup,
     export_user_data,
     apple_relay_link_prompt,
+    _luxid_connect_url,
 )
 
 # Events
@@ -991,7 +992,7 @@ def _edit_sub_account_settings(request, profile):
     from django.contrib.sites.models import Site
     from .social_photos import get_all_social_photos
 
-    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid", "openid_connect"]
 
     connected_providers = set(
         request.user.socialaccount_set.values_list("provider", flat=True)
@@ -1009,6 +1010,13 @@ def _edit_sub_account_settings(request, profile):
                 or account.extra_data.get("email")
                 or ""
             )
+        elif account.provider in ("luxid", "openid_connect"):
+            _claims = (
+                account.extra_data.get("userinfo")
+                or account.extra_data.get("id_token")
+                or account.extra_data
+            )
+            account.display_email = _claims.get("email", "") if isinstance(_claims, dict) else ""
         else:
             account.display_email = account.extra_data.get("email", "")
 
@@ -1024,6 +1032,37 @@ def _edit_sub_account_settings(request, profile):
     except Exception:
         available_providers = set()
 
+    oidc_app = None
+    if "openid_connect" in available_providers:
+        try:
+            oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", provider_id="luxid", sites=current_site
+            ).first()
+        except Exception:
+            pass
+
+    # Scope the openid_connect connected check to the LuxID-specific OIDC app.
+    # SocialAccount has no app FK in allauth 65.x; route through SocialToken which does.
+    _luxid_oidc_acct_ids: set = set()
+    if oidc_app is not None and "openid_connect" in connected_providers:
+        try:
+            from allauth.socialaccount.models import SocialToken
+            _luxid_oidc_acct_ids = set(
+                SocialToken.objects.filter(
+                    account__user=request.user,
+                    account__provider="openid_connect",
+                    app=oidc_app,
+                ).values_list("account_id", flat=True)
+            )
+        except Exception:
+            pass
+    luxid_connected = "luxid" in connected_providers or bool(_luxid_oidc_acct_ids)
+
+    # Annotate is_luxid on each account so templates can brand correctly without
+    # treating every openid_connect account as LuxID.
+    for account in crush_social_accounts:
+        account.is_luxid = account.provider == "luxid" or account.pk in _luxid_oidc_acct_ids
+
     context = {
         "profile": profile,
         "section": "account",
@@ -1031,10 +1070,13 @@ def _edit_sub_account_settings(request, profile):
         "facebook_connected": "facebook" in connected_providers,
         "microsoft_connected": "microsoft" in connected_providers,
         "apple_connected": "apple" in connected_providers,
+        "luxid_connected": luxid_connected,
         "google_available": "google" in available_providers,
         "facebook_available": "facebook" in available_providers,
         "microsoft_available": "microsoft" in available_providers,
         "apple_available": "apple" in available_providers,
+        "luxid_available": "luxid" in available_providers or oidc_app is not None,
+        "luxid_connect_url": _luxid_connect_url(available_providers, oidc_app=oidc_app),
         "crush_social_accounts": crush_social_accounts,
         "social_photos": social_photos,
         "is_apple_relay_user": bool(
