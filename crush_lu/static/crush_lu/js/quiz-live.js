@@ -502,6 +502,20 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.table_update") {
                     // New person checked in at this table — refresh tablemates
                     this.fetchAssignment();
+                } else if (type === "quiz.my_assignment") {
+                    // Sent on connect/reconnect so the user sees the
+                    // correct table immediately even if they missed a
+                    // rotate broadcast during a network blip.
+                    if (data.table_number) {
+                        this.tableNumber = data.table_number;
+                    }
+                    if (data.role !== undefined) {
+                        this.userRole = data.role;
+                    }
+                    // Refetch to repopulate tablemates list for the new table.
+                    if (this.isQuizNight) {
+                        this.fetchAssignment();
+                    }
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -906,6 +920,8 @@ document.addEventListener("alpine:init", function () {
             // Confirmation state
             confirmingEnd: false,
             _confirmTimer: null,
+            confirmingReset: false,
+            _confirmResetTimer: null,
 
             // Error / feedback
             errorMessage: "",
@@ -1055,6 +1071,21 @@ document.addEventListener("alpine:init", function () {
                     return "bg-red-600 text-white ring-2 ring-red-400 animate-pulse";
                 }
                 return "bg-red-700/80 text-red-100 hover:bg-red-600";
+            },
+            get canReset() {
+                return this.status === "finished" || this.status === "paused";
+            },
+            get isConfirmingReset() {
+                return this.confirmingReset;
+            },
+            get isNotConfirmingReset() {
+                return !this.confirmingReset;
+            },
+            get resetQuizBtnClass() {
+                if (this.confirmingReset) {
+                    return "bg-rose-600 text-white ring-2 ring-rose-400 animate-pulse";
+                }
+                return "bg-slate-700 text-rose-200 hover:bg-rose-900/40 ring-1 ring-rose-500/30";
             },
             // --- Init ---
 
@@ -1264,6 +1295,13 @@ document.addEventListener("alpine:init", function () {
                             results[i].is_correct;
                     }
                     this._updateTableButtons();
+                } else if (type === "quiz.table_dissolved") {
+                    // The scoring grid is server-rendered from the
+                    // `tables` queryset, so a structural change (a
+                    // table going away) needs a hard reload to rebuild
+                    // it. Refetching the table overview alone would
+                    // leave the scoring grid out of sync.
+                    window.location.reload();
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -1362,6 +1400,36 @@ document.addEventListener("alpine:init", function () {
                 if (this._confirmTimer) clearTimeout(this._confirmTimer);
                 if (this.ws && this.connected) {
                     this.ws.send(JSON.stringify({ action: "end_quiz" }));
+                }
+            },
+
+            resetQuiz: function () {
+                // Two-tap confirmation. Reset always clears scoring —
+                // otherwise the re-score lock from the previous run
+                // (scored_count >= total_tables on each played
+                // question) would prevent the host from re-playing
+                // those questions, which defeats the purpose of a
+                // reset. Coaches who need to preserve scores have no
+                // current path other than not resetting in the first
+                // place.
+                if (!this.confirmingReset) {
+                    this.confirmingReset = true;
+                    var self = this;
+                    this._confirmResetTimer = setTimeout(function () {
+                        self.confirmingReset = false;
+                    }, 5000);
+                    return;
+                }
+                this.confirmingReset = false;
+                if (this._confirmResetTimer)
+                    clearTimeout(this._confirmResetTimer);
+                if (this.ws && this.connected) {
+                    this.ws.send(
+                        JSON.stringify({
+                            action: "reset_quiz",
+                            clear_scores: true,
+                        }),
+                    );
                 }
             },
 
@@ -1892,8 +1960,59 @@ document.addEventListener("alpine:init", function () {
                     }
 
                     card.appendChild(memberList);
+
+                    // Dissolve button: only on the highest-numbered table
+                    // when it's empty in the current round. Service-side
+                    // guards still validate, but the UI hides the button
+                    // outside this case to avoid coach confusion.
+                    var isTopTable = i === this.tableMembers.length - 1;
+                    if (isTopTable && t.members.length === 0 &&
+                        this.tableMembers.length > 2) {
+                        var btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className =
+                            "mt-2 w-full rounded-lg bg-slate-700 px-3 py-1.5 " +
+                            "text-xs font-medium text-rose-300 ring-1 " +
+                            "ring-rose-500/30 transition-all hover:bg-rose-900/30 " +
+                            "hover:text-rose-200 active:scale-95";
+                        btn.setAttribute("data-table-number", t.table_number);
+                        btn.textContent = this._i18n.dissolveTable;
+                        var self = this;
+                        btn.addEventListener("click", function (e) {
+                            var num = parseInt(
+                                e.currentTarget.getAttribute("data-table-number"),
+                                10,
+                            );
+                            self.dissolveTable(num, e.currentTarget);
+                        });
+                        card.appendChild(btn);
+                    }
+
                     container.appendChild(card);
                 }
+            },
+
+            dissolveTable: function (tableNumber, btnEl) {
+                if (!this.ws || !this.connected) return;
+                // Two-tap confirmation: first tap arms, second tap fires.
+                if (btnEl && btnEl.getAttribute("data-arming") !== "1") {
+                    btnEl.setAttribute("data-arming", "1");
+                    btnEl.textContent = this._i18n.confirmDissolve;
+                    var self = this;
+                    setTimeout(function () {
+                        if (btnEl.getAttribute("data-arming") === "1") {
+                            btnEl.removeAttribute("data-arming");
+                            btnEl.textContent = self._i18n.dissolveTable;
+                        }
+                    }, 4000);
+                    return;
+                }
+                this.ws.send(
+                    JSON.stringify({
+                        action: "dissolve_table",
+                        table_number: tableNumber,
+                    }),
+                );
             },
 
             // Cleanup

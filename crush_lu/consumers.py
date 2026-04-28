@@ -211,6 +211,28 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                     }
             await self.send_json({"type": "quiz.state", "data": state})
 
+        # Send the user's current-round table assignment so a client
+        # that reconnects after a rotate sees the correct table
+        # immediately. Without this, the participant is stuck on the
+        # last assignment they received until they manually refresh or
+        # poll /api/quiz/<id>/my-assignment/.
+        if user and user.is_authenticated and not self.is_display:
+            try:
+                assignment = await self.get_user_assignment_for_current_round(
+                    user.id
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to fetch my_assignment for user %s on quiz %s",
+                    user.id,
+                    self.quiz_id,
+                )
+                assignment = None
+            if assignment:
+                await self.send_json(
+                    {"type": "quiz.my_assignment", "data": assignment}
+                )
+
     async def disconnect(self, close_code):
         if hasattr(self, "quiz_group"):
             await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
@@ -238,6 +260,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             "score_table",
             "rotate",
             "show_leaderboard",
+            "dissolve_table",
+            "reset_quiz",
         }
 
         if action in host_actions:
@@ -286,6 +310,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         elif action == "show_leaderboard":
             await self.handle_leaderboard()
+
+        elif action == "dissolve_table":
+            await self.handle_dissolve_table(content)
+
+        elif action == "reset_quiz":
+            await self.handle_reset_quiz(content)
 
     async def send_error(self, message):
         """Send an error message back to the client."""
@@ -534,6 +564,53 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             {"type": "quiz.leaderboard", "data": leaderboard},
         )
 
+    async def handle_reset_quiz(self, content):
+        """Bring a finished/paused quiz back to draft so the host can
+        re-run a test session or recover from an early end. Optionally
+        clears scoring state when ``clear_scores=True``."""
+        clear_scores = bool(content.get("clear_scores", False))
+        result = await self.reset_quiz_to_draft(clear_scores=clear_scores)
+        if result is None:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+        await self.channel_layer.group_send(
+            self.quiz_group,
+            {"type": "quiz.status", "data": result},
+        )
+
+    async def handle_dissolve_table(self, content):
+        """Host removes the highest-numbered table when no-shows have
+        left it empty. See ``services.quiz_rotation.dissolve_table`` for
+        the guards and side effects."""
+        table_number = content.get("table_number")
+        if not isinstance(table_number, int):
+            await self.send_error("Invalid table number.")
+            return
+
+        result = await self.dissolve_table_for_quiz(table_number)
+        if result is None:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+
+        # Refresh the cached total_tables count for the scoring grid.
+        self._total_tables = result["num_tables"]
+
+        await self.channel_layer.group_send(
+            self.quiz_group,
+            {
+                "type": "quiz.table_dissolved",
+                "data": {
+                    "table_number": table_number,
+                    "num_tables": result["num_tables"],
+                    "table_deleted": result["table_deleted"],
+                },
+            },
+        )
+
     # --- Legacy attendee actions ---
 
     async def handle_table_answer(self, user, content):
@@ -638,6 +715,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def quiz_table_update(self, event):
         await self.send_json({"type": "quiz.table_update", "data": event["data"]})
 
+    async def quiz_table_dissolved(self, event):
+        await self.send_json({"type": "quiz.table_dissolved", "data": event["data"]})
+
     # --- Database helpers ---
 
     @database_sync_to_async
@@ -722,6 +802,21 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             .first()
         )
         return membership.table_id if membership else None
+
+    @database_sync_to_async
+    def get_user_assignment_for_current_round(self, user_id):
+        """Sync-to-async wrapper for
+        ``services.quiz_rotation.get_current_assignment``."""
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.services.quiz_rotation import get_current_assignment
+
+        try:
+            quiz = QuizEvent.objects.select_related("current_round").get(
+                id=self.quiz_id
+            )
+        except QuizEvent.DoesNotExist:
+            return None
+        return get_current_assignment(quiz, user_id)
 
     @database_sync_to_async
     def is_host(self, user):
@@ -1098,6 +1193,55 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         return q_data
 
     @database_sync_to_async
+    def reset_quiz_to_draft(self, clear_scores=False):
+        """Sync-to-async wrapper for
+        ``services.quiz_rotation.reset_quiz_to_draft``.
+
+        Returns ``{"error": str}`` on guard failure, or the status dict
+        from the service on success.
+        """
+        from django.core.exceptions import ValidationError
+
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        try:
+            quiz = QuizEvent.objects.get(id=self.quiz_id)
+        except QuizEvent.DoesNotExist:
+            return {"error": "Quiz not found."}
+
+        try:
+            return reset_quiz_to_draft(quiz, clear_scores=clear_scores)
+        except ValidationError as e:
+            msg = e.messages[0] if getattr(e, "messages", None) else str(e)
+            return {"error": msg}
+
+    @database_sync_to_async
+    def dissolve_table_for_quiz(self, table_number):
+        """Sync-to-async wrapper for ``services.quiz_rotation.dissolve_table``.
+
+        Returns ``{"error": str}`` on guard failure (mirroring the
+        consumer's other guard helpers), or the dict from
+        ``dissolve_table`` on success.
+        """
+        from django.core.exceptions import ValidationError
+
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        try:
+            quiz = QuizEvent.objects.get(id=self.quiz_id)
+        except QuizEvent.DoesNotExist:
+            return {"error": "Quiz not found."}
+
+        try:
+            return dissolve_table(quiz, table_number)
+        except ValidationError as e:
+            # ValidationError.messages is a list; surface the first one.
+            msg = e.messages[0] if getattr(e, "messages", None) else str(e)
+            return {"error": msg}
+
+    @database_sync_to_async
     def score_table_for_question(self, table_id, question_id, is_correct):
         """Host scores a table. Creates IndividualScores for all table members.
 
@@ -1115,6 +1259,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             TableRoundScore,
         )
 
+        from django.db import transaction
+
         try:
             quiz = QuizEvent.objects.select_related("current_round").get(
                 id=self.quiz_id
@@ -1130,15 +1276,44 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         ):
             return None
 
-        # Only allow scoring once per table per question (no re-scores)
-        _obj, created = TableRoundScore.objects.get_or_create(
-            quiz=quiz,
-            table=table,
-            question=question,
-            defaults={"is_correct": is_correct},
-        )
-        if not created:
-            return {"already_scored": True}
+        # Allow re-scoring a table while the round is still in flight,
+        # i.e. before all tables have been scored on this question.
+        # Once the last table is scored the reveal fires (clients see
+        # correctness) so flipping a score after that would cause
+        # confusing UI churn. The "no re-score after reveal" lock is
+        # the all-tables-scored gate, not a pure write-once rule.
+        with transaction.atomic():
+            existing = TableRoundScore.objects.select_for_update().filter(
+                quiz=quiz, table=table, question=question
+            ).first()
+
+            if existing is None:
+                # First score for this table — create it.
+                TableRoundScore.objects.create(
+                    quiz=quiz,
+                    table=table,
+                    question=question,
+                    is_correct=is_correct,
+                )
+                created = True
+            else:
+                # Re-score is only allowed before reveal.
+                total_tables = QuizTable.objects.filter(quiz=quiz).count()
+                already_scored_count = TableRoundScore.objects.filter(
+                    quiz=quiz, question=question
+                ).count()
+                if already_scored_count >= total_tables:
+                    # All tables already scored → reveal has fired →
+                    # scores are locked.
+                    return {"already_scored": True}
+
+                if existing.is_correct == is_correct:
+                    # No-op re-score (e.g. accidental double-tap).
+                    return {"already_scored": True}
+
+                existing.is_correct = is_correct
+                existing.save(update_fields=["is_correct"])
+                created = False
 
         # Issue #4: Read bonus from question's own round, not quiz.current_round
         points = question.points if is_correct else 0
@@ -1150,36 +1325,59 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # and "late score arrives" from crediting the new round's seatmates.
         round_number = quiz.get_round_number(question.round)
 
-        # Try rotation schedule first
-        rotation_users = list(
-            QuizRotationSchedule.objects.filter(
-                quiz=quiz,
-                round_number=round_number,
-                table=table,
-            ).values_list("user_id", flat=True)
-        )
-
-        # Fall back to static membership when no rotation schedule exists
-        if not rotation_users:
+        # Decide rotation-vs-fallback at the *quiz* level, not per-table.
+        # A rotation-aware quiz with an empty seat at the scored table
+        # must not fall back to round-0 memberships (the fossil bug
+        # described in §4I) — that would credit ghosts for the
+        # current question.
+        round_has_rotation = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number
+        ).exists()
+        if round_has_rotation:
+            rotation_users = list(
+                QuizRotationSchedule.objects.filter(
+                    quiz=quiz,
+                    round_number=round_number,
+                    table=table,
+                ).values_list("user_id", flat=True)
+            )
+        else:
+            # Legacy non-rotating quiz path.
             rotation_users = list(
                 QuizTableMembership.objects.filter(table=table).values_list(
                     "user_id", flat=True
                 )
             )
 
-        # CONC-03/DATA-01: Use get_or_create (write-once) to match REST endpoint
-        # and prevent overwriting earlier scores from race conditions
-        for user_id in rotation_users:
-            IndividualScore.objects.get_or_create(
-                quiz=quiz,
-                user_id=user_id,
-                question=question,
-                defaults={
-                    "is_correct": is_correct,
-                    "points_earned": points,
-                    "answer": f"table_scored:{table.table_number}",
-                },
-            )
+        # On a re-score, refresh existing IndividualScore rows so
+        # leaderboards and per-user scores reflect the corrected state.
+        # On the first scoring, get_or_create avoids overwriting
+        # concurrent scores for other tables that share members (rare,
+        # but possible across rotations).
+        if created:
+            for user_id in rotation_users:
+                IndividualScore.objects.get_or_create(
+                    quiz=quiz,
+                    user_id=user_id,
+                    question=question,
+                    defaults={
+                        "is_correct": is_correct,
+                        "points_earned": points,
+                        "answer": f"table_scored:{table.table_number}",
+                    },
+                )
+        else:
+            for user_id in rotation_users:
+                IndividualScore.objects.update_or_create(
+                    quiz=quiz,
+                    user_id=user_id,
+                    question=question,
+                    defaults={
+                        "is_correct": is_correct,
+                        "points_earned": points,
+                        "answer": f"table_scored:{table.table_number}",
+                    },
+                )
 
         # Check if all tables have been scored for this question
         total_tables = QuizTable.objects.filter(quiz=quiz).count()

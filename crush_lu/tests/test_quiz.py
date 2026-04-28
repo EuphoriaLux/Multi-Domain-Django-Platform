@@ -1,5 +1,6 @@
 """Tests for the live quiz feature (models, consumer, API, rotation)."""
 
+import json
 import pytest
 from datetime import date, timedelta
 from django.contrib.auth.models import User
@@ -2421,3 +2422,1172 @@ class TestRotationInvariants:
         assert incremental == batch, (
             "incremental check-in placement diverged from batch layout"
         )
+
+
+# ============================================================================
+# DISSOLVE TABLE
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestDissolveTable:
+    """Tests for dissolve_table() — the coach action that removes the
+    highest-numbered quiz table (e.g. when no-shows leave it empty) and
+    rebuilds future rounds against the smaller table count."""
+
+    def _make_user_with_profile(self, username, gender):
+        u = User.objects.create_user(
+            username=f"{username}@test.com",
+            email=f"{username}@test.com",
+            password="testpass123",
+        )
+        _grant_consent(u)
+        _create_profile(u, gender)
+        return u
+
+    def _make_attendees(self, event, men_count, women_count):
+        from crush_lu.models.events import EventRegistration
+
+        regs = []
+        for i in range(men_count):
+            u = self._make_user_with_profile(f"dtm{i}", "M")
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        for i in range(women_count):
+            u = self._make_user_with_profile(f"dtw{i}", "F")
+            regs.append(
+                EventRegistration.objects.create(
+                    event=event, user=u, status="attended"
+                )
+            )
+        return regs
+
+    def _add_rounds(self, quiz, count):
+        for i in range(count):
+            QuizRound.objects.create(
+                quiz=quiz,
+                title=f"R{i + 1}",
+                sort_order=i,
+                time_per_question=30,
+            )
+
+    def test_dissolve_empty_table_no_scores_deletes_it(self, quiz_event):
+        """Top-numbered empty table with no scoring history is deleted
+        outright and num_tables decrements."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        # Pre-create the QuizTable rows; leave table 4 empty (no
+        # rotation rows, no scores).
+        for n in range(1, 5):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        result = dissolve_table(quiz_event, table_number=4)
+
+        assert result["num_tables"] == 3
+        assert result["table_deleted"] is True
+        assert not QuizTable.objects.filter(
+            quiz=quiz_event, table_number=4
+        ).exists()
+        quiz_event.refresh_from_db()
+        assert quiz_event.num_tables == 3
+
+    def test_dissolve_preserves_table_when_scores_exist(self, quiz_event):
+        """If the table has TableRoundScore history, dissolve preserves
+        the QuizTable row as an orphan so the leaderboard keeps prior
+        rounds' results."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        round_obj = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round_obj, text="Q?", question_type="open_ended", points=10
+        )
+
+        for n in range(1, 4):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        # Score table 3 in round 1 — leaves history we don't want to lose.
+        table3 = QuizTable.objects.get(quiz=quiz_event, table_number=3)
+        TableRoundScore.objects.create(
+            quiz=quiz_event, table=table3, question=question, is_correct=True
+        )
+
+        result = dissolve_table(quiz_event, table_number=3)
+
+        assert result["num_tables"] == 2
+        assert result["table_deleted"] is False, (
+            "Table with TableRoundScore history must be preserved"
+        )
+        # The QuizTable row still exists for leaderboard history
+        assert QuizTable.objects.filter(
+            quiz=quiz_event, table_number=3
+        ).exists()
+        # But the score is still readable
+        assert TableRoundScore.objects.filter(table=table3).exists()
+
+    def test_cannot_dissolve_when_only_2_tables(self, quiz_event):
+        """Rotation requires ≥2 tables. Dissolving when num_tables=2
+        would drop us to 1, which is invalid."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        for n in range(1, 3):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        with pytest.raises(ValidationError, match="at least 3 tables"):
+            dissolve_table(quiz_event, table_number=2)
+
+    def test_cannot_dissolve_table_with_current_round_members(self, quiz_event):
+        """If anyone is currently seated at the target table in the
+        current round, dissolve is blocked — would silently boot players."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        round1 = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        for n in range(1, 4):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+        quiz_event.current_round = round1
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["current_round", "status"])
+
+        # Seat someone at table 3 in the current round
+        user = self._make_user_with_profile("seated", "M")
+        table3 = QuizTable.objects.get(quiz=quiz_event, table_number=3)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=table3,
+            user=user,
+            role="anchor",
+        )
+
+        with pytest.raises(ValidationError, match="seated participants"):
+            dissolve_table(quiz_event, table_number=3)
+
+    def test_can_only_dissolve_top_table(self, quiz_event):
+        """Dissolving an interior table would re-number remaining tables
+        and confuse coaches mid-game. Only top dissolves are allowed."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        for n in range(1, 5):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        with pytest.raises(ValidationError, match="highest-numbered"):
+            dissolve_table(quiz_event, table_number=2)
+
+    def test_cannot_dissolve_finished_quiz(self, quiz_event):
+        """Quiz is over — dissolving is meaningless and would corrupt
+        the historical schedule."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 3
+        quiz_event.status = "finished"
+        quiz_event.save()
+        for n in range(1, 4):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        with pytest.raises(ValidationError, match="finished"):
+            dissolve_table(quiz_event, table_number=3)
+
+    def test_cannot_dissolve_unknown_table(self, quiz_event):
+        """Dissolving a table_number that doesn't exist on this quiz."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        # Only create tables 1 and 2 — table 3 is "missing" but
+        # num_tables claims it exists.
+        for n in range(1, 3):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+
+        with pytest.raises(ValidationError, match="does not exist"):
+            dissolve_table(quiz_event, table_number=3)
+
+    def test_dissolve_active_quiz_rebuilds_future_rounds(self, quiz_event):
+        """Dissolving during active play deletes future-round rotation
+        rows for the dropped table and rebuilds them against the new
+        num_tables. Rotators previously scheduled at table 4 in round
+        2+ must now be reseated at tables 1-3."""
+        from crush_lu.services.quiz_rotation import (
+            dissolve_table,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        rounds = []
+        for i in range(3):
+            rounds.append(
+                QuizRound.objects.create(
+                    quiz=quiz_event,
+                    title=f"R{i + 1}",
+                    sort_order=i,
+                    time_per_question=30,
+                )
+            )
+
+        # 8M + 8F = 16, well-formed for 4 tables × 3 rounds
+        regs = self._make_attendees(quiz_event.event, men_count=8, women_count=8)
+        generate_rotation_rounds(quiz_event)
+
+        # Move quiz into round 1 (round_number=0 was check-in;
+        # round_number=1 is the first playable round).
+        quiz_event.current_round = rounds[0]
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["current_round", "status"])
+
+        # Find an empty interior position to dissolve from. We dissolve
+        # table 4 from the top. Manually empty table 4 of its current-
+        # round seats first to satisfy the guard (simulates coach
+        # waiting until rotation moves people away from it).
+        table4 = QuizTable.objects.get(quiz=quiz_event, table_number=4)
+        current_rn = quiz_event.get_round_number()
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=current_rn, table=table4
+        ).delete()
+
+        result = dissolve_table(quiz_event, table_number=4)
+
+        assert result["num_tables"] == 3
+
+        # No rotation rows reference table 4 from current round forward
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, table=table4, round_number__gte=current_rn
+        ).exists()
+
+        # Future rounds (>= current_rn + 1) have been rebuilt: they
+        # only reference tables 1-3.
+        future_table_numbers = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gt=current_rn
+            ).values_list("table__table_number", flat=True)
+        )
+        assert future_table_numbers.issubset({1, 2, 3}), (
+            f"Future rounds must only use the remaining tables; got {future_table_numbers}"
+        )
+
+        # All attended users still have seats in future rounds (no one
+        # was stranded by the dissolve).
+        future_user_ids = set(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gt=current_rn
+            ).values_list("user_id", flat=True)
+        )
+        for r in regs:
+            assert r.user_id in future_user_ids, (
+                f"User {r.user_id} was lost when dissolving table 4"
+            )
+
+    def test_dissolve_draft_does_not_call_regen(self, quiz_event):
+        """When quiz is still draft, dissolve drops the table and
+        decrements num_tables but doesn't auto-generate future rounds
+        (the initial build happens at start_quiz)."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        for n in range(1, 5):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+        assert quiz_event.status == "draft"
+
+        result = dissolve_table(quiz_event, table_number=4)
+
+        assert result["num_tables"] == 3
+        # No rotation schedule was generated — quiz hasn't started yet.
+        assert not QuizRotationSchedule.objects.filter(quiz=quiz_event).exists()
+
+    def test_anchors_only_sparse_table_is_not_dissolvable(self, quiz_event):
+        """Known limitation: a sparse top table that holds an anchor but
+        no rotators is NOT dissolvable under the current guard, because
+        the anchor counts as "currently seated." The advisor flagged
+        this case (4M+2F+4 tables → tables 3 & 4 each hold one anchor +
+        zero rotators). Lifting it would require reseating the anchor
+        mid-round, which violates the "anchors stay" promise. We
+        document the limitation here so a future relaxation of the
+        guard breaks this test as a signal to revisit the trade-off."""
+        from crush_lu.services.quiz_rotation import dissolve_table
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        round1 = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        for n in range(1, 5):
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+        quiz_event.current_round = round1
+        quiz_event.status = "active"
+        quiz_event.save(update_fields=["current_round", "status"])
+
+        # One anchor at table 4, no rotators (the sparse case).
+        anchor_user = self._make_user_with_profile("sparse_anchor", "M")
+        table4 = QuizTable.objects.get(quiz=quiz_event, table_number=4)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=table4,
+            user=anchor_user,
+            role="anchor",
+        )
+
+        with pytest.raises(ValidationError, match="seated participants"):
+            dissolve_table(quiz_event, table_number=4)
+
+
+# ============================================================================
+# MARK ATTENDED (manual coach action, §7 #2)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestMarkAttended:
+    """Coach-only endpoint that flips a registration to 'attended' without
+    a QR token. Mirrors event_checkin_api side effects."""
+
+    def _login_as(self, client, user):
+        client.force_login(user)
+
+    def test_mark_attended_flips_confirmed_to_attended(
+        self, quiz_event, coach_user
+    ):
+        from django.test import Client
+
+        from crush_lu.models.events import EventRegistration
+
+        attendee = User.objects.create_user(
+            username="ma1@test.com", email="ma1@test.com", password="x"
+        )
+        _grant_consent(attendee)
+        _create_profile(attendee, "M")
+        reg = EventRegistration.objects.create(
+            event=quiz_event.event, user=attendee, status="confirmed"
+        )
+
+        client = Client()
+        client.force_login(coach_user)
+        resp = client.post(
+            f"/api/quiz/{quiz_event.id}/mark-attended/",
+            data=json.dumps({"registration_id": reg.id}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200, resp.content
+        body = resp.json()
+        assert body["success"] is True
+        reg.refresh_from_db()
+        assert reg.status == "attended"
+        assert reg.checked_in_at is not None
+
+    def test_mark_attended_recovers_no_show(self, quiz_event, coach_user):
+        """A registration accidentally flipped to no_show by the admin
+        action can be recovered without re-creating it."""
+        from django.test import Client
+
+        from crush_lu.models.events import EventRegistration
+
+        attendee = User.objects.create_user(
+            username="ma2@test.com", email="ma2@test.com", password="x"
+        )
+        _grant_consent(attendee)
+        _create_profile(attendee, "F")
+        reg = EventRegistration.objects.create(
+            event=quiz_event.event, user=attendee, status="no_show"
+        )
+
+        client = Client()
+        client.force_login(coach_user)
+        resp = client.post(
+            f"/api/quiz/{quiz_event.id}/mark-attended/",
+            data=json.dumps({"registration_id": reg.id}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200, resp.content
+        reg.refresh_from_db()
+        assert reg.status == "attended"
+
+    def test_non_host_cannot_mark_attended(self, quiz_event, quiz_user):
+        """Random authenticated user must be rejected."""
+        from django.test import Client
+
+        from crush_lu.models.events import EventRegistration
+
+        other = User.objects.create_user(
+            username="ma3@test.com", email="ma3@test.com", password="x"
+        )
+        _grant_consent(other)
+        _create_profile(other, "M")
+        reg = EventRegistration.objects.create(
+            event=quiz_event.event, user=other, status="confirmed"
+        )
+
+        client = Client()
+        client.force_login(quiz_user)
+        resp = client.post(
+            f"/api/quiz/{quiz_event.id}/mark-attended/",
+            data=json.dumps({"registration_id": reg.id}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 403
+        reg.refresh_from_db()
+        assert reg.status == "confirmed"
+
+    def test_mark_attended_idempotent_when_already_attended(
+        self, quiz_event, coach_user
+    ):
+        from django.test import Client
+
+        from crush_lu.models.events import EventRegistration
+
+        attendee = User.objects.create_user(
+            username="ma4@test.com", email="ma4@test.com", password="x"
+        )
+        _grant_consent(attendee)
+        _create_profile(attendee, "M")
+        reg = EventRegistration.objects.create(
+            event=quiz_event.event, user=attendee, status="attended"
+        )
+
+        client = Client()
+        client.force_login(coach_user)
+        resp = client.post(
+            f"/api/quiz/{quiz_event.id}/mark-attended/",
+            data=json.dumps({"registration_id": reg.id}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("already_attended") is True
+
+
+# ============================================================================
+# RE-SCORE BEFORE REVEAL (§7 #3)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestReScoreBeforeReveal:
+    """The coach can flip a table's correct/wrong score until the
+    all-tables-scored reveal fires. After reveal, scores are locked."""
+
+    def _setup(self, quiz_event):
+        round1 = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round1,
+            text="Q?",
+            question_type="open_ended",
+            points=10,
+        )
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+            for n in (1, 2, 3)
+        ]
+        return round1, question, tables
+
+    def test_re_score_flips_table_round_score_before_reveal(
+        self, quiz_event, coach_user
+    ):
+        from django.test import Client
+
+        round1, question, tables = self._setup(quiz_event)
+        client = Client()
+        client.force_login(coach_user)
+
+        # Score table 1 correct
+        r1 = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question.id,
+                    "is_correct": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r1.status_code == 200, r1.content
+
+        # Re-score table 1 as wrong (other tables still un-scored)
+        r2 = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question.id,
+                    "is_correct": False,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r2.status_code == 200, r2.content
+
+        # DB reflects the flipped score
+        score = TableRoundScore.objects.get(
+            quiz=quiz_event, table=tables[0], question=question
+        )
+        assert score.is_correct is False
+
+    def test_re_score_blocked_after_reveal(self, quiz_event, coach_user):
+        """Once every table has been scored, the reveal fires and
+        further re-scores must be rejected."""
+        from django.test import Client
+
+        round1, question, tables = self._setup(quiz_event)
+        client = Client()
+        client.force_login(coach_user)
+
+        # Score all 3 tables — last one triggers the reveal
+        for t in tables:
+            r = client.post(
+                f"/api/quiz/{quiz_event.id}/score-table/",
+                data=json.dumps(
+                    {
+                        "table_id": t.id,
+                        "question_id": question.id,
+                        "is_correct": True,
+                    }
+                ),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+
+        # Try to flip table 1 — locked, should 409
+        r2 = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question.id,
+                    "is_correct": False,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r2.status_code == 409, r2.content
+
+        # DB unchanged (still correct)
+        score = TableRoundScore.objects.get(
+            quiz=quiz_event, table=tables[0], question=question
+        )
+        assert score.is_correct is True
+
+    def test_re_score_no_op_when_same_value(self, quiz_event, coach_user):
+        """Submitting the same score twice is a no-op (returns
+        already_scored), so accidental double-taps don't churn state."""
+        from django.test import Client
+
+        round1, question, tables = self._setup(quiz_event)
+        client = Client()
+        client.force_login(coach_user)
+
+        client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question.id,
+                    "is_correct": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        r2 = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question.id,
+                    "is_correct": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r2.status_code == 409
+
+    def test_score_table_does_not_credit_round_0_ghosts(
+        self, quiz_event, coach_user
+    ):
+        """Regression for §4I fossil-fallback: scoring an empty table in
+        a rotation-aware quiz must not credit round-0 ghosts via
+        QuizTableMembership. The advisor flagged that score_table_for_question
+        + score_table both had a per-table fallback that fired for any
+        empty seat. Quiz-level gate fixes this."""
+        from django.test import Client
+
+        round1, question, tables = self._setup(quiz_event)
+
+        # Seed rotation: user_a is at table 1 in round 0, but the
+        # quiz is on round 1 (table 1 has no rotation row in round 1).
+        # round-0 QuizTableMembership puts user_a at table 1 (the
+        # "fossil"). Without the fix, scoring table 1 in round 1 would
+        # credit user_a despite them not being seated there now.
+        user_a = User.objects.create_user(
+            username="ghost@test.com", email="ghost@test.com", password="x"
+        )
+        _grant_consent(user_a)
+        _create_profile(user_a, "M")
+
+        # Round 0: user_a at table 1 (rotation + membership)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=tables[0],
+            user=user_a,
+            role="anchor",
+        )
+        QuizTableMembership.objects.create(table=tables[0], user=user_a)
+        # Round 1: user_a moved away (only at table 2, not table 1)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=tables[1],
+            user=user_a,
+            role="anchor",
+        )
+        # Add a second QuizRound for round 1 to set as current
+        round2 = QuizRound.objects.create(
+            quiz=quiz_event,
+            title="R2",
+            sort_order=1,
+            time_per_question=30,
+        )
+        question2 = QuizQuestion.objects.create(
+            round=round2,
+            text="Q2?",
+            question_type="open_ended",
+            points=10,
+        )
+        quiz_event.current_round = round2
+        quiz_event.save(update_fields=["current_round"])
+        assert quiz_event.get_round_number() == 1
+
+        client = Client()
+        client.force_login(coach_user)
+        # Score table 1 (empty in round 1) for the round-2 question.
+        r = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": tables[0].id,
+                    "question_id": question2.id,
+                    "is_correct": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+
+        # user_a must NOT receive an IndividualScore for question2 —
+        # they were not at table 1 in round 1.
+        assert not IndividualScore.objects.filter(
+            quiz=quiz_event, user=user_a, question=question2
+        ).exists(), (
+            "Round-0 ghost must not be credited when scoring a "
+            "rotation-aware empty seat"
+        )
+
+
+# ============================================================================
+# COMPUTE ROTATION WARNINGS (§7 #7)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestComputeRotationWarnings:
+    """compute_rotation_warnings(quiz) re-derives the same warnings the
+    rotation algorithm would emit, without re-running the full schedule.
+    Used by the coach view so capacity issues stay visible mid-event."""
+
+    def _make_attendees(self, event, men_count, women_count):
+        from crush_lu.models.events import EventRegistration
+
+        for i in range(men_count):
+            u = User.objects.create_user(
+                username=f"crm{i}@test.com",
+                email=f"crm{i}@test.com",
+                password="x",
+            )
+            _grant_consent(u)
+            _create_profile(u, "M")
+            EventRegistration.objects.create(
+                event=event, user=u, status="attended"
+            )
+        for i in range(women_count):
+            u = User.objects.create_user(
+                username=f"crw{i}@test.com",
+                email=f"crw{i}@test.com",
+                password="x",
+            )
+            _grant_consent(u)
+            _create_profile(u, "F")
+            EventRegistration.objects.create(
+                event=event, user=u, status="attended"
+            )
+
+    def test_no_warnings_when_balanced(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        # 6 men + 6 women = balanced for 3 tables (men 2 per table,
+        # women fill A and B).
+        self._make_attendees(quiz_event.event, 6, 6)
+
+        assert compute_rotation_warnings(quiz_event) == []
+
+    def test_warns_on_too_few_attendees(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        self._make_attendees(quiz_event.event, 1, 1)
+
+        warns = compute_rotation_warnings(quiz_event)
+        assert any("at least 4" in w for w in warns), warns
+
+    def test_warns_on_empty_anchor_tables(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        # Only 2 men → tables 3 and 4 have no anchor
+        self._make_attendees(quiz_event.event, 2, 6)
+
+        warns = compute_rotation_warnings(quiz_event)
+        assert any("no anchors" in w for w in warns), warns
+
+    def test_warns_on_too_few_rotators(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        # 8 men, 2 women → group A only fills 2 tables of 4
+        self._make_attendees(quiz_event.event, 8, 2)
+
+        warns = compute_rotation_warnings(quiz_event)
+        assert any("rotator" in w.lower() for w in warns), warns
+
+    def test_warns_on_spillover(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = 3
+        quiz_event.save()
+        # 6 men + 8 women → 2 women into spillover group C (above 2*3)
+        self._make_attendees(quiz_event.event, 6, 8)
+
+        warns = compute_rotation_warnings(quiz_event)
+        assert any("spillover" in w for w in warns), warns
+
+    def test_no_warnings_when_num_tables_unset(self, quiz_event):
+        from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+        quiz_event.num_tables = None
+        quiz_event.save()
+        assert compute_rotation_warnings(quiz_event) == []
+
+
+# ============================================================================
+# CURRENT ASSIGNMENT (§7 #5)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestGetCurrentAssignment:
+    """get_current_assignment(quiz, user_id) returns the user's table
+    for the quiz's *current* round so a reconnecting WS client doesn't
+    display the stale pre-rotate seat."""
+
+    def test_reflects_current_round_after_rotate(self, quiz_event):
+        from crush_lu.services.quiz_rotation import get_current_assignment
+
+        rounds = []
+        for i in range(2):
+            rounds.append(
+                QuizRound.objects.create(
+                    quiz=quiz_event, title=f"R{i}", sort_order=i
+                )
+            )
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+            for n in (1, 2)
+        ]
+        user = User.objects.create_user(
+            username="ca@test.com", email="ca@test.com", password="x"
+        )
+        _grant_consent(user)
+        _create_profile(user, "F")
+
+        # Round 0: user at table 1; Round 1: user at table 2
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=tables[0],
+            user=user,
+            role="rotator",
+        )
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=tables[1],
+            user=user,
+            role="rotator",
+        )
+
+        # Quiz currently on round 0 → returns table 1
+        quiz_event.current_round = rounds[0]
+        quiz_event.save(update_fields=["current_round"])
+        a = get_current_assignment(quiz_event, user.id)
+        assert a is not None
+        assert a["table_number"] == 1
+
+        # Quiz advances to round 1 → returns table 2
+        quiz_event.current_round = rounds[1]
+        quiz_event.save(update_fields=["current_round"])
+        a = get_current_assignment(quiz_event, user.id)
+        assert a is not None
+        assert a["table_number"] == 2
+
+    def test_returns_none_when_unseated(self, quiz_event):
+        from crush_lu.services.quiz_rotation import get_current_assignment
+
+        user = User.objects.create_user(
+            username="unseated@test.com",
+            email="unseated@test.com",
+            password="x",
+        )
+        _grant_consent(user)
+        assert get_current_assignment(quiz_event, user.id) is None
+
+    def test_legacy_membership_fallback_when_no_rotation_rows(self, quiz_event):
+        from crush_lu.services.quiz_rotation import get_current_assignment
+
+        # Legacy non-rotating quiz: only QuizTableMembership exists.
+        table = QuizTable.objects.create(quiz=quiz_event, table_number=1)
+        user = User.objects.create_user(
+            username="legacy@test.com", email="legacy@test.com", password="x"
+        )
+        _grant_consent(user)
+        QuizTableMembership.objects.create(table=table, user=user)
+
+        a = get_current_assignment(quiz_event, user.id)
+        assert a is not None
+        assert a["table_number"] == 1
+        assert a["role"] == ""
+
+
+# ============================================================================
+# COACH VIEW WARNINGS INTEGRATION (§7 #7)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestCoachViewWarningsIntegration:
+    """The quiz_coach_view passes rotation_warnings into the template
+    context and renders the warning banner."""
+
+    def test_coach_view_renders_warning_banner_for_skewed_setup(
+        self, quiz_event, coach_user
+    ):
+        from django.test import Client
+
+        from crush_lu.models.events import EventRegistration
+
+        quiz_event.num_tables = 4
+        quiz_event.save()
+        # 2 men + 5 women → 2 empty anchor tables → warning banner
+        for i in range(2):
+            u = User.objects.create_user(
+                username=f"cvw_m{i}@test.com",
+                email=f"cvw_m{i}@test.com",
+                password="x",
+            )
+            _grant_consent(u)
+            _create_profile(u, "M")
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+        for i in range(5):
+            u = User.objects.create_user(
+                username=f"cvw_w{i}@test.com",
+                email=f"cvw_w{i}@test.com",
+                password="x",
+            )
+            _grant_consent(u)
+            _create_profile(u, "F")
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+
+        client = Client()
+        client.force_login(coach_user)
+        resp = client.get(
+            f"/en/events/{quiz_event.event_id}/quiz/coach/"
+        )
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert "Rotation capacity warnings" in body, (
+            "Coach view must render the warnings banner when capacity "
+            "issues exist"
+        )
+        assert "no anchors" in body, (
+            f"Expected 'no anchors' warning text in body, "
+            f"got: {body[:500]}"
+        )
+
+
+# ============================================================================
+# RESET QUIZ (§7 #11)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestResetQuiz:
+    """reset_quiz_to_draft brings a finished/paused quiz back to draft
+    state. Optionally clears scoring rows."""
+
+    def _make_finished_quiz(self, quiz_event):
+        round1 = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round1,
+            text="Q?",
+            question_type="open_ended",
+            points=10,
+        )
+        table = QuizTable.objects.create(quiz=quiz_event, table_number=1)
+        TableRoundScore.objects.create(
+            quiz=quiz_event, table=table, question=question, is_correct=True
+        )
+
+        quiz_event.status = "finished"
+        quiz_event.current_round = round1
+        quiz_event.current_question_index = 0
+        quiz_event.save()
+        return round1, question, table
+
+    def test_reset_finished_to_draft(self, quiz_event):
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        self._make_finished_quiz(quiz_event)
+
+        result = reset_quiz_to_draft(quiz_event, clear_scores=False)
+        assert result["status"] == "draft"
+        assert result["reset"] is True
+
+        quiz_event.refresh_from_db()
+        assert quiz_event.status == "draft"
+        assert quiz_event.current_round_id is None
+        assert quiz_event.current_question_index == -1
+
+        # Scores preserved when clear_scores=False
+        assert TableRoundScore.objects.filter(quiz=quiz_event).exists()
+
+    def test_reset_with_clear_scores_wipes_scoring(self, quiz_event):
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        self._make_finished_quiz(quiz_event)
+
+        result = reset_quiz_to_draft(quiz_event, clear_scores=True)
+        assert result["cleared_scores"] is True
+        assert result["scores_cleared_count"] >= 1
+
+        assert not TableRoundScore.objects.filter(quiz=quiz_event).exists()
+        assert not IndividualScore.objects.filter(quiz=quiz_event).exists()
+
+    def test_cannot_reset_active_quiz(self, quiz_event):
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        with pytest.raises(ValidationError, match="active"):
+            reset_quiz_to_draft(quiz_event, clear_scores=False)
+
+        quiz_event.refresh_from_db()
+        assert quiz_event.status == "active"
+
+    def test_reset_paused_quiz_works(self, quiz_event):
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        quiz_event.status = "paused"
+        quiz_event.save()
+
+        result = reset_quiz_to_draft(quiz_event, clear_scores=False)
+        assert result["status"] == "draft"
+        quiz_event.refresh_from_db()
+        assert quiz_event.status == "draft"
+
+    def test_reset_with_clear_scores_lets_replay_score_again(
+        self, quiz_event, coach_user
+    ):
+        """Regression: without clear_scores, the re-score lock from a
+        prior fully-scored question (scored_count >= total_tables)
+        survives the reset. With clear_scores=True, scoring works
+        again on a replayed question. This pins why the UI button
+        always sends clear_scores=true."""
+        from django.test import Client
+
+        from crush_lu.services.quiz_rotation import reset_quiz_to_draft
+
+        round1, question, table = self._make_finished_quiz(quiz_event)
+        # Make a 2-table setup so "all tables scored" is reachable.
+        table2 = QuizTable.objects.create(quiz=quiz_event, table_number=2)
+        TableRoundScore.objects.create(
+            quiz=quiz_event, table=table2, question=question, is_correct=True
+        )
+        # Both tables scored on `question` → reveal lock fires.
+        assert TableRoundScore.objects.filter(
+            quiz=quiz_event, question=question
+        ).count() == QuizTable.objects.filter(quiz=quiz_event).count()
+
+        # Reset clearing scores, then resume scoring on the replayed
+        # question — must succeed.
+        reset_quiz_to_draft(quiz_event, clear_scores=True)
+        # Bring quiz back to active so score endpoint accepts the post
+        quiz_event.status = "active"
+        quiz_event.current_round = round1
+        quiz_event.current_question_index = 0
+        quiz_event.save()
+
+        client = Client()
+        client.force_login(coach_user)
+        r = client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": table.id,
+                    "question_id": question.id,
+                    "is_correct": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert r.status_code == 200, (
+            f"Replay scoring should succeed after clear_scores reset; "
+            f"got {r.status_code}: {r.content!r}"
+        )
+
+
+# ============================================================================
+# PIN RATE LIMIT (§7 #4)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestPinRateLimit:
+    """The projector PIN endpoint is rate-limited (5/min/IP) so the short
+    display_token can't be brute-forced."""
+
+    def test_sixth_wrong_pin_within_a_minute_returns_429(self, quiz_event):
+        """5 attempts allowed; the 6th should hit the throttle."""
+        from django.core.cache import cache
+        from django.test import Client
+
+        # Throttle keys are cache-backed; clear so test is order-independent.
+        cache.clear()
+
+        quiz_event.display_token = "1234"
+        quiz_event.save()
+
+        client = Client()
+        url = f"/api/quiz/{quiz_event.event_id}/verify-pin/"
+        body = json.dumps({"pin": "9999"})
+        for i in range(5):
+            r = client.post(url, data=body, content_type="application/json")
+            assert r.status_code in (200, 400), (
+                f"Attempt {i + 1} unexpectedly hit throttle: {r.status_code}"
+            )
+
+        r6 = client.post(url, data=body, content_type="application/json")
+        assert r6.status_code == 429, (
+            f"Expected throttle on 6th attempt, got {r6.status_code}: "
+            f"{r6.content!r}"
+        )
+        # Belt and braces: clear cache so other tests aren't affected.
+        cache.clear()
+
+
+# ============================================================================
+# QUIZ TABLES API (§7 #6) — current-round default
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestQuizTablesCurrentRoundDefault:
+    """When no round param is passed to /api/quiz/<id>/tables/, the
+    response must reflect the *current* round's rotation, not the
+    round-0 check-in snapshot."""
+
+    def test_default_round_uses_current(self, quiz_event, quiz_user):
+        from rest_framework.test import APIClient
+
+        rounds = []
+        for i in range(2):
+            rounds.append(
+                QuizRound.objects.create(
+                    quiz=quiz_event, title=f"R{i}", sort_order=i
+                )
+            )
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+            for n in (1, 2)
+        ]
+        # User A seated at table 1 in round 0, table 2 in round 1
+        user_a = User.objects.create_user(
+            username="curra@test.com", email="curra@test.com", password="x"
+        )
+        _grant_consent(user_a)
+        _create_profile(user_a, "M")
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=tables[0],
+            user=user_a,
+            role="anchor",
+        )
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=tables[1],
+            user=user_a,
+            role="anchor",
+        )
+        QuizTableMembership.objects.create(table=tables[0], user=user_a)
+
+        # Quiz is on round 1 (the second playable round).
+        quiz_event.current_round = rounds[1]
+        quiz_event.save(update_fields=["current_round"])
+
+        client = APIClient()
+        client.force_authenticate(user=quiz_user)
+        resp = client.get(f"/api/quiz/{quiz_event.id}/tables/")
+        assert resp.status_code == 200
+
+        # Table 1 should be empty in round 1 (user moved); table 2 has user_a.
+        by_number = {t["table_number"]: t for t in resp.json()}
+        assert len(by_number[1]["members"]) == 0, (
+            f"Table 1 should be empty in round 1, got "
+            f"{by_number[1]['members']}"
+        )
+        assert any(
+            m.get("display_name") == user_a.crushprofile.display_name
+            for m in by_number[2]["members"]
+        ), "user_a should appear at table 2 in round 1"
+
+

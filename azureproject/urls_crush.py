@@ -231,6 +231,7 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
     path('api/quiz/<int:quiz_id>/my-assignment/', api_quiz.my_assignment, name='api_quiz_my_assignment'),
     path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
+    path('api/quiz/<int:quiz_id>/mark-attended/', api_quiz.mark_attended, name='api_quiz_mark_attended'),
 
     # Quiz table display (projector view, language-neutral, no auth)
     path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),

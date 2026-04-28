@@ -611,6 +611,7 @@ REST_FRAMEWORK = {
         "signup": "3/minute",  # Signup attempts (custom throttle)
         "phone_verify": "3/minute",  # Phone verification (custom throttle)
         "password_reset": "3/hour",  # Password reset requests (prevent email spam)
+        "quiz_pin": "5/minute",  # Quiz projector PIN verification (prevent brute force)
     },
 }
 

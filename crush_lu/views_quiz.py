@@ -15,6 +15,7 @@ from crush_lu.models.quiz import (
     QuizTable,
     QuizTableMembership,
 )
+from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
 
 def _photo_url(profile):
@@ -46,16 +47,26 @@ def _member_color(name):
 
 
 def _get_table_members_json(quiz, round_number=0):
-    """Build JSON-safe list of tables with their current members."""
+    """Build JSON-safe list of tables with their current members.
+
+    Decides rotation-vs-fallback at the *quiz* level: if any rotation
+    rows exist for this round, use them exclusively (so an empty table
+    shows as empty rather than the stale round-0 check-in snapshot).
+    Only fall back to ``QuizTableMembership`` when the quiz has no
+    rotation schedule for this round at all (legacy non-rotating
+    events).
+    """
     tables = QuizTable.objects.filter(quiz=quiz).order_by("table_number")
+    rotation_exists = QuizRotationSchedule.objects.filter(
+        quiz=quiz, round_number=round_number
+    ).exists()
     result = []
     for table in tables:
         members = []
-        # Try rotation schedule first
-        rotations = QuizRotationSchedule.objects.filter(
-            quiz=quiz, round_number=round_number, table=table
-        ).select_related("user__crushprofile")
-        if rotations.exists():
+        if rotation_exists:
+            rotations = QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=round_number, table=table
+            ).select_related("user__crushprofile")
             for r in rotations:
                 profile = getattr(r.user, "crushprofile", None)
                 name = profile.display_name if profile else "Anonymous"
@@ -69,7 +80,6 @@ def _get_table_members_json(quiz, round_number=0):
                     }
                 )
         else:
-            # Fall back to static membership
             for m in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(m.user, "crushprofile", None)
                 name = profile.display_name if profile else "Anonymous"
@@ -229,6 +239,23 @@ def quiz_coach_view(request, event_id):
     round_number = quiz.get_round_number()
     table_members = _get_table_members_json(quiz, round_number)
 
+    # Surface persistent capacity warnings (empty anchor tables, too few
+    # rotators, spillover) so the coach can act on them mid-event
+    # instead of relying on the one-shot Django messages flash from the
+    # admin generate action.
+    rotation_warnings = []
+    if is_quiz_night:
+        try:
+            from crush_lu.services.quiz_rotation import compute_rotation_warnings
+
+            rotation_warnings = compute_rotation_warnings(quiz)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "compute_rotation_warnings failed for quiz %s", quiz.id
+            )
+
     context = {
         "quiz": quiz,
         "event": quiz.event,
@@ -236,6 +263,7 @@ def quiz_coach_view(request, event_id):
         "tables": tables,
         "is_quiz_night": is_quiz_night,
         "table_members_json": json.dumps(table_members),
+        "rotation_warnings": rotation_warnings,
     }
     return render(request, "crush_lu/quiz_coach.html", context)
 
@@ -267,8 +295,14 @@ def quiz_table_display(request, event_id):
 
 @csrf_exempt
 @require_POST
+@ratelimit_view([QuizPinRateThrottle])
 def quiz_display_verify_pin(request, event_id):
-    """Verify a 4-digit PIN for projector display access."""
+    """Verify a 4-digit PIN for projector display access.
+
+    Rate-limited per IP (5/min) so the short display_token can't be
+    brute-forced. Legitimate retries when a coach mistypes still fit
+    well under the limit.
+    """
     try:
         quiz = QuizEvent.objects.get(event_id=event_id)
     except QuizEvent.DoesNotExist:

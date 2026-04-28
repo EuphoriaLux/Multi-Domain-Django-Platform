@@ -65,6 +65,28 @@ class PhoneVerificationRateThrottle(SimpleRateThrottle):
         }
 
 
+class QuizPinRateThrottle(SimpleRateThrottle):
+    """
+    Throttle for quiz projector PIN verification attempts.
+
+    The display_token on QuizEvent is a short string (4 chars in
+    practice), so an unrate-limited verify endpoint would let a script
+    brute-force its way onto a projector display. Limit by IP to keep
+    the attack surface narrow without breaking legitimate retries when
+    a coach mistypes.
+
+    Default: 5 attempts per minute (configured in settings.py).
+    """
+
+    scope = "quiz_pin"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
+
 class PasswordResetRateThrottle(SimpleRateThrottle):
     """
     Throttle for password reset requests.

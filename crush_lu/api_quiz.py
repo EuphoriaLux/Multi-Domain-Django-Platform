@@ -98,21 +98,44 @@ def quiz_state(request, quiz_id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def quiz_tables(request, quiz_id):
-    """Return table assignments for a quiz, optionally filtered by round."""
+    """Return table assignments for a quiz, optionally filtered by round.
+
+    When ``round`` is omitted, default to the quiz's *current* round
+    number rather than reading the round-0 ``QuizTableMembership``
+    snapshot. Otherwise the coach panel keeps showing check-in
+    seating after the first rotate.
+    """
     round_num = request.query_params.get("round")
 
-    tables = QuizTable.objects.filter(quiz_id=quiz_id).order_by("table_number")
-    data = []
+    quiz = QuizEvent.objects.filter(id=quiz_id).select_related(
+        "current_round"
+    ).first()
+    if quiz is None:
+        return Response({"error": "Quiz not found"}, status=404)
 
+    if round_num is None:
+        round_num_int = quiz.get_round_number()
+    else:
+        try:
+            round_num_int = int(round_num)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid round number"}, status=400)
+
+    tables = QuizTable.objects.filter(quiz_id=quiz_id).order_by("table_number")
+
+    # Decide rotation-vs-fallback at the *quiz* level, not per-table.
+    # A rotation-aware quiz with an empty current-round table for one
+    # seat must not silently fall back to the round-0 membership
+    # snapshot — that's the live-state inconsistency §4I describes.
+    rotation_exists = QuizRotationSchedule.objects.filter(
+        quiz_id=quiz_id, round_number=round_num_int
+    ).exists()
+
+    data = []
     for table in tables:
         members = []
 
-        if round_num is not None:
-            # INPUT-01: Validate round_num is a valid integer
-            try:
-                round_num_int = int(round_num)
-            except (ValueError, TypeError):
-                return Response({"error": "Invalid round number"}, status=400)
+        if rotation_exists:
             rotations = QuizRotationSchedule.objects.filter(
                 quiz_id=quiz_id,
                 round_number=round_num_int,
@@ -131,9 +154,13 @@ def quiz_tables(request, quiz_id):
                     }
                 )
         else:
-            for membership in table.memberships.select_related("user__crushprofile"):
+            # Legacy non-rotating quiz: no rotation rows for this round
+            # anywhere in the quiz. Round-0 ``QuizTableMembership`` is
+            # the only signal we have.
+            for membership in table.memberships.select_related(
+                "user__crushprofile"
+            ):
                 profile = getattr(membership.user, "crushprofile", None)
-                # AUTHZ-02: Removed user_id to avoid exposing internal IDs
                 members.append(
                     {
                         "display_name": (
@@ -291,25 +318,48 @@ def score_table(request, quiz_id):
     except (QuizTable.DoesNotExist, QuizQuestion.DoesNotExist):
         return JsonResponse({"error": "Table or question not found"}, status=404)
 
-    # CONC-04: Wrap scoring in atomic transaction to ensure all-or-nothing
+    # CONC-04: Wrap scoring in atomic transaction to ensure all-or-nothing.
+    # Re-scoring policy: allowed while the round is still in flight (i.e.
+    # before the all-tables-scored reveal fires). Once locked, returns 409.
     from django.db import transaction
 
     with transaction.atomic():
-        # Only allow scoring once per table per question (consistent with WebSocket path)
-        _obj, created = TableRoundScore.objects.get_or_create(
-            quiz=quiz,
-            table=table,
-            question=question,
-            defaults={"is_correct": is_correct},
-        )
-        if not created:
-            return JsonResponse(
-                {
-                    "table_number": table.table_number,
-                    "already_scored": True,
-                },
-                status=409,
+        existing = TableRoundScore.objects.select_for_update().filter(
+            quiz=quiz, table=table, question=question
+        ).first()
+
+        if existing is None:
+            TableRoundScore.objects.create(
+                quiz=quiz,
+                table=table,
+                question=question,
+                is_correct=is_correct,
             )
+            created = True
+        else:
+            total_tables_lock = QuizTable.objects.filter(quiz=quiz).count()
+            already_scored_lock = TableRoundScore.objects.filter(
+                quiz=quiz, question=question
+            ).count()
+            if already_scored_lock >= total_tables_lock:
+                return JsonResponse(
+                    {
+                        "table_number": table.table_number,
+                        "already_scored": True,
+                    },
+                    status=409,
+                )
+            if existing.is_correct == is_correct:
+                return JsonResponse(
+                    {
+                        "table_number": table.table_number,
+                        "already_scored": True,
+                    },
+                    status=409,
+                )
+            existing.is_correct = is_correct
+            existing.save(update_fields=["is_correct"])
+            created = False
 
         # Issue #4: Read bonus from question's own round, not quiz.current_round
         points = question.points if is_correct else 0
@@ -321,33 +371,53 @@ def score_table(request, quiz_id):
         # and "late score arrives" from crediting the new round's seatmates.
         round_number = quiz.get_round_number(question.round)
 
-        rotation_users = list(
-            QuizRotationSchedule.objects.filter(
-                quiz=quiz,
-                round_number=round_number,
-                table=table,
-            ).values_list("user_id", flat=True)
-        )
-
-        if not rotation_users:
+        # Quiz-level gate, not per-table — see §4I. An empty seat in a
+        # rotation-aware quiz must not fall back to round-0 ghosts.
+        round_has_rotation = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number
+        ).exists()
+        if round_has_rotation:
+            rotation_users = list(
+                QuizRotationSchedule.objects.filter(
+                    quiz=quiz,
+                    round_number=round_number,
+                    table=table,
+                ).values_list("user_id", flat=True)
+            )
+        else:
             rotation_users = list(
                 QuizTableMembership.objects.filter(table=table).values_list(
                     "user_id", flat=True
                 )
             )
 
-        # Create IndividualScore for each table member
-        for user_id in rotation_users:
-            IndividualScore.objects.get_or_create(
-                quiz=quiz,
-                user_id=user_id,
-                question=question,
-                defaults={
-                    "is_correct": is_correct,
-                    "points_earned": points,
-                    "answer": f"table_scored:{table.table_number}",
-                },
-            )
+        # On first score, get_or_create. On re-score, update existing
+        # IndividualScore rows so leaderboards reflect the corrected
+        # state.
+        if created:
+            for user_id in rotation_users:
+                IndividualScore.objects.get_or_create(
+                    quiz=quiz,
+                    user_id=user_id,
+                    question=question,
+                    defaults={
+                        "is_correct": is_correct,
+                        "points_earned": points,
+                        "answer": f"table_scored:{table.table_number}",
+                    },
+                )
+        else:
+            for user_id in rotation_users:
+                IndividualScore.objects.update_or_create(
+                    quiz=quiz,
+                    user_id=user_id,
+                    question=question,
+                    defaults={
+                        "is_correct": is_correct,
+                        "points_earned": points,
+                        "answer": f"table_scored:{table.table_number}",
+                    },
+                )
 
     total_tables = QuizTable.objects.filter(quiz=quiz).count()
     scored_count = TableRoundScore.objects.filter(
@@ -364,3 +434,156 @@ def score_table(request, quiz_id):
             "total_tables": total_tables,
         }
     )
+
+
+@login_required
+def mark_attended(request, quiz_id):
+    """Host-only endpoint to manually mark a registration as attended.
+
+    Backstop for cases where the QR scan flow didn't run (registration
+    was accidentally flipped to ``no_show``, the QR code is unreadable,
+    a participant arrives without a phone). Mirrors the side effects of
+    ``views_checkin.event_checkin_api`` minus the signed-token check:
+    flips status to ``attended``, sets ``checked_in_at``, and triggers
+    ``assign_table_on_checkin`` so the participant joins round 0 and
+    gets picked up by future-round regeneration.
+
+    Auth: only the quiz creator or an active CrushCoach assigned to the
+    underlying ``MeetupEvent``.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"error": "Quiz not found"}, status=404)
+
+    if not _is_quiz_host(quiz, request.user):
+        return JsonResponse({"error": "Not authorized"}, status=403)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    registration_id = body.get("registration_id")
+    if not isinstance(registration_id, int):
+        return JsonResponse(
+            {"error": "registration_id (int) required"}, status=400
+        )
+
+    from django.db import transaction
+    from django.utils import timezone
+
+    from crush_lu.models.events import EventRegistration
+
+    with transaction.atomic():
+        try:
+            registration = (
+                EventRegistration.objects.select_for_update()
+                .select_related("user", "event")
+                .get(id=registration_id, event=quiz.event)
+            )
+        except EventRegistration.DoesNotExist:
+            return JsonResponse(
+                {"error": "Registration not found for this event"},
+                status=404,
+            )
+
+        # Idempotent: already attended → return current state.
+        if registration.status == "attended":
+            return JsonResponse(
+                {
+                    "success": True,
+                    "already_attended": True,
+                    "registration_id": registration.id,
+                }
+            )
+
+        # Only allow flipping confirmed/no_show → attended. Cancelled or
+        # waitlisted registrations need an explicit re-confirmation
+        # flow, which is out of scope for the live coach panel.
+        if registration.status not in ("confirmed", "no_show"):
+            return JsonResponse(
+                {
+                    "error": (
+                        f"Cannot mark a '{registration.status}' "
+                        f"registration as attended."
+                    )
+                },
+                status=400,
+            )
+
+        registration.status = "attended"
+        registration.checked_in_at = timezone.now()
+        registration.save(
+            update_fields=["status", "checked_in_at", "updated_at"]
+        )
+
+        # Reuse the QR-path table assignment so manual mark-attended is
+        # indistinguishable from a scan downstream.
+        table_assignment = None
+        if quiz.num_tables:
+            try:
+                from crush_lu.services.quiz_rotation import (
+                    assign_table_on_checkin,
+                )
+
+                table_assignment = assign_table_on_checkin(
+                    quiz, registration.user
+                )
+            except Exception:
+                logger.exception(
+                    "Manual mark-attended: table assignment failed for "
+                    "registration %s",
+                    registration.id,
+                )
+
+    response = {
+        "success": True,
+        "registration_id": registration.id,
+        "user_id": registration.user_id,
+    }
+    if table_assignment:
+        response["table_number"] = table_assignment.get("table_number")
+        response["role"] = table_assignment.get("role")
+
+    # Mirror the QR path's WebSocket broadcasts so live UIs update:
+    # the coach panel's table overview, the affected table's
+    # participants, and the projector display all listen on these
+    # groups. Without these, the manual flip is invisible until refresh.
+    try:
+        from crush_lu.views_checkin import (
+            _broadcast_checkin,
+            _broadcast_quiz_table_update,
+            _get_display_name,
+            _get_profile_data,
+        )
+
+        broadcast_payload = {
+            "success": True,
+            "registration_id": registration.id,
+            "attendee_name": _get_display_name(registration),
+            "checked_in_at": (
+                registration.checked_in_at.isoformat()
+                if registration.checked_in_at
+                else None
+            ),
+            "profile": _get_profile_data(registration),
+        }
+        if table_assignment:
+            broadcast_payload["table_number"] = table_assignment.get(
+                "table_number"
+            )
+            broadcast_payload["role"] = table_assignment.get("role")
+        _broadcast_checkin(quiz.event_id, broadcast_payload)
+        if table_assignment:
+            _broadcast_quiz_table_update(quiz.event, table_assignment)
+    except Exception:
+        logger.exception(
+            "mark_attended: WS broadcast failed for registration %s",
+            registration.id,
+        )
+
+    return JsonResponse(response)

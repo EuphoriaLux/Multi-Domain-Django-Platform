@@ -590,6 +590,310 @@ def check_can_rotate(quiz_id):
     return {}
 
 
+def get_current_assignment(quiz, user_id):
+    """Return ``user_id``'s table assignment for the quiz's *current*
+    round, or None if they aren't seated.
+
+    Used by the WS connect-path so reconnecting clients don't display
+    the stale table number from before a rotate they missed. Falls
+    back to round-0 ``QuizTableMembership`` only when the quiz has
+    *no* rotation rows at all for the current round (legacy
+    non-rotating events).
+    """
+    from crush_lu.models.quiz import (
+        QuizRotationSchedule,
+        QuizTableMembership,
+    )
+
+    round_number = quiz.get_round_number()
+    rotation = (
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number, user_id=user_id
+        )
+        .select_related("table")
+        .first()
+    )
+    if rotation:
+        return {
+            "table_number": rotation.table.table_number,
+            "table_id": rotation.table_id,
+            "role": rotation.role,
+            "round_number": round_number,
+        }
+
+    membership = (
+        QuizTableMembership.objects.filter(
+            table__quiz=quiz, user_id=user_id
+        )
+        .select_related("table")
+        .first()
+    )
+    if membership:
+        return {
+            "table_number": membership.table.table_number,
+            "table_id": membership.table_id,
+            "role": "",
+            "round_number": round_number,
+        }
+    return None
+
+
+def reset_quiz_to_draft(quiz, clear_scores=False):
+    """Bring a finished/paused quiz back to draft.
+
+    Resets ``current_round``, ``current_question_index``, and
+    ``question_started_at`` so the host can re-run a session (e.g.
+    after a test rehearsal). When ``clear_scores=True``, also wipes
+    ``TableRoundScore`` and ``IndividualScore`` rows.
+
+    Returns a status dict suitable for broadcasting to the
+    ``quiz.status`` group event.
+
+    Raises:
+        ValidationError: if the quiz is not in ``finished`` or
+        ``paused`` state. Active quizzes must be paused/ended first.
+    """
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        IndividualScore,
+        QuizEvent,
+        TableRoundScore,
+    )
+
+    with transaction.atomic():
+        try:
+            locked = QuizEvent.objects.select_for_update().get(pk=quiz.pk)
+        except QuizEvent.DoesNotExist:
+            raise ValidationError("Quiz not found.")
+
+        if locked.status not in ("finished", "paused"):
+            raise ValidationError(
+                f"Cannot reset a quiz in '{locked.status}' state. "
+                f"Only 'finished' or 'paused' quizzes can be reset."
+            )
+
+        locked.status = "draft"
+        locked.current_round = None
+        locked.current_question_index = -1
+        locked.question_started_at = None
+        locked.save(
+            update_fields=[
+                "status",
+                "current_round",
+                "current_question_index",
+                "question_started_at",
+            ]
+        )
+
+        cleared = 0
+        if clear_scores:
+            cleared = TableRoundScore.objects.filter(quiz=locked).count()
+            TableRoundScore.objects.filter(quiz=locked).delete()
+            IndividualScore.objects.filter(quiz=locked).delete()
+
+    return {
+        "status": "draft",
+        "reset": True,
+        "cleared_scores": clear_scores,
+        "scores_cleared_count": cleared,
+    }
+
+
+def compute_rotation_warnings(quiz):
+    """Stateless re-derivation of the warnings that
+    ``generate_rotation_schedule`` would emit for the current quiz
+    setup. Lets the coach view surface ongoing capacity issues (empty
+    anchor tables, too few rotators, spillover groups) without
+    re-running or persisting the algorithm output.
+
+    Returns a list of human-readable strings; empty when everything is
+    fine or the quiz has no ``num_tables`` configured yet.
+    """
+    from crush_lu.models.events import EventRegistration
+
+    if not quiz.num_tables or quiz.num_tables < 2:
+        return []
+
+    num_tables = int(quiz.num_tables)
+    registrations = (
+        EventRegistration.objects.filter(event=quiz.event, status="attended")
+        .select_related("user__crushprofile")
+        .order_by("registered_at")
+    )
+    if registrations.count() < 4:
+        return [
+            f"Only {registrations.count()} attended registration(s). "
+            f"Need at least 4 to start the quiz."
+        ]
+
+    men, women = split_participants_by_gender(registrations)
+    warnings = []
+
+    empty_anchor_tables = max(0, num_tables - len(men))
+    if empty_anchor_tables > 0:
+        warnings.append(
+            f"{empty_anchor_tables} table(s) have no anchors "
+            f"({len(men)} anchors for {num_tables} tables)."
+        )
+
+    if len(women) < num_tables:
+        warnings.append(
+            f"Only {len(women)} rotator(s) for {num_tables} tables. "
+            f"Some tables will have no rotators in some rounds."
+        )
+
+    spillover = max(0, len(women) - num_tables * 2)
+    if spillover > 0:
+        warnings.append(
+            f"{spillover} extra rotator(s) assigned to spillover group "
+            f"(groups A/B hold {len(women) - spillover}, "
+            f"spillover distributed round-robin)."
+        )
+
+    return warnings
+
+
+def dissolve_table(quiz, table_number):
+    """
+    Dissolve (remove) a quiz table from the rotation, decrement
+    ``quiz.num_tables``, and reseat any displaced rotators in the
+    remaining tables for future rounds.
+
+    Use case: confirmed-but-no-show participants leave a table empty in
+    the current round; the host can collapse the configured table count
+    so the all-tables-scored gate doesn't block rotation, and so the
+    leaderboard isn't polluted by a ghost table.
+
+    Guards:
+        - quiz status must be ``draft``, ``active``, or ``paused``.
+        - ``num_tables`` must be at least 3 — dissolving below 2 tables
+          would invalidate the rotation algorithm's preconditions.
+        - The target table must exist on this quiz.
+        - The target table must have zero members in the *current* round
+          (and no rotation rows for any future round; current-round
+          membership is the user-visible signal).
+        - The target table is the highest-numbered table on the quiz.
+          We only dissolve from the top so rotation indices and
+          remaining table numbers stay stable; dissolving an interior
+          table would re-number the rest and confuse coaches mid-game.
+
+    Side effects:
+        - Deletes ``QuizRotationSchedule`` rows for this table from the
+          current round forward (round_number >= current_round_number).
+          Earlier rounds are preserved so historical seating is intact.
+        - Deletes ``QuizTableMembership`` rows for this table.
+        - Deletes the ``QuizTable`` itself **only** if no
+          ``TableRoundScore`` rows reference it. Otherwise the table is
+          retained as an orphan so leaderboard history (e.g. table 5
+          won round 1 before being dissolved) is preserved.
+        - Decrements ``quiz.num_tables`` by 1.
+        - Calls ``generate_rotation_rounds(preserve_current_round=True)``
+          to rebuild future rounds against the new table count.
+
+    Returns:
+        dict: {"num_tables": int, "table_deleted": bool}
+
+    Raises:
+        ValidationError: if any guard fails.
+    """
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        QuizEvent,
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    if not isinstance(table_number, int) or table_number < 1:
+        raise ValidationError("Invalid table number.")
+
+    with transaction.atomic():
+        locked_quiz = (
+            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
+        )
+        if locked_quiz is None:
+            raise ValidationError("Quiz not found.")
+        quiz = locked_quiz
+
+        if quiz.status not in ("draft", "active", "paused"):
+            raise ValidationError(
+                f"Cannot dissolve a table while quiz status is '{quiz.status}'."
+            )
+
+        current_num_tables = quiz.num_tables or 0
+        if current_num_tables < 3:
+            raise ValidationError(
+                "Need at least 3 tables to dissolve one — rotation requires "
+                "a minimum of 2 tables."
+            )
+
+        # Only allow dissolving the top-numbered table to keep numbering
+        # stable for the coach and the rotation algorithm.
+        if table_number != current_num_tables:
+            raise ValidationError(
+                f"Only the highest-numbered table can be dissolved "
+                f"(table {current_num_tables}). Got table {table_number}."
+            )
+
+        try:
+            table = QuizTable.objects.select_for_update().get(
+                quiz=quiz, table_number=table_number
+            )
+        except QuizTable.DoesNotExist:
+            raise ValidationError(
+                f"Table {table_number} does not exist on this quiz."
+            )
+
+        # Compute the boundary: keep rounds < current_round_number, drop
+        # this table's rows from the current round forward.
+        current_round_number = 0
+        if quiz.current_round_id:
+            current_round_number = quiz.get_round_number()
+
+        # Block if anyone is currently seated at this table in the
+        # current round — dissolving an occupied table would silently
+        # boot players mid-game.
+        currently_seated = QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=current_round_number, table=table
+        ).exists()
+        if currently_seated:
+            raise ValidationError(
+                f"Cannot dissolve table {table_number}: it has seated "
+                f"participants in the current round. Wait until the next "
+                f"rotation or move them first."
+            )
+
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, table=table, round_number__gte=current_round_number
+        ).delete()
+        QuizTableMembership.objects.filter(table=table).delete()
+
+        # Preserve the QuizTable row if it carries scoring history; the
+        # leaderboard reads TableRoundScore directly and we don't want
+        # to lose past rounds' results just because the table is empty
+        # going forward.
+        table_deleted = False
+        if not table.round_scores.exists():
+            table.delete()
+            table_deleted = True
+
+        quiz.num_tables = current_num_tables - 1
+        quiz.save(update_fields=["num_tables"])
+
+        # Rebuild future rounds against the new table count. This will
+        # also pick up any newly-displaced rotators who used to be
+        # scheduled at the dissolved table in rounds > current.
+        if quiz.status in ("active", "paused"):
+            generate_rotation_rounds(quiz, preserve_current_round=True)
+
+    return {
+        "num_tables": quiz.num_tables,
+        "table_deleted": table_deleted,
+    }
+
+
 def split_participants_by_gender(registrations_with_profiles):
     """
     Split confirmed registrations into men and women lists.
