@@ -3208,7 +3208,7 @@ document.addEventListener("alpine:init", function () {
             isEditing: false,
             step1Valid: false,
             step2Valid: true,
-            step4Valid: true,  // Preferences always has defaults; validated server-side
+            step4Valid: true, // Preferences always has defaults; validated server-side
 
             // Step 1 required fields tracking
             gender: "",

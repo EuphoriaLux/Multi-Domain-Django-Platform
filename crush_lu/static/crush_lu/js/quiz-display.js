@@ -602,9 +602,7 @@ document.addEventListener("alpine:init", function () {
                 }
                 results.forEach(function (r) {
                     var tNum =
-                        r.table_number ||
-                        idToNumber[String(r.table_id)] ||
-                        r.table_id;
+                        r.table_number || idToNumber[String(r.table_id)] || r.table_id;
                     self.revealResults.push({
                         table_number: tNum,
                         is_correct: r.is_correct,
@@ -715,8 +713,7 @@ document.addEventListener("alpine:init", function () {
                             self.leaderboardTables = data.leaderboard_tables;
                         }
                         if (data.leaderboard_individuals) {
-                            self.leaderboardIndividuals =
-                                data.leaderboard_individuals;
+                            self.leaderboardIndividuals = data.leaderboard_individuals;
                         }
 
                         // Handle question data from polling (fallback when no WebSocket)
@@ -752,7 +749,10 @@ document.addEventListener("alpine:init", function () {
                                     },
                                 );
                                 self.screen = "reveal";
-                            } else if (self.screen === "waiting" || self.screen === "loading") {
+                            } else if (
+                                self.screen === "waiting" ||
+                                self.screen === "loading"
+                            ) {
                                 // Only switch to question if we're on waiting/loading screen
                                 if (!self._countdownTimer) {
                                     self.countdownTotal = data.time_per_question || 30;
@@ -796,7 +796,8 @@ document.addEventListener("alpine:init", function () {
                 var s = size || "sm";
                 var dim = s === "lg" ? "h-10 w-10 text-sm" : "h-7 w-7 text-xs";
                 var imgDim = s === "lg" ? "h-10 w-10" : "h-7 w-7";
-                var initials = member.initials || member.display_name.slice(0, 2).toUpperCase();
+                var initials =
+                    member.initials || member.display_name.slice(0, 2).toUpperCase();
                 var color = member.color || "#8B5CF6";
 
                 if (member.photo_url) {
@@ -805,7 +806,7 @@ document.addEventListener("alpine:init", function () {
                         this.escapeHtml(member.photo_url) +
                         '" alt="" class="shrink-0 rounded-full object-cover ring-2 ring-slate-700 ' +
                         imgDim +
-                        '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+                        "\" onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\">" +
                         '<div class="shrink-0 rounded-full items-center justify-center font-bold text-white ' +
                         dim +
                         '" style="display:none;background:' +
@@ -839,11 +840,14 @@ document.addEventListener("alpine:init", function () {
                     // Header with table number badge and score
                     var header = document.createElement("div");
                     header.className = "flex items-center justify-between mb-4";
-                    var scoreHtml = table.total_score > 0
-                        ? '<span class="rounded-full bg-crush-pink/20 px-3 py-1 text-sm font-bold text-crush-pink">' +
-                          table.total_score + " pts</span>"
-                        : '<span class="rounded-full bg-slate-700 px-3 py-1 text-sm font-medium text-gray-400">' +
-                          table.members.length + " players</span>";
+                    var scoreHtml =
+                        table.total_score > 0
+                            ? '<span class="rounded-full bg-crush-pink/20 px-3 py-1 text-sm font-bold text-crush-pink">' +
+                              table.total_score +
+                              " pts</span>"
+                            : '<span class="rounded-full bg-slate-700 px-3 py-1 text-sm font-medium text-gray-400">' +
+                              table.members.length +
+                              " players</span>";
                     header.innerHTML =
                         '<div class="flex items-center gap-3">' +
                         '<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-crush-purple to-crush-pink text-lg font-bold text-white shadow-lg shadow-crush-purple/20">' +
@@ -858,7 +862,8 @@ document.addEventListener("alpine:init", function () {
                     // Members with avatars
                     if (table.members.length === 0) {
                         var empty = document.createElement("div");
-                        empty.className = "flex items-center justify-center py-4 text-sm text-gray-500 italic";
+                        empty.className =
+                            "flex items-center justify-center py-4 text-sm text-gray-500 italic";
                         empty.textContent = "Waiting for attendees...";
                         card.appendChild(empty);
                     } else {
@@ -934,7 +939,9 @@ document.addEventListener("alpine:init", function () {
                         ? '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-3"><span class="text-4xl">\u2705</span></div>'
                         : '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20 mb-3"><span class="text-4xl">\u274C</span></div>';
                     var pointsHtml = correct
-                        ? '<span class="text-sm font-bold text-green-400">+' + pts + " pts</span>"
+                        ? '<span class="text-sm font-bold text-green-400">+' +
+                          pts +
+                          " pts</span>"
                         : '<span class="text-sm font-medium text-red-400/70">+0 pts</span>';
 
                     // Show member avatars for this table
@@ -980,15 +987,17 @@ document.addEventListener("alpine:init", function () {
                 this.leaderboardTables.forEach(function (entry, idx) {
                     var row = document.createElement("div");
                     var isTop3 = idx < 3;
-                    var ringClass = idx === 0
-                        ? "ring-2 ring-yellow-500/40 bg-gradient-to-r from-yellow-500/10 to-slate-800"
-                        : idx === 1
-                        ? "ring-1 ring-gray-400/30 bg-gradient-to-r from-gray-400/10 to-slate-800"
-                        : idx === 2
-                        ? "ring-1 ring-amber-600/30 bg-gradient-to-r from-amber-600/10 to-slate-800"
-                        : "ring-1 ring-white/5 bg-slate-800";
+                    var ringClass =
+                        idx === 0
+                            ? "ring-2 ring-yellow-500/40 bg-gradient-to-r from-yellow-500/10 to-slate-800"
+                            : idx === 1
+                              ? "ring-1 ring-gray-400/30 bg-gradient-to-r from-gray-400/10 to-slate-800"
+                              : idx === 2
+                                ? "ring-1 ring-amber-600/30 bg-gradient-to-r from-amber-600/10 to-slate-800"
+                                : "ring-1 ring-white/5 bg-slate-800";
                     row.className =
-                        "lb-entry flex items-center gap-4 rounded-2xl px-6 py-5 " + ringClass;
+                        "lb-entry flex items-center gap-4 rounded-2xl px-6 py-5 " +
+                        ringClass;
                     row.style.animationDelay = idx * 0.08 + "s";
 
                     var rankIcon = self._getRankIconText(idx);
@@ -1011,7 +1020,8 @@ document.addEventListener("alpine:init", function () {
                         if (tbl.members.length > 4) {
                             membersHtml +=
                                 '<div class="shrink-0 rounded-full flex items-center justify-center font-bold text-white h-7 w-7 text-xs bg-slate-600 ring-1 ring-slate-800">+' +
-                                (tbl.members.length - 4) + "</div>";
+                                (tbl.members.length - 4) +
+                                "</div>";
                         }
                         membersHtml += "</div>";
                     }
@@ -1041,9 +1051,12 @@ document.addEventListener("alpine:init", function () {
                     row.className =
                         "lb-entry flex items-center gap-3 rounded-xl bg-slate-800/60 px-4 py-3 ring-1 ring-white/5";
                     row.style.animationDelay = idx * 0.05 + 0.3 + "s";
-                    var avatar = self._avatarHtml(
-                        { display_name: player.display_name, initials: player.initials, color: player.color, photo_url: player.photo_url },
-                    );
+                    var avatar = self._avatarHtml({
+                        display_name: player.display_name,
+                        initials: player.initials,
+                        color: player.color,
+                        photo_url: player.photo_url,
+                    });
                     row.innerHTML =
                         '<span class="text-sm font-bold text-gray-400 w-6 text-center">#' +
                         (idx + 1) +
@@ -1071,7 +1084,12 @@ document.addEventListener("alpine:init", function () {
                         "flex items-center gap-3 rounded-xl bg-slate-800/60 px-5 py-3.5 ring-1 ring-white/5";
                     var rankIcon = self._getRankIconText(idx);
                     var avatar = self._avatarHtml(
-                        { display_name: player.display_name, initials: player.initials, color: player.color, photo_url: player.photo_url },
+                        {
+                            display_name: player.display_name,
+                            initials: player.initials,
+                            color: player.color,
+                            photo_url: player.photo_url,
+                        },
                         "lg",
                     );
                     row.innerHTML =

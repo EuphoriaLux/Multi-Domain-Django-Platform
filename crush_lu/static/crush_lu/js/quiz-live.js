@@ -1421,8 +1421,7 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
                 this.confirmingReset = false;
-                if (this._confirmResetTimer)
-                    clearTimeout(this._confirmResetTimer);
+                if (this._confirmResetTimer) clearTimeout(this._confirmResetTimer);
                 if (this.ws && this.connected) {
                     this.ws.send(
                         JSON.stringify({
@@ -1966,8 +1965,11 @@ document.addEventListener("alpine:init", function () {
                     // guards still validate, but the UI hides the button
                     // outside this case to avoid coach confusion.
                     var isTopTable = i === this.tableMembers.length - 1;
-                    if (isTopTable && t.members.length === 0 &&
-                        this.tableMembers.length > 2) {
+                    if (
+                        isTopTable &&
+                        t.members.length === 0 &&
+                        this.tableMembers.length > 2
+                    ) {
                         var btn = document.createElement("button");
                         btn.type = "button";
                         btn.className =
