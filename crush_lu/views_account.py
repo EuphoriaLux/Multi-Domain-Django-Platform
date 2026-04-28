@@ -358,6 +358,27 @@ def data_deletion_status(request):
     )
 
 
+def _luxid_connect_url(available_providers):
+    """Return the correct OAuth connect URL for LuxID given available providers.
+
+    Prefers the custom 'luxid' provider (fixed URL, no path kwargs). Falls back
+    to allauth's generic openid_connect URL when the SocialApp is configured
+    with provider='openid_connect' instead, so the connect button never points
+    at a missing SocialApp.
+    """
+    if "luxid" in available_providers:
+        try:
+            return reverse("luxid_login") + "?process=connect"
+        except Exception:
+            pass
+    if "openid_connect" in available_providers:
+        try:
+            return reverse("openid_connect_login") + "?process=connect"
+        except Exception:
+            pass
+    return None
+
+
 @crush_login_required
 def account_settings(request):
     """
@@ -505,6 +526,7 @@ def account_settings(request):
             "microsoft_available": "microsoft" in available_providers,
             "apple_available": "apple" in available_providers,
             "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
+            "luxid_connect_url": _luxid_connect_url(available_providers),
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Apple "Hide My Email" relay detection

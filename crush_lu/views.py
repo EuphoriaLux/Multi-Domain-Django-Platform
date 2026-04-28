@@ -109,6 +109,7 @@ from .views_account import (  # noqa: F401
     signup,
     export_user_data,
     apple_relay_link_prompt,
+    _luxid_connect_url,
 )
 
 # Events
@@ -1044,6 +1045,7 @@ def _edit_sub_account_settings(request, profile):
         "microsoft_available": "microsoft" in available_providers,
         "apple_available": "apple" in available_providers,
         "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
+        "luxid_connect_url": _luxid_connect_url(available_providers),
         "crush_social_accounts": crush_social_accounts,
         "social_photos": social_photos,
         "is_apple_relay_user": bool(

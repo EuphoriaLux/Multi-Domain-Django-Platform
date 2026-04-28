@@ -1493,10 +1493,11 @@ def _luxid_phone_available(phone, profile):
         .exists()
     )
     if clash:
+        _masked = (phone[:3] + "***" + phone[-3:]) if phone and len(phone) > 6 else "***"
         logger.warning(
             "LuxID phone_number %s already owned by another CrushProfile; "
             "skipping phone prefill for user=%s",
-            phone,
+            _masked,
             getattr(profile.user, "email", profile.user_id),
         )
         return False

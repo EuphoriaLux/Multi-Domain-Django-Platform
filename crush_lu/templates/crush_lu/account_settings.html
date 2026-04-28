@@ -141,7 +141,7 @@
                     </a>
                     {% endif %}
                     {% if luxid_available and not luxid_connected %}
-                    <a href="{% url 'luxid_login' %}?process=connect" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <a href="{{ luxid_connect_url }}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
                         <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-5 h-5 mr-2 rounded" style="object-fit: contain;">
                         LuxID
                     </a>
@@ -180,7 +180,7 @@
                     </a>
                     {% endif %}
                     {% if luxid_available %}
-                    <a href="{% url 'luxid_login' %}?process=connect" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <a href="{{ luxid_connect_url }}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
                         <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-5 h-5 mr-2 rounded" style="object-fit: contain;">
                         LuxID
                     </a>
