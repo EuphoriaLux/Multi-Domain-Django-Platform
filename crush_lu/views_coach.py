@@ -1755,9 +1755,12 @@ def coach_event_detail(request, event_id):
         if event.gender_limits_active:
             gender = getattr(getattr(reg.user, "crushprofile", None), "gender", None)
             pool = event.get_gender_pool(gender) if gender else None
-            pool_counters[pool] = pool_counters.get(pool, 0) + 1
             reg.waitlist_pool = pool
-            reg.waitlist_position_in_pool = pool_counters[pool]
+            if pool:
+                pool_counters[pool] = pool_counters.get(pool, 0) + 1
+                reg.waitlist_position_in_pool = pool_counters[pool]
+            else:
+                reg.waitlist_position_in_pool = None
         else:
             reg.waitlist_pool = None
             reg.waitlist_position_in_pool = None
