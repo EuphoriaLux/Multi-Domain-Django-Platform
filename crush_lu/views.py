@@ -991,7 +991,7 @@ def _edit_sub_account_settings(request, profile):
     from django.contrib.sites.models import Site
     from .social_photos import get_all_social_photos
 
-    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid", "openid_connect"]
 
     connected_providers = set(
         request.user.socialaccount_set.values_list("provider", flat=True)
@@ -1009,6 +1009,13 @@ def _edit_sub_account_settings(request, profile):
                 or account.extra_data.get("email")
                 or ""
             )
+        elif account.provider in ("luxid", "openid_connect"):
+            _claims = (
+                account.extra_data.get("userinfo")
+                or account.extra_data.get("id_token")
+                or account.extra_data
+            )
+            account.display_email = _claims.get("email", "") if isinstance(_claims, dict) else ""
         else:
             account.display_email = account.extra_data.get("email", "")
 
@@ -1031,10 +1038,12 @@ def _edit_sub_account_settings(request, profile):
         "facebook_connected": "facebook" in connected_providers,
         "microsoft_connected": "microsoft" in connected_providers,
         "apple_connected": "apple" in connected_providers,
+        "luxid_connected": bool({"luxid", "openid_connect"} & connected_providers),
         "google_available": "google" in available_providers,
         "facebook_available": "facebook" in available_providers,
         "microsoft_available": "microsoft" in available_providers,
         "apple_available": "apple" in available_providers,
+        "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
         "crush_social_accounts": crush_social_accounts,
         "social_photos": social_photos,
         "is_apple_relay_user": bool(
