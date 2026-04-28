@@ -439,7 +439,9 @@ def account_settings(request):
 
     # Crush.lu only supports these social providers
     # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
-    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+    # LuxID can be stored as "luxid" (custom provider) or "openid_connect"
+    # (generic OIDC fallback), so both spellings are included.
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid", "openid_connect"]
 
     # Get connected social providers for this user (filtered to Crush.lu providers)
     connected_providers = set(
@@ -451,8 +453,9 @@ def account_settings(request):
         provider__in=CRUSH_SOCIAL_PROVIDERS
     )
 
-    # Annotate each social account with a resolved display email
-    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'
+    # Annotate each social account with a resolved display email.
+    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'.
+    # LuxID wraps claims inside {"userinfo": {...}} or {"id_token": {...}}.
     for account in crush_social_accounts:
         if account.provider == "microsoft":
             account.display_email = (
@@ -461,6 +464,13 @@ def account_settings(request):
                 or account.extra_data.get("email")
                 or ""
             )
+        elif account.provider in ("luxid", "openid_connect"):
+            _claims = (
+                account.extra_data.get("userinfo")
+                or account.extra_data.get("id_token")
+                or account.extra_data
+            )
+            account.display_email = _claims.get("email", "") if isinstance(_claims, dict) else ""
         else:
             account.display_email = account.extra_data.get("email", "")
 
@@ -489,10 +499,12 @@ def account_settings(request):
             "facebook_connected": "facebook" in connected_providers,
             "microsoft_connected": "microsoft" in connected_providers,
             "apple_connected": "apple" in connected_providers,
+            "luxid_connected": bool({"luxid", "openid_connect"} & connected_providers),
             "google_available": "google" in available_providers,
             "facebook_available": "facebook" in available_providers,
             "microsoft_available": "microsoft" in available_providers,
             "apple_available": "apple" in available_providers,
+            "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Apple "Hide My Email" relay detection
