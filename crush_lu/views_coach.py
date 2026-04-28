@@ -1735,30 +1735,62 @@ def coach_event_detail(request, event_id):
     """Detailed view of event registrations for coaches"""
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    registrations = (
+    all_regs = list(
         EventRegistration.objects.filter(event=event)
         .exclude(status="cancelled")
         .select_related("user__crushprofile")
         .order_by("registered_at")
     )
 
-    # Status filter
+    # Split by status group (order preserved = FIFO within each group)
+    all_confirmed = [r for r in all_regs if r.status in ("confirmed", "attended")]
+    all_waitlisted = [r for r in all_regs if r.status == "waitlist"]
+    all_other = [r for r in all_regs if r.status in ("pending", "no_show")]
+
+    # Annotate each waitlisted registration with its global queue position and
+    # per-gender-pool position so the coach can see who is next in line.
+    pool_counters = {}
+    for i, reg in enumerate(all_waitlisted, start=1):
+        reg.waitlist_position = i
+        if event.gender_limits_active:
+            gender = getattr(getattr(reg.user, "crushprofile", None), "gender", None)
+            pool = event.get_gender_pool(gender) if gender else None
+            reg.waitlist_pool = pool
+            if pool:
+                pool_counters[pool] = pool_counters.get(pool, 0) + 1
+                reg.waitlist_position_in_pool = pool_counters[pool]
+            else:
+                reg.waitlist_position_in_pool = None
+        else:
+            reg.waitlist_pool = None
+            reg.waitlist_position_in_pool = None
+
+    # Gender pool stats — one entry per active pool, shown as summary pills
+    gender_pool_stats = None
+    if event.gender_limits_active:
+        pool_confirmed_counts = {}
+        for r in all_confirmed:
+            gender = getattr(getattr(r.user, "crushprofile", None), "gender", None)
+            pool = event.get_gender_pool(gender) if gender else None
+            if pool:
+                pool_confirmed_counts[pool] = pool_confirmed_counts.get(pool, 0) + 1
+        pool_waitlist_counts = {p: c for p, c in pool_counters.items() if p}
+        gender_pool_stats = [
+            entry for entry in [
+                {"key": "m",  "symbol": "♂", "label": _("Male"),       "confirmed": pool_confirmed_counts.get("m",  0), "waitlist": pool_waitlist_counts.get("m",  0), "limit": event.max_participants_m},
+                {"key": "f",  "symbol": "♀", "label": _("Female"),     "confirmed": pool_confirmed_counts.get("f",  0), "waitlist": pool_waitlist_counts.get("f",  0), "limit": event.max_participants_f},
+                {"key": "nb", "symbol": "⚬", "label": _("Non-binary"), "confirmed": pool_confirmed_counts.get("nb", 0), "waitlist": pool_waitlist_counts.get("nb", 0), "limit": event.max_participants_nb},
+            ]
+            if entry["limit"]
+        ]
+
+    # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")
-    if status_filter == "confirmed":
-        filtered_registrations = [
-            r for r in registrations if r.status in ("confirmed", "attended")
-        ]
-    elif status_filter == "waitlist":
-        filtered_registrations = [r for r in registrations if r.status == "waitlist"]
-    elif status_filter == "other":
-        filtered_registrations = [
-            r for r in registrations if r.status in ("pending", "no_show")
-        ]
-    else:
-        filtered_registrations = list(registrations)
+    if status_filter not in ("all", "confirmed", "waitlist", "other"):
+        status_filter = "all"
 
     # Batch-query latest ProfileSubmission per registered user
-    user_ids = [r.user_id for r in registrations]
+    user_ids = [r.user_id for r in all_regs]
     latest_submissions = {}
     if user_ids:
         for sub in (
@@ -1769,15 +1801,12 @@ def coach_event_detail(request, event_id):
             if sub.profile.user_id not in latest_submissions:
                 latest_submissions[sub.profile.user_id] = sub
 
-    # Attach latest submission to each registration for template use
-    for reg in filtered_registrations:
+    for reg in all_confirmed + all_waitlisted + all_other:
         reg.latest_submission = latest_submissions.get(reg.user_id)
 
-    # Count stats
-    confirmed_count = sum(
-        1 for r in registrations if r.status in ("confirmed", "attended")
-    )
-    waitlist_count = sum(1 for r in registrations if r.status == "waitlist")
+    confirmed_count = len(all_confirmed)
+    waitlist_count = len(all_waitlisted)
+    other_count = len(all_other)
     spots_remaining = max(0, event.max_participants - confirmed_count)
 
     # Post-event activity: connections and sparks
@@ -1795,18 +1824,21 @@ def coach_event_detail(request, event_id):
         status__in=[CrushSpark.Status.PENDING_REVIEW, CrushSpark.Status.REQUESTED]
     ).count()
 
-    # Check if this event has a quiz
     has_quiz = hasattr(event, "quiz")
 
     context = {
         "coach": request.coach,
         "event": event,
-        "registrations": filtered_registrations,
+        "confirmed_registrations": all_confirmed,
+        "waitlist_registrations": all_waitlisted,
+        "other_registrations": all_other,
         "confirmed_count": confirmed_count,
         "waitlist_count": waitlist_count,
+        "other_count": other_count,
         "spots_remaining": spots_remaining,
-        "total_registrations": len(registrations),
+        "total_registrations": confirmed_count + waitlist_count + other_count,
         "status_filter": status_filter,
+        "gender_pool_stats": gender_pool_stats,
         "connection_count": connection_count,
         "mutual_connections": mutual_connections,
         "spark_count": spark_count,
