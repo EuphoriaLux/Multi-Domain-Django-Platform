@@ -1603,10 +1603,19 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # During the connect flow (email user linking LuxID for the first
         # time), allauth has not yet associated sociallogin.user with
         # request.user when pre_social_login fires, so sociallogin.user.id
-        # is None. Fall back to request.user so we can still update the
-        # existing profile in that case.
+        # is None. Fall back to request.user ONLY when this is explicitly a
+        # connect process — never during a normal login, where falling back
+        # to request.user could write the new LuxID claims into the current
+        # session user's profile before they are logged out (cross-account
+        # data corruption).
         _sl_user = sociallogin.user
-        if not (hasattr(_sl_user, "id") and _sl_user.id):
+        _is_connect = (
+            getattr(sociallogin, "state", {}).get("process") == "connect"
+        )
+        if (
+            _is_connect
+            and not (hasattr(_sl_user, "id") and _sl_user.id)
+        ):
             _req_user = getattr(request, "user", None)
             if _req_user is not None and getattr(_req_user, "is_authenticated", False):
                 _sl_user = _req_user
