@@ -112,7 +112,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 self.table_group = None
 
                 await self.channel_layer.group_add(self.quiz_group, self.channel_name)
-                await self.channel_layer.group_add(self.display_group, self.channel_name)
+                await self.channel_layer.group_add(
+                    self.display_group, self.channel_name
+                )
                 await self.accept()
 
                 try:
@@ -218,9 +220,7 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # poll /api/quiz/<id>/my-assignment/.
         if user and user.is_authenticated and not self.is_display:
             try:
-                assignment = await self.get_user_assignment_for_current_round(
-                    user.id
-                )
+                assignment = await self.get_user_assignment_for_current_round(user.id)
             except Exception:
                 logger.exception(
                     "Failed to fetch my_assignment for user %s on quiz %s",
@@ -229,15 +229,15 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 )
                 assignment = None
             if assignment:
-                await self.send_json(
-                    {"type": "quiz.my_assignment", "data": assignment}
-                )
+                await self.send_json({"type": "quiz.my_assignment", "data": assignment})
 
     async def disconnect(self, close_code):
         if hasattr(self, "quiz_group"):
             await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
         if getattr(self, "display_group", None):
-            await self.channel_layer.group_discard(self.display_group, self.channel_name)
+            await self.channel_layer.group_discard(
+                self.display_group, self.channel_name
+            )
         if getattr(self, "table_group", None):
             await self.channel_layer.group_discard(self.table_group, self.channel_name)
 
@@ -972,19 +972,41 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         if not first_round:
             return None
 
-        # Auto-generate rotation schedule (rounds 1+) if not yet created
+        # Auto-generate rotation schedule (rounds 1+) if not yet created.
+        # Surface failures to the host instead of silently activating a
+        # quiz with no future-round seating — that's what produces the
+        # "rotate does nothing" bug because rotate then broadcasts an
+        # empty assignments dict and the API falls back to the round-0
+        # snapshot.
         if (
             quiz.num_tables
             and not QuizRotationSchedule.objects.filter(
                 quiz=quiz, round_number=1
             ).exists()
         ):
-            try:
-                from crush_lu.services.quiz_rotation import generate_rotation_rounds
+            from django.core.exceptions import ValidationError
 
+            from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+            try:
                 generate_rotation_rounds(quiz)
+            except ValidationError as exc:
+                msg = exc.messages[0] if exc.messages else str(exc)
+                return {
+                    "error": (
+                        f"Cannot start quiz: rotation schedule could not be "
+                        f"generated ({msg}). Make sure enough participants "
+                        f"have checked in."
+                    )
+                }
             except Exception:
                 logger.exception("Auto-rotation generation failed for quiz %s", quiz.pk)
+                return {
+                    "error": (
+                        "Cannot start quiz: rotation schedule could not be "
+                        "generated. Check the server logs for details."
+                    )
+                }
 
         quiz.current_round = first_round
         quiz.current_question_index = 0
@@ -1283,9 +1305,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # confusing UI churn. The "no re-score after reveal" lock is
         # the all-tables-scored gate, not a pure write-once rule.
         with transaction.atomic():
-            existing = TableRoundScore.objects.select_for_update().filter(
-                quiz=quiz, table=table, question=question
-            ).first()
+            existing = (
+                TableRoundScore.objects.select_for_update()
+                .filter(quiz=quiz, table=table, question=question)
+                .first()
+            )
 
             if existing is None:
                 # First score for this table — create it.
@@ -1486,6 +1510,49 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
         # Get the round_number for rotation lookup
         round_number = quiz.get_round_number(next_round)
+
+        # Self-heal: a quiz_night quiz that reached this point with no
+        # rotation rows for the new round (e.g. started before the
+        # generation-error fix landed, or the schedule was wiped) would
+        # otherwise broadcast empty assignments and leave the coach
+        # staring at a wiped Table Overview. Try to (re)generate the
+        # missing rounds — passing ``preserve_current_round=False``
+        # because we want to fill in ``round_number``, which is the
+        # round we just advanced ``current_round`` to. (The default
+        # preserve flag would bump from_round past it.) If regen also
+        # fails, surface the error instead of pretending success.
+        if (
+            quiz.event.event_type == "quiz_night"
+            and quiz.num_tables
+            and not QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=round_number
+            ).exists()
+        ):
+            from django.core.exceptions import ValidationError
+
+            from crush_lu.services.quiz_rotation import generate_rotation_rounds
+
+            try:
+                generate_rotation_rounds(
+                    quiz,
+                    from_round=round_number,
+                    preserve_current_round=False,
+                )
+            except ValidationError as exc:
+                msg = exc.messages[0] if exc.messages else str(exc)
+                return {"error": f"Cannot rotate: {msg}"}
+            except Exception:
+                logger.exception(
+                    "Rotation regeneration failed for quiz %s round %d",
+                    quiz.id,
+                    round_number,
+                )
+                return {
+                    "error": (
+                        "Cannot rotate: rotation schedule could not be "
+                        "regenerated. Check the server logs for details."
+                    )
+                }
 
         # Build per-user assignment map from rotation schedule
         assignments = {}

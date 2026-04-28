@@ -1261,22 +1261,31 @@ document.addEventListener("alpine:init", function () {
                         this.status = "finished";
                         return;
                     }
-                    // Rebuild table overview from rotation assignments
-                    if (data.assignments) {
-                        this._rebuildTableMembersFromAssignments(data.assignments);
-                        this._renderTableOverview();
-                    }
-                    if (data.round_title && data.is_bonus !== undefined) {
-                        this.isBonusRound = data.is_bonus;
-                    }
-                    this.roundComplete = false;
-                    this.isLastRound = false;
-                    this.currentQuestion = null;
-                    // Update rounds to reflect the new current round from rotation
+                    // Update round number FIRST so the API fetch below
+                    // queries the new round's seating, not the previous one.
                     if (data.round_number !== undefined) {
                         this._currentRoundNumber = data.round_number;
                         this._advanceRoundsByNumber(data.round_number);
                     }
+                    if (data.is_bonus !== undefined) this.isBonusRound = data.is_bonus;
+                    this.roundComplete = false;
+                    this.isLastRound = false;
+                    this.currentQuestion = null;
+                    // Optimistic render only when the broadcast actually carries
+                    // assignments — never wipe the grid to empty just because
+                    // the server failed to populate it. The API re-fetch below
+                    // will show whatever the server thinks is correct.
+                    var hasAssignments =
+                        data.assignments && Object.keys(data.assignments).length > 0;
+                    if (hasAssignments) {
+                        this._rebuildTableMembersFromAssignments(data.assignments);
+                        this._renderTableOverview();
+                    }
+                    // Authoritative refresh from the API: re-pulls table_id,
+                    // photos, avatar colors, and rescues us if the broadcast
+                    // had empty assignments (e.g. rotation schedule was
+                    // missing on the server).
+                    this._fetchTableOverview();
                 } else if (type === "quiz.table_scored") {
                     // Track which tables have been scored (no correctness info yet)
                     if (data.table_id) {
@@ -1848,13 +1857,18 @@ document.addEventListener("alpine:init", function () {
             },
 
             _rebuildTableMembersFromAssignments: function (assignments) {
-                // assignments = { userId: { table_number, role, display_name } }
+                // assignments = { userId: { table_number, table_id, role, display_name } }
                 var byTable = {};
                 for (var uid in assignments) {
                     var a = assignments[uid];
                     var tn = a.table_number;
                     if (!byTable[tn])
-                        byTable[tn] = { table_number: tn, members: [], total_score: 0 };
+                        byTable[tn] = {
+                            table_number: tn,
+                            table_id: a.table_id,
+                            members: [],
+                            total_score: 0,
+                        };
                     byTable[tn].members.push({
                         display_name: a.display_name,
                         role: a.role,

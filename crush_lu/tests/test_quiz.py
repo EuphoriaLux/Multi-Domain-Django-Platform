@@ -341,6 +341,121 @@ class TestAdvanceRoundAndRotate:
             quiz_event.save()
 
 
+@pytest.mark.django_db
+class TestQuizStartRotationFailure:
+    """Bug: clicking Rotate Tables on round 0→1 silently did nothing
+    because start_quiz_from_first_round swallowed rotation generation
+    failures, leaving rounds 1+ empty in QuizRotationSchedule. The fix
+    must surface the failure to the host instead of activating a quiz
+    with no future-round seating."""
+
+    def _make_consumer(self, quiz):
+        """Build a QuizConsumer instance bound to ``quiz`` without
+        going through WebsocketCommunicator (which pulls in daphne).
+        We only need ``quiz_id`` for the methods under test."""
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        return consumer
+
+    def test_start_returns_error_when_rotation_generation_fails(self, quiz_event):
+        """Quiz_night with num_tables set but no attended registrations
+        cannot generate a rotation schedule. start_quiz_from_first_round
+        must return {'error': ...} rather than silently activating."""
+        from asgiref.sync import async_to_sync
+
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        quiz_event.num_tables = 2  # forces auto-generation attempt
+        quiz_event.save()
+
+        consumer = self._make_consumer(quiz_event)
+        result = async_to_sync(consumer.start_quiz_from_first_round)()
+
+        assert result is not None
+        assert "error" in result, f"expected error key, got {result}"
+        assert "rotation" in result["error"].lower()
+
+        quiz_event.refresh_from_db()
+        # Quiz must NOT have been activated when generation failed
+        assert quiz_event.status == "draft"
+        assert (
+            QuizRotationSchedule.objects.filter(quiz=quiz_event, round_number=1).count()
+            == 0
+        )
+
+    def test_advance_round_self_heals_when_round_rows_missing(self, quiz_event):
+        """If a quiz somehow ended up active without round-1 rotation
+        rows (started before the fix landed, schedule wiped, etc.),
+        clicking Rotate must regenerate them on the fly rather than
+        broadcasting empty assignments."""
+        from asgiref.sync import async_to_sync
+        from datetime import date as _date
+
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.events import EventRegistration
+
+        rounds = [
+            QuizRound.objects.create(quiz=quiz_event, title=f"R{i + 1}", sort_order=i)
+            for i in range(3)
+        ]
+        quiz_event.num_tables = 3
+        quiz_event.current_round = rounds[0]
+        quiz_event.current_question_index = -1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # 6 participants (3M + 3F), 3 tables — the algorithm's "easy" case
+        # (full Group A across all 3 tables, no Group B/C complications).
+        for i in range(6):
+            u = User.objects.create_user(
+                username=f"heal{i}@test.com",
+                email=f"heal{i}@test.com",
+                password="test",
+            )
+            _grant_consent(u)
+            profile = CrushProfile.objects.get_or_create(user=u)[0]
+            profile.gender = "M" if i < 3 else "F"
+            profile.date_of_birth = _date(1990, 1, 1)
+            profile.save()
+            EventRegistration.objects.create(
+                event=quiz_event.event, user=u, status="attended"
+            )
+            # Round-0 placement (simulates check-in): one M anchor + one
+            # F rotator per table.
+            table_number = (i % 3) + 1
+            t = QuizTable.objects.get_or_create(
+                quiz=quiz_event, table_number=table_number
+            )[0]
+            QuizRotationSchedule.objects.create(
+                quiz=quiz_event,
+                round_number=0,
+                table=t,
+                user=u,
+                role="anchor" if i < 3 else "rotator",
+                rotation_group="" if i < 3 else "A",
+            )
+
+        # Precondition: round 1 has no rotation rows → empty-broadcast bug.
+        assert (
+            QuizRotationSchedule.objects.filter(quiz=quiz_event, round_number=1).count()
+            == 0
+        )
+
+        consumer = self._make_consumer(quiz_event)
+        result = async_to_sync(consumer.advance_round_and_rotate)()
+
+        assert "error" not in result, f"unexpected error: {result.get('error')}"
+        assert result.get("round_number") == 1
+        assert result.get(
+            "assignments"
+        ), "assignments must not be empty after self-heal"
+        assert (
+            QuizRotationSchedule.objects.filter(quiz=quiz_event, round_number=1).count()
+            > 0
+        )
+
+
 class TestLastRoundDetection:
     """Test that the quiz correctly detects when the last round's questions are done."""
 
@@ -831,16 +946,12 @@ class TestRotationRegistrationFiltering:
         for i in range(men_count):
             u = self._make_user_with_profile(f"rotm{i}", "M")
             regs.append(
-                EventRegistration.objects.create(
-                    event=event, user=u, status="attended"
-                )
+                EventRegistration.objects.create(event=event, user=u, status="attended")
             )
         for i in range(women_count):
             u = self._make_user_with_profile(f"rotw{i}", "F")
             regs.append(
-                EventRegistration.objects.create(
-                    event=event, user=u, status="attended"
-                )
+                EventRegistration.objects.create(event=event, user=u, status="attended")
             )
         return regs
 
@@ -882,9 +993,9 @@ class TestRotationRegistrationFiltering:
                 "user_id", flat=True
             )
         )
-        assert scheduled_user_ids.isdisjoint(no_show_user_ids), (
-            "No-show users must not appear in the rotation schedule"
-        )
+        assert scheduled_user_ids.isdisjoint(
+            no_show_user_ids
+        ), "No-show users must not appear in the rotation schedule"
 
         # 21 users rotated (remaining attended)
         assert result["anchors"] + result["rotators"] == 21
@@ -933,7 +1044,11 @@ class TestRotationRegistrationFiltering:
             for i in range(3)
         ]
         seeded = [regs[0], regs[1], regs[2], regs[3], regs[4]] + [
-            regs[6], regs[7], regs[8], regs[9], regs[10]
+            regs[6],
+            regs[7],
+            regs[8],
+            regs[9],
+            regs[10],
         ]
         for idx, r in enumerate(seeded):
             role = "anchor" if r.user.crushprofile.gender == "M" else "rotator"
@@ -957,12 +1072,12 @@ class TestRotationRegistrationFiltering:
                 quiz=quiz_event, round_number__gte=1
             ).values_list("user_id", flat=True)
         )
-        assert late_arrival_reg.user_id in scheduled_user_ids, (
-            "Late arrival with status='attended' must be rotated"
-        )
-        assert no_show_reg.user_id not in scheduled_user_ids, (
-            "Still-'confirmed' registration must be excluded from rotation"
-        )
+        assert (
+            late_arrival_reg.user_id in scheduled_user_ids
+        ), "Late arrival with status='attended' must be rotated"
+        assert (
+            no_show_reg.user_id not in scheduled_user_ids
+        ), "Still-'confirmed' registration must be excluded from rotation"
 
         # The no-show stays 'confirmed' so they can still be QR-checked in
         no_show_reg.refresh_from_db()
@@ -1044,9 +1159,12 @@ class TestRotationRegistrationFiltering:
         # future rounds when status is active/paused).
         quiz_event.status = "active"
         quiz_event.save(update_fields=["status"])
-        assert QuizRotationSchedule.objects.filter(
-            quiz=quiz_event, round_number__gte=1, user=late_user
-        ).exists() is False
+        assert (
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number__gte=1, user=late_user
+            ).exists()
+            is False
+        )
 
         # Late arrival checks in: assign_table_on_checkin should place
         # them in round 0 AND regenerate rounds 1+ to include them.
@@ -1058,8 +1176,7 @@ class TestRotationRegistrationFiltering:
         assert QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=1, user=late_user
         ).exists(), (
-            "late arrival must be picked up by rotation regeneration "
-            "into rounds 1+"
+            "late arrival must be picked up by rotation regeneration " "into rounds 1+"
         )
         # The original 11 attendees are still in the schedule too.
         for r in regs:
@@ -1122,14 +1239,14 @@ class TestRotationRegistrationFiltering:
         assert snap_r0_after - snap_r0 == {
             row for row in snap_r0_after if row[0] == late_user.id
         }, "round 0 should only gain the late arrival's placement"
-        assert snap_r1 == _snapshot(1), (
-            "current round (round_number=1) must not be rewritten mid-game"
-        )
+        assert snap_r1 == _snapshot(
+            1
+        ), "current round (round_number=1) must not be rewritten mid-game"
 
         # Rounds 2+ should be rebuilt with the late user included.
-        assert _snapshot(2) != snap_r2 or _snapshot(3) != snap_r3, (
-            "future rounds should be regenerated to include the late arrival"
-        )
+        assert (
+            _snapshot(2) != snap_r2 or _snapshot(3) != snap_r3
+        ), "future rounds should be regenerated to include the late arrival"
         assert QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=2, user=late_user
         ).exists(), "late arrival must appear in future rounds"
@@ -1844,9 +1961,7 @@ class TestScoringRoundAttribution:
     the next round, points must credit the users who were seated at that
     table *when the question was asked*, not whoever rotated in later."""
 
-    def test_late_score_attributes_to_questions_own_round(
-        self, quiz_event, coach_user
-    ):
+    def test_late_score_attributes_to_questions_own_round(self, quiz_event, coach_user):
         from crush_lu.models import CrushProfile
         from datetime import date as _date
 
@@ -1975,8 +2090,7 @@ class TestRotateGuard:
                 questions.append(q)
 
         tables = [
-            QuizTable.objects.create(quiz=quiz_event, table_number=n)
-            for n in (1, 2)
+            QuizTable.objects.create(quiz=quiz_event, table_number=n) for n in (1, 2)
         ]
         for i in range(4):
             u = User.objects.create_user(
@@ -2017,15 +2131,11 @@ class TestRotateGuard:
         assert "error" in guard
         assert "question(s) remain" in guard["error"]
 
-    def test_rotate_blocked_when_tables_unscored(
-        self, quiz_event, coach_user
-    ):
+    def test_rotate_blocked_when_tables_unscored(self, quiz_event, coach_user):
         """All questions asked but only 1/2 tables scored the last one."""
         from crush_lu.services.quiz_rotation import check_can_rotate
 
-        _rounds, questions, tables = self._setup_running_quiz(
-            quiz_event, coach_user
-        )
+        _rounds, questions, tables = self._setup_running_quiz(quiz_event, coach_user)
         # Advance to last question of round 0; only score one table.
         quiz_event.current_question_index = 1
         quiz_event.save()
@@ -2046,9 +2156,7 @@ class TestRotateGuard:
         """All questions asked and all tables scored — rotate may proceed."""
         from crush_lu.services.quiz_rotation import check_can_rotate
 
-        _rounds, questions, tables = self._setup_running_quiz(
-            quiz_event, coach_user
-        )
+        _rounds, questions, tables = self._setup_running_quiz(quiz_event, coach_user)
         quiz_event.current_question_index = 1
         quiz_event.save()
         for t in tables:
@@ -2224,10 +2332,10 @@ class TestRotationInvariants:
         (8, 8, 4, 4),
         (12, 12, 6, 3),
         (16, 16, 8, 4),
-        (7, 7, 3, 3),   # odd counts
-        (6, 9, 3, 3),   # women > 2× tables → spillover group C
+        (7, 7, 3, 3),  # odd counts
+        (6, 9, 3, 3),  # women > 2× tables → spillover group C
         (10, 4, 5, 3),  # more anchors than rotators
-        (4, 6, 2, 2),   # 2-table special case
+        (4, 6, 2, 2),  # 2-table special case
     ]
 
     def test_anchor_invariance(self):
@@ -2308,9 +2416,7 @@ class TestRotationInvariants:
             visits = {}
             for e in result["schedule"]:
                 if e["role"] == "rotator" and e["rotation_group"] == "A":
-                    visits.setdefault(e["user"].id, set()).add(
-                        e["table_number"]
-                    )
+                    visits.setdefault(e["user"].id, set()).add(e["table_number"])
 
             for user_id, tables in visits.items():
                 assert tables == set(range(1, tables_n + 1)), (
@@ -2335,9 +2441,7 @@ class TestRotationInvariants:
 
             for rn in range(rounds_n):
                 per_user = Counter(
-                    e["user"].id
-                    for e in schedule
-                    if e["round_number"] == rn
+                    e["user"].id for e in schedule if e["round_number"] == rn
                 )
                 assert len(per_user) == total_users, (
                     f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
@@ -2419,9 +2523,9 @@ class TestRotationInvariants:
             if e["round_number"] == 0
         }
 
-        assert incremental == batch, (
-            "incremental check-in placement diverged from batch layout"
-        )
+        assert (
+            incremental == batch
+        ), "incremental check-in placement diverged from batch layout"
 
 
 # ============================================================================
@@ -2452,16 +2556,12 @@ class TestDissolveTable:
         for i in range(men_count):
             u = self._make_user_with_profile(f"dtm{i}", "M")
             regs.append(
-                EventRegistration.objects.create(
-                    event=event, user=u, status="attended"
-                )
+                EventRegistration.objects.create(event=event, user=u, status="attended")
             )
         for i in range(women_count):
             u = self._make_user_with_profile(f"dtw{i}", "F")
             regs.append(
-                EventRegistration.objects.create(
-                    event=event, user=u, status="attended"
-                )
+                EventRegistration.objects.create(event=event, user=u, status="attended")
             )
         return regs
 
@@ -2492,9 +2592,7 @@ class TestDissolveTable:
 
         assert result["num_tables"] == 3
         assert result["table_deleted"] is True
-        assert not QuizTable.objects.filter(
-            quiz=quiz_event, table_number=4
-        ).exists()
+        assert not QuizTable.objects.filter(quiz=quiz_event, table_number=4).exists()
         quiz_event.refresh_from_db()
         assert quiz_event.num_tables == 3
 
@@ -2525,13 +2623,11 @@ class TestDissolveTable:
         result = dissolve_table(quiz_event, table_number=3)
 
         assert result["num_tables"] == 2
-        assert result["table_deleted"] is False, (
-            "Table with TableRoundScore history must be preserved"
-        )
+        assert (
+            result["table_deleted"] is False
+        ), "Table with TableRoundScore history must be preserved"
         # The QuizTable row still exists for leaderboard history
-        assert QuizTable.objects.filter(
-            quiz=quiz_event, table_number=3
-        ).exists()
+        assert QuizTable.objects.filter(quiz=quiz_event, table_number=3).exists()
         # But the score is still readable
         assert TableRoundScore.objects.filter(table=table3).exists()
 
@@ -2678,9 +2774,9 @@ class TestDissolveTable:
                 quiz=quiz_event, round_number__gt=current_rn
             ).values_list("table__table_number", flat=True)
         )
-        assert future_table_numbers.issubset({1, 2, 3}), (
-            f"Future rounds must only use the remaining tables; got {future_table_numbers}"
-        )
+        assert future_table_numbers.issubset(
+            {1, 2, 3}
+        ), f"Future rounds must only use the remaining tables; got {future_table_numbers}"
 
         # All attended users still have seats in future rounds (no one
         # was stranded by the dissolve).
@@ -2690,9 +2786,9 @@ class TestDissolveTable:
             ).values_list("user_id", flat=True)
         )
         for r in regs:
-            assert r.user_id in future_user_ids, (
-                f"User {r.user_id} was lost when dissolving table 4"
-            )
+            assert (
+                r.user_id in future_user_ids
+            ), f"User {r.user_id} was lost when dissolving table 4"
 
     def test_dissolve_draft_does_not_call_regen(self, quiz_event):
         """When quiz is still draft, dissolve drops the table and
@@ -2762,9 +2858,7 @@ class TestMarkAttended:
     def _login_as(self, client, user):
         client.force_login(user)
 
-    def test_mark_attended_flips_confirmed_to_attended(
-        self, quiz_event, coach_user
-    ):
+    def test_mark_attended_flips_confirmed_to_attended(self, quiz_event, coach_user):
         from django.test import Client
 
         from crush_lu.models.events import EventRegistration
@@ -2894,8 +2988,7 @@ class TestReScoreBeforeReveal:
             points=10,
         )
         tables = [
-            QuizTable.objects.create(quiz=quiz_event, table_number=n)
-            for n in (1, 2, 3)
+            QuizTable.objects.create(quiz=quiz_event, table_number=n) for n in (1, 2, 3)
         ]
         return round1, question, tables
 
@@ -3019,9 +3112,7 @@ class TestReScoreBeforeReveal:
         )
         assert r2.status_code == 409
 
-    def test_score_table_does_not_credit_round_0_ghosts(
-        self, quiz_event, coach_user
-    ):
+    def test_score_table_does_not_credit_round_0_ghosts(self, quiz_event, coach_user):
         """Regression for §4I fossil-fallback: scoring an empty table in
         a rotation-aware quiz must not credit round-0 ghosts via
         QuizTableMembership. The advisor flagged that score_table_for_question
@@ -3124,9 +3215,7 @@ class TestComputeRotationWarnings:
             )
             _grant_consent(u)
             _create_profile(u, "M")
-            EventRegistration.objects.create(
-                event=event, user=u, status="attended"
-            )
+            EventRegistration.objects.create(event=event, user=u, status="attended")
         for i in range(women_count):
             u = User.objects.create_user(
                 username=f"crw{i}@test.com",
@@ -3135,9 +3224,7 @@ class TestComputeRotationWarnings:
             )
             _grant_consent(u)
             _create_profile(u, "F")
-            EventRegistration.objects.create(
-                event=event, user=u, status="attended"
-            )
+            EventRegistration.objects.create(event=event, user=u, status="attended")
 
     def test_no_warnings_when_balanced(self, quiz_event):
         from crush_lu.services.quiz_rotation import compute_rotation_warnings
@@ -3218,13 +3305,10 @@ class TestGetCurrentAssignment:
         rounds = []
         for i in range(2):
             rounds.append(
-                QuizRound.objects.create(
-                    quiz=quiz_event, title=f"R{i}", sort_order=i
-                )
+                QuizRound.objects.create(quiz=quiz_event, title=f"R{i}", sort_order=i)
             )
         tables = [
-            QuizTable.objects.create(quiz=quiz_event, table_number=n)
-            for n in (1, 2)
+            QuizTable.objects.create(quiz=quiz_event, table_number=n) for n in (1, 2)
         ]
         user = User.objects.create_user(
             username="ca@test.com", email="ca@test.com", password="x"
@@ -3335,18 +3419,14 @@ class TestCoachViewWarningsIntegration:
 
         client = Client()
         client.force_login(coach_user)
-        resp = client.get(
-            f"/en/events/{quiz_event.event_id}/quiz/coach/"
-        )
+        resp = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
         assert resp.status_code == 200
         body = resp.content.decode()
         assert "Rotation capacity warnings" in body, (
-            "Coach view must render the warnings banner when capacity "
-            "issues exist"
+            "Coach view must render the warnings banner when capacity " "issues exist"
         )
         assert "no anchors" in body, (
-            f"Expected 'no anchors' warning text in body, "
-            f"got: {body[:500]}"
+            f"Expected 'no anchors' warning text in body, " f"got: {body[:500]}"
         )
 
 
@@ -3452,9 +3532,10 @@ class TestResetQuiz:
             quiz=quiz_event, table=table2, question=question, is_correct=True
         )
         # Both tables scored on `question` → reveal lock fires.
-        assert TableRoundScore.objects.filter(
-            quiz=quiz_event, question=question
-        ).count() == QuizTable.objects.filter(quiz=quiz_event).count()
+        assert (
+            TableRoundScore.objects.filter(quiz=quiz_event, question=question).count()
+            == QuizTable.objects.filter(quiz=quiz_event).count()
+        )
 
         # Reset clearing scores, then resume scoring on the replayed
         # question — must succeed.
@@ -3510,9 +3591,10 @@ class TestPinRateLimit:
         body = json.dumps({"pin": "9999"})
         for i in range(5):
             r = client.post(url, data=body, content_type="application/json")
-            assert r.status_code in (200, 400), (
-                f"Attempt {i + 1} unexpectedly hit throttle: {r.status_code}"
-            )
+            assert r.status_code in (
+                200,
+                400,
+            ), f"Attempt {i + 1} unexpectedly hit throttle: {r.status_code}"
 
         r6 = client.post(url, data=body, content_type="application/json")
         assert r6.status_code == 429, (
@@ -3540,13 +3622,10 @@ class TestQuizTablesCurrentRoundDefault:
         rounds = []
         for i in range(2):
             rounds.append(
-                QuizRound.objects.create(
-                    quiz=quiz_event, title=f"R{i}", sort_order=i
-                )
+                QuizRound.objects.create(quiz=quiz_event, title=f"R{i}", sort_order=i)
             )
         tables = [
-            QuizTable.objects.create(quiz=quiz_event, table_number=n)
-            for n in (1, 2)
+            QuizTable.objects.create(quiz=quiz_event, table_number=n) for n in (1, 2)
         ]
         # User A seated at table 1 in round 0, table 2 in round 1
         user_a = User.objects.create_user(
@@ -3582,12 +3661,9 @@ class TestQuizTablesCurrentRoundDefault:
         # Table 1 should be empty in round 1 (user moved); table 2 has user_a.
         by_number = {t["table_number"]: t for t in resp.json()}
         assert len(by_number[1]["members"]) == 0, (
-            f"Table 1 should be empty in round 1, got "
-            f"{by_number[1]['members']}"
+            f"Table 1 should be empty in round 1, got " f"{by_number[1]['members']}"
         )
         assert any(
             m.get("display_name") == user_a.crushprofile.display_name
             for m in by_number[2]["members"]
         ), "user_a should appear at table 2 in round 1"
-
-
