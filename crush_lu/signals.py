@@ -1494,10 +1494,10 @@ def _luxid_phone_available(phone, profile):
     )
     if clash:
         logger.warning(
-            "LuxID phone_number %s already owned by another CrushProfile; "
-            "skipping phone prefill for user=%s",
-            phone,
-            getattr(profile.user, "email", profile.user_id),
+            "LuxID phone_number clash detected; skipping phone prefill for "
+            "profile pk=%s user_id=%s",
+            profile.pk,
+            profile.user_id,
         )
         return False
     return True
@@ -1599,10 +1599,30 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 )
             ]
 
-        # Update CrushProfile for existing users
-        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+        # Update CrushProfile for existing users.
+        # During the connect flow (email user linking LuxID for the first
+        # time), allauth has not yet associated sociallogin.user with
+        # request.user when pre_social_login fires, so sociallogin.user.id
+        # is None. Fall back to request.user ONLY when this is explicitly a
+        # connect process — never during a normal login, where falling back
+        # to request.user could write the new LuxID claims into the current
+        # session user's profile before they are logged out (cross-account
+        # data corruption).
+        _sl_user = sociallogin.user
+        _is_connect = (
+            getattr(sociallogin, "state", {}).get("process") == "connect"
+        )
+        if (
+            _is_connect
+            and not (hasattr(_sl_user, "id") and _sl_user.id)
+        ):
+            _req_user = getattr(request, "user", None)
+            if _req_user is not None and getattr(_req_user, "is_authenticated", False):
+                _sl_user = _req_user
+
+        if hasattr(_sl_user, "id") and _sl_user.id:
             try:
-                profile = CrushProfile.objects.get(user=sociallogin.user)
+                profile = CrushProfile.objects.get(user=_sl_user)
                 updated_fields = []
 
                 # Map birthdate (OIDC format: YYYY-MM-DD)
@@ -1777,6 +1797,55 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
                 f"Created CrushProfile for LuxID user {instance.user.email} "
                 f"with fields: {updated_fields}"
             )
+
+        else:
+            # Existing profile (email user connecting LuxID): the
+            # pre_social_login handler is the primary path, but it can
+            # miss this case when sociallogin.user.id is None at signal
+            # time. Mirror the same field-population logic here as a
+            # safety net so birthdate, gender, and phone are always
+            # populated regardless of allauth's internal association order.
+            claims = _luxid_claims(instance.extra_data)
+            updated_fields = []
+
+            birthdate = claims.get("birthdate")
+            if birthdate and not profile.date_of_birth:
+                try:
+                    profile.date_of_birth = datetime.strptime(
+                        birthdate, "%Y-%m-%d"
+                    ).date()
+                    updated_fields.append("date_of_birth")
+                except (ValueError, TypeError):
+                    pass
+
+            gender = (claims.get("gender") or "").lower()
+            if gender and not profile.gender:
+                mapped = LUXID_GENDER_MAP.get(gender, "")
+                if mapped:
+                    profile.gender = mapped
+                    updated_fields.append("gender")
+
+            phone = claims.get("phone_number")
+            if (
+                phone
+                and _is_luxembourgish_phone(phone)
+                and phone != profile.phone_number
+                and _luxid_phone_available(phone, profile)
+            ):
+                profile.phone_number = phone
+                profile.phone_verified = True
+                profile.phone_verified_at = timezone.now()
+                updated_fields.extend(
+                    ["phone_number", "phone_verified", "phone_verified_at"]
+                )
+
+            if updated_fields:
+                profile.save(update_fields=updated_fields)
+                logger.info(
+                    "Updated existing CrushProfile via LuxID connect for user %s: %s",
+                    instance.user.email,
+                    updated_fields,
+                )
 
         # Send welcome email for new OAuth signups
         if profile_created:

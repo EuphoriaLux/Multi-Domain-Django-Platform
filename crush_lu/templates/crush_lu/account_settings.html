@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load socialaccount i18n %}
+{% load socialaccount i18n static %}
 
 {% block title %}{% trans "Account Settings - Crush.lu" %}{% endblock %}
 {% block mobile_page_title %}{% trans "Settings" %}{% endblock %}
@@ -83,6 +83,9 @@
                             {% elif social.provider == 'apple' %}
                             <svg class="w-6 h-6 mr-3 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
                             <span class="font-semibold">Apple</span>
+                            {% elif social.is_luxid %}
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-6 h-6 mr-3 shrink-0 rounded" style="object-fit: contain;">
+                            <span class="font-semibold">LuxID</span>
                             {% else %}
                             {% include "shared/icons/link.html" with class="w-7 h-7" %}
                             <span class="font-semibold">{{ social.provider|title }}</span>
@@ -110,7 +113,7 @@
                 {% endif %}
 
                 <!-- Available Providers to Connect -->
-                {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected or apple_available and not apple_connected %}
+                {% if google_available and not google_connected or facebook_available and not facebook_connected or microsoft_available and not microsoft_connected or apple_available and not apple_connected or luxid_available and not luxid_connected %}
                 <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">{% trans "Connect More Accounts" %}</h6>
                 <div class="flex flex-wrap gap-2">
                     {% if google_available and not google_connected %}
@@ -137,6 +140,12 @@
                         Apple
                     </a>
                     {% endif %}
+                    {% if luxid_available and not luxid_connected %}
+                    <a href="{{ luxid_connect_url }}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-5 h-5 mr-2 rounded" style="object-fit: contain;">
+                        LuxID
+                    </a>
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -144,7 +153,7 @@
                 <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     {% trans "You don't have any social accounts connected yet." %}
                 </p>
-                {% if google_available or facebook_available or microsoft_available or apple_available %}
+                {% if google_available or facebook_available or microsoft_available or apple_available or luxid_available %}
                 <div class="flex flex-wrap gap-2">
                     {% if google_available %}
                     <a href="{% provider_login_url 'google' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
@@ -168,6 +177,12 @@
                     <a href="{% provider_login_url 'apple' process='connect' %}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
                         <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
                         Apple
+                    </a>
+                    {% endif %}
+                    {% if luxid_available %}
+                    <a href="{{ luxid_connect_url }}" class="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="w-5 h-5 mr-2 rounded" style="object-fit: contain;">
+                        LuxID
                     </a>
                     {% endif %}
                 </div>

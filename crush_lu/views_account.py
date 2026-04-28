@@ -358,6 +358,33 @@ def data_deletion_status(request):
     )
 
 
+def _luxid_connect_url(available_providers, oidc_app=None):
+    """Return the correct OAuth connect URL for LuxID given available providers.
+
+    Prefers the custom 'luxid' provider (fixed URL, no path kwargs). Falls back
+    to allauth's generic openid_connect URL when the SocialApp is configured
+    with provider='openid_connect' instead. In that case the openid_connect URL
+    requires a provider_id path kwarg (allauth 0.61+), so the caller must pass
+    the SocialApp object as oidc_app to supply it.
+    """
+    if "luxid" in available_providers:
+        try:
+            return reverse("luxid_login") + "?process=connect"
+        except Exception:
+            pass
+    if "openid_connect" in available_providers and oidc_app is not None:
+        try:
+            pid = getattr(oidc_app, "provider_id", None) or getattr(oidc_app, "slug", None)
+            if pid:
+                return (
+                    reverse("openid_connect_login", kwargs={"provider_id": pid})
+                    + "?process=connect"
+                )
+        except Exception:
+            pass
+    return None
+
+
 @crush_login_required
 def account_settings(request):
     """
@@ -439,7 +466,9 @@ def account_settings(request):
 
     # Crush.lu only supports these social providers
     # (LinkedIn is PowerUP-only, not shown in Crush.lu account settings)
-    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple"]
+    # LuxID can be stored as "luxid" (custom provider) or "openid_connect"
+    # (generic OIDC fallback), so both spellings are included.
+    CRUSH_SOCIAL_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid", "openid_connect"]
 
     # Get connected social providers for this user (filtered to Crush.lu providers)
     connected_providers = set(
@@ -451,8 +480,9 @@ def account_settings(request):
         provider__in=CRUSH_SOCIAL_PROVIDERS
     )
 
-    # Annotate each social account with a resolved display email
-    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'
+    # Annotate each social account with a resolved display email.
+    # Microsoft stores email in 'mail' or 'userPrincipalName', not 'email'.
+    # LuxID wraps claims inside {"userinfo": {...}} or {"id_token": {...}}.
     for account in crush_social_accounts:
         if account.provider == "microsoft":
             account.display_email = (
@@ -461,6 +491,13 @@ def account_settings(request):
                 or account.extra_data.get("email")
                 or ""
             )
+        elif account.provider in ("luxid", "openid_connect"):
+            _claims = (
+                account.extra_data.get("userinfo")
+                or account.extra_data.get("id_token")
+                or account.extra_data
+            )
+            account.display_email = _claims.get("email", "") if isinstance(_claims, dict) else ""
         else:
             account.display_email = account.extra_data.get("email", "")
 
@@ -480,6 +517,37 @@ def account_settings(request):
         logger.warning("Failed to fetch available social providers", exc_info=True)
         available_providers = set()
 
+    oidc_app = None
+    if "openid_connect" in available_providers:
+        try:
+            oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", provider_id="luxid", sites=current_site
+            ).first()
+        except Exception:
+            pass
+
+    # Scope the openid_connect connected check to the LuxID-specific OIDC app.
+    # SocialAccount has no app FK in allauth 65.x; route through SocialToken which does.
+    _luxid_oidc_acct_ids: set = set()
+    if oidc_app is not None and "openid_connect" in connected_providers:
+        try:
+            from allauth.socialaccount.models import SocialToken
+            _luxid_oidc_acct_ids = set(
+                SocialToken.objects.filter(
+                    account__user=request.user,
+                    account__provider="openid_connect",
+                    app=oidc_app,
+                ).values_list("account_id", flat=True)
+            )
+        except Exception:
+            pass
+    luxid_connected = "luxid" in connected_providers or bool(_luxid_oidc_acct_ids)
+
+    # Annotate is_luxid on each account so templates can brand correctly without
+    # treating every openid_connect account as LuxID.
+    for account in crush_social_accounts:
+        account.is_luxid = account.provider == "luxid" or account.pk in _luxid_oidc_acct_ids
+
     return render(
         request,
         "crush_lu/account_settings.html",
@@ -489,10 +557,13 @@ def account_settings(request):
             "facebook_connected": "facebook" in connected_providers,
             "microsoft_connected": "microsoft" in connected_providers,
             "apple_connected": "apple" in connected_providers,
+            "luxid_connected": luxid_connected,
             "google_available": "google" in available_providers,
             "facebook_available": "facebook" in available_providers,
             "microsoft_available": "microsoft" in available_providers,
             "apple_available": "apple" in available_providers,
+            "luxid_available": "luxid" in available_providers or oidc_app is not None,
+            "luxid_connect_url": _luxid_connect_url(available_providers, oidc_app=oidc_app),
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Apple "Hide My Email" relay detection
