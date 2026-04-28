@@ -1783,6 +1783,8 @@ def coach_event_detail(request, event_id):
 
     # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")
+    if status_filter not in ("all", "confirmed", "waitlist", "other"):
+        status_filter = "all"
 
     # Batch-query latest ProfileSubmission per registered user
     user_ids = [r.user_id for r in all_regs]
