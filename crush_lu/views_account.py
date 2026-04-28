@@ -358,22 +358,28 @@ def data_deletion_status(request):
     )
 
 
-def _luxid_connect_url(available_providers):
+def _luxid_connect_url(available_providers, oidc_app=None):
     """Return the correct OAuth connect URL for LuxID given available providers.
 
     Prefers the custom 'luxid' provider (fixed URL, no path kwargs). Falls back
     to allauth's generic openid_connect URL when the SocialApp is configured
-    with provider='openid_connect' instead, so the connect button never points
-    at a missing SocialApp.
+    with provider='openid_connect' instead. In that case the openid_connect URL
+    requires a provider_id path kwarg (allauth 0.61+), so the caller must pass
+    the SocialApp object as oidc_app to supply it.
     """
     if "luxid" in available_providers:
         try:
             return reverse("luxid_login") + "?process=connect"
         except Exception:
             pass
-    if "openid_connect" in available_providers:
+    if "openid_connect" in available_providers and oidc_app is not None:
         try:
-            return reverse("openid_connect_login") + "?process=connect"
+            pid = getattr(oidc_app, "provider_id", None) or getattr(oidc_app, "slug", None)
+            if pid:
+                return (
+                    reverse("openid_connect_login", kwargs={"provider_id": pid})
+                    + "?process=connect"
+                )
         except Exception:
             pass
     return None
@@ -511,6 +517,15 @@ def account_settings(request):
         logger.warning("Failed to fetch available social providers", exc_info=True)
         available_providers = set()
 
+    oidc_app = None
+    if "openid_connect" in available_providers and "luxid" not in available_providers:
+        try:
+            oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", sites=current_site
+            ).first()
+        except Exception:
+            pass
+
     return render(
         request,
         "crush_lu/account_settings.html",
@@ -526,7 +541,7 @@ def account_settings(request):
             "microsoft_available": "microsoft" in available_providers,
             "apple_available": "apple" in available_providers,
             "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
-            "luxid_connect_url": _luxid_connect_url(available_providers),
+            "luxid_connect_url": _luxid_connect_url(available_providers, oidc_app=oidc_app),
             "crush_social_accounts": crush_social_accounts,  # Filtered list for display
             "social_photos": social_photos,  # Social photos for import
             # Apple "Hide My Email" relay detection

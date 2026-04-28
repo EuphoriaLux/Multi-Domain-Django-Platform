@@ -1032,6 +1032,15 @@ def _edit_sub_account_settings(request, profile):
     except Exception:
         available_providers = set()
 
+    oidc_app = None
+    if "openid_connect" in available_providers and "luxid" not in available_providers:
+        try:
+            oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", sites=current_site
+            ).first()
+        except Exception:
+            pass
+
     context = {
         "profile": profile,
         "section": "account",
@@ -1045,7 +1054,7 @@ def _edit_sub_account_settings(request, profile):
         "microsoft_available": "microsoft" in available_providers,
         "apple_available": "apple" in available_providers,
         "luxid_available": bool({"luxid", "openid_connect"} & available_providers),
-        "luxid_connect_url": _luxid_connect_url(available_providers),
+        "luxid_connect_url": _luxid_connect_url(available_providers, oidc_app=oidc_app),
         "crush_social_accounts": crush_social_accounts,
         "social_photos": social_photos,
         "is_apple_relay_user": bool(
