@@ -1041,6 +1041,18 @@ def _edit_sub_account_settings(request, profile):
         except Exception:
             pass
 
+    # Scope the openid_connect connected check to the LuxID-specific OIDC app so
+    # that accounts from other OIDC IdPs on the same site are not misclassified.
+    _luxid_oidc_connected = False
+    if oidc_app is not None and "openid_connect" in connected_providers:
+        try:
+            _luxid_oidc_connected = request.user.socialaccount_set.filter(
+                provider="openid_connect", app=oidc_app
+            ).exists()
+        except Exception:
+            pass
+    luxid_connected = "luxid" in connected_providers or _luxid_oidc_connected
+
     context = {
         "profile": profile,
         "section": "account",
@@ -1048,7 +1060,7 @@ def _edit_sub_account_settings(request, profile):
         "facebook_connected": "facebook" in connected_providers,
         "microsoft_connected": "microsoft" in connected_providers,
         "apple_connected": "apple" in connected_providers,
-        "luxid_connected": bool({"luxid", "openid_connect"} & connected_providers),
+        "luxid_connected": luxid_connected,
         "google_available": "google" in available_providers,
         "facebook_available": "facebook" in available_providers,
         "microsoft_available": "microsoft" in available_providers,
