@@ -1793,10 +1793,29 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             # Existing profile (email user connecting LuxID): the
             # pre_social_login handler is the primary path, but it can
             # miss this case when sociallogin.user.id is None at signal
-            # time. Ensure the phone is always populated here as a
-            # safety net so the "Verify with LuxID" fallback works
-            # regardless of allauth's internal association order.
+            # time. Mirror the same field-population logic here as a
+            # safety net so birthdate, gender, and phone are always
+            # populated regardless of allauth's internal association order.
             claims = _luxid_claims(instance.extra_data)
+            updated_fields = []
+
+            birthdate = claims.get("birthdate")
+            if birthdate and not profile.date_of_birth:
+                try:
+                    profile.date_of_birth = datetime.strptime(
+                        birthdate, "%Y-%m-%d"
+                    ).date()
+                    updated_fields.append("date_of_birth")
+                except (ValueError, TypeError):
+                    pass
+
+            gender = (claims.get("gender") or "").lower()
+            if gender and not profile.gender:
+                mapped = LUXID_GENDER_MAP.get(gender, "")
+                if mapped:
+                    profile.gender = mapped
+                    updated_fields.append("gender")
+
             phone = claims.get("phone_number")
             if (
                 phone
@@ -1807,13 +1826,16 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
                 profile.phone_number = phone
                 profile.phone_verified = True
                 profile.phone_verified_at = timezone.now()
-                profile.save(
-                    update_fields=["phone_number", "phone_verified", "phone_verified_at"]
+                updated_fields.extend(
+                    ["phone_number", "phone_verified", "phone_verified_at"]
                 )
+
+            if updated_fields:
+                profile.save(update_fields=updated_fields)
                 logger.info(
-                    "Updated phone for existing CrushProfile via LuxID connect "
-                    "for user %s",
+                    "Updated existing CrushProfile via LuxID connect for user %s: %s",
                     instance.user.email,
+                    updated_fields,
                 )
 
         # Send welcome email for new OAuth signups
