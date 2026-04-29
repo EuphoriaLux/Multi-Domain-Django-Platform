@@ -51,19 +51,19 @@ def redirect_profile_to_dashboard(request):
     return redirect(f'/{lang}/dashboard/')
 
 
+_QUIZ_REDIRECT_LANGS = frozenset(code for code, _ in settings.LANGUAGES)
+
+
 def quiz_display_language_redirect(request, event_id):
     """Redirect /quiz/<id>/display/ to /{lang}/quiz/<id>/display/.
 
     Keeps old QR-code URLs working by forwarding to the language-prefixed version.
-    Language is resolved from the session / Accept-Language header by LocaleMiddleware.
-
-    No user-supplied query parameters are forwarded: the destination path is built
-    entirely from trusted values (lang from Django's locale middleware; event_id is
-    a validated integer from the URL pattern), so this redirect cannot be abused as
-    an open redirect.  Visitors arriving via a token-embedded legacy URL will see the
-    PIN gate on the destination page and can enter the PIN there.
+    Language is resolved from the session / Accept-Language header by LocaleMiddleware,
+    then explicitly validated against the supported language codes so that no
+    user-influenced value can reach the redirect URL untested.
     """
-    lang = get_language() or 'en'
+    raw_lang = get_language() or 'en'
+    lang = raw_lang if raw_lang in _QUIZ_REDIRECT_LANGS else 'en'
     return redirect(f'/{lang}/quiz/{event_id}/display/')
 
 
