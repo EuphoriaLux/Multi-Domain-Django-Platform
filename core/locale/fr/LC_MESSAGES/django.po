@@ -45,15 +45,99 @@ msgstr ""
 
 #: .\azureproject\settings.py:629
 msgid "English"
-msgstr ""
+msgstr "Anglais"
 
 #: .\azureproject\settings.py:630
 msgid "German"
-msgstr ""
+msgstr "Allemand"
 
 #: .\azureproject\settings.py:631
 msgid "French"
-msgstr ""
+msgstr "Français"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Display"
+msgstr "Affichage"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Enter display PIN"
+msgstr "Entrez le code PIN d'affichage"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Incorrect PIN. Please try again."
+msgstr "Code PIN incorrect. Veuillez réessayer."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Verifying..."
+msgstr "Vérification..."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "checked in"
+msgstr "inscrits"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Quiz starts soon..."
+msgstr "Le quiz commence bientôt..."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Waiting for quiz to begin..."
+msgstr "En attente du démarrage du quiz..."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "points"
+msgstr "points"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Scoring in progress..."
+msgstr "Notation en cours..."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Results"
+msgstr "Résultats"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Leaderboard"
+msgstr "Classement"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Top Players"
+msgstr "Meilleurs joueurs"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Quiz Complete!"
+msgstr "Quiz terminé !"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Thanks for playing!"
+msgstr "Merci d'avoir joué !"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Table"
+msgstr "Table"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "players"
+msgstr "joueurs"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "Waiting for attendees..."
+msgstr "En attente des participants..."
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "anchor"
+msgstr "ancre"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "rotator"
+msgstr "rotateur"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "pts"
+msgstr "pts"
+
+#: .\crush_lu\templates\crush_lu\quiz_display.html
+msgid "tables scored"
+msgstr "tables notées"
 
 #: .\core\templates\admin\base_site.html:4
 msgid "Django site admin"

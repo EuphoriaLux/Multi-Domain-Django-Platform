@@ -15,6 +15,16 @@ document.addEventListener("alpine:init", function () {
         var confirmedCount = parseInt(this.$el.dataset.confirmedCount) || 0;
         var initialStatus = this.$el.dataset.quizStatus || "draft";
 
+        // Translated UI strings — injected from the Django template via data-str-* attributes
+        // so the server-rendered language (en/fr/de) is used for JS-generated HTML.
+        var strTable = this.$el.dataset.strTable || "Table";
+        var strPlayers = this.$el.dataset.strPlayers || "players";
+        var strWaiting = this.$el.dataset.strWaiting || "Waiting for attendees...";
+        var strAnchor = this.$el.dataset.strAnchor || "anchor";
+        var strRotator = this.$el.dataset.strRotator || "rotator";
+        var strPts = this.$el.dataset.strPts || "pts";
+        var strTablesScored = this.$el.dataset.strTablesScored || "tables scored";
+
         return {
             // --- Config ---
             eventId: eventId,
@@ -148,7 +158,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             get scoringProgressText() {
-                return this.scoredCount + " / " + this.totalTables + " tables scored";
+                return this.scoredCount + " / " + this.totalTables + " " + strTablesScored;
             },
             get scoringBarStyle() {
                 var pct =
@@ -177,34 +187,34 @@ document.addEventListener("alpine:init", function () {
             },
 
             // Podium getters
-            get firstPlaceNumber() {
+            get firstPlaceLabel() {
                 return this.leaderboardTables.length > 0
-                    ? this.leaderboardTables[0].table_number
+                    ? strTable + " " + this.leaderboardTables[0].table_number
                     : "";
             },
             get firstPlaceScore() {
                 return this.leaderboardTables.length > 0
-                    ? this.leaderboardTables[0].total_score + " pts"
+                    ? this.leaderboardTables[0].total_score + " " + strPts
                     : "";
             },
-            get secondPlaceNumber() {
+            get secondPlaceLabel() {
                 return this.leaderboardTables.length > 1
-                    ? this.leaderboardTables[1].table_number
+                    ? strTable + " " + this.leaderboardTables[1].table_number
                     : "";
             },
             get secondPlaceScore() {
                 return this.leaderboardTables.length > 1
-                    ? this.leaderboardTables[1].total_score + " pts"
+                    ? this.leaderboardTables[1].total_score + " " + strPts
                     : "";
             },
-            get thirdPlaceNumber() {
+            get thirdPlaceLabel() {
                 return this.leaderboardTables.length > 2
-                    ? this.leaderboardTables[2].table_number
+                    ? strTable + " " + this.leaderboardTables[2].table_number
                     : "";
             },
             get thirdPlaceScore() {
                 return this.leaderboardTables.length > 2
-                    ? this.leaderboardTables[2].total_score + " pts"
+                    ? this.leaderboardTables[2].total_score + " " + strPts
                     : "";
             },
 
@@ -844,16 +854,16 @@ document.addEventListener("alpine:init", function () {
                         table.total_score > 0
                             ? '<span class="rounded-full bg-crush-pink/20 px-3 py-1 text-sm font-bold text-crush-pink">' +
                               table.total_score +
-                              " pts</span>"
+                              " " + strPts + "</span>"
                             : '<span class="rounded-full bg-slate-700 px-3 py-1 text-sm font-medium text-gray-400">' +
                               table.members.length +
-                              " players</span>";
+                              " " + strPlayers + "</span>";
                     header.innerHTML =
                         '<div class="flex items-center gap-3">' +
                         '<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-crush-purple to-crush-pink text-lg font-bold text-white shadow-lg shadow-crush-purple/20">' +
                         table.table_number +
                         "</div>" +
-                        '<span class="text-lg font-bold text-white">Table ' +
+                        '<span class="text-lg font-bold text-white">' + strTable + ' ' +
                         table.table_number +
                         "</span></div>" +
                         scoreHtml;
@@ -864,7 +874,7 @@ document.addEventListener("alpine:init", function () {
                         var empty = document.createElement("div");
                         empty.className =
                             "flex items-center justify-center py-4 text-sm text-gray-500 italic";
-                        empty.textContent = "Waiting for attendees...";
+                        empty.textContent = strWaiting;
                         card.appendChild(empty);
                     } else {
                         var list = document.createElement("div");
@@ -876,10 +886,10 @@ document.addEventListener("alpine:init", function () {
                             var roleHtml = "";
                             if (m.role === "anchor") {
                                 roleHtml =
-                                    '<span class="ml-auto text-xs text-blue-400 font-medium">\u2693 anchor</span>';
+                                    '<span class="ml-auto text-xs text-blue-400 font-medium">\u2693 ' + strAnchor + '</span>';
                             } else if (m.role === "rotator") {
                                 roleHtml =
-                                    '<span class="ml-auto text-xs text-pink-400 font-medium">\u21BB rotator</span>';
+                                    '<span class="ml-auto text-xs text-pink-400 font-medium">\u21BB ' + strRotator + '</span>';
                             }
                             row.innerHTML =
                                 self._avatarHtml(m) +
@@ -941,8 +951,8 @@ document.addEventListener("alpine:init", function () {
                     var pointsHtml = correct
                         ? '<span class="text-sm font-bold text-green-400">+' +
                           pts +
-                          " pts</span>"
-                        : '<span class="text-sm font-medium text-red-400/70">+0 pts</span>';
+                          " " + strPts + "</span>"
+                        : '<span class="text-sm font-medium text-red-400/70">+0 ' + strPts + '</span>';
 
                     // Show member avatars for this table
                     var membersHtml = "";
@@ -970,7 +980,7 @@ document.addEventListener("alpine:init", function () {
 
                     card.innerHTML =
                         icon +
-                        '<span class="text-xl font-bold text-white mb-1">Table ' +
+                        '<span class="text-xl font-bold text-white mb-1">' + strTable + ' ' +
                         result.table_number +
                         "</span>" +
                         pointsHtml +
@@ -1031,14 +1041,14 @@ document.addEventListener("alpine:init", function () {
                         rankIcon +
                         "</span>" +
                         '<div class="flex-1 flex items-center gap-3">' +
-                        '<span class="text-2xl font-bold text-white">Table ' +
+                        '<span class="text-2xl font-bold text-white">' + strTable + ' ' +
                         entry.table_number +
                         "</span>" +
                         membersHtml +
                         "</div>" +
                         '<span class="text-2xl font-bold tabular-nums text-crush-pink">' +
                         entry.total_score +
-                        " pts</span>";
+                        " " + strPts + "</span>";
                     list.appendChild(row);
                 });
 
@@ -1066,7 +1076,7 @@ document.addEventListener("alpine:init", function () {
                         self.escapeHtml(player.display_name) +
                         "</span>" +
                         '<span class="text-sm font-bold text-crush-pink">' +
-                        player.total_score +
+                        player.total_score + " " + strPts +
                         "</span>";
                     indList.appendChild(row);
                 });
@@ -1102,7 +1112,7 @@ document.addEventListener("alpine:init", function () {
                         "</span>" +
                         '<span class="text-lg font-bold tabular-nums text-crush-pink">' +
                         player.total_score +
-                        " pts</span>";
+                        " " + strPts + "</span>";
                     list.appendChild(row);
                 });
             },

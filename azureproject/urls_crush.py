@@ -15,6 +15,7 @@ from django.shortcuts import redirect
 from django.utils.translation import get_language
 from django.views.generic import TemplateView
 from django.views.i18n import JavaScriptCatalog
+from django.http import HttpResponseRedirect
 
 from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
@@ -49,6 +50,20 @@ def redirect_profile_to_dashboard(request):
     """
     lang = get_language() or 'en'
     return redirect(f'/{lang}/dashboard/')
+
+
+def quiz_display_language_redirect(request, event_id):
+    """Redirect /quiz/<id>/display/ to /{lang}/quiz/<id>/display/.
+
+    Keeps old QR-code URLs working by forwarding to the language-prefixed version.
+    Language is resolved from the session / Accept-Language header by LocaleMiddleware.
+    """
+    lang = get_language() or 'en'
+    qs = request.META.get('QUERY_STRING', '')
+    url = f'/{lang}/quiz/{event_id}/display/'
+    if qs:
+        url += '?' + qs
+    return HttpResponseRedirect(url)
 
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
@@ -233,8 +248,10 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
     path('api/quiz/<int:quiz_id>/mark-attended/', api_quiz.mark_attended, name='api_quiz_mark_attended'),
 
-    # Quiz table display (projector view, language-neutral, no auth)
-    path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),
+    # Quiz table display — redirect legacy /quiz/<id>/display/ to language-prefixed URL
+    # The actual view lives in i18n_patterns below so Django's LocaleMiddleware sets
+    # request.LANGUAGE_CODE before the view renders the template.
+    path('quiz/<int:event_id>/display/', quiz_display_language_redirect, name='quiz_table_display_redirect'),
     path('api/quiz/<int:event_id>/display-data/', views_quiz.quiz_table_display_data, name='quiz_table_display_data'),
     path('api/quiz/<int:event_id>/verify-pin/', views_quiz.quiz_display_verify_pin, name='quiz_display_verify_pin'),
     path('api/quiz/photo/<int:user_id>/', views_quiz.quiz_display_photo, name='quiz_display_photo'),
@@ -299,6 +316,11 @@ urlpatterns = base_patterns + api_patterns + [
 urlpatterns += i18n_patterns(
     # Crush.lu app URLs
     path('', include('crush_lu.urls', namespace='crush_lu')),
+
+    # Quiz projector display — language-prefixed so Django's LocaleMiddleware activates
+    # the correct language before the template renders {% trans %} strings.
+    # /en/quiz/<id>/display/ | /fr/quiz/<id>/display/ | /de/quiz/<id>/display/
+    path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),
 
     # Include /en/ prefix even for default language
     prefix_default_language=True,
