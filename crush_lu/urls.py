@@ -107,6 +107,7 @@ urlpatterns = [
     # Landing and public pages
     path('', views.home, name='home'),
     path('about/', views.about, name='about'),
+    path('test-upstair/', views.test_upstair, name='test_upstair'),
     path('changelog/', views_changelog.changelog_list, name='changelog_list'),
     path('changelog/<slug:slug>/', views_changelog.changelog_detail, name='changelog_detail'),
     path('how-it-works/', views.how_it_works, name='how_it_works'),
