@@ -496,6 +496,13 @@ document.addEventListener("alpine:init", function () {
                     if (this.connected) this.stopPolling();
                 } else {
                     this.screen = "waiting";
+                    // If the WS state arrived without table data (e.g. server-side
+                    // exception in get_table_display_data), fall back to HTTP polling
+                    // so the table roster still loads rather than waiting until the
+                    // WebSocket drops and reconnects (which can take several minutes).
+                    if (!this.tables.length && !this._pollInterval) {
+                        this.startPolling();
+                    }
                 }
             },
 
@@ -581,6 +588,9 @@ document.addEventListener("alpine:init", function () {
                     this.stopCountdown();
                     // Show the table grid while paused between questions
                     this.screen = "waiting";
+                    if (!this.tables.length && !this._pollInterval) {
+                        this.startPolling();
+                    }
                 } else if (data.status === "round_complete") {
                     this.stopCountdown();
                     // Show leaderboard between rounds
@@ -712,6 +722,11 @@ document.addEventListener("alpine:init", function () {
                         self.confirmedCount =
                             data.confirmed_count || self.confirmedCount;
                         self.tables = data.tables || [];
+                        // Tables loaded via fallback poll — stop polling now that WS
+                        // is connected and the roster is visible on the waiting screen.
+                        if (self.tables.length > 0 && self.connected && self.screen === "waiting") {
+                            self.stopPolling();
+                        }
                         if (data.quiz_status) {
                             self.quizStatus = data.quiz_status;
                         }
