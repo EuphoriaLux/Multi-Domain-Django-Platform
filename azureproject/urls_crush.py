@@ -57,12 +57,15 @@ def quiz_display_language_redirect(request, event_id):
 
     Keeps old QR-code URLs working by forwarding to the language-prefixed version.
     Language is resolved from the session / Accept-Language header by LocaleMiddleware.
+    Only the 'token' query parameter is forwarded to avoid open-redirect risks from
+    forwarding arbitrary user-supplied query strings.
     """
     lang = get_language() or 'en'
-    qs = request.META.get('QUERY_STRING', '')
     url = f'/{lang}/quiz/{event_id}/display/'
-    if qs:
-        url += '?' + qs
+    token = request.GET.get('token', '')
+    if token:
+        from urllib.parse import quote
+        url += '?token=' + quote(token, safe='')
     return HttpResponseRedirect(url)
 
 
