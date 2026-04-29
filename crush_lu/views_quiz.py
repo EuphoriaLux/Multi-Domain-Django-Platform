@@ -34,10 +34,12 @@ _AVATAR_COLORS = [
 
 def _member_initials(name):
     """Extract up to 2 initials from a display name."""
+    if not name:
+        return "?"
     parts = name.split()
     if len(parts) >= 2:
         return (parts[0][0] + parts[-1][0]).upper()
-    return name[:2].upper() if name else "?"
+    return name[:2].upper()
 
 
 def _member_color(name):
@@ -69,7 +71,7 @@ def _get_table_members_json(quiz, round_number=0):
             ).select_related("user__crushprofile")
             for r in rotations:
                 profile = getattr(r.user, "crushprofile", None)
-                name = profile.display_name if profile else "Anonymous"
+                name = (profile.display_name if profile else None) or "Anonymous"
                 members.append(
                     {
                         "display_name": name,
@@ -82,7 +84,7 @@ def _get_table_members_json(quiz, round_number=0):
         else:
             for m in table.memberships.select_related("user__crushprofile"):
                 profile = getattr(m.user, "crushprofile", None)
-                name = profile.display_name if profile else "Anonymous"
+                name = (profile.display_name if profile else None) or "Anonymous"
                 members.append(
                     {
                         "display_name": name,
@@ -167,7 +169,7 @@ def quiz_live_view(request, event_id):
                 tablemates.append(
                     {
                         "display_name": (
-                            profile.display_name if profile else "Anonymous"
+                            (profile.display_name if profile else None) or "Anonymous"
                         ),
                         "role": r.role,
                     }
@@ -181,7 +183,7 @@ def quiz_live_view(request, event_id):
                 tablemates.append(
                     {
                         "display_name": (
-                            profile.display_name if profile else "Anonymous"
+                            (profile.display_name if profile else None) or "Anonymous"
                         ),
                         "role": "",
                     }
@@ -429,7 +431,7 @@ def quiz_table_display_data(request, event_id):
     for entry in top_individuals:
         try:
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
-            name = profile.display_name
+            name = profile.display_name or "Anonymous"
             has_photo = bool(getattr(profile, "photo_1", None))
             photo_url = (
                 f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
