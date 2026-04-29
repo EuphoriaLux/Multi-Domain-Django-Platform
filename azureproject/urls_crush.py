@@ -15,7 +15,6 @@ from django.shortcuts import redirect
 from django.utils.translation import get_language
 from django.views.generic import TemplateView
 from django.views.i18n import JavaScriptCatalog
-from django.http import HttpResponseRedirect
 
 from .urls_shared import base_patterns, api_patterns
 from crush_lu.admin import crush_admin_site
@@ -57,16 +56,15 @@ def quiz_display_language_redirect(request, event_id):
 
     Keeps old QR-code URLs working by forwarding to the language-prefixed version.
     Language is resolved from the session / Accept-Language header by LocaleMiddleware.
-    Only the 'token' query parameter is forwarded to avoid open-redirect risks from
-    forwarding arbitrary user-supplied query strings.
+
+    No user-supplied query parameters are forwarded: the destination path is built
+    entirely from trusted values (lang from Django's locale middleware; event_id is
+    a validated integer from the URL pattern), so this redirect cannot be abused as
+    an open redirect.  Visitors arriving via a token-embedded legacy URL will see the
+    PIN gate on the destination page and can enter the PIN there.
     """
     lang = get_language() or 'en'
-    url = f'/{lang}/quiz/{event_id}/display/'
-    token = request.GET.get('token', '')
-    if token:
-        from urllib.parse import quote
-        url += '?token=' + quote(token, safe='')
-    return HttpResponseRedirect(url)
+    return redirect(f'/{lang}/quiz/{event_id}/display/')
 
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
