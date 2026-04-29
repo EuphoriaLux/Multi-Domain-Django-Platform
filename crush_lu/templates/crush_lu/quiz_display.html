@@ -1,6 +1,6 @@
 {% load static i18n %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,6 +34,13 @@
          data-event-date="{{ event.date_time|date:'D, M j \u2014 g:i A' }}"
          data-num-tables="{{ num_tables }}"
          data-confirmed-count="{{ confirmed_count }}"
+         data-str-table="{% trans 'Table' %}"
+         data-str-players="{% trans 'players' %}"
+         data-str-waiting="{% trans 'Waiting for attendees...' %}"
+         data-str-anchor="{% trans 'anchor' %}"
+         data-str-rotator="{% trans 'rotator' %}"
+         data-str-pts="{% trans 'pts' %}"
+         data-str-tables-scored="{% trans 'tables scored' %}"
          class="min-h-screen flex flex-col">
 
         {# ============================================================ #}
@@ -230,7 +237,7 @@
                 <div class="text-center">
                     <div class="text-4xl mb-2">&#129352;</div>
                     <div class="flex h-32 w-36 flex-col items-center justify-center rounded-t-xl bg-slate-700">
-                        <span class="text-2xl font-bold text-white">Table <span x-text="secondPlaceNumber"></span></span>
+                        <span class="text-2xl font-bold text-white" x-text="secondPlaceLabel"></span>
                         <span class="text-xl font-bold text-crush-pink" x-text="secondPlaceScore"></span>
                     </div>
                 </div>
@@ -238,7 +245,7 @@
                 <div class="text-center">
                     <div class="text-5xl mb-2">&#129351;</div>
                     <div class="flex h-44 w-40 flex-col items-center justify-center rounded-t-xl bg-gradient-to-b from-yellow-600/30 to-slate-700 ring-2 ring-yellow-500/30">
-                        <span class="text-3xl font-bold text-white">Table <span x-text="firstPlaceNumber"></span></span>
+                        <span class="text-3xl font-bold text-white" x-text="firstPlaceLabel"></span>
                         <span class="text-2xl font-bold text-crush-pink" x-text="firstPlaceScore"></span>
                     </div>
                 </div>
@@ -246,7 +253,7 @@
                 <div class="text-center">
                     <div class="text-4xl mb-2">&#129353;</div>
                     <div class="flex h-24 w-36 flex-col items-center justify-center rounded-t-xl bg-slate-700">
-                        <span class="text-2xl font-bold text-white">Table <span x-text="thirdPlaceNumber"></span></span>
+                        <span class="text-2xl font-bold text-white" x-text="thirdPlaceLabel"></span>
                         <span class="text-xl font-bold text-crush-pink" x-text="thirdPlaceScore"></span>
                     </div>
                 </div>
