@@ -147,7 +147,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                         if table_data:
                             state.update(table_data)
                     except Exception:
-                        pass
+                        logger.exception(
+                            "Failed to get table display data for quiz %s",
+                            self.quiz_id,
+                        )
                     await self.send_json({"type": "quiz.state", "data": state})
                 return
 

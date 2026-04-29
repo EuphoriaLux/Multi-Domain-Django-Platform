@@ -524,8 +524,8 @@ document.addEventListener("alpine:init", function () {
                     this.roundName = data.round_title;
                 }
 
-                // Start countdown
-                var time = data.time_remaining || data.time || 30;
+                // Start countdown — use nullish check so time_remaining=0 is respected
+                var time = (data.time_remaining != null) ? data.time_remaining : (data.time || 30);
                 this.countdownTotal = data.time || 30;
                 this.startCountdown(time);
 
@@ -552,7 +552,7 @@ document.addEventListener("alpine:init", function () {
                     });
                 }
 
-                var time = data.time_remaining || data.time || 30;
+                var time = (data.time_remaining != null) ? data.time_remaining : (data.time || 30);
                 this.countdownTotal = data.time || 30;
                 this.startCountdown(time);
 
@@ -579,6 +579,8 @@ document.addEventListener("alpine:init", function () {
                 } else if (data.status === "paused") {
                     this.quizStatus = "paused";
                     this.stopCountdown();
+                    // Show the table grid while paused between questions
+                    this.screen = "waiting";
                 } else if (data.status === "round_complete") {
                     this.stopCountdown();
                     // Show leaderboard between rounds
