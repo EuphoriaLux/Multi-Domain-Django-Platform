@@ -1862,9 +1862,15 @@ class TestCheckinAPITableAssignment:
 class TestQuizTableDisplay:
     def test_display_view_renders(self, client, quiz_event):
         """Public display view renders without auth."""
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
         assert response.status_code == 200
         assert b"quizDisplay" in response.content
+
+    def test_legacy_url_redirects_to_language_prefixed(self, client, quiz_event):
+        """Legacy /quiz/<id>/display/ redirects to language-prefixed URL."""
+        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        assert response.status_code == 302
+        assert f"/quiz/{quiz_event.event_id}/display/" in response["Location"]
 
     def test_display_data_returns_tables(self, client, quiz_event):
         """Display data JSON endpoint returns table info."""
@@ -1885,13 +1891,13 @@ class TestQuizTableDisplay:
         quiz_event.display_token = "1234"
         quiz_event.save()
 
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
         assert response.status_code == 200
         assert response.context["pin_required"] is True
 
     def test_display_no_pin_gate_when_no_token(self, client, quiz_event):
         """Display renders directly when no display_token configured."""
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/")
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
         assert response.status_code == 200
         assert response.context["pin_required"] is False
 
@@ -1900,7 +1906,7 @@ class TestQuizTableDisplay:
         quiz_event.display_token = "1234"
         quiz_event.save()
 
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=1234")
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/?token=1234")
         assert response.status_code == 200
         assert response.context["pin_required"] is False
 
@@ -1909,7 +1915,7 @@ class TestQuizTableDisplay:
         quiz_event.display_token = "1234"
         quiz_event.save()
 
-        response = client.get(f"/quiz/{quiz_event.event_id}/display/?token=9999")
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/?token=9999")
         assert response.status_code == 200
         assert response.context["pin_required"] is True
 
