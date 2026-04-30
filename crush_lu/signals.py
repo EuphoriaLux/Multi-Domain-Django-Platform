@@ -16,7 +16,11 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
-from allauth.socialaccount.signals import pre_social_login, social_account_updated
+from allauth.socialaccount.signals import (
+    pre_social_login,
+    social_account_added,
+    social_account_updated,
+)
 
 from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
 
@@ -1874,6 +1878,61 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
         logger.error(
             f"Error in LuxID SocialAccount post_save handler: {str(e)}",
             exc_info=True,
+        )
+
+
+# =============================================================================
+# EMAIL VERIFICATION — SOCIAL ACCOUNT CONNECT
+# =============================================================================
+
+
+@receiver(social_account_added)
+def verify_email_on_social_account_connect(sender, request, sociallogin, **kwargs):
+    """
+    Mark a user's EmailAddress as verified when they connect a social account
+    that authenticates the same email.
+
+    When a user signs up via email/password under ACCOUNT_EMAIL_VERIFICATION="optional"
+    their EmailAddress is created with verified=False. If they later connect a social
+    account (Google, Facebook, etc.) that authenticates the same email, allauth creates
+    the SocialAccount but does NOT retroactively set EmailAddress.verified=True.
+    This handler closes that gap so the user is not blocked if verification becomes
+    mandatory, and so SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT works correctly
+    on future logins.
+    """
+    from allauth.account.models import EmailAddress
+
+    user = sociallogin.user
+    if not (user and getattr(user, "pk", None)):
+        return
+
+    # Collect authenticated emails from this social login
+    social_emails = {
+        addr.email.lower()
+        for addr in sociallogin.email_addresses
+        if addr.email
+    }
+    # Fall back to extra_data if email_addresses is empty
+    if not social_emails:
+        raw = sociallogin.account.extra_data.get("email", "")
+        if raw:
+            social_emails.add(raw.lower())
+
+    if not social_emails:
+        return
+
+    updated = EmailAddress.objects.filter(
+        user=user,
+        verified=False,
+        email__in=social_emails,
+    ).update(verified=True)
+
+    if updated:
+        logger.info(
+            "Verified %d EmailAddress record(s) for user %s after connecting %s",
+            updated,
+            user.pk,
+            sociallogin.account.provider,
         )
 
 
