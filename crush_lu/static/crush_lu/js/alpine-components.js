@@ -5615,14 +5615,15 @@ document.addEventListener("alpine:init", function () {
                             });
                         }
                         if (!response.ok) {
-                            // Non-fatal error — backend will still catch duplicates at verify time
+                            // Non-fatal — proceed; backend will still catch duplicates at verify time
+                            self._doStartVerification(phoneNumber);
                             return null;
                         }
                         return response.json();
                     })
                     .then(function (data) {
                         if (data === null) {
-                            // Already handled above (rate-limit or network error)
+                            // 429 already handled, or non-fatal non-OK already dispatched above
                             return;
                         }
                         if (!data.available) {
