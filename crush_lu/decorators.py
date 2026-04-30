@@ -3,7 +3,7 @@ from functools import wraps
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -109,9 +109,19 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                 # Rate limit exceeded
                 request.limited = True
                 if block:
+                    # Return JSON for API/AJAX requests, plain text for browser requests
+                    if (
+                        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+                        or "application/json" in request.headers.get("Accept", "")
+                        or request.content_type == "application/json"
+                    ):
+                        return JsonResponse(
+                            {"error": "Too many attempts. Please try again later.", "error_code": "rate_limited"},
+                            status=429,
+                        )
                     messages.error(
                         request,
-                        f'Too many attempts. Please try again later.'
+                        'Too many attempts. Please try again later.'
                     )
                     return HttpResponse(
                         'Rate limit exceeded. Please try again later.',

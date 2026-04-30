@@ -5599,15 +5599,32 @@ document.addEventListener("alpine:init", function () {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
+                        "Accept": "application/json",
                         "X-CSRFToken": csrfToken ? csrfToken.value : "",
                     },
                     credentials: "same-origin",
                     body: JSON.stringify({ phone_number: phoneNumber }),
                 })
                     .then(function (response) {
+                        if (response.status === 429) {
+                            return response.json().catch(function () { return null; }).then(function (data) {
+                                self.errorMessage =
+                                    (data && data.error) ||
+                                    gettext("Too many attempts. Please wait a few minutes before trying again.");
+                                return null;
+                            });
+                        }
+                        if (!response.ok) {
+                            // Non-fatal error — backend will still catch duplicates at verify time
+                            return null;
+                        }
                         return response.json();
                     })
                     .then(function (data) {
+                        if (data === null) {
+                            // Already handled above (rate-limit or network error)
+                            return;
+                        }
                         if (!data.available) {
                             self.errorMessage =
                                 data.error || "This phone number is already in use";
@@ -5617,7 +5634,7 @@ document.addEventListener("alpine:init", function () {
                         self._doStartVerification(phoneNumber);
                     })
                     .catch(function () {
-                        // If check fails, proceed anyway (backend will still catch duplicates)
+                        // Network failure — proceed; backend will still catch duplicates
                         self._doStartVerification(phoneNumber);
                     });
             },
