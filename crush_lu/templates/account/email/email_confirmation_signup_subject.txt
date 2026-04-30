@@ -1,0 +1,1 @@
+{% load i18n %}{% autoescape off %}{% blocktrans %}Welcome to Crush.lu — please confirm your email{% endblocktrans %}{% endautoescape %}

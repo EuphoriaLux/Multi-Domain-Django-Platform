@@ -1,0 +1,5 @@
+{% if 'entreprinder' in request.get_host %}
+{% include "account/verified_email_required_entreprinder.html" %}
+{% else %}
+{% include "account/verified_email_required_crush.html" %}
+{% endif %}
