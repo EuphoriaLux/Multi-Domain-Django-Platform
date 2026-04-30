@@ -348,10 +348,17 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         subject = render_to_string(f'{template_prefix}_subject.txt', ctx)
         subject = ' '.join(subject.splitlines()).strip()  # Remove newlines
 
-        # Try HTML first, fallback to plain text
+        # Try HTML first, fallback to plain text.
+        # Guard against templates that render empty/whitespace for the current
+        # domain (e.g. email_confirmation_message.html gates its content on
+        # 'crush.lu' in request.get_host and produces no output for other hosts).
+        # Passing an empty string as html_message would send a blank HTML part,
+        # so treat whitespace-only output the same as a missing template.
         try:
-            html_message = render_to_string(f'{template_prefix}_message.html', ctx)
-        except:
+            html_message = render_to_string(f'{template_prefix}_message.html', ctx) or None
+            if html_message and not html_message.strip():
+                html_message = None
+        except Exception:
             html_message = None
 
         message = render_to_string(f'{template_prefix}_message.txt', ctx)
