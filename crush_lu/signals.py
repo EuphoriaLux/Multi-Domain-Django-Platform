@@ -1906,17 +1906,16 @@ def verify_email_on_social_account_connect(sender, request, sociallogin, **kwarg
     if not (user and getattr(user, "pk", None)):
         return
 
-    # Collect authenticated emails from this social login
+    # Only collect emails that allauth itself considers provider-verified.
+    # cleanup_email_addresses() sets addr.verified=True based on the provider's
+    # VERIFIED_EMAIL setting or the email_verified claim in the OAuth response.
+    # Skipping unverified entries prevents a generic OIDC provider (without
+    # email_verified) from promoting an unconfirmed address to verified status.
     social_emails = {
         addr.email.lower()
         for addr in sociallogin.email_addresses
-        if addr.email
+        if addr.email and addr.verified
     }
-    # Fall back to extra_data if email_addresses is empty
-    if not social_emails:
-        raw = sociallogin.account.extra_data.get("email", "")
-        if raw:
-            social_emails.add(raw.lower())
 
     if not social_emails:
         return
