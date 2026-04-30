@@ -1,0 +1,17 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:"en" }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% trans "Verify Your Email Address" %}</title>
+<style>body{margin:0;padding:40px 16px;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827}.card{max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:40px;box-shadow:0 1px 4px rgba(0,0,0,.08)}h1{margin:0 0 12px;font-size:22px;font-weight:700}p{margin:0 0 20px;color:#6b7280;line-height:1.6}.btn{display:inline-block;background:#4f46e5;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600}.link{color:#4f46e5}</style>
+</head>
+<body>
+<div class="card">
+  <h1>{% trans "Verify Your Email Address" %}</h1>
+  <p>{% blocktrans %}This part of the site requires us to verify that you are who you claim to be. For this purpose, we require that you verify ownership of your email address.{% endblocktrans %}</p>
+  {% url 'account_email' as email_url %}
+  <p>{% blocktrans %}We have sent an email to you for verification. Please click on the link inside that email. If you do not see the verification email in your main inbox, check your spam folder. Otherwise <a class="link" href="{{ email_url }}">request a new verification email</a>.{% endblocktrans %}</p>
+</div>
+</body>
+</html>
