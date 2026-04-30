@@ -1,5 +1,9 @@
+{# Domain-aware verification sent template router #}
 {% if 'entreprinder' in request.get_host %}
 {% include "account/verification_sent_entreprinder.html" %}
 {% else %}
+{# Default to Crush template - handles crush.lu, powerup.lu, vinsdelux.com, azurewebsites.net, #}
+{# localhost, 127.0.0.1, and any unknown hosts. Uses crush_lu/base.html + relative URLs only — #}
+{# no crush_lu: namespace references so it is safe on all domain URLConfs. #}
 {% include "account/verification_sent_crush.html" %}
 {% endif %}
