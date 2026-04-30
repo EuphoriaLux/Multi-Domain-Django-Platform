@@ -1,0 +1,78 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{% load account %}
+
+{% block title %}{% trans "Confirm Email Address - Crush.lu" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20 p-8 text-center">
+
+            {% if confirmation %}
+                {% user_display confirmation.email_address.user as user_display %}
+
+                {% if can_confirm %}
+                    <div class="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                        {% include "shared/icons/envelope.html" with class="w-8 h-8 text-purple-600 dark:text-purple-400" %}
+                    </div>
+
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {% trans "Confirm Your Email" %}
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 mb-6">
+                        {% blocktrans with email=confirmation.email_address.email %}
+                            Please confirm that <strong>{{ email }}</strong> is your email address for Crush.lu.
+                        {% endblocktrans %}
+                    </p>
+
+                    <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+                        {% csrf_token %}
+                        {{ redirect_field }}
+                        <button type="submit" class="btn-crush-primary w-full py-3 text-base font-semibold">
+                            {% trans "Confirm Email Address" %}
+                        </button>
+                    </form>
+
+                {% else %}
+                    <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                        {% include "shared/icons/x-circle.html" with class="w-8 h-8 text-red-500 dark:text-red-400" %}
+                    </div>
+
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {% trans "Unable to Confirm" %}
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400">
+                        {% blocktrans with email=confirmation.email_address.email %}
+                            Unable to confirm {{ email }} because it is already confirmed by a different account.
+                        {% endblocktrans %}
+                    </p>
+                {% endif %}
+
+            {% else %}
+                <div class="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-8 h-8 text-yellow-500 dark:text-yellow-400" %}
+                </div>
+
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    {% trans "Link Expired" %}
+                </h1>
+                <p class="text-gray-500 dark:text-gray-400 mb-6">
+                    {% trans "This email confirmation link has expired or is invalid." %}
+                </p>
+                <a href="{% url 'account_email' %}" class="btn-crush-primary inline-block py-3 px-6">
+                    {% trans "Request a New Link" %}
+                </a>
+            {% endif %}
+
+            <div class="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                <a href="/" class="text-sm text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400">
+                    ← {% trans "Back to Crush.lu" %}
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

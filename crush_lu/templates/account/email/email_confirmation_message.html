@@ -1,0 +1,87 @@
+{% load i18n account %}{% autoescape off %}{% user_display user as user_display %}{% if request and 'crush.lu' in request.get_host %}<!DOCTYPE html>
+<html lang="{% get_current_language %}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% blocktrans with site_name=current_site.name %}Confirm your email - {{ site_name }}{% endblocktrans %}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <span style="font-size:28px;font-weight:800;color:#7c3aed;letter-spacing:-0.5px;">{{ current_site.name }}</span>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color:#ffffff;border-radius:16px;padding:40px 36px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+              <!-- Icon -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <div style="width:56px;height:56px;background-color:#ede9fe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">
+                      <span style="font-size:28px;">✉️</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;text-align:center;">
+                {% blocktrans %}Confirm your email address{% endblocktrans %}
+              </h1>
+              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;text-align:center;line-height:1.6;">
+                {% blocktrans with site_name=current_site.name %}Hi {{ user_display }}, click the button below to verify your email address and access your {{ site_name }} account.{% endblocktrans %}
+              </p>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding-bottom:28px;">
+                    <a href="{{ activate_url }}"
+                       style="display:inline-block;background-color:#7c3aed;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:10px;">
+                      {% blocktrans %}Confirm Email Address{% endblocktrans %}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback link -->
+              <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;text-align:center;">
+                {% blocktrans %}If the button doesn't work, copy and paste this link into your browser:{% endblocktrans %}
+              </p>
+              <p style="margin:0 0 24px;font-size:12px;color:#7c3aed;text-align:center;word-break:break-all;">
+                <a href="{{ activate_url }}" style="color:#7c3aed;">{{ activate_url }}</a>
+              </p>
+
+              <hr style="border:none;border-top:1px solid #f3f4f6;margin:0 0 20px;">
+
+              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
+                {% blocktrans with site_name=current_site.name %}If you did not create a {{ site_name }} account, you can safely ignore this email.{% endblocktrans %}
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top:24px;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                © {{ current_site.name }} · noreply@crush.lu
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+{% endif %}{% endautoescape %}
