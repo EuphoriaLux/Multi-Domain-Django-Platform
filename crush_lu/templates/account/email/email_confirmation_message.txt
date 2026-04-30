@@ -1,10 +1,10 @@
-{% load i18n account %}{% autoescape off %}{% user_display user as user_display %}{% blocktrans with site_name="Crush.lu" %}Hi {{ user_display }},{% endblocktrans %}
+{% load i18n account %}{% autoescape off %}{% user_display user as user_display %}{% blocktrans with site_name=current_site.name %}Hi {{ user_display }},{% endblocktrans %}
 
-{% blocktrans with site_name="Crush.lu" %}Please confirm your email address for your Crush.lu account by clicking the link below:{% endblocktrans %}
+{% blocktrans with site_name=current_site.name %}Please confirm your email address for your {{ site_name }} account by clicking the link below:{% endblocktrans %}
 
 {{ activate_url }}
 
 {% blocktrans %}If you did not request this, you can safely ignore this email.{% endblocktrans %}
 
-{% blocktrans with site_name="Crush.lu" %}— The Crush.lu team{% endblocktrans %}
+{% blocktrans with site_name=current_site.name %}— The {{ site_name }} team{% endblocktrans %}
 {% endautoescape %}

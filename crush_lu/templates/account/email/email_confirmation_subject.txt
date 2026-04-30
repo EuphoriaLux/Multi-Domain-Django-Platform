@@ -1,1 +1,1 @@
-{% load i18n %}{% autoescape off %}{% blocktrans %}Confirm your email address on Crush.lu{% endblocktrans %}{% endautoescape %}
+{% load i18n %}{% autoescape off %}{% blocktrans with site_name=current_site.name %}Confirm your email address on {{ site_name }}{% endblocktrans %}{% endautoescape %}
