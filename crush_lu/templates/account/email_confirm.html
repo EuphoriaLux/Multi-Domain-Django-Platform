@@ -2,7 +2,7 @@
 {% if 'entreprinder' in request.get_host %}
 {# Entreprinder has its own Bootstrap-based branded layout #}
 {% include "account/email_confirm_entreprinder.html" %}
-{% elif 'crush.lu' in request.get_host or 'localhost' in request.get_host or '127.0.0.1' in request.get_host %}
+{% elif 'crush.lu' in request.get_host or request.get_host == 'localhost' or request.get_host == 'crush.localhost' or '127.0.0.1' in request.get_host %}
 {# Crush.lu and local dev — full branded template using crush_lu/base.html #}
 {% include "account/email_confirm_crush.html" %}
 {% else %}
