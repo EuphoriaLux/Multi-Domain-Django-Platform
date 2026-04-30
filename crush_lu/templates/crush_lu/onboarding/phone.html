@@ -29,7 +29,8 @@
              id="phone-verification-container"
              x-data="phoneVerificationComponent"
              data-verified="{% if profile.phone_verified %}true{% else %}false{% endif %}"
-             data-phone-input-id="onboarding_phone_input">
+             data-phone-input-id="onboarding_phone_input"
+             data-keep-iti="true">
 
       <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
         {% include "shared/icons/phone.html" with class="w-5 h-5" %}

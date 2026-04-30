@@ -5455,6 +5455,11 @@ document.addEventListener("alpine:init", function () {
                 var verifiedAttr = this.$el.getAttribute("data-verified");
                 this.verified = verifiedAttr === "true";
 
+                // data-keep-iti="true" preserves the flag/dial-code display after
+                // verification. Use this on pages without a <form> (e.g. onboarding)
+                // where destroying the instance would leave a plain text field.
+                this.keepIti = this.$el.getAttribute("data-keep-iti") === "true";
+
                 this.phoneInputId =
                     this.$el.getAttribute("data-phone-input-id") || "id_phone_number";
 
@@ -5532,22 +5537,28 @@ document.addEventListener("alpine:init", function () {
                             // destroy the instance so it can't strip the dial code later
                             self.iti.setNumber(e.detail);
                         }
-                        // Set the raw input value to full E.164 number as a safety net
-                        phoneInput.value = e.detail;
                         phoneInput.readOnly = true;
-                        // Destroy intl-tel-input instance - phone is now verified and locked,
-                        // we don't want the library interfering with the value on form submit
-                        if (self.iti) {
-                            try {
-                                self.iti.destroy();
-                            } catch (err) {
-                                console.warn(
-                                    "intl-tel-input: Could not destroy after verification",
-                                    err,
-                                );
+                        if (self.keepIti && self.iti) {
+                            // No form submission on this page — keep the iti instance so
+                            // the country flag and dial code remain visible after verification.
+                            self.iti.setNumber(e.detail);
+                        } else {
+                            // Set the raw input value to full E.164 number as a safety net
+                            phoneInput.value = e.detail;
+                            // Destroy intl-tel-input instance - phone is now verified and locked,
+                            // we don't want the library stripping the dial code on form submit
+                            if (self.iti) {
+                                try {
+                                    self.iti.destroy();
+                                } catch (err) {
+                                    console.warn(
+                                        "intl-tel-input: Could not destroy after verification",
+                                        err,
+                                    );
+                                }
+                                self.iti = null;
+                                window.itiInstance = null;
                             }
-                            self.iti = null;
-                            window.itiInstance = null;
                         }
                     }
                 });
