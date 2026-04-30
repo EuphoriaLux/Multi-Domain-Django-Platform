@@ -67,5 +67,18 @@ class LuxIDProvider(OpenIDConnectProvider):
         # Override to use "luxid_callback" instead of "openid_connect_callback"
         return reverse(f"{self.id}_callback")
 
+    def extract_email_addresses(self, data):
+        addresses = super().extract_email_addresses(data)
+        # LuxID is POST Luxembourg's government-grade CIAM and the authoritative
+        # trust anchor for the email it releases. allauth's OIDC base class
+        # defaults email_verified to False when the claim is absent, which
+        # prevents _lookup_by_email() from matching the email to an existing
+        # account and forces the user to the /accounts/3rdparty/signup/ page
+        # instead of auto-connecting. Force verified=True so that
+        # SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT works correctly.
+        for addr in addresses:
+            addr.verified = True
+        return addresses
+
 
 provider_classes = [LuxIDProvider]

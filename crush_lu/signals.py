@@ -1578,26 +1578,30 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         except Exception:
             pass
 
-        # Belt-and-braces: if allauth's OIDC extractor didn't populate
-        # sociallogin.email_addresses but we do see an `email` claim in the
-        # flattened OIDC payload, push it in so SocialSignupForm prefills
-        # correctly and allauth's auto-signup path can proceed.
+        # NOTE: sociallogin.lookup() (which drives email-based auto-connect)
+        # runs BEFORE pre_social_login fires, so changes to email_addresses
+        # here do NOT affect the auto-connect decision. The authoritative fix
+        # for auto-connect is LuxIDProvider.extract_email_addresses() which
+        # forces verified=True before lookup() runs.
         #
-        # LuxID is POST Luxembourg's government-grade CIAM — the provider
-        # itself is the trust anchor, so any email in the token is already
-        # verified on their side even when they don't release the
-        # `email_verified` claim. Hardcode verified=True to skip Crush.lu's
-        # own email-verification flow for LuxID users.
-        if not sociallogin.email_addresses and _claims.get("email"):
+        # This block is kept as a belt-and-braces for the SocialSignupForm
+        # pre-fill path (new-user signup) and as a guard against unexpected
+        # allauth internals that may read email_addresses after this signal.
+        if _claims.get("email"):
             from allauth.account.models import EmailAddress as _EmailAddress
 
-            sociallogin.email_addresses = [
-                _EmailAddress(
-                    email=_claims["email"],
-                    verified=True,
-                    primary=True,
-                )
-            ]
+            if sociallogin.email_addresses:
+                # Ensure any existing addresses are marked verified.
+                for _addr in sociallogin.email_addresses:
+                    _addr.verified = True
+            else:
+                sociallogin.email_addresses = [
+                    _EmailAddress(
+                        email=_claims["email"],
+                        verified=True,
+                        primary=True,
+                    )
+                ]
 
         # Update CrushProfile for existing users.
         # During the connect flow (email user linking LuxID for the first
