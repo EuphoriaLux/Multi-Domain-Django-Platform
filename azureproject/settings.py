@@ -420,8 +420,8 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 # Keep unique email constraint
 ACCOUNT_UNIQUE_EMAIL = True
 
-# Email verification optional (not mandatory)
-ACCOUNT_EMAIL_VERIFICATION = "optional"
+# Email verification mandatory
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 
 # Remember me by default
 ACCOUNT_SESSION_REMEMBER = True
