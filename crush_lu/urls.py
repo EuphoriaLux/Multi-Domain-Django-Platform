@@ -31,6 +31,16 @@ class UnifiedAuthView(LoginView):
         context['mode'] = 'login'
         return context
 
+    def get_initial(self):
+        # Prefill the login field after email confirmation. The address is
+        # stashed by the email_confirmed signal handler in crush_lu/signals.py.
+        # We pop it so a stale value doesn't persist into a later session.
+        initial = super().get_initial() or {}
+        prefill = self.request.session.pop('login_prefill_email', None)
+        if prefill:
+            initial['login'] = prefill
+        return initial
+
     def dispatch(self, request, *args, **kwargs):
         # Rate limiting for POST requests (login attempts)
         if request.method == 'POST':
@@ -143,6 +153,7 @@ urlpatterns = [
 
     # Onboarding flow (7-step journey — see crush_lu/onboarding.py)
     path('signup/', views.signup, name='signup'),
+    path('signup/resend-verification/', views.resend_verification_email, name='resend_verification'),
     path('onboarding/', views_profile.onboarding_entry, name='onboarding_entry'),
     path('welcome/', views_profile.welcome_view, name='welcome'),
     path('onboarding/phone/', views_profile.phone_step, name='onboarding_phone'),

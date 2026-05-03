@@ -133,9 +133,11 @@ class WelcomeIntentApiTests(_SiteMixin, TestCase):
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class SignupRedirectTests(_SiteMixin, TestCase):
-    """Verify the signup redirect now points at /onboarding/ (smart-resume)."""
+    """Under ACCOUNT_EMAIL_VERIFICATION='mandatory', signup hands off to
+    allauth's complete_signup which renders the verification-sent page
+    instead of logging the user in and forwarding to /onboarding/."""
 
-    def test_signup_redirects_to_onboarding_entry(self):
+    def test_signup_redirects_to_verification_sent(self):
         response = self.client.post(
             reverse("crush_lu:signup"),
             {
@@ -149,7 +151,11 @@ class SignupRedirectTests(_SiteMixin, TestCase):
                 "privacy_consent": "on",
             },
         )
-        # May redirect to onboarding or re-render the form if fields are missing.
-        # If successful, it must land on /onboarding/ (not /create-profile/).
+        # May redirect to verification-sent or re-render the form if fields
+        # are missing. If successful, it must land on the verification-sent
+        # page (allauth's complete_signup target under mandatory verification).
         if response.status_code == 302:
-            self.assertIn("/onboarding/", response["Location"])
+            self.assertEqual(
+                response["Location"],
+                reverse("account_email_verification_sent"),
+            )

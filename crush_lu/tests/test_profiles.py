@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 import json
 
+from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -106,9 +107,18 @@ class RegistrationFlowTests(TestCase):
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
         user = User.objects.get(email="newuser@example.com")
         self.assertGreater(len(response.redirect_chain), 0)
-        # Signup now routes through /onboarding/ (smart-resume) which lands
-        # a fresh user on /welcome/ (step 1 of the onboarding journey).
-        self.assertEqual(response.redirect_chain[-1][0], reverse("crush_lu:welcome"))
+        # Under ACCOUNT_EMAIL_VERIFICATION='mandatory', signup hands off to
+        # allauth's complete_signup which lands the unauthenticated user on
+        # the verification-sent page instead of forwarding to /welcome/.
+        self.assertEqual(
+            response.redirect_chain[-1][0],
+            reverse("account_email_verification_sent"),
+        )
+
+        # Simulate the user clicking the verification link, then logging in,
+        # so the rest of the registration flow can proceed.
+        EmailAddress.objects.filter(user=user, email__iexact=user.email).update(verified=True, primary=True)
+        self.client.force_login(user)
 
         # Get or create the profile and mark phone + coach_intro as done so
         # the submission gate (phone_verified + coach_intro_seen_at) passes.
