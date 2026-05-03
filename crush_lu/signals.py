@@ -15,7 +15,7 @@ from django.db.models import Q
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from allauth.account.signals import email_confirmed, user_signed_up
+from allauth.account.signals import email_confirmation_sent, email_confirmed
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import (
     pre_social_login,
@@ -2426,19 +2426,22 @@ def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
     )
 
 
-@receiver(user_signed_up)
-def stash_pending_verification_email(sender, request, user, **kwargs):
-    """Stash the new user's email in session so the unauthenticated
-    verification-sent page can offer a working "resend" without a session
-    lookup against allauth's authenticated email-management page.
+@receiver(email_confirmation_sent)
+def stash_pending_verification_email(sender, request, confirmation, signup, **kwargs):
+    """Stash the pending email in session so the unauthenticated verification-sent
+    page can offer a working "resend" without an authenticated lookup.
 
-    Fires on every successful signup path — the custom crush_lu:signup view,
-    allauth's stock account_signup (used by the gift_landing flow), and
-    social signups — so the resend endpoint works regardless of entry point.
+    Fires whenever allauth sends a confirmation email — fresh signup (custom
+    crush_lu:signup view, allauth's stock account_signup used by gift_landing,
+    social signup), login attempts by existing-but-unverified users under
+    ACCOUNT_EMAIL_VERIFICATION="mandatory", and the resend endpoint itself.
+    Using email_confirmation_sent (rather than user_signed_up) ensures the
+    session key is populated on the login path too, so blocked users can
+    request another link from the verification-sent page.
     """
-    if request is None or user is None:
+    if request is None or confirmation is None:
         return
-    email = getattr(user, "email", None)
+    email = getattr(getattr(confirmation, "email_address", None), "email", None)
     if email:
         request.session["pending_verification_email"] = email
 
