@@ -29,9 +29,12 @@
                 {% endblocktrans %}
             </p>
 
-            <a href="{% url 'account_email' %}" class="inline-block w-full py-3 px-6 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors mb-3">
-                {% trans "Resend Verification Email" %}
-            </a>
+            <form method="post" action="{% url 'crush_lu:resend_verification' %}" class="mb-3">
+                {% csrf_token %}
+                <button type="submit" class="inline-block w-full py-3 px-6 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {% trans "Resend Verification Email" %}
+                </button>
+            </form>
 
             <a href="/" class="text-sm text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400">
                 ← {% trans "Back to Crush.lu" %}

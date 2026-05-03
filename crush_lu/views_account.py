@@ -1086,20 +1086,31 @@ def signup(request):
                     request,
                     _("Account created! Check your email and complete your profile."),
                 )
-                # Log the user in - set backend for multi-auth compatibility
-                user.backend = "django.contrib.auth.backends.ModelBackend"
-                login(request, user)
 
-                # Check if there's a pending gift to claim
+                # Hand off to allauth's complete_signup so ACCOUNT_EMAIL_VERIFICATION
+                # is honored: in "mandatory" mode allauth renders the verification-sent
+                # page and does NOT log the user in until they confirm their email.
+                from allauth.account import app_settings as allauth_account_settings
+                from allauth.account.utils import complete_signup
+
                 pending_gift_code = request.session.get("pending_gift_code")
                 if pending_gift_code:
-                    return redirect("crush_lu:gift_claim", gift_code=pending_gift_code)
+                    success_url = reverse(
+                        "crush_lu:gift_claim", kwargs={"gift_code": pending_gift_code}
+                    )
+                else:
+                    success_url = reverse("crush_lu:onboarding_entry")
 
-                # New signups land on /onboarding/, the smart-resume entry.
-                # On a fresh signup it forwards to /welcome/ (step 1);
-                # returning users resume on the step they left off at. See
-                # crush_lu/onboarding.py:get_current_step.
-                return redirect("crush_lu:onboarding_entry")
+                # Stash email so the unauthenticated verification-sent page can
+                # offer a "resend" without requiring a login round-trip.
+                request.session["pending_verification_email"] = user.email
+
+                return complete_signup(
+                    request,
+                    user,
+                    allauth_account_settings.EMAIL_VERIFICATION,
+                    success_url,
+                )
 
             except Exception as e:
                 # Handle duplicate email/username errors
@@ -1129,6 +1140,38 @@ def signup(request):
         "mode": "signup",
     }
     return render(request, "crush_lu/auth.html", context)
+
+
+@require_http_methods(["POST"])
+@ratelimit(key="ip", rate="3/h", method="POST")
+def resend_verification_email(request):
+    """Re-send the email-verification link for a pending signup.
+
+    The user is not yet logged in (mandatory mode blocks login until the email
+    is verified), so we cannot use allauth's built-in email-management page
+    which requires authentication. The target email is read from the session
+    that was set when the user signed up. Always returns the same generic
+    message so we don't leak whether an account exists for a given email.
+    """
+    from allauth.account.models import EmailAddress
+
+    email = request.session.get("pending_verification_email")
+    if email:
+        email_address = EmailAddress.objects.filter(
+            email__iexact=email, verified=False
+        ).first()
+        if email_address:
+            email_address.send_confirmation(request, signup=False)
+            logger.info(f"Resent verification email to {email}")
+
+    messages.success(
+        request,
+        _(
+            "If an unverified account exists for that address, "
+            "a new verification link has been sent."
+        ),
+    )
+    return redirect("account_email_verification_sent")
 
 
 @crush_login_required

@@ -15,12 +15,15 @@ from django.db.models import Q
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
+from allauth.account.signals import email_confirmed
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import (
     pre_social_login,
     social_account_added,
     social_account_updated,
 )
+from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
 
 from azureproject.domains import DOMAINS as _PLATFORM_DOMAINS
 
@@ -2420,4 +2423,24 @@ def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
     ).update(
         assigned_at=now,
         sla_deadline=now + timedelta(hours=48),
+    )
+
+
+@receiver(email_confirmed)
+def stash_confirmed_email_for_login_prefill(sender, request, email_address, **kwargs):
+    """After email confirmation, stash the address in session so the next page
+    (the login form) can prefill it. Also surface a friendly success message.
+
+    Only fires when the user is NOT already authenticated — when they ARE
+    authenticated, allauth uses ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL
+    instead and prefilling is irrelevant.
+    """
+    if request is None:
+        return
+    if getattr(request, "user", None) and request.user.is_authenticated:
+        return
+    request.session["login_prefill_email"] = email_address.email
+    messages.success(
+        request,
+        _("Email verified — please sign in to continue."),
     )
