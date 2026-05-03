@@ -15,7 +15,7 @@ from django.db.models import Q
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from allauth.account.signals import email_confirmed
+from allauth.account.signals import email_confirmed, user_signed_up
 from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import (
     pre_social_login,
@@ -2424,6 +2424,23 @@ def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
         assigned_at=now,
         sla_deadline=now + timedelta(hours=48),
     )
+
+
+@receiver(user_signed_up)
+def stash_pending_verification_email(sender, request, user, **kwargs):
+    """Stash the new user's email in session so the unauthenticated
+    verification-sent page can offer a working "resend" without a session
+    lookup against allauth's authenticated email-management page.
+
+    Fires on every successful signup path — the custom crush_lu:signup view,
+    allauth's stock account_signup (used by the gift_landing flow), and
+    social signups — so the resend endpoint works regardless of entry point.
+    """
+    if request is None or user is None:
+        return
+    email = getattr(user, "email", None)
+    if email:
+        request.session["pending_verification_email"] = email
 
 
 @receiver(email_confirmed)

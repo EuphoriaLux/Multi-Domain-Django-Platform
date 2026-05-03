@@ -1101,10 +1101,6 @@ def signup(request):
                 else:
                     success_url = reverse("crush_lu:onboarding_entry")
 
-                # Stash email so the unauthenticated verification-sent page can
-                # offer a "resend" without requiring a login round-trip.
-                request.session["pending_verification_email"] = user.email
-
                 return complete_signup(
                     request,
                     user,
