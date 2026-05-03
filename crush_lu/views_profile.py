@@ -1205,7 +1205,10 @@ def coach_intro_step(request):
     Step 3 of the journey — informational page about the coach role and
     bios. Does NOT assign a coach (coaches claim from the channel post-submit).
 
-    POST marks `coach_intro_seen_at` and advances to step 4.
+    First GET auto-stamps `coach_intro_seen_at` (mirroring welcome_view's
+    pattern) so the Continue link is a plain GET — no extra form submission
+    just to advance an informational step. POST is preserved for backward
+    compatibility with any cached version of the template.
     """
     profile, _created = CrushProfile.objects.get_or_create(user=request.user)
     if not profile.phone_verified:
@@ -1216,6 +1219,10 @@ def coach_intro_step(request):
             profile.coach_intro_seen_at = timezone.now()
             profile.save(update_fields=["coach_intro_seen_at"])
         return redirect("crush_lu:create_profile")
+
+    if not profile.coach_intro_seen_at:
+        profile.coach_intro_seen_at = timezone.now()
+        profile.save(update_fields=["coach_intro_seen_at"])
 
     coaches = (
         CrushCoach.objects.filter(is_active=True)

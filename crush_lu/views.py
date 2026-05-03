@@ -382,6 +382,30 @@ def create_profile(request):
                 )
                 return redirect("crush_lu:onboarding_phone")
 
+            # Enforce email verification before allowing submission. The
+            # journey stepper shows a soft reminder banner from signup
+            # onwards; this gate makes sure no profile is submitted without
+            # a verified email address. Bot signups never get past this
+            # point, and users with typoed emails learn about it before
+            # the coach review starts. Social-login users are exempt
+            # because their providers verify the email upfront.
+            try:
+                from allauth.account.models import EmailAddress
+                email_ok = EmailAddress.objects.filter(
+                    user=request.user, verified=True
+                ).exists()
+            except Exception:
+                email_ok = True
+            if not email_ok:
+                messages.error(
+                    request,
+                    _(
+                        "Please verify your email address before submitting your profile. "
+                        "Check your inbox for the confirmation link, or resend it from your account settings."
+                    ),
+                )
+                return redirect("account_email")
+
             # Journey guard: mirrors the AJAX submit path at
             # views_profile.complete_profile_submission. The JS-disabled form
             # POST must not bypass the step-3 coach-intro acknowledgement.
