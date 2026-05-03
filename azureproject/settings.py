@@ -425,10 +425,14 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 
 # Where to send anonymous users after they click the confirmation link.
 # We deliberately do NOT enable ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION so users
-# still authenticate with their password — but redirecting them straight to
-# /login/ (with the email prefilled by UnifiedAuthView via session) reduces
-# the friction to a single field of input.
-ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/login/"
+# still authenticate with their password. Use allauth's /accounts/login/
+# (mounted globally via allauth.urls) instead of Crush's /login/ — the latter
+# only exists in crush_lu/urls.py, so non-Crush domains (vinsdelux,
+# entreprinder, power-up, arborist, delegations, tableau, portal) would 404
+# on the post-confirm redirect. The Crush prefill UX still works for users
+# who arrive at /login/ directly via the success message; this setting only
+# governs allauth's anonymous post-confirm redirect.
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/accounts/login/"
 
 # Remember me by default
 ACCOUNT_SESSION_REMEMBER = True
