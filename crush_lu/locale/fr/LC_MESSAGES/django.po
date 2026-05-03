@@ -6101,76 +6101,64 @@ msgid "Answer 13 quick questions before your call"
 msgstr "Réponds à 13 questions rapides avant ton appel"
 
 #: .\crush_lu\pre_screening_schema.py:39
-#, fuzzy
 #| msgid "Pending Your Consent"
 msgid "Confirm your details"
-msgstr "En attente de ton consentement"
+msgstr "Confirme tes informations"
 
 #: .\crush_lu\pre_screening_schema.py:46
-#, fuzzy
 #| msgid "Where did you first meet?"
 msgid "Where do you live?"
-msgstr "Ou vous etes-vous rencontres pour la premiere fois ?"
+msgstr "Où habites-tu ?"
 
 #: .\crush_lu\pre_screening_schema.py:50
-#, fuzzy
 #| msgid "Luxembourg identity"
 msgid "Luxembourg – Luxembourg City"
-msgstr "Identité luxembourgeoise"
+msgstr "Luxembourg – Ville de Luxembourg"
 
 #: .\crush_lu\pre_screening_schema.py:51
-#, fuzzy
 #| msgid "Esch-sur-Alzette"
 msgid "Luxembourg – Esch-sur-Alzette"
-msgstr "Esch-sur-Alzette"
+msgstr "Luxembourg – Esch-sur-Alzette"
 
 #: .\crush_lu\pre_screening_schema.py:52
-#, fuzzy
 #| msgid "Luxembourg cantons"
 msgid "Luxembourg – other canton"
-msgstr "Cantons du Luxembourg"
+msgstr "Luxembourg – autre canton"
 
 #: .\crush_lu\pre_screening_schema.py:53
-#, fuzzy
 #| msgid "Border regions"
 msgid "France (border region)"
-msgstr "Régions frontalières"
+msgstr "France (région frontalière)"
 
 #: .\crush_lu\pre_screening_schema.py:54
-#, fuzzy
 #| msgid "Border regions"
 msgid "Germany (border region)"
-msgstr "Régions frontalières"
+msgstr "Allemagne (région frontalière)"
 
 #: .\crush_lu\pre_screening_schema.py:55
-#, fuzzy
 #| msgid "Border regions"
 msgid "Belgium (border region)"
-msgstr "Régions frontalières"
+msgstr "Belgique (région frontalière)"
 
 #: .\crush_lu\pre_screening_schema.py:65
-#, fuzzy
 #| msgid "Languages the user can speak at in-person events"
 msgid "Languages you can comfortably speak at a social event"
-msgstr "Langues que l'utilisateur peut parler lors des événements en personne"
+msgstr "Langues que tu parles à l'aise lors d'un événement social"
 
 #: .\crush_lu\pre_screening_schema.py:72
-#, fuzzy
 #| msgid "Luxembourg"
 msgid "Luxembourgish"
-msgstr "Luxembourg"
+msgstr "Luxembourgeois"
 
 #: .\crush_lu\pre_screening_schema.py:81
-#, fuzzy
 #| msgid "You agree not to:"
 msgid "You are 18 or older"
-msgstr "Vous vous engagez à ne pas :"
+msgstr "Tu as 18 ans ou plus"
 
 #: .\crush_lu\pre_screening_schema.py:89
-#, fuzzy
 #| msgid "Hi! I have a question about Crush.lu."
 msgid "How did you hear about Crush.lu?"
-msgstr "Bonjour ! J'ai une question sur Crush.lu."
+msgstr "Comment as-tu entendu parler de Crush.lu ?"
 
 #: .\crush_lu\pre_screening_schema.py:91
 msgid "A friend or family member"
@@ -6189,10 +6177,9 @@ msgid "RTL, Luxemburger Wort, or other news"
 msgstr "RTL, Luxemburger Wort ou autres médias"
 
 #: .\crush_lu\pre_screening_schema.py:95
-#, fuzzy
 #| msgid "Attend an event"
 msgid "At an event"
-msgstr "Participe à un événement"
+msgstr "Lors d'un événement"
 
 #: .\crush_lu\pre_screening_schema.py:96
 msgid "ChatGPT or another AI assistant"
@@ -6203,24 +6190,19 @@ msgid "Somewhere else"
 msgstr "Ailleurs"
 
 #: .\crush_lu\pre_screening_schema.py:107
-#, fuzzy
 #| msgid "Join Crush.lu"
 msgid "Understanding Crush.lu"
-msgstr "Rejoindre Crush.lu"
+msgstr "Comprendre Crush.lu"
 
 #: .\crush_lu\pre_screening_schema.py:113
-#, fuzzy
 #| msgid "Is Crush.lu free to join?"
 msgid "What is Crush.lu to you?"
-msgstr "L'inscription sur Crush.lu est-elle gratuite ?"
+msgstr "Qu'est-ce que Crush.lu représente pour toi ?"
 
 #: .\crush_lu\pre_screening_schema.py:115
-#, fuzzy
 #| msgid "Meet people in real life at our speed dating & social events"
 msgid "A way to meet people in real life through events"
-msgstr ""
-"Rencontre des personnes dans la vie réelle lors de nos événements de speed "
-"dating et événements sociaux"
+msgstr "Une façon de rencontrer des gens en vrai à travers des événements"
 
 #: .\crush_lu\pre_screening_schema.py:116
 msgid "An online dating app like Tinder or Bumble"
@@ -6303,16 +6285,14 @@ msgid "Would prefer no intermediary"
 msgstr "Je préférerais sans intermédiaire"
 
 #: .\crush_lu\pre_screening_schema.py:168
-#, fuzzy
 #| msgid "What are you looking for?"
 msgid "What are you most looking forward to? (pick up to 3)"
-msgstr "Que recherches-tu ?"
+msgstr "Qu'est-ce qui te motive le plus ? (choisis-en jusqu'à 3)"
 
 #: .\crush_lu\pre_screening_schema.py:170
-#, fuzzy
 #| msgid "Meet like-minded people at our events"
 msgid "Meeting new people at events"
-msgstr "Rencontre des personnes qui te ressemblent lors de nos événements"
+msgstr "Rencontrer de nouvelles personnes lors d'événements"
 
 #: .\crush_lu\pre_screening_schema.py:171
 msgid "Discovering who's nearby in my canton"
@@ -6339,10 +6319,9 @@ msgid "In your own words"
 msgstr "Dans tes propres mots"
 
 #: .\crush_lu\pre_screening_schema.py:192
-#, fuzzy
 #| msgid "Vote on what kind of event you'd like to see next."
 msgid "In one sentence, what kind of person are you hoping to meet?"
-msgstr "Votez pour le type d'événement que vous aimeriez voir prochainement."
+msgstr "En une phrase, quel genre de personne espères-tu rencontrer ?"
 
 #: .\crush_lu\pre_screening_schema.py:193
 msgid "Someone curious, who likes walking and asking questions…"
@@ -6360,10 +6339,9 @@ msgid "I'm a bit shy at first — hope that's okay."
 msgstr "Je suis un peu timide au début – j'espère que ce n'est pas un souci."
 
 #: .\crush_lu\pre_screening_schema.py:210
-#, fuzzy
 #| msgid "Continue"
 msgid "Before we continue"
-msgstr "Continuer"
+msgstr "Avant de continuer"
 
 #: .\crush_lu\pre_screening_schema.py:217
 msgid ""
@@ -6390,11 +6368,9 @@ msgstr ""
 "de membre."
 
 #: .\crush_lu\pre_screening_schema.py:243
-#, fuzzy
 #| msgid "I agree to the Terms of Service and Privacy Policy"
 msgid "I accept the [Code of Conduct] and [Privacy Policy]."
-msgstr ""
-"J'accepte les Conditions d'utilisation et la Politique de confidentialité"
+msgstr "J'accepte le [Code de conduite] et la [Politique de confidentialité]."
 
 #: .\crush_lu\pre_screening_schema.py:412
 msgid "Responses must be an object."
@@ -6405,29 +6381,25 @@ msgid "Pre-screening schema version mismatch."
 msgstr "Version du schéma de pré-vérification incompatible."
 
 #: .\crush_lu\pre_screening_schema.py:426
-#, fuzzy
 #| msgid "Unknown content"
 msgid "Unknown question."
-msgstr "Contenu inconnu"
+msgstr "Question inconnue."
 
 #: .\crush_lu\pre_screening_schema.py:442
-#, fuzzy
 #| msgid "This invitation has expired."
 msgid "This question is required."
-msgstr "Cette invitation a expiré."
+msgstr "Cette question est obligatoire."
 
 #: .\crush_lu\pre_screening_schema.py:454
 #: .\crush_lu\pre_screening_schema.py:465
-#, fuzzy
 #| msgid "Invalid QR code."
 msgid "Invalid choice."
-msgstr "Code QR invalide."
+msgstr "Choix invalide."
 
 #: .\crush_lu\pre_screening_schema.py:459
-#, fuzzy
 #| msgid "Must be 18+ to join"
 msgid "Must be a list of choices."
-msgstr "Tu dois avoir 18 ans ou plus pour t'inscrire"
+msgstr "Doit être une liste de choix."
 
 #: .\crush_lu\pre_screening_schema.py:471
 #, python-format
@@ -6452,16 +6424,14 @@ msgid "Must be checked."
 msgstr "Doit être coché."
 
 #: .\crush_lu\pre_screening_schema.py:498
-#, fuzzy
 #| msgid "Must be 18+ to join"
 msgid "Must be yes or no."
-msgstr "Tu dois avoir 18 ans ou plus pour t'inscrire"
+msgstr "Doit être oui ou non."
 
 #: .\crush_lu\pre_screening_schema.py:502
-#, fuzzy
 #| msgid "No connections yet"
 msgid "Unknown question type."
-msgstr "Nouvelles connexions"
+msgstr "Type de question inconnu."
 
 #: .\crush_lu\pre_screening_schema.py:580
 msgid "User thinks Crush.lu is a swipe app — expect to clarify during call."
