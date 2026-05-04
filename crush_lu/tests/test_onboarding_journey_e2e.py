@@ -23,10 +23,24 @@ User = get_user_model()
 
 
 def _grant_consent(user):
-    """The consent middleware blocks onboarding URLs without this flag."""
+    """The consent middleware blocks onboarding URLs without this flag.
+
+    Also marks the user's primary email as verified so the submission gate
+    (added in views.py / views_profile.py) doesn't redirect to the
+    /accounts/email/ page. Skips the email step for users created without
+    an email (some tests pass only username) — production would behave
+    the same way (gate redirects to email management).
+    """
+    from allauth.account.models import EmailAddress
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.crushlu_consent_given = True
     consent.save(update_fields=["crushlu_consent_given"])
+    if user.email:
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
 
 CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 

@@ -187,9 +187,19 @@ class CrushPreferencesTests(TestCase):
         self.assertIn("section=preferences", response.url)
 
     def _grant_consent(self):
+        """Grant consent + mark primary email verified so submission-gated
+        views accept this fixture user. Skips email creation if the user
+        has no email (some tests use username-only)."""
+        from allauth.account.models import EmailAddress
         consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
         consent.crushlu_consent_given = True
         consent.save()
+        if self.user.email:
+            EmailAddress.objects.update_or_create(
+                user=self.user,
+                email=self.user.email,
+                defaults={"verified": True, "primary": True},
+            )
 
     def test_approved_user_can_view(self):
         """Approved users can access the preferences section."""

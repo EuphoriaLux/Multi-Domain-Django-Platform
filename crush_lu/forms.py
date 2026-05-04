@@ -30,11 +30,14 @@ class CrushSignupForm(SignupForm):
             'class': TAILWIND_INPUT
         })
     )
+    # Last name stays on the User model for legacy lookups (advent calendar,
+    # journey/special-experience matching) but isn't required at signup —
+    # asking for it upfront is intrusive and rarely needed before submission.
     last_name = forms.CharField(
         max_length=30,
-        required=True,
+        required=False,
         widget=forms.TextInput(attrs={
-            'placeholder': _('Last Name'),
+            'placeholder': _('Last Name (optional)'),
             'class': TAILWIND_INPUT
         })
     )
@@ -51,6 +54,11 @@ class CrushSignupForm(SignupForm):
         label=_('I consent to receive marketing communications (optional)')
     )
 
+    # Set on the form when clean_email() detects a duplicate. The template uses
+    # this flag (rather than parsing the translated error message) to decide
+    # whether to render the "Sign in with this email" CTA.
+    email_taken = False
+
     def clean_email(self):
         """
         Check if email already exists
@@ -64,6 +72,7 @@ class CrushSignupForm(SignupForm):
 
         # Check if a user with this email already exists
         if User.objects.filter(email__iexact=email).exists():
+            self.email_taken = True
             raise ValidationError(
                 _('An account with this email already exists. '
                   'Please login or use a different email address.')
@@ -86,7 +95,7 @@ class CrushSignupForm(SignupForm):
 
         # Update additional fields
         user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data['last_name']
+        user.last_name = self.cleaned_data.get('last_name', '') or ''
 
         # Note: Don't set username = email after user creation
         # Allauth already handles this via ACCOUNT_USER_MODEL_USERNAME_FIELD setting

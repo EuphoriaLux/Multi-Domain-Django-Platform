@@ -21,12 +21,26 @@ from crush_lu.models.quiz import (
 
 
 def _grant_consent(user):
-    """Grant GDPR consent for a user (created by signal on user creation)."""
+    """Grant GDPR consent for a user (created by signal on user creation).
+
+    Also marks the user's primary email as verified so the profile
+    submission gate (views.py / views_profile.py) doesn't bounce these
+    fixtures to /accounts/email/. Skips the email step for users created
+    without an email (some tests pass only username) — that mirrors what
+    production would do.
+    """
+    from allauth.account.models import EmailAddress
     from crush_lu.models.profiles import UserDataConsent
 
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.crushlu_consent_given = True
     consent.save()
+    if user.email:
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
 
 
 # ============================================================================

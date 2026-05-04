@@ -41,6 +41,21 @@ def crush_user_context(request):
     context = {}
 
     if request.user.is_authenticated:
+        # Email-verification flag — drives the verification banner in the
+        # onboarding stepper. We rely on allauth's EmailAddress.verified;
+        # social-login users always have at least one verified address
+        # because providers we trust (Google, Microsoft, Apple, LuxID,
+        # Facebook) are listed in SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS.
+        try:
+            from allauth.account.models import EmailAddress
+            context["email_verified"] = EmailAddress.objects.filter(
+                user=request.user, verified=True
+            ).exists()
+        except Exception:
+            # Allauth not installed in some test contexts — assume verified
+            # to avoid spurious banners.
+            context["email_verified"] = True
+
         # Connection count for badge
         connection_count = EventConnection.objects.filter(
             Q(requester=request.user) | Q(recipient=request.user),

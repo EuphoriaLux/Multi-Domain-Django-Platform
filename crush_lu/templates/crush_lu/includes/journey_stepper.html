@@ -1,4 +1,26 @@
 {% load i18n %}
+
+{% if user.is_authenticated and email_verified is False %}
+{% comment %}
+  Email verification reminder. Shown above the stepper for any onboarding
+  page when the user's primary email isn't verified yet. Hard gate is
+  enforced server-side at create_profile submission; this banner gives
+  the user time to verify before they hit it.
+{% endcomment %}
+<div class="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-700">
+  <div class="mx-auto max-w-md px-4 py-2.5 flex items-center gap-3">
+    <span class="flex-shrink-0 text-base" aria-hidden="true">✉️</span>
+    <p class="flex-1 text-xs text-amber-900 dark:text-amber-100">
+      {% blocktrans with email=user.email %}Verify <strong>{{ email }}</strong> to keep your account secure and submit your profile.{% endblocktrans %}
+    </p>
+    <a href="{% url 'account_email' %}"
+       class="flex-shrink-0 rounded-md bg-amber-600 hover:bg-amber-700 px-2.5 py-1 text-[11px] font-semibold text-white">
+      {% trans "Verify" %}
+    </a>
+  </div>
+</div>
+{% endif %}
+
 {% comment %}
   Journey Stepper — the 7-step rail that sits at the top of every onboarding page.
 
