@@ -1532,36 +1532,26 @@ def _luxid_save_profile(profile, updated_fields):
     """Save LuxID-sourced profile updates, bypassing the phone-protection lock.
 
     CrushProfile.save() prevents overwriting a verified phone to guard against
-    accidental resets. LuxID is a higher-trust anchor (government CIAM), so we
-    write phone fields via a direct queryset update that skips that guard, while
-    all other fields go through the normal save() path.
+    accidental resets. LuxID is a higher-trust anchor (government CIAM), so all
+    fields are written via a single QuerySet.update() that skips that guard.
+    The non-phone fields LuxID provides (date_of_birth, gender, preferred_language)
+    have no special save() logic, so bypassing save() for them is safe.
 
-    Both writes are wrapped in a single transaction so a partial failure cannot
-    leave the DB in an inconsistent state. The manual post_save signal for phone
-    fields is deferred to on_commit() so downstream handlers (sync_profile_to_
-    outlook, wallet-pass updates) only run after both writes have committed.
+    A single post_save is deferred to on_commit() covering all updated fields,
+    so downstream handlers (sync_profile_to_outlook, wallet-pass updates) fire
+    exactly once, only after the transaction commits successfully.
     """
-    phone_fields = [f for f in updated_fields if f in _PHONE_FIELDS]
-    other_fields = [f for f in updated_fields if f not in _PHONE_FIELDS]
-
+    all_fields = frozenset(updated_fields)
     with transaction.atomic():
-        if phone_fields:
-            CrushProfile.objects.filter(pk=profile.pk).update(
-                **{f: getattr(profile, f) for f in phone_fields}
-            )
-        if other_fields:
-            profile.save(update_fields=other_fields)
-
-    if phone_fields:
-        # Fire outside the transaction (on_commit equivalent) so downstream
-        # side effects never observe a partially-written row.
-        _frozen = frozenset(phone_fields)
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            **{f: getattr(profile, f) for f in all_fields}
+        )
         transaction.on_commit(
             lambda: post_save.send(
                 sender=CrushProfile,
                 instance=profile,
                 created=False,
-                update_fields=_frozen,
+                update_fields=all_fields,
                 using="default",
             )
         )
