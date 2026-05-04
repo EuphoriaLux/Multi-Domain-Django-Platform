@@ -310,6 +310,11 @@ urlpatterns = base_patterns + api_patterns + [
 
     # Standard Django Admin (all platforms)
     path('admin/', admin.site.urls),
+
+    # Hub API for the CRM SPA (Codex_Marketing_CRM) hosted at hub.crush.lu.
+    # Mounted on crush.lu / test.crush.lu since the SPA's preview env can't
+    # have its own subdomain — it uses test.crush.lu directly. Language-neutral.
+    path('hub/', include('hub.urls')),
 ]
 
 # Language-prefixed patterns (all user-facing pages)
