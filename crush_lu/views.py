@@ -108,6 +108,7 @@ from .views_account import (  # noqa: F401
     account_banned,
     referral_redirect,
     signup,
+    resend_verification_email,
     export_user_data,
     apple_relay_link_prompt,
     _luxid_connect_url,
