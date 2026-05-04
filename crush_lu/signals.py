@@ -1638,7 +1638,8 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # _authenticate() will call _login() (not process_signup()), saving
         # the new SocialAccount link and logging the user in seamlessly.
         _phone = _claims.get("phone_number")
-        if _phone and _is_luxembourgish_phone(_phone) and not sociallogin.is_existing:
+        _is_connect_flow = getattr(sociallogin, "state", {}).get("process") == "connect"
+        if _phone and _is_luxembourgish_phone(_phone) and not sociallogin.is_existing and not _is_connect_flow:
             try:
                 _existing_profile = CrushProfile.objects.select_related("user").get(
                     phone_number=_phone,
