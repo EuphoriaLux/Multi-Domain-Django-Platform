@@ -172,12 +172,15 @@
                                 {% endif %}
                             </div>
 
-                            <div class="mb-4 mt-3 flex items-center justify-between">
-                                <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                                    <input type="checkbox" name="remember" id="id_remember" checked
-                                           class="mr-2 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
-                                    {% trans "Remember me" %}
-                                </label>
+                            {% comment %}
+                              No "Remember me" checkbox: ACCOUNT_SESSION_REMEMBER=True
+                              forces persistent sessions in the allauth config and
+                              strips the `remember` field from LoginForm, so a
+                              checkbox here would be ignored — a misleading
+                              control that lets users believe they can opt out
+                              when they cannot.
+                            {% endcomment %}
+                            <div class="mb-6 text-right">
                                 <a href="{% url 'account_reset_password' %}" class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
                                     {% trans "Forgot your password?" %}
                                 </a>

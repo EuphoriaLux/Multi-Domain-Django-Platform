@@ -252,7 +252,10 @@ def _grant_consent(user):
     """Grant Crush.lu consent for a user so views aren't blocked by middleware.
 
     Also marks the primary email as verified so submission-gated views work
-    in tests without each fixture re-creating an EmailAddress record.
+    in tests without each fixture re-creating an EmailAddress record. Skips
+    the email step for users created without an email address (some tests
+    pass only username) — the email gate naturally redirects them, which
+    matches production behavior.
     """
     from allauth.account.models import EmailAddress
     from crush_lu.models.profiles import UserDataConsent
@@ -260,11 +263,12 @@ def _grant_consent(user):
     UserDataConsent.objects.update_or_create(
         user=user, defaults={"crushlu_consent_given": True}
     )
-    EmailAddress.objects.update_or_create(
-        user=user,
-        email=user.email,
-        defaults={"verified": True, "primary": True},
-    )
+    if user.email:
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
 
 
 class TestAppleWalletPassView:
