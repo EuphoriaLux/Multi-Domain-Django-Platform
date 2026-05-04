@@ -1649,14 +1649,22 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                     "[LUXID] Phone-based lookup: connecting LuxID to existing user pk=%s",
                     _existing_user.pk,
                 )
-                sociallogin.user = _existing_user
-                # This is now a connect, not a new signup.  Clear the signup
-                # thread-local flags set earlier in this handler so downstream
-                # post_save handlers (create_user_data_consent, welcome-email
-                # in create_crush_profile_from_luxid) don't incorrectly treat
-                # the existing account as a brand-new OAuth registration.
+                # Clear signup thread-local flags BEFORE calling connect() so
+                # the post_save signal fired by connect().save() sees clean
+                # state.  Downstream handlers (create_user_data_consent and
+                # the welcome-email branch in create_crush_profile_from_luxid)
+                # check these flags and must not treat an existing account as
+                # a brand-new registration.
                 _thread_local.oauth_signup_request = None
                 _thread_local.oauth_consent_data = None
+                # Persist the SocialAccount and token now rather than relying
+                # on allauth's _login() path to do it.  _login() only saves
+                # the SocialAccount when _did_authenticate_by_email is set
+                # (the email auto-connect flag); our phone branch never sets
+                # that flag, so without an explicit connect() call the LuxID
+                # social account would be logged in but never stored, causing
+                # the same phone lookup to repeat on every subsequent login.
+                sociallogin.connect(request, _existing_user)
             except CrushProfile.DoesNotExist:
                 logger.debug("[LUXID] Phone-based lookup: no existing user for this phone")
             except CrushProfile.MultipleObjectsReturned:
