@@ -1646,16 +1646,15 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 )
                 _existing_user = _existing_profile.user
                 logger.info(
-                    "[LUXID] Phone-based lookup: connecting LuxID to existing user %s",
-                    _existing_user.email,
+                    "[LUXID] Phone-based lookup: connecting LuxID to existing user pk=%s",
+                    _existing_user.pk,
                 )
                 sociallogin.user = _existing_user
             except CrushProfile.DoesNotExist:
                 logger.debug("[LUXID] Phone-based lookup: no existing user for this phone")
             except CrushProfile.MultipleObjectsReturned:
                 logger.warning(
-                    "[LUXID] Phone-based lookup: multiple profiles share phone %s…, skipping",
-                    _phone[:6],
+                    "[LUXID] Phone-based lookup: multiple profiles share the same phone, skipping"
                 )
             except Exception as _phone_err:
                 logger.error(
