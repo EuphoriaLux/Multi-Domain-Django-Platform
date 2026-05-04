@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Q
+from django.db import transaction
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -1477,15 +1478,23 @@ def _luxid_claims(extra_data):
     return merged if merged else extra_data
 
 
-def _is_luxembourgish_phone(phone):
-    """Return True if ``phone`` is an E.164 Luxembourgish number (+352...).
+_LUXID_TRUSTED_PREFIXES = ("+352", "+33", "+32", "+49", "+351")
 
-    The LuxID→phone_verified fallback on /create-profile/ is intentionally
-    limited to Luxembourgish numbers for the initial rollout: POST
-    Luxembourg's CIAM can technically return any country's number, but we
-    don't want to trust foreign numbers through a local-only flow yet.
+
+def _is_trusted_luxid_phone(phone):
+    """Return True if ``phone`` is an E.164 number from a LuxID-trusted country.
+
+    Accepted country prefixes:
+      +352  Luxembourg
+      +33   France
+      +32   Belgium
+      +49   Germany
+      +351  Portugal
+
+    POST Luxembourg's CIAM can return any country's number; this list covers
+    the cross-border population that Crush.lu serves.
     """
-    return bool(phone) and phone.startswith("+352")
+    return bool(phone) and phone.startswith(_LUXID_TRUSTED_PREFIXES)
 
 
 def _luxid_phone_available(phone, profile):
@@ -1514,6 +1523,38 @@ def _luxid_phone_available(phone, profile):
         )
         return False
     return True
+
+
+_PHONE_FIELDS = frozenset(["phone_number", "phone_verified", "phone_verified_at"])
+
+
+def _luxid_save_profile(profile, updated_fields):
+    """Save LuxID-sourced profile updates, bypassing the phone-protection lock.
+
+    CrushProfile.save() prevents overwriting a verified phone to guard against
+    accidental resets. LuxID is a higher-trust anchor (government CIAM), so all
+    fields are written via a single QuerySet.update() that skips that guard.
+    The non-phone fields LuxID provides (date_of_birth, gender, preferred_language)
+    have no special save() logic, so bypassing save() for them is safe.
+
+    A single post_save is deferred to on_commit() covering all updated fields,
+    so downstream handlers (sync_profile_to_outlook, wallet-pass updates) fire
+    exactly once, only after the transaction commits successfully.
+    """
+    all_fields = frozenset(updated_fields)
+    with transaction.atomic():
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            **{f: getattr(profile, f) for f in all_fields}
+        )
+        transaction.on_commit(
+            lambda: post_save.send(
+                sender=CrushProfile,
+                instance=profile,
+                created=False,
+                update_fields=all_fields,
+                using="default",
+            )
+        )
 
 
 @receiver(pre_social_login)
@@ -1639,7 +1680,7 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # the new SocialAccount link and logging the user in seamlessly.
         _phone = _claims.get("phone_number")
         _is_connect_flow = getattr(sociallogin, "state", {}).get("process") == "connect"
-        if _phone and _is_luxembourgish_phone(_phone) and not sociallogin.is_existing and not _is_connect_flow:
+        if _phone and _is_trusted_luxid_phone(_phone) and not sociallogin.is_existing and not _is_connect_flow:
             try:
                 _existing_profile = CrushProfile.objects.select_related("user").get(
                     phone_number=_phone,
@@ -1732,13 +1773,13 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # whatever the user typed manually or verified via Firebase,
                 # and this is what powers the "Verify with LuxID" fallback
                 # on /create-profile/. Non-Luxembourgish numbers are skipped
-                # for now (see _is_luxembourgish_phone).
+                # for now (see _is_trusted_luxid_phone).
                 phone = _claims.get("phone_number")
-                if phone and not _is_luxembourgish_phone(phone):
+                if phone and not _is_trusted_luxid_phone(phone):
                     logger.info(
-                        "LuxID returned non-Luxembourgish phone for user=%s; "
-                        "skipping phone prefill (feature limited to +352).",
-                        getattr(sociallogin.user, "email", None),
+                        "LuxID returned unsupported country phone for user_pk=%s; "
+                        "skipping phone prefill.",
+                        getattr(sociallogin.user, "pk", None),
                     )
                 elif (
                     phone
@@ -1780,7 +1821,7 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         updated_fields.append("preferred_language")
 
                 if updated_fields:
-                    profile.save(update_fields=updated_fields)
+                    _luxid_save_profile(profile, updated_fields)
                     logger.info(
                         f"Updated CrushProfile for LuxID user {sociallogin.user.email}: "
                         f"{updated_fields}"
@@ -1846,11 +1887,11 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             # Map phone_number. LuxID only releases verified numbers, so
             # trust it as the verification anchor and skip Crush.lu's
             # Firebase OTP step for LuxID users. Non-Luxembourgish numbers
-            # are skipped for the initial rollout (see _is_luxembourgish_phone).
+            # are skipped for the initial rollout (see _is_trusted_luxid_phone).
             phone = claims.get("phone_number")
             if (
                 phone
-                and _is_luxembourgish_phone(phone)
+                and _is_trusted_luxid_phone(phone)
                 and _luxid_phone_available(phone, profile)
             ):
                 profile.phone_number = phone
@@ -1906,7 +1947,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             phone = claims.get("phone_number")
             if (
                 phone
-                and _is_luxembourgish_phone(phone)
+                and _is_trusted_luxid_phone(phone)
                 and phone != profile.phone_number
                 and _luxid_phone_available(phone, profile)
             ):
@@ -1918,7 +1959,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
                 )
 
             if updated_fields:
-                profile.save(update_fields=updated_fields)
+                _luxid_save_profile(profile, updated_fields)
                 logger.info(
                     "Updated existing CrushProfile via LuxID connect for user %s: %s",
                     instance.user.email,
