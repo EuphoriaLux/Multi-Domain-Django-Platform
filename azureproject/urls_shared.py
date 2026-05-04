@@ -12,7 +12,11 @@ Usage:
 """
 from django.urls import path, include
 from django.http import HttpResponse
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import (
+    TokenBlacklistView,
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 from .views import csp_report
 from crush_lu.views_language import set_language_with_profile
@@ -45,4 +49,5 @@ base_patterns = [
 api_patterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/logout/', TokenBlacklistView.as_view(), name='token_logout'),
 ]
