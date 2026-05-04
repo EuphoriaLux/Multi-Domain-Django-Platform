@@ -1766,10 +1766,9 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 phone = _claims.get("phone_number")
                 if phone and not _is_trusted_luxid_phone(phone):
                     logger.info(
-                        "LuxID returned unsupported country phone for user=%s; "
-                        "skipping phone prefill (trusted prefixes: %s).",
-                        getattr(sociallogin.user, "email", None),
-                        ", ".join(_LUXID_TRUSTED_PREFIXES),
+                        "LuxID returned unsupported country phone for user_pk=%s; "
+                        "skipping phone prefill.",
+                        getattr(sociallogin.user, "pk", None),
                     )
                 elif (
                     phone
