@@ -263,10 +263,19 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         # uses OIDC for LuxID, so both spellings are treated as LuxID.
         elif sociallogin.account.provider in ('luxid', 'openid_connect'):
             extra_data = sociallogin.account.extra_data
-            user.first_name = extra_data.get('given_name', '') or data.get('first_name', '') or ''
-            user.last_name = extra_data.get('family_name', '') or data.get('last_name', '') or ''
-            if extra_data.get('email'):
-                user.email = extra_data['email']
+            # allauth 65.x stores OIDC token response nested:
+            # {"userinfo": {...}, "id_token": {...}}.  _pick_data() prefers
+            # userinfo entirely, dropping id_token claims when userinfo is
+            # present.  Merge both so email/name are found regardless of
+            # which endpoint LuxID releases them through.
+            _id_token = extra_data.get("id_token") or {}
+            _userinfo = extra_data.get("userinfo") or {}
+            _claims = {**_id_token, **_userinfo} or extra_data  # userinfo wins
+            user.first_name = _claims.get('given_name', '') or data.get('first_name', '') or ''
+            user.last_name = _claims.get('family_name', '') or data.get('last_name', '') or ''
+            email = _claims.get('email') or data.get('email', '')
+            if email:
+                user.email = email
         else:
             # Other providers (LinkedIn, etc.)
             user.first_name = data.get('first_name', '') or ''

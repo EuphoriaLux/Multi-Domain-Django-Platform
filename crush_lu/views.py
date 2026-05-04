@@ -392,6 +392,31 @@ def create_profile(request):
                 )
                 return redirect("crush_lu:onboarding_coach_intro")
 
+            # Enforce email verification before allowing submission. The
+            # journey stepper shows a soft reminder banner from signup
+            # onwards; this gate makes sure no profile is submitted without
+            # a verified email address. Bot signups never get past this
+            # point, and users with typoed emails learn about it before
+            # the coach review starts. Social-login users are exempt
+            # because their providers verify the email upfront via
+            # SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS.
+            #
+            # Fail-closed: any DB/import error here bubbles up rather than
+            # silently letting an unverified user through.
+            from allauth.account.models import EmailAddress
+            email_ok = EmailAddress.objects.filter(
+                user=request.user, verified=True
+            ).exists()
+            if not email_ok:
+                messages.error(
+                    request,
+                    _(
+                        "Please verify your email address before submitting your profile. "
+                        "Check your inbox for the confirmation link, or resend it from your account settings."
+                    ),
+                )
+                return redirect("account_email")
+
             # Check if this is first submission or resubmission
             is_first_submission = profile.completion_status != "submitted"
 
@@ -1408,6 +1433,25 @@ def edit_profile(request):
 
     # 4. Default: Use multi-step form for any other edge cases
     if request.method == "POST":
+        # Mirror the email-verification gate from create_profile and
+        # complete_profile_submission so this edge-case resubmission path
+        # can't bypass the "verified email before submission" policy.
+        # Fail-closed: any DB/import error bubbles up rather than letting
+        # an unverified user through.
+        from allauth.account.models import EmailAddress
+        email_ok = EmailAddress.objects.filter(
+            user=request.user, verified=True
+        ).exists()
+        if not email_ok:
+            messages.error(
+                request,
+                _(
+                    "Please verify your email address before submitting your profile. "
+                    "Check your inbox for the confirmation link, or resend it from your account settings."
+                ),
+            )
+            return redirect("account_email")
+
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             profile = form.save(commit=False)
