@@ -1,6 +1,6 @@
 # Build dependencies (security-critical)
 pip>=26.1  # CVE-2025-8869 fix
-setuptools>=80.10.2  # CVE-2024-6345, PYSEC-2025-49 fixes
+setuptools>=82.0.1  # CVE-2024-6345, PYSEC-2025-49 fixes
 wheel>=0.47.0
 
 # Core Django
