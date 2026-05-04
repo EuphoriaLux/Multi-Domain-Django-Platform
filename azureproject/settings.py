@@ -496,7 +496,7 @@ SOCIALACCOUNT_PROVIDERS = {
         "VERIFIED_EMAIL": True,
     },
     "luxid": {
-        "SCOPE": ["openid", "profile", "email"],
+        "SCOPE": ["openid", "profile", "email", "phone"],
         "OAUTH_PKCE_ENABLED": True,
         "VERIFIED_EMAIL": True,
     },
