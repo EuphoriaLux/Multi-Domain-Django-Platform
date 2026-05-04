@@ -1459,16 +1459,22 @@ LUXID_GENDER_MAP = {
 
 
 def _luxid_claims(extra_data):
-    """Flatten allauth's OIDC envelope to a single claims dict.
+    """Return a merged claims dict from allauth's nested OIDC envelope.
 
-    Allauth's OpenID Connect provider stores the raw response as
-    ``{"id_token": {...}, "userinfo": {...}}``. Prefer userinfo (matches
-    allauth's own ``_pick_data``) and fall back to id_token, so claims
-    like ``birthdate`` / ``phone_number`` are readable at one level.
+    Allauth 65.x stores the raw token response as
+    ``{"id_token": {...}, "userinfo": {...}}``.  Its internal ``_pick_data()``
+    prefers ``userinfo`` and ignores ``id_token`` entirely when ``userinfo``
+    is present, so claims released only in the id_token (e.g. ``email``)
+    are silently dropped.  We merge both sources — id_token first, userinfo
+    on top — so userinfo wins for overlapping keys while id_token-only
+    claims remain accessible.
     """
     if not isinstance(extra_data, dict):
         return {}
-    return extra_data.get("userinfo") or extra_data.get("id_token") or extra_data
+    id_token = extra_data.get("id_token") or {}
+    userinfo = extra_data.get("userinfo") or {}
+    merged = {**id_token, **userinfo}  # userinfo wins for overlapping keys
+    return merged if merged else extra_data
 
 
 def _is_luxembourgish_phone(phone):
@@ -1566,20 +1572,23 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
     try:
         extra_data = sociallogin.account.extra_data
 
-        # Allauth's OpenID Connect provider stores the raw response envelope
-        # {"id_token": {...}, "userinfo": {...}} in SocialAccount.extra_data,
-        # so claims like `email` live one level down, not at the top. Flatten
-        # here (prefer userinfo per allauth's _pick_data) before inspecting.
-        _claims = extra_data.get("userinfo") or extra_data.get("id_token") or {}
+        # Allauth 65.x stores the raw OIDC response as
+        # {"id_token": {...}, "userinfo": {...}} in SocialAccount.extra_data.
+        # _pick_data() (used internally by allauth) prefers userinfo and drops
+        # id_token entirely when userinfo is present.  Use _luxid_claims() to
+        # merge both so we capture email/phone whether LuxID releases them via
+        # userinfo or only embeds them in the id_token.
+        _claims = _luxid_claims(extra_data)
 
-        # Lightweight diagnostic — POST Luxembourg's CIAM is now releasing
-        # the `email` claim (essential) on the `crush` UAT client, so we no
-        # longer need the expansive ERROR-level probe. Keep a single INFO
-        # line so we can still confirm the envelope shape at a glance.
+        # Diagnostic: log which source has the email claim to aid debugging.
         try:
+            _dbg_userinfo = extra_data.get("userinfo") or {}
+            _dbg_id_token = extra_data.get("id_token") or {}
             logger.info(
-                "[LUXID] envelope_keys=%s userinfo_has_email=%s",
+                "[LUXID] envelope_keys=%s userinfo_has_email=%s id_token_has_email=%s merged_has_email=%s",
                 sorted(extra_data.keys()),
+                bool(_dbg_userinfo.get("email")),
+                bool(_dbg_id_token.get("email")),
                 bool(_claims.get("email")),
             )
         except Exception:
@@ -1609,6 +1618,49 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         primary=True,
                     )
                 ]
+
+            # Safety net: ensure user.email is populated for the SocialSignupForm.
+            # populate_user() runs earlier but may miss the email if allauth's
+            # _pick_data() discards the id_token when userinfo is present yet
+            # the userinfo endpoint omits the email claim.
+            if not getattr(sociallogin.user, "email", None):
+                sociallogin.user.email = _claims["email"]
+                logger.info("[LUXID] Safety net: set user.email from OIDC claims")
+
+        # Phone-based existing-user lookup.
+        # allauth's email auto-connect runs via sociallogin.lookup() BEFORE
+        # this signal fires.  For users who registered with a different email
+        # (or no email) but whose LuxID-verified phone matches a Crush.lu
+        # account, we do a secondary lookup here and redirect the new social
+        # login to their existing account by setting sociallogin.user.
+        # allauth 65.x derives is_existing from bool(sociallogin.user.pk), so
+        # once we point sociallogin.user at an existing DB user, allauth's
+        # _authenticate() will call _login() (not process_signup()), saving
+        # the new SocialAccount link and logging the user in seamlessly.
+        _phone = _claims.get("phone_number")
+        if _phone and _is_luxembourgish_phone(_phone) and not sociallogin.is_existing:
+            try:
+                _existing_profile = CrushProfile.objects.select_related("user").get(
+                    phone_number=_phone,
+                    phone_verified=True,
+                )
+                _existing_user = _existing_profile.user
+                logger.info(
+                    "[LUXID] Phone-based lookup: connecting LuxID to existing user %s",
+                    _existing_user.email,
+                )
+                sociallogin.user = _existing_user
+            except CrushProfile.DoesNotExist:
+                logger.debug("[LUXID] Phone-based lookup: no existing user for this phone")
+            except CrushProfile.MultipleObjectsReturned:
+                logger.warning(
+                    "[LUXID] Phone-based lookup: multiple profiles share phone %s…, skipping",
+                    _phone[:6],
+                )
+            except Exception as _phone_err:
+                logger.error(
+                    "[LUXID] Phone-based lookup error: %s", _phone_err, exc_info=True
+                )
 
         # Update CrushProfile for existing users.
         # During the connect flow (email user linking LuxID for the first
