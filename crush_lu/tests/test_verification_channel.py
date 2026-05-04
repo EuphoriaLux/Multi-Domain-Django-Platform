@@ -65,6 +65,14 @@ class VerificationChannelFlowTests(SiteTestMixin, TestCase):
         UserDataConsent.objects.filter(user=self.user).update(
             crushlu_consent_given=True
         )
+        # Mark email verified so the submission gate in
+        # views_profile.complete_profile_submission accepts this fixture.
+        from allauth.account.models import EmailAddress
+        EmailAddress.objects.update_or_create(
+            user=self.user,
+            email=self.user.email,
+            defaults={"verified": True, "primary": True},
+        )
         self.profile = CrushProfile.objects.create(
             user=self.user,
             gender="M",

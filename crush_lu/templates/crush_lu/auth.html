@@ -14,6 +14,35 @@
             <div class="p-6 md:p-10">
                 <!-- Tab Navigation - Alpine.js Tabs -->
                 <div x-data="tabNav" data-initial-tab="{% if mode == 'signup' %}signup{% else %}login{% endif %}" class="auth-tabs-container mb-6">
+                    {% comment %}
+                      Reassurance + progress hint shown only on the signup tab.
+                      Surfaces what the user otherwise only sees AFTER signing
+                      up (the welcome page tiles), reducing pre-commit hesitation.
+                    {% endcomment %}
+                    <div x-show="isSignupTab"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         class="mb-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4 dark:border-purple-700/40 dark:from-purple-900/20 dark:to-pink-900/20">
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <div class="text-lg" aria-hidden="true">📅</div>
+                                <p class="mt-1 text-[11px] font-semibold leading-tight text-gray-700 dark:text-gray-200">{% trans "Events first" %}</p>
+                            </div>
+                            <div>
+                                <div class="text-lg" aria-hidden="true">🤝</div>
+                                <p class="mt-1 text-[11px] font-semibold leading-tight text-gray-700 dark:text-gray-200">{% trans "Coach-supported" %}</p>
+                            </div>
+                            <div>
+                                <div class="text-lg" aria-hidden="true">🔒</div>
+                                <p class="mt-1 text-[11px] font-semibold leading-tight text-gray-700 dark:text-gray-200">{% trans "Privacy-first" %}</p>
+                            </div>
+                        </div>
+                        <p class="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
+                            {% trans "≈ 15 min to set up · Coach reviews within 48h" %}
+                        </p>
+                    </div>
+
                     <div class="auth-tabs flex bg-purple-100 dark:bg-purple-900/30 rounded-full p-1 border border-purple-200 dark:border-purple-700">
                         <button type="button"
                                 @click="setLogin"
@@ -25,7 +54,7 @@
                                 @click="setSignup"
                                 x-bind:class="signupTabClass"
                                 class="flex-1 py-3 px-6 rounded-full font-bold text-lg transition-all duration-300">
-                            {% trans "Join Now" %}
+                            {% trans "Sign up" %}
                         </button>
                     </div>
 
@@ -127,13 +156,30 @@
 
                             <div class="mb-2">
                                 <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_password" name="password" required>
+                                <div class="relative">
+                                    <input type="password" class="w-full px-4 py-3 pr-12 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                                           id="id_password" name="password" required>
+                                    <button type="button"
+                                            class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                            data-target="id_password"
+                                            aria-label="{% trans 'Show password' %}">
+                                        <svg class="h-5 w-5 password-eye" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <svg class="h-5 w-5 password-eye-off hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                    </button>
+                                </div>
                                 {% if login_form.password.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ login_form.password.errors.0 }}</p>
                                 {% endif %}
                             </div>
 
+                            {% comment %}
+                              No "Remember me" checkbox: ACCOUNT_SESSION_REMEMBER=True
+                              forces persistent sessions in the allauth config and
+                              strips the `remember` field from LoginForm, so a
+                              checkbox here would be ignored — a misleading
+                              control that lets users believe they can opt out
+                              when they cannot.
+                            {% endcomment %}
                             <div class="mb-6 text-right">
                                 <a href="{% url 'account_reset_password' %}" class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
                                     {% trans "Forgot your password?" %}
@@ -164,7 +210,7 @@
                                 <div>
                                     <label for="id_first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                           id="id_first_name" name="first_name"
+                                           id="id_first_name" name="first_name" autocomplete="given-name"
                                            value="{{ signup_form.first_name.value|default:'' }}" required>
                                     {% if signup_form.first_name.errors %}
                                         <p class="mt-1 text-sm text-red-600">{{ signup_form.first_name.errors.0 }}</p>
@@ -172,10 +218,13 @@
                                 </div>
 
                                 <div>
-                                    <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Last Name" %}</label>
+                                    <label for="id_last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                                        {% trans "Last Name" %}
+                                        <span class="font-normal text-gray-400 dark:text-gray-500">({% trans "optional" %})</span>
+                                    </label>
                                     <input type="text" class="w-full px-4 py-3 border {% if signup_form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                           id="id_last_name" name="last_name"
-                                           value="{{ signup_form.last_name.value|default:'' }}" required>
+                                           id="id_last_name" name="last_name" autocomplete="family-name"
+                                           value="{{ signup_form.last_name.value|default:'' }}">
                                     {% if signup_form.last_name.errors %}
                                         <p class="mt-1 text-sm text-red-600">{{ signup_form.last_name.errors.0 }}</p>
                                     {% endif %}
@@ -185,30 +234,70 @@
                             <div class="mb-4">
                                 <label for="id_email" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                                 <input type="email" class="w-full px-4 py-3 border {% if signup_form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_email" name="email"
+                                       id="id_email" name="email" autocomplete="email" inputmode="email"
                                        value="{{ signup_form.email.value|default:'' }}" required>
                                 {% if signup_form.email.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.email.errors.0 }}</p>
+                                    {% if signup_form.email_taken %}
+                                        {% comment %}
+                                          One-click switch to the login tab, prefilling the email
+                                          field — avoids retyping and removes the "now what?"
+                                          moment that drives signup abandonment.
+                                        {% endcomment %}
+                                        <button type="button"
+                                                data-switch-to-login
+                                                data-prefill-email="{{ signup_form.email.value|default:'' }}"
+                                                class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-purple-600 hover:text-purple-700 dark:text-purple-400">
+                                            {% trans "Sign in with this email" %} →
+                                        </button>
+                                    {% endif %}
                                 {% endif %}
                             </div>
 
                             <div class="mb-4">
                                 <label for="id_password1" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_password1" name="password1" required>
+                                <div class="relative">
+                                    <input type="password" class="w-full px-4 py-3 pr-12 border {% if signup_form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                                           id="id_password1" name="password1" autocomplete="new-password" required
+                                           data-password-strength>
+                                    <button type="button"
+                                            class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                            data-target="id_password1"
+                                            aria-label="{% trans 'Show password' %}">
+                                        <svg class="h-5 w-5 password-eye" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <svg class="h-5 w-5 password-eye-off hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                    </button>
+                                </div>
                                 {% if signup_form.password1.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.password1.errors.0 }}</p>
                                 {% endif %}
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "At least 8 characters" %}</p>
+                                <div class="password-strength mt-2 hidden" aria-hidden="true">
+                                    <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                        <div class="password-strength-bar h-full w-0 rounded-full transition-all duration-200"></div>
+                                    </div>
+                                    <p class="password-strength-label mt-1 text-xs text-gray-500 dark:text-gray-400"></p>
+                                </div>
+                                <p class="password-strength-default mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "At least 8 characters — mix letters, numbers and symbols for a strong password." %}</p>
                             </div>
 
                             <div class="mb-4">
                                 <label for="id_password2" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
-                                <input type="password" class="w-full px-4 py-3 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                       id="id_password2" name="password2" required>
+                                <div class="relative">
+                                    <input type="password" class="w-full px-4 py-3 pr-12 border {% if signup_form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                                           id="id_password2" name="password2" autocomplete="new-password" required
+                                           data-password-match>
+                                    <button type="button"
+                                            class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                            data-target="id_password2"
+                                            aria-label="{% trans 'Show password' %}">
+                                        <svg class="h-5 w-5 password-eye" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <svg class="h-5 w-5 password-eye-off hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                    </button>
+                                </div>
                                 {% if signup_form.password2.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ signup_form.password2.errors.0 }}</p>
                                 {% endif %}
+                                <p class="password-match-hint mt-1 hidden text-sm"></p>
                             </div>
 
                             <!-- Consent Checkboxes -->
@@ -278,7 +367,16 @@ var _i18n = {
     creatingAccount: '{% filter escapejs %}{% trans "Creating Account..." %}{% endfilter %}',
     openingLogin: '{% filter escapejs %}{% trans "Opening login..." %}{% endfilter %}',
     redirectingTo: '{% filter escapejs %}{% trans "Redirecting to" %}{% endfilter %}',
-    opening: '{% filter escapejs %}{% trans "Opening" %}{% endfilter %}'
+    opening: '{% filter escapejs %}{% trans "Opening" %}{% endfilter %}',
+    showPassword: '{% filter escapejs %}{% trans "Show password" %}{% endfilter %}',
+    hidePassword: '{% filter escapejs %}{% trans "Hide password" %}{% endfilter %}',
+    pwWeak: '{% filter escapejs %}{% trans "Weak password" %}{% endfilter %}',
+    pwFair: '{% filter escapejs %}{% trans "Fair password" %}{% endfilter %}',
+    pwGood: '{% filter escapejs %}{% trans "Good password" %}{% endfilter %}',
+    pwStrong: '{% filter escapejs %}{% trans "Strong password" %}{% endfilter %}',
+    pwTooShort: '{% filter escapejs %}{% trans "Too short — at least 8 characters" %}{% endfilter %}',
+    pwMatch: '{% filter escapejs %}{% trans "Passwords match" %}{% endfilter %}',
+    pwNoMatch: '{% filter escapejs %}{% trans "Passwords don\'t match yet" %}{% endfilter %}'
 };
 /**
  * Unified Auth Page Handler
@@ -374,6 +472,109 @@ var _i18n = {
         if (signupForm && signupBtn) {
             submitWithCsrfRefresh(signupForm, signupBtn, _i18n.creatingAccount);
         }
+
+        // Show/hide password toggles
+        document.querySelectorAll('.password-toggle').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var input = document.getElementById(btn.getAttribute('data-target'));
+                if (!input) return;
+                var hidden = input.type === 'password';
+                input.type = hidden ? 'text' : 'password';
+                btn.setAttribute('aria-label', hidden ? _i18n.hidePassword : _i18n.showPassword);
+                var eye = btn.querySelector('.password-eye');
+                var eyeOff = btn.querySelector('.password-eye-off');
+                if (eye && eyeOff) {
+                    eye.classList.toggle('hidden', hidden);
+                    eyeOff.classList.toggle('hidden', !hidden);
+                }
+            });
+        });
+
+        // Password strength meter (heuristic, client-side hint only —
+        // actual validation runs server-side via Django's password validators).
+        var pwInput = document.querySelector('[data-password-strength]');
+        if (pwInput) {
+            var wrap = pwInput.closest('div').parentElement;
+            var meter = wrap.querySelector('.password-strength');
+            var bar = wrap.querySelector('.password-strength-bar');
+            var label = wrap.querySelector('.password-strength-label');
+            var defaultHint = wrap.querySelector('.password-strength-default');
+
+            function scorePassword(pw) {
+                if (!pw) return -1;
+                if (pw.length < 8) return 0; // too short
+                var score = 0;
+                if (pw.length >= 8) score++;
+                if (pw.length >= 12) score++;
+                if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+                if (/\d/.test(pw)) score++;
+                if (/[^A-Za-z0-9]/.test(pw)) score++;
+                return Math.min(score, 4);
+            }
+
+            pwInput.addEventListener('input', function() {
+                var score = scorePassword(pwInput.value);
+                if (score < 0) {
+                    meter.classList.add('hidden');
+                    if (defaultHint) defaultHint.classList.remove('hidden');
+                    return;
+                }
+                meter.classList.remove('hidden');
+                if (defaultHint) defaultHint.classList.add('hidden');
+
+                var pct, color, txt;
+                if (score === 0) { pct = '20%'; color = 'bg-red-500';    txt = _i18n.pwTooShort; }
+                else if (score === 1) { pct = '30%'; color = 'bg-red-500';    txt = _i18n.pwWeak; }
+                else if (score === 2) { pct = '55%'; color = 'bg-amber-500'; txt = _i18n.pwFair; }
+                else if (score === 3) { pct = '80%'; color = 'bg-emerald-500'; txt = _i18n.pwGood; }
+                else { pct = '100%'; color = 'bg-emerald-600'; txt = _i18n.pwStrong; }
+
+                bar.style.width = pct;
+                bar.className = 'password-strength-bar h-full rounded-full transition-all duration-200 ' + color;
+                label.textContent = txt;
+                label.className = 'password-strength-label mt-1 text-xs ' + (score >= 3 ? 'text-emerald-600 dark:text-emerald-400' : score === 2 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400');
+            });
+        }
+
+        // Password match hint
+        var pwMatch = document.querySelector('[data-password-match]');
+        if (pwMatch && pwInput) {
+            var hint = pwMatch.parentElement.parentElement.querySelector('.password-match-hint');
+            function checkMatch() {
+                if (!pwMatch.value) {
+                    hint.classList.add('hidden');
+                    return;
+                }
+                hint.classList.remove('hidden');
+                if (pwMatch.value === pwInput.value) {
+                    hint.textContent = '✓ ' + _i18n.pwMatch;
+                    hint.className = 'password-match-hint mt-1 text-sm text-emerald-600 dark:text-emerald-400';
+                } else {
+                    hint.textContent = _i18n.pwNoMatch;
+                    hint.className = 'password-match-hint mt-1 text-sm text-amber-600 dark:text-amber-400';
+                }
+            }
+            pwMatch.addEventListener('input', checkMatch);
+            pwInput.addEventListener('input', checkMatch);
+        }
+
+        // "Sign in with this email" button on duplicate-email error —
+        // switches to the login tab and prefills the email field.
+        document.querySelectorAll('[data-switch-to-login]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var email = btn.getAttribute('data-prefill-email') || '';
+                var loginEmail = document.getElementById('id_login');
+                if (loginEmail && email) loginEmail.value = email;
+                // Find the Login tab button and click it (Alpine handles state)
+                var loginTabBtn = document.querySelector('.auth-tabs button:first-of-type');
+                if (loginTabBtn) loginTabBtn.click();
+                // Focus the password field for immediate typing
+                setTimeout(function() {
+                    var loginPw = document.getElementById('id_password');
+                    if (loginPw) loginPw.focus();
+                }, 200);
+            });
+        });
 
         // Social login button handling
         var socialButtons = document.querySelectorAll('.social-login-btn');

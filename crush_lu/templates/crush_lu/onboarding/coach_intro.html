@@ -63,13 +63,14 @@
     </section>
     {% endif %}
 
-    <form method="post" action="{% url 'crush_lu:onboarding_coach_intro' %}">
-      {% csrf_token %}
-      <button type="submit"
-              class="w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]">
-        {% trans "Got it — let's build my profile" %}
-      </button>
-    </form>
+    {% comment %}
+      Plain link — coach_intro_seen_at is auto-stamped on GET in
+      coach_intro_step view, so a POST form is no longer needed to advance.
+    {% endcomment %}
+    <a href="{% url 'crush_lu:create_profile' %}"
+       class="block w-full rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]">
+      {% trans "Got it — let's build my profile" %} →
+    </a>
 
   </div>
 </main>
