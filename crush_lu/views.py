@@ -1431,6 +1431,26 @@ def edit_profile(request):
 
     # 4. Default: Use multi-step form for any other edge cases
     if request.method == "POST":
+        # Mirror the email-verification gate from create_profile and
+        # complete_profile_submission so this edge-case resubmission path
+        # can't bypass the "verified email before submission" policy.
+        try:
+            from allauth.account.models import EmailAddress
+            email_ok = EmailAddress.objects.filter(
+                user=request.user, verified=True
+            ).exists()
+        except Exception:
+            email_ok = True
+        if not email_ok:
+            messages.error(
+                request,
+                _(
+                    "Please verify your email address before submitting your profile. "
+                    "Check your inbox for the confirmation link, or resend it from your account settings."
+                ),
+            )
+            return redirect("account_email")
+
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             profile = form.save(commit=False)
