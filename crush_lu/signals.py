@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Q
+from django.db import transaction
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -1535,26 +1536,35 @@ def _luxid_save_profile(profile, updated_fields):
     write phone fields via a direct queryset update that skips that guard, while
     all other fields go through the normal save() path.
 
-    QuerySet.update() bypasses Django post_save signals, so we fire the signal
-    manually afterwards with the correct update_fields so downstream handlers
-    (sync_profile_to_outlook, wallet-pass updates) stay consistent.
+    Both writes are wrapped in a single transaction so a partial failure cannot
+    leave the DB in an inconsistent state. The manual post_save signal for phone
+    fields is deferred to on_commit() so downstream handlers (sync_profile_to_
+    outlook, wallet-pass updates) only run after both writes have committed.
     """
     phone_fields = [f for f in updated_fields if f in _PHONE_FIELDS]
     other_fields = [f for f in updated_fields if f not in _PHONE_FIELDS]
 
+    with transaction.atomic():
+        if phone_fields:
+            CrushProfile.objects.filter(pk=profile.pk).update(
+                **{f: getattr(profile, f) for f in phone_fields}
+            )
+        if other_fields:
+            profile.save(update_fields=other_fields)
+
     if phone_fields:
-        CrushProfile.objects.filter(pk=profile.pk).update(
-            **{f: getattr(profile, f) for f in phone_fields}
+        # Fire outside the transaction (on_commit equivalent) so downstream
+        # side effects never observe a partially-written row.
+        _frozen = frozenset(phone_fields)
+        transaction.on_commit(
+            lambda: post_save.send(
+                sender=CrushProfile,
+                instance=profile,
+                created=False,
+                update_fields=_frozen,
+                using="default",
+            )
         )
-        post_save.send(
-            sender=CrushProfile,
-            instance=profile,
-            created=False,
-            update_fields=frozenset(phone_fields),
-            using="default",
-        )
-    if other_fields:
-        profile.save(update_fields=other_fields)
 
 
 @receiver(pre_social_login)
