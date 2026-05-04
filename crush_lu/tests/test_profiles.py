@@ -129,17 +129,6 @@ class RegistrationFlowTests(TestCase):
         profile.coach_intro_seen_at = timezone.now()
         profile.save()
 
-        # Mark the email as verified to clear the submission gate. Allauth
-        # creates an EmailAddress row during signup but leaves it unverified
-        # until the user clicks the confirmation link. This test simulates
-        # the post-confirmation state.
-        from allauth.account.models import EmailAddress
-        EmailAddress.objects.update_or_create(
-            user=user,
-            email=user.email,
-            defaults={"verified": True, "primary": True},
-        )
-
         profile_data = {
             "phone_number": "+35212345678",
             "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
