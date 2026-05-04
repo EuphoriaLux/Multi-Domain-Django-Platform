@@ -1650,6 +1650,13 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                     _existing_user.pk,
                 )
                 sociallogin.user = _existing_user
+                # This is now a connect, not a new signup.  Clear the signup
+                # thread-local flags set earlier in this handler so downstream
+                # post_save handlers (create_user_data_consent, welcome-email
+                # in create_crush_profile_from_luxid) don't incorrectly treat
+                # the existing account as a brand-new OAuth registration.
+                _thread_local.oauth_signup_request = None
+                _thread_local.oauth_consent_data = None
             except CrushProfile.DoesNotExist:
                 logger.debug("[LUXID] Phone-based lookup: no existing user for this phone")
             except CrushProfile.MultipleObjectsReturned:
