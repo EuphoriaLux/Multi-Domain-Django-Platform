@@ -382,20 +382,30 @@ def create_profile(request):
                 )
                 return redirect("crush_lu:onboarding_phone")
 
+            # Journey guard: mirrors the AJAX submit path at
+            # views_profile.complete_profile_submission. The JS-disabled form
+            # POST must not bypass the step-3 coach-intro acknowledgement.
+            if existing_profile and not existing_profile.coach_intro_seen_at:
+                logger.info(
+                    f"Form-POST submission blocked without coach intro ack: {request.user.email}"
+                )
+                return redirect("crush_lu:onboarding_coach_intro")
+
             # Enforce email verification before allowing submission. The
             # journey stepper shows a soft reminder banner from signup
             # onwards; this gate makes sure no profile is submitted without
             # a verified email address. Bot signups never get past this
             # point, and users with typoed emails learn about it before
             # the coach review starts. Social-login users are exempt
-            # because their providers verify the email upfront.
-            try:
-                from allauth.account.models import EmailAddress
-                email_ok = EmailAddress.objects.filter(
-                    user=request.user, verified=True
-                ).exists()
-            except Exception:
-                email_ok = True
+            # because their providers verify the email upfront via
+            # SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS.
+            #
+            # Fail-closed: any DB/import error here bubbles up rather than
+            # silently letting an unverified user through.
+            from allauth.account.models import EmailAddress
+            email_ok = EmailAddress.objects.filter(
+                user=request.user, verified=True
+            ).exists()
             if not email_ok:
                 messages.error(
                     request,
@@ -405,15 +415,6 @@ def create_profile(request):
                     ),
                 )
                 return redirect("account_email")
-
-            # Journey guard: mirrors the AJAX submit path at
-            # views_profile.complete_profile_submission. The JS-disabled form
-            # POST must not bypass the step-3 coach-intro acknowledgement.
-            if existing_profile and not existing_profile.coach_intro_seen_at:
-                logger.info(
-                    f"Form-POST submission blocked without coach intro ack: {request.user.email}"
-                )
-                return redirect("crush_lu:onboarding_coach_intro")
 
             # Check if this is first submission or resubmission
             is_first_submission = profile.completion_status != "submitted"
@@ -1434,13 +1435,12 @@ def edit_profile(request):
         # Mirror the email-verification gate from create_profile and
         # complete_profile_submission so this edge-case resubmission path
         # can't bypass the "verified email before submission" policy.
-        try:
-            from allauth.account.models import EmailAddress
-            email_ok = EmailAddress.objects.filter(
-                user=request.user, verified=True
-            ).exists()
-        except Exception:
-            email_ok = True
+        # Fail-closed: any DB/import error bubbles up rather than letting
+        # an unverified user through.
+        from allauth.account.models import EmailAddress
+        email_ok = EmailAddress.objects.filter(
+            user=request.user, verified=True
+        ).exists()
         if not email_ok:
             messages.error(
                 request,

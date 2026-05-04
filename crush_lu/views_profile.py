@@ -554,19 +554,23 @@ def complete_profile_submission(request):
             )
             messages.error(request, _("Please verify your phone number first."))
             return redirect("crush_lu:onboarding_phone")
+        if not profile.coach_intro_seen_at:
+            logger.info(
+                f"Submission attempted without coach intro ack: {request.user.email}"
+            )
+            return redirect("crush_lu:onboarding_coach_intro")
 
         # Mirror the email-verification gate in views.py:create_profile so a
         # client posting directly to this AJAX endpoint can't bypass the
         # "verified email before submission" policy. Social-login users are
         # exempt because the trusted providers in
         # SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS already verify the email.
-        try:
-            from allauth.account.models import EmailAddress
-            email_ok = EmailAddress.objects.filter(
-                user=request.user, verified=True
-            ).exists()
-        except Exception:
-            email_ok = True
+        # Fail-closed: any DB/import error here bubbles up rather than
+        # silently letting an unverified user through.
+        from allauth.account.models import EmailAddress
+        email_ok = EmailAddress.objects.filter(
+            user=request.user, verified=True
+        ).exists()
         if not email_ok:
             logger.warning(
                 f"Submission attempted without verified email: {request.user.email}"
@@ -579,12 +583,6 @@ def complete_profile_submission(request):
                 ),
             )
             return redirect("account_email")
-
-        if not profile.coach_intro_seen_at:
-            logger.info(
-                f"Submission attempted without coach intro ack: {request.user.email}"
-            )
-            return redirect("crush_lu:onboarding_coach_intro")
 
         # Validate profile is complete before allowing submission
         missing_fields = profile.get_missing_fields()

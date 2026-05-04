@@ -249,11 +249,21 @@ class TestBuildAppleEventTicket:
 
 
 def _grant_consent(user):
-    """Grant Crush.lu consent for a user so views aren't blocked by middleware."""
+    """Grant Crush.lu consent for a user so views aren't blocked by middleware.
+
+    Also marks the primary email as verified so submission-gated views work
+    in tests without each fixture re-creating an EmailAddress record.
+    """
+    from allauth.account.models import EmailAddress
     from crush_lu.models.profiles import UserDataConsent
 
     UserDataConsent.objects.update_or_create(
         user=user, defaults={"crushlu_consent_given": True}
+    )
+    EmailAddress.objects.update_or_create(
+        user=user,
+        email=user.email,
+        defaults={"verified": True, "primary": True},
     )
 
 

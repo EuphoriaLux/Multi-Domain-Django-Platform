@@ -119,6 +119,17 @@ class RegistrationFlowTests(TestCase):
         profile.coach_intro_seen_at = timezone.now()
         profile.save()
 
+        # Mark the email as verified to clear the submission gate. Allauth
+        # creates an EmailAddress row during signup but leaves it unverified
+        # until the user clicks the confirmation link. This test simulates
+        # the post-confirmation state.
+        from allauth.account.models import EmailAddress
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
+
         profile_data = {
             "phone_number": "+35212345678",
             "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
@@ -177,9 +188,17 @@ class CrushPreferencesTests(TestCase):
         self.assertIn("section=preferences", response.url)
 
     def _grant_consent(self):
+        """Grant consent + mark primary email verified so submission-gated
+        views accept this fixture user."""
+        from allauth.account.models import EmailAddress
         consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
         consent.crushlu_consent_given = True
         consent.save()
+        EmailAddress.objects.update_or_create(
+            user=self.user,
+            email=self.user.email,
+            defaults={"verified": True, "primary": True},
+        )
 
     def test_approved_user_can_view(self):
         """Approved users can access the preferences section."""
