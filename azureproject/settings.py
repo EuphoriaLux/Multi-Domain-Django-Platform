@@ -34,7 +34,9 @@ if DOTENV_PATH.exists():
         load_dotenv(dotenv_path=DOTENV_PATH)
     except Exception:
         # dotenv is optional; ignore if it's not installed or fails
-        logging.getLogger(__name__).debug("python-dotenv not available or failed to load .env")
+        logging.getLogger(__name__).debug(
+            "python-dotenv not available or failed to load .env"
+        )
 
 
 def _env_bool(name, default=False):
@@ -374,7 +376,9 @@ WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL = os.getenv(
 WALLET_GOOGLE_PRIVATE_KEY = os.getenv("WALLET_GOOGLE_PRIVATE_KEY", "")
 WALLET_GOOGLE_PRIVATE_KEY_PATH = os.getenv("WALLET_GOOGLE_PRIVATE_KEY_PATH", "")
 WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
-WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool("WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True)
+WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool(
+    "WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True
+)
 
 # Pre-screening questionnaire (Crush.lu). Off by default; enable in production
 # after all Phases have shipped and the Coach-facing rollout is ready.
@@ -518,7 +522,13 @@ SOCIALACCOUNT_PROVIDERS = {
 # Trust emails from these providers as verified (enables auto-linking to existing accounts)
 # When a user logs in with a social provider using an email that exists in the database,
 # the social account will be automatically linked if the provider is in this list.
-SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = ["google", "facebook", "microsoft", "apple", "luxid"]
+SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS = [
+    "google",
+    "facebook",
+    "microsoft",
+    "apple",
+    "luxid",
+]
 
 
 # Use CustomSignupForm for Entreprinder (will be overridden by adapters for other domains)
@@ -542,7 +552,8 @@ if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     EMAIL_HOST_USER = None  # Not needed for console backend
     import sys
-    if sys.stdout.encoding and 'utf' in sys.stdout.encoding.lower():
+
+    if sys.stdout.encoding and "utf" in sys.stdout.encoding.lower():
         print("📧 Email Backend: Console - Emails will print in terminal")
     else:
         print("[EMAIL] Backend: Console - Emails will print in terminal")
@@ -599,6 +610,25 @@ CORS_ALLOW_CREDENTIALS = False
 # Only apply CORS to the API surface; everything else on crush.lu / other
 # domains is server-rendered HTML and should not advertise CORS.
 CORS_URLS_REGEX = r"^/(hub|api)/.*$"
+
+# SWA per-PR preview environments get auto-generated hostnames like
+# `delightful-water-07d8c6e10-12.eastus2.azurestaticapps.net`. The production
+# hostname is in CORS_ALLOWED_ORIGINS; this regex covers preview branches so
+# PR builds of the hub SPA can call the staging slot.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://delightful-water-07d8c6e10-\d+\.[\w-]+\.azurestaticapps\.net$",
+]
+
+# Hub SPA session→JWT exchange. Exact (scheme, netloc, path) match — never
+# prefix or startswith — to prevent open-redirect token exfiltration.
+SPA_CALLBACK_ALLOWED_RETURN_URLS = {
+    ("https", "hub.crush.lu", "/auth/callback"),
+}
+if DEBUG:
+    SPA_CALLBACK_ALLOWED_RETURN_URLS |= {
+        ("http", "localhost:3000", "/auth/callback"),
+        ("http", "127.0.0.1:3000", "/auth/callback"),
+    }
 
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
@@ -778,8 +808,12 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
     MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/shared-media/"
 
     # Platform-specific base URLs (using dedicated containers)
-    CRUSH_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
-    POWERUP_MEDIA_BASE_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+    CRUSH_MEDIA_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/crush-lu-media"
+    )
+    POWERUP_MEDIA_BASE_URL = (
+        f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/powerup-media"
+    )
 
     # Override content image URLs with platform-specific paths (if not explicitly set in env)
     if "SOCIAL_PREVIEW_IMAGE_URL" not in os.environ:
@@ -891,7 +925,7 @@ SECURE_CSP_REPORT_ONLY = {
         CSP.SELF,
         CSP.NONCE,
         CSP.UNSAFE_INLINE,  # TODO: Remove once HTMX/Alpine.js handlers use nonce-based scripts.
-                            # unsafe-inline negates nonce protection in script-src for CSP3 browsers.
+        # unsafe-inline negates nonce protection in script-src for CSP3 browsers.
         # CDN sources
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
