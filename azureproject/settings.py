@@ -611,12 +611,15 @@ CORS_ALLOW_CREDENTIALS = False
 # domains is server-rendered HTML and should not advertise CORS.
 CORS_URLS_REGEX = r"^/(hub|api)/.*$"
 
-# SWA per-PR preview environments get auto-generated hostnames like
-# `delightful-water-07d8c6e10-12.eastus2.azurestaticapps.net`. The production
-# hostname is in CORS_ALLOWED_ORIGINS; this regex covers preview branches so
-# PR builds of the hub SPA can call the staging slot.
+# SWA hostnames vary by region and SWA also injects a numeric segment, so the
+# real shape is e.g. `delightful-water-07d8c6e10-3.centralus.7.azurestaticapps.net`
+# for previews (and `delightful-water-07d8c6e10.centralus.7.azurestaticapps.net`
+# for production-style). The middle is one or more dotted segments, so this
+# regex allows zero or more `.<word-or-hyphen>` segments before
+# `.azurestaticapps.net`. Microsoft owns azurestaticapps.net so the suffix
+# anchor is sufficient — no third party can register under it.
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://delightful-water-07d8c6e10-\d+\.[\w-]+\.azurestaticapps\.net$",
+    r"^https://delightful-water-07d8c6e10(-\d+)?(\.[\w-]+)*\.azurestaticapps\.net$",
 ]
 
 # Hub SPA session→JWT exchange. Exact (scheme, netloc, path) match — never

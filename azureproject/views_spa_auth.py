@@ -86,6 +86,16 @@ class ExchangeCodeView(APIView):
         user_id = cache.get(cache_key)
         if user_id is None:
             return Response({"detail": "Invalid or expired code."}, status=401)
+
+        # Atomic single-use claim: cache.add only succeeds when the key
+        # didn't already exist, so concurrent requests with the same code
+        # race here and only the first wins. Without this, two simultaneous
+        # exchanges could both pass the get() above and mint two JWT pairs
+        # from one code (django-redis-backed; LocMemCache also serializes
+        # add() per-process, and production.py forces Redis anyway).
+        consumed_key = f"{cache_key}:consumed"
+        if not cache.add(consumed_key, True, timeout=CODE_TTL_SECONDS):
+            return Response({"detail": "Invalid or expired code."}, status=401)
         cache.delete(cache_key)
 
         User = get_user_model()
