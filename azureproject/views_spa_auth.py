@@ -20,7 +20,7 @@ refresh tokens don't belong in URL history.
 """
 
 import secrets
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -68,7 +68,16 @@ def spa_session_callback(request):
 
     code = secrets.token_urlsafe(32)
     cache.set(f"{CODE_CACHE_PREFIX}{code}", request.user.pk, timeout=CODE_TTL_SECONDS)
-    return HttpResponseRedirect(f"{return_url}?code={code}")
+
+    # Merge ?code=... into the return URL's existing query rather than
+    # f-string concatenation. f"{return_url}?code=..." breaks if the URL
+    # already has its own ?query (`...?foo=1?code=...` is malformed) or a
+    # #fragment. Today's whitelist has neither, but urlparse/urlunparse
+    # makes this resilient to any future entry.
+    parts = urlparse(return_url)
+    query = parse_qsl(parts.query, keep_blank_values=True) + [("code", code)]
+    redirect_url = urlunparse(parts._replace(query=urlencode(query)))
+    return HttpResponseRedirect(redirect_url)
 
 
 class ExchangeCodeView(APIView):
