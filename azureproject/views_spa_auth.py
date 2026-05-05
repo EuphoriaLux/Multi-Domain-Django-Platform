@@ -74,9 +74,20 @@ def spa_session_callback(request):
     # already has its own ?query (`...?foo=1?code=...` is malformed) or a
     # #fragment. Today's whitelist has neither, but urlparse/urlunparse
     # makes this resilient to any future entry.
+    #
+    # Strip any pre-existing `code` from the return URL before appending
+    # the fresh one. Otherwise an attacker-supplied `?code=stale` survives
+    # into the redirect, and many SPA parsers read the first value of a
+    # repeated key — they'd consume the stale code and fail.
     parts = urlparse(return_url)
-    query = parse_qsl(parts.query, keep_blank_values=True) + [("code", code)]
-    redirect_url = urlunparse(parts._replace(query=urlencode(query)))
+    preserved = [
+        (k, v)
+        for k, v in parse_qsl(parts.query, keep_blank_values=True)
+        if k != "code"
+    ]
+    redirect_url = urlunparse(
+        parts._replace(query=urlencode(preserved + [("code", code)]))
+    )
     return HttpResponseRedirect(redirect_url)
 
 
