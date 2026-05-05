@@ -1168,7 +1168,12 @@ class CallAttempt(models.Model):
         ]
 
     def __str__(self):
-        return f"Call attempt for {self.submission.profile.user.get_full_name()} - {self.result} - {self.attempt_date.strftime('%Y-%m-%d %H:%M')}"
+        profile = self.profile or (self.submission.profile if self.submission_id else None)
+        if profile and profile.user_id:
+            who = profile.user.get_full_name() or profile.user.get_username()
+        else:
+            who = "unknown"
+        return f"Call attempt for {who} - {self.result} - {self.attempt_date.strftime('%Y-%m-%d %H:%M')}"
 
     @property
     def is_failed(self):

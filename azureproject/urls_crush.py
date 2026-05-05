@@ -17,6 +17,7 @@ from django.views.generic import TemplateView
 from django.views.i18n import JavaScriptCatalog
 
 from .urls_shared import base_patterns, api_patterns
+from .views_spa_auth import spa_session_callback
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
@@ -315,6 +316,11 @@ urlpatterns = base_patterns + api_patterns + [
     # Mounted on crush.lu / test.crush.lu since the SPA's preview env can't
     # have its own subdomain — it uses test.crush.lu directly. Language-neutral.
     path('hub/', include('hub.urls')),
+
+    # Session→JWT bounce for the hub SPA. Lives on crush.lu because that's
+    # where the allauth session cookie is set; mints a single-use code that
+    # the SPA exchanges at api.crush.lu/api/token/exchange-code/.
+    path('api/auth/spa-callback/', spa_session_callback, name='spa_session_callback'),
 ]
 
 # Language-prefixed patterns (all user-facing pages)

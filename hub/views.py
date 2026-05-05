@@ -1,6 +1,6 @@
 from django.db.models import Q
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,7 +13,7 @@ from .serializers import (
 
 
 class MeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def _customer_payload(self, user):
         profile, _ = HubProfile.objects.get_or_create(user=user)
@@ -53,7 +53,7 @@ class MeView(APIView):
 
 
 class RequestsView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     serializer_class = HubRequestSerializer
 
     def get_queryset(self):
@@ -72,7 +72,7 @@ class RequestsView(generics.ListCreateAPIView):
 
 
 class ResourcesView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def get(self, request):
         queryset = HubResource.objects.filter(
@@ -83,7 +83,7 @@ class ResourcesView(APIView):
 
 
 class TimelineView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def get(self, request):
         queryset = HubTimelineEvent.objects.filter(user=request.user)

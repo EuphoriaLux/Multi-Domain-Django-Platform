@@ -5,6 +5,7 @@ This urlconf is pure JSON API: no i18n, no HTML templates, no admin, no allauth
 pages. It exposes JWT auth endpoints and the /hub/* surface consumed by the
 Next.js SPA hosted at hub.crush.lu.
 """
+
 from django.http import HttpResponse
 from django.urls import include, path
 from rest_framework_simplejwt.views import (
@@ -13,6 +14,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
+
+from .views_spa_auth import ExchangeCodeView
 
 
 def health_check(request):
@@ -25,5 +28,10 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("api/token/logout/", TokenBlacklistView.as_view(), name="token_logout"),
+    path(
+        "api/token/exchange-code/",
+        ExchangeCodeView.as_view(),
+        name="token_exchange_code",
+    ),
     path("hub/", include("hub.urls")),
 ]
