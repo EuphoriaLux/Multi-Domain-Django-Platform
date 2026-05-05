@@ -19,6 +19,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from .views import csp_report
+from .views_spa_auth import ExchangeCodeView
 from crush_lu.views_language import set_language_with_profile
 
 
@@ -45,9 +46,15 @@ base_patterns = [
 ]
 
 # JWT API patterns - included by domains that need API authentication
-# Used by Crush.lu and PowerUP for mobile app / API access
+# Used by Crush.lu and PowerUP for mobile app / API access.
+# exchange-code lives here so the hub SPA's session-bounce flow can complete
+# at https://crush.lu/api/token/exchange-code/ (the SPA's API base host) —
+# the spa_session_callback that mints the code is mounted on crush.lu in
+# urls_crush.py, and the cache backing it is shared (Redis in production),
+# so the exchange would 401 from any domain that doesn't own the code anyway.
 api_patterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/logout/', TokenBlacklistView.as_view(), name='token_logout'),
+    path('api/token/exchange-code/', ExchangeCodeView.as_view(), name='token_exchange_code'),
 ]
