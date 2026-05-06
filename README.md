@@ -1,8 +1,8 @@
 # Entreprinder
 
 [![Deploy](https://github.com/EuphoriaLux/Entreprinder/actions/workflows/deploy-azure-app-service-optimized.yml/badge.svg)](https://github.com/EuphoriaLux/Entreprinder/actions/workflows/deploy-azure-app-service-optimized.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Django 5.1](https://img.shields.io/badge/django-5.1-green.svg)](https://www.djangoproject.com/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Django 6.0](https://img.shields.io/badge/django-6.0-green.svg)](https://www.djangoproject.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Multi-domain Django application serving 9 distinct platforms from a single codebase, deployed on Azure App Service.
@@ -25,7 +25,7 @@ Multi-domain Django application serving 9 distinct platforms from a single codeb
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Django 5.1, Python 3.10+ |
+| Framework | Django 6.0, Python 3.12+ |
 | Database | SQLite (dev), PostgreSQL (prod) |
 | Frontend | Tailwind CSS, HTMX, Alpine.js (CSP build) |
 | Authentication | Django Allauth, LuxID OIDC (POST Luxembourg), LinkedIn OAuth2, JWT (SimpleJWT) |
@@ -58,7 +58,7 @@ Visit http://localhost:8000 (routes to Crush.lu by default).
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.12 or higher
 - Node.js 20+ (for Tailwind CSS)
 - Git
 
