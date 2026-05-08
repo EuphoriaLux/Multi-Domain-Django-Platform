@@ -32,9 +32,14 @@
   <div class="row">
     <div class="col-md-6 offset-md-3 text-center">
       <h1>{% trans "Sign In" %}</h1>
-      <a href="{% provider_login_url 'openid_connect_linkedin' %}" class="linkedin-login-button">
+      {% get_providers as socialaccount_providers %}
+      {% for provider in socialaccount_providers %}
+        {% if provider.app.provider_id == 'openid_connect_linkedin' %}
+      <a href="{% provider_login_url provider %}" class="linkedin-login-button">
         {% trans "Sign in with LinkedIn" %}
       </a>
+        {% endif %}
+      {% endfor %}
     </div>
   </div>
 </div>
