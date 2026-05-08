@@ -1,5 +1,14 @@
 {% load i18n %}
-<div id="connection-actions-{{ recipient.id }}" class="space-y-2" role="status" aria-live="polite">
+<div id="connection-actions-{{ recipient.id }}" class="space-y-2" role="status" aria-live="polite"
+     x-data='{
+        prefill(text) {
+            const ta = $refs.note;
+            if (!ta) return;
+            ta.value = text + (ta.value && !ta.value.startsWith(text) ? " " + ta.value : "");
+            ta.focus();
+            ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+     }'>
     <form hx-post="{% url 'crush_lu:request_connection_inline' event.id recipient.id %}"
           hx-target="#connection-actions-{{ recipient.id }}"
           hx-swap="outerHTML"
@@ -7,9 +16,27 @@
         {% csrf_token %}
         <div>
             <textarea name="note"
+                      x-ref="note"
                       rows="2"
                       placeholder="{% trans 'Add a note (optional)...' %}"
                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+            <div class="flex flex-wrap gap-1.5 mt-1.5">
+                <button type="button"
+                        @click='prefill("{% trans "I really enjoyed our chat about" %}")'
+                        class="text-xs px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">
+                    {% trans "I really enjoyed our chat about…" %}
+                </button>
+                <button type="button"
+                        @click='prefill("{% trans "What stood out to me about you was" %}")'
+                        class="text-xs px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">
+                    {% trans "What stood out about you…" %}
+                </button>
+                <button type="button"
+                        @click='prefill("{% trans "I&#39;d love to continue our conversation on" %}")'
+                        class="text-xs px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">
+                    {% trans "Let's continue our conversation…" %}
+                </button>
+            </div>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
             <button type="submit"

@@ -34,6 +34,7 @@ class NotificationType(Enum):
     NEW_MESSAGE = 'new_message'
     NEW_CONNECTION = 'new_connection'
     CONNECTION_ACCEPTED = 'connection_accepted'
+    MUTUAL_MATCH = 'mutual_match'
     EVENT_REMINDER = 'event_reminder'
     EVENT_REGISTRATION = 'event_registration'
     EVENT_WAITLIST = 'event_waitlist'
@@ -56,6 +57,7 @@ class NotificationType(Enum):
             'new_message': 'new_messages',
             'new_connection': 'new_connections',
             'connection_accepted': 'new_connections',
+            'mutual_match': 'new_connections',
             'event_reminder': 'event_reminders',
             'event_registration': 'event_reminders',
             'event_waitlist': 'event_reminders',
@@ -209,7 +211,11 @@ class NotificationService:
                 if message:
                     return push_notifications.send_new_message_notification(user, message) or {}
 
-            elif notification_type in (NotificationType.NEW_CONNECTION, NotificationType.CONNECTION_ACCEPTED):
+            elif notification_type in (
+                NotificationType.NEW_CONNECTION,
+                NotificationType.CONNECTION_ACCEPTED,
+                NotificationType.MUTUAL_MATCH,
+            ):
                 connection = context.get('connection')
                 if connection:
                     return push_notifications.send_new_connection_notification(user, connection) or {}
@@ -301,6 +307,15 @@ class NotificationService:
                 if connection and request:
                     result = email_helpers.send_connection_accepted_notification(
                         user, connection, accepter, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.MUTUAL_MATCH:
+                connection = context.get('connection')
+                other_user = context.get('other_user')
+                if connection and other_user and request:
+                    result = email_helpers.send_mutual_match_email(
+                        user, connection, other_user, request
                     )
                     return result == 1
 
@@ -403,6 +418,20 @@ def notify_connection_accepted(recipient, connection, accepter, request=None) ->
         notification_type=NotificationType.CONNECTION_ACCEPTED,
         context={'connection': connection, 'accepter': accepter},
         request=request
+    )
+
+
+def notify_mutual_match(user, other_user, connection, request=None) -> NotificationResult:
+    """
+    Send "It's a Match!" notification when both attendees independently
+    requested a connection. Use this in place of notify_connection_accepted
+    when the fast-track mutual flow is triggered.
+    """
+    return NotificationService.notify(
+        user=user,
+        notification_type=NotificationType.MUTUAL_MATCH,
+        context={'connection': connection, 'other_user': other_user},
+        request=request,
     )
 
 
