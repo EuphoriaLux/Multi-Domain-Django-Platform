@@ -2865,8 +2865,11 @@ def coach_connections(request):
             Q(assigned_coach=coach) | Q(assigned_coach__isnull=True)
         )
 
-    # Use mutual annotation to avoid N+1 queries
-    connections_qs = connections_qs.annotate_is_mutual()
+    # Use mutual annotation to avoid N+1 queries, then push mutual matches to the
+    # top of the list so coaches triage the most actionable rows first.
+    connections_qs = connections_qs.annotate_is_mutual().order_by(
+        "-is_mutual_annotated", "-requested_at"
+    )
 
     # Paginate
     paginator = Paginator(connections_qs, 20)

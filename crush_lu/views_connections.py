@@ -33,6 +33,7 @@ from .notification_service import (
     notify_new_message,
     notify_new_connection,
     notify_connection_accepted,
+    notify_mutual_match,
 )
 
 
@@ -85,29 +86,40 @@ def event_attendees(request, event_id):
     spark_count = len(sent_sparks)
     sparks_remaining = event.max_sparks_per_event - spark_count
 
+    # Privacy-preserving "interest hint": how many people requested a connection
+    # with this user for this event but haven't been reciprocated yet.
+    incoming_pending_count = sum(
+        1 for c in received_connections.values() if c.status == "pending"
+    )
+
     # Build attendee data with connection status
+    active_statuses = ("accepted", "coach_reviewing", "coach_approved", "shared")
     attendee_data = []
     for reg in attendees:
         attendee_user = reg.user
         connection_status = None
         connection_id = None
 
-        if attendee_user.id in sent_connections:
-            conn = sent_connections[attendee_user.id]
-            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
-                connection_status = "mutual"
+        sent_conn = sent_connections.get(attendee_user.id)
+        recv_conn = received_connections.get(attendee_user.id)
+        is_two_sided = sent_conn is not None and recv_conn is not None
+
+        if sent_conn is not None:
+            if sent_conn.status in active_statuses:
+                # Both sides requested independently → distinct mutual_match badge.
+                # One-sided accept (recipient accepted our request) keeps the plain "mutual".
+                connection_status = "mutual_match" if is_two_sided else "mutual"
             else:
                 connection_status = "sent"
-            connection_id = conn.id
-        elif attendee_user.id in received_connections:
-            conn = received_connections[attendee_user.id]
-            if conn.status in ("accepted", "coach_reviewing", "coach_approved", "shared"):
+            connection_id = sent_conn.id
+        elif recv_conn is not None:
+            if recv_conn.status in active_statuses:
                 connection_status = "mutual"
-            elif conn.status == "pending":
+            elif recv_conn.status == "pending":
                 connection_status = "received"
             else:
                 connection_status = "sent"  # declined or other non-actionable
-            connection_id = conn.id
+            connection_id = recv_conn.id
 
         attendee_data.append(
             {
@@ -165,10 +177,12 @@ def event_attendees(request, event_id):
         "attendees": attendee_data,
         "grouped_attendees": grouped_attendees,
         "spark_deadline_active": spark_deadline_active,
+        "spark_deadline": deadline,
         "sparks_remaining": sparks_remaining,
         "cross_gender_remaining": cross_gender_remaining,
         "event_coaches": event_coaches,
         "own_profile": own_profile,
+        "incoming_pending_count": incoming_pending_count,
     }
     return render(request, "crush_lu/event_attendees.html", context)
 
@@ -274,20 +288,20 @@ def request_connection(request, event_id, user_id):
         # Notifications outside transaction to avoid blocking
         if reverse_connection:
             try:
-                notify_connection_accepted(
-                    recipient=recipient,
+                notify_mutual_match(
+                    user=recipient,
+                    other_user=request.user,
                     connection=connection,
-                    accepter=request.user,
                     request=request,
                 )
-                notify_connection_accepted(
-                    recipient=request.user,
+                notify_mutual_match(
+                    user=request.user,
+                    other_user=recipient,
                     connection=reverse_connection,
-                    accepter=recipient,
                     request=request,
                 )
             except Exception as e:
-                logger.error(f"Failed to send mutual connection notifications: {e}")
+                logger.error(f"Failed to send mutual match notifications: {e}")
 
             if connection.is_same_gender:
                 messages.success(
@@ -439,20 +453,20 @@ def request_connection_inline(request, event_id, user_id):
         # Notifications outside transaction to avoid blocking
         if is_mutual:
             try:
-                notify_connection_accepted(
-                    recipient=recipient,
+                notify_mutual_match(
+                    user=recipient,
+                    other_user=request.user,
                     connection=connection,
-                    accepter=request.user,
                     request=request,
                 )
-                notify_connection_accepted(
-                    recipient=request.user,
+                notify_mutual_match(
+                    user=request.user,
+                    other_user=recipient,
                     connection=reverse_connection,
-                    accepter=recipient,
                     request=request,
                 )
             except Exception as e:
-                logger.error(f"Failed to send mutual connection notifications: {e}")
+                logger.error(f"Failed to send mutual match notifications: {e}")
 
         if not is_mutual:
             # Notify recipient about the connection request

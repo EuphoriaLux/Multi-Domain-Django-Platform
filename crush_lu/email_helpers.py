@@ -968,6 +968,74 @@ def send_connection_accepted_notification(recipient, connection, accepter, reque
     )
 
 
+def send_mutual_match_email(recipient, connection, other_user, request):
+    """
+    Notify a user that an event connection became mutual ("It's a Match!").
+
+    Both attendees independently requested each other; the backend has already
+    fast-tracked the connection (same-gender → ``shared``, cross-gender →
+    ``accepted`` with a coach assigned). This email differs from the generic
+    "your request was accepted" notification in copy and CTA.
+
+    Args:
+        recipient: User receiving the email
+        connection: EventConnection from recipient's perspective
+        other_user: the other half of the match
+        request: Django request for domain detection
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    if not can_send_email(recipient, 'new_connections'):
+        logger.info(
+            f"Skipping mutual match email to {recipient.email} - user unsubscribed"
+        )
+        return 0
+
+    lang = get_user_preferred_language(user=recipient, request=request, default='en')
+
+    if hasattr(other_user, 'crushprofile'):
+        other_name = other_user.crushprofile.display_name
+    else:
+        other_name = other_user.first_name
+
+    event = connection.event
+    event_title = event.title if event else "a Crush.lu event"
+
+    is_same_gender = connection.is_same_gender
+    coach = connection.assigned_coach
+    coach_name = coach.user.first_name if coach and coach.user else ""
+
+    connection_url = get_user_language_url(
+        recipient, 'crush_lu:connection_detail', request,
+        kwargs={'connection_id': connection.id}
+    )
+
+    context = get_email_context_with_unsubscribe(
+        recipient, request,
+        first_name=recipient.first_name,
+        other_name=other_name,
+        event_title=event_title,
+        connection_url=connection_url,
+        is_same_gender=is_same_gender,
+        coach_name=coach_name,
+    )
+
+    with translation.override(lang):
+        subject = _("It's a match! 🎉")
+        html_message = render_to_string('crush_lu/emails/mutual_match.html', context)
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
 def send_new_message_notification(recipient, message, request):
     """
     Notify user that they received a new message.
