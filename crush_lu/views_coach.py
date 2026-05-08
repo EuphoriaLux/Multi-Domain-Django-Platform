@@ -3443,14 +3443,22 @@ def coach_verification_channel(request):
         sort_mode = "urgency"
     filter_lang = (request.GET.get("lang") or "").strip().lower()
     filter_region = (request.GET.get("region") or "").strip()
-    try:
-        filter_age_min = int(request.GET.get("age_min") or 0) or None
-    except ValueError:
-        filter_age_min = None
-    try:
-        filter_age_max = int(request.GET.get("age_max") or 0) or None
-    except ValueError:
-        filter_age_max = None
+
+    def _parse_age(raw):
+        # Clamp to [18, 120] so crafted query params can't push date.replace()
+        # past the year-range limits and 500 the page.
+        try:
+            value = int(raw or 0)
+        except (TypeError, ValueError):
+            return None
+        if value <= 0:
+            return None
+        return max(18, min(value, 120))
+
+    filter_age_min = _parse_age(request.GET.get("age_min"))
+    filter_age_max = _parse_age(request.GET.get("age_max"))
+    if filter_age_min and filter_age_max and filter_age_min > filter_age_max:
+        filter_age_min, filter_age_max = filter_age_max, filter_age_min
 
     qs = ProfileSubmission.objects.filter(
         status="pending", coach__isnull=True
