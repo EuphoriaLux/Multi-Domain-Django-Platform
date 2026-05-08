@@ -40,6 +40,11 @@
                 </span>
             </button>
         </div>
+    {% elif attendee.connection_status == 'mutual_match' %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold rounded-full bg-gradient-to-r from-crush-purple to-crush-pink text-white shadow-sm">
+            {% include "shared/icons/heart.html" with class="w-3 h-3" %}
+            {% trans "It's a match!" %}
+        </span>
     {% elif attendee.connection_status == 'mutual' %}
         <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">
             {% include "shared/icons/heart.html" with class="w-3 h-3" %}
@@ -147,6 +152,37 @@
             {% trans "You can also send a Crush Spark - an anonymous admirer journey reviewed by a coach before delivery." %}
         </p>
     </div>
+
+    <!-- Interest hint: aggregate, non-identifying -->
+    {% if incoming_pending_count %}
+    <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4">
+            <div class="flex items-start gap-3">
+                <div class="shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
+                    {% include "shared/icons/heart.html" with class="w-5 h-5" %}
+                </div>
+                <div class="min-w-0">
+                    <h5 class="font-semibold mb-1 dark:text-white">
+                        {% blocktrans count count=incoming_pending_count %}Someone here wants to connect with you{% plural %}{{ count }} people here want to connect with you{% endblocktrans %}
+                    </h5>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+                        {% trans "Browse the room and tap “Request Connection” on anyone who caught your eye. If they're already on your side, it becomes a match instantly." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Spark deadline countdown -->
+    {% if spark_deadline_active and spark_deadline %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-2 text-sm">
+        <span class="text-amber-500">⏳</span>
+        <span class="text-amber-800 dark:text-amber-300">
+            {% blocktrans with countdown=spark_deadline|timeuntil %}<strong>{{ countdown }}</strong> left to send Crush Sparks and request connections.{% endblocktrans %}
+        </span>
+    </div>
+    {% endif %}
 
     <!-- Cross-gender connection limit info -->
     {% if cross_gender_remaining is not None %}

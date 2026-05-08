@@ -166,6 +166,12 @@
 
                             <!-- Status & Action -->
                             <div class="flex items-center gap-3 sm:flex-col sm:items-end">
+                                {% if conn.is_mutual_annotated %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-crush-purple to-crush-pink text-white">
+                                        {% include "shared/icons/heart.html" with class="w-3 h-3" %}
+                                        {% trans "Mutual match" %}
+                                    </span>
+                                {% endif %}
                                 {% if conn.status == 'pending' %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">{% trans "Pending" %}</span>
                                 {% elif conn.status == 'accepted' %}

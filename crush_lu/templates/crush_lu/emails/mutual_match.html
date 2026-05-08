@@ -1,0 +1,56 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "It's a match!" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "It's a match!" %} 💞{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
+
+<p>
+    {% blocktrans with name=other_name title=event_title %}You and <strong>{{ name }}</strong> both wanted to stay in touch after <strong>{{ title }}</strong>.{% endblocktrans %}
+</p>
+
+{% if is_same_gender %}
+<div class="info-box">
+    <strong>{% trans "Contact information has been shared." %}</strong>
+    <p style="margin: 10px 0 0 0;">
+        {% blocktrans with name=other_name %}You can now reach out to {{ name }} directly. Open the connection to see how to get in touch.{% endblocktrans %}
+    </p>
+</div>
+{% else %}
+<div class="info-box">
+    <strong>
+        {% if coach_name %}
+            {% blocktrans with name=coach_name %}Coach {{ name }} will personally introduce you.{% endblocktrans %}
+        {% else %}
+            {% trans "A Crush Coach will personally introduce you." %}
+        {% endif %}
+    </strong>
+    <p style="margin: 10px 0 0 0;">
+        {% trans "We'll be in touch within 48 hours with a personalized introduction. No pressure, no awkwardness — your coach handles the first step." %}
+    </p>
+</div>
+{% endif %}
+
+<p style="text-align: center;">
+    <a href="{{ connection_url }}" class="button">{% trans "View your match" %}</a>
+</p>
+
+<p><strong>{% trans "Why this is exciting:" %}</strong></p>
+<ul>
+    <li>{% trans "You both took the first step independently — no guesswork." %}</li>
+    <li>{% trans "You shared a real moment at the event." %}</li>
+    <li>{% trans "There's a real foundation for what comes next." %}</li>
+</ul>
+
+<p>
+    {% trans "Take your time, be yourself, and enjoy it." %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because someone you connected with at an event wanted to connect with you too." %}<br>
+{% endblock %}
