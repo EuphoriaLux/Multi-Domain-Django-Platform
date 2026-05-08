@@ -3370,6 +3370,44 @@ def coach_team_stats(request):
     return render(request, "crush_lu/coach_team_stats.html", context)
 
 
+SORT_CHOICES = ("urgency", "name", "match")
+
+
+def _score_submission_for_coach(coach, submission, hours_waiting):
+    """Phase-1 coach matching score (0-100) plus human reason chips.
+
+    Pure function so it's easy to test and to relocate later if we promote
+    this into a CoachMatchSuggestion model.
+    """
+    score = 0
+    reasons = []
+
+    coach_langs = set(coach.spoken_languages or [])
+    profile_langs = set(submission.profile.event_languages or [])
+    if coach_langs & profile_langs:
+        score += 50
+        reasons.append("language")
+
+    waiting_score = min(hours_waiting, 72.0) / 72.0 * 30.0
+    score += waiting_score
+    if hours_waiting > 48:
+        reasons.append("waiting")
+
+    profile = submission.profile
+    completeness = 0
+    if profile.photo_1:
+        completeness += 10
+    if profile.bio:
+        completeness += 5
+    if profile.location:
+        completeness += 5
+    score += completeness
+    if completeness >= 15:
+        reasons.append("complete")
+
+    return round(score), reasons
+
+
 @coach_required
 def coach_verification_channel(request):
     """Coach-facing channel: every active coach sees all pending, unclaimed profiles
@@ -3378,10 +3416,49 @@ def coach_verification_channel(request):
     coach = request.coach
     now = timezone.now()
 
-    channel = list(
-        ProfileSubmission.objects.filter(status="pending", coach__isnull=True)
-        .select_related("profile__user")
-    )
+    sort_mode = request.GET.get("sort", "urgency")
+    if sort_mode not in SORT_CHOICES:
+        sort_mode = "urgency"
+    filter_lang = (request.GET.get("lang") or "").strip().lower()
+    filter_region = (request.GET.get("region") or "").strip()
+    try:
+        filter_age_min = int(request.GET.get("age_min") or 0) or None
+    except ValueError:
+        filter_age_min = None
+    try:
+        filter_age_max = int(request.GET.get("age_max") or 0) or None
+    except ValueError:
+        filter_age_max = None
+
+    qs = ProfileSubmission.objects.filter(
+        status="pending", coach__isnull=True
+    ).select_related("profile__user")
+
+    if filter_region:
+        qs = qs.filter(profile__location__icontains=filter_region)
+    if filter_age_min or filter_age_max:
+        today = now.date()
+
+        def _shift_year(d, years_back):
+            try:
+                return d.replace(year=d.year - years_back)
+            except ValueError:
+                return d.replace(year=d.year - years_back, day=28)
+
+        if filter_age_max:
+            earliest_dob = _shift_year(today, filter_age_max + 1)
+            qs = qs.filter(profile__date_of_birth__gt=earliest_dob)
+        if filter_age_min:
+            latest_dob = _shift_year(today, filter_age_min)
+            qs = qs.filter(profile__date_of_birth__lte=latest_dob)
+
+    channel = list(qs)
+
+    if filter_lang:
+        channel = [
+            s for s in channel
+            if filter_lang in (s.profile.event_languages or [])
+        ]
 
     coach_langs = set(coach.spoken_languages or [])
     for s in channel:
@@ -3392,8 +3469,17 @@ def coach_verification_channel(request):
         profile_langs = set(s.profile.event_languages or [])
         s.matched_languages = sorted(coach_langs & profile_langs)
         s.language_match = bool(s.matched_languages)
+        s.match_score, s.match_reasons = _score_submission_for_coach(coach, s, hours)
+        s.is_recommended = False
 
-    channel.sort(key=lambda s: (s.profile.display_name or "").casefold())
+    if sort_mode == "name":
+        channel.sort(key=lambda s: (s.profile.display_name or "").casefold())
+    elif sort_mode == "match":
+        channel.sort(key=lambda s: (-s.match_score, s.submitted_at))
+        for s in channel[:3]:
+            s.is_recommended = True
+    else:
+        channel.sort(key=lambda s: s.submitted_at)
 
     my_pending = ProfileSubmission.objects.filter(coach=coach, status="pending").count()
 
@@ -3403,6 +3489,14 @@ def coach_verification_channel(request):
         "channel_count": len(channel),
         "my_pending": my_pending,
         "at_capacity": not coach.can_accept_reviews(),
+        "sort_mode": sort_mode,
+        "sort_choices": SORT_CHOICES,
+        "filter_lang": filter_lang,
+        "filter_region": filter_region,
+        "filter_age_min": filter_age_min,
+        "filter_age_max": filter_age_max,
+        "has_filters": bool(filter_lang or filter_region or filter_age_min or filter_age_max),
+        "language_options": list(CrushCoach.LANGUAGE_DISPLAY.items()),
     }
     return render(request, "crush_lu/coach_verification_channel.html", context)
 
