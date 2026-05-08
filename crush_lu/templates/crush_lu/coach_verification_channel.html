@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n static %}
+{% load i18n static crush_media %}
 
 {% block title %}{% trans "Verification Channel" %} - Crush.lu{% endblock %}
 
@@ -49,10 +49,16 @@
             {% with p=sub.profile %}
             <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 {% if sub.language_match %}bg-purple-50/40 dark:bg-purple-900/10{% endif %}">
                 <div class="flex items-start gap-4 flex-1 min-w-0">
-                    {# Avatar disk — initial on gradient #}
+                    {# Avatar disk — primary photo if available, otherwise initial on gradient #}
+                    {% if p.photo_1 %}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                        <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                    </div>
+                    {% else %}
                     <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-lg">
                         {{ p.display_name|slice:":1"|upper }}
                     </div>
+                    {% endif %}
                     <div class="flex-1 min-w-0">
                         {# Name row #}
                         <div class="flex items-center gap-2 flex-wrap mb-1">

@@ -3381,7 +3381,6 @@ def coach_verification_channel(request):
     channel = list(
         ProfileSubmission.objects.filter(status="pending", coach__isnull=True)
         .select_related("profile__user")
-        .order_by("submitted_at")
     )
 
     coach_langs = set(coach.spoken_languages or [])
@@ -3393,6 +3392,8 @@ def coach_verification_channel(request):
         profile_langs = set(s.profile.event_languages or [])
         s.matched_languages = sorted(coach_langs & profile_langs)
         s.language_match = bool(s.matched_languages)
+
+    channel.sort(key=lambda s: (s.profile.display_name or "").casefold())
 
     my_pending = ProfileSubmission.objects.filter(coach=coach, status="pending").count()
 
