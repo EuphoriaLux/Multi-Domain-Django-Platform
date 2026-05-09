@@ -12443,6 +12443,9 @@ document.addEventListener("alpine:init", function () {
             get hasItems() {
                 return this.items.length > 0;
             },
+            get hasNoItems() {
+                return this.items.length === 0;
+            },
             get badgeText() {
                 if (this.unreadCount > 9) return "9+";
                 return String(this.unreadCount);
