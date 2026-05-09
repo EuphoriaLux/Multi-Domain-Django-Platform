@@ -1097,6 +1097,7 @@ class CallAttempt(models.Model):
         ('success', _('Call Completed')),
         ('failed', _('Call Failed')),
         ('sms_sent', _('SMS Sent')),
+        ('whatsapp_sent', _('WhatsApp Sent')),
         ('event_invite_sms', _('Event Invite SMS')),
     ]
 

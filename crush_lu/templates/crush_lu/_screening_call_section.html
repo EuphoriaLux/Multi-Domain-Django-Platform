@@ -124,6 +124,8 @@
                                     <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% elif attempt.result == 'sms_sent' %}
                                     <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
+                                {% elif attempt.result == 'whatsapp_sent' %}
+                                    <span class="text-[#25D366]"><svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M20.52 3.48A11.78 11.78 0 0 0 12.06 0C5.5 0 .17 5.33.17 11.89c0 2.1.55 4.14 1.6 5.95L.06 24l6.32-1.66a11.86 11.86 0 0 0 5.68 1.45c6.55 0 11.89-5.33 11.89-11.89 0-3.18-1.24-6.16-3.44-8.42Z"/></svg></span>
                                 {% else %}
                                     <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% endif %}
@@ -133,6 +135,8 @@
                                         <p>{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
                                     {% elif attempt.result == 'sms_sent' %}
                                         <p>{% trans "SMS template sent" %}</p>
+                                    {% elif attempt.result == 'whatsapp_sent' %}
+                                        <p>{% trans "WhatsApp template sent" %}</p>
                                     {% else %}
                                         <p>{% trans "Call completed successfully" %}</p>
                                     {% endif %}
@@ -479,6 +483,8 @@
                                     <span class="text-red-500">{% include "shared/icons/x-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% elif attempt.result == 'sms_sent' %}
                                     <span class="text-blue-500"><svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></span>
+                                {% elif attempt.result == 'whatsapp_sent' %}
+                                    <span class="text-[#25D366]"><svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M20.52 3.48A11.78 11.78 0 0 0 12.06 0C5.5 0 .17 5.33.17 11.89c0 2.1.55 4.14 1.6 5.95L.06 24l6.32-1.66a11.86 11.86 0 0 0 5.68 1.45c6.55 0 11.89-5.33 11.89-11.89 0-3.18-1.24-6.16-3.44-8.42Z"/></svg></span>
                                 {% else %}
                                     <span class="text-green-500">{% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}</span>
                                 {% endif %}
@@ -488,6 +494,8 @@
                                         <p class="text-gray-700 dark:text-gray-200">{% trans "Failed:" %} {{ attempt.get_failure_reason_display }}</p>
                                     {% elif attempt.result == 'sms_sent' %}
                                         <p class="text-blue-700 dark:text-blue-300">{% trans "SMS template sent" %}</p>
+                                    {% elif attempt.result == 'whatsapp_sent' %}
+                                        <p class="text-[#1ebe57] dark:text-[#25D366]">{% trans "WhatsApp template sent" %}</p>
                                     {% else %}
                                         <p class="text-green-700 dark:text-green-300">{% trans "Call completed successfully" %}</p>
                                     {% endif %}

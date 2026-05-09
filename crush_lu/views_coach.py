@@ -893,30 +893,46 @@ def coach_log_sms_sent(request, submission_id):
     messages.success(request, _("SMS attempt logged."))
 
     if request.headers.get("HX-Request"):
-        # Build SMS template context for re-render
-        from urllib.parse import quote
-        from .models.site_config import CrushSiteConfig
-
-        sms_template_encoded = ""
         profile = submission.profile
-        if profile.phone_number and profile.phone_verified:
-            config = CrushSiteConfig.get_config()
-            lang = getattr(profile, "preferred_language", "en") or "en"
-            template_field = f"sms_template_{lang}"
-            template = (
-                getattr(config, template_field, config.sms_template_en)
-                or config.sms_template_en
-            )
-            coach_name = coach.user.first_name or "Your coach"
-            first_name = profile.user.first_name or ""
-            sms_body = template.format(first_name=first_name, coach_name=coach_name)
-            sms_template_encoded = quote(sms_body, safe="")
-
         context = {
             "submission": submission,
             "profile": profile,
-            "sms_template_encoded": sms_template_encoded,
         }
+        context.update(_build_outreach_context(coach, profile))
+        return render(request, "crush_lu/_screening_tab.html", context)
+
+    return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_log_whatsapp_sent(request, submission_id):
+    """Log a WhatsApp template sent attempt - HTMX endpoint."""
+    from .models import CallAttempt
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+
+    CallAttempt.objects.create(
+        submission=submission,
+        result="whatsapp_sent",
+        coach=coach,
+        notes=_("WhatsApp template sent via coach review page"),
+    )
+
+    messages.success(request, _("WhatsApp attempt logged."))
+
+    if request.headers.get("HX-Request"):
+        profile = submission.profile
+        context = {
+            "submission": submission,
+            "profile": profile,
+        }
+        context.update(_build_outreach_context(coach, profile))
         return render(request, "crush_lu/_screening_tab.html", context)
 
     return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
@@ -1059,25 +1075,9 @@ def coach_review_profile(request, submission_id):
     # Get social login provider if exists
     social_account = submission.profile.user.socialaccount_set.first()
 
-    # Build SMS template for coach outreach
-    sms_template_encoded = ""
     profile = submission.profile
     prefetch_related_objects([profile], "qualities", "defects", "sought_qualities")
-    if profile.phone_number and profile.phone_verified:
-        from urllib.parse import quote
-        from .models.site_config import CrushSiteConfig
-
-        config = CrushSiteConfig.get_config()
-        lang = getattr(profile, "preferred_language", "en") or "en"
-        template_field = f"sms_template_{lang}"
-        template = (
-            getattr(config, template_field, config.sms_template_en)
-            or config.sms_template_en
-        )
-        coach_name = coach.user.first_name or "Your coach"
-        first_name = profile.user.first_name or ""
-        sms_body = template.format(first_name=first_name, coach_name=coach_name)
-        sms_template_encoded = quote(sms_body, safe="")
+    outreach = _build_outreach_context(coach, profile)
 
     from django.conf import settings as _settings
 
@@ -1089,10 +1089,10 @@ def coach_review_profile(request, submission_id):
         "profile": profile,
         "form": form,
         "social_account": social_account,
-        "sms_template_encoded": sms_template_encoded,
         "pre_screening_enabled": pre_screening_enabled,
         "can_send_prescreening_sms": can_send_prescreening_sms,
     }
+    context.update(outreach)
     return render(request, "crush_lu/coach_review_profile.html", context)
 
 
@@ -1121,30 +1121,12 @@ def coach_set_screening_mode(request, submission_id):
     submission.screening_call_mode = mode
     submission.save(update_fields=["screening_call_mode"])
 
-    # Re-render the tab in place.
-    from urllib.parse import quote
-    from .models.site_config import CrushSiteConfig
-
     profile = submission.profile
-    sms_template_encoded = ""
-    if profile.phone_number and profile.phone_verified:
-        config = CrushSiteConfig.get_config()
-        lang = getattr(profile, "preferred_language", "en") or "en"
-        template_field = f"sms_template_{lang}"
-        template = (
-            getattr(config, template_field, config.sms_template_en)
-            or config.sms_template_en
-        )
-        coach_name = coach.user.first_name or "Your coach"
-        first_name = profile.user.first_name or ""
-        sms_body = template.format(first_name=first_name, coach_name=coach_name)
-        sms_template_encoded = quote(sms_body, safe="")
-
     context = {
         "submission": submission,
         "profile": profile,
-        "sms_template_encoded": sms_template_encoded,
     }
+    context.update(_build_outreach_context(coach, profile))
     return render(request, "crush_lu/_screening_tab.html", context)
 
 
@@ -3373,6 +3355,81 @@ def coach_team_stats(request):
     return render(request, "crush_lu/coach_team_stats.html", context)
 
 
+SORT_CHOICES = ("urgency", "name", "match")
+
+
+def _build_outreach_context(coach, profile):
+    """SMS-template + WhatsApp URL context for the screening tab partial.
+
+    Returns ``sms_template_encoded`` and ``whatsapp_url`` together so callers
+    don't drift apart. Both are empty strings when the candidate's phone
+    isn't verified — the gate matches the existing SMS path.
+    """
+    if not (profile.phone_number and profile.phone_verified):
+        return {"sms_template_encoded": "", "whatsapp_url": ""}
+
+    from urllib.parse import quote
+    import re
+    from .models.site_config import CrushSiteConfig
+
+    config = CrushSiteConfig.get_config()
+    lang = getattr(profile, "preferred_language", "en") or "en"
+    template_field = f"sms_template_{lang}"
+    template = (
+        getattr(config, template_field, config.sms_template_en)
+        or config.sms_template_en
+    )
+    coach_name = coach.user.first_name or "Your coach"
+    first_name = profile.user.first_name or ""
+    sms_body = template.format(first_name=first_name, coach_name=coach_name)
+    sms_template_encoded = quote(sms_body, safe="")
+
+    digits = re.sub(r"[^\d]", "", profile.phone_number)
+    whatsapp_url = (
+        f"https://wa.me/{digits}?text={sms_template_encoded}" if digits else ""
+    )
+
+    return {
+        "sms_template_encoded": sms_template_encoded,
+        "whatsapp_url": whatsapp_url,
+    }
+
+
+def _score_submission_for_coach(coach, submission, hours_waiting):
+    """Phase-1 coach matching score (0-100) plus human reason chips.
+
+    Pure function so it's easy to test and to relocate later if we promote
+    this into a CoachMatchSuggestion model.
+    """
+    score = 0
+    reasons = []
+
+    coach_langs = set(coach.spoken_languages or [])
+    profile_langs = set(submission.profile.event_languages or [])
+    if coach_langs & profile_langs:
+        score += 50
+        reasons.append("language")
+
+    waiting_score = min(hours_waiting, 72.0) / 72.0 * 30.0
+    score += waiting_score
+    if hours_waiting > 48:
+        reasons.append("waiting")
+
+    profile = submission.profile
+    completeness = 0
+    if profile.photo_1:
+        completeness += 10
+    if profile.bio:
+        completeness += 5
+    if profile.location:
+        completeness += 5
+    score += completeness
+    if completeness >= 15:
+        reasons.append("complete")
+
+    return round(score), reasons
+
+
 @coach_required
 def coach_verification_channel(request):
     """Coach-facing channel: every active coach sees all pending, unclaimed profiles
@@ -3381,11 +3438,57 @@ def coach_verification_channel(request):
     coach = request.coach
     now = timezone.now()
 
-    channel = list(
-        ProfileSubmission.objects.filter(status="pending", coach__isnull=True)
-        .select_related("profile__user")
-        .order_by("submitted_at")
-    )
+    sort_mode = request.GET.get("sort", "urgency")
+    if sort_mode not in SORT_CHOICES:
+        sort_mode = "urgency"
+    filter_lang = (request.GET.get("lang") or "").strip().lower()
+    filter_region = (request.GET.get("region") or "").strip()
+
+    def _parse_age(raw):
+        # Clamp to [18, 120] so crafted query params can't push date.replace()
+        # past the year-range limits and 500 the page.
+        try:
+            value = int(raw or 0)
+        except (TypeError, ValueError):
+            return None
+        if value <= 0:
+            return None
+        return max(18, min(value, 120))
+
+    filter_age_min = _parse_age(request.GET.get("age_min"))
+    filter_age_max = _parse_age(request.GET.get("age_max"))
+    if filter_age_min and filter_age_max and filter_age_min > filter_age_max:
+        filter_age_min, filter_age_max = filter_age_max, filter_age_min
+
+    qs = ProfileSubmission.objects.filter(
+        status="pending", coach__isnull=True
+    ).select_related("profile__user")
+
+    if filter_region:
+        qs = qs.filter(profile__location__icontains=filter_region)
+    if filter_age_min or filter_age_max:
+        today = now.date()
+
+        def _shift_year(d, years_back):
+            try:
+                return d.replace(year=d.year - years_back)
+            except ValueError:
+                return d.replace(year=d.year - years_back, day=28)
+
+        if filter_age_max:
+            earliest_dob = _shift_year(today, filter_age_max + 1)
+            qs = qs.filter(profile__date_of_birth__gt=earliest_dob)
+        if filter_age_min:
+            latest_dob = _shift_year(today, filter_age_min)
+            qs = qs.filter(profile__date_of_birth__lte=latest_dob)
+
+    channel = list(qs)
+
+    if filter_lang:
+        channel = [
+            s for s in channel
+            if filter_lang in (s.profile.event_languages or [])
+        ]
 
     coach_langs = set(coach.spoken_languages or [])
     for s in channel:
@@ -3396,6 +3499,17 @@ def coach_verification_channel(request):
         profile_langs = set(s.profile.event_languages or [])
         s.matched_languages = sorted(coach_langs & profile_langs)
         s.language_match = bool(s.matched_languages)
+        s.match_score, s.match_reasons = _score_submission_for_coach(coach, s, hours)
+        s.is_recommended = False
+
+    if sort_mode == "name":
+        channel.sort(key=lambda s: (s.profile.display_name or "").casefold())
+    elif sort_mode == "match":
+        channel.sort(key=lambda s: (-s.match_score, s.submitted_at))
+        for s in channel[:3]:
+            s.is_recommended = True
+    else:
+        channel.sort(key=lambda s: s.submitted_at)
 
     my_pending = ProfileSubmission.objects.filter(coach=coach, status="pending").count()
 
@@ -3405,6 +3519,14 @@ def coach_verification_channel(request):
         "channel_count": len(channel),
         "my_pending": my_pending,
         "at_capacity": not coach.can_accept_reviews(),
+        "sort_mode": sort_mode,
+        "sort_choices": SORT_CHOICES,
+        "filter_lang": filter_lang,
+        "filter_region": filter_region,
+        "filter_age_min": filter_age_min,
+        "filter_age_max": filter_age_max,
+        "has_filters": bool(filter_lang or filter_region or filter_age_min or filter_age_max),
+        "language_options": list(CrushCoach.LANGUAGE_DISPLAY.items()),
     }
     return render(request, "crush_lu/coach_verification_channel.html", context)
 

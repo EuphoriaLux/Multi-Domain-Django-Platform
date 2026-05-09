@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n static %}
+{% load i18n static crush_media %}
 
 {% block title %}{% trans "Verification Channel" %} - Crush.lu{% endblock %}
 
@@ -42,6 +42,45 @@
         {% endif %}
     </div>
 
+    {# Filter + sort bar #}
+    <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 px-6 py-4 flex flex-wrap items-end gap-4">
+        <div class="flex flex-col">
+            <label for="filter-lang" class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold mb-1">{% trans "Language" %}</label>
+            <select name="lang" id="filter-lang" class="rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">{% trans "Any" %}</option>
+                {% for code, info in language_options %}
+                <option value="{{ code }}" {% if filter_lang == code %}selected{% endif %}>{{ info.flag }} {{ info.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex flex-col">
+            <label for="filter-region" class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold mb-1">{% trans "Region" %}</label>
+            <input type="text" name="region" id="filter-region" value="{{ filter_region }}" placeholder="{% trans 'e.g. Luxembourg' %}" class="rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm w-44">
+        </div>
+        <div class="flex flex-col">
+            <label class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold mb-1">{% trans "Age" %}</label>
+            <div class="flex items-center gap-1">
+                <input type="number" name="age_min" min="18" max="99" value="{{ filter_age_min|default_if_none:'' }}" placeholder="{% trans 'Min' %}" class="rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm w-20">
+                <span class="text-gray-400">–</span>
+                <input type="number" name="age_max" min="18" max="99" value="{{ filter_age_max|default_if_none:'' }}" placeholder="{% trans 'Max' %}" class="rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm w-20">
+            </div>
+        </div>
+        <div class="flex flex-col">
+            <label for="filter-sort" class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold mb-1">{% trans "Sort" %}</label>
+            <select name="sort" id="filter-sort" class="rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="urgency" {% if sort_mode == 'urgency' %}selected{% endif %}>{% trans "Urgency (oldest first)" %}</option>
+                <option value="name" {% if sort_mode == 'name' %}selected{% endif %}>{% trans "Name (A→Z)" %}</option>
+                <option value="match" {% if sort_mode == 'match' %}selected{% endif %}>{% trans "Best match for me" %}</option>
+            </select>
+        </div>
+        <div class="flex items-center gap-2 ml-auto">
+            <button type="submit" class="btn-crush-primary text-sm px-4 py-2">{% trans "Apply" %}</button>
+            {% if has_filters or sort_mode != 'urgency' %}
+            <a href="{% url 'crush_lu:coach_verification_channel' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple px-2 py-2">{% trans "Clear" %}</a>
+            {% endif %}
+        </div>
+    </form>
+
     {% if channel %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -49,16 +88,33 @@
             {% with p=sub.profile %}
             <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 {% if sub.language_match %}bg-purple-50/40 dark:bg-purple-900/10{% endif %}">
                 <div class="flex items-start gap-4 flex-1 min-w-0">
-                    {# Avatar disk — initial on gradient #}
+                    {# Avatar disk — primary photo if available, otherwise initial on gradient #}
+                    {% if p.photo_1 %}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                        <img src="{% profile_photo_url p 'photo_1' %}" alt="{{ p.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                    </div>
+                    {% else %}
                     <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold text-lg">
                         {{ p.display_name|slice:":1"|upper }}
                     </div>
+                    {% endif %}
                     <div class="flex-1 min-w-0">
                         {# Name row #}
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <p class="font-semibold text-gray-900 dark:text-white">{{ p.display_name }}</p>
                             {% if p.age_display %}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{{ p.age_display }}</span>
+                            {% endif %}
+                            {% if sub.is_recommended %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-full">
+                                {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
+                                {% trans "Recommended" %}
+                            </span>
+                            {% endif %}
+                            {% if sort_mode == 'match' %}
+                            <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full" title="{% trans 'Match score for you' %}">
+                                {{ sub.match_score }}%
+                            </span>
                             {% endif %}
                             {% if sub.language_match %}
                             <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-crush-purple/10 text-crush-purple rounded-full">{% trans "Matches your languages" %}</span>
