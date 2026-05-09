@@ -834,6 +834,14 @@ class ProfileSubmission(models.Model):
         blank=True,
         help_text=_("Feedback shown to user if revision needed")
     )
+    revision_round = models.PositiveIntegerField(
+        default=0,
+        help_text=_(
+            "Number of completed revision cycles. 0 = first review. "
+            "Incremented when a coach issues a 'revision' verdict so the next "
+            "review surfaces the resubmission banner."
+        ),
+    )
 
     # Screening call during review (required before approval)
     review_call_completed = models.BooleanField(

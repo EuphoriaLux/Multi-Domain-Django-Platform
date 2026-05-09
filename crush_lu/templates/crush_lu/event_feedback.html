@@ -1,0 +1,70 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Event feedback" %} — {{ event.title }} | Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+            {% trans "Back to event" %}
+        </a>
+        <h2 class="text-2xl font-bold dark:text-white mt-2">{% trans "How was it?" %}</h2>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">{{ event.title }} · {{ event.date_time|date:"D, M j, Y" }}</p>
+    </div>
+
+    {% if submitted %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6 text-center">
+        <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}</div>
+        <h3 class="text-lg font-semibold mb-2 dark:text-white">{% trans "Thanks for your feedback!" %}</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-2">
+            {% blocktrans with score=feedback.nps_score %}You scored this event {{ score }}/10. We'll share your thoughts with the coaches.{% endblocktrans %}
+        </p>
+        <a href="{% url 'crush_lu:my_events' %}" class="btn-crush-primary inline-flex items-center gap-2 px-5 py-2.5 mt-4">
+            {% trans "Back to my events" %}
+        </a>
+    </div>
+    {% else %}
+    <form method="post" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6 space-y-6"
+          x-data="feedbackNpsSlider" x-init="updateLabel()">
+        {% csrf_token %}
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2" for="{{ form.nps_score.id_for_label }}">{{ form.nps_score.label }}</label>
+            {{ form.nps_score }}
+            <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <span>0</span><span>5</span><span>10</span>
+            </div>
+            <p class="text-sm text-center mt-2 dark:text-white">
+                <span class="font-semibold text-2xl text-crush-purple" x-text="score"></span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2" x-text="label"></span>
+            </p>
+            {% if form.nps_score.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nps_score.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2" for="{{ form.what_worked.id_for_label }}">{{ form.what_worked.label }}</label>
+            {{ form.what_worked }}
+            {% if form.what_worked.errors %}<p class="text-xs text-red-600 mt-1">{{ form.what_worked.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2" for="{{ form.what_to_improve.id_for_label }}">{{ form.what_to_improve.label }}</label>
+            {{ form.what_to_improve }}
+            {% if form.what_to_improve.errors %}<p class="text-xs text-red-600 mt-1">{{ form.what_to_improve.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                {% trans "Cancel" %}
+            </a>
+            <button type="submit" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-5 py-2.5">
+                {% trans "Submit feedback" %}
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

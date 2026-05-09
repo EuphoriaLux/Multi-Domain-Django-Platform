@@ -18,6 +18,11 @@
 
         <div class="flex items-center gap-3">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ profile.user.get_full_name }}</h1>
+            {% if submission.revision_round %}
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-full">
+                {% blocktrans with n=submission.revision_round %}Resubmission · round {{ n }}{% endblocktrans %}
+            </span>
+            {% endif %}
             <span class="text-3xl">
                 {% if profile.preferred_language == 'en' %}
                     🇬🇧
@@ -29,6 +34,28 @@
             </span>
         </div>
     </div>
+
+    {% if submission.revision_round and submission.feedback_to_user %}
+    {# Resubmission banner — surfaces prior feedback so the coach reviews
+       against what was previously asked rather than re-reading the profile cold. #}
+    <div class="mb-6 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 dark:border-amber-500 rounded-r-lg p-4">
+        <div class="flex items-start gap-3">
+            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5" %}
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                    {% blocktrans with n=submission.revision_round %}Resubmission — revision round {{ n }}{% endblocktrans %}
+                </p>
+                <p class="text-sm text-amber-800 dark:text-amber-200 mb-1">
+                    {% trans "Previous feedback you (or another coach) sent:" %}
+                </p>
+                <blockquote class="bg-white dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-sm text-gray-800 dark:text-amber-50">
+                    {{ submission.feedback_to_user|linebreaks }}
+                </blockquote>
+                <p class="text-xs text-amber-700 dark:text-amber-300 mt-2">{% trans "Check that the user addressed the feedback before deciding." %}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     {# ============================================================ #}
     {# PROFILE SUMMARY - Always Visible                             #}

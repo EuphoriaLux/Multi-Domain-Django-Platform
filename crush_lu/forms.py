@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation, CallAttempt
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation, CallAttempt, EventFeedback
 from PIL import Image
 import os
 
@@ -1469,3 +1469,47 @@ class InvitationAcceptanceForm(forms.Form):
         if not agreed:
             raise ValidationError(_("You must agree to the Terms of Service and Privacy Policy"))
         return agreed
+
+
+class EventFeedbackForm(forms.ModelForm):
+    """Short post-event survey: NPS + two free-text prompts."""
+
+    nps_score = forms.IntegerField(
+        min_value=0,
+        max_value=10,
+        label=_("How likely are you to recommend this event to a friend?"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": TAILWIND_INPUT,
+                "type": "range",
+                "min": "0",
+                "max": "10",
+                "step": "1",
+            }
+        ),
+    )
+    what_worked = forms.CharField(
+        required=False,
+        label=_("What worked well?"),
+        widget=forms.Textarea(
+            attrs={"class": TAILWIND_TEXTAREA, "rows": 3, "maxlength": 1000}
+        ),
+    )
+    what_to_improve = forms.CharField(
+        required=False,
+        label=_("What could be better next time?"),
+        widget=forms.Textarea(
+            attrs={"class": TAILWIND_TEXTAREA, "rows": 3, "maxlength": 1000}
+        ),
+    )
+
+    class Meta:
+        model = EventFeedback
+        fields = ["nps_score", "what_worked", "what_to_improve"]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.would_recommend = instance.nps_score >= 7
+        if commit:
+            instance.save()
+        return instance

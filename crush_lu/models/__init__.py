@@ -15,3 +15,4 @@ from .crush_connect import *
 from .matching import *
 from .quiz import *
 from .changelog import *
+from .notifications import *

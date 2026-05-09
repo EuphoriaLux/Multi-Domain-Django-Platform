@@ -85,6 +85,10 @@ class NotificationResult:
     email_sent: bool = False
     email_skipped_reason: Optional[str] = None  # 'user_unsubscribed', 'no_email'
 
+    # In-app notification (bell) — always written when supported
+    inapp_created: bool = False
+    inapp_id: Optional[int] = None
+
     # Errors for debugging
     errors: list = field(default_factory=list)
 
@@ -96,7 +100,7 @@ class NotificationResult:
     @property
     def any_delivered(self) -> bool:
         """Returns True if notification was delivered via any channel."""
-        return self.push_success or self.email_sent
+        return self.push_success or self.email_sent or self.inapp_created
 
 
 class NotificationService:
@@ -183,7 +187,188 @@ class NotificationService:
             logger.error(f"Error sending email to {user.email}: {e}")
             result.errors.append(f"Email error: {e}")
 
+        # --- In-app channel (bell) — always create a row, independent of opt-outs.
+        # The bell is a historical surface; users can ignore it. They cannot opt
+        # out of having a record per privacy/audit reasons, but they are not
+        # actively pushed anything when only this channel fires.
+        try:
+            from .models import Notification
+            payload = NotificationService._render_inapp_payload(
+                user, notification_type, context, request
+            )
+            if payload:
+                obj = Notification.objects.create(
+                    user=user,
+                    notification_type=notification_type.value,
+                    title=payload.get("title", "")[:200],
+                    body=payload.get("body", ""),
+                    link_url=payload.get("link_url", ""),
+                    metadata=payload.get("metadata", {}) or {},
+                )
+                result.inapp_created = True
+                result.inapp_id = obj.id
+        except Exception as e:
+            logger.error(f"Error writing in-app notification for {user.username}: {e}")
+            result.errors.append(f"In-app error: {e}")
+
         return result
+
+    @staticmethod
+    def _render_inapp_payload(
+        user,
+        notification_type: 'NotificationType',
+        context: dict,
+        request: Optional[HttpRequest],
+    ) -> Optional[dict]:
+        """Build (title, body, link_url) for the in-app notification row.
+
+        Falls back to a generic payload for types without dedicated rendering.
+        Returns None to skip in-app creation entirely.
+        """
+        from django.utils.translation import gettext as _
+        from django.utils import translation
+        from .email_helpers import get_user_preferred_language
+
+        lang = get_user_preferred_language(user=user, request=request, default='en')
+
+        def get_user_language_url(user, url_name, request, kwargs=None):
+            """Build a relative path for the bell deep-link.
+
+            Uses a small URL→path map instead of reverse() because reverse()
+            depends on whichever URL conf is currently active (which may not
+            be the crush_lu one when this runs in a Celery task or mgmt
+            command). Paths returned do NOT include the language prefix —
+            LocaleMiddleware adds it on the click request based on the user's
+            session locale.
+            """
+            url_paths = {
+                'crush_lu:dashboard': '/dashboard/',
+                'crush_lu:edit_profile': '/edit-profile/',
+                'crush_lu:my_connections': '/my-connections/',
+                'crush_lu:my_events': '/my-events/',
+            }
+            if url_name in url_paths:
+                return url_paths[url_name]
+            if url_name == 'crush_lu:event_detail' and kwargs and kwargs.get('event_id'):
+                return f"/events/{kwargs['event_id']}/"
+            # Sane fallback so we always have *somewhere* to send the user
+            return '/dashboard/'
+
+        with translation.override(lang):
+            event = context.get('event')
+            connection = context.get('connection')
+            profile = context.get('profile')
+
+            if notification_type == NotificationType.PROFILE_APPROVED:
+                return {
+                    "title": _("Your profile is approved"),
+                    "body": _("You can now register for events and connect with other members."),
+                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                }
+
+            if notification_type == NotificationType.PROFILE_REVISION:
+                feedback = context.get('feedback') or context.get('coach_notes', '')
+                body_str = str(_("Your coach asked for a few changes."))
+                if feedback:
+                    body_str = f"{body_str} {feedback}"
+                return {
+                    "title": _("Profile revision requested"),
+                    "body": body_str,
+                    "link_url": get_user_language_url(user, 'crush_lu:edit_profile', request),
+                }
+
+            if notification_type == NotificationType.PROFILE_REJECTED:
+                return {
+                    "title": _("Profile not approved"),
+                    "body": context.get('feedback') or context.get('coach_notes', '') or "",
+                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                }
+
+            if notification_type == NotificationType.PROFILE_RECONTACT:
+                return {
+                    "title": _("Your coach would like to talk"),
+                    "body": _("Open your dashboard to see how to reach them."),
+                    "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+                }
+
+            if notification_type == NotificationType.NEW_MESSAGE:
+                msg = context.get('message')
+                preview = ""
+                if msg is not None:
+                    preview = (getattr(msg, 'message', '') or '')[:140]
+                return {
+                    "title": _("New message"),
+                    "body": preview,
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:my_connections', request
+                    ),
+                }
+
+            if notification_type == NotificationType.NEW_CONNECTION:
+                return {
+                    "title": _("New connection request"),
+                    "body": _("Someone you met wants to connect."),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:my_connections', request
+                    ),
+                }
+
+            if notification_type == NotificationType.CONNECTION_ACCEPTED:
+                return {
+                    "title": _("Your connection request was accepted"),
+                    "body": _("Open your connections to start chatting."),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:my_connections', request
+                    ),
+                }
+
+            if notification_type == NotificationType.MUTUAL_MATCH:
+                return {
+                    "title": _("It's a mutual match"),
+                    "body": _("You both said yes — say hi."),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:my_connections', request
+                    ),
+                }
+
+            if notification_type == NotificationType.EVENT_REMINDER and event:
+                return {
+                    "title": _("Event reminder: {title}").format(title=event.title),
+                    "body": _("Make sure you're ready — check the details."),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:event_detail', request,
+                        kwargs={'event_id': event.id},
+                    ),
+                }
+
+            if notification_type == NotificationType.EVENT_REGISTRATION and event:
+                return {
+                    "title": _("You're registered for {title}").format(title=event.title),
+                    "body": _("See you there!"),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:event_detail', request,
+                        kwargs={'event_id': event.id},
+                    ),
+                }
+
+            if notification_type == NotificationType.EVENT_WAITLIST and event:
+                return {
+                    "title": _("On the waitlist: {title}").format(title=event.title),
+                    "body": _("We'll notify you if a spot opens up."),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:event_detail', request,
+                        kwargs={'event_id': event.id},
+                    ),
+                }
+
+            # Generic fallback — record the type even if we don't have a
+            # bespoke render path. Better to surface "something happened" than
+            # silently drop.
+            return {
+                "title": _("New update"),
+                "body": "",
+                "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
+            }
 
     @staticmethod
     def _send_push(user, notification_type: NotificationType, context: dict) -> dict:

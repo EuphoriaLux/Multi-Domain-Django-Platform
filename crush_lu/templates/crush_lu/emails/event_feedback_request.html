@@ -1,0 +1,23 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "How was the event?" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "How was the event?" %} 💬{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Thanks for joining <strong>{{ title }}</strong>! We'd love a quick read on how it went.{% endblocktrans %}</p>
+
+<p>{% trans "It takes about a minute. Your answers help us shape the next event and reach the right matches." %}</p>
+
+<a href="{{ feedback_url }}" class="button">{% trans "Share your feedback" %}</a>
+
+<p style="margin-top: 24px;">{% trans "Free-text answers are visible to your coach so they can follow up if anything stood out." %}</p>
+
+<p>
+    {% trans "Thanks again," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

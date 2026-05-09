@@ -12427,4 +12427,196 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
+    // Notification bell — fetches recent notifications, shows unread count,
+    // marks rows read on click. Polls lazily (on open) — no background poll.
+    Alpine.data("notificationBell", function () {
+        return {
+            isOpen: false,
+            unreadCount: 0,
+            items: [],
+            loaded: false,
+
+            get hasUnread() {
+                return this.unreadCount > 0;
+            },
+            get hasItems() {
+                return this.items.length > 0;
+            },
+            get badgeText() {
+                if (this.unreadCount > 9) return "9+";
+                return String(this.unreadCount);
+            },
+
+            init: function () {
+                // Fetch unread count on mount so the badge appears immediately
+                this.refresh();
+            },
+
+            toggle: function () {
+                this.isOpen = !this.isOpen;
+                if (this.isOpen && !this.loaded) {
+                    this.refresh();
+                }
+            },
+
+            close: function () {
+                this.isOpen = false;
+            },
+
+            refresh: function () {
+                var self = this;
+                fetch("/api/notifications/", {
+                    credentials: "same-origin",
+                    headers: { Accept: "application/json" },
+                })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error("fetch failed");
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        self.unreadCount = data.unread_count || 0;
+                        self.items = (data.items || []).map(function (it) {
+                            return Object.assign({}, it, {
+                                relative_time: self.formatRelativeTime(it.created_at),
+                            });
+                        });
+                        self.loaded = true;
+                    })
+                    .catch(function (err) {
+                        console.warn("notificationBell.refresh:", err);
+                    });
+            },
+
+            markRead: function (id) {
+                var self = this;
+                var token = self.getCsrfToken();
+                fetch("/api/notifications/" + id + "/read/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "X-CSRFToken": token, Accept: "application/json" },
+                })
+                    .then(function () {
+                        // Update local state — server is source of truth on next open
+                        self.items = self.items.map(function (it) {
+                            if (it.id === id) {
+                                return Object.assign({}, it, { is_unread: false });
+                            }
+                            return it;
+                        });
+                        self.unreadCount = Math.max(0, self.unreadCount - 1);
+                    })
+                    .catch(function (err) {
+                        console.warn("notificationBell.markRead:", err);
+                    });
+            },
+
+            markAllRead: function () {
+                var self = this;
+                var token = self.getCsrfToken();
+                fetch("/api/notifications/mark-all-read/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "X-CSRFToken": token, Accept: "application/json" },
+                })
+                    .then(function () {
+                        self.unreadCount = 0;
+                        self.items = self.items.map(function (it) {
+                            return Object.assign({}, it, { is_unread: false });
+                        });
+                    })
+                    .catch(function (err) {
+                        console.warn("notificationBell.markAllRead:", err);
+                    });
+            },
+
+            formatRelativeTime: function (iso) {
+                if (!iso) return "";
+                var then = new Date(iso);
+                var diffMs = Date.now() - then.getTime();
+                var diffMin = Math.floor(diffMs / 60000);
+                if (diffMin < 1) return "just now";
+                if (diffMin < 60) return diffMin + "m ago";
+                var diffHr = Math.floor(diffMin / 60);
+                if (diffHr < 24) return diffHr + "h ago";
+                var diffDay = Math.floor(diffHr / 24);
+                if (diffDay < 7) return diffDay + "d ago";
+                return then.toLocaleDateString();
+            },
+
+            getCsrfToken: function () {
+                var name = "csrftoken=";
+                var parts = (document.cookie || "").split(";");
+                for (var i = 0; i < parts.length; i++) {
+                    var c = parts[i].trim();
+                    if (c.indexOf(name) === 0) return c.substring(name.length);
+                }
+                var hidden = document.querySelector(
+                    'input[name="csrfmiddlewaretoken"]',
+                );
+                return hidden ? hidden.value : "";
+            },
+        };
+    });
+
+    // Coach intro template picker — fills the textarea (only when empty or
+    // confirmed) so the coach can edit before saving.
+    Alpine.data("introTemplatePicker", function () {
+        return {
+            applyTemplate: function (event) {
+                var select = event.target;
+                var option = select.options[select.selectedIndex];
+                if (!option || !option.value) return;
+                var body = option.getAttribute("data-body") || "";
+                var textarea = document.getElementById("coach_introduction");
+                if (!textarea) return;
+                var existing = textarea.value.trim();
+                if (existing) {
+                    var ok = window.confirm(
+                        "Replace your current intro with this template?",
+                    );
+                    if (!ok) {
+                        select.value = "";
+                        return;
+                    }
+                }
+                textarea.value = body;
+                textarea.focus();
+                select.value = "";
+            },
+        };
+    });
+
+    // Event feedback NPS slider — live label as user drags
+    Alpine.data("feedbackNpsSlider", function () {
+        return {
+            score: 8,
+            label: "",
+
+            init: function () {
+                var self = this;
+                var input = this.$el.querySelector('input[type="range"]');
+                if (input) {
+                    self.score = parseInt(input.value, 10) || 8;
+                    self.updateLabel();
+                    input.addEventListener("input", function () {
+                        self.score = parseInt(input.value, 10) || 0;
+                        self.updateLabel();
+                    });
+                }
+            },
+
+            updateLabel: function () {
+                if (this.score >= 9) {
+                    this.label = "I'd strongly recommend";
+                } else if (this.score >= 7) {
+                    this.label = "I'd recommend";
+                } else if (this.score >= 4) {
+                    this.label = "Mixed";
+                } else {
+                    this.label = "Wouldn't recommend";
+                }
+            },
+        };
+    });
 });

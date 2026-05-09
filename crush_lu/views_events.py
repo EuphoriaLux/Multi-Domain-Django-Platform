@@ -17,9 +17,10 @@ from .models import (
     MeetupEvent,
     EventRegistration,
     EventInvitation,
+    EventFeedback,
 )
 from .models.event_polls import EventPoll
-from .forms import EventRegistrationForm
+from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
     send_event_registration_confirmation,
@@ -329,6 +330,80 @@ def event_list(request):
         "active_polls": active_polls,
     }
     return render(request, "crush_lu/event_list.html", context)
+
+
+@crush_login_required
+def my_events(request):
+    """
+    Personal calendar of events the current user has registered for.
+
+    Shows upcoming registrations (confirmed / waitlist / pending payment)
+    and past attendance with mutual-match counts back into engagement.
+    """
+    from .models import EventConnection
+
+    now = timezone.now()
+
+    registrations = list(
+        EventRegistration.objects.filter(user=request.user)
+        .exclude(status="cancelled")
+        .select_related("event")
+        .order_by("event__date_time")
+    )
+
+    upcoming, past = [], []
+    for reg in registrations:
+        event = reg.event
+        if not event or not event.is_published or event.is_cancelled:
+            continue
+        if event.end_time >= now:
+            upcoming.append(reg)
+        else:
+            past.append(reg)
+
+    past.sort(key=lambda r: r.event.date_time, reverse=True)
+
+    # Count mutual matches per past attended event (single query, annotated)
+    attended_event_ids = [r.event_id for r in past if r.status == "attended"]
+    mutual_counts = {}
+    if attended_event_ids:
+        connections = (
+            EventConnection.objects.annotate_is_mutual()
+            .filter(
+                event_id__in=attended_event_ids,
+                requester=request.user,
+            )
+        )
+        for conn in connections:
+            if conn.is_mutual_annotated:
+                mutual_counts[conn.event_id] = mutual_counts.get(conn.event_id, 0) + 1
+
+    upcoming_with_meta = [
+        {
+            "registration": reg,
+            "event": reg.event,
+            "is_waitlist": reg.status == "waitlist",
+            "is_pending_payment": reg.status == "pending",
+        }
+        for reg in upcoming
+    ]
+
+    past_with_meta = [
+        {
+            "registration": reg,
+            "event": reg.event,
+            "attended": reg.status == "attended",
+            "no_show": reg.status == "no_show",
+            "mutual_matches": mutual_counts.get(reg.event_id, 0),
+        }
+        for reg in past
+    ]
+
+    context = {
+        "upcoming_registrations": upcoming_with_meta,
+        "past_registrations": past_with_meta,
+    }
+    return render(request, "crush_lu/my_events.html", context)
 
 
 def event_detail(request, event_id):
@@ -997,3 +1072,57 @@ def event_cancel(request, event_id):
         "registration": registration,
     }
     return render(request, "crush_lu/event_cancel.html", context)
+
+
+@crush_login_required
+def event_feedback(request, event_id):
+    """Capture a single feedback response from an attendee.
+
+    Open only to users whose registration is in 'attended' status, and only
+    after the event has ended. Idempotent: a returning user lands on a
+    "thanks" view instead of being able to submit twice.
+    """
+    event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
+    now = timezone.now()
+
+    if event.end_time > now:
+        messages.info(request, _("Feedback opens once the event has ended."))
+        return redirect("crush_lu:event_detail", event_id=event.id)
+
+    registration = (
+        EventRegistration.objects.filter(event=event, user=request.user)
+        .exclude(status="cancelled")
+        .first()
+    )
+    if not registration or registration.status != "attended":
+        messages.error(
+            request,
+            _("Only attendees can leave feedback for this event."),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
+
+    existing = EventFeedback.objects.filter(event=event, user=request.user).first()
+    if existing and request.method != "POST":
+        return render(
+            request,
+            "crush_lu/event_feedback.html",
+            {"event": event, "submitted": True, "feedback": existing, "form": None},
+        )
+
+    if request.method == "POST":
+        form = EventFeedbackForm(request.POST, instance=existing)
+        if form.is_valid():
+            feedback = form.save(commit=False)
+            feedback.event = event
+            feedback.user = request.user
+            feedback.save()
+            messages.success(request, _("Thanks for the feedback!"))
+            return redirect("crush_lu:event_feedback", event_id=event.id)
+    else:
+        form = EventFeedbackForm()
+
+    return render(
+        request,
+        "crush_lu/event_feedback.html",
+        {"event": event, "submitted": False, "feedback": None, "form": form},
+    )

@@ -194,14 +194,34 @@
             </div>
 
             <!-- Coach Introduction (shared with users) -->
-            <div class="mb-4">
-                <label for="coach_introduction" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    {% trans "Introduction Message" %}
-                    <span class="text-gray-400 dark:text-gray-500 font-normal">({% trans "visible to both users" %})</span>
-                </label>
+            <div class="mb-4" x-data="introTemplatePicker">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                    <label for="coach_introduction" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {% trans "Introduction Message" %}
+                        <span class="text-gray-400 dark:text-gray-500 font-normal">({% trans "visible to both users" %})</span>
+                    </label>
+                    {% if intro_templates %}
+                    <div class="flex items-center gap-2">
+                        <label for="intro_template_picker" class="text-xs text-gray-500 dark:text-gray-400">{% trans "Starter:" %}</label>
+                        <select id="intro_template_picker"
+                                x-on:change="applyTemplate"
+                                class="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs px-2 py-1">
+                            <option value="">— {% trans "Pick a template" %} —</option>
+                            {% for tpl in intro_templates %}
+                            <option value="{{ tpl.id }}" data-body="{{ tpl.body }}">
+                                {{ tpl.category_label }} ({{ tpl.language|upper }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
                 <textarea id="coach_introduction" name="coach_introduction" rows="4"
                     class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent"
                     placeholder="{% trans 'Write a personalized introduction to help break the ice between these two members...' %}">{{ connection.coach_introduction }}</textarea>
+                {% if intro_templates %}
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{% trans "Pick a template to prefill, then edit before saving — the message users see is always your final text." %}</p>
+                {% endif %}
             </div>
 
             <!-- Action Buttons -->

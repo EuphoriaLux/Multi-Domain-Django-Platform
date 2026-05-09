@@ -46,6 +46,12 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-3">
         <h6 class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 px-1">{% trans "Review" %}</h6>
         <div class="space-y-1">
+            <a href="{% url 'crush_lu:coach_action_queue' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-crush-purple group-hover:scale-110 transition-transform">
+                    {% include "shared/icons/inbox.html" with class="w-4 h-4" %}
+                </span>
+                <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Inbox" %}</span>
+            </a>
             <a href="{% url 'crush_lu:coach_profiles' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
                     {% include "shared/icons/clipboard.html" with class="w-4 h-4" %}
@@ -154,6 +160,64 @@
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ slot.start_at|timeuntil }} {% trans "from now" %}</p>
             </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{# ======== SLA Queue: Pending reviews sorted by urgency ======== #}
+{% if pending_submissions %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6">
+    <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+            {% include "shared/icons/hourglass.html" with class="w-4 h-4 text-crush-purple" %}
+            <h5 class="font-semibold mb-0 dark:text-white">{% trans "Pending reviews — by SLA" %}</h5>
+        </div>
+        {% if pending_sla_breach_count %}
+        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">
+            {% blocktrans count counter=pending_sla_breach_count %}{{ counter }} breached{% plural %}{{ counter }} breached{% endblocktrans %}
+        </span>
+        {% endif %}
+    </div>
+    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for row in pending_submissions %}
+        <li class="px-5 py-3 flex items-center gap-3">
+            <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full
+                {% if row.sla_state == 'escalated' %}bg-red-200 dark:bg-red-900/50 text-red-900 dark:text-red-200
+                {% elif row.sla_state == 'breach' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300
+                {% elif row.sla_state == 'urgent' %}bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300
+                {% elif row.sla_state == 'warning' %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300
+                {% else %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% endif %}">
+                {% if row.sla_state == 'escalated' %}{% trans "Escalated" %}
+                {% elif row.sla_state == 'breach' %}{% trans "Breached" %}
+                {% elif row.sla_state == 'urgent' %}{% trans "Urgent" %}
+                {% elif row.sla_state == 'warning' %}{% trans "Soon" %}
+                {% else %}{% trans "On track" %}{% endif %}
+            </span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0 truncate">
+                    <a href="{% url 'crush_lu:coach_review_profile' submission_id=row.submission.id %}" class="text-crush-purple hover:underline">
+                        {{ row.submission.profile.user.get_full_name|default:row.submission.profile.user.username }}
+                    </a>
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                    {% if row.sla_state == 'escalated' %}
+                        {% trans "Escalated for fallback handling" %}
+                    {% elif row.sla_state == 'breach' %}
+                        {% blocktrans with d=row.submission.sla_deadline|timesince %}SLA breached {{ d }} ago{% endblocktrans %}
+                    {% elif row.hours_remaining is not None %}
+                        {% blocktrans count counter=row.hours_remaining %}{{ counter }}h remaining{% plural %}{{ counter }}h remaining{% endblocktrans %}
+                    {% else %}
+                        {% trans "No SLA deadline set" %}
+                    {% endif %}
+                    · {% blocktrans with t=row.submission.submitted_at|timesince %}submitted {{ t }} ago{% endblocktrans %}
+                    {% if row.submission.nudge_sent_at %}· {% trans "nudge sent" %}{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'crush_lu:coach_review_profile' submission_id=row.submission.id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% trans "Review" %}
+            </a>
         </li>
         {% endfor %}
     </ul>

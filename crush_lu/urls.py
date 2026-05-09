@@ -222,9 +222,11 @@ urlpatterns = [
 
     # Events
     path('events/', views.event_list, name='event_list'),
+    path('my-events/', views.my_events, name='my_events'),
     path('events/<int:event_id>/', views.event_detail, name='event_detail'),
     path('events/<int:event_id>/register/', views.event_register, name='event_register'),
     path('events/<int:event_id>/cancel/', views.event_cancel, name='event_cancel'),
+    path('events/<int:event_id>/feedback/', views.event_feedback, name='event_feedback'),
     path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
     path('events/<int:event_id>/ticket/', views_ticket.event_ticket, name='event_ticket'),
 
@@ -278,6 +280,8 @@ urlpatterns = [
 
     # Coach dashboard & profile verification
     path('coach/dashboard/', views.coach_dashboard, name='coach_dashboard'),
+    path('coach/queue/', views.coach_action_queue, name='coach_action_queue'),
+    path('notifications/', views.notifications_page, name='notifications'),
     path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
     path('coach/members/', views.coach_members, name='coach_members'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),

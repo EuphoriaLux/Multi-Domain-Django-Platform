@@ -1,0 +1,123 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Coach Inbox" %} | Crush.lu{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-6 gap-3 flex-wrap">
+    <div>
+        <h2 class="text-2xl font-bold dark:text-white">{% trans "Coach Inbox" %}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {% trans "Profile reviews, screening calls, and connections needing your action — sorted by urgency." %}
+        </p>
+    </div>
+    <a href="{% url 'crush_lu:coach_dashboard' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+        {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+        {% trans "Dashboard" %}
+    </a>
+</div>
+
+{# Counts strip #}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Total" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.total }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Profiles" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.profile }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Calls" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.screening }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Connections" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.connection }}</p>
+    </div>
+</div>
+
+{% if counts.urgent_or_worse %}
+<div class="alert alert-warning mb-6">
+    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+    <span class="text-sm">
+        {% blocktrans count counter=counts.urgent_or_worse %}{{ counter }} item needs your attention soon.{% plural %}{{ counter }} items need your attention soon.{% endblocktrans %}
+    </span>
+</div>
+{% endif %}
+
+{% if items %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for item in items %}
+        <li class="px-5 py-4 flex items-center gap-3">
+            {# SLA badge #}
+            <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded-full
+                {% if item.sla_state == 'escalated' %}bg-red-200 dark:bg-red-900/50 text-red-900 dark:text-red-200
+                {% elif item.sla_state == 'breach' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300
+                {% elif item.sla_state == 'urgent' %}bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300
+                {% elif item.sla_state == 'warning' %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300
+                {% else %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% endif %}">
+                {% if item.sla_state == 'escalated' %}{% trans "Escalated" %}
+                {% elif item.sla_state == 'breach' %}{% trans "Breached" %}
+                {% elif item.sla_state == 'urgent' %}{% trans "Urgent" %}
+                {% elif item.sla_state == 'warning' %}{% trans "Soon" %}
+                {% else %}{% trans "On track" %}{% endif %}
+            </span>
+
+            {# Kind icon #}
+            <span class="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-crush-purple flex items-center justify-center" aria-hidden="true">
+                {% if item.kind == 'profile' %}{% include "shared/icons/identification.html" with class="w-4 h-4" %}
+                {% elif item.kind == 'screening' %}{% include "shared/icons/phone.html" with class="w-4 h-4" %}
+                {% else %}{% include "shared/icons/heart.html" with class="w-4 h-4" %}{% endif %}
+            </span>
+
+            {# Body #}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0 truncate">
+                    {% if item.kind == 'profile' %}
+                        <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% elif item.kind == 'screening' %}
+                        <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% else %}
+                        <a href="{% url 'crush_lu:coach_connection_review' connection_id=item.url_kwargs.connection_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% endif %}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 truncate">
+                    {{ item.subtitle }}
+                    {% if item.deadline %}
+                        ·
+                        {% if item.kind == 'screening' %}
+                            {% blocktrans with d=item.deadline|timeuntil %}in {{ d }}{% endblocktrans %}
+                        {% elif item.sla_state == 'breach' or item.sla_state == 'escalated' %}
+                            {% blocktrans with d=item.deadline|timesince %}{{ d }} overdue{% endblocktrans %}
+                        {% else %}
+                            {% blocktrans with d=item.deadline|timeuntil %}due in {{ d }}{% endblocktrans %}
+                        {% endif %}
+                    {% endif %}
+                </p>
+            </div>
+
+            {# Action #}
+            {% if item.kind == 'profile' or item.kind == 'screening' %}
+            <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% trans "Open" %}
+            </a>
+            {% else %}
+            <a href="{% url 'crush_lu:coach_connection_review' connection_id=item.url_kwargs.connection_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% trans "Open" %}
+            </a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-12 px-6">
+    <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}</div>
+    <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "Inbox zero!" %}</h4>
+    <p class="text-gray-500 dark:text-gray-400">{% trans "Nothing waiting on your action right now." %}</p>
+</div>
+{% endif %}
+{% endblock %}

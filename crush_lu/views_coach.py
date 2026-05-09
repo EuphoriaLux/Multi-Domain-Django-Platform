@@ -395,7 +395,179 @@ def coach_dashboard(request):
     )
     context["upcoming_screening_slots"] = upcoming_screening_slots
 
+    # Pending submissions for this coach, sorted by SLA urgency (most urgent first).
+    # Uses ProfileSubmission.sla_state ('ok'|'warning'|'urgent'|'breach'|'escalated').
+    pending_submissions_qs = (
+        ProfileSubmission.objects.filter(coach=coach, status="pending")
+        .select_related("profile__user")
+        .order_by("sla_deadline", "submitted_at")
+    )
+    state_priority = {
+        "escalated": 0,
+        "breach": 1,
+        "urgent": 2,
+        "warning": 3,
+        "ok": 4,
+    }
+    pending_submissions = []
+    for sub in pending_submissions_qs:
+        state = sub.sla_state
+        hours_remaining = None
+        if sub.sla_deadline and state not in ("breach", "escalated"):
+            hours_remaining = max(
+                0, int((sub.sla_deadline - now).total_seconds() // 3600)
+            )
+        pending_submissions.append(
+            {
+                "submission": sub,
+                "sla_state": state,
+                "hours_remaining": hours_remaining,
+                "_priority": state_priority.get(state, 5),
+            }
+        )
+    pending_submissions.sort(key=lambda r: (r["_priority"], r["submission"].submitted_at))
+    context["pending_submissions"] = pending_submissions
+    context["pending_sla_breach_count"] = sum(
+        1 for r in pending_submissions if r["sla_state"] in ("breach", "escalated")
+    )
+
     return render(request, "crush_lu/coach_dashboard.html", context)
+
+
+@coach_required
+def coach_action_queue(request):
+    """
+    Unified coach inbox: pending profile reviews + upcoming screening calls
+    + connections awaiting coach review, all sorted by urgency.
+
+    Each entry has a `kind` (profile / screening / connection), a `deadline`
+    used for sorting, and a `priority` bucket for visual treatment.
+    """
+    from .models import ScreeningSlot
+
+    coach = request.coach
+    now = timezone.now()
+    items = []
+
+    state_priority = {
+        "escalated": 0,
+        "breach": 1,
+        "urgent": 2,
+        "warning": 3,
+        "ok": 4,
+    }
+
+    # --- Profile reviews ---
+    pending_subs = (
+        ProfileSubmission.objects.filter(coach=coach, status="pending")
+        .select_related("profile__user")
+    )
+    for sub in pending_subs:
+        state = sub.sla_state
+        items.append(
+            {
+                "kind": "profile",
+                "title": sub.profile.user.get_full_name() or sub.profile.user.username,
+                "subtitle": _("Profile review"),
+                "deadline": sub.sla_deadline,
+                "sla_state": state,
+                "priority": state_priority.get(state, 5),
+                "url_name": "crush_lu:coach_review_profile",
+                "url_kwargs": {"submission_id": sub.id},
+                "submitted_at": sub.submitted_at,
+            }
+        )
+
+    # --- Upcoming screening calls ---
+    booked_slots = (
+        ScreeningSlot.objects.filter(coach=coach, status="booked", start_at__gte=now)
+        .select_related("submission__profile__user")
+        .order_by("start_at")
+    )
+    for slot in booked_slots:
+        sub = slot.submission
+        if not sub:
+            continue
+        # Hours until call: <2h => urgent, <24h => warning, else ok
+        delta_hours = (slot.start_at - now).total_seconds() / 3600
+        if delta_hours <= 2:
+            state = "urgent"
+        elif delta_hours <= 24:
+            state = "warning"
+        else:
+            state = "ok"
+        items.append(
+            {
+                "kind": "screening",
+                "title": sub.profile.user.get_full_name() or sub.profile.user.username,
+                "subtitle": _("Screening call"),
+                "deadline": slot.start_at,
+                "sla_state": state,
+                "priority": state_priority.get(state, 5),
+                "url_name": "crush_lu:coach_review_profile",
+                "url_kwargs": {"submission_id": sub.id},
+                "submitted_at": sub.submitted_at,
+            }
+        )
+
+    # --- Connections awaiting coach review (assigned to this coach OR unassigned) ---
+    pending_connections = (
+        EventConnection.objects.filter(
+            status__in=["accepted", "coach_reviewing"],
+        )
+        .filter(Q(assigned_coach=coach) | Q(assigned_coach__isnull=True))
+        .select_related("requester", "recipient", "event")
+        .order_by("requested_at")
+    )
+    for conn in pending_connections:
+        # Connections aren't SLA-tracked the same way. Use age as proxy:
+        # >= 5 days = urgent, >= 2 days = warning, otherwise ok.
+        age_days = (now - conn.requested_at).total_seconds() / 86400
+        if age_days >= 5:
+            state = "urgent"
+        elif age_days >= 2:
+            state = "warning"
+        else:
+            state = "ok"
+        requester_name = (
+            conn.requester.get_full_name() or conn.requester.username
+        )
+        recipient_name = (
+            conn.recipient.get_full_name() or conn.recipient.username
+        )
+        items.append(
+            {
+                "kind": "connection",
+                "title": f"{requester_name} ↔ {recipient_name}",
+                "subtitle": _("Connection — %(event)s") % {"event": conn.event.title},
+                "deadline": conn.requested_at,
+                "sla_state": state,
+                "priority": state_priority.get(state, 5),
+                "url_name": "crush_lu:coach_connection_review",
+                "url_kwargs": {"connection_id": conn.id},
+                "submitted_at": conn.requested_at,
+            }
+        )
+
+    # Most urgent first; tie-break by oldest submission
+    items.sort(key=lambda i: (i["priority"], i["submitted_at"]))
+
+    counts = {
+        "profile": sum(1 for i in items if i["kind"] == "profile"),
+        "screening": sum(1 for i in items if i["kind"] == "screening"),
+        "connection": sum(1 for i in items if i["kind"] == "connection"),
+        "total": len(items),
+        "urgent_or_worse": sum(
+            1 for i in items if i["sla_state"] in ("escalated", "breach", "urgent")
+        ),
+    }
+
+    context = {
+        "coach": coach,
+        "items": items,
+        "counts": counts,
+    }
+    return render(request, "crush_lu/coach_action_queue.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -1025,6 +1197,12 @@ def coach_review_profile(request, submission_id):
 
             elif submission.status == "revision":
                 messages.info(request, _("Revision requested."))
+
+                # Track that this submission has been through a coach review
+                # cycle. The next time a coach opens it (after the user
+                # resubmits) the review template surfaces a "resubmission"
+                # banner with the prior feedback already saved on the row.
+                submission.revision_round = (submission.revision_round or 0) + 1
 
                 # Release the submission back to the verification channel so any
                 # coach can pick it up again once the user resubmits. The user's
@@ -1808,6 +1986,81 @@ def coach_event_detail(request, event_id):
 
     has_quiz = hasattr(event, "quiz")
 
+    # Per-coach recap: of users this coach onboarded (approved), how many
+    # attended, how many sent connection requests, how many had a mutual
+    # match, and how many connections of theirs still need an intro approved.
+    coach = request.coach
+    onboarded_user_ids = set(
+        ProfileSubmission.objects.filter(
+            coach=coach, status='approved'
+        ).values_list('profile__user_id', flat=True)
+    )
+    coach_recap = None
+    if onboarded_user_ids:
+        attended_user_ids = {
+            r.user_id for r in all_confirmed
+            if r.status == 'attended' and r.user_id in onboarded_user_ids
+        }
+        attended_count_mine = len(attended_user_ids)
+
+        # Connections from this event involving the coach's onboarded users
+        connections_for_event = EventConnection.objects.filter(event=event)
+        senders_with_mine = connections_for_event.filter(
+            requester_id__in=attended_user_ids
+        ).values('requester_id').distinct()
+        senders_count = senders_with_mine.count()
+
+        annotated_conns = (
+            connections_for_event
+            .annotate_is_mutual()
+            .filter(requester_id__in=attended_user_ids)
+        )
+        mutual_user_ids = {
+            c.requester_id for c in annotated_conns if c.is_mutual_annotated
+        }
+        mutual_count = len(mutual_user_ids)
+
+        pending_intros_mine = connections_for_event.filter(
+            assigned_coach=coach,
+            status__in=['accepted', 'coach_reviewing'],
+        ).count()
+
+        coach_recap = {
+            'onboarded_count': len(onboarded_user_ids),
+            'attended_count': attended_count_mine,
+            'senders_count': senders_count,
+            'mutual_count': mutual_count,
+            'pending_intros': pending_intros_mine,
+        }
+
+    # Feedback aggregates (only meaningful after the event has ended).
+    from .models import EventFeedback
+
+    feedback_qs = EventFeedback.objects.filter(event=event)
+    feedback_total = feedback_qs.count()
+    feedback_summary = None
+    feedback_responses = []
+    if feedback_total:
+        promoters = sum(1 for f in feedback_qs if f.is_promoter)
+        detractors = sum(1 for f in feedback_qs if f.is_detractor)
+        nps = round(((promoters - detractors) * 100.0) / feedback_total)
+        avg_score = round(
+            sum(f.nps_score for f in feedback_qs) / feedback_total, 1
+        )
+        recommend_count = sum(1 for f in feedback_qs if f.would_recommend)
+        feedback_summary = {
+            "total": feedback_total,
+            "nps": nps,
+            "avg_score": avg_score,
+            "promoters": promoters,
+            "detractors": detractors,
+            "recommend_count": recommend_count,
+            "recommend_pct": round(recommend_count * 100 / feedback_total),
+        }
+        feedback_responses = list(
+            feedback_qs.select_related("user").order_by("-created_at")
+        )
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -1826,6 +2079,9 @@ def coach_event_detail(request, event_id):
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
         "has_quiz": has_quiz,
+        "feedback_summary": feedback_summary,
+        "feedback_responses": feedback_responses,
+        "coach_recap": coach_recap,
     }
     return render(request, "crush_lu/coach_event_detail.html", context)
 
@@ -3085,6 +3341,26 @@ def coach_connection_review(request, connection_id):
         "coach_approved",
     ) or (connection.status == "accepted" and connection.assigned_coach)
 
+    # Coach intro starter templates from site config (with sensible defaults)
+    from .models import CrushSiteConfig
+
+    site_config = CrushSiteConfig.get_config()
+    intro_templates = site_config.get_connection_intro_templates()
+    category_labels = dict(CrushSiteConfig.INTRO_TEMPLATE_CATEGORIES)
+    intro_templates_for_picker = [
+        {
+            "id": idx,
+            "category": tpl.get("category", "other"),
+            "category_label": category_labels.get(
+                tpl.get("category", "other"), tpl.get("category", "other")
+            ),
+            "language": tpl.get("language", "en"),
+            "body": tpl.get("body", ""),
+        }
+        for idx, tpl in enumerate(intro_templates)
+        if tpl.get("body")
+    ]
+
     context = {
         "coach": coach,
         "connection": connection,
@@ -3094,6 +3370,7 @@ def coach_connection_review(request, connection_id):
         "connection_messages": connection_messages,
         "is_mutual": reverse_connection is not None,
         "show_facilitation": show_facilitation,
+        "intro_templates": intro_templates_for_picker,
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
 

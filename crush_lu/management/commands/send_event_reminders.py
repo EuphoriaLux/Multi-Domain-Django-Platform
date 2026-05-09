@@ -2,14 +2,23 @@
 Send event reminders to users registered for upcoming events.
 
 This command sends push notifications (with email fallback) to users
-who have confirmed registrations for events happening in the next N days.
+who have confirmed registrations for events happening either:
+  - in the next N days (use --days, day-granularity), or
+  - in the next N hours ± window (use --hours-before, hour-granularity, for same-day reminders).
 
 Usage:
-    # Send reminders for events happening tomorrow
+    # Send reminders for events happening tomorrow (24-hour notice)
     python manage.py send_event_reminders
 
     # Send reminders for events happening in 2 days
     python manage.py send_event_reminders --days=2
+
+    # Send same-day "starts in 2h" reminders. Picks up events whose
+    # start_time falls inside (now + 2h ± 30min) — schedule hourly.
+    python manage.py send_event_reminders --hours-before=2
+
+    # Override the +/- window for hour-mode (default 30 minutes)
+    python manage.py send_event_reminders --hours-before=2 --window-minutes=15
 
     # Dry run (show what would be sent without sending)
     python manage.py send_event_reminders --dry-run
@@ -17,7 +26,7 @@ Usage:
     # Verbose output
     python manage.py send_event_reminders -v 2
 """
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from datetime import timedelta
 
@@ -36,6 +45,21 @@ class Command(BaseCommand):
             help='Send reminders for events happening in this many days (default: 1)'
         )
         parser.add_argument(
+            '--hours-before',
+            type=int,
+            default=None,
+            help=(
+                'Same-day mode: send reminders for events starting in this many hours '
+                '(within --window-minutes). When set, --days is ignored.'
+            ),
+        )
+        parser.add_argument(
+            '--window-minutes',
+            type=int,
+            default=30,
+            help='Half-window (in minutes) for --hours-before mode (default: 30)',
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Show what would be sent without actually sending'
@@ -48,37 +72,62 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         days = options['days']
+        hours_before = options.get('hours_before')
+        window_minutes = options['window_minutes']
         dry_run = options['dry_run']
         event_id = options.get('event_id')
         verbosity = options['verbosity']
 
-        # Calculate target date range
-        now = timezone.now()
-        target_start = now + timedelta(days=days)
-        target_end = target_start + timedelta(days=1)
+        if window_minutes <= 0:
+            raise CommandError('--window-minutes must be positive')
 
-        # Build query for upcoming events
+        now = timezone.now()
+
+        # Build query for upcoming events. Use the boolean fields, not a
+        # non-existent `status` field.
         events_query = MeetupEvent.objects.filter(
-            date_time__date__gte=target_start.date(),
-            date_time__date__lt=target_end.date(),
-            status='published',
+            is_published=True,
+            is_cancelled=False,
         )
+
+        if hours_before is not None:
+            # Hour-granularity window for same-day reminders
+            target_time = now + timedelta(hours=hours_before)
+            window_start = target_time - timedelta(minutes=window_minutes)
+            window_end = target_time + timedelta(minutes=window_minutes)
+            events_query = events_query.filter(
+                date_time__gte=window_start,
+                date_time__lt=window_end,
+            )
+            target_label = (
+                f'~{hours_before}h from now '
+                f'({window_start.isoformat()} -> {window_end.isoformat()})'
+            )
+            days_until_for_notification = 0  # same-day
+        else:
+            # Day-granularity window (legacy behavior)
+            target_start = now + timedelta(days=days)
+            target_end = target_start + timedelta(days=1)
+            events_query = events_query.filter(
+                date_time__date__gte=target_start.date(),
+                date_time__date__lt=target_end.date(),
+            )
+            target_label = str(target_start.date())
+            days_until_for_notification = days
 
         if event_id:
             events_query = events_query.filter(id=event_id)
 
-        events = events_query.select_related()
+        events = list(events_query.select_related())
 
-        if not events.exists():
+        if not events:
             self.stdout.write(
-                self.style.WARNING(f'No events found for {target_start.date()}')
+                self.style.WARNING(f'No events found for {target_label}')
             )
             return
 
         if verbosity >= 1:
-            self.stdout.write(
-                f'Found {events.count()} event(s) on {target_start.date()}'
-            )
+            self.stdout.write(f'Found {len(events)} event(s) for {target_label}')
 
         total_sent = 0
         total_failed = 0
@@ -86,9 +135,8 @@ class Command(BaseCommand):
 
         for event in events:
             if verbosity >= 1:
-                self.stdout.write(f'\nProcessing: {event.title}')
+                self.stdout.write(f'\nProcessing: {event.title} @ {event.date_time.isoformat()}')
 
-            # Get confirmed registrations
             registrations = EventRegistration.objects.filter(
                 event=event,
                 status='confirmed'
@@ -121,8 +169,8 @@ class Command(BaseCommand):
                         user=user,
                         registration=registration,
                         event=event,
-                        days_until=days,
-                        request=None  # No request context for management command
+                        days_until=days_until_for_notification,
+                        request=None,  # No request context for management command
                     )
 
                     if result.any_delivered:
@@ -152,7 +200,6 @@ class Command(BaseCommand):
                         )
                     )
 
-        # Summary
         self.stdout.write('')
         if dry_run:
             self.stdout.write(

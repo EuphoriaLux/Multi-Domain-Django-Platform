@@ -1,0 +1,54 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Notifications" %} | Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
+        <div>
+            <h2 class="text-2xl font-bold dark:text-white">{% trans "Notifications" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {% blocktrans count counter=unread_count %}{{ counter }} unread{% plural %}{{ counter }} unread{% endblocktrans %}
+            </p>
+        </div>
+        {% if unread_count %}
+        <form method="post" action="{% url 'api_notifications_mark_all_read' %}">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                {% include "shared/icons/check.html" with class="w-4 h-4" %}
+                {% trans "Mark all read" %}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if notifications %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for n in notifications %}
+            <li class="{% if n.is_unread %}bg-purple-50/40 dark:bg-purple-900/10{% endif %}">
+                <a href="{{ n.link_url|default:'#' }}" class="block px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full {% if n.is_unread %}bg-crush-purple{% else %}bg-transparent{% endif %}"></span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{{ n.title }}</p>
+                            {% if n.body %}<p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ n.body|truncatewords:25 }}</p>{% endif %}
+                            <p class="text-xs text-gray-400 dark:text-gray-500">{{ n.created_at|timesince }} {% trans "ago" %}</p>
+                        </div>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-12 px-6">
+        <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}</div>
+        <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "No notifications yet" %}</h4>
+        <p class="text-gray-500 dark:text-gray-400">{% trans "You're all caught up. New activity will appear here." %}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

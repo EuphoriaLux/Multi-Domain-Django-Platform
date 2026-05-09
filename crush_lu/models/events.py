@@ -569,6 +569,21 @@ class EventRegistration(models.Model):
         help_text=_("Apple Wallet event ticket serial number"),
     )
 
+    # Post-event feedback email tracking (idempotency for the
+    # send_event_feedback_requests mgmt command).
+    feedback_request_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the post-event feedback survey email was sent"),
+    )
+
+    # Post-event recap email tracking (24h after event end)
+    recap_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the post-event recap email was sent"),
+    )
+
     # Timestamps
     registered_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1134,3 +1149,54 @@ class SpeedDatingPair(models.Model):
             ).exists()
             return 8 if twist else 5  # 8 min for top matches, 5 min standard
         return 5
+
+
+class EventFeedback(models.Model):
+    """Post-event survey response from an attendee.
+
+    Free-text fields are visible to coaches only; aggregate NPS / would-recommend
+    stats are surfaced to coaches on the per-event detail page.
+    """
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="feedback",
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    nps_score = models.PositiveSmallIntegerField(
+        help_text=_("Net Promoter Score: 0 (would not recommend) to 10 (would strongly recommend)"),
+    )
+    would_recommend = models.BooleanField(
+        default=True,
+        help_text=_("Quick yes/no convenience flag derived from NPS at submission time"),
+    )
+    what_worked = models.TextField(
+        blank=True,
+        help_text=_("Free-text: what the attendee enjoyed. Visible to coaches only."),
+    )
+    what_to_improve = models.TextField(
+        blank=True,
+        help_text=_("Free-text: suggestions for next event. Visible to coaches only."),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("event", "user")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Feedback {self.user.username} → {self.event.title} (NPS {self.nps_score})"
+
+    @property
+    def is_promoter(self):
+        return self.nps_score >= 9
+
+    @property
+    def is_detractor(self):
+        return self.nps_score <= 6

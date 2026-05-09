@@ -122,6 +122,56 @@ class CrushSiteConfig(models.Model):
         help_text=_("Placeholders: {first_name}, {coach_name}, {link}"),
     )
 
+    # Coach connection-introduction templates (used in coach_connection_review).
+    # Schema: list of {"category": "high_energy" | "thoughtful" | "shared_interests"
+    # | "similar_stage" | "other", "language": "en" | "de" | "fr", "body": str,
+    # "is_active": bool}.
+    INTRO_TEMPLATE_CATEGORIES = [
+        ("high_energy", _("High energy")),
+        ("thoughtful", _("Thoughtful")),
+        ("shared_interests", _("Shared interests")),
+        ("similar_stage", _("Similar life stage")),
+        ("other", _("Other")),
+    ]
+    DEFAULT_CONNECTION_INTRO_TEMPLATES = [
+        {
+            "category": "high_energy",
+            "language": "en",
+            "is_active": True,
+            "body": (
+                "You two had real chemistry — keep that energy going. "
+                "Pick one shared interest from the conversation and lean in there."
+            ),
+        },
+        {
+            "category": "thoughtful",
+            "language": "en",
+            "is_active": True,
+            "body": (
+                "I noticed you both think before you speak. Take your time, "
+                "share something specific you remember from the event, and let it breathe."
+            ),
+        },
+        {
+            "category": "shared_interests",
+            "language": "en",
+            "is_active": True,
+            "body": (
+                "You picked each other for a reason — there's overlap worth exploring. "
+                "Open with the thing that surprised you about each other."
+            ),
+        },
+    ]
+    connection_intro_templates = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("Coach connection-intro templates"),
+        help_text=_(
+            "List of {category, language, body, is_active} entries used as "
+            "starter text on the coach connection-review page."
+        ),
+    )
+
     # Status banner
     banner_enabled = models.BooleanField(
         default=False,
@@ -183,3 +233,19 @@ class CrushSiteConfig(models.Model):
     def get_config(cls):
         config, _ = cls.objects.get_or_create(pk=1)
         return config
+
+    def get_connection_intro_templates(self, language=None):
+        """Return active intro templates, optionally filtered by language.
+
+        Falls back to the built-in defaults when no rows are configured yet so
+        coaches always see something sensible without admin setup.
+        """
+        templates = list(self.connection_intro_templates or [])
+        if not templates:
+            templates = list(self.DEFAULT_CONNECTION_INTRO_TEMPLATES)
+        templates = [t for t in templates if t.get("is_active", True)]
+        if language:
+            lang_filtered = [t for t in templates if t.get("language") == language]
+            if lang_filtered:
+                return lang_filtered
+        return templates

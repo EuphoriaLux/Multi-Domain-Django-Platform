@@ -121,6 +121,8 @@ from .views_events import (  # noqa: F401
     event_calendar_download,
     event_register,
     event_cancel,
+    my_events,
+    event_feedback,
 )
 
 # Connections
@@ -135,8 +137,11 @@ from .views_connections import (  # noqa: F401
 )
 
 # Coach
+from .views_notifications import notifications_page  # noqa: F401
+
 from .views_coach import (  # noqa: F401
     coach_dashboard,
+    coach_action_queue,
     coach_mark_review_call_complete,
     coach_log_failed_call,
     coach_log_sms_sent,

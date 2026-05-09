@@ -1,0 +1,45 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event recap" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Hope you had a great time" %} ✨{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=registration.user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Quick recap from <strong>{{ title }}</strong>:{% endblocktrans %}</p>
+
+<div class="info-box">
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        {% if mutual_match_count %}
+        <li>
+            <strong>{% blocktrans count counter=mutual_match_count %}{{ counter }} mutual match{% plural %}{{ counter }} mutual matches{% endblocktrans %}</strong>
+            — {% trans "two-way interest from people you also picked." %}
+        </li>
+        {% endif %}
+        {% if outgoing_count %}
+        <li>{% blocktrans count counter=outgoing_count %}You sent {{ counter }} connection request{% plural %}You sent {{ counter }} connection requests{% endblocktrans %}.</li>
+        {% endif %}
+        {% if incoming_count %}
+        <li><strong>{% blocktrans count counter=incoming_count %}{{ counter }} person is waiting to hear back{% plural %}{{ counter }} people are waiting to hear back{% endblocktrans %}.</strong></li>
+        {% endif %}
+        {% if not mutual_match_count and not outgoing_count and not incoming_count %}
+        <li>{% trans "It was lovely to have you. The next event is around the corner — keep an eye on your inbox." %}</li>
+        {% endif %}
+    </ul>
+</div>
+
+{% if has_action %}
+<p><strong>{% trans "Don't lose the moment." %}</strong> {% blocktrans %}Connection requests close 7 days after the event, so it's worth taking a minute to respond now.{% endblocktrans %}</p>
+
+<a href="{{ attendees_url }}" class="button">{% trans "See attendees & finish your picks" %}</a>
+{% else %}
+<a href="{{ events_url }}" class="button">{% trans "Browse upcoming events" %}</a>
+{% endif %}
+
+<p>
+    {% trans "See you soon," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

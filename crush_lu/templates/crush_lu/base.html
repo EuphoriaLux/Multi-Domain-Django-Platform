@@ -687,6 +687,63 @@
                         </a>
                     {% endif %}
 
+                    {% if user.is_authenticated %}
+                    {# Notification Bell (authenticated users only) #}
+                    <div x-data="notificationBell" x-init="init"
+                         class="relative"
+                         x-on:click.outside="close">
+                        <button type="button"
+                                x-on:click="toggle"
+                                class="p-2 rounded-lg text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50 relative"
+                                aria-label="{% trans 'Notifications' %}">
+                            {% include "shared/icons/bell.html" with class="w-5 h-5" %}
+                            <span x-show="hasUnread"
+                                  x-text="badgeText"
+                                  x-cloak
+                                  class="absolute top-0 right-0 min-w-4 h-4 px-1 inline-flex items-center justify-center text-[10px] font-bold bg-pink-500 text-white rounded-full"></span>
+                        </button>
+                        <div x-show="isOpen" x-cloak
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-y-1"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute right-0 mt-2 w-80 max-h-[60vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg ring-1 ring-black/5 dark:ring-white/10 z-50">
+                            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                <h6 class="font-semibold text-sm text-gray-900 dark:text-white mb-0">{% trans "Notifications" %}</h6>
+                                <button type="button" x-show="hasUnread" x-on:click="markAllRead"
+                                        class="text-xs font-medium text-crush-purple dark:text-purple-300 hover:underline">
+                                    {% trans "Mark all read" %}
+                                </button>
+                            </div>
+                            <ul class="divide-y divide-gray-100 dark:divide-gray-700" x-show="hasItems">
+                                <template x-for="item in items" x-bind:key="item.id">
+                                    <li class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <a x-bind:href="item.link_url"
+                                           x-on:click="markRead(item.id)"
+                                           class="block">
+                                            <div class="flex items-start gap-2">
+                                                <span x-show="item.is_unread" class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-crush-purple"></span>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium text-gray-900 dark:text-white mb-0 truncate" x-text="item.title"></p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 line-clamp-2" x-text="item.body"></p>
+                                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1" x-text="item.relative_time"></p>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </li>
+                                </template>
+                            </ul>
+                            <div x-show="!hasItems" class="px-4 py-8 text-center">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "No notifications yet" %}</p>
+                            </div>
+                            <div class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 text-center">
+                                <a href="{% url 'crush_lu:notifications' %}" class="text-xs font-medium text-crush-purple dark:text-purple-300 hover:underline">
+                                    {% trans "View all" %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {# Theme Toggle (always visible) #}
                     <div x-data="themeToggle" class="relative">
                         <button

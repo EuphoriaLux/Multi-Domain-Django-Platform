@@ -799,6 +799,138 @@ def send_event_reminder(registration, request, days_until_event):
     )
 
 
+def send_event_recap(registration, request=None):
+    """
+    Send a 24h post-event recap email to an attendee.
+
+    Highlights mutual matches and outstanding incoming connection requests,
+    and nudges the user back to the attendees page before the connection
+    deadline. Idempotent via EventRegistration.recap_sent_at on the caller side.
+
+    Args:
+        registration: EventRegistration with status='attended'
+        request: Optional Django request
+
+    Returns:
+        int: Number of emails sent (0 if skipped due to opt-out)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+    from .models import EventConnection
+
+    if not can_send_email(registration.user, 'event_reminders'):
+        logger.info(
+            f"Skipping event recap email to {registration.user.email} - user unsubscribed"
+        )
+        return 0
+
+    user = registration.user
+    event = registration.event
+
+    # Compute counts. Use annotate_is_mutual to avoid N+1.
+    outgoing_qs = EventConnection.objects.filter(
+        event=event, requester=user
+    ).exclude(status="declined")
+    outgoing_qs = outgoing_qs.annotate_is_mutual()
+    outgoing_count = outgoing_qs.count()
+    mutual_match_count = sum(1 for c in outgoing_qs if c.is_mutual_annotated)
+
+    incoming_count = EventConnection.objects.filter(
+        event=event, recipient=user, status="pending"
+    ).count()
+
+    has_action = mutual_match_count > 0 or incoming_count > 0
+
+    lang = get_user_preferred_language(user=user, request=request, default='en')
+
+    attendees_url = get_user_language_url(
+        user, 'crush_lu:event_attendees', request,
+        kwargs={'event_id': event.id},
+    )
+    events_url = get_user_language_url(
+        user, 'crush_lu:my_events', request,
+    )
+
+    context = get_email_context_with_unsubscribe(
+        user, request,
+        registration=registration,
+        event=event,
+        mutual_match_count=mutual_match_count,
+        outgoing_count=outgoing_count,
+        incoming_count=incoming_count,
+        has_action=has_action,
+        attendees_url=attendees_url,
+        events_url=events_url,
+    )
+
+    with translation.override(lang):
+        subject = _("Recap of {title}").format(title=event.title)
+        html_message = render_to_string('crush_lu/emails/event_recap.html', context)
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
+def send_event_feedback_request(registration, request=None):
+    """
+    Send a post-event feedback survey email to an attendee.
+
+    Args:
+        registration: EventRegistration with status='attended'
+        request: Optional Django request (None when called from mgmt commands)
+
+    Returns:
+        int: Number of emails sent (0 if skipped due to opt-out)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    if not can_send_email(registration.user, 'event_reminders'):
+        logger.info(
+            f"Skipping feedback request email to {registration.user.email} - user unsubscribed"
+        )
+        return 0
+
+    lang = get_user_preferred_language(
+        user=registration.user, request=request, default='en'
+    )
+
+    feedback_url = get_user_language_url(
+        registration.user, 'crush_lu:event_feedback', request,
+        kwargs={'event_id': registration.event.id},
+    )
+
+    context = get_email_context_with_unsubscribe(
+        registration.user, request,
+        registration=registration,
+        event=registration.event,
+        feedback_url=feedback_url,
+    )
+
+    with translation.override(lang):
+        subject = _("How was {title}?").format(title=registration.event.title)
+        html_message = render_to_string(
+            'crush_lu/emails/event_feedback_request.html', context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[registration.user.email],
+        request=request,
+        fail_silently=False,
+    )
+
+
 def send_profile_submission_notifications(submission, request, add_message_func=None):
     """
     Send all notifications for a new profile submission.

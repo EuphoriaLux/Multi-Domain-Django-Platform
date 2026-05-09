@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-21 16:35+0200\n"
+"POT-Creation-Date: 2026-05-09 23:58+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -22,10 +22,13 @@ msgstr ""
 
 #: .\entreprinder\templates\account\email_confirm.html:5
 #: .\entreprinder\templates\account\email_confirm.html:10
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:5
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:10
 msgid "Confirm E-mail Address"
 msgstr "E-Mail-Adresse bestätigen"
 
 #: .\entreprinder\templates\account\email_confirm.html:16
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:17
 #, fuzzy, python-format
 #| msgid ""
 #| "Please confirm that <a href=\"mailto:%(email)s\">%(email)s</a> is ane-"
@@ -38,10 +41,12 @@ msgstr ""
 "Mail-Adresse für den Benutzer %(user_display)s ist."
 
 #: .\entreprinder\templates\account\email_confirm.html:20
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:21
 msgid "Confirm"
 msgstr "Bestätigen"
 
 #: .\entreprinder\templates\account\email_confirm.html:27
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:31
 #, fuzzy, python-format
 #| msgid ""
 #| "This e-mail confirmation link expired or is invalid. Please <ahref="
@@ -52,6 +57,13 @@ msgid ""
 msgstr ""
 "Dieser E-Mail-Bestätigungslink ist abgelaufen oder ungültig. Bitte <ahref="
 "\"%(email_url)s\">fordern Sie eine neue E-Mail-Bestätigungan</a>."
+
+#: .\entreprinder\templates\account\email_confirm_entreprinder.html:24
+#, python-format
+msgid ""
+"Unable to confirm %(email)s because it is already confirmed by a different "
+"account."
+msgstr ""
 
 #: .\entreprinder\templates\account\email_entreprinder.html:4
 #: .\entreprinder\templates\account\email_entreprinder.html:22
@@ -107,8 +119,8 @@ msgstr "Möchten Sie die ausgewählte E-Mail-Adresse wirklich entfernen?"
 msgid "Sign In"
 msgstr "Anmelden"
 
-#: .\entreprinder\templates\account\login.html:36
-#: .\entreprinder\templates\account\login_powerup.html:36
+#: .\entreprinder\templates\account\login.html:39
+#: .\entreprinder\templates\account\login_powerup.html:39
 #: .\entreprinder\templates\base.html:118
 msgid "Sign in with LinkedIn"
 msgstr "Mit LinkedIn anmelden"
@@ -195,6 +207,39 @@ msgid ""
 msgstr ""
 "Mit Ihrer Anmeldung stimmen Sie unseren <ahref=\"#\">Nutzungsbedingungen</a> "
 "und <ahref=\"#\">Datenschutzerklärung</a> zu."
+
+#: .\entreprinder\templates\account\verification_sent_entreprinder.html:4
+#: .\entreprinder\templates\account\verification_sent_entreprinder.html:9
+#: .\entreprinder\templates\account\verified_email_required_entreprinder.html:4
+#: .\entreprinder\templates\account\verified_email_required_entreprinder.html:9
+#, fuzzy
+#| msgid "Confirm E-mail Address"
+msgid "Verify Your E-mail Address"
+msgstr "E-Mail-Adresse bestätigen"
+
+#: .\entreprinder\templates\account\verification_sent_entreprinder.html:10
+msgid ""
+"We have sent an e-mail to you for verification. Follow the link provided to "
+"finalize the signup process. If you do not see the verification e-mail in "
+"your main inbox, check your spam folder. Please contact us if you do not "
+"receive the verification e-mail within a few minutes."
+msgstr ""
+
+#: .\entreprinder\templates\account\verified_email_required_entreprinder.html:10
+msgid ""
+"This part of the site requires us to verify that you are who you claim to "
+"be. For this purpose, we require that you verify ownership of your e-mail "
+"address."
+msgstr ""
+
+#: .\entreprinder\templates\account\verified_email_required_entreprinder.html:12
+#, python-format
+msgid ""
+"We have sent an e-mail to you for verification. Please click on the link "
+"inside that email. If you do not see the verification e-mail in your main "
+"inbox, check your spam folder. Otherwise <a href=\"%(email_url)s\">request a "
+"new verification e-mail</a>."
+msgstr ""
 
 #: .\entreprinder\templates\admin\base_site.html:4
 #: .\entreprinder\templates\admin\base_site.html:29

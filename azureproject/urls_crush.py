@@ -35,7 +35,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -102,6 +102,11 @@ urlpatterns = base_patterns + api_patterns + [
     # ============================================================================
 
     # Push Notifications API (called from push-notifications.js, pwa-detector.js)
+    # In-app notifications (bell)
+    path('api/notifications/', views_notifications.api_notifications_list, name='api_notifications_list'),
+    path('api/notifications/<int:notification_id>/read/', views_notifications.api_notification_mark_read, name='api_notification_mark_read'),
+    path('api/notifications/mark-all-read/', views_notifications.api_notifications_mark_all_read, name='api_notifications_mark_all_read'),
+
     path('api/push/vapid-public-key/', api_push.get_vapid_public_key, name='api_vapid_public_key'),
     path('api/push/subscribe/', api_push.subscribe_push, name='api_subscribe_push'),
     path('api/push/refresh-subscription/', api_push.refresh_subscription, name='api_refresh_push_subscription'),

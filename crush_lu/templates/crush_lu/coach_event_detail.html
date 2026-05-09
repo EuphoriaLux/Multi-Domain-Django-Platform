@@ -168,6 +168,99 @@
 </div>
 {% endif %}
 
+<!-- Your assigned attendees -->
+{% if coach_recap and coach_recap.onboarded_count %}
+<div class="mb-6">
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Your assigned attendees" %}</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Onboarded" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ coach_recap.onboarded_count }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Attended" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ coach_recap.attended_count }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Sent ≥1 request" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ coach_recap.senders_count }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Mutual match" %}</p>
+                <p class="text-2xl font-bold {% if coach_recap.mutual_count %}text-pink-600 dark:text-pink-400{% else %}dark:text-white{% endif %}">{{ coach_recap.mutual_count }}</p>
+            </div>
+        </div>
+        {% if coach_recap.pending_intros %}
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-wrap gap-2">
+            <p class="text-sm text-amber-700 dark:text-amber-300 mb-0">
+                {% blocktrans count counter=coach_recap.pending_intros %}{{ counter }} connection still needs your introduction.{% plural %}{{ counter }} connections still need your introduction.{% endblocktrans %}
+            </p>
+            <a href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review" class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                {% trans "Review" %} →
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Attendee feedback -->
+{% if feedback_summary %}
+<div class="mb-6">
+    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">{% trans "Attendee feedback" %}</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Responses" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ feedback_summary.total }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Avg score" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ feedback_summary.avg_score }}<span class="text-sm text-gray-400">/10</span></p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "NPS" %}</p>
+                <p class="text-2xl font-bold {% if feedback_summary.nps >= 30 %}text-green-600 dark:text-green-400{% elif feedback_summary.nps >= 0 %}text-amber-600 dark:text-amber-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ feedback_summary.nps }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Would recommend" %}</p>
+                <p class="text-2xl font-bold dark:text-white">{{ feedback_summary.recommend_pct }}%</p>
+            </div>
+        </div>
+
+        {% if feedback_responses %}
+        <details class="border-t border-gray-100 dark:border-gray-700 pt-3">
+            <summary class="cursor-pointer text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                {% blocktrans count counter=feedback_responses|length %}Show {{ counter }} response{% plural %}Show {{ counter }} responses{% endblocktrans %}
+            </summary>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 mt-3">
+                {% for fb in feedback_responses %}
+                <li class="py-3">
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <span class="text-sm font-medium dark:text-white">{{ fb.user.get_full_name|default:fb.user.username }}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-full
+                            {% if fb.is_promoter %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300
+                            {% elif fb.is_detractor %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300
+                            {% else %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300{% endif %}">
+                            {{ fb.nps_score }}/10
+                        </span>
+                    </div>
+                    {% if fb.what_worked %}
+                    <p class="text-xs text-gray-600 dark:text-gray-300 mb-0.5"><strong>{% trans "Worked:" %}</strong> {{ fb.what_worked }}</p>
+                    {% endif %}
+                    {% if fb.what_to_improve %}
+                    <p class="text-xs text-gray-600 dark:text-gray-300"><strong>{% trans "Improve:" %}</strong> {{ fb.what_to_improve }}</p>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Status Filter Tabs -->
 <div class="flex flex-wrap gap-2 mb-6">
     <a href="?status=all" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'all' %}bg-crush-purple text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
