@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Connections" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
@@ -99,9 +99,15 @@
                                 <div class="flex items-center gap-3 flex-wrap">
                                     <!-- Requester -->
                                     <div class="flex items-center gap-2">
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester.crushprofile.display_name|first|upper }}</span>
-                                        </div>
+                                        {% if conn.requester.crushprofile.photo_1 %}
+                                            <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                                                <img src="{% profile_photo_url conn.requester.crushprofile 'photo_1' %}" alt="{{ conn.requester.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                            </div>
+                                        {% else %}
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester.crushprofile.display_name|first|upper }}</span>
+                                            </div>
+                                        {% endif %}
                                         <div>
                                             <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.requester.crushprofile.display_name|truncatechars:20 }}</p>
                                             {% with profile=conn.requester.crushprofile %}
@@ -125,9 +131,15 @@
 
                                     <!-- Recipient -->
                                     <div class="flex items-center gap-2">
-                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient.crushprofile.display_name|first|upper }}</span>
-                                        </div>
+                                        {% if conn.recipient.crushprofile.photo_1 %}
+                                            <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                                                <img src="{% profile_photo_url conn.recipient.crushprofile 'photo_1' %}" alt="{{ conn.recipient.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                            </div>
+                                        {% else %}
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient.crushprofile.display_name|first|upper }}</span>
+                                            </div>
+                                        {% endif %}
                                         <div>
                                             <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.recipient.crushprofile.display_name|truncatechars:20 }}</p>
                                             {% with profile=conn.recipient.crushprofile %}

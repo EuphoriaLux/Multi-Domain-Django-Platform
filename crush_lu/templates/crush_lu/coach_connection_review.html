@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Review Connection" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
@@ -22,9 +22,15 @@
         <div class="flex flex-col sm:flex-row items-center gap-6">
             <!-- Requester -->
             <div class="text-center flex-1">
-                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
-                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.requester.crushprofile.display_name|first|upper }}</span>
-                </div>
+                {% if requester_profile.photo_1 %}
+                    <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mx-auto mb-2">
+                        <img src="{% profile_photo_url requester_profile 'photo_1' %}" alt="{{ connection.requester.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                    </div>
+                {% else %}
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
+                        <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.requester.crushprofile.display_name|first|upper }}</span>
+                    </div>
+                {% endif %}
                 <h3 class="font-semibold dark:text-white">{{ connection.requester.crushprofile.display_name }}</h3>
                 {% if requester_profile %}
                     <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -63,9 +69,15 @@
 
             <!-- Recipient -->
             <div class="text-center flex-1">
-                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
-                    <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.recipient.crushprofile.display_name|first|upper }}</span>
-                </div>
+                {% if recipient_profile.photo_1 %}
+                    <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mx-auto mb-2">
+                        <img src="{% profile_photo_url recipient_profile 'photo_1' %}" alt="{{ connection.recipient.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                    </div>
+                {% else %}
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center mx-auto mb-2">
+                        <span class="text-xl font-semibold text-crush-purple dark:text-crush-pink">{{ connection.recipient.crushprofile.display_name|first|upper }}</span>
+                    </div>
+                {% endif %}
                 <h3 class="font-semibold dark:text-white">{{ connection.recipient.crushprofile.display_name }}</h3>
                 {% if recipient_profile %}
                     <p class="text-sm text-gray-500 dark:text-gray-400">
