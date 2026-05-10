@@ -3067,6 +3067,170 @@ def coach_verification_history(request):
 # ============================================================================
 
 
+def _profile_display_name(user):
+    profile = getattr(user, "crushprofile", None)
+    if profile and getattr(profile, "display_name", None):
+        return profile.display_name
+    return user.first_name or user.username
+
+
+def _compute_connection_next_action(conn, current_coach):
+    """Plain-language summary of who needs to act next on a connection.
+
+    Returns a dict consumed by coach_connections.html so the row can show
+    "Waiting on Sarah to consent" instead of just "Approved" — much faster
+    triage for a coach scanning the inbox.
+    """
+    requester_name = _profile_display_name(conn.requester)
+    recipient_name = _profile_display_name(conn.recipient)
+
+    if conn.status == "shared":
+        return {
+            "kind": "done",
+            "who_label": "",
+            "what_label": _("Contact info shared"),
+            "is_for_coach": False,
+            "icon": "check",
+        }
+
+    if conn.status == "declined":
+        return {
+            "kind": "declined",
+            "who_label": "",
+            "what_label": _("Declined"),
+            "is_for_coach": False,
+            "icon": "x",
+        }
+
+    if conn.status == "pending":
+        # Awaiting the recipient's response (accept/decline). When mutual,
+        # the reverse row exists in 'pending' too and the system will flip
+        # both to 'accepted' — but from the recipient's perspective on this
+        # row, they still owe a response.
+        return {
+            "kind": "wait_recipient",
+            "who_label": recipient_name,
+            "what_label": _("Respond to the request"),
+            "is_for_coach": False,
+            "icon": "user",
+        }
+
+    if conn.status == "accepted":
+        if conn.assigned_coach is None:
+            return {
+                "kind": "coach_claim",
+                "who_label": _("Any coach"),
+                "what_label": _("Claim & start review"),
+                "is_for_coach": True,
+                "icon": "hand",
+            }
+        is_for_me = (
+            current_coach is not None
+            and conn.assigned_coach_id == current_coach.id
+        )
+        coach_label = (
+            _("You") if is_for_me else (
+                conn.assigned_coach.user.first_name
+                or conn.assigned_coach.user.username
+            )
+        )
+        return {
+            "kind": "coach_review",
+            "who_label": coach_label,
+            "what_label": _("Start the review"),
+            "is_for_coach": is_for_me,
+            "icon": "review",
+        }
+
+    if conn.status == "coach_reviewing":
+        is_for_me = (
+            current_coach is not None
+            and conn.assigned_coach_id == current_coach.id
+        )
+        coach_label = _("You")
+        if not is_for_me and conn.assigned_coach:
+            coach_label = (
+                conn.assigned_coach.user.first_name
+                or conn.assigned_coach.user.username
+            )
+        if not (conn.coach_introduction or "").strip():
+            return {
+                "kind": "coach_write_intro",
+                "who_label": coach_label,
+                "what_label": _("Write the introduction"),
+                "is_for_coach": is_for_me,
+                "icon": "pencil",
+            }
+        return {
+            "kind": "coach_approve",
+            "who_label": coach_label,
+            "what_label": _("Approve to share contacts"),
+            "is_for_coach": is_for_me,
+            "icon": "check",
+        }
+
+    if conn.status == "coach_approved":
+        missing = []
+        if not conn.requester_consents_to_share:
+            missing.append(requester_name)
+        if not conn.recipient_consents_to_share:
+            missing.append(recipient_name)
+        if missing:
+            return {
+                "kind": "await_consent",
+                "who_label": " & ".join(missing),
+                "what_label": _("Consent to share contact info"),
+                "is_for_coach": False,
+                "icon": "user",
+            }
+        return {
+            "kind": "ready_to_share",
+            "who_label": _("System"),
+            "what_label": _("Both consented — ready to share"),
+            "is_for_coach": False,
+            "icon": "check",
+        }
+
+    return {
+        "kind": "unknown",
+        "who_label": "",
+        "what_label": "",
+        "is_for_coach": False,
+        "icon": "info",
+    }
+
+
+# Stage progress: returns a list of (label, completed) tuples for the dot bar.
+_CONNECTION_STAGES = [
+    ("requested", "pending"),  # always reached
+    ("accepted", "accepted"),
+    ("reviewed", "coach_reviewing"),
+    ("approved", "coach_approved"),
+    ("shared", "shared"),
+]
+_STAGE_RANK = {
+    "pending": 0,
+    "accepted": 1,
+    "coach_reviewing": 2,
+    "coach_approved": 3,
+    "shared": 4,
+    "declined": -1,
+}
+
+
+def _compute_connection_stages(conn):
+    """Five-step progress dots for the row (requested → shared)."""
+    rank = _STAGE_RANK.get(conn.status, -1)
+    intro_done = bool((conn.coach_introduction or "").strip())
+    return [
+        {"label": _("Requested"), "done": rank >= 0},
+        {"label": _("Accepted"), "done": rank >= 1},
+        {"label": _("Reviewed"), "done": rank >= 2 and intro_done},
+        {"label": _("Approved"), "done": rank >= 3},
+        {"label": _("Shared"), "done": rank >= 4},
+    ]
+
+
 @coach_required
 def coach_connections(request):
     """Coach view to review and manage post-event connections."""
@@ -3131,6 +3295,14 @@ def coach_connections(request):
     paginator = Paginator(connections_qs, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+
+    # Annotate page items with next-action and progress dots so the template
+    # can show "Waiting on Sarah to consent" instead of just "Approved".
+    for conn in page_obj.object_list:
+        conn.next_action = _compute_connection_next_action(conn, coach)
+        conn.stages = _compute_connection_stages(conn)
+        conn.requester_display_name = _profile_display_name(conn.requester)
+        conn.recipient_display_name = _profile_display_name(conn.recipient)
 
     # Stats for the header (single query instead of 4)
     stats = EventConnection.objects.aggregate(

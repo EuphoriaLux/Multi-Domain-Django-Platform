@@ -91,37 +91,37 @@
     {% if page_obj %}
         <div class="space-y-4">
             {% for conn in page_obj %}
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/40 transition-shadow">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden hover:shadow-md dark:hover:shadow-gray-900/40 transition-shadow {% if conn.next_action.is_for_coach %}ring-1 ring-crush-purple/40 dark:ring-crush-pink/40{% endif %}">
                     <div class="p-4 sm:p-5">
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
                             <!-- Connection Pair -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-3 flex-wrap">
-                                    <!-- Requester -->
+                                <div class="flex items-start gap-3 flex-wrap">
+                                    <!-- Requester (sender) -->
                                     <div class="flex items-center gap-2">
                                         {% if conn.requester.crushprofile.photo_1 %}
                                             <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                                <img src="{% profile_photo_url conn.requester.crushprofile 'photo_1' %}" alt="{{ conn.requester.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                                <img src="{% profile_photo_url conn.requester.crushprofile 'photo_1' %}" alt="{{ conn.requester_display_name }}" class="w-full h-full object-cover" loading="lazy">
                                             </div>
                                         {% else %}
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester.crushprofile.display_name|first|upper }}</span>
+                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.requester_display_name|first|upper }}</span>
                                             </div>
                                         {% endif %}
                                         <div>
-                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.requester.crushprofile.display_name|truncatechars:20 }}</p>
-                                            {% with profile=conn.requester.crushprofile %}
-                                                {% if profile.gender == 'F' %}
-                                                    <span class="text-pink-500 text-xs">&#9792;</span>
-                                                {% elif profile.gender == 'M' %}
-                                                    <span class="text-blue-500 text-xs">&#9794;</span>
-                                                {% endif %}
-                                            {% endwith %}
+                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.requester_display_name|truncatechars:20 }}
+                                                {% with profile=conn.requester.crushprofile %}
+                                                    {% if profile.gender == 'F' %}<span class="text-pink-500 text-xs ml-0.5">&#9792;</span>
+                                                    {% elif profile.gender == 'M' %}<span class="text-blue-500 text-xs ml-0.5">&#9794;</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </p>
+                                            <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">{% trans "sent the request" %}</p>
                                         </div>
                                     </div>
 
                                     <!-- Arrow -->
-                                    <div class="flex items-center">
+                                    <div class="flex items-center pt-2">
                                         {% if conn.is_mutual_annotated %}
                                             <span class="text-green-500 dark:text-green-400 text-lg" title="{% trans 'Mutual connection' %}">&harr;</span>
                                         {% else %}
@@ -133,28 +133,32 @@
                                     <div class="flex items-center gap-2">
                                         {% if conn.recipient.crushprofile.photo_1 %}
                                             <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                                <img src="{% profile_photo_url conn.recipient.crushprofile 'photo_1' %}" alt="{{ conn.recipient.crushprofile.display_name }}" class="w-full h-full object-cover" loading="lazy">
+                                                <img src="{% profile_photo_url conn.recipient.crushprofile 'photo_1' %}" alt="{{ conn.recipient_display_name }}" class="w-full h-full object-cover" loading="lazy">
                                             </div>
                                         {% else %}
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
-                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient.crushprofile.display_name|first|upper }}</span>
+                                                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ conn.recipient_display_name|first|upper }}</span>
                                             </div>
                                         {% endif %}
                                         <div>
-                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.recipient.crushprofile.display_name|truncatechars:20 }}</p>
-                                            {% with profile=conn.recipient.crushprofile %}
-                                                {% if profile.gender == 'F' %}
-                                                    <span class="text-pink-500 text-xs">&#9792;</span>
-                                                {% elif profile.gender == 'M' %}
-                                                    <span class="text-blue-500 text-xs">&#9794;</span>
-                                                {% endif %}
-                                            {% endwith %}
+                                            <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ conn.recipient_display_name|truncatechars:20 }}
+                                                {% with profile=conn.recipient.crushprofile %}
+                                                    {% if profile.gender == 'F' %}<span class="text-pink-500 text-xs ml-0.5">&#9792;</span>
+                                                    {% elif profile.gender == 'M' %}<span class="text-blue-500 text-xs ml-0.5">&#9794;</span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </p>
+                                            <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
+                                                {% if conn.is_mutual_annotated %}{% trans "also requested" %}
+                                                {% elif conn.status == 'pending' %}{% trans "hasn't responded" %}
+                                                {% else %}{% trans "accepted" %}{% endif %}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Event & Meta -->
-                                <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                                     <span class="inline-flex items-center gap-1">
                                         {% include "shared/icons/calendar.html" with class="w-3 h-3" %}
                                         {{ conn.event.title|truncatechars:25 }} &middot; {{ conn.event.date_time|date:"M j" }}
@@ -163,42 +167,62 @@
                                     {% if conn.assigned_coach %}
                                         <span class="inline-flex items-center gap-1">
                                             {% include "shared/icons/user.html" with class="w-3 h-3" %}
-                                            {{ conn.assigned_coach.user.first_name }}
+                                            {% trans "Coach:" %} {{ conn.assigned_coach.user.first_name }}
                                         </span>
                                     {% else %}
                                         <span class="text-amber-600 dark:text-amber-400 font-medium">{% trans "Unassigned" %}</span>
                                     {% endif %}
                                 </div>
 
+                                <!-- Progress dots -->
+                                <div class="mt-3 flex items-center gap-1.5">
+                                    {% for stage in conn.stages %}
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full {% if stage.done %}bg-crush-purple dark:bg-crush-pink{% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></span>
+                                            <span class="text-[10px] uppercase tracking-wide {% if stage.done %}text-gray-700 dark:text-gray-200 font-medium{% else %}text-gray-400 dark:text-gray-500{% endif %}">{{ stage.label }}</span>
+                                        </div>
+                                        {% if not forloop.last %}<span class="w-3 h-px bg-gray-200 dark:bg-gray-600"></span>{% endif %}
+                                    {% endfor %}
+                                </div>
+
                                 <!-- Note preview -->
                                 {% if conn.requester_note %}
-                                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400 italic truncate">"{{ conn.requester_note|truncatechars:80 }}"</p>
+                                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic truncate">"{{ conn.requester_note|truncatechars:80 }}"</p>
                                 {% endif %}
                             </div>
 
-                            <!-- Status & Action -->
-                            <div class="flex items-center gap-3 sm:flex-col sm:items-end">
+                            <!-- Next action + button -->
+                            <div class="flex flex-col items-stretch sm:items-end gap-2 sm:min-w-[14rem]">
                                 {% if conn.is_mutual_annotated %}
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-crush-purple to-crush-pink text-white">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-crush-purple to-crush-pink text-white self-end">
                                         {% include "shared/icons/heart.html" with class="w-3 h-3" %}
                                         {% trans "Mutual match" %}
                                     </span>
                                 {% endif %}
-                                {% if conn.status == 'pending' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">{% trans "Pending" %}</span>
-                                {% elif conn.status == 'accepted' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-full">{% trans "Needs Review" %}</span>
-                                {% elif conn.status == 'coach_reviewing' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Reviewing" %}</span>
-                                {% elif conn.status == 'coach_approved' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Approved" %}</span>
-                                {% elif conn.status == 'shared' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-full">{% trans "Shared" %}</span>
-                                {% endif %}
 
-                                <a href="{% url 'crush_lu:coach_connection_review' conn.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-crush-purple text-white hover:bg-crush-purple/90 rounded-lg transition-colors">
-                                    {% if conn.status == 'accepted' %}
-                                        {% trans "Review" %}
+                                {# Next action pill #}
+                                <div class="text-right text-xs leading-snug
+                                    {% if conn.next_action.is_for_coach %}text-crush-purple dark:text-crush-pink font-semibold
+                                    {% elif conn.next_action.kind == 'done' %}text-green-600 dark:text-green-400
+                                    {% elif conn.next_action.kind == 'declined' %}text-gray-400 dark:text-gray-500
+                                    {% else %}text-gray-600 dark:text-gray-300{% endif %}">
+                                    {% if conn.next_action.kind == 'done' %}
+                                        {% include "shared/icons/check-circle.html" with class="w-4 h-4 inline" %}
+                                        {{ conn.next_action.what_label }}
+                                    {% elif conn.next_action.kind == 'declined' %}
+                                        {% include "shared/icons/x-circle.html" with class="w-4 h-4 inline" %}
+                                        {{ conn.next_action.what_label }}
+                                    {% else %}
+                                        <span class="inline-block uppercase tracking-wide text-[10px] mb-0.5 opacity-70">{% trans "Next" %}:</span>
+                                        <p class="mb-0">
+                                            {% blocktrans with who=conn.next_action.who_label what=conn.next_action.what_label %}{{ who }} → {{ what }}{% endblocktrans %}
+                                        </p>
+                                    {% endif %}
+                                </div>
+
+                                <a href="{% url 'crush_lu:coach_connection_review' conn.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium {% if conn.next_action.is_for_coach %}bg-crush-purple text-white hover:bg-crush-purple/90{% else %}border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} rounded-lg transition-colors">
+                                    {% if conn.next_action.is_for_coach %}
+                                        {% trans "Take action" %}
                                     {% else %}
                                         {% trans "View" %}
                                     {% endif %}
