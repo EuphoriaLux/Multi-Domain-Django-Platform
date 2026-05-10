@@ -1,0 +1,14 @@
+{% load i18n %}
+<div class="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 text-center">
+    <p class="text-sm font-medium text-gray-900 dark:text-white mb-1">
+        {% trans "Window closed for this event" %}
+    </p>
+    <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">
+        {% trans "Looking to keep meeting people year-round? Join the Crush Connect waitlist." %}
+    </p>
+    <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+       class="inline-flex items-center justify-center gap-1 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity">
+        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+        {% trans "Crush Connect" %}
+    </a>
+</div>

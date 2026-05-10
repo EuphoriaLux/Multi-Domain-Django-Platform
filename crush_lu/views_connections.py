@@ -225,6 +225,18 @@ def request_connection(request, event_id, user_id):
         messages.warning(request, _("Connection request already exists."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
+    # Post-event connection window — block new requests once it closes and
+    # nudge the user toward the Crush Connect waitlist instead.
+    if not event.connection_window_active:
+        messages.info(
+            request,
+            _(
+                "The connection window for this event has closed. "
+                "Join the Crush Connect waitlist to keep meeting people year-round."
+            ),
+        )
+        return redirect("crush_lu:crush_connect_teaser")
+
     if request.method == "POST":
         note = request.POST.get("note", "").strip()
 
@@ -384,6 +396,10 @@ def request_connection_inline(request, event_id, user_id):
             "crush_lu/_htmx_error.html",
             {"message": "Connection request already exists."},
         )
+
+    # Post-event connection window — swap the request form for a Crush Connect CTA.
+    if not event.connection_window_active:
+        return render(request, "crush_lu/_connection_window_closed.html")
 
     if request.method == "POST":
         note = request.POST.get("note", "").strip()

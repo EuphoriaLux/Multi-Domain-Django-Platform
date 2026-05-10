@@ -398,6 +398,22 @@ class MeetupEvent(models.Model):
         return self.date_time + timedelta(minutes=self.duration_minutes)
 
     @property
+    def connection_window_deadline(self):
+        """When the post-event connection-request window closes.
+
+        Reuses ``spark_request_deadline_hours`` (default 168h = 7 days from
+        event start) so admins control sparks + connections with one knob.
+        Computed from ``date_time`` to match the existing spark-window
+        calculation in views_connections.py.
+        """
+        return self.date_time + timedelta(hours=self.spark_request_deadline_hours)
+
+    @property
+    def connection_window_active(self):
+        """True while users may still send post-event connection requests."""
+        return timezone.now() <= self.connection_window_deadline
+
+    @property
     def quiz_join_available(self):
         """Quiz join button visible during event + 2 days after."""
         return (

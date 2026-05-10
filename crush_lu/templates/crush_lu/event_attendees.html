@@ -51,7 +51,14 @@
             {% trans "Connected!" %}
         </span>
     {% else %}
-        {% if attendee.is_cross_gender and cross_gender_remaining is not None and cross_gender_remaining <= 0 %}
+        {% if not event.connection_window_active %}
+            <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+               class="inline-flex items-center justify-center gap-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity"
+               title="{% trans 'Connection window closed for this event' %}">
+                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% trans "Try Crush Connect" %}
+            </a>
+        {% elif attendee.is_cross_gender and cross_gender_remaining is not None and cross_gender_remaining <= 0 %}
             <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
                 {% trans "Connection limit reached" %}
             </span>
