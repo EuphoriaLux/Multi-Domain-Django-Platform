@@ -3304,6 +3304,31 @@ def coach_connections(request):
         conn.requester_display_name = _profile_display_name(conn.requester)
         conn.recipient_display_name = _profile_display_name(conn.recipient)
 
+    # Batch-fetch the onboarding coach per user (the coach who approved their
+    # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
+    # knows who originally onboarded the people involved.
+    user_ids = set()
+    for conn in page_obj.object_list:
+        user_ids.add(conn.requester_id)
+        user_ids.add(conn.recipient_id)
+    onboarding_by_user = {}
+    if user_ids:
+        approved_subs = (
+            ProfileSubmission.objects.filter(
+                profile__user_id__in=user_ids, status="approved"
+            )
+            .select_related("coach__user", "profile")
+            .order_by("-reviewed_at", "-id")
+        )
+        for sub in approved_subs:
+            uid = sub.profile.user_id
+            if uid in onboarding_by_user:
+                continue  # keep the most-recent approval per user
+            onboarding_by_user[uid] = sub.coach
+    for conn in page_obj.object_list:
+        conn.requester_onboarding_coach = onboarding_by_user.get(conn.requester_id)
+        conn.recipient_onboarding_coach = onboarding_by_user.get(conn.recipient_id)
+
     # Stats for the header (single query instead of 4)
     stats = EventConnection.objects.aggregate(
         pending_count=Count(

@@ -117,6 +117,12 @@
                                                 {% endwith %}
                                             </p>
                                             <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">{% trans "sent the request" %}</p>
+                                            {% if conn.requester_onboarding_coach %}
+                                                <p class="text-[10px] text-gray-400 dark:text-gray-500 leading-tight" title="{% trans 'Coach who onboarded this profile' %}">
+                                                    {% include "shared/icons/shield-check.html" with class="w-2.5 h-2.5 inline -mt-0.5" %}
+                                                    {{ conn.requester_onboarding_coach.user.first_name }}
+                                                </p>
+                                            {% endif %}
                                         </div>
                                     </div>
 
@@ -153,6 +159,12 @@
                                                 {% elif conn.status == 'pending' %}{% trans "hasn't responded" %}
                                                 {% else %}{% trans "accepted" %}{% endif %}
                                             </p>
+                                            {% if conn.recipient_onboarding_coach %}
+                                                <p class="text-[10px] text-gray-400 dark:text-gray-500 leading-tight" title="{% trans 'Coach who onboarded this profile' %}">
+                                                    {% include "shared/icons/shield-check.html" with class="w-2.5 h-2.5 inline -mt-0.5" %}
+                                                    {{ conn.recipient_onboarding_coach.user.first_name }}
+                                                </p>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
