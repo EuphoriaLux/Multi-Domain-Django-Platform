@@ -348,3 +348,37 @@ class TestManualAssignTable:
         assert not any(
             u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz)
         )
+
+    def test_rejects_user_with_no_registration(self, quiz_event_4t):
+        """A user with no EventRegistration for this event cannot be seated,
+        even if a quiz host POSTs their user_id directly."""
+        quiz = quiz_event_4t
+        stranger = _make_user("stranger_m", "M")
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, stranger, table_number=1)
+
+    def test_rejects_user_with_confirmed_status(self, quiz_event_4t):
+        """Registered but never checked in — must go through the QR /
+        mark_attended flow before they can be seated."""
+        from crush_lu.models.events import EventRegistration
+
+        quiz = quiz_event_4t
+        user = _make_user("not_checked_in", "F")
+        EventRegistration.objects.create(
+            event=quiz.event, user=user, status="confirmed"
+        )
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, user, table_number=1)
+
+    def test_rejects_user_with_no_show_status(self, quiz_event_4t):
+        """Once a host has marked someone as no_show, they need to be
+        flipped back to attended before they can be seated."""
+        from crush_lu.models.events import EventRegistration
+
+        quiz = quiz_event_4t
+        user = _make_user("noshow_m", "M")
+        EventRegistration.objects.create(
+            event=quiz.event, user=user, status="no_show"
+        )
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, user, table_number=1)

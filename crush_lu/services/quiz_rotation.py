@@ -993,6 +993,20 @@ def manual_assign_table(quiz, user, table_number):
                 f"Table {table_number} doesn't exist on this quiz."
             )
 
+        # The target user must be a checked-in attendee for this event.
+        # The orphan-list UI already filters to attended, but the endpoint
+        # is a public POST — never trust the request to pass a sensible
+        # user_id.
+        from crush_lu.models.events import EventRegistration
+
+        registration = EventRegistration.objects.filter(
+            event=locked_quiz.event, user=user
+        ).first()
+        if registration is None or registration.status != "attended":
+            raise ValidationError(
+                "User is not a checked-in attendee for this event."
+            )
+
         try:
             table = QuizTable.objects.select_for_update().get(
                 quiz=locked_quiz, table_number=table_number
