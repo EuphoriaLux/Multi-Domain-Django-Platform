@@ -1,0 +1,220 @@
+"""Tests for consolidate_tables — compacting seating after no-shows."""
+
+from datetime import date, timedelta
+
+import pytest
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from crush_lu.models.quiz import (
+    QuizEvent,
+    QuizRotationSchedule,
+    QuizRound,
+    QuizTable,
+    QuizTableMembership,
+)
+from crush_lu.services.quiz_rotation import (
+    assign_table_on_checkin,
+    consolidate_tables,
+)
+
+
+def _grant_consent(user):
+    from allauth.account.models import EmailAddress
+    from crush_lu.models.profiles import UserDataConsent
+
+    consent, _ = UserDataConsent.objects.get_or_create(user=user)
+    consent.crushlu_consent_given = True
+    consent.save()
+    if user.email:
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
+
+
+def _create_profile(user, gender):
+    from crush_lu.models.profiles import CrushProfile
+
+    profile, _ = CrushProfile.objects.get_or_create(
+        user=user,
+        defaults={"gender": gender, "date_of_birth": date(1995, 1, 1)},
+    )
+    if profile.gender != gender:
+        profile.gender = gender
+        profile.save(update_fields=["gender"])
+    return profile
+
+
+def _make_user(username, gender):
+    user = User.objects.create_user(
+        username=username, email=f"{username}@test.com", password="testpass123"
+    )
+    _grant_consent(user)
+    _create_profile(user, gender)
+    return user
+
+
+@pytest.fixture
+def quiz_event_4t(db):
+    """Quiz with 4 tables and 3 rounds — minimal setup for rotation."""
+    from crush_lu.models import MeetupEvent
+
+    coach = User.objects.create_user(
+        username="consol_coach@test.com",
+        email="consol_coach@test.com",
+        password="testpass123",
+        is_staff=True,
+    )
+    _grant_consent(coach)
+
+    event = MeetupEvent.objects.create(
+        title="Consol Quiz Night",
+        description="Test",
+        event_type="quiz_night",
+        date_time=timezone.now() + timedelta(days=1),
+        location="LU",
+        address="1",
+        max_participants=30,
+        registration_deadline=timezone.now() + timedelta(hours=12),
+        is_published=True,
+    )
+    quiz = QuizEvent.objects.create(
+        event=event, status="draft", created_by=coach, num_tables=4
+    )
+    quiz.ensure_tables()
+    # generate_rotation_rounds wants at least one round to exist.
+    for i in range(3):
+        QuizRound.objects.create(
+            quiz=quiz, title=f"Round {i + 1}", sort_order=i, time_per_question=30
+        )
+    return quiz
+
+
+def _check_in_attended(quiz, user):
+    """Seat a user at round 0 AND mark their registration attended.
+
+    consolidate_tables doesn't read registrations directly, but the
+    downstream generate_rotation_rounds it triggers does.
+    """
+    from crush_lu.models.events import EventRegistration
+
+    EventRegistration.objects.update_or_create(
+        event=quiz.event,
+        user=user,
+        defaults={"status": "attended", "checked_in_at": timezone.now()},
+    )
+    return assign_table_on_checkin(quiz, user)
+
+
+@pytest.mark.django_db
+class TestConsolidateTables:
+    def _seat_3M_4F(self, quiz):
+        """Simulate: 4 tables configured, but only 3 men + 4 women showed up.
+
+        With ``assign_table_on_checkin``:
+        - Men → anchors on tables 1, 2, 3 (least-filled rule)
+        - Women → rotators on tables 1, 2, 3, 4 (group A spreads across tables)
+
+        Result: table 4 has 1 rotator and 0 anchors — the classic post-no-show
+        shape this feature exists to fix.
+        """
+        users = {"men": [], "women": []}
+        for i in range(3):
+            u = _make_user(f"shrink_m{i}", "M")
+            _check_in_attended(quiz, u)
+            users["men"].append(u)
+        for i in range(4):
+            u = _make_user(f"shrink_f{i}", "F")
+            _check_in_attended(quiz, u)
+            users["women"].append(u)
+        return users
+
+    def test_dry_run_shrinks_num_tables(self, quiz_event_4t):
+        """4 tables configured, 3 anchors + 4 rotators show up →
+        consolidation should target 3 tables (table 4 removed) and move
+        the rotator currently on table 4."""
+        quiz = quiz_event_4t
+        self._seat_3M_4F(quiz)
+
+        # Sanity: assign_table_on_checkin should have parked one woman on table 4.
+        on_t4 = list(
+            QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=0, table__table_number=4
+            ).values_list("user_id", flat=True)
+        )
+        assert on_t4, "Test precondition: expected a rotator on table 4"
+
+        result = consolidate_tables(quiz, apply=False)
+
+        assert result["changed"] is True
+        assert result["current_num_tables"] == 4
+        assert result["new_num_tables"] == 3
+        assert result["tables_removed"] == [4]
+        moved_user_ids = {m["user_id"] for m in result["moves"]}
+        assert set(on_t4).issubset(moved_user_ids)
+        for m in result["moves"]:
+            assert m["to_table"] in (1, 2, 3)
+            assert m["from_table"] == 4
+
+        # Dry run must not mutate state.
+        quiz.refresh_from_db()
+        assert quiz.num_tables == 4
+        assert QuizTable.objects.filter(quiz=quiz).count() == 4
+
+    def test_apply_moves_users_and_regenerates_rounds(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        self._seat_3M_4F(quiz)
+
+        result = consolidate_tables(quiz, apply=True)
+        assert result["changed"] is True
+
+        quiz.refresh_from_db()
+        assert quiz.num_tables == 3
+        assert QuizTable.objects.filter(quiz=quiz).count() == 3
+
+        # Every membership now points to one of the kept tables.
+        for m in QuizTableMembership.objects.filter(table__quiz=quiz):
+            assert m.table.table_number in (1, 2, 3)
+
+        # Every round-0 schedule row likewise.
+        for r in QuizRotationSchedule.objects.filter(quiz=quiz, round_number=0):
+            assert r.table.table_number in (1, 2, 3)
+
+        # Rounds 1+ regenerated.
+        assert QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number__gte=1
+        ).exists()
+
+    def test_no_op_when_already_consolidated(self, quiz_event_4t):
+        """If everyone fits on the configured tables, consolidation reports
+        changed=False and the data isn't touched."""
+        quiz = quiz_event_4t
+        # 4 men + 4 women fitting 4 tables exactly = ideal layout.
+        for i in range(4):
+            _check_in_attended(quiz, _make_user(f"ok_m{i}", "M"))
+        for i in range(4):
+            _check_in_attended(quiz, _make_user(f"ok_f{i}", "F"))
+
+        result = consolidate_tables(quiz, apply=True)
+        assert result["changed"] is False
+        assert result["moves"] == []
+        quiz.refresh_from_db()
+        assert quiz.num_tables == 4
+
+    def test_rejects_when_quiz_is_active(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        _check_in_attended(quiz, _make_user("active_m1", "M"))
+        _check_in_attended(quiz, _make_user("active_f1", "F"))
+        quiz.status = "active"
+        quiz.save(update_fields=["status"])
+
+        with pytest.raises(ValidationError):
+            consolidate_tables(quiz, apply=False)
+
+    def test_rejects_when_no_attendees(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        with pytest.raises(ValidationError):
+            consolidate_tables(quiz, apply=False)

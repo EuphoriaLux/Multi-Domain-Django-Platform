@@ -721,6 +721,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
     async def quiz_table_dissolved(self, event):
         await self.send_json({"type": "quiz.table_dissolved", "data": event["data"]})
 
+    async def quiz_tables_consolidated(self, event):
+        await self.send_json({"type": "quiz.tables_consolidated", "data": event["data"]})
+
     # --- Database helpers ---
 
     @database_sync_to_async

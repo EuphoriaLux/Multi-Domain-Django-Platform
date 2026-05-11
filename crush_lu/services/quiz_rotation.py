@@ -931,3 +931,204 @@ def split_participants_by_gender(registrations_with_profiles):
             women.append(user)
 
     return men, women
+
+
+def consolidate_tables(quiz, *, apply=False):
+    """Compact tables to fit the number of people who actually checked in.
+
+    After QR check-ins finish, registrants who never showed up leave their
+    seats empty. This function reduces ``quiz.num_tables`` to a count that
+    matches the attended anchor/rotator counts, then moves every member
+    from a removed table onto a kept table (preferring the keeper with the
+    fewest existing members of the same role). Round-0 ``QuizRotationSchedule``
+    rows follow the same moves so ``generate_rotation_rounds`` can rebuild
+    rounds 1+ from the new layout.
+
+    Only runs while the quiz is still in ``draft`` — moving seats once a
+    round is live would invalidate in-flight rotation.
+
+    Args:
+        quiz: QuizEvent instance.
+        apply: when True, commit the moves and regenerate rounds 1+;
+            when False, just return the plan (dry run).
+
+    Returns:
+        dict: see structure in the planning doc — always includes
+        ``changed`` (bool); when changed=True also includes
+        ``current_num_tables``, ``new_num_tables``, ``moves``,
+        ``tables_removed``, ``table_sizes_after``.
+
+    Raises:
+        ValidationError: if the quiz is not in draft state, or has no
+            tables configured.
+    """
+    from collections import defaultdict
+
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        QuizEvent,
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    if quiz.status != "draft":
+        raise ValidationError("Consolidation must run before the quiz starts.")
+    if not quiz.num_tables or quiz.num_tables < 2:
+        raise ValidationError("Quiz has no tables to consolidate.")
+
+    # Snapshot the round-0 schedule — that's the authoritative seating
+    # source used by generate_rotation_rounds to rebuild rounds 1+.
+    round_0 = list(
+        QuizRotationSchedule.objects.filter(quiz=quiz, round_number=0)
+        .select_related("table", "user", "user__crushprofile")
+    )
+    if not round_0:
+        raise ValidationError("No attendees to consolidate yet.")
+
+    anchors = [r for r in round_0 if r.role == "anchor"]
+    rotators = [r for r in round_0 if r.role == "rotator"]
+
+    # generate_rotation_schedule requires at least 2 tables and at least
+    # one anchor per table; we never grow num_tables, only shrink.
+    new_num_tables = max(
+        2,
+        min(
+            quiz.num_tables,
+            max(len(anchors), 2),  # need >= 2 even if anchors short — warning will surface
+            max(len(rotators), 2),
+        ),
+    )
+    # If anchors or rotators are shorter than 2, clamp to that count (but
+    # never below 2 — generate_rotation_schedule refuses fewer).
+    if len(anchors) >= 2:
+        new_num_tables = min(new_num_tables, len(anchors))
+    if len(rotators) >= 2:
+        new_num_tables = min(new_num_tables, len(rotators))
+
+    # Group current sizes by table_number for the dry-run preview.
+    sizes_by_table = defaultdict(lambda: {"anchor": 0, "rotator": 0})
+    for r in round_0:
+        sizes_by_table[r.table.table_number][r.role] += 1
+
+    excess_round0 = [r for r in round_0 if r.table.table_number > new_num_tables]
+
+    no_change = (
+        new_num_tables == quiz.num_tables
+        and not excess_round0
+    )
+    if no_change:
+        return {
+            "changed": False,
+            "current_num_tables": quiz.num_tables,
+            "new_num_tables": new_num_tables,
+            "moves": [],
+            "tables_removed": [],
+            "table_sizes_after": {
+                n: sizes_by_table[n]["anchor"] + sizes_by_table[n]["rotator"]
+                for n in range(1, quiz.num_tables + 1)
+            },
+            "reason": "Tables are already consolidated.",
+        }
+
+    # Plan moves: for each round-0 row on an excess table, target the keeper
+    # table with the fewest existing members of the same role. Track running
+    # role counts as we plan so the distribution stays balanced.
+    keeper_role_counts = defaultdict(lambda: {"anchor": 0, "rotator": 0})
+    for r in round_0:
+        if r.table.table_number <= new_num_tables:
+            keeper_role_counts[r.table.table_number][r.role] += 1
+
+    moves = []
+    # Stable order: process excess by (table_number asc, user_id asc)
+    excess_round0.sort(key=lambda r: (r.table.table_number, r.user_id))
+    for r in excess_round0:
+        target = min(
+            range(1, new_num_tables + 1),
+            key=lambda n: (keeper_role_counts[n][r.role], n),
+        )
+        keeper_role_counts[target][r.role] += 1
+        profile = getattr(r.user, "crushprofile", None)
+        display_name = (
+            profile.display_name if profile and profile.display_name else r.user.username
+        )
+        moves.append(
+            {
+                "user_id": r.user_id,
+                "display_name": display_name,
+                "from_table": r.table.table_number,
+                "to_table": target,
+                "role": r.role,
+                "rotation_group": r.rotation_group,
+            }
+        )
+
+    tables_removed = list(range(new_num_tables + 1, quiz.num_tables + 1))
+    table_sizes_after = {
+        n: keeper_role_counts[n]["anchor"] + keeper_role_counts[n]["rotator"]
+        for n in range(1, new_num_tables + 1)
+    }
+
+    result = {
+        "changed": True,
+        "current_num_tables": quiz.num_tables,
+        "new_num_tables": new_num_tables,
+        "moves": moves,
+        "tables_removed": tables_removed,
+        "table_sizes_after": table_sizes_after,
+    }
+
+    if not apply:
+        return result
+
+    # Apply the plan. Single transaction so a partial failure rolls back.
+    with transaction.atomic():
+        locked_quiz = QuizEvent.objects.select_for_update().get(pk=quiz.pk)
+        if locked_quiz.status != "draft":
+            raise ValidationError("Quiz has started since the preview was generated.")
+
+        # Build a lookup of destination QuizTable rows we'll move members onto.
+        keepers = {
+            t.table_number: t
+            for t in QuizTable.objects.filter(
+                quiz=locked_quiz, table_number__lte=new_num_tables
+            )
+        }
+        if len(keepers) != new_num_tables:
+            # Shouldn't happen — assign_table_on_checkin creates rows up to
+            # num_tables — but if it does, refuse rather than leave a hole.
+            raise ValidationError("Internal: missing destination table rows.")
+
+        # Move each user's QuizTableMembership and round-0 schedule row.
+        for move in moves:
+            dest_table = keepers[move["to_table"]]
+            QuizTableMembership.objects.filter(
+                table__quiz=locked_quiz, user_id=move["user_id"]
+            ).update(table=dest_table)
+            QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz, round_number=0, user_id=move["user_id"]
+            ).update(table=dest_table)
+
+        # Remove now-empty tables. CASCADE handles membership/schedule rows
+        # we missed (defensive — there shouldn't be any).
+        QuizTable.objects.filter(
+            quiz=locked_quiz, table_number__gt=new_num_tables
+        ).delete()
+
+        # Persist the new table count.
+        if locked_quiz.num_tables != new_num_tables:
+            locked_quiz.num_tables = new_num_tables
+            locked_quiz.save(update_fields=["num_tables"])
+
+    # Rebuild rounds 1+ from the freshly compacted round-0 layout. Runs
+    # outside the atomic block above so its own select_for_update can take
+    # the row lock cleanly.
+    try:
+        generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False)
+    except ValidationError:
+        # Not enough anchors/rotators to build a rotation even after
+        # consolidation — surface to the caller. Round 0 is still good.
+        raise
+
+    return result

@@ -587,3 +587,68 @@ def mark_attended(request, quiz_id):
         )
 
     return JsonResponse(response)
+
+
+@login_required
+def consolidate_tables_view(request, quiz_id):
+    """Host-only endpoint to compact tables after no-shows.
+
+    POST body ``{"apply": false}`` returns a preview of the proposed moves
+    without mutating anything. POST body ``{"apply": true}`` commits the
+    moves, shrinks ``quiz.num_tables`` to fit, and regenerates rounds 1+.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"error": "Quiz not found"}, status=404)
+
+    if not _is_quiz_host(quiz, request.user):
+        return JsonResponse({"error": "Not authorized"}, status=403)
+
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    apply = bool(body.get("apply", False))
+
+    from django.core.exceptions import ValidationError
+
+    from crush_lu.services.quiz_rotation import consolidate_tables
+
+    try:
+        result = consolidate_tables(quiz, apply=apply)
+    except ValidationError as exc:
+        message = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
+        return JsonResponse({"error": message}, status=400)
+    except Exception:
+        logger.exception("consolidate_tables failed for quiz %s", quiz.id)
+        return JsonResponse({"error": "Consolidation failed."}, status=500)
+
+    if apply and result.get("changed"):
+        # Notify connected coach/projector clients to refresh their table view.
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"quiz_{quiz.id}",
+                    {
+                        "type": "quiz.tables_consolidated",
+                        "data": {
+                            "new_num_tables": result["new_num_tables"],
+                            "tables_removed": result["tables_removed"],
+                        },
+                    },
+                )
+        except Exception:
+            logger.exception(
+                "consolidate_tables: WS broadcast failed for quiz %s", quiz.id
+            )
+
+    return JsonResponse(result)

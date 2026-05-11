@@ -64,6 +64,11 @@ document.addEventListener("alpine:init", function () {
             active: "Active",
             paused: "Paused",
             finished: "Finished",
+            consolidatePlan: "Reduce {from} → {to} tables. The moves below will run on confirm.",
+            consolidateNoOp: "Tables are already consolidated.",
+            consolidateMove: "{name}: Table {from} → Table {to} ({role})",
+            consolidateFailed: "Consolidation failed.",
+            consolidateSuccess: "Tables consolidated.",
         };
         if (!raw) return defaults;
         try {
@@ -923,6 +928,10 @@ document.addEventListener("alpine:init", function () {
             confirmingReset: false,
             _confirmResetTimer: null,
 
+            // Consolidation (compact tables after no-shows)
+            consolidationPreview: null,
+            consolidationLoading: false,
+
             // Error / feedback
             errorMessage: "",
             errorTimer: null,
@@ -961,6 +970,50 @@ document.addEventListener("alpine:init", function () {
             },
             get canRotate() {
                 return this.isQuizNight && this.roundComplete && !this.isLastRound;
+            },
+            get canConsolidate() {
+                // Only meaningful before the quiz starts. Coach decides when no-shows are final.
+                return this.isQuizNight && this.status === "draft";
+            },
+            get hasConsolidationPreview() {
+                return this.consolidationPreview !== null;
+            },
+            get hasConsolidationMoves() {
+                return (
+                    this.consolidationPreview !== null &&
+                    Array.isArray(this.consolidationPreview.moves) &&
+                    this.consolidationPreview.moves.length > 0
+                );
+            },
+            get canApplyConsolidation() {
+                return (
+                    this.consolidationPreview !== null &&
+                    this.consolidationPreview.changed === true
+                );
+            },
+            get consolidationSummary() {
+                if (this.consolidationPreview === null) return "";
+                var p = this.consolidationPreview;
+                if (p.changed) {
+                    return (
+                        this._i18n.consolidatePlan
+                            .replace("{from}", p.current_num_tables)
+                            .replace("{to}", p.new_num_tables)
+                    );
+                }
+                return this._i18n.consolidateNoOp;
+            },
+            get consolidationReason() {
+                if (this.consolidationPreview && this.consolidationPreview.reason) {
+                    return this.consolidationPreview.reason;
+                }
+                return "";
+            },
+            get isConsolidating() {
+                return this.consolidationLoading;
+            },
+            get isNotConsolidating() {
+                return !this.consolidationLoading;
             },
             get allTablesScored() {
                 return this.totalTables > 0 && this.scoredCount >= this.totalTables;
@@ -1311,6 +1364,10 @@ document.addEventListener("alpine:init", function () {
                     // it. Refetching the table overview alone would
                     // leave the scoring grid out of sync.
                     window.location.reload();
+                } else if (type === "quiz.tables_consolidated") {
+                    // Same reason as quiz.table_dissolved — the scoring grid
+                    // is server-rendered from `tables`; reload to rebuild it.
+                    window.location.reload();
                 } else if (type === "quiz.error") {
                     this.showError(data.message || "An error occurred");
                 }
@@ -1354,6 +1411,90 @@ document.addEventListener("alpine:init", function () {
                         self._renderTableOverview();
                     })
                     .catch(function () {});
+            },
+
+            // --- Table consolidation (compact after no-shows) ---
+
+            previewConsolidation: function () {
+                this._callConsolidate(false);
+            },
+
+            applyConsolidation: function () {
+                this._callConsolidate(true);
+            },
+
+            cancelConsolidation: function () {
+                this.consolidationPreview = null;
+            },
+
+            _callConsolidate: function (apply) {
+                var self = this;
+                if (this.consolidationLoading) return;
+                this.consolidationLoading = true;
+                fetch(
+                    "/api/quiz/" + this.quizId + "/consolidate-tables/",
+                    {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": this._getCsrfToken(),
+                        },
+                        body: JSON.stringify({ apply: !!apply }),
+                    },
+                )
+                    .then(function (resp) {
+                        return resp.json().then(function (data) {
+                            return { ok: resp.ok, data: data };
+                        });
+                    })
+                    .then(function (res) {
+                        self.consolidationLoading = false;
+                        if (!res.ok) {
+                            self.consolidationPreview = null;
+                            self.showError(
+                                res.data && res.data.error
+                                    ? res.data.error
+                                    : self._i18n.consolidateFailed,
+                            );
+                            return;
+                        }
+                        if (apply) {
+                            // Hard reload — the server-rendered scoring grid
+                            // (`{% for table in tables %}`) needs to be rebuilt
+                            // after num_tables shrinks.
+                            window.location.reload();
+                        } else {
+                            self.consolidationPreview = res.data;
+                            // Render the move list into the preview <ul>.
+                            self._renderConsolidationMoves();
+                        }
+                    })
+                    .catch(function () {
+                        self.consolidationLoading = false;
+                        self.consolidationPreview = null;
+                        self.showError(self._i18n.consolidateFailed);
+                    });
+            },
+
+            _renderConsolidationMoves: function () {
+                // CSP-safe DOM render — Alpine x-for is not allowed with @alpinejs/csp.
+                var ul = this.$refs.consolidationMoves;
+                if (!ul) return;
+                ul.innerHTML = "";
+                if (!this.consolidationPreview) return;
+                var moves = this.consolidationPreview.moves || [];
+                var tmpl = this._i18n.consolidateMove;
+                for (var i = 0; i < moves.length; i++) {
+                    var m = moves[i];
+                    var li = document.createElement("li");
+                    li.textContent = tmpl
+                        .replace("{name}", m.display_name)
+                        .replace("{from}", m.from_table)
+                        .replace("{to}", m.to_table)
+                        .replace("{role}", m.role);
+                    ul.appendChild(li);
+                }
             },
 
             nextQuestion: function () {
