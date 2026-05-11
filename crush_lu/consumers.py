@@ -1055,26 +1055,11 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         except (QuizEvent.DoesNotExist, QuizRound.DoesNotExist):
             return None
 
-        # Enforce sequential progression: only allow re-selecting the current
-        # round or advancing one step. Prevents coaches from skipping ahead.
-        ordered_round_ids = list(
-            QuizRound.objects.filter(quiz=quiz)
-            .order_by("sort_order", "id")
-            .values_list("id", flat=True)
-        )
-        try:
-            target_index = ordered_round_ids.index(round_obj.id)
-        except ValueError:
-            return None
-        if quiz.current_round_id is None:
-            current_index = -1
-        else:
-            try:
-                current_index = ordered_round_ids.index(quiz.current_round_id)
-            except ValueError:
-                current_index = -1
-        if target_index not in (current_index, current_index + 1):
-            return {"error": "Rounds must be played in order."}
+        # Round changes via this action are disallowed. Rounds advance through
+        # the rotate_tables flow (which enforces "all tables scored"). Only
+        # no-op re-selection of the already-current round is accepted.
+        if quiz.current_round_id != round_obj.id:
+            return {"error": "Rounds advance automatically — direct selection is disabled."}
 
         # Block round changes during active play with a current question
         if (

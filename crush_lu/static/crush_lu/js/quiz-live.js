@@ -1615,51 +1615,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             selectRoundFromEl: function () {
-                var roundId = parseInt(this.$el.getAttribute("data-round-id"), 10);
-                // Prevent re-selecting completed rounds
-                for (var i = 0; i < this.rounds.length; i++) {
-                    if (
-                        this.rounds[i].id === roundId &&
-                        this.rounds[i].status === "done"
-                    ) {
-                        return;
-                    }
-                }
-                // Enforce sequential progression: only the current round or the
-                // first upcoming round (next in sort_order) may be selected.
-                var nextUpcomingId = null;
-                var isCurrent = false;
-                for (var n = 0; n < this.rounds.length; n++) {
-                    if (this.rounds[n].id === roundId && this.rounds[n].status === "current") {
-                        isCurrent = true;
-                    }
-                    if (nextUpcomingId === null && this.rounds[n].status === "upcoming") {
-                        nextUpcomingId = this.rounds[n].id;
-                    }
-                }
-                if (!isCurrent && roundId !== nextUpcomingId) {
-                    return;
-                }
-                // Prevent skipping to other rounds during active play
-                if (
-                    this.status === "active" &&
-                    this.currentQuestion !== null &&
-                    roundId !== this.selectedRoundId
-                ) {
-                    return;
-                }
-                this.selectedRoundId = roundId;
-                this.roundComplete = false;
-                this.currentQuestion = null;
-                if (this.ws && this.connected) {
-                    this.ws.send(
-                        JSON.stringify({
-                            action: "set_round",
-                            round_id: roundId,
-                        }),
-                    );
-                }
-                this._updateRoundButtons();
+                // Round buttons are informational only. Rounds advance through
+                // the rotate_tables flow (which enforces "all tables scored"),
+                // never via direct selection.
             },
 
             // --- Guided flow: round status tracking ---
@@ -1703,15 +1661,6 @@ document.addEventListener("alpine:init", function () {
             _renderRoundButtons: function () {
                 var root = this._root;
                 var buttons = root.querySelectorAll(".quiz-round-btn[data-round-id]");
-                // Find the first upcoming round — that's the only "upcoming" the coach
-                // can actually click. Everything later stays locked.
-                var nextUpcomingId = null;
-                for (var u = 0; u < this.rounds.length; u++) {
-                    if (this.rounds[u].status === "upcoming") {
-                        nextUpcomingId = this.rounds[u].id;
-                        break;
-                    }
-                }
                 for (var i = 0; i < buttons.length; i++) {
                     var rid = parseInt(buttons[i].getAttribute("data-round-id"), 10);
                     // Find round info
@@ -1742,8 +1691,6 @@ document.addEventListener("alpine:init", function () {
                     } else if (status === "done") {
                         cls =
                             "bg-green-900/30 text-green-300 ring-1 ring-green-700 cursor-not-allowed opacity-50";
-                    } else if (rid === nextUpcomingId) {
-                        cls = "bg-slate-700 text-gray-300 hover:bg-slate-600";
                     } else {
                         cls = "bg-slate-800 text-gray-500 cursor-not-allowed opacity-50";
                     }
