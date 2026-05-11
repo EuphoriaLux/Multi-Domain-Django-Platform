@@ -590,6 +590,62 @@ def mark_attended(request, quiz_id):
 
 
 @login_required
+def assign_table_view(request, quiz_id):
+    """Host-only endpoint to seat an unassigned attendee on a chosen table.
+
+    Body: ``{"user_id": int, "table_number": int}``. Refuses if the user
+    is already seated for this quiz.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return JsonResponse({"error": "Quiz not found"}, status=404)
+
+    if not _is_quiz_host(quiz, request.user):
+        return JsonResponse({"error": "Not authorized"}, status=403)
+
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    try:
+        user_id = int(body["user_id"])
+        table_number = int(body["table_number"])
+    except (KeyError, TypeError, ValueError):
+        return JsonResponse(
+            {"error": "user_id and table_number (int) required"}, status=400
+        )
+
+    from django.contrib.auth import get_user_model
+    from django.core.exceptions import ValidationError
+
+    from crush_lu.services.quiz_rotation import manual_assign_table
+
+    User = get_user_model()
+    try:
+        user = User.objects.select_related("crushprofile").get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "User not found"}, status=404)
+
+    try:
+        result = manual_assign_table(quiz, user, table_number)
+    except ValidationError as exc:
+        message = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
+        return JsonResponse({"error": message}, status=400)
+    except Exception:
+        logger.exception(
+            "manual_assign_table failed for quiz %s user %s", quiz.id, user_id
+        )
+        return JsonResponse({"error": "Assignment failed."}, status=500)
+
+    return JsonResponse({"success": True, **result})
+
+
+@login_required
 def consolidate_tables_view(request, quiz_id):
     """Host-only endpoint to compact tables after no-shows.
 

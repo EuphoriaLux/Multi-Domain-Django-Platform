@@ -894,6 +894,178 @@ def dissolve_table(quiz, table_number):
     }
 
 
+def get_unassigned_attendees(quiz):
+    """Return attended-but-unseated users for this quiz.
+
+    An "unassigned" attendee is one whose ``EventRegistration.status`` is
+    ``"attended"`` but who has no ``QuizTableMembership`` on any table of
+    this quiz. Typically the result of ``dissolve_table`` (which deletes
+    memberships when it removes a table) or out-of-band admin actions.
+
+    Returns:
+        list of dicts: ``{user_id, display_name, role}`` where role is
+        derived from gender the same way ``assign_table_on_checkin`` does.
+        Sorted by display_name.
+    """
+    from crush_lu.models.events import EventRegistration
+    from crush_lu.models.quiz import QuizTableMembership
+
+    seated_user_ids = set(
+        QuizTableMembership.objects.filter(table__quiz=quiz).values_list(
+            "user_id", flat=True
+        )
+    )
+    attendees = (
+        EventRegistration.objects.filter(event=quiz.event, status="attended")
+        .exclude(user_id__in=seated_user_ids)
+        .select_related("user", "user__crushprofile")
+    )
+    result = []
+    for reg in attendees:
+        profile = getattr(reg.user, "crushprofile", None)
+        gender = profile.gender if profile else ""
+        display_name = (
+            profile.display_name
+            if profile and profile.display_name
+            else reg.user.username
+        )
+        if gender == "M":
+            role = "anchor"
+        elif gender == "F":
+            role = "rotator"
+        else:
+            role = ""  # decided at assignment time
+        result.append(
+            {
+                "user_id": reg.user_id,
+                "display_name": display_name,
+                "role": role,
+                "gender": gender,
+            }
+        )
+    result.sort(key=lambda r: r["display_name"].lower())
+    return result
+
+
+def manual_assign_table(quiz, user, table_number):
+    """Place an unassigned attendee on a specific quiz table.
+
+    Coach-driven counterpart to ``assign_table_on_checkin`` — the table
+    is chosen by the coach rather than picked by the least-filled rule.
+    Role is still derived from gender (M → anchor, F → rotator, flexible
+    pool fills whichever side is smaller). Refuses if the user already
+    has a ``QuizTableMembership`` for this quiz — use the consolidate
+    flow or admin to move someone already seated.
+
+    Side effects:
+        - Creates ``QuizTableMembership(table=<picked>, user=user)``.
+        - Creates a round-0 ``QuizRotationSchedule`` row.
+        - If the quiz is ``active`` or ``paused``, calls
+          ``generate_rotation_rounds(preserve_current_round=True)`` so
+          the new arrival is seated for future rounds.
+
+    Raises:
+        ValidationError on invalid table number, missing table, user
+        already seated, or quiz in a non-assignable status.
+    """
+    from django.db import transaction
+    from django.db.models import Count
+
+    from crush_lu.models.quiz import (
+        QuizEvent,
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    if not isinstance(table_number, int) or table_number < 1:
+        raise ValidationError("Invalid table number.")
+    if quiz.status == "finished":
+        raise ValidationError("Cannot reassign once the quiz is finished.")
+
+    profile = getattr(user, "crushprofile", None)
+    gender = profile.gender if profile else ""
+
+    with transaction.atomic():
+        locked_quiz = QuizEvent.objects.select_for_update().get(pk=quiz.pk)
+        if table_number > (locked_quiz.num_tables or 0):
+            raise ValidationError(
+                f"Table {table_number} doesn't exist on this quiz."
+            )
+
+        try:
+            table = QuizTable.objects.select_for_update().get(
+                quiz=locked_quiz, table_number=table_number
+            )
+        except QuizTable.DoesNotExist:
+            raise ValidationError(
+                f"Table {table_number} doesn't exist on this quiz."
+            )
+
+        if QuizTableMembership.objects.filter(
+            table__quiz=locked_quiz, user=user
+        ).exists():
+            raise ValidationError(
+                "This user is already seated. Use consolidate to move them."
+            )
+
+        # Determine role — same logic as assign_table_on_checkin.
+        if gender == "M":
+            role = "anchor"
+        elif gender == "F":
+            role = "rotator"
+        else:
+            anchor_count = QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz, round_number=0, role="anchor"
+            ).count()
+            rotator_count = QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz, round_number=0, role="rotator"
+            ).count()
+            role = "anchor" if anchor_count <= rotator_count else "rotator"
+
+        # Rotation group for rotators (matches auto-assign distribution).
+        rotation_group = ""
+        if role == "rotator":
+            num_tables = locked_quiz.num_tables or 0
+            existing_rotators = QuizRotationSchedule.objects.filter(
+                quiz=locked_quiz, round_number=0, role="rotator"
+            ).count()
+            if num_tables and existing_rotators < num_tables:
+                rotation_group = "A"
+            elif num_tables and existing_rotators < num_tables * 2:
+                rotation_group = "B"
+            else:
+                rotation_group = "C"
+
+        QuizTableMembership.objects.create(table=table, user=user)
+        QuizRotationSchedule.objects.update_or_create(
+            quiz=locked_quiz,
+            round_number=0,
+            user=user,
+            defaults={
+                "table": table,
+                "role": role,
+                "rotation_group": rotation_group,
+            },
+        )
+
+    # Pick up future-round seating for active quizzes.
+    if quiz.status in ("active", "paused"):
+        try:
+            generate_rotation_rounds(quiz, preserve_current_round=True)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "manual_assign_table: failed to regenerate rounds for "
+                "quiz=%s user=%s",
+                quiz.pk,
+                user.pk,
+            )
+
+    return {"table_number": table_number, "role": role}
+
+
 def split_participants_by_gender(registrations_with_profiles):
     """
     Split confirmed registrations into men and women lists.

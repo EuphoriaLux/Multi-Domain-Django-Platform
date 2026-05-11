@@ -246,16 +246,22 @@ def quiz_coach_view(request, event_id):
     # instead of relying on the one-shot Django messages flash from the
     # admin generate action.
     rotation_warnings = []
+    unassigned_attendees = []
     if is_quiz_night:
         try:
-            from crush_lu.services.quiz_rotation import compute_rotation_warnings
+            from crush_lu.services.quiz_rotation import (
+                compute_rotation_warnings,
+                get_unassigned_attendees,
+            )
 
             rotation_warnings = compute_rotation_warnings(quiz)
+            unassigned_attendees = get_unassigned_attendees(quiz)
         except Exception:
             import logging
 
             logging.getLogger(__name__).exception(
-                "compute_rotation_warnings failed for quiz %s", quiz.id
+                "rotation warnings / unassigned lookup failed for quiz %s",
+                quiz.id,
             )
 
     context = {
@@ -266,6 +272,8 @@ def quiz_coach_view(request, event_id):
         "is_quiz_night": is_quiz_night,
         "table_members_json": json.dumps(table_members),
         "rotation_warnings": rotation_warnings,
+        "unassigned_attendees": unassigned_attendees,
+        "table_numbers": list(range(1, (quiz.num_tables or 0) + 1)),
     }
     return render(request, "crush_lu/quiz_coach.html", context)
 

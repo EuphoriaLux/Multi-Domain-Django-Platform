@@ -17,6 +17,8 @@ from crush_lu.models.quiz import (
 from crush_lu.services.quiz_rotation import (
     assign_table_on_checkin,
     consolidate_tables,
+    get_unassigned_attendees,
+    manual_assign_table,
 )
 
 
@@ -267,3 +269,82 @@ class TestConsolidateTables:
         with pytest.raises(ValidationError):
             # No entries at all — but there's an excess user that needs a home.
             consolidate_tables(quiz, apply=True, moves_override=[])
+
+
+@pytest.mark.django_db
+class TestManualAssignTable:
+    def _make_attended_orphan(self, quiz, gender):
+        """An attended registration with no QuizTableMembership."""
+        from crush_lu.models.events import EventRegistration
+
+        username = f"orphan_{gender.lower()}_{User.objects.count()}"
+        user = _make_user(username, gender)
+        EventRegistration.objects.create(
+            event=quiz.event,
+            user=user,
+            status="attended",
+            checked_in_at=timezone.now(),
+        )
+        return user
+
+    def test_get_unassigned_lists_attended_without_membership(
+        self, quiz_event_4t
+    ):
+        quiz = quiz_event_4t
+        # One seated (control), one orphan.
+        seated = _make_user("seated_m", "M")
+        _check_in_attended(quiz, seated)
+        orphan = self._make_attended_orphan(quiz, "M")
+
+        unassigned = get_unassigned_attendees(quiz)
+        ids = {u["user_id"] for u in unassigned}
+        assert orphan.id in ids
+        assert seated.id not in ids
+        # Role precomputed from gender.
+        orphan_entry = next(u for u in unassigned if u["user_id"] == orphan.id)
+        assert orphan_entry["role"] == "anchor"
+
+    def test_manual_assign_seats_orphan(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        orphan = self._make_attended_orphan(quiz, "F")  # rotator
+
+        result = manual_assign_table(quiz, orphan, table_number=2)
+        assert result["table_number"] == 2
+        assert result["role"] == "rotator"
+
+        membership = QuizTableMembership.objects.get(
+            table__quiz=quiz, user=orphan
+        )
+        assert membership.table.table_number == 2
+        schedule = QuizRotationSchedule.objects.get(
+            quiz=quiz, round_number=0, user=orphan
+        )
+        assert schedule.table.table_number == 2
+        assert schedule.role == "rotator"
+        assert schedule.rotation_group in ("A", "B", "C")
+
+    def test_manual_assign_rejects_existing_seated_user(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        user = _make_user("already_seated", "M")
+        _check_in_attended(quiz, user)
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, user, table_number=2)
+
+    def test_manual_assign_rejects_invalid_table(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        orphan = self._make_attended_orphan(quiz, "M")
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, orphan, table_number=99)
+        with pytest.raises(ValidationError):
+            manual_assign_table(quiz, orphan, table_number=0)
+
+    def test_orphan_disappears_from_list_after_assignment(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        orphan = self._make_attended_orphan(quiz, "M")
+        assert any(
+            u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz)
+        )
+        manual_assign_table(quiz, orphan, table_number=1)
+        assert not any(
+            u["user_id"] == orphan.id for u in get_unassigned_attendees(quiz)
+        )

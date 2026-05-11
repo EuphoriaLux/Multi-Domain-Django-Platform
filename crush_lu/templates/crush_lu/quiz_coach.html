@@ -96,6 +96,37 @@
                 {% trans "Table Setup" %}
             </h2>
 
+            {# Unassigned attendees — checked in but with no table membership (e.g. their original table was dissolved). One row per orphan with a destination picker. #}
+            {% if unassigned_attendees %}
+            <div class="mb-3 rounded-lg border border-red-600/60 bg-red-950/40 p-3 text-sm">
+                <p class="mb-2 font-semibold text-red-200">{% trans "Unassigned attendees" %}</p>
+                <p class="mb-3 text-xs text-red-200/80">{% trans "These people are checked in but have no table. Pick a destination for each." %}</p>
+                <ul class="space-y-2">
+                    {% for u in unassigned_attendees %}
+                    <li class="flex flex-wrap items-center gap-2 rounded bg-slate-800/60 p-2">
+                        <span class="flex-1 text-sm font-medium text-white">{{ u.display_name }}</span>
+                        {% if u.role %}
+                        <span class="rounded bg-slate-700 px-2 py-0.5 text-xs text-gray-300">
+                            {% if u.role == 'anchor' %}{% trans "Anchor" %}{% else %}{% trans "Rotator" %}{% endif %}
+                        </span>
+                        {% endif %}
+                        <select data-assign-select="{{ u.user_id }}"
+                                class="rounded border border-red-700 bg-slate-900 px-2 py-1 text-xs text-red-100">
+                            {% for n in table_numbers %}
+                            <option value="{{ n }}">{% trans "Table" %} {{ n }}</option>
+                            {% endfor %}
+                        </select>
+                        <button x-on:click="assignAttendeeFromEl"
+                                data-user-id="{{ u.user_id }}"
+                                class="rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60">
+                            {% trans "Assign" %}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
             {# Consolidate Tables: shrink num_tables to fit attended count after no-shows. Only available before the quiz starts. #}
             <button x-on:click="previewConsolidation"
                     x-show="canConsolidate"

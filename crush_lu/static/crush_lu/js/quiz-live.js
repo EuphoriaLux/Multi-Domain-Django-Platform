@@ -1413,6 +1413,56 @@ document.addEventListener("alpine:init", function () {
                     .catch(function () {});
             },
 
+            // --- Manual seating: assign an unassigned attendee to a table ---
+
+            assignAttendeeFromEl: function () {
+                var btn = this.$el;
+                var userId = parseInt(btn.getAttribute("data-user-id"), 10);
+                if (!userId) return;
+                var sel = document.querySelector(
+                    'select[data-assign-select="' + userId + '"]',
+                );
+                if (!sel) return;
+                var tableNumber = parseInt(sel.value, 10);
+                if (!tableNumber) return;
+                btn.disabled = true;
+                var self = this;
+                fetch("/api/quiz/" + this.quizId + "/assign-table/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this._getCsrfToken(),
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        table_number: tableNumber,
+                    }),
+                })
+                    .then(function (resp) {
+                        return resp.json().then(function (data) {
+                            return { ok: resp.ok, data: data };
+                        });
+                    })
+                    .then(function (res) {
+                        if (!res.ok) {
+                            btn.disabled = false;
+                            self.showError(
+                                res.data && res.data.error
+                                    ? res.data.error
+                                    : "Assignment failed.",
+                            );
+                            return;
+                        }
+                        // Reload to refresh the orphan list + table overview.
+                        window.location.reload();
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        self.showError("Assignment failed.");
+                    });
+            },
+
             // --- Table consolidation (compact after no-shows) ---
 
             previewConsolidation: function () {

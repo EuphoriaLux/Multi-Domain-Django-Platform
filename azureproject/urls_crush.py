@@ -255,6 +255,7 @@ urlpatterns = base_patterns + api_patterns + [
     path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
     path('api/quiz/<int:quiz_id>/mark-attended/', api_quiz.mark_attended, name='api_quiz_mark_attended'),
     path('api/quiz/<int:quiz_id>/consolidate-tables/', api_quiz.consolidate_tables_view, name='api_quiz_consolidate_tables'),
+    path('api/quiz/<int:quiz_id>/assign-table/', api_quiz.assign_table_view, name='api_quiz_assign_table'),
 
     # Quiz table display — redirect legacy /quiz/<id>/display/ to language-prefixed URL
     # The actual view lives in i18n_patterns below so Django's LocaleMiddleware sets
