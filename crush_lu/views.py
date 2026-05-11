@@ -148,6 +148,7 @@ from .views_coach import (  # noqa: F401
     coach_log_whatsapp_sent,
     coach_review_profile,
     coach_send_pre_screening_reminder,
+    coach_offer_self_booking,
     coach_set_screening_mode,
     coach_preview_email,
     coach_sessions,

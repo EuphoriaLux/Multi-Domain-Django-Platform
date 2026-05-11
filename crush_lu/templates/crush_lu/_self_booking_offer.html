@@ -1,0 +1,51 @@
+{% load i18n %}
+{% comment %}
+Coach-side self-booking offer block.
+
+Two states, switched on `submission.fallback_offered_at`:
+  * Not offered yet → button to mint booking_token + email the user
+  * Already offered → status line + booking link reminder
+
+Used both as the include in coach_review_profile.html and as the HTMX
+swap target returned by `coach_offer_self_booking`.
+{% endcomment %}
+<section id="self-booking-offer" class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-800/50 px-5 py-4">
+  <div class="flex items-start gap-3">
+    <div class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
+      {% include "shared/icons/calendar-check.html" with class="w-5 h-5 text-crush-purple dark:text-purple-300" %}
+    </div>
+    <div class="flex-1 min-w-0">
+      {% if submission.fallback_offered_at %}
+        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+          {% trans "Self-booking offered" %}
+          <span class="font-normal text-gray-500 dark:text-gray-400">
+            &middot; {{ submission.fallback_offered_at|timesince }} {% trans "ago" %}
+          </span>
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+          {% if submission.booking_token_expires_at %}
+            {% blocktrans with expires=submission.booking_token_expires_at|timeuntil %}Booking link valid for another {{ expires }}.{% endblocktrans %}
+          {% else %}
+            {% trans "Booking link sent by email." %}
+          {% endif %}
+        </p>
+      {% else %}
+        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+          {% trans "Offer self-booking" %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          {% trans "Skip the 48-hour wait — email the candidate a link to book a screening slot themselves." %}
+        </p>
+        <button type="button"
+                hx-post="{% url 'crush_lu:coach_offer_self_booking' submission.id %}"
+                hx-target="#self-booking-offer"
+                hx-swap="outerHTML"
+                hx-confirm="{% trans 'Send the self-booking link to this candidate now?' %}"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-crush-purple text-white hover:bg-purple-700 transition-colors">
+          {% include "shared/icons/paper-airplane.html" with class="w-3.5 h-3.5" %}
+          {% trans "Offer self-booking now" %}
+        </button>
+      {% endif %}
+    </div>
+  </div>
+</section>

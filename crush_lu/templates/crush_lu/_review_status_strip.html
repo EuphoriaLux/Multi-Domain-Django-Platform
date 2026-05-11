@@ -1,0 +1,159 @@
+{% load i18n pre_screening_tags %}
+{% comment %}
+Coach review at-a-glance status strip. Four pills, single horizontal row,
+wraps on narrow viewports. Rendered above the Profile Summary card so the
+coach sees readiness/booking/call/risk before scrolling.
+
+Context required:
+  submission           — ProfileSubmission
+  profile              — CrushProfile
+  social_account       — allauth SocialAccount or None
+  last_call_attempt    — CallAttempt or None
+  latest_booked_slot   — ScreeningSlot or None
+  pre_screening_enabled — bool
+{% endcomment %}
+
+{% with score=submission.pre_screening_readiness_score score_label=submission.pre_screening_readiness_score|prescreening_score_label %}
+<section aria-label="{% trans 'Review status' %}"
+         class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+  <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+    {# ── Pre-screening readiness ── #}
+    <li class="flex items-start gap-3">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full
+                  {% if score_label == 'high' %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-300
+                  {% elif score_label == 'medium' %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300
+                  {% elif score_label == 'low' %}bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300
+                  {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}
+                  flex items-center justify-center">
+        {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4" %}
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-0.5">
+          {% trans "Pre-screening" %}
+        </p>
+        {% if not pre_screening_enabled %}
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "Disabled" %}</p>
+        {% elif submission.pre_screening_submitted_at and score is not None %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% blocktrans with score=score %}Ready {{ score }}/10{% endblocktrans %}
+          </p>
+          {% if submission.pre_screening_flags %}
+            <p class="text-xs text-amber-600 dark:text-amber-400 mb-0">
+              {% blocktrans count n=submission.pre_screening_flags|length %}{{ n }} flag{% plural %}{{ n }} flags{% endblocktrans %}
+            </p>
+          {% endif %}
+        {% elif submission.pre_screening_submitted_at %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{% trans "Submitted" %}</p>
+        {% else %}
+          <p class="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-0">{% trans "Not submitted" %}</p>
+        {% endif %}
+      </div>
+    </li>
+
+    {# ── Booking offer / slot ── #}
+    <li class="flex items-start gap-3">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full
+                  {% if latest_booked_slot %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-300
+                  {% elif submission.fallback_offered_at %}bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300
+                  {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}
+                  flex items-center justify-center">
+        {% include "shared/icons/calendar-check.html" with class="w-4 h-4" %}
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-0.5">
+          {% trans "Booking" %}
+        </p>
+        {% if latest_booked_slot %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% blocktrans with when=latest_booked_slot.start_at|date:"D d M, H:i" %}Slot {{ when }}{% endblocktrans %}
+          </p>
+        {% elif submission.fallback_offered_at %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% blocktrans with ago=submission.fallback_offered_at|timesince %}Offered {{ ago }} ago{% endblocktrans %}
+          </p>
+          {% if submission.booking_token_expires_at %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+              {% blocktrans with expires=submission.booking_token_expires_at|timeuntil %}Expires in {{ expires }}{% endblocktrans %}
+            </p>
+          {% endif %}
+        {% else %}
+          <p class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0">{% trans "Not offered" %}</p>
+        {% endif %}
+      </div>
+    </li>
+
+    {# ── Last call attempt ── #}
+    <li class="flex items-start gap-3">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full
+                  {% if submission.review_call_completed %}bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-300
+                  {% elif last_call_attempt %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300
+                  {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}
+                  flex items-center justify-center">
+        {% include "shared/icons/phone.html" with class="w-4 h-4" %}
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-0.5">
+          {% trans "Last call" %}
+        </p>
+        {% if submission.review_call_completed %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% trans "Completed" %}
+            {% if submission.review_call_date %}
+              <span class="font-normal text-gray-500 dark:text-gray-400">· {{ submission.review_call_date|date:"d M" }}</span>
+            {% endif %}
+          </p>
+        {% elif last_call_attempt %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0 truncate">
+            {{ last_call_attempt.get_result_display }}
+          </p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+            {{ last_call_attempt.attempt_date|timesince }} {% trans "ago" %}
+          </p>
+        {% else %}
+          <p class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0">{% trans "Not attempted" %}</p>
+        {% endif %}
+      </div>
+    </li>
+
+    {# ── Account / risk signals ── #}
+    <li class="flex items-start gap-3">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full
+                  {% if profile.is_approved or submission.revision_round %}bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300
+                  {% elif not profile.is_active %}bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300
+                  {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}
+                  flex items-center justify-center">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-4 h-4" %}
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-0.5">
+          {% trans "Account" %}
+        </p>
+        {% if not profile.is_active %}
+          <p class="text-sm font-semibold text-red-700 dark:text-red-300 mb-0">{% trans "Inactive" %}</p>
+        {% elif submission.revision_round %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% blocktrans with n=submission.revision_round %}Revision #{{ n }}{% endblocktrans %}
+          </p>
+          {% if profile.is_approved %}
+            <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{% trans "Approved before" %}</p>
+          {% endif %}
+        {% elif profile.is_approved %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{% trans "Re-submission" %}</p>
+          <p class="text-xs text-blue-600 dark:text-blue-400 mb-0">{% trans "Approved before" %}</p>
+        {% else %}
+          <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+            {% blocktrans with age=profile.user.date_joined|timesince %}New · {{ age }}{% endblocktrans %}
+          </p>
+          {% if social_account %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 capitalize">
+              {{ social_account.provider }}
+            </p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </li>
+
+  </ul>
+</section>
+{% endwith %}

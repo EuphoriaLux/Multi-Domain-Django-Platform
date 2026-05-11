@@ -1,6 +1,8 @@
 {% load i18n pre_screening_tags %}
-{# Coach-facing display of a user's pre-screening answers. Always visible on
-   coach_review_profile.html; three states: submitted / not submitted / flag off. #}
+{% comment %}
+Coach-facing display of a user's pre-screening answers. Always visible on
+coach_review_profile.html; three states: submitted / not submitted / flag off.
+{% endcomment %}
 {% prescreening_schema as ps_schema %}
 
 {% if not pre_screening_enabled %}

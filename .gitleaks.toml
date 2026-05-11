@@ -15,6 +15,7 @@ paths = [
   '''.*/tests/.*\.py''',       # Test fixtures and sample data
   '''SECURITY_ALERT_.*\.md''', # Security documentation
   '''.*views_webhook\.py''',   # Webhook documentation in docstrings
+  '''docs/superpowers/plans/.*\.md''', # Planning docs contain test-code snippets with PEM header literals
 ]
 regexes = [
   # Key Vault Secrets User role ID (public Azure RBAC GUID)
@@ -33,4 +34,9 @@ regexes = [
   # Test fixture placeholders (Web Push p256dh keys)
   '''blank=True.*help_text=.*token''',
   '''p256dh_key=.*test.*''',
+
+  # Crush.lu admin user-segment keys (e.g. gender_m_age_35_plus) trigger
+  # the generic-api-key rule because of length/charset. They're UI labels,
+  # not credentials.
+  '''gender_[a-z]+_age_[0-9a-z_]+''',
 ]

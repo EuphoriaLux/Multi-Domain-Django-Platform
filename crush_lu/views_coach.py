@@ -1262,6 +1262,17 @@ def coach_review_profile(request, submission_id):
     pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
     can_send_prescreening_sms = bool(profile.phone_number and profile.phone_verified)
 
+    # Status-strip lookups: latest call attempt + next/most-recent booked slot.
+    # Keep these out of the template so the strip stays cheap to render.
+    last_call_attempt = (
+        submission.call_attempts.order_by("-attempt_date").first()
+    )
+    latest_booked_slot = (
+        submission.booked_slots.filter(status="booked")
+        .order_by("start_at")
+        .first()
+    )
+
     context = {
         "submission": submission,
         "profile": profile,
@@ -1269,6 +1280,8 @@ def coach_review_profile(request, submission_id):
         "social_account": social_account,
         "pre_screening_enabled": pre_screening_enabled,
         "can_send_prescreening_sms": can_send_prescreening_sms,
+        "last_call_attempt": last_call_attempt,
+        "latest_booked_slot": latest_booked_slot,
     }
     context.update(outreach)
     return render(request, "crush_lu/coach_review_profile.html", context)
@@ -1393,6 +1406,100 @@ def coach_send_pre_screening_reminder(request, submission_id):
         + "</p>"
     )
     return HttpResponse(html)
+
+
+@coach_required
+@require_http_methods(["POST"])
+def coach_offer_self_booking(request, submission_id):
+    """HTMX: coach manually offers self-booking — bypasses 48h SLA wait.
+
+    Mints booking_token, sets fallback_offered_at, logs system action, and
+    enqueues the same email the SLA sweep would send. Idempotent: returns
+    a status partial without re-sending if fallback_offered_at is already
+    set. Mirrors the eligibility gates of api_admin_hybrid.sla_sweep so a
+    direct POST can't bypass the same closed-flow guards.
+    """
+    import uuid
+    from django.conf import settings as _settings
+    from .api_admin_hybrid import FALLBACK_TOKEN_TTL
+    from .tasks import send_sla_fallback_email_task
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+
+    if not getattr(_settings, "HYBRID_COACH_SYSTEM_ENABLED", False):
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Hybrid coach system is disabled."))
+            + "</p>",
+            status=410,
+        )
+
+    # Already offered — render current status, do not re-send.
+    if submission.fallback_offered_at:
+        return render(
+            request,
+            "crush_lu/_self_booking_offer.html",
+            {"submission": submission},
+        )
+
+    closed = (
+        submission.status != "pending"
+        or submission.review_call_completed
+        or submission.is_paused
+    )
+    if closed:
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Self-booking can no longer be offered for this submission."))
+            + "</p>",
+            status=400,
+        )
+
+    now = timezone.now()
+    try:
+        with transaction.atomic():
+            submission.fallback_offered_at = now
+            submission.booking_token = uuid.uuid4()
+            submission.booking_token_expires_at = now + FALLBACK_TOKEN_TTL
+            submission.log_system_action(
+                "fallback_offered",
+                actor=f"coach:{coach.user.username}",
+                reason="coach_initiated",
+            )
+            submission.save(
+                update_fields=[
+                    "fallback_offered_at",
+                    "booking_token",
+                    "booking_token_expires_at",
+                    "system_actions",
+                ]
+            )
+            send_sla_fallback_email_task.enqueue(
+                submission_id=submission.pk,
+                host=request.get_host(),
+                is_secure=request.is_secure(),
+            )
+    except Exception:
+        logger.exception(
+            "[coach_offer_self_booking] Failed for submission %s", submission.pk
+        )
+        return HttpResponse(
+            '<p class="text-xs text-red-600 dark:text-red-400">'
+            + str(_("Could not send the booking offer. Try again."))
+            + "</p>",
+            status=500,
+        )
+
+    return render(
+        request,
+        "crush_lu/_self_booking_offer.html",
+        {"submission": submission},
+    )
 
 
 @coach_required
