@@ -235,9 +235,7 @@
                 </button>
             </div>
 
-            {# Reset Quiz — only shown when finished/paused. Two-tap
-               confirmation to avoid accidental reset of a completed
-               session. #}
+            {# Reset Quiz — only shown when finished/paused. Two-tap confirmation to avoid accidental reset. #}
             <button x-on:click="resetQuiz"
                     x-show="canReset"
                     x-bind:class="resetQuizBtnClass"
