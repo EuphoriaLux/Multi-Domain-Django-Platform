@@ -614,13 +614,14 @@ def consolidate_tables_view(request, quiz_id):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     apply = bool(body.get("apply", False))
+    moves_override = body.get("moves") if apply else None
 
     from django.core.exceptions import ValidationError
 
     from crush_lu.services.quiz_rotation import consolidate_tables
 
     try:
-        result = consolidate_tables(quiz, apply=apply)
+        result = consolidate_tables(quiz, apply=apply, moves_override=moves_override)
     except ValidationError as exc:
         message = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
         return JsonResponse({"error": message}, status=400)

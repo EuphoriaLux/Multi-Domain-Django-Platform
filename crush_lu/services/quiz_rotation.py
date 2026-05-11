@@ -933,7 +933,7 @@ def split_participants_by_gender(registrations_with_profiles):
     return men, women
 
 
-def consolidate_tables(quiz, *, apply=False):
+def consolidate_tables(quiz, *, apply=False, moves_override=None):
     """Compact tables to fit the number of people who actually checked in.
 
     After QR check-ins finish, registrants who never showed up leave their
@@ -951,6 +951,11 @@ def consolidate_tables(quiz, *, apply=False):
         quiz: QuizEvent instance.
         apply: when True, commit the moves and regenerate rounds 1+;
             when False, just return the plan (dry run).
+        moves_override: optional list of ``{"user_id": int, "to_table": int}``
+            dicts. When provided alongside ``apply=True``, the coach's
+            destination choices replace the auto-suggested ones. Every
+            excess user must be present exactly once, and each ``to_table``
+            must be in ``1..new_num_tables`` — otherwise ValidationError.
 
     Returns:
         dict: see structure in the planning doc — always includes
@@ -1069,6 +1074,51 @@ def consolidate_tables(quiz, *, apply=False):
         n: keeper_role_counts[n]["anchor"] + keeper_role_counts[n]["rotator"]
         for n in range(1, new_num_tables + 1)
     }
+
+    # If the coach supplied an override (per-user destination), validate
+    # and substitute it for the auto-balanced suggestion. The override
+    # only changes the to_table column; the set of users to move and the
+    # tables removed are still derived from the attended/excess snapshot.
+    if apply and moves_override is not None:
+        if not isinstance(moves_override, list):
+            raise ValidationError("Invalid moves override format.")
+        excess_user_ids = {m["user_id"] for m in moves}
+        override_by_user = {}
+        for entry in moves_override:
+            try:
+                uid = int(entry["user_id"])
+                target = int(entry["to_table"])
+            except (KeyError, TypeError, ValueError):
+                raise ValidationError("Invalid moves override format.")
+            if uid not in excess_user_ids:
+                raise ValidationError(
+                    f"User {uid} is not on a removed table."
+                )
+            if not (1 <= target <= new_num_tables):
+                raise ValidationError(
+                    f"Table {target} is not a valid destination."
+                )
+            override_by_user[uid] = target
+        missing = excess_user_ids - set(override_by_user)
+        if missing:
+            raise ValidationError(
+                "Every person on a removed table needs a destination."
+            )
+        # Rewrite moves + recompute table_sizes_after from the override.
+        new_keeper_role_counts = defaultdict(
+            lambda: {"anchor": 0, "rotator": 0}
+        )
+        for r in round_0:
+            if r.table.table_number <= new_num_tables:
+                new_keeper_role_counts[r.table.table_number][r.role] += 1
+        for move in moves:
+            move["to_table"] = override_by_user[move["user_id"]]
+            new_keeper_role_counts[move["to_table"]][move["role"]] += 1
+        table_sizes_after = {
+            n: new_keeper_role_counts[n]["anchor"]
+            + new_keeper_role_counts[n]["rotator"]
+            for n in range(1, new_num_tables + 1)
+        }
 
     result = {
         "changed": True,

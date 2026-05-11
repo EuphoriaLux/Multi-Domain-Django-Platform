@@ -1431,6 +1431,13 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 if (this.consolidationLoading) return;
                 this.consolidationLoading = true;
+                var payload = { apply: !!apply };
+                if (apply && this.consolidationPreview && this.consolidationPreview.moves) {
+                    // Send the coach's (possibly edited) destination per user.
+                    payload.moves = this.consolidationPreview.moves.map(function (m) {
+                        return { user_id: m.user_id, to_table: m.to_table };
+                    });
+                }
                 fetch(
                     "/api/quiz/" + this.quizId + "/consolidate-tables/",
                     {
@@ -1440,7 +1447,7 @@ document.addEventListener("alpine:init", function () {
                             "Content-Type": "application/json",
                             "X-CSRFToken": this._getCsrfToken(),
                         },
-                        body: JSON.stringify({ apply: !!apply }),
+                        body: JSON.stringify(payload),
                     },
                 )
                     .then(function (resp) {
@@ -1484,15 +1491,53 @@ document.addEventListener("alpine:init", function () {
                 ul.innerHTML = "";
                 if (!this.consolidationPreview) return;
                 var moves = this.consolidationPreview.moves || [];
-                var tmpl = this._i18n.consolidateMove;
+                var newNumTables = this.consolidationPreview.new_num_tables || 0;
+                var self = this;
                 for (var i = 0; i < moves.length; i++) {
                     var m = moves[i];
                     var li = document.createElement("li");
-                    li.textContent = tmpl
-                        .replace("{name}", m.display_name)
-                        .replace("{from}", m.from_table)
-                        .replace("{to}", m.to_table)
-                        .replace("{role}", m.role);
+                    li.className = "flex flex-wrap items-center gap-1";
+
+                    var nameSpan = document.createElement("span");
+                    nameSpan.className = "font-medium";
+                    nameSpan.textContent = m.display_name;
+                    li.appendChild(nameSpan);
+
+                    var fromSpan = document.createElement("span");
+                    fromSpan.textContent =
+                        ": " + self._i18n.table + " " + m.from_table + " →";
+                    li.appendChild(fromSpan);
+
+                    // Editable destination — coach can override the suggested table.
+                    var sel = document.createElement("select");
+                    sel.className =
+                        "rounded bg-slate-800 border border-amber-700 px-1 py-0.5 text-xs text-amber-100";
+                    sel.setAttribute("data-move-index", String(i));
+                    for (var t = 1; t <= newNumTables; t++) {
+                        var opt = document.createElement("option");
+                        opt.value = String(t);
+                        opt.textContent = self._i18n.table + " " + t;
+                        if (t === m.to_table) opt.selected = true;
+                        sel.appendChild(opt);
+                    }
+                    sel.addEventListener("change", function () {
+                        var idx = parseInt(this.getAttribute("data-move-index"), 10);
+                        var val = parseInt(this.value, 10);
+                        if (
+                            self.consolidationPreview &&
+                            self.consolidationPreview.moves &&
+                            self.consolidationPreview.moves[idx]
+                        ) {
+                            self.consolidationPreview.moves[idx].to_table = val;
+                        }
+                    });
+                    li.appendChild(sel);
+
+                    var roleSpan = document.createElement("span");
+                    roleSpan.className = "text-amber-200/80";
+                    roleSpan.textContent = "(" + m.role + ")";
+                    li.appendChild(roleSpan);
+
                     ul.appendChild(li);
                 }
             },

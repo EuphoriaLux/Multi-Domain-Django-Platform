@@ -218,3 +218,52 @@ class TestConsolidateTables:
         quiz = quiz_event_4t
         with pytest.raises(ValidationError):
             consolidate_tables(quiz, apply=False)
+
+    def test_apply_with_coach_moves_override(self, quiz_event_4t):
+        """Coach picks the destination for the excess rotator instead of
+        accepting the auto-balanced suggestion. The override must win."""
+        quiz = quiz_event_4t
+        self._seat_3M_4F(quiz)
+
+        preview = consolidate_tables(quiz, apply=False)
+        assert preview["changed"] is True
+        assert preview["new_num_tables"] == 3
+        assert len(preview["moves"]) == 1
+        excess_user_id = preview["moves"][0]["user_id"]
+        suggested = preview["moves"][0]["to_table"]
+        # Pick a different keeper table than the suggestion.
+        coach_pick = next(t for t in (1, 2, 3) if t != suggested)
+
+        override = [{"user_id": excess_user_id, "to_table": coach_pick}]
+        result = consolidate_tables(quiz, apply=True, moves_override=override)
+
+        assert result["changed"] is True
+        assert result["moves"][0]["to_table"] == coach_pick
+
+        # Verify the user actually landed at the coach's pick.
+        membership = QuizTableMembership.objects.get(
+            table__quiz=quiz, user_id=excess_user_id
+        )
+        assert membership.table.table_number == coach_pick
+
+    def test_override_rejects_invalid_destination(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        self._seat_3M_4F(quiz)
+        preview = consolidate_tables(quiz, apply=False)
+        excess_user_id = preview["moves"][0]["user_id"]
+
+        # Table 99 doesn't exist.
+        with pytest.raises(ValidationError):
+            consolidate_tables(
+                quiz,
+                apply=True,
+                moves_override=[{"user_id": excess_user_id, "to_table": 99}],
+            )
+
+    def test_override_rejects_missing_user(self, quiz_event_4t):
+        quiz = quiz_event_4t
+        self._seat_3M_4F(quiz)
+        consolidate_tables(quiz, apply=False)
+        with pytest.raises(ValidationError):
+            # No entries at all — but there's an excess user that needs a home.
+            consolidate_tables(quiz, apply=True, moves_override=[])
