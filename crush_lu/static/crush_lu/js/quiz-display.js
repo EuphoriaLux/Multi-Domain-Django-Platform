@@ -158,7 +158,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get scoringProgressText() {
-                return this.scoredCount + " / " + this.totalTables + " " + strTablesScored;
+                return (
+                    this.scoredCount + " / " + this.totalTables + " " + strTablesScored
+                );
             },
             get scoringBarStyle() {
                 var pct =
@@ -531,7 +533,8 @@ document.addEventListener("alpine:init", function () {
                 }
 
                 // Start countdown — use nullish check so time_remaining=0 is respected
-                var time = (data.time_remaining != null) ? data.time_remaining : (data.time || 30);
+                var time =
+                    data.time_remaining != null ? data.time_remaining : data.time || 30;
                 this.countdownTotal = data.time || 30;
                 this.startCountdown(time);
 
@@ -558,7 +561,8 @@ document.addEventListener("alpine:init", function () {
                     });
                 }
 
-                var time = (data.time_remaining != null) ? data.time_remaining : (data.time || 30);
+                var time =
+                    data.time_remaining != null ? data.time_remaining : data.time || 30;
                 this.countdownTotal = data.time || 30;
                 this.startCountdown(time);
 
@@ -807,13 +811,7 @@ document.addEventListener("alpine:init", function () {
             // IMPERATIVE DOM RENDERING (CSP-safe, no x-for with nested props)
             // ============================================================
 
-            escapeHtml: function (text) {
-                var div = document.createElement("div");
-                div.textContent = text;
-                return div.innerHTML;
-            },
-
-            _avatarHtml: function (member, size) {
+            _avatarNode: function (member, size) {
                 var s = size || "sm";
                 var dim = s === "lg" ? "h-10 w-10 text-sm" : "h-7 w-7 text-xs";
                 var imgDim = s === "lg" ? "h-10 w-10" : "h-7 w-7";
@@ -821,93 +819,122 @@ document.addEventListener("alpine:init", function () {
                     member.initials || member.display_name.slice(0, 2).toUpperCase();
                 var color = member.color || "#8B5CF6";
 
+                var fragment = document.createDocumentFragment();
+
                 if (member.photo_url) {
-                    return (
-                        '<img src="' +
-                        this.escapeHtml(member.photo_url) +
-                        '" alt="" class="shrink-0 rounded-full object-cover ring-2 ring-slate-700 ' +
-                        imgDim +
-                        "\" onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\">" +
-                        '<div class="shrink-0 rounded-full items-center justify-center font-bold text-white ' +
-                        dim +
-                        '" style="display:none;background:' +
-                        color +
-                        '">' +
-                        this.escapeHtml(initials) +
-                        "</div>"
-                    );
+                    var img = document.createElement("img");
+                    img.src = member.photo_url;
+                    img.alt = "";
+                    img.className =
+                        "shrink-0 rounded-full object-cover ring-2 ring-slate-700 " +
+                        imgDim;
+                    var fallback = document.createElement("div");
+                    fallback.className =
+                        "shrink-0 rounded-full items-center justify-center font-bold text-white " +
+                        dim;
+                    fallback.style.display = "none";
+                    fallback.style.background = color;
+                    fallback.textContent = initials;
+                    img.onerror = function () {
+                        this.style.display = "none";
+                        fallback.style.display = "flex";
+                    };
+                    fragment.appendChild(img);
+                    fragment.appendChild(fallback);
+                    return fragment;
                 }
-                return (
-                    '<div class="shrink-0 rounded-full flex items-center justify-center font-bold text-white ' +
-                    dim +
-                    '" style="background:' +
-                    color +
-                    '">' +
-                    this.escapeHtml(initials) +
-                    "</div>"
-                );
+
+                var div = document.createElement("div");
+                div.className =
+                    "shrink-0 rounded-full flex items-center justify-center font-bold text-white " +
+                    dim;
+                div.style.background = color;
+                div.textContent = initials;
+                fragment.appendChild(div);
+                return fragment;
             },
 
             renderTables: function () {
                 var grid = this.$refs.tablegrid;
                 if (!grid) return;
-                grid.innerHTML = "";
+                grid.replaceChildren();
                 var self = this;
                 this.tables.forEach(function (table) {
                     var card = document.createElement("div");
                     card.className =
-                        "rounded-2xl bg-gradient-to-b from-slate-800 to-slate-800/80 p-5 shadow-xl ring-1 ring-white/10";
+                        "rounded-2xl bg-gradient-to-b from-slate-800 to-slate-800/80 p-6 shadow-xl ring-1 ring-white/10";
 
                     // Header with table number badge and score
                     var header = document.createElement("div");
-                    header.className = "flex items-center justify-between mb-4";
-                    var scoreHtml =
-                        table.total_score > 0
-                            ? '<span class="rounded-full bg-crush-pink/20 px-3 py-1 text-sm font-bold text-crush-pink">' +
-                              table.total_score +
-                              " " + strPts + "</span>"
-                            : '<span class="rounded-full bg-slate-700 px-3 py-1 text-sm font-medium text-gray-400">' +
-                              table.members.length +
-                              " " + strPlayers + "</span>";
-                    header.innerHTML =
-                        '<div class="flex items-center gap-3">' +
-                        '<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-crush-purple to-crush-pink text-lg font-bold text-white shadow-lg shadow-crush-purple/20">' +
-                        table.table_number +
-                        "</div>" +
-                        '<span class="text-lg font-bold text-white">' + strTable + ' ' +
-                        table.table_number +
-                        "</span></div>" +
-                        scoreHtml;
+                    header.className = "flex items-center justify-between mb-5";
+
+                    var leftGroup = document.createElement("div");
+                    leftGroup.className = "flex items-center gap-3";
+
+                    var badge = document.createElement("div");
+                    badge.className =
+                        "flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-crush-purple to-crush-pink text-2xl font-bold text-white shadow-lg shadow-crush-purple/30";
+                    badge.textContent = String(table.table_number);
+                    leftGroup.appendChild(badge);
+
+                    var label = document.createElement("span");
+                    label.className = "text-2xl font-bold text-white";
+                    label.textContent = strTable + " " + table.table_number;
+                    leftGroup.appendChild(label);
+
+                    header.appendChild(leftGroup);
+
+                    var score = document.createElement("span");
+                    if (table.total_score > 0) {
+                        score.className =
+                            "rounded-full bg-crush-pink/20 px-4 py-1.5 text-base font-bold text-crush-pink";
+                        score.textContent = table.total_score + " " + strPts;
+                    } else {
+                        score.className =
+                            "rounded-full bg-slate-700 px-4 py-1.5 text-base font-medium text-gray-300";
+                        score.textContent = table.members.length + " " + strPlayers;
+                    }
+                    header.appendChild(score);
+
                     card.appendChild(header);
 
                     // Members with avatars
                     if (table.members.length === 0) {
                         var empty = document.createElement("div");
                         empty.className =
-                            "flex items-center justify-center py-4 text-sm text-gray-500 italic";
+                            "flex items-center justify-center py-6 text-base text-gray-500 italic";
                         empty.textContent = strWaiting;
                         card.appendChild(empty);
                     } else {
                         var list = document.createElement("div");
-                        list.className = "space-y-1.5";
+                        list.className = "space-y-2";
                         table.members.forEach(function (m) {
                             var row = document.createElement("div");
                             row.className =
-                                "flex items-center gap-2.5 rounded-lg bg-slate-700/40 px-3 py-2";
-                            var roleHtml = "";
+                                "flex items-center gap-4 rounded-lg bg-slate-700/40 px-3 py-3";
+
+                            row.appendChild(self._avatarNode(m, "lg"));
+
+                            var name = document.createElement("span");
+                            name.className =
+                                "text-xl font-semibold text-white truncate";
+                            name.textContent = m.display_name;
+                            row.appendChild(name);
+
                             if (m.role === "anchor") {
-                                roleHtml =
-                                    '<span class="ml-auto text-xs text-blue-400 font-medium">\u2693 ' + strAnchor + '</span>';
+                                var anchor = document.createElement("span");
+                                anchor.className =
+                                    "ml-auto text-sm text-blue-400 font-semibold";
+                                anchor.textContent = "\u2693 " + strAnchor;
+                                row.appendChild(anchor);
                             } else if (m.role === "rotator") {
-                                roleHtml =
-                                    '<span class="ml-auto text-xs text-pink-400 font-medium">\u21BB ' + strRotator + '</span>';
+                                var rotator = document.createElement("span");
+                                rotator.className =
+                                    "ml-auto text-sm text-pink-400 font-semibold";
+                                rotator.textContent = "\u21BB " + strRotator;
+                                row.appendChild(rotator);
                             }
-                            row.innerHTML =
-                                self._avatarHtml(m) +
-                                '<span class="text-sm font-medium text-white">' +
-                                self.escapeHtml(m.display_name) +
-                                "</span>" +
-                                roleHtml;
+
                             list.appendChild(row);
                         });
                         card.appendChild(list);
@@ -940,7 +967,7 @@ document.addEventListener("alpine:init", function () {
             renderReveal: function () {
                 var grid = this.$refs.revealgrid;
                 if (!grid) return;
-                grid.innerHTML = "";
+                grid.replaceChildren();
                 var self = this;
                 var pts = this.questionPoints || 10;
                 if (this.isBonusRound) pts *= 2;
@@ -956,17 +983,32 @@ document.addEventListener("alpine:init", function () {
                         bgClass;
                     card.style.animationDelay = idx * 0.12 + "s";
 
-                    var icon = correct
-                        ? '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20 mb-3"><span class="text-4xl">\u2705</span></div>'
-                        : '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20 mb-3"><span class="text-4xl">\u274C</span></div>';
-                    var pointsHtml = correct
-                        ? '<span class="text-sm font-bold text-green-400">+' +
-                          pts +
-                          " " + strPts + "</span>"
-                        : '<span class="text-sm font-medium text-red-400/70">+0 ' + strPts + '</span>';
+                    var iconWrap = document.createElement("div");
+                    iconWrap.className =
+                        "flex h-16 w-16 items-center justify-center rounded-full mb-3 " +
+                        (correct ? "bg-green-500/20" : "bg-red-500/20");
+                    var iconChar = document.createElement("span");
+                    iconChar.className = "text-4xl";
+                    iconChar.textContent = correct ? "\u2705" : "\u274C";
+                    iconWrap.appendChild(iconChar);
+                    card.appendChild(iconWrap);
+
+                    var tableLabel = document.createElement("span");
+                    tableLabel.className = "text-xl font-bold text-white mb-1";
+                    tableLabel.textContent = strTable + " " + result.table_number;
+                    card.appendChild(tableLabel);
+
+                    var pointsEl = document.createElement("span");
+                    if (correct) {
+                        pointsEl.className = "text-sm font-bold text-green-400";
+                        pointsEl.textContent = "+" + pts + " " + strPts;
+                    } else {
+                        pointsEl.className = "text-sm font-medium text-red-400/70";
+                        pointsEl.textContent = "+0 " + strPts;
+                    }
+                    card.appendChild(pointsEl);
 
                     // Show member avatars for this table
-                    var membersHtml = "";
                     var tbl = null;
                     for (var i = 0; i < self.tables.length; i++) {
                         if (self.tables[i].table_number === result.table_number) {
@@ -975,27 +1017,22 @@ document.addEventListener("alpine:init", function () {
                         }
                     }
                     if (tbl && tbl.members.length > 0) {
-                        membersHtml = '<div class="flex -space-x-2 mt-2 mb-1">';
+                        var avatars = document.createElement("div");
+                        avatars.className = "flex -space-x-2 mt-2 mb-1";
                         var shown = tbl.members.slice(0, 5);
                         shown.forEach(function (m) {
-                            membersHtml += self._avatarHtml(m);
+                            avatars.appendChild(self._avatarNode(m));
                         });
                         if (tbl.members.length > 5) {
-                            membersHtml +=
-                                '<div class="shrink-0 rounded-full flex items-center justify-center font-bold text-white h-7 w-7 text-xs bg-slate-600">+' +
-                                (tbl.members.length - 5) +
-                                "</div>";
+                            var more = document.createElement("div");
+                            more.className =
+                                "shrink-0 rounded-full flex items-center justify-center font-bold text-white h-7 w-7 text-xs bg-slate-600";
+                            more.textContent = "+" + (tbl.members.length - 5);
+                            avatars.appendChild(more);
                         }
-                        membersHtml += "</div>";
+                        card.appendChild(avatars);
                     }
 
-                    card.innerHTML =
-                        icon +
-                        '<span class="text-xl font-bold text-white mb-1">' + strTable + ' ' +
-                        result.table_number +
-                        "</span>" +
-                        pointsHtml +
-                        membersHtml;
                     grid.appendChild(card);
                 });
             },
@@ -1003,11 +1040,10 @@ document.addEventListener("alpine:init", function () {
             renderLeaderboard: function () {
                 var list = this.$refs.leaderboardlist;
                 if (!list) return;
-                list.innerHTML = "";
+                list.replaceChildren();
                 var self = this;
                 this.leaderboardTables.forEach(function (entry, idx) {
                     var row = document.createElement("div");
-                    var isTop3 = idx < 3;
                     var ringClass =
                         idx === 0
                             ? "ring-2 ring-yellow-500/40 bg-gradient-to-r from-yellow-500/10 to-slate-800"
@@ -1021,10 +1057,20 @@ document.addEventListener("alpine:init", function () {
                         ringClass;
                     row.style.animationDelay = idx * 0.08 + "s";
 
-                    var rankIcon = self._getRankIconText(idx);
+                    var rankEl = document.createElement("span");
+                    rankEl.className = "text-3xl w-10 text-center";
+                    rankEl.textContent = self._getRankIconText(idx);
+                    row.appendChild(rankEl);
+
+                    var middle = document.createElement("div");
+                    middle.className = "flex-1 flex items-center gap-3";
+
+                    var tableLabel = document.createElement("span");
+                    tableLabel.className = "text-2xl font-bold text-white";
+                    tableLabel.textContent = strTable + " " + entry.table_number;
+                    middle.appendChild(tableLabel);
 
                     // Show stacked member avatars
-                    var membersHtml = "";
                     var tbl = null;
                     for (var i = 0; i < self.tables.length; i++) {
                         if (self.tables[i].table_number === entry.table_number) {
@@ -1033,62 +1079,65 @@ document.addEventListener("alpine:init", function () {
                         }
                     }
                     if (tbl && tbl.members.length > 0) {
-                        membersHtml = '<div class="flex -space-x-1.5 ml-2">';
+                        var avatars = document.createElement("div");
+                        avatars.className = "flex -space-x-1.5 ml-2";
                         var shown = tbl.members.slice(0, 4);
                         shown.forEach(function (m) {
-                            membersHtml += self._avatarHtml(m);
+                            avatars.appendChild(self._avatarNode(m));
                         });
                         if (tbl.members.length > 4) {
-                            membersHtml +=
-                                '<div class="shrink-0 rounded-full flex items-center justify-center font-bold text-white h-7 w-7 text-xs bg-slate-600 ring-1 ring-slate-800">+' +
-                                (tbl.members.length - 4) +
-                                "</div>";
+                            var more = document.createElement("div");
+                            more.className =
+                                "shrink-0 rounded-full flex items-center justify-center font-bold text-white h-7 w-7 text-xs bg-slate-600 ring-1 ring-slate-800";
+                            more.textContent = "+" + (tbl.members.length - 4);
+                            avatars.appendChild(more);
                         }
-                        membersHtml += "</div>";
+                        middle.appendChild(avatars);
                     }
+                    row.appendChild(middle);
 
-                    row.innerHTML =
-                        '<span class="text-3xl w-10 text-center">' +
-                        rankIcon +
-                        "</span>" +
-                        '<div class="flex-1 flex items-center gap-3">' +
-                        '<span class="text-2xl font-bold text-white">' + strTable + ' ' +
-                        entry.table_number +
-                        "</span>" +
-                        membersHtml +
-                        "</div>" +
-                        '<span class="text-2xl font-bold tabular-nums text-crush-pink">' +
-                        entry.total_score +
-                        " " + strPts + "</span>";
+                    var score = document.createElement("span");
+                    score.className = "text-2xl font-bold tabular-nums text-crush-pink";
+                    score.textContent = entry.total_score + " " + strPts;
+                    row.appendChild(score);
+
                     list.appendChild(row);
                 });
 
                 // Individuals
                 var indList = this.$refs.individualslist;
                 if (!indList) return;
-                indList.innerHTML = "";
+                indList.replaceChildren();
                 this.leaderboardIndividuals.forEach(function (player, idx) {
                     var row = document.createElement("div");
                     row.className =
                         "lb-entry flex items-center gap-3 rounded-xl bg-slate-800/60 px-4 py-3 ring-1 ring-white/5";
                     row.style.animationDelay = idx * 0.05 + 0.3 + "s";
-                    var avatar = self._avatarHtml({
-                        display_name: player.display_name,
-                        initials: player.initials,
-                        color: player.color,
-                        photo_url: player.photo_url,
-                    });
-                    row.innerHTML =
-                        '<span class="text-sm font-bold text-gray-400 w-6 text-center">#' +
-                        (idx + 1) +
-                        "</span>" +
-                        avatar +
-                        '<span class="flex-1 text-sm font-medium text-white">' +
-                        self.escapeHtml(player.display_name) +
-                        "</span>" +
-                        '<span class="text-sm font-bold text-crush-pink">' +
-                        player.total_score + " " + strPts +
-                        "</span>";
+
+                    var rank = document.createElement("span");
+                    rank.className = "text-sm font-bold text-gray-400 w-6 text-center";
+                    rank.textContent = "#" + (idx + 1);
+                    row.appendChild(rank);
+
+                    row.appendChild(
+                        self._avatarNode({
+                            display_name: player.display_name,
+                            initials: player.initials,
+                            color: player.color,
+                            photo_url: player.photo_url,
+                        }),
+                    );
+
+                    var name = document.createElement("span");
+                    name.className = "flex-1 text-sm font-medium text-white";
+                    name.textContent = player.display_name;
+                    row.appendChild(name);
+
+                    var score = document.createElement("span");
+                    score.className = "text-sm font-bold text-crush-pink";
+                    score.textContent = player.total_score + " " + strPts;
+                    row.appendChild(score);
+
                     indList.appendChild(row);
                 });
             },
@@ -1096,34 +1145,41 @@ document.addEventListener("alpine:init", function () {
             renderFinishedIndividuals: function () {
                 var list = this.$refs.finishedindividuals;
                 if (!list) return;
-                list.innerHTML = "";
+                list.replaceChildren();
                 var self = this;
                 var top5 = this.leaderboardIndividuals.slice(0, 5);
                 top5.forEach(function (player, idx) {
                     var row = document.createElement("div");
                     row.className =
                         "flex items-center gap-3 rounded-xl bg-slate-800/60 px-5 py-3.5 ring-1 ring-white/5";
-                    var rankIcon = self._getRankIconText(idx);
-                    var avatar = self._avatarHtml(
-                        {
-                            display_name: player.display_name,
-                            initials: player.initials,
-                            color: player.color,
-                            photo_url: player.photo_url,
-                        },
-                        "lg",
+
+                    var rank = document.createElement("span");
+                    rank.className = "text-xl w-8 text-center";
+                    rank.textContent = self._getRankIconText(idx);
+                    row.appendChild(rank);
+
+                    row.appendChild(
+                        self._avatarNode(
+                            {
+                                display_name: player.display_name,
+                                initials: player.initials,
+                                color: player.color,
+                                photo_url: player.photo_url,
+                            },
+                            "lg",
+                        ),
                     );
-                    row.innerHTML =
-                        '<span class="text-xl w-8 text-center">' +
-                        rankIcon +
-                        "</span>" +
-                        avatar +
-                        '<span class="flex-1 text-lg font-medium text-white">' +
-                        self.escapeHtml(player.display_name) +
-                        "</span>" +
-                        '<span class="text-lg font-bold tabular-nums text-crush-pink">' +
-                        player.total_score +
-                        " " + strPts + "</span>";
+
+                    var name = document.createElement("span");
+                    name.className = "flex-1 text-lg font-medium text-white";
+                    name.textContent = player.display_name;
+                    row.appendChild(name);
+
+                    var score = document.createElement("span");
+                    score.className = "text-lg font-bold tabular-nums text-crush-pink";
+                    score.textContent = player.total_score + " " + strPts;
+                    row.appendChild(score);
+
                     list.appendChild(row);
                 });
             },
