@@ -4,6 +4,7 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
+from django.utils.translation import gettext as _
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
@@ -634,8 +635,16 @@ def assign_table_view(request, quiz_id):
     try:
         result = manual_assign_table(quiz, user, table_number)
     except ValidationError as exc:
-        message = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
-        return JsonResponse({"error": message}, status=400)
+        logger.warning(
+            "manual_assign_table validation failed for quiz %s user %s",
+            quiz.id,
+            user_id,
+            exc_info=exc,
+        )
+        return JsonResponse(
+            {"error": _("Request could not be validated.")},
+            status=400,
+        )
     except Exception:
         logger.exception(
             "manual_assign_table failed for quiz %s user %s", quiz.id, user_id
@@ -679,8 +688,15 @@ def consolidate_tables_view(request, quiz_id):
     try:
         result = consolidate_tables(quiz, apply=apply, moves_override=moves_override)
     except ValidationError as exc:
-        message = exc.messages[0] if hasattr(exc, "messages") and exc.messages else str(exc)
-        return JsonResponse({"error": message}, status=400)
+        logger.warning(
+            "consolidate_tables validation failed for quiz %s",
+            quiz.id,
+            exc_info=exc,
+        )
+        return JsonResponse(
+            {"error": _("Request could not be validated.")},
+            status=400,
+        )
     except Exception:
         logger.exception("consolidate_tables failed for quiz %s", quiz.id)
         return JsonResponse({"error": "Consolidation failed."}, status=500)

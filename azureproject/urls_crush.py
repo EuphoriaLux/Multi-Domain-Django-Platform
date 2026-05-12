@@ -6,13 +6,13 @@ This is the URL config used when requests come from crush.lu domain.
 Supports internationalization with language-prefixed URLs (/en/, /de/, /fr/).
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, reverse
 from django.conf import settings
 from django.conf.urls.static import static
 from django.conf.urls.i18n import i18n_patterns
 from django.contrib.sitemaps.views import sitemap
 from django.shortcuts import redirect
-from django.utils.translation import get_language
+from django.utils.translation import get_language, override
 from django.views.generic import TemplateView
 from django.views.i18n import JavaScriptCatalog
 
@@ -62,10 +62,16 @@ def quiz_display_language_redirect(request, event_id):
     Language is resolved from the session / Accept-Language header by LocaleMiddleware,
     then explicitly validated against the supported language codes so that no
     user-influenced value can reach the redirect URL untested.
+
+    Uses ``reverse()`` under a language ``override()`` so the target URL is
+    built by Django's URL system (which enforces the ``<int:event_id>`` shape)
+    rather than f-string concatenation — closes a CodeQL open-redirect alert.
     """
     raw_lang = get_language() or 'en'
     lang = raw_lang if raw_lang in _QUIZ_REDIRECT_LANGS else 'en'
-    return redirect(f'/{lang}/quiz/{event_id}/display/')
+    with override(lang):
+        target = reverse('quiz_table_display', kwargs={'event_id': event_id})
+    return redirect(target)
 
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
