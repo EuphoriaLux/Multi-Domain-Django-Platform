@@ -604,18 +604,25 @@ document.addEventListener("alpine:init", function () {
                     }
                     var btn = row.querySelector(".manual-checkin-btn");
                     if (btn) {
-                        var tableBadge = data.table_number
-                            ? ' <span class="inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300">T' +
-                              data.table_number +
-                              "</span>"
-                            : "";
                         var i18n = window._checkinI18n || {};
-                        btn.outerHTML =
-                            '<div class="flex items-center gap-2"><span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">' +
-                            (i18n.checkedIn || "Checked In") +
-                            "</span>" +
-                            tableBadge +
-                            "</div>";
+                        var wrap = document.createElement("div");
+                        wrap.className = "flex items-center gap-2";
+
+                        var checkedSpan = document.createElement("span");
+                        checkedSpan.className =
+                            "px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
+                        checkedSpan.textContent = i18n.checkedIn || "Checked In";
+                        wrap.appendChild(checkedSpan);
+
+                        if (data.table_number) {
+                            var tableBadge = document.createElement("span");
+                            tableBadge.className =
+                                "inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
+                            tableBadge.textContent = "T" + data.table_number;
+                            wrap.appendChild(tableBadge);
+                        }
+
+                        btn.replaceWith(wrap);
                     }
                 }
             },
@@ -5610,7 +5617,7 @@ document.addEventListener("alpine:init", function () {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Accept": "application/json",
+                        Accept: "application/json",
                         "X-CSRFToken": csrfToken ? csrfToken.value : "",
                     },
                     credentials: "same-origin",
@@ -5618,12 +5625,19 @@ document.addEventListener("alpine:init", function () {
                 })
                     .then(function (response) {
                         if (response.status === 429) {
-                            return response.json().catch(function () { return null; }).then(function (data) {
-                                self.errorMessage =
-                                    (data && data.error) ||
-                                    gettext("Too many attempts. Please wait a few minutes before trying again.");
-                                return null;
-                            });
+                            return response
+                                .json()
+                                .catch(function () {
+                                    return null;
+                                })
+                                .then(function (data) {
+                                    self.errorMessage =
+                                        (data && data.error) ||
+                                        gettext(
+                                            "Too many attempts. Please wait a few minutes before trying again.",
+                                        );
+                                    return null;
+                                });
                         }
                         if (!response.ok) {
                             // Non-fatal — proceed; backend will still catch duplicates at verify time
