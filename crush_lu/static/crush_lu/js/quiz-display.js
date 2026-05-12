@@ -821,16 +821,14 @@ document.addEventListener("alpine:init", function () {
 
                 var fragment = document.createDocumentFragment();
 
-                // Only accept same-origin relative paths for the avatar URL —
-                // _photo_url() in views_quiz.py always returns "/api/quiz/photo/<id>/".
-                // Reject anything else so CodeQL (and reality) can't be tricked into
-                // loading javascript:/data:/protocol-relative URLs from a tampered
-                // WebSocket payload.
+                // Only accept the exact shape that _photo_url() in views_quiz.py
+                // emits: "/api/quiz/photo/<numeric-id>/". A strict regex on the
+                // full string forbids javascript:/data:/protocol-relative URLs
+                // from a tampered WebSocket payload and is recognised by CodeQL
+                // as a sanitizer for js/xss + js/client-side-unvalidated-url-redirection.
                 var safePhotoUrl =
                     typeof member.photo_url === "string" &&
-                    member.photo_url.length > 1 &&
-                    member.photo_url.charAt(0) === "/" &&
-                    member.photo_url.charAt(1) !== "/"
+                    /^\/api\/quiz\/photo\/\d+\/$/.test(member.photo_url)
                         ? member.photo_url
                         : null;
 
