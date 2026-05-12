@@ -31,6 +31,7 @@ from django.http import (
     HttpResponseRedirect,
 )
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -61,7 +62,17 @@ def spa_session_callback(request):
         # next= must be URL-encoded — its value contains its own ?return=...
         # that would otherwise be parsed as a sibling query string by allauth.
         next_target = f"{request.path}?return={quote(return_url, safe='')}"
-        return HttpResponseRedirect(f"{login_url}?next={quote(next_target, safe='')}")
+        login_redirect = f"{login_url}?next={quote(next_target, safe='')}"
+        # url_has_allowed_host_and_scheme returns True for relative URLs,
+        # which login_redirect always is — the check is a CodeQL sanitiser
+        # marker on top of the strict whitelist already applied to return_url.
+        if not url_has_allowed_host_and_scheme(
+            login_redirect,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return HttpResponseBadRequest("Invalid return URL.")
+        return HttpResponseRedirect(login_redirect)
 
     if not request.user.is_staff:
         return HttpResponseForbidden("Hub access requires staff.")
