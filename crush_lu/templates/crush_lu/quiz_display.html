@@ -113,7 +113,10 @@
 
             {# Table grid — rendered imperatively via JS (CSP x-for can't access nested props) #}
             <div class="mx-auto w-full max-w-7xl flex-1 px-6 pb-6">
-                <div x-ref="tablegrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));"></div>
+                {# minmax(min(360px, 100%), 1fr) lets the card shrink below 360px on narrow viewports
+                   (mobile attendees viewing the projector URL) without producing horizontal overflow,
+                   while still preferring a 360px-wide card on tablet/desktop/projector. #}
+                <div x-ref="tablegrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));"></div>
 
                 {# Empty state / Quiz starts soon #}
                 <div x-show="hasNoTables" class="flex flex-1 items-center justify-center pt-16">

@@ -821,9 +821,22 @@ document.addEventListener("alpine:init", function () {
 
                 var fragment = document.createDocumentFragment();
 
-                if (member.photo_url) {
+                // Only accept same-origin relative paths for the avatar URL —
+                // _photo_url() in views_quiz.py always returns "/api/quiz/photo/<id>/".
+                // Reject anything else so CodeQL (and reality) can't be tricked into
+                // loading javascript:/data:/protocol-relative URLs from a tampered
+                // WebSocket payload.
+                var safePhotoUrl =
+                    typeof member.photo_url === "string" &&
+                    member.photo_url.length > 1 &&
+                    member.photo_url.charAt(0) === "/" &&
+                    member.photo_url.charAt(1) !== "/"
+                        ? member.photo_url
+                        : null;
+
+                if (safePhotoUrl) {
                     var img = document.createElement("img");
-                    img.src = member.photo_url;
+                    img.src = safePhotoUrl;
                     img.alt = "";
                     img.className =
                         "shrink-0 rounded-full object-cover ring-2 ring-slate-700 " +
