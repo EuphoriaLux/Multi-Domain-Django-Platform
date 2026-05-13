@@ -115,7 +115,7 @@
             {# Left: avatar + info #}
             <div class="flex items-center gap-3 min-w-0">
                 {# Check-in status icon (small, stacked with avatar) #}
-                <div class="relative flex-shrink-0">
+                <div class="relative flex-shrink-0" data-checkin-avatar>
                     {# Profile avatar #}
                     {% if reg._photo_url %}
                         <img src="{{ reg._photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover">

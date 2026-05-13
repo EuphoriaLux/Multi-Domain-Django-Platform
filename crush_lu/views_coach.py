@@ -2222,7 +2222,7 @@ def coach_event_checkin(request, event_id):
     profile_ids = [
         reg.user.crushprofile.id
         for reg in confirmed
-        if hasattr(reg.user, "crushprofile") and reg.user.crushprofile_id
+        if hasattr(reg.user, "crushprofile") and reg.user.crushprofile.id
     ]
     submissions_by_profile = {}
     for sub in (
