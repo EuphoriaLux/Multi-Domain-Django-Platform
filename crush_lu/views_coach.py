@@ -2235,7 +2235,7 @@ def coach_event_checkin(request, event_id):
     for reg in confirmed:
         try:
             profile = reg.user.crushprofile
-            reg._photo_url = (
+            reg.photo_url = (
                 _reverse(
                     "crush_lu:serve_profile_photo",
                     kwargs={"user_id": reg.user_id, "photo_field": "photo_1"},
@@ -2244,13 +2244,13 @@ def coach_event_checkin(request, event_id):
                 else None
             )
             sub = submissions_by_profile.get(profile.id)
-            reg._coach_name = (
+            reg.coach_name = (
                 f"{sub.coach.user.first_name} {sub.coach.user.last_name}".strip()
                 if sub and sub.coach else None
             )
         except Exception:
-            reg._photo_url = None
-            reg._coach_name = None
+            reg.photo_url = None
+            reg.coach_name = None
 
     # Quiz table assignment data
     import json
