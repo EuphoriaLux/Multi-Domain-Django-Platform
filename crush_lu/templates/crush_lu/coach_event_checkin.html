@@ -117,8 +117,8 @@
                 {# Check-in status icon (small, stacked with avatar) #}
                 <div class="relative flex-shrink-0" data-checkin-avatar>
                     {# Profile avatar #}
-                    {% if reg._photo_url %}
-                        <img src="{{ reg._photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+                    {% if reg.photo_url %}
+                        <img src="{{ reg.photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover">
                     {% else %}
                         {% with display_name=reg.user.crushprofile.display_name|default:reg.user.first_name|default:reg.user.username %}
                         <div class="w-10 h-10 rounded-full bg-crush-purple/20 flex items-center justify-center text-crush-purple font-semibold text-sm">
@@ -170,9 +170,9 @@
                         {% endif %}
                     </div>
                     {# Coach line #}
-                    {% if reg._coach_name %}
+                    {% if reg.coach_name %}
                     <p class="text-xs text-crush-purple/70 dark:text-purple-400/70 mt-0.5">
-                        {% trans "Coach" %}: {{ reg._coach_name }}
+                        {% trans "Coach" %}: {{ reg.coach_name }}
                     </p>
                     {% endif %}
                     {# Check-in time #}
