@@ -39,4 +39,7 @@ regexes = [
   # the generic-api-key rule because of length/charset. They're UI labels,
   # not credentials.
   '''gender_[a-z]+_age_[0-9a-z_]+''',
+
+  # Claude Code session URLs appended to commit messages are not credentials.
+  '''claude\.ai/code/session_[0-9a-zA-Z]+''',
 ]
