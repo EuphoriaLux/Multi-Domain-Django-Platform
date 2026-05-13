@@ -111,28 +111,82 @@
 
     <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for reg in registrations %}
-        <div class="py-3 flex items-center justify-between" id="manual-reg-{{ reg.id }}">
-            <div class="flex items-center gap-3">
-                {% if reg.status == 'attended' %}
-                    <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                {% else %}
-                    <span class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"></span>
-                {% endif %}
-                <div>
-                    <span class="font-medium text-sm dark:text-white">
-                        {% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}
+        <div class="py-3 flex items-center justify-between gap-3" id="manual-reg-{{ reg.id }}">
+            {# Left: avatar + info #}
+            <div class="flex items-center gap-3 min-w-0">
+                {# Check-in status icon (small, stacked with avatar) #}
+                <div class="relative flex-shrink-0">
+                    {# Profile avatar #}
+                    {% if reg._photo_url %}
+                        <img src="{{ reg._photo_url }}" alt="" class="w-10 h-10 rounded-full object-cover">
+                    {% else %}
+                        {% with display_name=reg.user.crushprofile.display_name|default:reg.user.first_name|default:reg.user.username %}
+                        <div class="w-10 h-10 rounded-full bg-crush-purple/20 flex items-center justify-center text-crush-purple font-semibold text-sm">
+                            {{ display_name|first|upper }}
+                        </div>
+                        {% endwith %}
+                    {% endif %}
+                    {# Small check-in badge overlay #}
+                    {% if reg.status == 'attended' %}
+                    <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
                     </span>
+                    {% endif %}
+                </div>
+
+                {# Name + meta #}
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span class="font-medium text-sm dark:text-white truncate">
+                            {% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}
+                        </span>
+                        {% if reg.user.crushprofile %}
+                            {# Gender icon #}
+                            {% with g=reg.user.crushprofile.gender %}
+                            {% if g == 'M' %}<span class="text-blue-500 text-xs" title="Male">♂</span>
+                            {% elif g == 'F' %}<span class="text-pink-500 text-xs" title="Female">♀</span>
+                            {% elif g == 'NB' %}<span class="text-purple-500 text-xs" title="Non-binary">⚤</span>
+                            {% elif g %}<span class="text-gray-400 text-xs">⚧</span>
+                            {% endif %}
+                            {% endwith %}
+                            {# Age #}
+                            {% if reg.user.crushprofile.age_display %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ reg.user.crushprofile.age_display }}</span>
+                            {% endif %}
+                            {# Verification badge #}
+                            {% if reg.user.crushprofile.is_approved %}
+                            <span class="inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                {% trans "Verified" %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                {% trans "Unverified" %}
+                            </span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    {# Coach line #}
+                    {% if reg._coach_name %}
+                    <p class="text-xs text-crush-purple/70 dark:text-purple-400/70 mt-0.5">
+                        {% trans "Coach" %}: {{ reg._coach_name }}
+                    </p>
+                    {% endif %}
+                    {# Check-in time #}
                     {% if reg.checked_in_at %}
-                    <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ reg.checked_in_at|date:"g:i A" }}</span>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ reg.checked_in_at|date:"g:i A" }}</p>
                     {% endif %}
                 </div>
             </div>
+
+            {# Right: action button #}
             {% if reg.status != 'attended' %}
             <button
                 type="button"
-                class="manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors"
+                class="manual-checkin-btn flex-shrink-0 px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors"
                 data-checkin-url="/api/events/checkin/{{ reg.id }}/{{ reg.checkin_token }}/"
                 data-reg-id="{{ reg.id }}"
                 @click="manualCheckin"
@@ -140,7 +194,7 @@
                 {% trans "Check In" %}
             </button>
             {% else %}
-            <div class="flex items-center gap-2">
+            <div class="flex-shrink-0 flex items-center gap-2">
                 <span class="px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400">{% trans "Checked In" %}</span>
                 <span class="manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300" data-user-id="{{ reg.user.id }}" style="display: none;"></span>
             </div>

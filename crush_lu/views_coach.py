@@ -2215,6 +2215,42 @@ def coach_event_checkin(request, event_id):
         if not reg.checkin_token:
             _generate_checkin_token(reg)
 
+    # Pre-fetch coach assignments for all profiles in one query (avoids N+1)
+    from django.urls import reverse as _reverse
+    from crush_lu.models import ProfileSubmission
+
+    profile_ids = [
+        reg.user.crushprofile.id
+        for reg in confirmed
+        if hasattr(reg.user, "crushprofile") and reg.user.crushprofile_id
+    ]
+    submissions_by_profile = {}
+    for sub in (
+        ProfileSubmission.objects.filter(profile_id__in=profile_ids)
+        .select_related("coach__user")
+        .order_by("-submitted_at")
+    ):
+        submissions_by_profile.setdefault(sub.profile_id, sub)
+
+    for reg in confirmed:
+        try:
+            profile = reg.user.crushprofile
+            reg._photo_url = (
+                _reverse(
+                    "crush_lu:serve_profile_photo",
+                    kwargs={"user_id": reg.user_id, "photo_field": "photo_1"},
+                )
+                if profile.photo_1
+                else None
+            )
+            sub = submissions_by_profile.get(profile.id)
+            reg._coach_name = (
+                sub.coach.user.first_name if sub and sub.coach else None
+            )
+        except Exception:
+            reg._photo_url = None
+            reg._coach_name = None
+
     # Quiz table assignment data
     import json
 
