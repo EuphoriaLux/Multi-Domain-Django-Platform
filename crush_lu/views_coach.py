@@ -2245,7 +2245,8 @@ def coach_event_checkin(request, event_id):
             )
             sub = submissions_by_profile.get(profile.id)
             reg._coach_name = (
-                sub.coach.user.first_name if sub and sub.coach else None
+                f"{sub.coach.user.first_name} {sub.coach.user.last_name}".strip()
+                if sub and sub.coach else None
             )
         except Exception:
             reg._photo_url = None
