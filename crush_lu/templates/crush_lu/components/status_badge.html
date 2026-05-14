@@ -1,0 +1,27 @@
+{% comment %}
+Status badge primitive.
+
+Renders a .badge with a tone-mapped colour, an optional leading icon, and a
+translated label. Use this in card list rows where the audit found ~30 lines
+of duplicated if/elif chains for connection statuses, event RSVP states,
+spark/journey progress, etc.
+
+Args:
+  tone   One of "info" | "success" | "warning" | "danger" | "primary"
+         (maps to the corresponding .badge-{tone} class declared in
+         tailwind-input.css).
+  label  Translated display string. Always pass through {% trans %}.
+  icon   Optional. The name (without .html) of a file under
+         core/templates/shared/icons/, e.g. "clock", "check-circle".
+  extra  Optional. Extra Tailwind classes appended to the badge.
+
+Convenience: when paired with the connection_status inclusion_tag,
+callers typically don't construct this directly — they use:
+    {% load connection_status %}
+    {% connection_status_badge connection %}
+{% endcomment %}
+{% load i18n %}
+<span class="badge badge-{{ tone|default:'info' }} {{ extra }}">
+    {% if icon %}{% include "shared/icons/"|add:icon|add:".html" with class="w-3 h-3" %}{% endif %}
+    {{ label }}{% if suffix %} {{ suffix }}{% endif %}
+</span>

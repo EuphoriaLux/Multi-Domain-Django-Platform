@@ -138,11 +138,24 @@ Reach for these before composing inline:
 
 | Partial | Purpose |
 | --- | --- |
-| `components/profile_photo.html` | Avatar with privacy-respecting fallback. |
-| `components/form_field.html` | Form field (label + input + errors + help). |
+| `components/profile_photo.html` | Avatar with `initials` (default) or `icon` fallback. Sizing/shape via `css_class`. Use the `{% profile_photo %}` inclusion_tag from `crush_media` rather than `{% include %}`. |
+| `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
+| `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
 
-More partials will be added in Phase 4 (`card`, `status_badge`) — see the
-refactor plan at `.claude/plans/`.
+### Status-badge mapping (connections)
+
+Use the `connection_status` inclusion_tag rather than re-writing if/elif
+chains in templates:
+
+```django
+{% load connection_status %}
+{% connection_status_badge connection %}
+{% connection_status_badge connection show_coach=True %}
+```
+
+The (label, tone, icon) mapping lives in
+`crush_lu/templatetags/connection_status.py` — extend that file when adding
+a new EventConnection status, not the templates.
 
 ### Naming convention
 

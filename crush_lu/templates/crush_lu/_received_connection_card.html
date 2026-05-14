@@ -1,22 +1,14 @@
 {% load i18n crush_media %}
-<div id="connection-{{ connection.id }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4" role="status" aria-live="polite">
-    <div class="flex items-center">
-        <!-- Profile Photo -->
-        <div class="mr-4">
-            {% if connection.requester.crushprofile|has_photo:'photo_1' %}
-                <img src="{% profile_photo_url connection.requester.crushprofile 'photo_1' %}"
-                     alt="{{ connection.requester.crushprofile.display_name }}"
-                     class="w-14 h-14 rounded-full object-cover"
-                     loading="lazy">
-            {% else %}
-                <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                    <span class="text-white text-lg font-semibold">{{ connection.requester.crushprofile.display_name|first }}</span>
-                </div>
-            {% endif %}
+<div id="connection-{{ connection.id }}"
+     class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4"
+     role="status"
+     aria-live="polite">
+    <div class="flex items-center gap-4">
+        <div class="shrink-0">
+            {% profile_photo connection.requester.crushprofile 'photo_1' css_class='w-14 h-14 rounded-full text-lg' alt_text=connection.requester.crushprofile.display_name %}
         </div>
 
-        <!-- Info -->
-        <div class="flex-grow">
+        <div class="flex-1 min-w-0">
             <h5 class="font-semibold dark:text-white mb-1">{% blocktrans with name=connection.requester.crushprofile.display_name %}{{ name }} wants to connect{% endblocktrans %}</h5>
             <p class="text-gray-500 dark:text-gray-400 text-sm mb-1 flex items-center gap-1">
                 {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
@@ -30,8 +22,7 @@
             {% endif %}
         </div>
 
-        <!-- Actions -->
-        <div class="ml-4">
+        <div class="shrink-0">
             <div class="flex gap-2">
                 <button hx-post="{% url 'crush_lu:respond_connection' connection.id 'accept' %}"
                         hx-target="#connection-{{ connection.id }}"

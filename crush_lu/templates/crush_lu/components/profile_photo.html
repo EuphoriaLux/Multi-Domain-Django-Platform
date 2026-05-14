@@ -1,9 +1,35 @@
+{% comment %}
+Profile photo with consistent fallback handling.
+
+Renders either the user's photo or one of two fallbacks:
+  - "initials" (default) — gradient circle with the display-name initial.
+    Use this in list rows, cards, and connection contexts where a visible
+    presence helps users tell entries apart.
+  - "icon" — neutral user-circle on a gray background. Use for non-personal
+    contexts (system messages, placeholder previews).
+
+Sizing and shape are controlled by the caller via `css_class` (e.g.
+"w-14 h-14 rounded-full"). The partial only owns image/fallback rendering
+and the initial-text colour & weight.
+
+Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
+  has_photo, photo_url, alt_text, css_class, display_name, fallback
+{% endcomment %}
 {% load i18n %}
 {% if has_photo %}
-    <img src="{{ photo_url }}" alt="{{ alt_text }}" class="{{ css_class }}" loading="lazy">
+    <img src="{{ photo_url }}"
+         alt="{{ alt_text }}"
+         class="{{ css_class }} object-cover"
+         loading="lazy">
+{% elif fallback == "icon" %}
+    <div class="{{ css_class }} flex items-center justify-center bg-gray-100 dark:bg-gray-700"
+         aria-label="{% blocktrans with name=display_name %}{{ name }} — no photo{% endblocktrans %}">
+        {% include "shared/icons/user-circle.html" with class="w-1/2 h-1/2 text-gray-400 dark:text-gray-500" %}
+        <span class="sr-only">{% trans "No photo available" %}</span>
+    </div>
 {% else %}
-    <div class="profile-photo-placeholder {{ css_class }}" aria-label="{% trans "No photo available" %}">
-        {% include "shared/icons/user-circle.html" with class="w-5 h-5" %}
-        <span class="sr-only">{% blocktrans with name=display_name %}{{ name }} - No photo{% endblocktrans %}</span>
+    <div class="{{ css_class }} flex items-center justify-center bg-gradient-to-br from-crush-purple to-crush-pink"
+         aria-label="{% blocktrans with name=display_name %}{{ name }} — no photo{% endblocktrans %}">
+        <span class="text-white font-semibold">{{ display_name|first|default:"?"|upper }}</span>
     </div>
 {% endif %}
