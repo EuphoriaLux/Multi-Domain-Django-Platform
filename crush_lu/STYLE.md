@@ -199,9 +199,16 @@ Some files are legacy / parked and should NOT be touched casually:
 
 Three shared mixin factories live at the top of
 `crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
-your named Alpine.data component with `Object.assign`. They are not
-themselves Alpine.data registrations because the CSP build cannot pass
-arguments via `x-data`.
+your named Alpine.data component with the **`mixin`** helper (also in
+that file). They are not themselves Alpine.data registrations because
+the CSP build cannot pass arguments via `x-data`.
+
+**Do not use `Object.assign` or spread (`...`)** to compose with these
+— both evaluate the source's getters during the copy (with the wrong
+`this`), turning live `get isFoo()` accessors into dead `undefined`
+data properties. Use `mixin(target, source)` — it copies descriptors
+via `Object.defineProperties` so accessors stay live and resolve
+against the final composed `this`.
 
 ### `makeTabs(initial, names)`
 
@@ -211,7 +218,8 @@ in your wrapper.
 
 ```js
 Alpine.data("myTabs", () =>
-    Object.assign(makeTabs("first", ["first", "second"]), {
+    mixin(makeTabs("first", ["first", "second"]), {
+        get isFirst() { return this.isTabActive("first"); },
         showFirst() { this.setTab("first"); },
         showSecond() { this.setTab("second"); },
     }),
