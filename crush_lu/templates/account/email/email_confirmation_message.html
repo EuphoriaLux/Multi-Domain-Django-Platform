@@ -1,5 +1,5 @@
-{% load i18n account %}{% autoescape off %}{% user_display user as user_display %}{% if request and 'crush.lu' in request.get_host %}<!DOCTYPE html>
-<html lang="{% get_current_language %}">
+{% load i18n account %}{% autoescape off %}{% user_display user as user_display %}{% get_current_language as LANGUAGE_CODE %}{% if request and 'crush.lu' in request.get_host %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
