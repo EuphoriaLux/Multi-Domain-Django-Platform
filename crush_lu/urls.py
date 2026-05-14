@@ -8,6 +8,7 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
+from . import views_crush_connect
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -140,6 +141,12 @@ urlpatterns = [
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
+    # Staff-only Crush Connect Drop card preview (M3) — gated by @staff_member_required in the view.
+    path(
+        'dev/connect-card/<int:user_id>/',
+        views_crush_connect.dev_connect_card_preview,
+        name='dev_connect_card_preview',
+    ),
     path('membership/', views.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)
@@ -280,18 +287,25 @@ urlpatterns = [
     # up any in-flight sparks until the data model is fully retired.)
     # ============================================================================
 
-    # Sender + recipient views — all redirect to Crush Connect.
-    # NOTE: use the _spark_to_crush_connect view (not RedirectView.as_view
-    # with pattern_name) because the parameterised routes capture kwargs
-    # that would be forwarded to reverse() on the teaser URL and raise
+    # Creation paths -> Crush Connect teaser. NOTE: use the
+    # _spark_to_crush_connect view (not RedirectView.as_view with
+    # pattern_name) because the parameterised routes capture kwargs that
+    # would be forwarded to reverse() on the teaser URL and raise
     # NoReverseMatch. See the function docstring above for context.
     path('events/<int:event_id>/spark/request/', _spark_to_crush_connect, name='spark_request'),
     path('sparks/', _spark_to_crush_connect, name='spark_list'),
-    path('sparks/<int:spark_id>/', _spark_to_crush_connect, name='spark_detail'),
-    path('sparks/<int:spark_id>/create-journey/', _spark_to_crush_connect, name='spark_create_journey'),
     path('events/<int:event_id>/spark/send/<int:user_id>/', _spark_to_crush_connect, name='spark_send_inline'),
     path('events/<int:event_id>/spark/actions/<int:user_id>/', _spark_to_crush_connect, name='spark_actions'),
     path('sparks/received/', _spark_to_crush_connect, name='spark_received'),
+
+    # Completion paths for in-flight sparks. The coach can still approve a
+    # pending spark via coach_spark_assign (URL kept wired further down);
+    # the sender then needs to visit spark_detail (to see the approval)
+    # and spark_create_journey (to author the Wonderland journey the
+    # recipient will play). Redirecting these would orphan any spark a
+    # coach approves after this PR merges. Codex P1 on PR #433.
+    path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
+    path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
 
     # Coach spark management — left in place for in-flight cleanup.
     path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),
