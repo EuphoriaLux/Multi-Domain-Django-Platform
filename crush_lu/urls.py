@@ -8,7 +8,6 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
-from . import views_crush_connect
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -141,12 +140,6 @@ urlpatterns = [
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
-    # Staff-only Crush Connect Drop card preview (M3) — gated by @staff_member_required in the view.
-    path(
-        'dev/connect-card/<int:user_id>/',
-        views_crush_connect.dev_connect_card_preview,
-        name='dev_connect_card_preview',
-    ),
     path('membership/', views.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)
