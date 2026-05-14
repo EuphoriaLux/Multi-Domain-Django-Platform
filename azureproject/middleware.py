@@ -259,21 +259,35 @@ class SafeCurrentSiteMiddleware:
         if site is not None:
             return site
 
+        # Look up the expected display name from the config (used for both
+        # the exact-match branch and the auto-create branch so a blank
+        # Site.name gets repaired regardless of how the row was created).
+        config = get_domain_config(host)  # Use original host for config lookup (aliases)
+        expected_name = (config or {}).get('name') or canonical_host.title()
+
         try:
             # Try exact domain match first (canonical)
             site = Site.objects.get(domain__iexact=canonical_host)
+            # Repair empty/blank Site.name so allauth emails don't render
+            # subjects like "Welcome to  — please confirm your email".
+            if not (site.name or '').strip():
+                site.name = expected_name
+                site.save(update_fields=['name'])
+                logger.info(
+                    f"SafeCurrentSiteMiddleware: Repaired empty Site.name "
+                    f"for {canonical_host} -> {expected_name!r}"
+                )
             _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
             return site
         except Site.DoesNotExist:
             pass
 
         # Check if this is a known domain from our config
-        config = get_domain_config(host)  # Use original host for config lookup (aliases)
         if config:
             # Auto-create Site for canonical domain only
             site, created = Site.objects.get_or_create(
                 domain=canonical_host,
-                defaults={'name': config.get('name', canonical_host.title())}
+                defaults={'name': expected_name}
             )
             if created:
                 logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}")

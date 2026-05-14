@@ -255,7 +255,7 @@ def _get_profile_data(registration):
         if latest_submission:
             data["submission_status"] = latest_submission.get_status_display()
             if latest_submission.coach:
-                data["coach_name"] = latest_submission.coach.user.first_name
+                data["coach_name"] = f"{latest_submission.coach.user.first_name} {latest_submission.coach.user.last_name}".strip()
 
     return data
 
