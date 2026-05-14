@@ -28,9 +28,7 @@
                         hx-target="#connection-{{ connection.id }}"
                         hx-swap="outerHTML"
                         class="inline-flex items-center gap-1 px-4 py-2.5 text-sm font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                    <span class="htmx-indicator">
-                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
-                    </span>
+                    {% include "crush_lu/components/htmx_spinner.html" %}
                     <span class="htmx-hide-on-request inline-flex items-center gap-1">
                         {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
                         {% trans "Accept" %}
@@ -41,9 +39,7 @@
                         hx-swap="outerHTML"
                         hx-confirm="{% trans 'Are you sure you want to decline this connection request?' %}"
                         class="inline-flex items-center gap-1 px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                    <span class="htmx-indicator">
-                        {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
-                    </span>
+                    {% include "crush_lu/components/htmx_spinner.html" %}
                     <span class="htmx-hide-on-request">
                         {% trans "Decline" %}
                     </span>

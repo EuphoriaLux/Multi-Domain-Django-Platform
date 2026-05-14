@@ -141,6 +141,7 @@ Reach for these before composing inline:
 | `components/profile_photo.html` | Avatar with `initials` (default) or `icon` fallback. Sizing/shape via `css_class`. Use the `{% profile_photo %}` inclusion_tag from `crush_media` rather than `{% include %}`. |
 | `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
 | `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
+| `components/htmx_spinner.html` | The shared `<span class="htmx-indicator">` + loading icon. Pair with a sibling `<span class="htmx-hide-on-request">` carrying the resting label. |
 
 ### Status-badge mapping (connections)
 
@@ -236,3 +237,71 @@ makes its own HTMX call instead.
 | Component | Replace with | Reason |
 | --- | --- | --- |
 | `photoUpload` | `photoPicker` | 3-slot hardcoding, no HTMX upload. Console.warn at runtime. Kept alive for the onboarding wizard while that flow is parked. |
+
+---
+
+## 8. Notifications
+
+Two systems exist today; the long-term direction is one.
+
+- **`Alpine.store('toasts')`** — corner toast UI, used by HTMX responses
+  (`HX-Trigger: showToast` and `window.dispatchEvent('show-toast', …)`)
+  and any new JS that needs to surface a message. Source:
+  `crush_lu/static/crush_lu/js/toast-component.js`. Container:
+  `crush_lu/templates/crush_lu/shared/toast.html`.
+- **Inline Django messages banner** — a `{% if messages %}` block in
+  `base.html` (~line 1150) that renders prominent top-of-page banners
+  for `messages.success(...)` etc. Kept as-is for now because removing
+  it visually changes every page that uses `messages.success`. Phase 6
+  did not consolidate the two channels — see "Pending consolidation"
+  below.
+
+Pick the toast store for any NEW notification surface. Only call
+`messages.success/error/warning(...)` if you genuinely want the
+top-of-page banner treatment, and prefer the toast store if you don't.
+
+### Pending consolidation
+
+When the team is ready to make the toast store the single notification
+channel, the migration is small:
+
+1. In `base.html` (~line 1150–1185), replace the `{% if messages %}`
+   banner block with a small script that pushes each `{{ message }}`
+   into `Alpine.store('toasts')` on page load.
+2. Delete the dismissible-banner styling block.
+3. Update STYLE.md §8 to remove the dual-system note.
+
+This is intentionally NOT in the current refactor — the banner is a
+prominent UX pattern many users rely on, and consolidating it touches
+every page on the site (including coach/admin which are out of scope).
+
+---
+
+## 9. Linter
+
+The script `crush_lu/scripts/lint_design_tokens.py` enforces this guide
+mechanically. It flags:
+
+- Hardcoded brand-purple / indigo hexes (`#7c3aed`, `#4f46e5`, `#6366f1`)
+  in non-email, non-decorative templates.
+- Deprecated button classes (`.btn-primary`, `.btn-secondary`,
+  `.btn-success`, etc.) in non-exempt directories.
+
+Exempt: `admin/`, anything coach-named, `journey/`, `gift/`, `advent/`,
+`wonderland/`, `pre_screening/`, `welcome.html`, `onboarding/`,
+`create_profile/edit_profile`, email templates (`emails/`, `email/`),
+ghost-story SVG decoration files, and `test_*.html` scratch templates.
+
+Run manually:
+
+```
+python crush_lu/scripts/lint_design_tokens.py
+python crush_lu/scripts/lint_design_tokens.py path/to/file.html
+```
+
+Pre-commit hook: `.pre-commit-config.yaml` wires the linter to run on
+`*.html` files inside `crush_lu/templates/crush_lu/` that appear in a
+commit. Existing debt elsewhere in the tree only fires when someone
+touches those files — so the linter doesn't block unrelated work, but
+does catch new drift and nudges every modification toward the canonical
+classes.
