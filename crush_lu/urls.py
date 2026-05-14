@@ -258,23 +258,21 @@ urlpatterns = [
     # - api/events/<int:event_id>/voting/results/
 
     # ============================================================================
-    # CRUSH SPARK SYSTEM
+    # CRUSH SPARK SYSTEM (soft-removed; user-facing routes redirect to the
+    # Crush Connect teaser. Coach-side spark URLs remain so coaches can clean
+    # up any in-flight sparks until the data model is fully retired.)
     # ============================================================================
 
-    # Sender views
-    path('events/<int:event_id>/spark/request/', views_crush_spark.spark_request, name='spark_request'),
-    path('sparks/', views_crush_spark.spark_list, name='spark_list'),
-    path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
-    path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
+    # Sender + recipient views — all redirect to Crush Connect.
+    path('events/<int:event_id>/spark/request/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_request'),
+    path('sparks/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_list'),
+    path('sparks/<int:spark_id>/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_detail'),
+    path('sparks/<int:spark_id>/create-journey/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_create_journey'),
+    path('events/<int:event_id>/spark/send/<int:user_id>/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_send_inline'),
+    path('events/<int:event_id>/spark/actions/<int:user_id>/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_actions'),
+    path('sparks/received/', RedirectView.as_view(pattern_name='crush_lu:crush_connect_teaser', permanent=False), name='spark_received'),
 
-    # Spark inline actions (HTMX)
-    path('events/<int:event_id>/spark/send/<int:user_id>/', views_crush_spark.spark_send_inline, name='spark_send_inline'),
-    path('events/<int:event_id>/spark/actions/<int:user_id>/', views_crush_spark.spark_actions, name='spark_actions'),
-
-    # Recipient views
-    path('sparks/received/', views_crush_spark.spark_received, name='spark_received'),
-
-    # Coach spark management
+    # Coach spark management — left in place for in-flight cleanup.
     path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),
     path('coach/sparks/<int:spark_id>/assign/', views_crush_spark.coach_spark_assign, name='coach_spark_assign'),
 

@@ -72,19 +72,15 @@ def event_attendees(request, event_id):
         for c in EventConnection.objects.filter(recipient=request.user, event=event)
     }
 
-    # Pre-fetch sent sparks for this user+event
-    sent_sparks = {
-        s.recipient_id: s
-        for s in CrushSpark.objects.filter(
-            event=event, sender=request.user,
-        ).exclude(status=CrushSpark.Status.CANCELLED)
-    }
+    # Spark feature is soft-removed; pre-fetch left at empty so any straggling
+    # template reference resolves to a no-op spark (the new connection-only
+    # event_attendees template does not render spark UI).
+    sent_sparks = {}
 
-    # Spark deadline and remaining count
-    deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
-    spark_deadline_active = timezone.now() <= deadline
-    spark_count = len(sent_sparks)
-    sparks_remaining = event.max_sparks_per_event - spark_count
+    # Post-event connection window (replaces the old spark deadline; same
+    # property is now the single source of truth — see event.connection_window_hours).
+    deadline = event.connection_window_deadline
+    connection_window_active = event.connection_window_active
 
     # Privacy-preserving "interest hint": how many people requested a connection
     # with this user for this event but haven't been reciprocated yet.
@@ -176,9 +172,13 @@ def event_attendees(request, event_id):
         "event": event,
         "attendees": attendee_data,
         "grouped_attendees": grouped_attendees,
-        "spark_deadline_active": spark_deadline_active,
-        "spark_deadline": deadline,
-        "sparks_remaining": sparks_remaining,
+        "connection_window_active": connection_window_active,
+        "connection_window_deadline": deadline,
+        # Spark context vars kept (empty/inert) so any third-party include or
+        # cached template fragment that still references them doesn't 500.
+        "spark_deadline_active": False,
+        "spark_deadline": None,
+        "sparks_remaining": 0,
         "cross_gender_remaining": cross_gender_remaining,
         "event_coaches": event_coaches,
         "own_profile": own_profile,
