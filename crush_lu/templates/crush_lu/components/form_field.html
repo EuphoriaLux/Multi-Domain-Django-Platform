@@ -1,0 +1,41 @@
+{% comment %}
+Reusable Crush.lu form field.
+
+Renders <label> + <input/textarea/select> + errors + help-text in a single
+consistent visual block. Accepts a Django bound field plus optional overrides.
+
+Required:
+  field           A bound Django form field, e.g. form.sender_description
+
+Optional:
+  label           Override field.label. Pass empty string "" to suppress label.
+  help            Extra help text shown below the input (in addition to
+                  field.help_text if Django provides one). Use {% trans %} in
+                  the caller — pass an already-translated string.
+  label_class     Extra Tailwind classes appended to the <label>.
+  field_class     Extra Tailwind classes appended to the input wrapper. Note:
+                  Django form widget classes are set on the form class itself
+                  (forms.py); this is for wrapper-level styling.
+
+Example:
+  {% include "crush_lu/components/form_field.html" with field=form.sender_description help=_("Be as specific as possible.") %}
+{% endcomment %}
+{% load i18n %}
+<div class="space-y-1 {{ field_class }}">
+    {% if label != "" %}
+        <label for="{{ field.id_for_label }}"
+               class="block text-sm font-medium text-gray-700 dark:text-gray-300 {{ label_class }}">
+            {{ label|default:field.label }}{% if field.field.required %}<span class="text-red-500" aria-hidden="true"> *</span>{% endif %}
+        </label>
+    {% endif %}
+    {{ field }}
+    {% if field.errors %}
+        <p class="text-red-500 dark:text-red-400 text-sm" role="alert">{{ field.errors.0 }}</p>
+    {% endif %}
+    {% if field.help_text %}
+        <p class="text-xs text-gray-400 dark:text-gray-500">{{ field.help_text|safe }}</p>
+    {% endif %}
+    {% if help %}
+        <p class="text-xs text-gray-400 dark:text-gray-500">{{ help }}</p>
+    {% endif %}
+</div>

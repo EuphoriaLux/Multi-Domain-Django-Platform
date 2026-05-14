@@ -278,7 +278,13 @@ body.journey-bg {
 
     /* =========================================================================
      BUTTONS
-     Note: Using inline styles instead of @apply btn to avoid circular deps
+     Note: Using inline styles instead of @apply btn to avoid circular deps.
+     Taxonomy: see crush_lu/STYLE.md §2. Canonical four are .btn-crush-primary
+     (gradient hero CTA, one per page), .btn-crush-solid (in-page primary),
+     .btn-crush-outline (secondary), .btn-danger (destructive). The .btn-primary
+     / .btn-secondary / .btn-outline-* / .btn-success / .btn-warning / .btn-info
+     variants below are kept for legacy / coach / admin templates and should
+     not be used in new user-facing code.
      ========================================================================= */
     .btn,
     .btn-crush-primary,
