@@ -8,6 +8,7 @@ from allauth.account.views import LoginView, LogoutView
 from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
+from . import views_crush_connect
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -140,6 +141,18 @@ urlpatterns = [
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
+    # Today's Drop — user-facing Crush Connect home (M4).
+    path(
+        'crush-connect/today/',
+        views_crush_connect.crush_connect_home,
+        name='crush_connect_home',
+    ),
+    # Staff-only Crush Connect Drop card preview (M3) — gated by @staff_member_required in the view.
+    path(
+        'dev/connect-card/<int:user_id>/',
+        views_crush_connect.dev_connect_card_preview,
+        name='dev_connect_card_preview',
+    ),
     path('membership/', views.membership, name='membership'),
 
     # PWA Debug Page (language-prefixed is fine for debug pages)
@@ -286,17 +299,23 @@ urlpatterns = [
     # would be forwarded to reverse() on the teaser URL and raise
     # NoReverseMatch. See the function docstring above for context.
     path('events/<int:event_id>/spark/request/', _spark_to_crush_connect, name='spark_request'),
-    path('sparks/', _spark_to_crush_connect, name='spark_list'),
     path('events/<int:event_id>/spark/send/<int:user_id>/', _spark_to_crush_connect, name='spark_send_inline'),
     path('events/<int:event_id>/spark/actions/<int:user_id>/', _spark_to_crush_connect, name='spark_actions'),
     path('sparks/received/', _spark_to_crush_connect, name='spark_received'),
 
-    # Completion paths for in-flight sparks. The coach can still approve a
-    # pending spark via coach_spark_assign (URL kept wired further down);
-    # the sender then needs to visit spark_detail (to see the approval)
-    # and spark_create_journey (to author the Wonderland journey the
-    # recipient will play). Redirecting these would orphan any spark a
-    # coach approves after this PR merges. Codex P1 on PR #433.
+    # Sender dashboard + completion paths for in-flight sparks. Coaches can
+    # still approve pending sparks via coach_spark_assign (URL kept wired
+    # further down); the sender then needs:
+    #   - spark_list      to discover their approved/pending items
+    #                     (spark_detail links are only reachable from
+    #                     spark_list.html in this tree),
+    #   - spark_detail    to view the approval,
+    #   - spark_create_journey  to author the Wonderland journey the
+    #                           recipient will play.
+    # Redirecting any of these would orphan any spark a coach approves
+    # after this PR merges. None of these endpoints can create a NEW
+    # spark, so they're safe to leave reachable. Codex P1 #2/#3 on #433.
+    path('sparks/', views_crush_spark.spark_list, name='spark_list'),
     path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
     path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
 
