@@ -15,6 +15,8 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+from hub.views_whatsapp import WhatsAppWebhookView
+
 from .views_spa_auth import ExchangeCodeView
 
 
@@ -32,6 +34,11 @@ urlpatterns = [
         "api/token/exchange-code/",
         ExchangeCodeView.as_view(),
         name="token_exchange_code",
+    ),
+    path(
+        "api/webhooks/whatsapp/",
+        WhatsAppWebhookView.as_view(),
+        name="whatsapp_webhook",
     ),
     path("hub/", include("hub.urls")),
 ]

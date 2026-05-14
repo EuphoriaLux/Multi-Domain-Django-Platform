@@ -113,3 +113,37 @@ class HubTimelineEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} @ {self.occurred_at:%Y-%m-%d}"
+
+
+class WhatsAppMessage(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        SENT = "sent", "Sent"
+        DELIVERED = "delivered", "Delivered"
+        READ = "read", "Read"
+        FAILED = "failed", "Failed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="hub_whatsapp_messages",
+    )
+    wa_message_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
+    recipient = models.CharField(max_length=32)
+    template_name = models.CharField(max_length=255)
+    language = models.CharField(max_length=16)
+    parameters = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.QUEUED
+    )
+    status_history = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.template_name} → {self.recipient} [{self.status}]"

@@ -594,6 +594,17 @@ FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "")
 FIREBASE_AUTH_DOMAIN = os.environ.get("FIREBASE_AUTH_DOMAIN", "")
 
+# ============================================================================
+# WhatsApp Cloud API (Meta Graph API)
+# ============================================================================
+# Server-side credentials for /hub/whatsapp/* endpoints. The access token
+# never reaches the browser. Webhook signature is verified with the app secret.
+META_WHATSAPP_ACCESS_TOKEN = os.environ.get("META_WHATSAPP_ACCESS_TOKEN", "")
+META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID", "")
+META_WABA_ID = os.environ.get("META_WABA_ID", "")
+META_WHATSAPP_APP_SECRET = os.environ.get("META_WHATSAPP_APP_SECRET", "")
+META_WHATSAPP_VERIFY_TOKEN = os.environ.get("META_WHATSAPP_VERIFY_TOKEN", "")
+
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
 # cross-origin). Leave it False so a compromised origin can't replay sessions.

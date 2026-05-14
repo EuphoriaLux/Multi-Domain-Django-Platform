@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import HubProfile, HubRequest, HubResource, HubTimelineEvent
+from .models import (
+    HubProfile,
+    HubRequest,
+    HubResource,
+    HubTimelineEvent,
+    WhatsAppMessage,
+)
 
 
 @admin.register(HubProfile)
@@ -31,3 +37,19 @@ class HubTimelineEventAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("title", "body", "user__email", "user__username")
     date_hierarchy = "occurred_at"
+
+
+@admin.register(WhatsAppMessage)
+class WhatsAppMessageAdmin(admin.ModelAdmin):
+    list_display = (
+        "template_name",
+        "recipient",
+        "user",
+        "status",
+        "wa_message_id",
+        "created_at",
+    )
+    list_filter = ("status",)
+    search_fields = ("template_name", "recipient", "wa_message_id", "user__email")
+    date_hierarchy = "created_at"
+    readonly_fields = ("wa_message_id", "status_history", "created_at", "updated_at")
