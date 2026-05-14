@@ -148,15 +148,7 @@ class WhatsAppSendView(APIView):
             try:
                 wa_id = body["messages"][0]["id"]
             except (KeyError, IndexError, TypeError):
-                shape = (
-                    sorted(body.keys())
-                    if isinstance(body, dict)
-                    else type(body).__name__
-                )
-                logger.warning(
-                    "WhatsApp send 2xx response missing messages[0].id (shape=%s)",
-                    shape,
-                )
+                logger.warning("WhatsApp send 2xx response missing messages[0].id")
             message.wa_message_id = wa_id
             message.status = WhatsAppMessage.Status.SENT
             message.status_history = message.status_history + [
