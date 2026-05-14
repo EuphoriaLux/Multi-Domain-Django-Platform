@@ -1,6 +1,21 @@
 /**
  * Crush.lu Profile Creation Styles
- * Multi-step profile wizard with progress tracker, selection cards, and form components
+ * Multi-step profile wizard with progress tracker, selection cards, and form components.
+ *
+ * ---------------------------------------------------------------------------
+ * LEGACY / PARKED — onboarding wizard, out of scope for the visual-system refactor.
+ * Do not edit casually. This file references CSS custom properties that are not
+ * declared anywhere in the project (silently fall back to invalid / initial):
+ *   - var(--gradient-primary)   (intended: --gradient-crush-primary)
+ *   - var(--text-xl), --text-sm, --text-3xl   (intended: Tailwind text-* utilities)
+ *   - var(--radius-circle)      (intended: 50% / rounded-full)
+ *   - var(--shadow-purple)      (intended: --shadow-crush-purple)
+ *   - var(--space-*)            (intended: Tailwind spacing scale)
+ *   - var(--transition-base)
+ *   - var(--font-medium), --font-semibold
+ * When the onboarding wizard comes into scope, replace these with @theme tokens
+ * or Tailwind utilities. Until then: read-only.
+ * ---------------------------------------------------------------------------
  */
 
 /* ===================

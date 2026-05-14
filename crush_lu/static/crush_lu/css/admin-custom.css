@@ -4,13 +4,25 @@
  * Modern, action-oriented styling for the Coach Panel dashboard.
  * Features: CSS custom properties, dark mode support, tabbed interface,
  * collapsible sections, responsive design.
+ *
+ * ---------------------------------------------------------------------------
+ * Token policy:
+ *   Admin templates (admin/base_site.html) load THIS file but NOT tailwind.css,
+ *   so the @theme tokens (--color-crush-purple, --gradient-crush-primary, etc.)
+ *   are not available here. The brand colors below are therefore intentionally
+ *   re-declared, keyed to the canonical hex values from tailwind-input.css
+ *   @theme block. If you change a brand color, update BOTH:
+ *     - tailwind-src/crush_lu/tailwind-input.css   (@theme + :root gradients)
+ *     - this file's :root block (below)
+ *     - crush_lu/templates/crush_lu/base.html      (inline critical CSS)
+ * ---------------------------------------------------------------------------
  */
 
 /* ==========================================================================
    CSS Custom Properties (Light Mode Default)
    ========================================================================== */
 :root {
-    /* Brand Colors */
+    /* Brand Colors — keep in sync with tailwind-input.css @theme */
     --crush-purple: #9b59b6;
     --crush-pink: #ff6b9d;
     --crush-gradient: linear-gradient(135deg, #9b59b6, #ff6b9d);

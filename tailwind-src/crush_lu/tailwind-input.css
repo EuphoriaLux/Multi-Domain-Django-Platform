@@ -63,12 +63,12 @@
     --color-crush-danger: #dc3545;
     --color-crush-info: #17a2b8;
 
-    /* Custom border radius */
-    --radius-crush-sm: 8px;
-    --radius-crush-md: 12px;
+    /* Custom border radius — only the two brand-specific values that don't map
+       cleanly onto Tailwind's rounded-* scale. For all other rounding, prefer
+       the Tailwind defaults (rounded-lg / rounded-xl / rounded-2xl / rounded-full).
+       Policy: cards = rounded-2xl, inputs/buttons = rounded-xl, badges = rounded-full,
+       brand "soft card" hero panels = rounded-crush-lg, pill CTAs = rounded-crush-pill. */
     --radius-crush-lg: 15px;
-    --radius-crush-xl: 20px;
-    --radius-crush-2xl: 25px;
     --radius-crush-pill: 50px;
 
     /* Custom box shadows */
