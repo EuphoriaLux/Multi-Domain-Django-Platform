@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import requests
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -240,7 +241,9 @@ class WhatsAppMessagesView(APIView):
         if since:
             try:
                 ts = datetime.fromisoformat(since.replace("Z", "+00:00"))
-                qs = qs.filter(created_at__gte=ts)
+                # Filter on updated_at, not created_at, so polling clients
+                # see webhook-driven status transitions on older rows.
+                qs = qs.filter(updated_at__gte=ts)
             except ValueError:
                 pass
         serializer = WhatsAppMessageSerializer(qs, many=True)
@@ -322,14 +325,6 @@ class WhatsAppWebhookView(View):
             return
 
         new_status = _WEBHOOK_STATUS_MAP[raw_status]
-        try:
-            message = WhatsAppMessage.objects.get(wa_message_id=wa_id)
-        except WhatsAppMessage.DoesNotExist:
-            logger.info("WhatsApp webhook for unknown wa_message_id=%s", wa_id)
-            return
-        except WhatsAppMessage.MultipleObjectsReturned:
-            logger.warning("Multiple rows share wa_message_id=%s", wa_id)
-            return
 
         ts_raw = event.get("timestamp")
         try:
@@ -344,7 +339,30 @@ class WhatsAppWebhookView(View):
             history_entry["error_code"] = first.get("code")
             history_entry["error_message"] = first.get("title") or first.get("message")
 
-        message.status_history = (message.status_history or []) + [history_entry]
-        if _STATUS_RANK[new_status] >= _STATUS_RANK[message.status]:
-            message.status = new_status
-        message.save(update_fields=["status", "status_history", "updated_at"])
+        # Serialize concurrent webhook callbacks for the same wa_message_id:
+        # without row-level locking, two near-simultaneous events (e.g.
+        # `sent` and `delivered`) can both read the same pre-update row and
+        # one save would clobber the other's status_history append.
+        with transaction.atomic():
+            try:
+                message = (
+                    WhatsAppMessage.objects.select_for_update()
+                    .get(wa_message_id=wa_id)
+                )
+            except WhatsAppMessage.DoesNotExist:
+                logger.info(
+                    "WhatsApp webhook for unknown wa_message_id=%s", wa_id
+                )
+                return
+            except WhatsAppMessage.MultipleObjectsReturned:
+                logger.warning("Multiple rows share wa_message_id=%s", wa_id)
+                return
+
+            message.status_history = (message.status_history or []) + [
+                history_entry
+            ]
+            if _STATUS_RANK[new_status] >= _STATUS_RANK[message.status]:
+                message.status = new_status
+            message.save(
+                update_fields=["status", "status_history", "updated_at"]
+            )
