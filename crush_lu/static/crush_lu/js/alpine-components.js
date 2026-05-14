@@ -12,6 +12,95 @@
  */
 
 document.addEventListener("alpine:init", function () {
+    // =========================================================================
+    // SHARED INTERACTIVITY MIXINS (Phase 5 — see crush_lu/STYLE.md §7)
+    //
+    // These factories return plain state-and-method objects that named
+    // Alpine.data components compose with the `mixin` helper below. They
+    // are NOT Alpine.data registrations because the CSP build cannot pass
+    // args from x-data; wrap them in a named component instead.
+    //
+    // IMPORTANT: use `mixin`, NOT `Object.assign` / spread. Both of those
+    // *evaluate* getters on the source object during the copy (with `this`
+    // bound to the bare source literal, which lacks the mixin methods),
+    // turning a live `get isFoo()` into the literal value `undefined` —
+    // or a TypeError when the getter calls `this.somethingFromMixin()`.
+    // `mixin` copies descriptors via Object.defineProperties, so accessor
+    // properties stay live and resolve against the composed `this`.
+    //
+    // Usage:
+    //   Alpine.data("myTabs", () => mixin(
+    //       makeTabs("upcoming", ["upcoming", "past"]),
+    //       { get isUpcoming() { return this.isTabActive("upcoming"); },
+    //         showUpcoming() { this.setTab("upcoming"); } }
+    //   ));
+    // =========================================================================
+
+    function mixin(target, source) {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+        return target;
+    }
+
+    function makeTabs(initial, names) {
+        return {
+            activeTab: initial,
+            _tabNames: names || [],
+            setTab(name) {
+                this.activeTab = name;
+            },
+            isTabActive(name) {
+                return this.activeTab === name;
+            },
+        };
+    }
+
+    function makeConfirm(opts) {
+        var options = opts || {};
+        return {
+            confirming: !!options.initial,
+            get isConfirming() {
+                return this.confirming;
+            },
+            get isIdle() {
+                return !this.confirming;
+            },
+            request() {
+                this.confirming = true;
+            },
+            cancelConfirm() {
+                this.confirming = false;
+            },
+            proceed() {
+                this.confirming = false;
+                if (options.autoSubmit !== false) {
+                    var form = this.$el && this.$el.closest("form");
+                    if (form) form.submit();
+                }
+            },
+        };
+    }
+
+    function makeModal(initiallyOpen) {
+        return {
+            open: !!initiallyOpen,
+            showModal() {
+                this.open = true;
+            },
+            hideModal() {
+                this.open = false;
+            },
+            toggleModal() {
+                this.open = !this.open;
+            },
+            get isModalOpen() {
+                return this.open;
+            },
+            get isModalClosed() {
+                return !this.open;
+            },
+        };
+    }
+
     // Event ticket "Add to Google Wallet" button component
     Alpine.data("eventTicketButton", function () {
         return {
@@ -1101,33 +1190,33 @@ document.addEventListener("alpine:init", function () {
     });
 
     Alpine.data("eventTabs", function () {
-        return {
-            activeTab: "upcoming",
-
+        // Composes makeTabs (state + setTab/isTabActive) with the page-specific
+        // gradient class getters and showUpcoming/showPast aliases the template
+        // already references. Keep the template-facing API stable.
+        var activeClass =
+            "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md";
+        var inactiveClass =
+            "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+        return mixin(makeTabs("upcoming", ["upcoming", "past"]), {
             get isUpcoming() {
-                return this.activeTab === "upcoming";
+                return this.isTabActive("upcoming");
             },
             get isPast() {
-                return this.activeTab === "past";
+                return this.isTabActive("past");
             },
             get upcomingTabClass() {
-                return this.activeTab === "upcoming"
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+                return this.isUpcoming ? activeClass : inactiveClass;
             },
             get pastTabClass() {
-                return this.activeTab === "past"
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80";
+                return this.isPast ? activeClass : inactiveClass;
             },
-
             showUpcoming() {
-                this.activeTab = "upcoming";
+                this.setTab("upcoming");
             },
             showPast() {
-                this.activeTab = "past";
+                this.setTab("past");
             },
-        };
+        });
     });
 
     // Invitation row component (reject modal)
@@ -3048,7 +3137,18 @@ document.addEventListener("alpine:init", function () {
 
     // Photo upload component for profile photos
     // Reads initial photos from data attributes
+    // DEPRECATED — see crush_lu/STYLE.md §7. New photo-upload UI should use
+    // the photoPicker component (HTMX, slot-based, no 3-photo hardcoding).
+    // photoUpload is preserved for the onboarding wizard while that flow
+    // remains out of scope for the visual-system refactor.
+    var _photoUploadDeprecationLogged = false;
     Alpine.data("photoUpload", function () {
+        if (!_photoUploadDeprecationLogged && typeof console !== "undefined") {
+            console.warn(
+                "[crush_lu] Alpine.data('photoUpload') is deprecated; use photoPicker for new photo-upload UI.",
+            );
+            _photoUploadDeprecationLogged = true;
+        }
         return {
             photos: [
                 { id: 1, hasImage: false, preview: "" },
@@ -10926,24 +11026,21 @@ document.addEventListener("alpine:init", function () {
 
     // Spark confirm inline component (replaces browser confirm dialog)
     Alpine.data("sparkConfirm", function () {
-        return {
-            state: "initial",
-
+        // Composes makeConfirm with the template-facing API the spark
+        // partials expect (isInitial / showConfirm / cancel). autoSubmit
+        // is OFF — the spark confirmation panel makes its own HTMX call,
+        // it does NOT submit a parent form.
+        return mixin(makeConfirm({ autoSubmit: false }), {
             get isInitial() {
-                return this.state === "initial";
+                return this.isIdle;
             },
-            get isConfirming() {
-                return this.state === "confirming";
-            },
-
             showConfirm() {
-                this.state = "confirming";
+                this.request();
             },
-
             cancel() {
-                this.state = "initial";
+                this.cancelConfirm();
             },
-        };
+        });
     });
 
     // Voting demo success state component

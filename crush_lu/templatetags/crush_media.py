@@ -68,19 +68,23 @@ def split_interests(value):
 
 
 @register.inclusion_tag('crush_lu/components/profile_photo.html')
-def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo'):
+def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
+                  fallback='initials'):
     """
-    Render a profile photo with proper security and fallback
+    Render a profile photo with consistent fallback.
 
     Usage in template:
         {% load crush_media %}
-        {% profile_photo profile 'photo_1' css_class='img-fluid rounded' %}
+        {% profile_photo profile 'photo_1' css_class='w-14 h-14 rounded-full' %}
+        {% profile_photo profile 'photo_1' css_class='w-10 h-10 rounded-full' fallback='icon' %}
 
     Args:
         profile: CrushProfile instance
         photo_field: 'photo_1', 'photo_2', or 'photo_3'
-        css_class: CSS classes to apply
+        css_class: CSS classes to apply (sizing + shape — e.g. 'w-14 h-14 rounded-full')
         alt_text: Alt text for accessibility
+        fallback: 'initials' (default — gradient + initial letter) or 'icon'
+                  (neutral user-circle for non-personal placeholders)
 
     Returns:
         Rendered component
@@ -100,5 +104,6 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo'):
         'has_photo': bool(photo),
         'css_class': css_class,
         'alt_text': alt_text,
-        'display_name': profile.display_name if profile else 'User'
+        'display_name': profile.display_name if profile else 'User',
+        'fallback': fallback,
     }

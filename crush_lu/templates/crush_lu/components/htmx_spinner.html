@@ -1,0 +1,24 @@
+{% comment %}
+HTMX loading indicator.
+
+Wrap this where the loading-only UI should appear. Pair it with a
+sibling `<span class="htmx-hide-on-request">…</span>` that contains the
+button's resting label — HTMX swaps which child is visible while a
+request is in flight.
+
+Example:
+    <button hx-post="…">
+        {% include "crush_lu/components/htmx_spinner.html" %}
+        <span class="htmx-hide-on-request">{% trans "Accept" %}</span>
+    </button>
+
+Args:
+  classes  Tailwind classes for the spinner SVG. Default
+           "w-4 h-4 animate-spin". Pass "w-5 h-5 animate-spin" for
+           larger buttons.
+{% endcomment %}
+{% load i18n %}
+<span class="htmx-indicator">
+    {% include "shared/icons/loading.html" with class=classes|default:"w-4 h-4 animate-spin" %}
+    <span class="sr-only">{% trans "Loading…" %}</span>
+</span>

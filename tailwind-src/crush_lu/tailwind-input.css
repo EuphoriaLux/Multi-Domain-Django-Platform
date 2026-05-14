@@ -63,12 +63,12 @@
     --color-crush-danger: #dc3545;
     --color-crush-info: #17a2b8;
 
-    /* Custom border radius */
-    --radius-crush-sm: 8px;
-    --radius-crush-md: 12px;
+    /* Custom border radius — only the two brand-specific values that don't map
+       cleanly onto Tailwind's rounded-* scale. For all other rounding, prefer
+       the Tailwind defaults (rounded-lg / rounded-xl / rounded-2xl / rounded-full).
+       Policy: cards = rounded-2xl, inputs/buttons = rounded-xl, badges = rounded-full,
+       brand "soft card" hero panels = rounded-crush-lg, pill CTAs = rounded-crush-pill. */
     --radius-crush-lg: 15px;
-    --radius-crush-xl: 20px;
-    --radius-crush-2xl: 25px;
     --radius-crush-pill: 50px;
 
     /* Custom box shadows */
@@ -278,7 +278,13 @@ body.journey-bg {
 
     /* =========================================================================
      BUTTONS
-     Note: Using inline styles instead of @apply btn to avoid circular deps
+     Note: Using inline styles instead of @apply btn to avoid circular deps.
+     Taxonomy: see crush_lu/STYLE.md §2. Canonical four are .btn-crush-primary
+     (gradient hero CTA, one per page), .btn-crush-solid (in-page primary),
+     .btn-crush-outline (secondary), .btn-danger (destructive). The .btn-primary
+     / .btn-secondary / .btn-outline-* / .btn-success / .btn-warning / .btn-info
+     variants below are kept for legacy / coach / admin templates and should
+     not be used in new user-facing code.
      ========================================================================= */
     .btn,
     .btn-crush-primary,

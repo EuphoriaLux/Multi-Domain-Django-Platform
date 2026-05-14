@@ -1,0 +1,30 @@
+# Crush.lu pre-commit hooks
+#
+# This config currently ships ONE hook: the crush_lu design-token linter.
+# It runs only on the changed *.html files inside crush_lu/templates/crush_lu/
+# (the user-facing Crush.lu surfaces). Coach / admin / journey / onboarding
+# templates and email templates are exempt internally — see
+# crush_lu/scripts/lint_design_tokens.py.
+#
+# To install on a fresh clone:
+#   pip install pre-commit
+#   pre-commit install
+#
+# To run manually against the full in-scope tree:
+#   pre-commit run --all-files crush-lu-design-tokens
+# or:
+#   python crush_lu/scripts/lint_design_tokens.py
+#
+# The linter is intentionally permissive about existing debt — it only
+# flags files in the commit, so legacy violations elsewhere in the repo
+# don't block unrelated work. See crush_lu/STYLE.md for the policy.
+
+repos:
+  - repo: local
+    hooks:
+      - id: crush-lu-design-tokens
+        name: crush_lu design-token lint
+        entry: python crush_lu/scripts/lint_design_tokens.py
+        language: system
+        files: '^crush_lu/templates/crush_lu/.*\.html$'
+        pass_filenames: true
