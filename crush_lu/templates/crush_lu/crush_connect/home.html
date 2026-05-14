@@ -1,0 +1,73 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Today's Drop — Crush Connect" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+
+    {% if is_staff_preview %}
+    <div class="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/60 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        <strong class="font-semibold">{% trans "Staff preview." %}</strong>
+        {% trans "You're seeing Crush Connect because of staff bypass — the launch flag is off, or your account isn't onboarded yet. Regular users will be redirected to the teaser." %}
+    </div>
+    {% endif %}
+
+    {# Hero #}
+    <header class="mb-8">
+        <div class="flex items-baseline justify-between gap-3 mb-2">
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+                {% trans "Today's Drop" %}
+            </h1>
+            <span class="text-xs font-medium uppercase tracking-wide text-crush-purple dark:text-crush-pink">
+                {{ drop.drop_date|date:"l, F j" }}
+            </span>
+        </div>
+        <p class="text-gray-600 dark:text-gray-300 max-w-2xl">
+            {% blocktrans count count=recipients|length %}
+                One person, hand-picked for you today. Take a moment with them — your next Drop arrives tomorrow morning.
+            {% plural %}
+                {{ count }} people, hand-picked for you today. Take a moment with each — your next Drop arrives tomorrow morning.
+            {% endblocktrans %}
+        </p>
+    </header>
+
+    {# Cards stack #}
+    {% if recipients %}
+        <div class="grid grid-cols-1 gap-6">
+            {% for target in recipients %}
+                {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target.crushprofile target_membership=target.crush_connect_membership show_spark_placeholder=True %}
+            {% endfor %}
+        </div>
+
+        <p class="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
+            {% blocktrans with when=next_drop_at|date:"l H:i" %}
+                That's it for today. Your next Drop arrives <strong>{{ when }}</strong>.
+            {% endblocktrans %}
+        </p>
+    {% else %}
+        {# Empty state — no eligible candidates today #}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <div class="mx-auto w-16 h-16 rounded-full bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 flex items-center justify-center mb-5">
+                {% include "shared/icons/sparkles.html" with class="w-8 h-8 text-crush-purple" %}
+            </div>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "No Drop for today." %}
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6">
+                {% trans "We didn't find anyone new to introduce you to right now. Attending more events makes you discoverable to more members — and vice versa." %}
+            </p>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm inline-flex">
+                {% trans "Browse upcoming events" %}
+                {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+            </a>
+            <p class="mt-8 text-xs text-gray-500 dark:text-gray-400">
+                {% blocktrans with when=next_drop_at|date:"l H:i" %}
+                    Your next Drop is checked at <strong>{{ when }}</strong>.
+                {% endblocktrans %}
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

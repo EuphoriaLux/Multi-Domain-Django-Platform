@@ -27,6 +27,25 @@ def crush_login_required(function):
     return wrapper
 
 
+def crush_connect_enabled(function):
+    """
+    Gate a view behind the Crush Connect launch flag.
+
+    When CRUSH_CONNECT_LAUNCHED is False, redirects to the teaser. Staff bypass
+    the flag so beta/internal review works before public launch. The eligibility
+    check (approved profile + ≥1 attended event) belongs in the view itself —
+    this decorator only handles the launch flag.
+    """
+    @wraps(function)
+    def wrapper(request, *args, **kwargs):
+        if not settings.CRUSH_CONNECT_LAUNCHED and not (
+            request.user.is_authenticated and request.user.is_staff
+        ):
+            return redirect('crush_lu:crush_connect_teaser')
+        return function(request, *args, **kwargs)
+    return wrapper
+
+
 def coach_required(function):
     """
     Decorator for coach-only views. Checks that the user is an active coach

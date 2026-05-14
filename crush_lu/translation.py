@@ -15,6 +15,7 @@ from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
 from .models.changelog import PatchRelease, PatchNote
+from .models.crush_connect import SparkPrompt
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -132,6 +133,12 @@ class PatchNoteTranslationOptions(TranslationOptions):
     fields = ('title', 'body')
 
 
+class SparkPromptTranslationOptions(TranslationOptions):
+    """Translatable fields for Crush Connect spark prompts."""
+
+    fields = ('text',)
+
+
 # Register models with translation options
 translator.register(Newsletter, NewsletterTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
@@ -149,3 +156,4 @@ translator.register(QuizRound, QuizRoundTranslationOptions)
 translator.register(QuizQuestion, QuizQuestionTranslationOptions)
 translator.register(PatchRelease, PatchReleaseTranslationOptions)
 translator.register(PatchNote, PatchNoteTranslationOptions)
+translator.register(SparkPrompt, SparkPromptTranslationOptions)

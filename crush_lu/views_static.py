@@ -57,6 +57,27 @@ def crush_coach(request):
 
 def crush_connect_teaser(request):
     """Crush Connect teaser page with waitlist."""
+    from django.conf import settings as _settings
+
+    # Post-launch fast-path: if Crush Connect is live and the visitor can
+    # actually use it, send them past the teaser. Onboarded → Today's Drop.
+    # Eligible but not onboarded → onboarding. Staff are never auto-redirected
+    # so they can still preview the teaser itself.
+    if (
+        request.user.is_authenticated
+        and not request.user.is_staff
+        and getattr(_settings, "CRUSH_CONNECT_LAUNCHED", False)
+    ):
+        profile = getattr(request.user, "crushprofile", None)
+        if profile and profile.is_approved and EventRegistration.objects.filter(
+            user=request.user, status="attended"
+        ).exists():
+            membership = getattr(request.user, "crush_connect_membership", None)
+            if membership and membership.is_onboarded:
+                return redirect("crush_lu:crush_connect_home")
+            if not membership or not membership.excluded_by_coach:
+                return redirect("crush_lu:crush_connect_onboarding")
+
     context = {
         "on_waitlist": False,
         "waitlist_position": None,
