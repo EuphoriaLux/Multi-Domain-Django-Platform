@@ -237,10 +237,12 @@ class MeetupEvent(models.Model):
         default=3,
         help_text=_("Maximum number of Crush Sparks a user can send per event"),
     )
-    spark_request_deadline_hours = models.PositiveIntegerField(
-        default=168,
+    connection_window_hours = models.PositiveIntegerField(
+        default=24,
         help_text=_(
-            "Hours after event end until spark requests close (default: 7 days)"
+            "Hours after event start until post-event connection requests "
+            "close (default: 24 = 1 day). After the window closes, attendees "
+            "are redirected to the Crush Connect teaser."
         ),
     )
 
@@ -401,12 +403,13 @@ class MeetupEvent(models.Model):
     def connection_window_deadline(self):
         """When the post-event connection-request window closes.
 
-        Reuses ``spark_request_deadline_hours`` (default 168h = 7 days from
-        event start) so admins control sparks + connections with one knob.
-        Computed from ``date_time`` to match the existing spark-window
-        calculation in views_connections.py.
+        Computed from ``date_time`` (event start) + ``connection_window_hours``
+        (default 24h = 1 day). After this point, the "Request Connection"
+        button on the attendees list is replaced by a "Try Crush Connect"
+        link, and any direct POST to the connection-request endpoints
+        redirects to the Crush Connect teaser.
         """
-        return self.date_time + timedelta(hours=self.spark_request_deadline_hours)
+        return self.date_time + timedelta(hours=self.connection_window_hours)
 
     @property
     def connection_window_active(self):

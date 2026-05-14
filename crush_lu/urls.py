@@ -110,6 +110,23 @@ from . import views_changelog
 
 app_name = 'crush_lu'
 
+
+def _spark_to_crush_connect(request, *args, **kwargs):
+    """Funnel for soft-removed spark URLs.
+
+    Django's RedirectView.as_view(pattern_name=...) reverses the target
+    URL with whatever kwargs were captured from the source URL pattern.
+    Several spark routes have ``<int:event_id>`` / ``<int:spark_id>`` /
+    ``<int:user_id>`` in them; passing those to reverse() on
+    ``crush_connect_teaser`` (which accepts no kwargs) raises
+    NoReverseMatch and would return 500 instead of redirecting.
+
+    This tiny view ignores any captured kwargs and reverses cleanly.
+    Codex flagged the RedirectView form as P1 on PR #433.
+    """
+    return redirect("crush_lu:crush_connect_teaser")
+
+
 urlpatterns = [
     # Secure media serving
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
@@ -258,23 +275,38 @@ urlpatterns = [
     # - api/events/<int:event_id>/voting/results/
 
     # ============================================================================
-    # CRUSH SPARK SYSTEM
+    # CRUSH SPARK SYSTEM (soft-removed; user-facing routes redirect to the
+    # Crush Connect teaser. Coach-side spark URLs remain so coaches can clean
+    # up any in-flight sparks until the data model is fully retired.)
     # ============================================================================
 
-    # Sender views
-    path('events/<int:event_id>/spark/request/', views_crush_spark.spark_request, name='spark_request'),
+    # Creation paths -> Crush Connect teaser. NOTE: use the
+    # _spark_to_crush_connect view (not RedirectView.as_view with
+    # pattern_name) because the parameterised routes capture kwargs that
+    # would be forwarded to reverse() on the teaser URL and raise
+    # NoReverseMatch. See the function docstring above for context.
+    path('events/<int:event_id>/spark/request/', _spark_to_crush_connect, name='spark_request'),
+    path('events/<int:event_id>/spark/send/<int:user_id>/', _spark_to_crush_connect, name='spark_send_inline'),
+    path('events/<int:event_id>/spark/actions/<int:user_id>/', _spark_to_crush_connect, name='spark_actions'),
+    path('sparks/received/', _spark_to_crush_connect, name='spark_received'),
+
+    # Sender dashboard + completion paths for in-flight sparks. Coaches can
+    # still approve pending sparks via coach_spark_assign (URL kept wired
+    # further down); the sender then needs:
+    #   - spark_list      to discover their approved/pending items
+    #                     (spark_detail links are only reachable from
+    #                     spark_list.html in this tree),
+    #   - spark_detail    to view the approval,
+    #   - spark_create_journey  to author the Wonderland journey the
+    #                           recipient will play.
+    # Redirecting any of these would orphan any spark a coach approves
+    # after this PR merges. None of these endpoints can create a NEW
+    # spark, so they're safe to leave reachable. Codex P1 #2/#3 on #433.
     path('sparks/', views_crush_spark.spark_list, name='spark_list'),
     path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
     path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
 
-    # Spark inline actions (HTMX)
-    path('events/<int:event_id>/spark/send/<int:user_id>/', views_crush_spark.spark_send_inline, name='spark_send_inline'),
-    path('events/<int:event_id>/spark/actions/<int:user_id>/', views_crush_spark.spark_actions, name='spark_actions'),
-
-    # Recipient views
-    path('sparks/received/', views_crush_spark.spark_received, name='spark_received'),
-
-    # Coach spark management
+    # Coach spark management — left in place for in-flight cleanup.
     path('coach/sparks/', views_crush_spark.coach_spark_list, name='coach_spark_list'),
     path('coach/sparks/<int:spark_id>/assign/', views_crush_spark.coach_spark_assign, name='coach_spark_assign'),
 

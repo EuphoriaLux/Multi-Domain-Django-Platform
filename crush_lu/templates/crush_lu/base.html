@@ -349,13 +349,6 @@
                                             <span class="badge badge-danger ml-2">{{ pending_requests_count }}</span>
                                         {% endif %}
                                     </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:spark_list' %}">
-                                        <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
-                                        {% trans "My Sparks" %}
-                                        {% if actionable_sparks_count > 0 %}
-                                            <span class="badge badge-danger ml-2">{{ actionable_sparks_count }}</span>
-                                        {% endif %}
-                                    </a>
                                     <div class="dropdown-divider"></div>
                                     {% if user.crushprofile %}
                                         {% if profile_is_approved %}
@@ -492,14 +485,6 @@
                                         <span class="badge badge-danger">{{ pending_requests_count }}</span>
                                     {% endif %}
                                 </a>
-                                <a class="nav-link" href="{% url 'crush_lu:spark_list' %}">
-                                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
-                                    <span>{% trans "My Sparks" %}</span>
-                                    {% if actionable_sparks_count > 0 %}
-                                        <span class="badge badge-danger">{{ actionable_sparks_count }}</span>
-                                    {% endif %}
-                                </a>
-
                             {% elif profile_status == 'pending' %}
                                 {# PENDING REVIEW: Show status + browse events #}
                                 <a class="nav-link" href="{% url 'crush_lu:dashboard' %}">
@@ -852,13 +837,6 @@
                                     <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
                                 {% endif %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:spark_list' %}">
-                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
-                                {% trans "My Sparks" %}
-                                {% if actionable_sparks_count > 0 %}
-                                    <span class="badge badge-danger ml-1">{{ actionable_sparks_count }}</span>
-                                {% endif %}
-                            </a>
                             {% if user.crushprofile %}
                                 {% if profile_is_approved %}
                                 <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
@@ -928,13 +906,6 @@
                                     {% trans "Connections" %}
                                     {% if pending_requests_count > 0 %}
                                         <span class="badge badge-danger ml-1">{{ pending_requests_count }}</span>
-                                    {% endif %}
-                                </a>
-                                <a class="nav-link block" href="{% url 'crush_lu:spark_list' %}">
-                                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
-                                    {% trans "My Sparks" %}
-                                    {% if actionable_sparks_count > 0 %}
-                                        <span class="badge badge-danger ml-1">{{ actionable_sparks_count }}</span>
                                     {% endif %}
                                 </a>
                                 <div class="border-t border-white/20 my-2"></div>

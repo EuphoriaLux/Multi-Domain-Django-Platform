@@ -51,7 +51,7 @@ def spark_request(request, event_id):
         return redirect("crush_lu:event_detail", event_id=event.id)
 
     # Check deadline
-    deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
+    deadline = event.date_time + timedelta(hours=event.connection_window_hours)
     if timezone.now() > deadline:
         messages.error(request, _("The deadline for Crush Spark requests has passed."))
         return redirect("crush_lu:event_detail", event_id=event.id)
@@ -263,7 +263,7 @@ def spark_send_inline(request, event_id, user_id):
         )
 
     # Check deadline
-    deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
+    deadline = event.date_time + timedelta(hours=event.connection_window_hours)
     if timezone.now() > deadline:
         return render(
             request,
@@ -322,7 +322,7 @@ def spark_actions(request, event_id, user_id):
     ).exclude(status=CrushSpark.Status.CANCELLED).first()
 
     # Check deadline
-    deadline = event.date_time + timedelta(hours=event.spark_request_deadline_hours)
+    deadline = event.date_time + timedelta(hours=event.connection_window_hours)
     spark_deadline_active = timezone.now() <= deadline
 
     # Check remaining sparks
