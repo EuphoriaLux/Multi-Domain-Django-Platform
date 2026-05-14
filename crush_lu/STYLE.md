@@ -186,3 +186,53 @@ Some files are legacy / parked and should NOT be touched casually:
   Returns the brand color dict for inline `style="…"` usage in templates
   rendered via `render_to_string()` (emails, allauth pages — places where
   Django context processors don't fire and CSS vars aren't reliable).
+
+- **`crush_lu.templatetags.connection_status`** — `{% connection_status_badge connection %}`.
+  Single source of truth for the EventConnection.status → badge mapping.
+  Extend the dict in `connection_status.py` to add new statuses; don't add
+  more if/elif chains in templates.
+
+---
+
+## 7. Alpine.js primitives
+
+Three shared mixin factories live at the top of
+`crush_lu/static/crush_lu/js/alpine-components.js`. Compose them inside
+your named Alpine.data component with `Object.assign`. They are not
+themselves Alpine.data registrations because the CSP build cannot pass
+arguments via `x-data`.
+
+### `makeTabs(initial, names)`
+
+State + `setTab(name)` + `isTabActive(name)`. Used by `eventTabs` (line ~1100).
+Extend with template-facing aliases (e.g. `showUpcoming`, `upcomingTabClass`)
+in your wrapper.
+
+```js
+Alpine.data("myTabs", () =>
+    Object.assign(makeTabs("first", ["first", "second"]), {
+        showFirst() { this.setTab("first"); },
+        showSecond() { this.setTab("second"); },
+    }),
+);
+```
+
+### `makeConfirm({ autoSubmit })`
+
+Two-state idle/confirming flow. `request()` to enter the confirming state,
+`cancelConfirm()` to back out, `proceed()` to finalize. When
+`autoSubmit !== false`, `proceed()` submits the enclosing `<form>`. Used by
+`sparkConfirm` (line ~10920) with `autoSubmit: false` because the panel
+makes its own HTMX call instead.
+
+### `makeModal(initiallyOpen)`
+
+`showModal()` / `hideModal()` / `toggleModal()` plus `isModalOpen` /
+`isModalClosed` getters. Reach for this rather than rolling a one-off
+`x-data="{ open: false }"`.
+
+### Deprecated Alpine components (do not use in new code)
+
+| Component | Replace with | Reason |
+| --- | --- | --- |
+| `photoUpload` | `photoPicker` | 3-slot hardcoding, no HTMX upload. Console.warn at runtime. Kept alive for the onboarding wizard while that flow is parked. |
