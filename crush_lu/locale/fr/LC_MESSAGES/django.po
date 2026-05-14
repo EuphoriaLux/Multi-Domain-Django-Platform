@@ -20665,7 +20665,7 @@ msgstr "Nouvelle demande de connexion !"
 
 #: .\crush_lu\templates\crush_lu\emails\new_connection_request.html:6
 msgid "Someone wants to connect!"
-msgstr "%(name)s veut se connecter avec vous !"
+msgstr "Quelqu'un veut se connecter avec vous !"
 
 #: .\crush_lu\templates\crush_lu\emails\new_connection_request.html:9
 #: .\crush_lu\templates\crush_lu\emails\new_message.html:9
