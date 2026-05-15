@@ -447,6 +447,56 @@
             </div>
         </div>
 
+        <!-- WhatsApp Notifications Card -->
+        <div id="whatsapp-notifications" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-green-600" %}
+                    {% trans "WhatsApp Notifications" %}
+                </h5>
+            </div>
+            <div class="p-6">
+                {% if user.crushprofile and user.crushprofile.phone_number and user.crushprofile.phone_verified %}
+                <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
+                    {% csrf_token %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        {% trans "Receive notifications via WhatsApp on:" %}
+                        <strong class="text-gray-900 dark:text-white ml-1">{{ user.crushprofile.phone_number }}</strong>
+                    </p>
+
+                    <label class="flex items-start cursor-pointer">
+                        <div class="relative mt-0.5">
+                            <input type="checkbox" class="sr-only peer" name="whatsapp_opt_in"
+                                   {% if email_prefs.whatsapp_opt_in %}checked{% endif %}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                        </div>
+                        <div class="ml-3">
+                            <strong class="text-gray-900 dark:text-white">{% trans "Enable WhatsApp Notifications" %}</strong>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">
+                                {% trans "Match alerts, new messages, and event reminders sent to your WhatsApp number." %}
+                            </p>
+                        </div>
+                    </label>
+
+                    <div class="mt-6">
+                        <button type="submit" class="btn-crush-primary px-6 py-2 rounded-lg inline-flex items-center">
+                            {% include "shared/icons/check.html" with class="w-5 h-5" %}{% trans "Save Preferences" %}
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" %}
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        {% trans "A verified phone number is required to enable WhatsApp notifications." %}
+                        <a href="{% url 'crush_lu:edit_profile' %}" class="underline font-medium">{% trans "Update your profile" %}</a>
+                        {% trans "to add and verify your number." %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Push Notifications Card (shown to all, JS detects browser support) -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6 overflow-hidden"
              x-data="pushPreferences"

@@ -1802,6 +1802,10 @@ class EmailPreference(models.Model):
         default=False,  # OFF by default - GDPR compliance
         help_text=_("Marketing emails, newsletters, promotions (requires explicit opt-in)")
     )
+    whatsapp_opt_in = models.BooleanField(
+        default=False,
+        help_text=_("User has opted in to receive WhatsApp notifications")
+    )
 
     # Master unsubscribe switch
     unsubscribed_all = models.BooleanField(
