@@ -613,8 +613,24 @@ def update_whatsapp_preference(request):
     """Update only the WhatsApp opt-in preference without touching email settings."""
     from .models import EmailPreference
 
+    wants_opt_in = "whatsapp_opt_in" in request.POST
+
+    # Server-side guard: opt-in requires a verified phone number regardless of
+    # what the UI shows — the form toggle is hidden for unverified users but
+    # a crafted POST must not create inconsistent state.
+    if wants_opt_in:
+        try:
+            profile = request.user.crushprofile
+            has_verified_phone = bool(profile.phone_number and profile.phone_verified)
+        except Exception:
+            has_verified_phone = False
+
+        if not has_verified_phone:
+            messages.error(request, _("A verified phone number is required to enable WhatsApp notifications."))
+            return redirect("crush_lu:account_settings")
+
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
-    email_prefs.whatsapp_opt_in = "whatsapp_opt_in" in request.POST
+    email_prefs.whatsapp_opt_in = wants_opt_in
     email_prefs.save(update_fields=["whatsapp_opt_in"])
 
     messages.success(request, _("WhatsApp notification preference updated."))
@@ -650,6 +666,15 @@ def api_update_email_preference(request):
 
     if key not in VALID_KEYS:
         return JsonResponse({"success": False, "error": "Invalid preference key"}, status=400)
+
+    if key == "whatsapp_opt_in" and value:
+        try:
+            profile = request.user.crushprofile
+            has_verified_phone = bool(profile.phone_number and profile.phone_verified)
+        except Exception:
+            has_verified_phone = False
+        if not has_verified_phone:
+            return JsonResponse({"success": False, "error": "Verified phone number required"}, status=400)
 
     email_prefs = EmailPreference.get_or_create_for_user(request.user)
     setattr(email_prefs, key, value)
