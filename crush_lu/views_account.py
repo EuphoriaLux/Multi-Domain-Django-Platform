@@ -600,6 +600,7 @@ def update_email_preferences(request):
     email_prefs.email_new_connections = "email_new_connections" in request.POST
     email_prefs.email_new_messages = "email_new_messages" in request.POST
     email_prefs.email_marketing = "email_marketing" in request.POST
+    email_prefs.whatsapp_opt_in = "whatsapp_opt_in" in request.POST
 
     email_prefs.save()
 
@@ -624,6 +625,7 @@ def api_update_email_preference(request):
         "email_new_connections",
         "email_new_messages",
         "email_marketing",
+        "whatsapp_opt_in",
     }
 
     try:
