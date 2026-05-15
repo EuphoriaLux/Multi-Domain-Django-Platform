@@ -212,6 +212,7 @@ urlpatterns = [
     # Account settings
     path('account/settings/', views.account_settings, name='account_settings'),
     path('account/settings/email-preferences/', views.update_email_preferences, name='update_email_preferences'),
+    path('account/settings/whatsapp-preference/', views.update_whatsapp_preference, name='update_whatsapp_preference'),
     path('account/set-password/', views.set_password, name='set_password'),
     path('account/disconnect/<int:social_account_id>/', views.disconnect_social_account, name='disconnect_social_account'),
     path('account/link-apple/', views.apple_relay_link_prompt, name='apple_link_prompt'),

@@ -610,6 +610,20 @@ def update_email_preferences(request):
 
 @login_required
 @require_http_methods(["POST"])
+def update_whatsapp_preference(request):
+    """Update only the WhatsApp opt-in preference without touching email settings."""
+    from .models import EmailPreference
+
+    email_prefs = EmailPreference.get_or_create_for_user(request.user)
+    email_prefs.whatsapp_opt_in = "whatsapp_opt_in" in request.POST
+    email_prefs.save(update_fields=["whatsapp_opt_in"])
+
+    messages.success(request, _("WhatsApp notification preference updated."))
+    return redirect("crush_lu:account_settings")
+
+
+@login_required
+@require_http_methods(["POST"])
 def api_update_email_preference(request):
     """
     JSON API endpoint for updating a single email preference toggle.

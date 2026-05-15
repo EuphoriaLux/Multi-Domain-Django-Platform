@@ -457,7 +457,7 @@
             </div>
             <div class="p-6">
                 {% if user.crushprofile and user.crushprofile.phone_number and user.crushprofile.phone_verified %}
-                <form method="post" action="{% url 'crush_lu:update_email_preferences' %}">
+                <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
                     {% csrf_token %}
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
                         {% trans "Receive notifications via WhatsApp on:" %}
