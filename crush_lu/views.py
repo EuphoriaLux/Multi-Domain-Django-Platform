@@ -98,6 +98,7 @@ from .views_account import (  # noqa: F401
     data_deletion_status,
     account_settings,
     update_email_preferences,
+    update_whatsapp_preference,
     api_update_email_preference,
     email_unsubscribe,
     set_password,
