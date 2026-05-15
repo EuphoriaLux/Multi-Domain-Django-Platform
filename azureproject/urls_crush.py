@@ -18,6 +18,7 @@ from django.views.i18n import JavaScriptCatalog
 
 from .urls_shared import base_patterns, api_patterns
 from .views_spa_auth import spa_session_callback
+from hub.views_whatsapp import WhatsAppWebhookView
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
@@ -329,6 +330,10 @@ urlpatterns = base_patterns + api_patterns + [
     # Mounted on crush.lu / test.crush.lu since the SPA's preview env can't
     # have its own subdomain — it uses test.crush.lu directly. Language-neutral.
     path('hub/', include('hub.urls')),
+
+    # WhatsApp webhook — public, signature-verified. Mounted here because
+    # api.crush.lu is not a bound custom domain on the production App Service slot.
+    path('api/webhooks/whatsapp/', WhatsAppWebhookView.as_view(), name='whatsapp_webhook_crush'),
 
     # Session→JWT bounce for the hub SPA. Lives on crush.lu because that's
     # where the allauth session cookie is set; mints a single-use code that
