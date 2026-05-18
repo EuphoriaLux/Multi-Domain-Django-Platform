@@ -65,6 +65,15 @@ def voting_status_api(request, event_id):
                 'success': False,
                 'error': 'You are not registered for this event'
             }, status=403)
+    else:
+        # Coaches/superusers bypass access control, but we still compute
+        # needs_checkin from their actual registration so the JS reload
+        # guard stays accurate if they are also a confirmed participant.
+        try:
+            coach_reg = EventRegistration.objects.get(event=event, user=request.user)
+            needs_checkin = coach_reg.status == 'confirmed'
+        except EventRegistration.DoesNotExist:
+            pass
 
     # Get voting session
     try:
