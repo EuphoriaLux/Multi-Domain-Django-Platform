@@ -1171,11 +1171,16 @@ class CheckInVotingGateTests(TestCase):
             event=self.event, user=self.confirmed_user, status='confirmed'
         )
 
-        self.voting_session = EventVotingSession.objects.create(
+        # enable_activity_voting=True triggers a post_save signal that
+        # auto-creates EventVotingSession with times derived from event.date_time.
+        # Use update_or_create so we get the open window the gate tests need.
+        self.voting_session, _ = EventVotingSession.objects.update_or_create(
             event=self.event,
-            is_active=True,
-            voting_start_time=timezone.now() - timedelta(minutes=10),
-            voting_end_time=timezone.now() + timedelta(minutes=20),
+            defaults={
+                'is_active': True,
+                'voting_start_time': timezone.now() - timedelta(minutes=10),
+                'voting_end_time': timezone.now() + timedelta(minutes=20),
+            },
         )
 
         self.option_twist, _ = GlobalActivityOption.objects.get_or_create(
