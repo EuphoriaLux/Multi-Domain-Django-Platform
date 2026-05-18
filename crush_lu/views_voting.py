@@ -88,6 +88,11 @@ def event_voting_lobby(request, event_id):
     # Determine voting phase
     voting_ended = not voting_session.is_voting_open and voting_session.time_until_start <= 0
 
+    # Compute voting window length in minutes for display
+    voting_window_minutes = int(
+        (voting_session.voting_end_time - voting_session.voting_start_time).total_seconds() // 60
+    )
+
     context = {
         "event": event,
         "voting_session": voting_session,
@@ -99,6 +104,7 @@ def event_voting_lobby(request, event_id):
         "total_attendees": total_attendees,
         "needs_checkin": needs_checkin,
         "voting_ended": voting_ended,
+        "voting_window_minutes": voting_window_minutes,
     }
     return render(request, "crush_lu/event_voting_lobby.html", context)
 
@@ -220,11 +226,11 @@ def event_activity_vote(request, event_id):
     # Get all GLOBAL activity options (not per-event anymore!)
     from .models import GlobalActivityOption
 
-    presentation_style_options = GlobalActivityOption.objects.filter(
+    presentation_options = GlobalActivityOption.objects.filter(
         activity_type="presentation_style", is_active=True
     ).order_by("sort_order")
 
-    speed_dating_twist_options = GlobalActivityOption.objects.filter(
+    twist_options = GlobalActivityOption.objects.filter(
         activity_type="speed_dating_twist", is_active=True
     ).order_by("sort_order")
 
@@ -244,8 +250,8 @@ def event_activity_vote(request, event_id):
     context = {
         "event": event,
         "voting_session": voting_session,
-        "presentation_style_options": presentation_style_options,
-        "speed_dating_twist_options": speed_dating_twist_options,
+        "presentation_options": presentation_options,
+        "twist_options": twist_options,
         "presentation_vote": presentation_vote,
         "twist_vote": twist_vote,
         "has_voted_both": presentation_vote and twist_vote,
@@ -378,7 +384,6 @@ def event_voting_results(request, event_id):
                 "twist_vote": twist_vote,
                 "user_has_voted_both": user_has_voted_both,
                 "total_votes": total_votes,
-                "redirect_to_presentations": False,
                 "presentations_ready": True,
                 "is_coach_view": is_coach_view,
             }
@@ -435,7 +440,7 @@ def event_voting_results(request, event_id):
         "twist_vote": twist_vote,
         "user_has_voted_both": user_has_voted_both,
         "total_votes": total_votes,
-        "redirect_to_presentations": False,
+        "presentations_ready": False,
         "is_coach_view": is_coach_view,
         **coach_data,
     }

@@ -4,13 +4,17 @@
  */
 
 class EventVotingManager {
-    constructor(eventId, resultsUrl) {
+    constructor(eventId, resultsUrl, needsCheckin) {
         this.eventId = eventId;
         this.resultsUrl =
             resultsUrl ||
             window.location.pathname.replace("/voting/", "/voting/results/");
         this.statusCheckInterval = null;
         this.countdownInterval = null;
+        // Track whether this page was loaded for a user who still needs to check in.
+        // When the API reports needs_checkin=false, the server has checked them in and
+        // we reload so the template re-renders with the correct CTA.
+        this.pageLoadedWithCheckinRequired = needsCheckin === true || needsCheckin === 'true';
         this.init();
     }
 
@@ -53,6 +57,13 @@ class EventVotingManager {
 
     updateStatusDisplay(status) {
         var phase = status.phase;
+
+        // If this page loaded with a check-in prompt but the server now reports
+        // the user is checked in, reload so the template re-renders with the Vote CTA.
+        if (this.pageLoadedWithCheckinRequired && status.needs_checkin === false) {
+            window.location.reload();
+            return;
+        }
 
         if (phase === "waiting") {
             this.startCountdown(
@@ -285,6 +296,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (eventIdElement) {
         var eventId = eventIdElement.dataset.eventId;
         var resultsUrl = eventIdElement.dataset.resultsUrl || null;
-        window.votingManager = new EventVotingManager(eventId, resultsUrl);
+        var needsCheckin = eventIdElement.dataset.needsCheckin === 'true';
+        window.votingManager = new EventVotingManager(eventId, resultsUrl, needsCheckin);
     }
 });

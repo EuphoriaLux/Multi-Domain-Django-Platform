@@ -46,6 +46,7 @@ def voting_status_api(request, event_id):
 
     # Allow event coaches and superusers
     is_coach = event.coaches.filter(user=request.user).exists()
+    needs_checkin = False
     if not request.user.is_superuser and not is_coach:
         # Verify user is registered
         try:
@@ -58,6 +59,7 @@ def voting_status_api(request, event_id):
                     'success': False,
                     'error': 'Only confirmed attendees can access voting'
                 }, status=403)
+            needs_checkin = user_registration.status == 'confirmed'
         except EventRegistration.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -118,6 +120,7 @@ def voting_status_api(request, event_id):
             'has_voted_speed_dating_twist': 'speed_dating_twist' in user_votes,
             'user_votes': user_votes,
             'user_vote_option_id': first_vote.selected_option.id if first_vote else None,
+            'needs_checkin': needs_checkin,
         }
     })
 
