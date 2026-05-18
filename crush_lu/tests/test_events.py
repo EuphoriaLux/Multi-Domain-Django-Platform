@@ -1088,3 +1088,188 @@ class EventRegistrationAdminFormAgeTests(TestCase):
             instance=instance,
         )
         self.assertFalse(form.is_valid())
+
+
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush",
+    RATELIMIT_ENABLE=False,
+)
+class CheckInVotingGateTests(TestCase):
+    """
+    Verify that only attendees who have checked in (status='attended') can vote
+    or access voting results. Confirmed-but-not-checked-in users must be blocked.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        from crush_lu.models import (
+            MeetupEvent, EventRegistration, EventVotingSession,
+            GlobalActivityOption, CrushProfile,
+        )
+
+        cache.clear()
+        self.client = Client()
+
+        # Attended user (checked in)
+        self.attended_user = User.objects.create_user(
+            username='attended@example.com',
+            email='attended@example.com',
+            password='testpass123',
+            first_name='Attended',
+            last_name='User',
+        )
+        CrushProfile.objects.create(
+            user=self.attended_user,
+            date_of_birth=date(1995, 1, 1),
+            gender='F',
+            location='Luxembourg',
+            is_approved=True,
+            is_active=True,
+        )
+
+        # Confirmed-but-not-checked-in user
+        self.confirmed_user = User.objects.create_user(
+            username='confirmed@example.com',
+            email='confirmed@example.com',
+            password='testpass123',
+            first_name='Confirmed',
+            last_name='User',
+        )
+        CrushProfile.objects.create(
+            user=self.confirmed_user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            is_active=True,
+        )
+
+        # Unregistered user
+        self.unregistered_user = User.objects.create_user(
+            username='unregistered@example.com',
+            email='unregistered@example.com',
+            password='testpass123',
+        )
+
+        self.event = MeetupEvent.objects.create(
+            title='Gate Test Event',
+            description='Check-in gate testing',
+            event_type='speed_dating',
+            date_time=timezone.now() - timedelta(hours=1),  # Already started
+            location='Luxembourg',
+            address='1 Test Street',
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(hours=2),
+            enable_activity_voting=True,
+            is_published=True,
+        )
+
+        EventRegistration.objects.create(
+            event=self.event, user=self.attended_user, status='attended'
+        )
+        EventRegistration.objects.create(
+            event=self.event, user=self.confirmed_user, status='confirmed'
+        )
+
+        self.voting_session = EventVotingSession.objects.create(
+            event=self.event,
+            is_active=True,
+            voting_start_time=timezone.now() - timedelta(minutes=10),
+            voting_end_time=timezone.now() + timedelta(minutes=20),
+        )
+
+        self.option_twist, _ = GlobalActivityOption.objects.get_or_create(
+            activity_variant='spicy_questions',
+            defaults={
+                'activity_type': 'speed_dating_twist',
+                'display_name': 'Spicy Questions',
+                'description': 'Bold ice-breaker questions',
+            },
+        )
+        self.option_style, _ = GlobalActivityOption.objects.get_or_create(
+            activity_variant='music',
+            defaults={
+                'activity_type': 'presentation_style',
+                'display_name': 'With Favorite Music',
+                'description': 'Introduce yourself while your song plays',
+            },
+        )
+
+    def _vote_url(self):
+        return reverse('submit_vote_api', kwargs={'event_id': self.event.id})
+
+    def _results_api_url(self):
+        return reverse('voting_results_api', kwargs={'event_id': self.event.id})
+
+    def _vote_view_url(self):
+        return reverse('crush_lu:event_activity_vote', kwargs={'event_id': self.event.id})
+
+    def _presentations_url(self):
+        return reverse('crush_lu:event_presentations', kwargs={'event_id': self.event.id})
+
+    def test_confirmed_user_cannot_submit_vote_api(self):
+        """Confirmed (not checked-in) user gets 403 on vote submission API."""
+        import json
+        self.client.force_login(self.confirmed_user)
+        response = self.client.post(
+            self._vote_url(),
+            data=json.dumps({'option_id': self.option_twist.id}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+        data = response.json()
+        self.assertFalse(data['success'])
+
+    def test_attended_user_can_submit_vote_api(self):
+        """Attended (checked-in) user can submit a vote via API."""
+        import json
+        self.client.force_login(self.attended_user)
+        response = self.client.post(
+            self._vote_url(),
+            data=json.dumps({'option_id': self.option_twist.id}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+
+    def test_unregistered_user_cannot_submit_vote_api(self):
+        """User with no registration gets 403 on vote submission API."""
+        import json
+        self.client.force_login(self.unregistered_user)
+        response = self.client.post(
+            self._vote_url(),
+            data=json.dumps({'option_id': self.option_twist.id}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_confirmed_user_blocked_from_vote_view(self):
+        """Confirmed user accessing the vote view is redirected to the lobby."""
+        self.client.force_login(self.confirmed_user)
+        response = self.client.get(self._vote_view_url())
+        # Must be redirected (not allowed to reach the voting form)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('lobby', response['Location'])
+
+    def test_confirmed_user_cannot_see_results_api(self):
+        """Confirmed (not checked-in) user gets 403 on voting results API."""
+        self.client.force_login(self.confirmed_user)
+        response = self.client.get(self._results_api_url())
+        self.assertEqual(response.status_code, 403)
+        data = response.json()
+        self.assertFalse(data['success'])
+
+    def test_attended_user_can_see_results_api(self):
+        """Attended user can fetch voting results via API."""
+        self.client.force_login(self.attended_user)
+        response = self.client.get(self._results_api_url())
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+
+    def test_confirmed_user_blocked_from_presentations(self):
+        """Confirmed user is redirected away from the presentations view."""
+        self.client.force_login(self.confirmed_user)
+        response = self.client.get(self._presentations_url())
+        self.assertEqual(response.status_code, 302)
