@@ -1106,6 +1106,7 @@ class CheckInVotingGateTests(TestCase):
             MeetupEvent, EventRegistration, EventVotingSession,
             GlobalActivityOption, CrushProfile,
         )
+        from crush_lu.models.profiles import UserDataConsent
 
         cache.clear()
         self.client = Client()
@@ -1118,6 +1119,7 @@ class CheckInVotingGateTests(TestCase):
             first_name='Attended',
             last_name='User',
         )
+        UserDataConsent.objects.filter(user=self.attended_user).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=self.attended_user,
             date_of_birth=date(1995, 1, 1),
@@ -1135,6 +1137,7 @@ class CheckInVotingGateTests(TestCase):
             first_name='Confirmed',
             last_name='User',
         )
+        UserDataConsent.objects.filter(user=self.confirmed_user).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=self.confirmed_user,
             date_of_birth=date(1995, 1, 1),
@@ -1150,6 +1153,7 @@ class CheckInVotingGateTests(TestCase):
             email='unregistered@example.com',
             password='testpass123',
         )
+        UserDataConsent.objects.filter(user=self.unregistered_user).update(crushlu_consent_given=True)
 
         self.event = MeetupEvent.objects.create(
             title='Gate Test Event',
