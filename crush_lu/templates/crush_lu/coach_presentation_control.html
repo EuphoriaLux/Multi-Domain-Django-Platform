@@ -17,7 +17,7 @@
         </a>
 
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
-            <div class="p-8">
+            <div class="p-4 sm:p-6 md:p-8">
                 <div class="text-center mb-4">
                     <h1 class="display-5 dark:text-white">🎬 {% trans "Coach Control Panel" %}</h1>
                     <p class="text-lg text-gray-500 dark:text-gray-400">{% blocktrans with title=event.title %}{{ title }} - Presentation Round{% endblocktrans %}</p>
@@ -26,10 +26,11 @@
                 <!-- Progress Bar (only show when queue exists) -->
                 {% if total_presentations > 0 %}
                 <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {% widthratio completed_presentations total_presentations 100 %}%;">
-                        {% blocktrans with completed=completed_presentations total=total_presentations %}{{ completed }} / {{ total }} Completed{% endblocktrans %}
-                    </div>
+                    <div class="progress-bar" style="width: {% widthratio completed_presentations total_presentations 100 %}%;"></div>
                 </div>
+                <p class="text-center text-sm text-gray-500 dark:text-gray-400 -mt-4 mb-4">
+                    {% blocktrans with completed=completed_presentations total=total_presentations %}{{ completed }} / {{ total }} Completed{% endblocktrans %}
+                </p>
                 {% endif %}
 
                 <!-- Winning Style -->

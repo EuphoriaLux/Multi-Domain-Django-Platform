@@ -135,6 +135,7 @@ class EventInvitationInline(admin.TabularInline):
 class EventVotingSessionInline(admin.StackedInline):
     model = EventVotingSession
     extra = 0
+    max_num = 1
     fields = (
         ("is_active", "total_votes"),
         ("voting_start_time", "voting_end_time"),

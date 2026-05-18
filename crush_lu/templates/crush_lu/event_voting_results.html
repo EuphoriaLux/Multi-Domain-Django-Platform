@@ -119,17 +119,17 @@
                         </div>
 
                         <!-- Presentation Style Results -->
-                        <h3 class="mb-3 dark:text-white">🎤 {% trans "Presentation Style Results" %}</h3>
+                        <h3 class="mb-3 text-base md:text-xl dark:text-white">🎤 {% trans "Presentation Style Results" %}</h3>
                         <div id="voting-results-container">
                             {% for option in presentation_options %}
                             <div class="result-option-card {% if option.is_winner %}winner-option{% endif %}"
                                  id="option-{{ option.id }}-card">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h5 class="mb-1 dark:text-white">{{ option.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{{ option.description }}</p>
+                                <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
+                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
                                     </div>
-                                    <div class="text-end">
+                                    <div class="text-end flex-shrink-0">
                                         {% if option.is_winner %}
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Most Voted" %} 🏆</span>
                                         {% endif %}
@@ -144,28 +144,28 @@
                                          aria-valuenow="{{ option.vote_percentage }}"
                                          aria-valuemin="0"
                                          aria-valuemax="100">
-                                        <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}
-                                        <span id="option-{{ option.id }}-percent" class="ml-2">
-                                            ({{ option.vote_percentage }}%)
-                                        </span>
                                     </div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
+                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                                    <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
 
                         <!-- Speed Dating Twist Results -->
-                        <h3 class="mb-3 mt-6 dark:text-white">💕 {% trans "Speed Dating Twist Results" %}</h3>
+                        <h3 class="mb-3 mt-6 text-base md:text-xl dark:text-white">💕 {% trans "Speed Dating Twist Results" %}</h3>
                         <div>
                             {% for option in twist_options %}
                             <div class="result-option-card {% if option.is_winner %}winner-option{% endif %}"
                                  id="option-{{ option.id }}-card">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h5 class="mb-1 dark:text-white">{{ option.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{{ option.description }}</p>
+                                <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
+                                    <div class="flex-1 min-w-0 pr-2">
+                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
+                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
                                     </div>
-                                    <div class="text-end">
+                                    <div class="text-end flex-shrink-0">
                                         {% if option.is_winner %}
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Most Voted" %} 🏆</span>
                                         {% endif %}
@@ -180,11 +180,11 @@
                                          aria-valuenow="{{ option.vote_percentage }}"
                                          aria-valuemin="0"
                                          aria-valuemax="100">
-                                        <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}
-                                        <span id="option-{{ option.id }}-percent" class="ml-2">
-                                            ({{ option.vote_percentage }}%)
-                                        </span>
                                     </div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
+                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                                    <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                                 </div>
                             </div>
                             {% endfor %}
@@ -308,30 +308,30 @@
 
                 <!-- Stats -->
                 <div class="stats-card">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <h2 id="total-votes-display" class="dark:text-white">{{ total_votes }}</h2>
-                            <p class="mb-0 dark:text-gray-300">{% trans "Total Votes" %}</p>
+                            <div id="total-votes-display" class="text-3xl font-bold dark:text-white">{{ total_votes }}</div>
+                            <p class="mb-0 text-sm dark:text-gray-300">{% trans "Total Votes" %}</p>
                         </div>
                         <div>
-                            <h2 class="dark:text-white">{{ activity_options|length }}</h2>
-                            <p class="mb-0 dark:text-gray-300">{% trans "Activity Options" %}</p>
+                            <div class="text-3xl font-bold dark:text-white">{{ activity_options|length }}</div>
+                            <p class="mb-0 text-sm dark:text-gray-300">{% trans "Activity Options" %}</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Presentation Style Results -->
-                <h3 class="mb-3 dark:text-white">🎤 {% trans "Presentation Style Results" %}</h3>
+                <h3 class="mb-3 text-base md:text-xl dark:text-white">🎤 {% trans "Presentation Style Results" %}</h3>
                 <div id="voting-results-container">
                     {% for option in presentation_options %}
                     <div class="result-option-card {% if option.is_winner %}winner-option{% endif %} {% if presentation_vote and presentation_vote.selected_option.id == option.id %}user-voted{% endif %}"
                          id="option-{{ option.id }}-card">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <h5 class="mb-1 dark:text-white">{{ option.display_name }}</h5>
-                                <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{{ option.description }}</p>
+                        <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
+                            <div class="flex-1 min-w-0 pr-2">
+                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end flex-shrink-0 flex flex-col gap-1">
                                 {% if option.is_winner %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Most Voted" %} 🏆</span>
                                 {% endif %}
@@ -349,28 +349,28 @@
                                  aria-valuenow="{{ option.vote_percentage }}"
                                  aria-valuemin="0"
                                  aria-valuemax="100">
-                                <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}
-                                <span id="option-{{ option.id }}-percent" class="ml-2">
-                                    ({{ option.vote_percentage }}%)
-                                </span>
                             </div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
+                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                            <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
                 <!-- Speed Dating Twist Results -->
-                <h3 class="mb-3 mt-6 dark:text-white">💕 {% trans "Speed Dating Twist Results" %}</h3>
+                <h3 class="mb-3 mt-6 text-base md:text-xl dark:text-white">💕 {% trans "Speed Dating Twist Results" %}</h3>
                 <div>
                     {% for option in twist_options %}
                     <div class="result-option-card {% if option.is_winner %}winner-option{% endif %} {% if twist_vote and twist_vote.selected_option.id == option.id %}user-voted{% endif %}"
                          id="option-{{ option.id }}-card">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <h5 class="mb-1 dark:text-white">{{ option.display_name }}</h5>
-                                <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{{ option.description }}</p>
+                        <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
+                            <div class="flex-1 min-w-0 pr-2">
+                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end flex-shrink-0 flex flex-col gap-1">
                                 {% if option.is_winner %}
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">{% trans "Most Voted" %} 🏆</span>
                                 {% endif %}
@@ -388,11 +388,11 @@
                                  aria-valuenow="{{ option.vote_percentage }}"
                                  aria-valuemin="0"
                                  aria-valuemax="100">
-                                <span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}
-                                <span id="option-{{ option.id }}-percent" class="ml-2">
-                                    ({{ option.vote_percentage }}%)
-                                </span>
                             </div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
+                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                            <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                         </div>
                     </div>
                     {% endfor %}
