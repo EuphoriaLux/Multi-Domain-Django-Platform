@@ -559,33 +559,29 @@ def submit_presentation_rating(request, event_id, presenter_id):
             {"success": False, "error": "You cannot rate yourself."}, status=400
         )
 
-    # Get rating from request
-    rating_value = request.POST.get("rating")
-
-    try:
-        rating_value = int(rating_value)
-        if rating_value < 1 or rating_value > 5:
-            raise ValueError
-    except (TypeError, ValueError):
+    # Get impression from request (yes / no)
+    impression = request.POST.get("is_positive", "").lower()
+    if impression not in ("true", "false"):
         return JsonResponse(
-            {"success": False, "error": "Rating must be between 1 and 5."}, status=400
+            {"success": False, "error": "is_positive must be true or false."}, status=400
         )
+    is_positive = impression == "true"
 
-    # Create or update rating
-    rating, created = PresentationRating.objects.update_or_create(
+    # Create or update impression
+    _, created = PresentationRating.objects.update_or_create(
         event=event,
         presenter=presenter,
         rater=request.user,
-        defaults={"rating": rating_value},
+        defaults={"is_positive": is_positive},
     )
 
     return JsonResponse(
         {
             "success": True,
             "message": (
-                "Rating submitted anonymously!" if created else "Rating updated!"
+                _("Response submitted anonymously!") if created else _("Response updated!")
             ),
-            "rating": rating_value,
+            "is_positive": is_positive,
         }
     )
 
@@ -680,105 +676,10 @@ def coach_advance_presentation(request, event_id):
 
 @crush_login_required
 def my_presentation_scores(request, event_id):
-    """Show user their personal presentation scores (private view)"""
+    """Phase 2 complete page — first impressions are kept private; matches revealed in Phase 3."""
     event = get_object_or_404(MeetupEvent, id=event_id)
-
-    # Verify user is registered for this event
-    user_registration = get_object_or_404(
-        EventRegistration, event=event, user=request.user
-    )
-
-    if user_registration.status not in ["confirmed", "attended"]:
-        messages.error(request, _("Only confirmed attendees can view scores."))
-        return redirect("crush_lu:event_detail", event_id=event_id)
-
-    if user_registration.status == "confirmed":
-        messages.warning(
-            request,
-            _("You need to check in at the event before you can view scores. Please find your coach to get checked in!"),
-        )
-        return redirect("crush_lu:event_detail", event_id=event_id)
-
-    # Check if all presentations are completed
-    total_presentations = PresentationQueue.objects.filter(event=event).count()
-    completed_presentations = PresentationQueue.objects.filter(
-        event=event, status="completed"
-    ).count()
-
-    all_completed = (
-        total_presentations > 0 and completed_presentations == total_presentations
-    )
-
-    if not all_completed:
-        messages.warning(
-            request,
-            _("Scores will be available after all presentations are completed."),
-        )
-        return redirect("crush_lu:event_presentations", event_id=event_id)
-
-    # Get ratings received by this user
-    ratings_received = PresentationRating.objects.filter(
-        event=event, presenter=request.user
-    ).select_related("rater__crushprofile")
-
-    # Calculate average score
-    if ratings_received.exists():
-        total_score = sum(r.rating for r in ratings_received)
-        average_score = total_score / ratings_received.count()
-        rating_count = ratings_received.count()
-    else:
-        average_score = 0
-        rating_count = 0
-
-    # Get individual ratings (without showing who rated)
-    individual_ratings = [r.rating for r in ratings_received]
-    individual_ratings.sort(reverse=True)  # Sort highest to lowest
-
-    # Calculate rating distribution
-    rating_distribution = {
-        5: ratings_received.filter(rating=5).count(),
-        4: ratings_received.filter(rating=4).count(),
-        3: ratings_received.filter(rating=3).count(),
-        2: ratings_received.filter(rating=2).count(),
-        1: ratings_received.filter(rating=1).count(),
-    }
-
-    # Get user's rank among all participants
-    from django.db.models import Avg, Count
-
-    all_participants = PresentationQueue.objects.filter(event=event).values_list(
-        "user_id", flat=True
-    )
-
-    participant_scores = []
-    for participant_id in all_participants:
-        participant_ratings = PresentationRating.objects.filter(
-            event=event, presenter_id=participant_id
-        )
-        if participant_ratings.exists():
-            avg = participant_ratings.aggregate(Avg("rating"))["rating__avg"]
-            participant_scores.append((participant_id, avg))
-
-    # Sort by average score (highest first)
-    participant_scores.sort(key=lambda x: x[1], reverse=True)
-
-    # Find user's rank
-    user_rank = None
-    for idx, (participant_id, score) in enumerate(participant_scores, start=1):
-        if participant_id == request.user.id:
-            user_rank = idx
-            break
-
-    context = {
-        "event": event,
-        "average_score": average_score,
-        "rating_count": rating_count,
-        "individual_ratings": individual_ratings,
-        "rating_distribution": rating_distribution,
-        "user_rank": user_rank,
-        "total_participants": len(participant_scores),
-    }
-    return render(request, "crush_lu/my_presentation_scores.html", context)
+    get_object_or_404(EventRegistration, event=event, user=request.user, status="attended")
+    return render(request, "crush_lu/my_presentation_scores.html", {"event": event})
 
 
 @crush_login_required

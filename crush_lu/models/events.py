@@ -1062,7 +1062,7 @@ class EventVotingSession(models.Model):
 
 
 class PresentationRating(models.Model):
-    """Anonymous 1-5 star ratings for presentations"""
+    """Anonymous yes/no first-impression ratings during presentations"""
 
     event = models.ForeignKey(
         MeetupEvent, on_delete=models.CASCADE, related_name="presentation_ratings"
@@ -1073,9 +1073,8 @@ class PresentationRating(models.Model):
     rater = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="presentations_given"
     )
-    rating = models.PositiveSmallIntegerField(
-        help_text=_("Rating from 1-5 stars"),
-        choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)],
+    is_positive = models.BooleanField(
+        help_text=_("Whether this person left a positive first impression"),
     )
 
     # Metadata
@@ -1086,37 +1085,34 @@ class PresentationRating(models.Model):
         ordering = ["-rated_at"]
 
     def __str__(self):
-        return f"{self.rater.username} rated {self.presenter.username}: {self.rating}★"
-
-    @staticmethod
-    def get_average_rating(event, presenter):
-        """Calculate average rating for a presenter"""
-        ratings = PresentationRating.objects.filter(
-            event=event, presenter=presenter
-        ).aggregate(avg=models.Avg("rating"))
-        return ratings["avg"] or 0
+        impression = "✓" if self.is_positive else "✗"
+        return f"{self.rater.username} → {self.presenter.username}: {impression}"
 
     @staticmethod
     def get_mutual_rating_score(event, user1, user2):
-        """Get mutual rating score between two users (for pairing algorithm)"""
+        """
+        Mutual impression score for the pairing algorithm.
+        2.0 = both said yes, 1.0 = one said yes, 0.0 = both said no / no data.
+        """
         try:
-            rating1 = PresentationRating.objects.get(
+            r1 = PresentationRating.objects.get(
                 event=event, presenter=user2, rater=user1
-            ).rating
+            ).is_positive
         except PresentationRating.DoesNotExist:
-            rating1 = 0
+            r1 = None
 
         try:
-            rating2 = PresentationRating.objects.get(
+            r2 = PresentationRating.objects.get(
                 event=event, presenter=user1, rater=user2
-            ).rating
+            ).is_positive
         except PresentationRating.DoesNotExist:
-            rating2 = 0
+            r2 = None
 
-        # Return average of mutual ratings (higher score = better match)
-        if rating1 > 0 and rating2 > 0:
-            return (rating1 + rating2) / 2
-        return 0
+        if r1 is True and r2 is True:
+            return 2.0
+        if r1 is True or r2 is True:
+            return 1.0
+        return 0.0
 
 
 class SpeedDatingPair(models.Model):

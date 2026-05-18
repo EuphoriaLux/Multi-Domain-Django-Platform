@@ -195,15 +195,15 @@ class PresentationQueueAdmin(admin.ModelAdmin):
 
 
 class PresentationRatingAdmin(admin.ModelAdmin):
-    list_display = ('event', 'presenter', 'rater', 'rating', 'rated_at')
-    list_filter = ('rating', 'event')
+    list_display = ('event', 'presenter', 'rater', 'is_positive', 'rated_at')
+    list_filter = ('is_positive', 'event')
     search_fields = ('presenter__username', 'rater__username', 'event__title')
     readonly_fields = ('rated_at',)
     ordering = ['-rated_at']
 
     fieldsets = (
-        ('Rating Details', {
-            'fields': ('event', 'presenter', 'rater', 'rating')
+        ('Impression', {
+            'fields': ('event', 'presenter', 'rater', 'is_positive')
         }),
         ('Metadata', {
             'fields': ('rated_at',)
