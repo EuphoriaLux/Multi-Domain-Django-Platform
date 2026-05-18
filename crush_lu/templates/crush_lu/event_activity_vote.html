@@ -62,7 +62,7 @@
                         <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!" %}</p>
 
                         <div class="variant-options">
-                            {% for option in presentation_style_options %}
+                            {% for option in presentation_options %}
                             <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
                                 <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio flex-shrink-0"
                                        type="radio"
@@ -88,7 +88,7 @@
                         <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "After presentations, you'll do speed dating with matched pairs. Choose a fun twist!" %}</p>
 
                         <div class="variant-options">
-                            {% for option in speed_dating_twist_options %}
+                            {% for option in twist_options %}
                             <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
                                 <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio twist-radio flex-shrink-0"
                                        type="radio"

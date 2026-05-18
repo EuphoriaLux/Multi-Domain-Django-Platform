@@ -13,6 +13,28 @@ from .models import (
 from .decorators import ratelimit
 
 
+def _require_attended_registration(request, event):
+    """Returns (registration, None) if user is attended, else (None, error_response)."""
+    try:
+        reg = EventRegistration.objects.get(event=event, user=request.user)
+    except EventRegistration.DoesNotExist:
+        return None, JsonResponse(
+            {'success': False, 'error': 'You are not registered for this event'},
+            status=403,
+        )
+    if reg.status == 'confirmed':
+        return None, JsonResponse(
+            {'success': False, 'error': 'You must check in at the event before you can vote'},
+            status=403,
+        )
+    if reg.status != 'attended':
+        return None, JsonResponse(
+            {'success': False, 'error': 'Only confirmed attendees can access voting'},
+            status=403,
+        )
+    return reg, None
+
+
 @login_required
 @require_http_methods(["GET"])
 def voting_status_api(request, event_id):
@@ -24,6 +46,7 @@ def voting_status_api(request, event_id):
 
     # Allow event coaches and superusers
     is_coach = event.coaches.filter(user=request.user).exists()
+    needs_checkin = False
     if not request.user.is_superuser and not is_coach:
         # Verify user is registered
         try:
@@ -36,11 +59,21 @@ def voting_status_api(request, event_id):
                     'success': False,
                     'error': 'Only confirmed attendees can access voting'
                 }, status=403)
+            needs_checkin = user_registration.status == 'confirmed'
         except EventRegistration.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'error': 'You are not registered for this event'
             }, status=403)
+    else:
+        # Coaches/superusers bypass access control, but we still compute
+        # needs_checkin from their actual registration so the JS reload
+        # guard stays accurate if they are also a confirmed participant.
+        try:
+            coach_reg = EventRegistration.objects.get(event=event, user=request.user)
+            needs_checkin = coach_reg.status == 'confirmed'
+        except EventRegistration.DoesNotExist:
+            pass
 
     # Get voting session
     try:
@@ -96,6 +129,7 @@ def voting_status_api(request, event_id):
             'has_voted_speed_dating_twist': 'speed_dating_twist' in user_votes,
             'user_votes': user_votes,
             'user_vote_option_id': first_vote.selected_option.id if first_vote else None,
+            'needs_checkin': needs_checkin,
         }
     })
 
@@ -112,22 +146,9 @@ def submit_vote_api(request, event_id):
 
     event = get_object_or_404(MeetupEvent, id=event_id)
 
-    # Verify user is registered
-    try:
-        user_registration = EventRegistration.objects.get(
-            event=event,
-            user=request.user
-        )
-        if user_registration.status != 'attended':
-            return JsonResponse({
-                'success': False,
-                'error': 'You must check in at the event before you can vote'
-            }, status=403)
-    except EventRegistration.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'error': 'You are not registered for this event'
-        }, status=403)
+    user_registration, err = _require_attended_registration(request, event)
+    if err:
+        return err
 
     # Get voting session
     try:
@@ -238,22 +259,9 @@ def voting_results_api(request, event_id):
     # Allow event coaches and superusers
     is_coach = event.coaches.filter(user=request.user).exists()
     if not request.user.is_superuser and not is_coach:
-        # Verify user is registered
-        try:
-            user_registration = EventRegistration.objects.get(
-                event=event,
-                user=request.user
-            )
-            if user_registration.status not in ['confirmed', 'attended']:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Only confirmed attendees can view results'
-                }, status=403)
-        except EventRegistration.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'error': 'You are not registered for this event'
-            }, status=403)
+        _, err = _require_attended_registration(request, event)
+        if err:
+            return err
 
     # Get voting session
     try:

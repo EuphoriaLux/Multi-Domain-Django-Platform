@@ -6,7 +6,7 @@
 
 {% block content %}
 <!-- Hidden data for JavaScript -->
-<div id="event-id-data" class="hidden" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}"></div>
+<div id="event-id-data" class="hidden" data-event-id="{{ event.id }}" data-results-url="{% url 'crush_lu:event_voting_results' event.id %}" data-needs-checkin="{{ needs_checkin|yesno:'true,false' }}"></div>
 
 <div class="flex justify-center">
     <div class="w-full max-w-4xl px-4">
@@ -116,7 +116,7 @@
                         <p class="text-gray-500 dark:text-gray-400">{% trans "Votes Cast" %}</p>
                     </div>
                     <div class="text-center">
-                        <h3 class="text-crush-purple">30</h3>
+                        <h3 class="text-crush-purple">{{ voting_window_minutes }}</h3>
                         <p class="text-gray-500 dark:text-gray-400">{% trans "Minutes to Vote" %}</p>
                     </div>
                 </div>
@@ -166,7 +166,7 @@
                     <h5 class="font-semibold mb-2">{% trans "How It Works:" %}</h5>
                     <ol class="list-decimal list-inside space-y-1">
                         <li>{% trans "Voting opens <strong>15 minutes after the event starts</strong>" %}</li>
-                        <li>{% trans "You have <strong>30 minutes</strong> to cast your votes" %}</li>
+                        <li>{% blocktrans with minutes=voting_window_minutes %}You have <strong>{{ minutes }} minutes</strong> to cast your votes{% endblocktrans %}</li>
                         <li>{% trans "Vote on <strong>TWO categories</strong>: Presentation Style and Speed Dating Twist" %}</li>
                         <li>{% trans "The most voted options shape phases 2 and 3 of the event!" %}</li>
                     </ol>
