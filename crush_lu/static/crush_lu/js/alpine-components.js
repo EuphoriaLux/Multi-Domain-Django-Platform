@@ -12651,6 +12651,15 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
+            markReadFromEvent: function (event) {
+                var id = event.detail;
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+                this.items = this.items.map(function (it) {
+                    if (it.id === id) return Object.assign({}, it, { is_unread: false });
+                    return it;
+                });
+            },
+
             formatRelativeTime: function (iso) {
                 if (!iso) return "";
                 var then = new Date(iso);
@@ -12676,6 +12685,44 @@ document.addEventListener("alpine:init", function () {
                     'input[name="csrfmiddlewaretoken"]',
                 );
                 return hidden ? hidden.value : "";
+            },
+        };
+    });
+
+    // CSP-safe child component for each notification row inside notificationBell's x-for.
+    // Flattens item object properties into direct identifiers so no property-access
+    // expressions appear in the template (the CSP build forbids those).
+    Alpine.data("notifItem", function (item) {
+        return {
+            id: item.id,
+            linkUrl: item.link_url,
+            isUnread: item.is_unread,
+            title: item.title,
+            body: item.body,
+            relativeTime: item.relative_time,
+
+            doMarkRead: function () {
+                if (!this.isUnread) return;
+                var self = this;
+                self.isUnread = false;
+                self.$dispatch("notif-mark-read", self.id);
+                var name = "csrftoken=";
+                var parts = (document.cookie || "").split(";");
+                var token = "";
+                for (var i = 0; i < parts.length; i++) {
+                    var c = parts[i].trim();
+                    if (c.indexOf(name) === 0) {
+                        token = c.substring(name.length);
+                        break;
+                    }
+                }
+                fetch("/api/notifications/" + self.id + "/read/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "X-CSRFToken": token, Accept: "application/json" },
+                }).catch(function (err) {
+                    console.warn("notifItem.doMarkRead:", err);
+                });
             },
         };
     });

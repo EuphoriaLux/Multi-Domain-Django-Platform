@@ -676,7 +676,8 @@
                     {# Notification Bell (authenticated users only) #}
                     <div x-data="notificationBell" x-init="init"
                          class="relative"
-                         x-on:click.outside="close">
+                         x-on:click.outside="close"
+                         x-on:notif-mark-read="markReadFromEvent">
                         <button type="button"
                                 x-on:click="toggle"
                                 class="p-2 rounded-lg text-white hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50 relative"
@@ -700,17 +701,17 @@
                                 </button>
                             </div>
                             <ul class="divide-y divide-gray-100 dark:divide-gray-700" x-show="hasItems">
-                                <template x-for="item in items" x-bind:key="item.id">
-                                    <li class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <a x-bind:href="item.link_url"
-                                           x-on:click="markRead(item.id)"
+                                <template x-for="item in items" x-bind:key="$index">
+                                    <li x-data="notifItem(item)" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <a x-bind:href="linkUrl"
+                                           x-on:click="doMarkRead"
                                            class="block">
                                             <div class="flex items-start gap-2">
-                                                <span x-show="item.is_unread" class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-crush-purple"></span>
+                                                <span x-show="isUnread" class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-crush-purple"></span>
                                                 <div class="flex-1 min-w-0">
-                                                    <p class="text-sm font-medium text-gray-900 dark:text-white mb-0 truncate" x-text="item.title"></p>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 line-clamp-2" x-text="item.body"></p>
-                                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1" x-text="item.relative_time"></p>
+                                                    <p class="text-sm font-medium text-gray-900 dark:text-white mb-0 truncate" x-text="title"></p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 line-clamp-2" x-text="body"></p>
+                                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1" x-text="relativeTime"></p>
                                                 </div>
                                             </div>
                                         </a>
