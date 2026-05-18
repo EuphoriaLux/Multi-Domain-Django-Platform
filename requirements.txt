@@ -59,7 +59,7 @@ pywebpush==2.3.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
-azure-monitor-opentelemetry==1.8.7
+azure-monitor-opentelemetry==1.8.8
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==1.0.0
