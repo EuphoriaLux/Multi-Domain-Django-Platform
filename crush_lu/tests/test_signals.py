@@ -41,7 +41,7 @@ class TestSetupEventVoting(TestCase):
         """A voting-enabled event should auto-populate GlobalActivityOption if missing."""
         event = self._create_event()
         from crush_lu.models import GlobalActivityOption
-        self.assertEqual(GlobalActivityOption.objects.filter(is_active=True).count(), 6)
+        self.assertEqual(GlobalActivityOption.objects.filter(is_active=True).count(), 7)
 
     def test_voting_event_gets_voting_session(self):
         """A voting-enabled event should auto-create an EventVotingSession."""

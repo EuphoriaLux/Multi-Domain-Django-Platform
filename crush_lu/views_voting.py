@@ -365,9 +365,10 @@ def event_voting_results(request, event_id):
 
         # Check if presentations have started
         has_presentations = PresentationQueue.objects.filter(event=event).exists()
+        presentations_skipped = voting_session.presentations_skipped
 
-        if has_presentations and not is_coach_view:
-            # Show results with a link to presentations (no auto-redirect)
+        if (has_presentations or presentations_skipped) and not is_coach_view:
+            # Show results with appropriate CTA (presentations or skip banner)
             context = {
                 "event": event,
                 "voting_session": voting_session,
@@ -384,7 +385,8 @@ def event_voting_results(request, event_id):
                 "twist_vote": twist_vote,
                 "user_has_voted_both": user_has_voted_both,
                 "total_votes": total_votes,
-                "presentations_ready": True,
+                "presentations_ready": has_presentations,
+                "presentations_skipped": presentations_skipped,
                 "is_coach_view": is_coach_view,
             }
             return render(request, "crush_lu/event_voting_results.html", context)
@@ -441,6 +443,7 @@ def event_voting_results(request, event_id):
         "user_has_voted_both": user_has_voted_both,
         "total_votes": total_votes,
         "presentations_ready": False,
+        "presentations_skipped": voting_session.presentations_skipped,
         "is_coach_view": is_coach_view,
         **coach_data,
     }

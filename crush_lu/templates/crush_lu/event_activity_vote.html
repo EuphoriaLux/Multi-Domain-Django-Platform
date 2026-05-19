@@ -58,12 +58,16 @@
                     <!-- CATEGORY 1: Presentation Style (Phase 2) -->
                     <div class="activity-group-card">
                         <div class="category-badge">{% trans "Category 1 of 2" %}</div>
-                        <h3 class="section-header dark:text-white">{% trans "🎤 Presentation Style (Phase 2 - Mandatory)" %}</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Everyone will present for 90 seconds. Choose how YOU want to introduce yourself!" %}</p>
+                        <h3 class="section-header dark:text-white">{% trans "🎤 Presentation Style (Phase 2)" %}</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Choose how everyone will introduce themselves — or vote to skip straight to speed dating!" %}</p>
 
                         <div class="variant-options">
                             {% for option in presentation_options %}
-                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item">
+                            {% if option.activity_variant == "skip_presentations" %}
+                            <hr class="my-3 border-gray-200 dark:border-gray-600">
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mb-2 text-center uppercase tracking-wide">{% trans "— or skip it entirely —" %}</p>
+                            {% endif %}
+                            <div class="flex items-start gap-2 sm:gap-3 variant-option-item {% if option.activity_variant == 'skip_presentations' %}border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2{% endif %}">
                                 <input class="h-4 w-4 sm:h-5 sm:w-5 mt-0.5 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500 variant-radio presentation-radio flex-shrink-0"
                                        type="radio"
                                        name="presentation_choice"

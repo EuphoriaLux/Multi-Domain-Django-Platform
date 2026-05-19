@@ -978,6 +978,14 @@ class EventVotingSession(models.Model):
             return 0
         return (self.voting_end_time - now).total_seconds()
 
+    @property
+    def presentations_skipped(self):
+        """True if attendees voted to skip the presentation round."""
+        return bool(
+            self.winning_presentation_style
+            and self.winning_presentation_style.activity_variant == "skip_presentations"
+        )
+
     def start_voting(self):
         """Activate voting session"""
         self.is_active = True
@@ -1036,9 +1044,14 @@ class EventVotingSession(models.Model):
         """Initialize presentation queue with all checked-in (attended) users in random order.
 
         Idempotent: skips initialization if queue entries already exist for this event.
+        Does nothing if attendees voted to skip the presentation round.
         """
         from django.contrib.auth.models import User
         import random
+
+        # Do not create a queue if the group voted to skip presentations
+        if self.presentations_skipped:
+            return
 
         # Skip if queue already initialized (prevents inconsistent re-shuffles)
         if PresentationQueue.objects.filter(event=self.event).exists():

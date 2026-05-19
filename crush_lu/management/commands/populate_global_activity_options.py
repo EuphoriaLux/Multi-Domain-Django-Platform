@@ -8,12 +8,12 @@ from crush_lu.models import GlobalActivityOption
 
 
 class Command(BaseCommand):
-    help = 'Populate the 6 standard global activity options'
+    help = 'Populate the standard global activity options'
 
     def handle(self, *args, **options):
         self.stdout.write('Populating global activity options...\n')
 
-        # Define the 6 standard options
+        # Define the standard options
         options_data = [
             # Phase 2: Presentation Style (3 options)
             {
@@ -59,6 +59,14 @@ class Command(BaseCommand):
                 'description': 'Trust our matching algorithm - your top match gets extra time!',
                 'sort_order': 6
             },
+            # Skip option: skip the presentation round entirely
+            {
+                'activity_type': 'presentation_style',
+                'activity_variant': 'skip_presentations',
+                'display_name': 'Skip — Go Straight to Speed Dating',
+                'description': 'Vote to skip the presentation round and jump directly into speed dating!',
+                'sort_order': 10
+            },
         ]
 
         created_count = 0
@@ -83,5 +91,5 @@ class Command(BaseCommand):
         self.stdout.write(f'\n  Created: {created_count}')
         self.stdout.write(f'  Updated: {updated_count}')
         self.stdout.write(f'  Total:   {created_count + updated_count}')
-        self.stdout.write('\nThese 6 options will be used for ALL future Crush events.')
+        self.stdout.write('\nThese options will be used for ALL future Crush events.')
         self.stdout.write('No need to create options per-event anymore!')
