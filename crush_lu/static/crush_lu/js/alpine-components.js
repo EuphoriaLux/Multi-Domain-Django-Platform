@@ -11520,10 +11520,11 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // SMS Invite Filter - gender filter for coach event SMS invite page
+    // SMS Invite Filter - gender filter + last-minute mode for coach event SMS invite page
     Alpine.data("smsInviteFilter", function () {
         return {
             activeFilter: "all",
+            isLastMinuteMode: false,
 
             get isAll() {
                 return this.activeFilter === "all";
@@ -11536,6 +11537,12 @@ document.addEventListener("alpine:init", function () {
             },
             get isOther() {
                 return this.activeFilter === "other";
+            },
+            get isLastMinute() {
+                return this.isLastMinuteMode;
+            },
+            get isRegular() {
+                return !this.isLastMinuteMode;
             },
 
             get allButtonClass() {
@@ -11558,6 +11565,11 @@ document.addEventListener("alpine:init", function () {
                     ? "bg-purple-600 text-white"
                     : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700";
             },
+            get lastMinuteButtonClass() {
+                return this.isLastMinuteMode
+                    ? "bg-red-600 text-white border-red-600"
+                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 border-gray-200 dark:border-gray-700";
+            },
 
             filterAll() {
                 this.activeFilter = "all";
@@ -11574,6 +11586,9 @@ document.addEventListener("alpine:init", function () {
             filterOther() {
                 this.activeFilter = "other";
                 this.applyFilter();
+            },
+            toggleLastMinute() {
+                this.isLastMinuteMode = !this.isLastMinuteMode;
             },
 
             applyFilter() {

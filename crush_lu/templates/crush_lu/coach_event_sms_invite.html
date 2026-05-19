@@ -72,12 +72,18 @@
         <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ already_registered_count }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Registered" %}</p>
     </div>
+    {% if cancelled_count %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 text-center">
+        <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ cancelled_count }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Cancelled" %}</p>
+    </div>
+    {% endif %}
 </div>
 
 {% if submitted_profiles or unsubmitted_profiles %}
-<!-- Gender Filter Bar -->
+<!-- Gender Filter Bar + Last-Minute Toggle -->
 <div x-data="smsInviteFilter" class="mb-6">
-    <div class="flex flex-wrap gap-2 mb-4">
+    <div class="flex flex-wrap gap-2 mb-4 items-center">
         <button @click="filterAll" x-bind:class="allButtonClass" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors">
             {% trans "All" %}
             <span class="ml-1.5 text-xs">({{ total_eligible }})</span>
@@ -94,7 +100,35 @@
             &#9898; {% trans "Other" %}
             <span class="ml-1.5 text-xs">({{ gender_counts.other }})</span>
         </button>
+        <!-- Last-Minute Mode toggle -->
+        <div class="ml-auto">
+            <button @click="toggleLastMinute" x-bind:class="lastMinuteButtonClass" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors border">
+                🚨 {% trans "Last-Minute Mode" %}
+            </button>
+        </div>
     </div>
+
+    <!-- Last-Minute active banner -->
+    <div x-show="isLastMinute" class="mb-4 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-300">
+        <span class="text-base leading-none mt-0.5">🚨</span>
+        <span>{% trans "Last-Minute Mode active — SMS buttons use the urgent cancellation template." %}</span>
+    </div>
+
+    <!-- Priority: Waitlisted (shown only in Last-Minute mode) -->
+    {% if waitlisted_profiles %}
+    <div x-show="isLastMinute" class="mb-8">
+        <div class="flex items-center gap-3 mb-3">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🚨 {% trans "Priority: Waitlisted" %}</h3>
+            <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 rounded-full">{{ waitlisted_count }}</span>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "These candidates registered but are on the waitlist — contact them first when a spot opens." %}</p>
+        <div class="space-y-3">
+            {% for p in waitlisted_profiles %}
+                {% include "crush_lu/_sms_invite_profile_row.html" %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Section 1: Submitted Profiles (Pending Review) -->
     {% if submitted_profiles %}

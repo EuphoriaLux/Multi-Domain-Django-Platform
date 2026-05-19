@@ -2315,10 +2315,7 @@ def coach_event_sms_invite(request, event_id):
     config = CrushSiteConfig.get_config()
     coach_name = coach.user.first_name or "Coach"
 
-    # Build absolute event URL for the SMS
-    event_url = request.build_absolute_uri(
-        reverse("crush_lu:event_detail", args=[event.id])
-    )
+    # event_url is built per-profile inside _build_sms_uri using the recipient's language
 
     # --- Age filter boundaries (same pattern as user_segments._age_range_queryset) ---
     today = date.today()
@@ -2368,7 +2365,7 @@ def coach_event_sms_invite(request, event_id):
         if has_language_filter:
             pending_submissions_qs = pending_submissions_qs.filter(sub_lang_q)
         pending_submissions_qs = pending_submissions_qs.select_related(
-            "profile__user"
+            "profile__user", "coach__user"
         ).order_by("submitted_at")
 
         profile_pool_qs = (
@@ -2431,30 +2428,51 @@ def coach_event_sms_invite(request, event_id):
         .values_list("user_id", flat=True)
     )
 
+    # Bulk-load assigned coaches for pool profiles via their latest submission
+    pool_profile_ids = list(profile_pool_qs.values_list("id", flat=True))
+    profile_to_coach = {}
+    if pool_profile_ids:
+        for sub in (
+            ProfileSubmission.objects.filter(profile_id__in=pool_profile_ids)
+            .select_related("coach__user")
+            .order_by("-submitted_at")
+        ):
+            profile_to_coach.setdefault(sub.profile_id, sub.coach)
+
     submitted_profiles = []
     unsubmitted_profiles = []
+    waitlisted_profiles = []
     gender_counts = {"F": 0, "M": 0, "other": 0}
     already_sent_count = 0
     already_registered_count = 0
 
-    def _build_sms_uri(profile):
-        """Build SMS URI for a profile."""
+    def _build_sms_uri(profile, template_prefix="sms_event_invite_template"):
+        """Build SMS URI for a profile using the given template prefix."""
+        from django.utils import translation as _translation
+
         lang = getattr(profile, "preferred_language", "en") or "en"
-        template_field = f"sms_event_invite_template_{lang}"
-        template = (
-            getattr(config, template_field, config.sms_event_invite_template_en)
-            or config.sms_event_invite_template_en
+        field = f"{template_prefix}_{lang}"
+        fallback_field = f"{template_prefix}_en"
+        template = getattr(config, field, None) or getattr(
+            config, fallback_field, None
         )
+        if not template:
+            template = config.sms_event_invite_template_en
         event_date_str = date_format(
             event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
         )
+        # Build the event URL in the recipient's language, not the coach's
+        with _translation.override(lang):
+            profile_event_url = request.build_absolute_uri(
+                reverse("crush_lu:event_detail", args=[event.id])
+            )
         first_name = profile.user.first_name or ""
         sms_body = template.format(
             first_name=first_name,
             coach_name=coach_name,
             event_title=event.title,
             event_date=event_date_str,
-            event_url=event_url,
+            event_url=profile_event_url,
         )
         return lang, f"sms:{profile.phone_number}?body={quote(sms_body, safe='')}"
 
@@ -2471,6 +2489,7 @@ def coach_event_sms_invite(request, event_id):
         profile = sub.profile
 
         lang, sms_uri = _build_sms_uri(profile)
+        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
 
         sent = sub.id in already_sent_submission_ids
         if sent:
@@ -2494,14 +2513,17 @@ def coach_event_sms_invite(request, event_id):
                 "language": lang,
                 "status": sub.status,
                 "sms_uri": sms_uri,
+                "sms_uri_last_minute": sms_uri_lm,
                 "already_sent": sent,
                 "already_registered": registered,
+                "assigned_coach": sub.coach,
             }
         )
 
     # Process profile pool
     for profile in profile_pool_qs:
         lang, sms_uri = _build_sms_uri(profile)
+        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
 
         sent = profile.id in already_sent_profile_ids
         if sent:
@@ -2525,21 +2547,59 @@ def coach_event_sms_invite(request, event_id):
                 "language": lang,
                 "status": "no_submission",
                 "sms_uri": sms_uri,
+                "sms_uri_last_minute": sms_uri_lm,
                 "already_sent": sent,
                 "already_registered": registered,
+                "assigned_coach": profile_to_coach.get(profile.id),
             }
         )
+
+    # Build waitlisted profiles list (priority targets for last-minute mode)
+    waitlisted_qs = EventRegistration.objects.filter(
+        event=event, status="waitlist"
+    ).select_related("user__crushprofile")
+    for reg in waitlisted_qs:
+        profile = getattr(reg.user, "crushprofile", None)
+        if not profile or not profile.phone_number or not profile.phone_verified:
+            continue
+        lang, sms_uri = _build_sms_uri(profile)
+        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
+        already_sent = profile.id in already_sent_profile_ids
+        waitlisted_profiles.append(
+            {
+                "submission": None,
+                "profile": profile,
+                "row_id": f"wait-{profile.id}",
+                "display_name": profile.display_name,
+                "gender": profile.gender,
+                "age": profile.age,
+                "language": lang,
+                "status": "waitlist",
+                "sms_uri": sms_uri,
+                "sms_uri_last_minute": sms_uri_lm,
+                "already_sent": already_sent,
+                "already_registered": True,
+                "assigned_coach": profile_to_coach.get(profile.id),
+            }
+        )
+
+    cancelled_count = EventRegistration.objects.filter(
+        event=event, status="cancelled"
+    ).count()
 
     context = {
         "event": event,
         "submitted_profiles": submitted_profiles,
         "unsubmitted_profiles": unsubmitted_profiles,
+        "waitlisted_profiles": waitlisted_profiles,
         "total_eligible": len(submitted_profiles) + len(unsubmitted_profiles),
         "submitted_count": len(submitted_profiles),
         "unsubmitted_count": len(unsubmitted_profiles),
+        "waitlisted_count": len(waitlisted_profiles),
         "gender_counts": gender_counts,
         "already_sent_count": already_sent_count,
         "already_registered_count": already_registered_count,
+        "cancelled_count": cancelled_count,
         "coach": coach,
         "profile_requirement": event.profile_requirement,
         "profile_requirement_display": event.get_profile_requirement_display(),

@@ -99,6 +99,29 @@ class CrushSiteConfig(models.Model):
         help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
     )
 
+    # SMS templates for last-minute event invites (urgent, when spots open due to cancellations)
+    sms_last_minute_invite_template_en = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}! A spot just opened up for {event_title} TONIGHT ({event_date})! {coach_name} from Crush.lu here — join us! {event_url}",
+        verbose_name=_("Last-minute invite SMS (English)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+    sms_last_minute_invite_template_de = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Hi {first_name}! Ein Platz ist gerade frei geworden fuer {event_title} HEUTE ({event_date})! Hier ist {coach_name} von Crush.lu — komm dazu! {event_url}",
+        verbose_name=_("Last-minute invite SMS (German)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+    sms_last_minute_invite_template_fr = models.CharField(
+        max_length=320,
+        blank=True,
+        default="Salut {first_name} ! Une place vient de se liberer pour {event_title} CE SOIR ({event_date}) ! C'est {coach_name} de Crush.lu — rejoins-nous ! {event_url}",
+        verbose_name=_("Last-minute invite SMS (French)"),
+        help_text=_("Placeholders: {first_name}, {coach_name}, {event_title}, {event_date}, {event_url}"),
+    )
+
     # SMS templates for pre-screening reminders (coach -> candidate, while profile pending)
     pre_screening_reminder_sms_en = models.CharField(
         max_length=320,
