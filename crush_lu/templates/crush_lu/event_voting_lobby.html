@@ -77,8 +77,8 @@
                 {% elif has_voted_both %}
                 <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-4">
                     <h5 class="font-semibold">{% trans "You've Voted on Both Categories!" %}</h5>
-                    <p class="mb-1">🎤 {% blocktrans with choice=presentation_vote.selected_option.display_name %}Presentation Style: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
-                    <p class="mb-2">💕 {% blocktrans with choice=twist_vote.selected_option.display_name %}Speed Dating Twist: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
+                    <p class="mb-1">🎤 {% blocktrans with choice=presentation_vote.selected_option.get_display_name %}Presentation Style: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
+                    <p class="mb-2">💕 {% blocktrans with choice=twist_vote.selected_option.get_display_name %}Speed Dating Twist: <strong>{{ choice }}</strong>{% endblocktrans %}</p>
                     <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors mt-2">
                         {% trans "View Results" %}
                     </a>
@@ -138,7 +138,7 @@
                             {% for option in presentation_options %}
                             <div class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
                                 <span class="w-1.5 h-1.5 bg-crush-purple rounded-full flex-shrink-0"></span>
-                                {{ option.display_name }}
+                                {{ option.get_display_name }}
                             </div>
                             {% endfor %}
                         </div>
@@ -155,7 +155,7 @@
                             {% for option in twist_options %}
                             <div class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
                                 <span class="w-1.5 h-1.5 bg-crush-pink rounded-full flex-shrink-0"></span>
-                                {{ option.display_name }}
+                                {{ option.get_display_name }}
                             </div>
                             {% endfor %}
                         </div>
