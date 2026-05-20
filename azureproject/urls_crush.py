@@ -156,6 +156,9 @@ urlpatterns = base_patterns + api_patterns + [
     # Event Presentations API (called from coach_presentation_control.html and event_presentations.html)
     path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
 
+    # Speed Dating TV Display data endpoint (language-neutral, polled by the display page)
+    path('api/events/<int:event_id>/tv-display-data/', views.speed_dating_tv_display_data, name='speed_dating_tv_display_data'),
+
     # Event Poll API (language-neutral for JS calls)
     path('api/polls/<int:poll_id>/vote/', views_event_polls.poll_vote, name='api_poll_vote'),
     path('api/polls/<int:poll_id>/results/', views_event_polls.poll_results_api, name='api_poll_results'),

@@ -197,6 +197,8 @@ from .views_voting import (  # noqa: F401
     my_presentation_scores,
     get_current_presenter_api,
     voting_demo,
+    speed_dating_tv_display,
+    speed_dating_tv_display_data,
 )
 
 # Invitations
