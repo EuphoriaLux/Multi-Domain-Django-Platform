@@ -11920,10 +11920,8 @@ msgid "Contact Support"
 msgstr "12. Nous contacter"
 
 #: .\crush_lu\templates\crush_lu\account_banned.html:36
-#, fuzzy
-#| msgid "Log in"
 msgid "Log out"
-msgstr "Se connecter"
+msgstr "Se déconnecter"
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:4
 msgid "Account Settings - Crush.lu"
@@ -13077,10 +13075,8 @@ msgid "Too short — at least 8 characters"
 msgstr "Votre mot de passe doit contenir au moins 8 caractères."
 
 #: .\crush_lu\templates\crush_lu\auth.html:381
-#, fuzzy
-#| msgid "Passwords do not match."
 msgid "Passwords match"
-msgstr "Les mots de passe ne correspondent pas."
+msgstr "Les mots de passe correspondent."
 
 #: .\crush_lu\templates\crush_lu\auth.html:382
 #, fuzzy
@@ -14989,10 +14985,8 @@ msgstr "Révision"
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:355
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:464
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:563
-#, fuzzy
-#| msgid "Verified"
 msgid "Not Verified"
-msgstr "Vérifié"
+msgstr "Non vérifié"
 
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:381
 #: .\crush_lu\templates\crush_lu\coach_event_detail.html:493
@@ -15542,10 +15536,8 @@ msgid "Not Approved"
 msgstr "Non fourni"
 
 #: .\crush_lu\templates\crush_lu\coach_member_overview.html:197
-#, fuzzy
-#| msgid "not visible to user"
 msgid "Full name visible to other users"
-msgstr "non visible pour l'utilisateur"
+msgstr "Nom complet visible pour les autres utilisateurs"
 
 #: .\crush_lu\templates\crush_lu\coach_member_overview.html:199
 #: .\crush_lu\templates\crush_lu\coach_member_overview.html:204
