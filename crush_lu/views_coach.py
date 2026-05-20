@@ -2615,6 +2615,43 @@ def coach_event_sms_invite(request, event_id):
     return render(request, "crush_lu/coach_event_sms_invite.html", context)
 
 
+def _build_last_minute_sms_uri(request, event, profile, coach_name):
+    """Build the last-minute SMS URI independently of the main view's nested helper."""
+    from urllib.parse import quote
+
+    from django.urls import reverse
+    from django.utils import translation as _translation
+    from django.utils.formats import date_format
+
+    from .models.site_config import CrushSiteConfig
+
+    config = CrushSiteConfig.get_config()
+    template_prefix = "sms_last_minute_invite_template"
+    lang = getattr(profile, "preferred_language", "en") or "en"
+    field = f"{template_prefix}_{lang}"
+    fallback_field = f"{template_prefix}_en"
+    template = getattr(config, field, None) or getattr(config, fallback_field, None)
+    if not template:
+        template = config.sms_event_invite_template_en
+    first_name = profile.user.first_name or ""
+    with _translation.override(lang):
+        profile_event_url = request.build_absolute_uri(
+            reverse("crush_lu:event_detail", args=[event.id])
+        )
+        event_title = event.title
+        event_date_str = date_format(
+            event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
+        )
+    sms_body = template.format(
+        first_name=first_name,
+        coach_name=coach_name,
+        event_title=event_title,
+        event_date=event_date_str,
+        event_url=profile_event_url,
+    )
+    return f"sms:{profile.phone_number}?body={quote(sms_body, safe='')}"
+
+
 @coach_required
 @require_http_methods(["POST"])
 def coach_log_event_sms_sent(request, event_id, submission_id):
@@ -2642,10 +2679,13 @@ def coach_log_event_sms_sent(request, event_id, submission_id):
             notes=_("Event invite SMS sent for: %(event)s") % {"event": event.title},
         )
 
+    sms_uri_last_minute = _build_last_minute_sms_uri(
+        request, event, submission.profile, coach.user.first_name or "Coach"
+    )
     return render(
         request,
         "crush_lu/_sms_invite_row_sent.html",
-        {"submission": submission, "event": event},
+        {"submission": submission, "event": event, "sms_uri_last_minute": sms_uri_last_minute},
     )
 
 
@@ -2673,10 +2713,13 @@ def coach_log_event_sms_sent_by_profile(request, event_id, profile_id):
             notes=_("Event invite SMS sent for: %(event)s") % {"event": event.title},
         )
 
+    sms_uri_last_minute = _build_last_minute_sms_uri(
+        request, event, profile, coach.user.first_name or "Coach"
+    )
     return render(
         request,
         "crush_lu/_sms_invite_row_sent.html",
-        {"event": event},
+        {"event": event, "sms_uri_last_minute": sms_uri_last_minute},
     )
 
 
