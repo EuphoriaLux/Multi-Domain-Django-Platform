@@ -40,7 +40,11 @@ jobs:
       - name: Run pip-audit
         run: |
           echo "🔍 Scanning Python dependencies for vulnerabilities..."
-          pip-audit -r requirements.txt --desc on --fix --dry-run || {
+          # PYSEC-2025-183 (PyJWT weak-key advisory) is disputed by PyJWT maintainers
+          # and has no fix version available. PyJWT==2.12.1 is already the latest release
+          # and was pinned to resolve CVE-2026-32597. Ignored until a patched release exists.
+          pip-audit -r requirements.txt --desc on --fix --dry-run \
+            --ignore-vuln PYSEC-2025-183 || {
             echo "⚠️ Vulnerabilities found! Review above output."
             exit 1
           }
