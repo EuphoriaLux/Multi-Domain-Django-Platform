@@ -126,8 +126,8 @@
                                  id="option-{{ option.id }}-card">
                                 <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
                                     <div class="flex-1 min-w-0 pr-2">
-                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
+                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.get_display_name }}</h5>
+                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.get_description }}</p>
                                     </div>
                                     <div class="text-end flex-shrink-0">
                                         {% if option.is_winner %}
@@ -162,8 +162,8 @@
                                  id="option-{{ option.id }}-card">
                                 <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
                                     <div class="flex-1 min-w-0 pr-2">
-                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
-                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
+                                        <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.get_display_name }}</h5>
+                                        <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.get_description }}</p>
                                     </div>
                                     <div class="text-end flex-shrink-0">
                                         {% if option.is_winner %}
@@ -335,8 +335,8 @@
                          id="option-{{ option.id }}-card">
                         <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
                             <div class="flex-1 min-w-0 pr-2">
-                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
-                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
+                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.get_display_name }}</h5>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.get_description }}</p>
                             </div>
                             <div class="text-end flex-shrink-0 flex flex-col gap-1">
                                 {% if option.is_winner %}
@@ -374,8 +374,8 @@
                          id="option-{{ option.id }}-card">
                         <div class="flex flex-wrap justify-between items-start gap-y-1 mb-2">
                             <div class="flex-1 min-w-0 pr-2">
-                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.display_name }}</h5>
-                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.description }}</p>
+                                <h5 class="mb-0.5 text-sm font-semibold dark:text-white">{{ option.get_display_name }}</h5>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs mb-0">{{ option.get_description }}</p>
                             </div>
                             <div class="text-end flex-shrink-0 flex flex-col gap-1">
                                 {% if option.is_winner %}

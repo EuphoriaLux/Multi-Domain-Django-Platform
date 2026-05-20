@@ -778,7 +778,9 @@ class GlobalActivityOption(models.Model):
         help_text=_("Unique identifier (e.g., 'music', 'spicy_questions')"),
     )
     display_name = models.CharField(max_length=200)
+    display_name_fr = models.CharField(max_length=200, blank=True, default="")
     description = models.TextField()
+    description_fr = models.TextField(blank=True, default="")
     is_active = models.BooleanField(
         default=True, help_text=_("Inactive options won't appear in voting")
     )
@@ -794,6 +796,20 @@ class GlobalActivityOption(models.Model):
         ordering = ["activity_type", "sort_order", "display_name"]
         verbose_name = _("Global Activity Option")
         verbose_name_plural = _("Global Activity Options")
+
+    def get_display_name(self, language=None):
+        from django.utils.translation import get_language
+        lang = language or get_language() or "en"
+        if lang.startswith("fr") and self.display_name_fr:
+            return self.display_name_fr
+        return self.display_name
+
+    def get_description(self, language=None):
+        from django.utils.translation import get_language
+        lang = language or get_language() or "en"
+        if lang.startswith("fr") and self.description_fr:
+            return self.description_fr
+        return self.description
 
     def __str__(self):
         return f"{self.get_activity_type_display()}: {self.display_name}"
