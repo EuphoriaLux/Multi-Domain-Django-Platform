@@ -31297,10 +31297,20 @@ msgid "Forbidden Word Game"
 msgstr "Jeu du mot interdit"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:205
+msgid "Open Conversation"
+msgstr "Conversation libre"
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:209
+msgid "Theme Based Conversation"
+msgstr "Conversation à thème"
+
 #: .\crush_lu\templates\crush_lu\voting_demo.html:364
-#: .\crush_lu\templates\crush_lu\voting_demo.html:527
-msgid "Algorithm Extended"
-msgstr "Algorithme prolongé"
+msgid "No rules — just a natural, free-flowing conversation!"
+msgstr "Pas de règles — profitez simplement d'une conversation naturelle et libre !"
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:374
+msgid "Each pair gets a theme to guide and inspire their chat!"
+msgstr "Chaque duo reçoit un thème pour guider et inspirer leur échange !"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:215
 msgid "Most voted = Phase 3 twist"

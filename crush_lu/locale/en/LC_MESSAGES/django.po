@@ -25081,9 +25081,19 @@ msgid "Forbidden Word Game"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:205
+msgid "Open Conversation"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:209
+msgid "Theme Based Conversation"
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\voting_demo.html:364
-#: .\crush_lu\templates\crush_lu\voting_demo.html:527
-msgid "Algorithm Extended"
+msgid "No rules — just a natural, free-flowing conversation!"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:374
+msgid "Each pair gets a theme to guide and inspire their chat!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:215

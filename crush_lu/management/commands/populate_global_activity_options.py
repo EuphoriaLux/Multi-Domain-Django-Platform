@@ -63,12 +63,21 @@ class Command(BaseCommand):
             },
             {
                 'activity_type': 'speed_dating_twist',
-                'activity_variant': 'algorithm_extended',
-                'display_name': 'Algorithm\'s Choice Extended Time',
-                'display_name_fr': 'Choix de l\'algorithme — Temps prolongé',
-                'description': 'Trust our matching algorithm - your top match gets extra time!',
-                'description_fr': 'Fais confiance à notre algorithme — ton meilleur match obtient du temps en plus !',
+                'activity_variant': 'open_conversation',
+                'display_name': 'Open Conversation',
+                'display_name_fr': 'Conversation libre',
+                'description': 'No rules — just enjoy a natural, free-flowing conversation',
+                'description_fr': 'Pas de règles — profitez simplement d\'une conversation naturelle et libre',
                 'sort_order': 6
+            },
+            {
+                'activity_type': 'speed_dating_twist',
+                'activity_variant': 'theme_based',
+                'display_name': 'Theme Based Conversation',
+                'display_name_fr': 'Conversation à thème',
+                'description': 'Each pair receives a theme to guide and inspire their conversation',
+                'description_fr': 'Chaque duo reçoit un thème pour guider et inspirer leur conversation',
+                'sort_order': 7
             },
             # Skip option: skip the presentation round entirely
             {

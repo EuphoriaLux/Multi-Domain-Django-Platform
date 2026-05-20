@@ -831,7 +831,8 @@ class EventActivityOption(models.Model):
         # Speed Dating Twist variants (Phase 3)
         ("spicy_questions", "Spicy Questions First"),
         ("forbidden_word", "Forbidden Word Challenge"),
-        ("algorithm_extended", "Algorithm's Choice Extended Time"),
+        ("open_conversation", "Open Conversation"),
+        ("theme_based", "Theme Based Conversation"),
     ]
 
     event = models.ForeignKey(
@@ -1183,15 +1184,7 @@ class SpeedDatingPair(models.Model):
 
     @property
     def duration_minutes(self):
-        """Standard duration is 5 minutes, extended matches get more"""
-        if self.is_top_match:
-            # Check if "Algorithm's Choice Extended" won voting
-            twist = self.event.activity_options.filter(
-                activity_type="speed_dating_twist",
-                activity_variant="algorithm_extended",
-                is_winner=True,
-            ).exists()
-            return 8 if twist else 5  # 8 min for top matches, 5 min standard
+        """Standard duration is 5 minutes per round"""
         return 5
 
 
