@@ -2207,10 +2207,8 @@ msgid "How do you prefer to schedule screening calls?"
 msgstr "Contacte ton coach pour planifier ton appel de présélection"
 
 #: .\crush_lu\forms.py:1012
-#, fuzzy
-#| msgid "Current Chapter"
 msgid "I'm currently away"
-msgstr "Chapitre actuel"
+msgstr "Je suis actuellement absent·e"
 
 #: .\crush_lu\forms.py:1013
 msgid "Away until"
@@ -9131,10 +9129,8 @@ msgid "Reviews - Approved"
 msgstr "Profil approuvé"
 
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:1564
-#, fuzzy
-#| msgid "Revision Requested"
 msgid "Reviews - Rejected"
-msgstr "Révision demandée"
+msgstr "Examens - Rejetés"
 
 #: .\crush_lu\templates\admin\crush_lu\dashboard.html:1568
 #, fuzzy
